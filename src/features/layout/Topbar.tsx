@@ -3,11 +3,28 @@ import { Navbar, Container, Button } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
 
+// Import elegant icons from React Icons
+import {
+  BsBell, // Bell for notifications
+} from "react-icons/bs"; // Bootstrap Icons
+
+import {
+  FiUser, // User outline
+  FiSettings, // Settings
+  FiHelpCircle, // Help
+  FiLogOut, // Logout
+  FiMenu, // Hamburger menu
+} from "react-icons/fi"; // Feather Icons (very elegant!)
+
+import {
+  IoChevronDown, // Dropdown arrow
+} from "react-icons/io5"; // Ionicons
+
 /**
  * Topbar Component
  *
  * 2025/2026 Pattern - Custom Dropdown Implementation
- * - No Reactstrap dropdowns - full custom control
+ * - Professional React Icons instead of emojis
  * - CSS Modules for scoped styling
  * - Click outside to close
  * - Proper positioning without overflow
@@ -109,10 +126,10 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
   return (
     <Navbar color="white" light className="border-bottom shadow-sm">
-      <Container fluid className={`${styles.topbarContainer}} d-flex align-items-center justify-content-between`}>
+      <Container fluid className={`${styles.topbarContainer} d-flex align-items-center justify-content-between`}>
         {/* Hamburger Button - Only visible on mobile */}
         <Button color="light" className="d-lg-none me-2" onClick={toggleSidebar} aria-label="Toggle sidebar">
-          <span className={styles.hamburgerButton}>☰</span>
+          <FiMenu size={24} className={styles.hamburgerIcon} />
         </Button>
 
         {/* Right side content */}
@@ -120,7 +137,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
           {/* Notification Dropdown */}
           <div className={styles.dropdownContainer} ref={notificationRef}>
             <button className={styles.notificationButton} onClick={() => setIsNotificationOpen(!isNotificationOpen)} aria-label="Notifications" aria-expanded={isNotificationOpen}>
-              <span className={styles.bellIcon}>🔔</span>
+              <BsBell size={20} className={styles.bellIcon} />
               {notificationCount > 0 && <span className={styles.notificationBadge}>{notificationCount}</span>}
             </button>
 
@@ -159,7 +176,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
               <span className={`${styles.userName} d-none d-md-inline`}>{user.name}</span>
 
               {/* Dropdown caret */}
-              <span className={`${styles.userCaret} d-none d-md-inline`}>▼</span>
+              <IoChevronDown size={16} className={`${styles.userCaret} d-none d-md-inline`} />
             </button>
 
             {/* User Dropdown Menu */}
@@ -172,23 +189,23 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
               {/* Menu Items */}
               <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/profile")}>
-                <span className={styles.dropdownItemIcon}>👤</span>
+                <FiUser size={18} className={styles.dropdownItemIcon} />
                 <span>My Profile</span>
               </div>
 
               <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/settings")}>
-                <span className={styles.dropdownItemIcon}>⚙️</span>
+                <FiSettings size={18} className={styles.dropdownItemIcon} />
                 <span>Settings</span>
               </div>
 
               <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/help")}>
-                <span className={styles.dropdownItemIcon}>❓</span>
+                <FiHelpCircle size={18} className={styles.dropdownItemIcon} />
                 <span>Help & Support</span>
               </div>
 
               {/* Logout */}
               <div className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
-                <span className={styles.dropdownItemIcon}>🚪</span>
+                <FiLogOut size={18} className={styles.dropdownItemIcon} />
                 <span>Sign Out</span>
               </div>
             </div>
