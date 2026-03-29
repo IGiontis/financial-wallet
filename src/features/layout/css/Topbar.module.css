@@ -106,13 +106,9 @@
 /* Dropdown Menus - Reactstrap automatically adds .dropdown-menu class */
 .notificationDropdown,
 .userDropdown {
-  min-width: 300px;
-  max-height: 400px;
-  overflow-y: auto;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 0;
-  margin-top: 0.5rem;
+  top: 50px !important;
+  right: 0 !important;
+  left: auto !important;
 }
 
 /* Notification Dropdown Specific */
@@ -186,7 +182,6 @@
 .userInfo {
   padding: 1rem;
   background-color: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
 }
 
 .userInfoName {
@@ -230,11 +225,6 @@
 
 .logoutItem:hover {
   background-color: #fee !important;
-}
-
-/* Hamburger icon */
-.hamburgerIcon {
-  color: #333;
 }
 
 /* Mobile responsiveness */
