@@ -1,33 +1,20 @@
-import { useState, useEffect, useRef } from "react";
-import { Navbar, Container, Button } from "reactstrap";
+import { Navbar, Container, Button, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
 
 // Import elegant icons from React Icons
-import {
-  BsBell, // Bell for notifications
-} from "react-icons/bs"; // Bootstrap Icons
-
-import {
-  FiUser, // User outline
-  FiSettings, // Settings
-  FiHelpCircle, // Help
-  FiLogOut, // Logout
-  FiMenu, // Hamburger menu
-} from "react-icons/fi"; // Feather Icons (very elegant!)
-
-import {
-  IoChevronDown, // Dropdown arrow
-} from "react-icons/io5"; // Ionicons
+import { BsBell } from "react-icons/bs";
+import { FiUser, FiSettings, FiHelpCircle, FiLogOut, FiMenu } from "react-icons/fi";
+import { IoChevronDown } from "react-icons/io5";
 
 /**
  * Topbar Component
  *
- * 2025/2026 Pattern - Custom Dropdown Implementation
- * - Professional React Icons instead of emojis
- * - CSS Modules for scoped styling
- * - Click outside to close
- * - Proper positioning without overflow
+ * 2025/2026 Pattern - Reactstrap Dropdown Implementation
+ * - Uses UncontrolledDropdown (no state management needed!)
+ * - Built-in accessibility, click-outside, and keyboard navigation
+ * - Professional React Icons
+ * - CSS Modules for custom styling
  */
 
 interface TopbarProps {
@@ -37,14 +24,6 @@ interface TopbarProps {
 export function Topbar({ toggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
 
-  // Dropdown states
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  // Refs for click outside detection
-  const notificationRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
   // Mock user data
   const user = {
     name: "John Doe",
@@ -52,7 +31,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
     avatar: "", // Add URL here for image: "https://i.pravatar.cc/150?img=3"
   };
 
-  const [notificationCount] = useState(3);
+  const notificationCount = 3;
 
   const notifications = [
     { id: 1, message: "New transaction added", time: "2 min ago" },
@@ -60,57 +39,17 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
     { id: 3, message: "Monthly report ready", time: "3 hours ago" },
   ];
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Check notification dropdown
-      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
-        setIsNotificationOpen(false);
-      }
-      // Check user menu dropdown
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    // Add event listener when any dropdown is open
-    if (isNotificationOpen || isUserMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    // Cleanup
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isNotificationOpen, isUserMenuOpen]);
-
-  // Close dropdowns on Escape key
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsNotificationOpen(false);
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, []);
-
   const handleLogout = () => {
-    setIsUserMenuOpen(false);
     console.log("User logged out");
     // navigate("/login");
   };
 
   const handleNotificationClick = (notificationId: number) => {
     console.log("Notification clicked:", notificationId);
-    setIsNotificationOpen(false);
     // Navigate or mark as read
   };
 
   const handleMenuItemClick = (path: string) => {
-    setIsUserMenuOpen(false);
     navigate(path);
   };
 
@@ -134,15 +73,14 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
         {/* Right side content */}
         <div className={styles.rightContent}>
-          {/* Notification Dropdown */}
-          <div className={styles.dropdownContainer} ref={notificationRef}>
-            <button className={styles.notificationButton} onClick={() => setIsNotificationOpen(!isNotificationOpen)} aria-label="Notifications" aria-expanded={isNotificationOpen}>
+          {/* Notification Dropdown - Uncontrolled (no state needed!) */}
+          <UncontrolledDropdown className={styles.dropdownContainer}>
+            <DropdownToggle tag="button" className={styles.notificationButton} aria-label="Notifications">
               <BsBell size={20} className={styles.bellIcon} />
               {notificationCount > 0 && <span className={styles.notificationBadge}>{notificationCount}</span>}
-            </button>
+            </DropdownToggle>
 
-            {/* Notification Dropdown Menu */}
-            <div className={`${styles.dropdownMenu} ${styles.notificationDropdown} ${isNotificationOpen ? styles.open : ""}`}>
+            <DropdownMenu end className={styles.notificationDropdown}>
               {/* Header */}
               <div className={styles.dropdownHeader}>
                 <h6 className={styles.dropdownHeaderTitle}>Notifications</h6>
@@ -152,23 +90,23 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
               {/* Notification List */}
               <div className={styles.notificationList}>
                 {notifications.map((notification) => (
-                  <div key={notification.id} className={styles.notificationItem} onClick={() => handleNotificationClick(notification.id)}>
+                  <DropdownItem key={notification.id} className={styles.notificationItem} onClick={() => handleNotificationClick(notification.id)}>
                     <div className={styles.notificationMessage}>{notification.message}</div>
                     <div className={styles.notificationTime}>{notification.time}</div>
-                  </div>
+                  </DropdownItem>
                 ))}
               </div>
 
               {/* View All Button */}
-              <div className={styles.viewAllButton} onClick={() => handleMenuItemClick("/notifications")}>
+              <DropdownItem className={styles.viewAllButton} onClick={() => handleMenuItemClick("/notifications")}>
                 View all notifications
-              </div>
-            </div>
-          </div>
+              </DropdownItem>
+            </DropdownMenu>
+          </UncontrolledDropdown>
 
-          {/* User Menu Dropdown */}
-          <div className={styles.dropdownContainer} ref={userMenuRef}>
-            <button className={styles.userButton} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} aria-label="User menu" aria-expanded={isUserMenuOpen}>
+          {/* User Menu Dropdown - Uncontrolled */}
+          <UncontrolledDropdown className={styles.dropdownContainer}>
+            <DropdownToggle tag="button" className={styles.userButton} aria-label="User menu">
               {/* User Avatar */}
               <div className={styles.userAvatar}>{user.avatar ? <img src={user.avatar} alt={user.name} className={styles.userAvatarImg} /> : getUserInitials()}</div>
 
@@ -177,39 +115,42 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
               {/* Dropdown caret */}
               <IoChevronDown size={16} className={`${styles.userCaret} d-none d-md-inline`} />
-            </button>
+            </DropdownToggle>
 
-            {/* User Dropdown Menu */}
-            <div className={`${styles.dropdownMenu} ${styles.userDropdown} ${isUserMenuOpen ? styles.open : ""}`}>
+            <DropdownMenu end className={styles.userDropdown}>
               {/* User Info Header */}
               <div className={styles.userInfo}>
                 <div className={styles.userInfoName}>{user.name}</div>
                 <div className={styles.userInfoEmail}>{user.email}</div>
               </div>
 
+              <DropdownItem divider />
+
               {/* Menu Items */}
-              <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/profile")}>
+              <DropdownItem className={styles.dropdownItem} onClick={() => handleMenuItemClick("/profile")}>
                 <FiUser size={18} className={styles.dropdownItemIcon} />
                 <span>My Profile</span>
-              </div>
+              </DropdownItem>
 
-              <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/settings")}>
+              <DropdownItem className={styles.dropdownItem} onClick={() => handleMenuItemClick("/settings")}>
                 <FiSettings size={18} className={styles.dropdownItemIcon} />
                 <span>Settings</span>
-              </div>
+              </DropdownItem>
 
-              <div className={styles.dropdownItem} onClick={() => handleMenuItemClick("/help")}>
+              <DropdownItem className={styles.dropdownItem} onClick={() => handleMenuItemClick("/help")}>
                 <FiHelpCircle size={18} className={styles.dropdownItemIcon} />
                 <span>Help & Support</span>
-              </div>
+              </DropdownItem>
+
+              <DropdownItem divider />
 
               {/* Logout */}
-              <div className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
+              <DropdownItem className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
                 <FiLogOut size={18} className={styles.dropdownItemIcon} />
                 <span>Sign Out</span>
-              </div>
-            </div>
-          </div>
+              </DropdownItem>
+            </DropdownMenu>
+          </UncontrolledDropdown>
         </div>
       </Container>
     </Navbar>

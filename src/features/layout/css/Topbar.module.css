@@ -1,61 +1,46 @@
-/* Topbar.module.css */
+/* Remove the .open class logic - Reactstrap handles this automatically */
 
-/* Container spacing */
 .topbarContainer {
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding: 0.75rem 1rem;
 }
 
-@media (min-width: 992px) {
-  .topbarContainer {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-}
-
-/* Right side content wrapper */
 .rightContent {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   margin-left: auto;
 }
 
-@media (min-width: 768px) {
-  .rightContent {
-    gap: 1rem;
-  }
-}
-
-/* Dropdown container */
 .dropdownContainer {
   position: relative;
 }
 
-/* Notification button */
+/* Notification Button */
 .notificationButton {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
   position: relative;
-  color: #212529;
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.25rem;
-  transition: background-color 0.2s;
 }
 
 .notificationButton:hover {
-  background-color: #f8f9fa;
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .bellIcon {
-  font-size: 1.25rem;
+  transition: color 0.2s ease;
 }
 
-/* Notification badge */
+.notificationButton:hover .bellIcon {
+  color: var(--bs-primary);
+}
+
 .notificationBadge {
   position: absolute;
   top: 0;
@@ -63,173 +48,41 @@
   background-color: #dc3545;
   color: white;
   font-size: 0.65rem;
+  font-weight: 600;
   padding: 0.15rem 0.4rem;
-  border-radius: 10rem;
-  font-weight: 600;
-  transform: translate(25%, -25%);
-}
-
-/* Dropdown menu base styles */
-.dropdownMenu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 0.5rem;
-  background-color: white;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 0.375rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
-  z-index: 1000;
-  min-width: 220px;
-  opacity: 0;
-  transform: translateY(-10px);
-  pointer-events: none;
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
-}
-
-.dropdownMenu.open {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: all;
-}
-
-/* Notification dropdown */
-.notificationDropdown {
-  min-width: 280px;
-  max-width: 320px;
-}
-
-@media (max-width: 575.98px) {
-  .notificationDropdown {
-    min-width: 260px;
-    max-width: calc(100vw - 2rem);
-    right: -0.5rem;
-  }
-}
-
-.dropdownHeader {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #dee2e6;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dropdownHeaderTitle {
-  font-weight: 600;
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.headerBadge {
-  background-color: #0d6efd;
-  color: white;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 10rem;
-  font-weight: 600;
-}
-
-.notificationList {
-  max-height: 300px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #dee2e6 transparent;
-}
-
-.notificationList::-webkit-scrollbar {
-  width: 6px;
-}
-
-.notificationList::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.notificationList::-webkit-scrollbar-thumb {
-  background-color: #dee2e6;
-  border-radius: 3px;
-}
-
-.notificationList::-webkit-scrollbar-thumb:hover {
-  background-color: #adb5bd;
-}
-
-.notificationItem {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: background-color 0.15s;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.notificationItem:hover {
-  background-color: #f8f9fa;
-}
-
-.notificationItem:last-child {
-  border-bottom: none;
-}
-
-.notificationMessage {
-  font-size: 0.9rem;
-  color: #212529;
-  margin-bottom: 0.25rem;
-}
-
-.notificationTime {
-  font-size: 0.75rem;
-  color: #6c757d;
-}
-
-.viewAllButton {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid #dee2e6;
+  border-radius: 10px;
+  min-width: 18px;
   text-align: center;
-  cursor: pointer;
-  font-weight: 600;
-  color: #0d6efd;
-  transition: background-color 0.15s;
 }
 
-.viewAllButton:hover {
-  background-color: #f8f9fa;
-}
-
-/* User avatar button */
+/* User Button */
 .userButton {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 0.25rem;
-  transition: background-color 0.2s;
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .userButton:hover {
-  background-color: #f8f9fa;
-}
-
-.userButton:hover .userAvatar {
-  transform: scale(1.05);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .userAvatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: #0d6efd;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  font-weight: bold;
-  transition: transform 0.2s;
-  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .userAvatarImg {
@@ -240,81 +93,154 @@
 }
 
 .userName {
-  font-size: 0.9rem;
-  color: #212529;
   font-weight: 500;
+  font-size: 0.9rem;
+  color: #333;
 }
 
 .userCaret {
-  font-size: 0.7rem;
-  color: #6c757d;
-  transition: transform 0.2s;
+  color: #666;
+  transition: transform 0.2s ease;
 }
 
-.userButton:hover .userCaret {
-  transform: translateY(2px);
-}
-
-/* User dropdown */
+/* Dropdown Menus - Reactstrap automatically adds .dropdown-menu class */
+.notificationDropdown,
 .userDropdown {
-  min-width: 240px;
+  min-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  margin-top: 0.5rem;
 }
 
-.userInfo {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.userInfoName {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 0.15rem;
-  color: #212529;
-}
-
-.userInfoEmail {
-  font-size: 0.8rem;
-  color: #6c757d;
-}
-
-.dropdownDivider {
-  height: 1px;
-  background-color: #dee2e6;
-  margin: 0;
-}
-
-.dropdownItem {
-  padding: 0.65rem 1rem;
-  cursor: pointer;
-  transition: background-color 0.15s;
+/* Notification Dropdown Specific */
+.dropdownHeader {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  color: #212529;
-  text-decoration: none;
-}
-
-.dropdownItem:hover {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
   background-color: #f8f9fa;
+  border-radius: 8px 8px 0 0;
 }
 
-.dropdownItemIcon {
+.dropdownHeaderTitle {
+  margin: 0;
   font-size: 1rem;
-  width: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.headerBadge {
+  background-color: #007bff;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  min-width: 24px;
   text-align: center;
 }
 
+.notificationList {
+  padding: 0;
+}
+
+.notificationItem {
+  padding: 0.75rem 1rem !important;
+  cursor: pointer;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.notificationItem:hover {
+  background-color: #f8f9fa !important;
+}
+
+.notificationMessage {
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.notificationTime {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.viewAllButton {
+  text-align: center;
+  color: #007bff;
+  font-weight: 500;
+  padding: 0.75rem !important;
+  cursor: pointer;
+}
+
+.viewAllButton:hover {
+  background-color: #f8f9fa !important;
+}
+
+/* User Dropdown Specific */
+.userInfo {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.userInfoName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.userInfoEmail {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.dropdownItem {
+  display: flex !important;
+  align-items: center;
+  padding: 0.75rem 1rem !important;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: #333;
+}
+
+.dropdownItem:hover {
+  background-color: #f8f9fa !important;
+}
+
+.dropdownItemIcon {
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  color: #6c757d;
+}
+
 .logoutItem {
+  color: #dc3545 !important;
+}
+
+.logoutItem .dropdownItemIcon {
   color: #dc3545;
-  border-top: 1px solid #dee2e6;
 }
 
 .logoutItem:hover {
-  background-color: #fff5f5;
+  background-color: #fee !important;
 }
 
-/* Hamburger button */
-.hamburgerButton {
-  font-size: 1.5rem;
+/* Hamburger icon */
+.hamburgerIcon {
+  color: #333;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .notificationDropdown,
+  .userDropdown {
+    min-width: 280px;
+  }
 }

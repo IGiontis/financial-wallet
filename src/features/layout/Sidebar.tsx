@@ -60,7 +60,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
         {/* Navigation */}
         <Nav vertical className="sidebar-nav">
           {navItems.map((item) => {
-            const Icon = item.icon; // Extract icon component
+            const Icon = item.icon; 
             return (
               <NavItem key={item.path}>
                 <NavLink
