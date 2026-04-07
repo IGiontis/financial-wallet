@@ -90,13 +90,16 @@ export interface UpdateUserDTO {
 /**
  * Transaction entity - stored in Firestore 'transactions' collection
  * Represents a single financial transaction (income or expense)
+ *
+ * NOTE: Investment contributions are tracked separately in 'investmentContributions'
+ * and do NOT create a Transaction record. This keeps financial reporting clean.
  */
 export interface Transaction {
   id: string; // Firestore auto-generated ID
   userId: string; // Who owns this transaction
 
   // CORE TRANSACTION DATA
-  amount: number; // Transaction amount (positive for income, negative for expense)
+  amount: number; // Always positive — direction comes from type
   type: TransactionType; // "income" or "expense"
   categoryId: string; // References Category.id
   date: Date; // When transaction occurred
@@ -108,7 +111,7 @@ export interface Transaction {
 
   // OPTIONAL FIELDS
   notes?: string; // Additional user notes
-  recurringTransactionId?: string; // If created from recurring template
+  recurringTransactionId?: string; // If created from a recurring template
 }
 
 /**
@@ -158,6 +161,8 @@ export interface TransactionFilters {
 /**
  * Category entity - stored in Firestore 'categories' collection
  * Represents a transaction category (Shopping, Groceries, Salary, etc.)
+ *
+ * NOTE: Investment goals have their own name/icon — they do NOT use categories.
  */
 export interface Category {
   id: string; // Firestore auto-generated ID
@@ -313,12 +318,186 @@ export interface BudgetWithActual extends Budget {
 }
 
 // ============================================================================
+// INVESTMENT TYPES
+// ============================================================================
+
+/**
+ * InvestmentGoal entity - stored in Firestore 'investmentGoals' collection
+ *
+ * Represents a savings goal or open-ended investment pot.
+ *
+ * TWO MODES:
+ *  1. TARGETED  — user wants to reach a specific amount, optionally by a deadline
+ *                 e.g. "Save €40,000 for a car by Dec 2031"
+ *                 e.g. "Save €3,000 this year" (yearly target, no hard deadline)
+ *
+ *  2. OPEN_ENDED — no target amount, no deadline, just accumulating money
+ *                  e.g. "Emergency Fund" — keep adding, never "done"
+ *
+ * COMPUTED fields (NOT stored — calculated at query time):
+ *  - totalSaved       → sum of all InvestmentContribution.amount for this goal
+ *  - percentageReached → totalSaved / targetAmount * 100  (targeted only)
+ *  - monthlyRequired  → remaining / monthsLeft  (targeted only, if deadline set)
+ *  - status           → on_track | behind | ahead | completed  (targeted only)
+ */
+export interface InvestmentGoal {
+  id: string; // Firestore auto-generated ID
+  userId: string; // Who owns this goal
+
+  // IDENTITY
+  name: string; // e.g., "New Car", "Emergency Fund", "Japan Trip"
+  icon?: string; // Emoji or icon name (e.g., "🚗", "🏖️")
+  color?: string; // Hex color for UI card (e.g., "#10B981")
+  notes?: string; // Optional description
+
+  // GOAL MODE
+  goalType: InvestmentGoalType; // "targeted" | "open_ended"
+
+  // TARGETED GOAL FIELDS (only relevant when goalType === "targeted")
+  targetAmount?: number; // How much to save in total (e.g., 40000)
+  targetPeriod?: TargetPeriod; // "monthly" | "yearly" | "custom"
+  //
+  //  targetPeriod explains how the user thinks about the goal:
+  //  - "monthly"  → user sets a monthly saving amount; yearly = monthly * 12
+  //  - "yearly"   → user sets a yearly saving amount; monthly = yearly / 12
+  //  - "custom"   → user sets a total amount with a specific end date (e.g., car in 7 years)
+  //
+  deadline?: Date; // Optional: when to reach the target
+  //   If deadline is set: monthlyRequired = (targetAmount - totalSaved) / monthsLeft
+  //   If deadline is NOT set: goal is open-targeted (e.g., "save €3,000/year, no rush")
+
+  // LIFECYCLE
+  isActive: boolean; // false = paused / archived
+  isCompleted: boolean; // true = target reached (only for targeted goals)
+  completedAt?: Date; // When the goal was marked complete
+
+  // METADATA
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Data needed to create an investment goal
+ */
+export interface CreateInvestmentGoalDTO {
+  name: string;
+  icon?: string;
+  color?: string;
+  notes?: string;
+  goalType: InvestmentGoalType;
+
+  // Only required when goalType === "targeted"
+  targetAmount?: number;
+  targetPeriod?: TargetPeriod;
+  deadline?: Date;
+}
+
+/**
+ * Data for updating an investment goal
+ */
+export interface UpdateInvestmentGoalDTO {
+  name?: string;
+  icon?: string;
+  color?: string;
+  notes?: string;
+  targetAmount?: number;
+  targetPeriod?: TargetPeriod;
+  deadline?: Date;
+  isActive?: boolean;
+  isCompleted?: boolean;
+  completedAt?: Date;
+}
+
+// ----------------------------------------------------------------------------
+
+/**
+ * InvestmentContribution entity - stored in Firestore 'investmentContributions' collection
+ *
+ * Each time a user adds money to a goal, a contribution record is created.
+ * This is how we track "totalSaved" over time and show history.
+ *
+ * NOTE: Contributions are SEPARATE from Transactions.
+ * They do NOT appear in income/expense reports by default.
+ * This is an intentional design decision — investments are not "expenses".
+ */
+export interface InvestmentContribution {
+  id: string; // Firestore auto-generated ID
+  userId: string; // Who made the contribution
+  goalId: string; // Which InvestmentGoal this belongs to
+
+  // CONTRIBUTION DATA
+  amount: number; // Always positive — direction comes from contributionType
+  contributionType: ContributionType; // "deposit" | "withdrawal"
+  date: Date; // When the contribution was made
+  notes?: string; // Optional note (e.g., "January savings", "Emergency withdrawal")
+
+  // METADATA
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Data needed to create a contribution or withdrawal
+ */
+export interface CreateInvestmentContributionDTO {
+  goalId: string;
+  amount: number;
+  contributionType: ContributionType; // Must explicitly state deposit or withdrawal
+  date: Date;
+  notes?: string;
+}
+
+/**
+ * Data for updating a contribution
+ * Amount changes require delete + recreate to keep history clean
+ */
+export interface UpdateInvestmentContributionDTO {
+  date?: Date;
+  notes?: string;
+}
+
+// ----------------------------------------------------------------------------
+
+/**
+ * InvestmentGoal with all computed/aggregated data
+ * This is what the UI uses — never stored in Firestore
+ *
+ * Computed at query time by combining InvestmentGoal + its contributions
+ */
+export interface InvestmentGoalWithStats extends InvestmentGoal {
+  // PROGRESS
+  totalDeposited: number; // Sum of all deposit contributions
+  totalWithdrawn: number; // Sum of all withdrawal contributions
+  totalSaved: number; // totalDeposited - totalWithdrawn (net amount in the goal)
+
+  // TARGETED GOAL COMPUTED FIELDS (undefined for open_ended)
+  percentageReached?: number; // totalSaved / targetAmount * 100
+  remaining?: number; // targetAmount - totalSaved
+  monthlyRequired?: number; // remaining / monthsLeft (only if deadline is set)
+  yearlyRequired?: number; // monthlyRequired * 12
+  monthsLeft?: number; // Months between today and deadline
+  status?: InvestmentGoalStatus; // "on_track" | "behind" | "ahead" | "completed"
+  //
+  // STATUS LOGIC (±10% tolerance on monthly required):
+  //   avgMonthlyContributed = totalSaved / monthsSinceStart
+  //   if avgMonthlyContributed >= monthlyRequired * 1.10  → "ahead"
+  //   if avgMonthlyContributed >= monthlyRequired * 0.90  → "on_track"
+  //   if avgMonthlyContributed <  monthlyRequired * 0.90  → "behind"
+  //   if totalSaved >= targetAmount                       → "completed"
+
+  // HISTORY
+  lastContributionDate?: Date; // Date of most recent deposit or withdrawal
+  contributionCount: number; // Total number of deposits made (not withdrawals)
+  withdrawalCount: number; // Total number of withdrawals made
+}
+
+// ============================================================================
 // ENUMS & LITERAL TYPES
 // ============================================================================
 
 /**
  * Types of transactions
- * Start with Income/Expense, can add Investment later
+ * Investment contributions are tracked separately — NOT as transactions
  */
 export type TransactionType = "income" | "expense";
 
@@ -333,9 +512,43 @@ export type RecurrenceFrequency =
 
 /**
  * Supported currencies
- * Start with major currencies, add more as needed
  */
 export type Currency = "USD" | "EUR" | "GBP";
+
+/**
+ * Whether a goal has a fixed target or is open-ended
+ */
+export type InvestmentGoalType =
+  | "targeted" // Has a target amount, optionally a deadline
+  | "open_ended"; // No target, no deadline — just keep saving
+
+/**
+ * How the user thinks about their saving target
+ * Used to compute monthly/yearly breakdowns
+ */
+export type TargetPeriod =
+  | "monthly" // User sets a monthly saving amount (e.g., save €250/month)
+  | "yearly" // User sets a yearly saving amount (e.g., save €3,000/year)
+  | "custom"; // User sets total + deadline (e.g., €40,000 by Dec 2031)
+
+/**
+ * Whether a contribution adds or removes money from a goal
+ * Amount is always positive — this field controls direction
+ */
+export type ContributionType =
+  | "deposit" // Adding money to the goal
+  | "withdrawal"; // Taking money back out
+
+/**
+ * Progress status of a targeted investment goal
+ * Computed — never stored
+ * Tolerance: ±10% of required monthly amount = "on_track"
+ */
+export type InvestmentGoalStatus =
+  | "on_track" // Savings pace matches required monthly amount
+  | "behind" // Savings pace is below required
+  | "ahead" // Savings pace is above required
+  | "completed"; // Target amount has been reached
 
 // ============================================================================
 // UTILITY TYPES
@@ -394,6 +607,7 @@ export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
   netIncome: number; // totalIncome - totalExpenses
+  totalSaved: number; // Sum of all investment contributions in the period
   period: DateRange;
 }
 
@@ -408,4 +622,19 @@ export interface CategorySummary {
   percentage: number; // Of total spending/income
   transactionCount: number;
   color?: string;
+}
+
+/**
+ * Investment summary for overview dashboard
+ * Used for the investments section of the dashboard
+ */
+export interface InvestmentSummary {
+  totalGoals: number; // How many goals the user has
+  activeGoals: number; // Goals that are active (not paused/completed)
+  completedGoals: number; // Goals that reached their target
+  totalSavedAllTime: number; // Sum of ALL contributions ever made
+  totalSavedThisPeriod: number; // Contributions within a given DateRange
+  goalsOnTrack: number; // Targeted goals with status "on_track" or "ahead"
+  goalsBehind: number; // Targeted goals with status "behind"
+  period: DateRange;
 }

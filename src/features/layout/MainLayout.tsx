@@ -1,41 +1,29 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { Container } from "reactstrap";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import "./css/MainLayout.css"
-
-/**
- * MainLayout Component
- *
- * 2025/2026 Best Practice Pattern:
- * - Uses CSS media queries for responsive behavior (no useEffect needed!)
- * - Uses Bootstrap utility classes for conditional visibility
- * - State only tracks user toggle action, not screen size
- */
+import "./css/MainLayout.css";
 
 export function MainLayout() {
-  // State ONLY tracks if user manually closed sidebar on mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useLocalStorage("sidebar-collapsed", false);
 
-  // Toggle sidebar function
-  const toggleSidebar = () => {
-    setIsSidebarOpen((prev) => !prev);
-  };
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const toggleCollapse = () => setIsCollapsed((prev) => !prev);
 
   return (
-    <div className="main-layout">
-      {/* Sidebar - CSS handles responsive behavior */}
-      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+    // Add "sidebar-collapsed" class to the root so CSS can respond to it
+    <div className={`main-layout ${isCollapsed ? "sidebar-collapsed" : ""}`}>
+      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} isCollapsed={isCollapsed} onToggleCollapse={toggleCollapse} />
 
-      {/* Main Content Area */}
       <div className="main-content">
-        {/* Top Bar with hamburger button */}
         <Topbar toggleSidebar={toggleSidebar} />
 
-        {/* Page Content */}
         <main className="page-content">
-          <Container fluid className="py-4">
+          <Container fluid className="py-2">
             <Outlet />
           </Container>
         </main>

@@ -1,7 +1,13 @@
 /* Sidebar.css */
 
+/* ─── Widths as CSS variables — easy to tweak in one place ─── */
+:root {
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 64px;
+}
+
 .sidebar {
-  width: 250px;
+  width: var(--sidebar-width);
   min-height: 100vh;
   background-color: #343a40;
   color: white;
@@ -9,48 +15,82 @@
   flex-direction: column;
   position: fixed;
   z-index: 1050;
-  transition: transform 0.3s ease-in-out;
+  /* Animate both transform (mobile slide) AND width (desktop collapse) */
+  transition:
+    transform 0.3s ease-in-out,
+    width 0.3s ease-in-out;
 
-  /* Mobile: Hidden by default (transform off-screen) */
+  /* Mobile: hidden off-screen by default */
   transform: translateX(-100%);
 }
 
-/* Mobile: Show sidebar when open class is added */
+/* Mobile: slide in when open */
 .sidebar.open {
   transform: translateX(0);
 }
 
-/* Desktop (≥992px): Always visible, no transform */
+/* Desktop: always visible, width transition handles collapse */
 @media (min-width: 992px) {
   .sidebar {
     transform: translateX(0) !important;
   }
+
+  /* Collapsed state: shrink to icon-only width */
+  .sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+  }
 }
 
+/* ─── Header ─── */
 .sidebar-header {
   padding: 1rem;
   border-bottom: 1px solid #495057;
+  min-height: 64px; /* Stable height during collapse */
 }
 
+/* Collapse toggle button */
+.sidebar-collapse-btn {
+  background: none;
+  border: none;
+  box-shadow: none !important;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.sidebar-collapse-btn:hover {
+  opacity: 1;
+}
+
+/* ─── Nav ─── */
 .sidebar-nav {
   flex-grow: 1;
   padding: 0.5rem;
+  overflow: hidden; /* Clip text during width animation */
 }
 
 .sidebar-nav .nav-link {
   padding: 0.75rem 1rem;
   transition: background-color 0.2s;
+  white-space: nowrap; /* Prevent text wrap during animation */
 }
 
 .sidebar-nav .nav-link:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Tighter padding when collapsed so icon stays centered */
+.sidebar.collapsed .sidebar-nav .nav-link {
+  padding: 0.75rem 0;
+  justify-content: center;
+}
+
 .nav-icon {
   font-size: 1.25rem;
 }
 
-/* Sidebar overlay (mobile only) */
+/* ─── Mobile overlay ─── */
 .sidebar-overlay {
   position: fixed;
   top: 0;

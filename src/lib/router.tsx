@@ -2,10 +2,10 @@ import { createBrowserRouter, Outlet } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
 import { OverviewPage } from "../features/overview/pages/OverviewPage";
 import { TransactionsPage } from "../features/transactions/pages/TransactionPage";
-import { BudgetsPage } from "../features/budget/BudgetPage";
 import { SettingsPage } from "../features/settings/pages/SettingsPage";
 import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
+import InvestmentsPage from "../features/budget/InvestmentsPage";
 
 /**
  * Protected Route Component
@@ -57,8 +57,8 @@ export const router = createBrowserRouter([
             element: <TransactionsPage />,
           },
           {
-            path: "budgets",
-            element: <BudgetsPage />,
+            path: "investments",
+            element: <InvestmentsPage />,
           },
           {
             path: "settings",

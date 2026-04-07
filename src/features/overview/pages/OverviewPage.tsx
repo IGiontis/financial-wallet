@@ -10,7 +10,7 @@ import { mockTransactions } from "./mockDataOverview";
 // TYPES
 // ============================================================================
 
-export type TimePeriod = "current_month" | "last_3_months" | "last_6_months" | "year_to_date" | "last_12_months";
+type TimePeriod = "current_month" | "last_3_months" | "last_6_months" | "year_to_date" | "last_12_months";
 
 interface ChartDataPoint {
   month: string;
@@ -26,124 +26,102 @@ interface DashboardMetrics {
 }
 
 // ============================================================================
-// MOCK DATA - More transactions for testing
+// HELPER FUNCTIONS (unchanged)
 // ============================================================================
 
-
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Get date range based on selected time period
- */
 const getDateRange = (period: TimePeriod): { start: Date; end: Date } => {
   const now = new Date();
   let start: Date;
-
   switch (period) {
     case "current_month":
       start = startOfMonth(now);
       break;
-
     case "last_3_months":
       start = startOfMonth(subMonths(now, 2));
       break;
-
     case "last_6_months":
       start = startOfMonth(subMonths(now, 5));
       break;
-
     case "year_to_date":
       start = startOfYear(now);
       break;
-
     case "last_12_months":
       start = startOfMonth(subMonths(now, 11));
       break;
-
     default:
       start = startOfMonth(now);
   }
-
   return { start, end: now };
 };
 
-/**
- * Filter transactions by date range
- */
 const filterTransactionsByDateRange = (transactions: Transaction[], dateRange: { start: Date; end: Date }): Transaction[] => {
-  return transactions.filter((tx) =>
-    isWithinInterval(new Date(tx.date), {
-      start: dateRange.start,
-      end: dateRange.end,
-    }),
-  );
+  return transactions.filter((tx) => isWithinInterval(new Date(tx.date), { start: dateRange.start, end: dateRange.end }));
 };
 
-/**
- * Group transactions by month and calculate totals
- */
 const groupTransactionsByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
   const monthlyData = new Map<string, { income: number; expenses: number; firstDay: Date }>();
-
   transactions.forEach((tx) => {
-    // Get the first day of the transaction's month
     const firstDayOfMonth = startOfMonth(new Date(tx.date));
-    // Use ISO string as key for grouping (YYYY-MM format for internal use)
     const monthKey = format(firstDayOfMonth, "yyyy-MM");
-
     if (!monthlyData.has(monthKey)) {
-      monthlyData.set(monthKey, {
-        income: 0,
-        expenses: 0,
-        firstDay: firstDayOfMonth,
-      });
+      monthlyData.set(monthKey, { income: 0, expenses: 0, firstDay: firstDayOfMonth });
     }
-
     const data = monthlyData.get(monthKey)!;
-    if (tx.type === "income") {
-      data.income += tx.amount;
-    } else {
-      data.expenses += Math.abs(tx.amount);
-    }
+    if (tx.type === "income") data.income += tx.amount;
+    else data.expenses += Math.abs(tx.amount);
   });
-
-  // Convert to array and sort chronologically
   return Array.from(monthlyData.entries())
     .map(([_, data]) => ({
-      month: format(data.firstDay, "dd/MM/yyyy"), // European format: 01/03/2025
+      month: format(data.firstDay, "dd/MM/yyyy"),
       income: data.income,
       expenses: data.expenses,
     }))
     .sort((a, b) => {
-      // Parse dd/MM/yyyy to compare dates
       const [dayA, monthA, yearA] = a.month.split("/").map(Number);
       const [dayB, monthB, yearB] = b.month.split("/").map(Number);
-      const dateA = new Date(yearA, monthA - 1, dayA);
-      const dateB = new Date(yearB, monthB - 1, dayB);
-      return dateA.getTime() - dateB.getTime();
+      return new Date(yearA, monthA - 1, dayA).getTime() - new Date(yearB, monthB - 1, dayB).getTime();
     });
 };
 
-/**
- * Calculate dashboard metrics
- */
 const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
   const totalIncome = transactions.filter((tx) => tx.type === "income").reduce((sum, tx) => sum + tx.amount, 0);
-
   const totalExpenses = transactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-
   const netIncome = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+  return { totalIncome, totalExpenses, netIncome, savingsRate };
+};
 
-  return {
-    totalIncome,
-    totalExpenses,
-    netIncome,
-    savingsRate,
-  };
+// ============================================================================
+// HELPERS - defined OUTSIDE the component so they are stable references
+// ============================================================================
+
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+/**
+ * FIX 1: CustomTooltip moved OUTSIDE OverviewPage.
+ * Recharts compares tooltip by reference. Defining it inside the component
+ * creates a new component type on every render, causing chart flickers.
+ */
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-dark text-white px-3 py-2 rounded" style={{ fontSize: "14px" }}>
+        <p className="mb-1 fw-bold">{payload[0].payload.month}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="mb-0" style={{ color: entry.color }}>
+            {entry.name}: {formatCurrency(entry.value)}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
 // ============================================================================
@@ -154,51 +132,17 @@ export const OverviewPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("last_12_months");
   const [isPending, startTransition] = useTransition();
 
-  // Handle dropdown change with transition (non-blocking)
   const handlePeriodChange = (period: TimePeriod) => {
-    startTransition(() => {
-      setSelectedPeriod(period);
-    });
+    startTransition(() => setSelectedPeriod(period));
   };
 
-  // Memoized calculations
   const dateRange = useMemo(() => getDateRange(selectedPeriod), [selectedPeriod]);
-
   const filteredTransactions = useMemo(() => filterTransactionsByDateRange(mockTransactions, dateRange), [dateRange]);
-
   const chartData = useMemo(() => groupTransactionsByMonth(filteredTransactions), [filteredTransactions]);
-
   const metrics = useMemo(() => calculateMetrics(filteredTransactions), [filteredTransactions]);
 
-  // Format currency
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-dark text-white px-3 py-2 rounded" style={{ fontSize: "14px" }}>
-          <p className="mb-1 fw-bold">{payload[0].payload.month}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="mb-0" style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-2">
       {/* Header */}
       <Row className="mb-4">
         <Col md={8}>
@@ -233,7 +177,6 @@ export const OverviewPage: React.FC = () => {
             </CardBody>
           </Card>
         </Col>
-
         <Col lg={3} md={6} className="mb-3">
           <Card className="h-100">
             <CardBody>
@@ -246,7 +189,6 @@ export const OverviewPage: React.FC = () => {
             </CardBody>
           </Card>
         </Col>
-
         <Col lg={3} md={6} className="mb-3">
           <Card className="h-100">
             <CardBody>
@@ -259,7 +201,6 @@ export const OverviewPage: React.FC = () => {
             </CardBody>
           </Card>
         </Col>
-
         <Col lg={3} md={6} className="mb-3">
           <Card className="h-100">
             <CardBody>
@@ -284,14 +225,13 @@ export const OverviewPage: React.FC = () => {
               </CardTitle>
 
               {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={400} debounce={300}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="month" stroke="#6b7280" />
                     <YAxis stroke="#6b7280" tickFormatter={formatCurrency} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
-
                     <Bar dataKey="income" fill="#10b981" name="Income" radius={[8, 8, 0, 0]} />
                     <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[8, 8, 0, 0]} />
                   </BarChart>
@@ -309,9 +249,12 @@ export const OverviewPage: React.FC = () => {
   );
 };
 
+// ============================================================================
+// ANIMATED SUB-COMPONENTS (unchanged logic, kept outside OverviewPage)
+// ============================================================================
+
 const AnimatedCurrency = ({ value }: { value: number }) => {
   const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
-
   const { update } = useCountUp({
     ref: spanRef,
     end: value,
@@ -319,20 +262,16 @@ const AnimatedCurrency = ({ value }: { value: number }) => {
     decimals: 2,
     decimal: ".",
     separator: ",",
-    prefix: "$",
+    prefix: "€",
   });
-
-  // Update the counter when value changes
   useEffect(() => {
     update(value);
   }, [value, update]);
-
   return <span ref={spanRef} />;
 };
 
 const AnimatedPercentage = ({ value }: { value: number }) => {
   const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
-
   const { update } = useCountUp({
     ref: spanRef,
     end: value,
@@ -340,11 +279,8 @@ const AnimatedPercentage = ({ value }: { value: number }) => {
     decimals: 1,
     suffix: "%",
   });
-
-  // Update the counter when value changes
   useEffect(() => {
     update(value);
   }, [value, update]);
-
   return <span ref={spanRef} />;
 };
