@@ -1,12 +1,9 @@
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText } from "reactstrap";
-// Import from your shared types file — adjust the path to match your project
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
-// date is a string here because <input type="date"> works with "YYYY-MM-DD".
-// We convert it to a real Date object on submit before calling onSubmit.
 
 interface DepositFormValues {
   amount: number | "";
@@ -28,8 +25,7 @@ interface AddDepositModalProps {
   goal: InvestmentGoalWithStats;
   isOpen: boolean;
   onClose: () => void;
-  /** Receives a fully typed DTO — date is already a Date object. */
-  onSubmit: (data: CreateInvestmentContributionDTO) => void;
+  onSubmit: (data: CreateInvestmentContributionDTO) => Promise<void>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -39,11 +35,7 @@ const today = new Date().toISOString().split("T")[0];
 export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: AddDepositModalProps) {
   const formik = useFormik<DepositFormValues>({
     enableReinitialize: true,
-    initialValues: {
-      amount: "",
-      date: today,
-      notes: "",
-    },
+    initialValues: { amount: "", date: today, notes: "" },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
@@ -54,7 +46,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           date: new Date(values.date),
           notes: values.notes || undefined,
         };
-        onSubmit(dto);
+        await onSubmit(dto);
         resetForm();
         onClose();
       } catch (err) {
@@ -73,7 +65,6 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Add deposit — {goal.name}
       </ModalHeader>
-
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
           <FormGroup>
@@ -111,7 +102,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
               type="textarea"
               name="notes"
               rows={2}
-              placeholder="Optional note (e.g. monthly saving)..."
+              placeholder="Optional note..."
               value={formik.values.notes}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -121,13 +112,12 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
           </FormGroup>
         </ModalBody>
-
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
             Cancel
           </Button>
           <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty}>
-            Add deposit
+            {formik.isSubmitting ? "Saving..." : "Add deposit"}
           </Button>
         </ModalFooter>
       </form>

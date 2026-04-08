@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet } from "react-router-dom";
+import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
 import { OverviewPage } from "../features/overview/pages/OverviewPage";
 import { TransactionsPage } from "../features/transactions/pages/TransactionPage";
@@ -7,50 +7,82 @@ import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 import InvestmentsPage from "../features/budget/InvestmentsPage";
 
-/**
- * Protected Route Component
- * Checks if user is authenticated before allowing access
- */
-interface ProtectedRouteProps {
-  redirectPath?: string;
-  children?: React.ReactNode;
+import { useAuth } from "../context/AuthContext";
+import LoginPage from "../features/auth/LoginPage";
+import RegisterPage from "../features/auth/RegisterPage";
+
+// ─── ProtectedRoute ───────────────────────────────────────────────────────────
+// Redirects to /login if the user is not authenticated.
+// Saves the attempted path so we can redirect back after login.
+// Shows nothing while Firebase is checking auth state on startup.
+
+function ProtectedRoute() {
+  const { currentUser, loading } = useAuth();
+  const location = useLocation();
+
+  // Firebase is still checking — render nothing to avoid flash
+  if (loading) return null;
+
+  if (!currentUser) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+
+  return <Outlet />;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ redirectPath = "/login", children }) => {
-  // TODO: Replace with your actual auth logic (Redux, Context, TanStack Query)
+// ─── PublicOnlyRoute ──────────────────────────────────────────────────────────
+// Redirects already-logged-in users away from /login and /register.
+// Prevents going back to login after you're already authenticated.
 
-  // if (!isAuthenticated) {
-  //   // Redirect to login with the attempted path saved
-  //   return <Navigate to={redirectPath} replace state={{ from: location.pathname }} />;
-  // }
+function PublicOnlyRoute() {
+  const { currentUser, loading } = useAuth();
 
-  // If authenticated, render children or Outlet for nested routes
-  return children ? <>{children}</> : <Outlet />;
-};
+  if (loading) return null;
 
-/**
- * Application Router Configuration
- *
- * 2025/2026 Best Practices:
- *  Data Router (createBrowserRouter)
- *  Error boundaries at root and route level
- *  404 catch-all route
- *  Protected routes for authenticated areas
- *  Type-safe routes
- */
+  if (currentUser) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
 export const router = createBrowserRouter([
+  // ── Public only routes (login / register) ──────────────────────────────────
+  {
+    element: <PublicOnlyRoute />,
+    children: [
+      {
+        path: "/login",
+        element: <LoginPage/>,
+      },
+      {
+        path: "/register",
+        element: <RegisterPage />,
+      },
+    ],
+  },
+
+  // ── App routes (inside MainLayout) ─────────────────────────────────────────
   {
     path: "/",
     element: <MainLayout />,
-    errorElement: <ErrorBoundary />, // Root-level error boundary
+    errorElement: <ErrorBoundary />,
     children: [
       {
         index: true,
         element: <OverviewPage />,
       },
-      // Protected routes group
+      // Protected routes — require login
       {
-        element: <ProtectedRoute />, // Wrapper for all protected routes
+        element: <ProtectedRoute />,
         children: [
           {
             path: "transactions",
@@ -66,12 +98,11 @@ export const router = createBrowserRouter([
           },
         ],
       },
-      // 404 Catch-all route (MUST be last)
+      // 404 — must be last
       {
         path: "*",
         element: <NotFoundPage />,
       },
     ],
   },
-  // Public routes (outside MainLayout if needed)
 ]);

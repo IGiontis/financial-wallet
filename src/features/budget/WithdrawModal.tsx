@@ -2,17 +2,11 @@ import React from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
-// Import from your shared types file — adjust the path to match your project
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
+const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -28,8 +22,7 @@ interface WithdrawModalProps {
   goal: InvestmentGoalWithStats;
   isOpen: boolean;
   onClose: () => void;
-  /** Receives a fully typed DTO — date is already a Date object. */
-  onSubmit: (data: CreateInvestmentContributionDTO) => void;
+  onSubmit: (data: CreateInvestmentContributionDTO) => Promise<void>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -37,7 +30,6 @@ interface WithdrawModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: WithdrawModalProps) {
-  // Schema is memoized so the max() rule always reflects the live totalSaved value.
   const validationSchema = React.useMemo(
     () =>
       Yup.object({
@@ -54,11 +46,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
 
   const formik = useFormik<WithdrawFormValues>({
     enableReinitialize: true,
-    initialValues: {
-      amount: "",
-      date: today,
-      notes: "",
-    },
+    initialValues: { amount: "", date: today, notes: "" },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
@@ -69,7 +57,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           date: new Date(values.date),
           notes: values.notes || undefined,
         };
-        onSubmit(dto);
+        await onSubmit(dto);
         resetForm();
         onClose();
       } catch (err) {
@@ -91,7 +79,6 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Withdraw — {goal.name}
       </ModalHeader>
-
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
           <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
@@ -148,13 +135,12 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
           </FormGroup>
         </ModalBody>
-
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
             Cancel
           </Button>
           <Button type="submit" color="danger" disabled={formik.isSubmitting || !formik.dirty}>
-            Confirm withdrawal
+            {formik.isSubmitting ? "Saving..." : "Confirm withdrawal"}
           </Button>
         </ModalFooter>
       </form>

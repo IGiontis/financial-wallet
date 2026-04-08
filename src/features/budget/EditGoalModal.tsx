@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Badge } from "reactstrap";
-import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ const PRESET_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
-interface GoalFormValues {
+interface EditGoalFormValues {
   name: string;
   icon: string;
   color: string;
@@ -21,12 +21,17 @@ interface GoalFormValues {
   targetAmount: number | "";
   targetPeriod: TargetPeriod;
   deadline: string;
-  isActive: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+
+const toDateInputValue = (value: any): string => {
+  if (!value) return "";
+  const d = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+  return d.toISOString().split("T")[0];
+};
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -34,7 +39,7 @@ const validationSchema = Yup.object({
   name: Yup.string().required("Goal name is required").max(60, "Max 60 characters"),
   icon: Yup.string().max(4, "Keep it short (1–2 chars)"),
   color: Yup.string(),
-  goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required("Goal type is required"),
+  goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required(),
   targetAmount: Yup.number()
     .typeError("Target amount must be a number")
     .when("goalType", {
@@ -55,34 +60,20 @@ const validationSchema = Yup.object({
     otherwise: (schema) => schema.optional(),
   }),
   notes: Yup.string().max(300, "Max 300 characters"),
-  isActive: Yup.boolean(),
 });
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface AddNewGoalModalProps {
+interface EditGoalModalProps {
+  goal: InvestmentGoalWithStats;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateInvestmentGoalDTO, isActive: boolean) => Promise<void>;
+  onSubmit: (goalId: string, data: UpdateInvestmentGoalDTO) => Promise<void>;
 }
-
-// ─── Initial values ───────────────────────────────────────────────────────────
-
-const initialValues: GoalFormValues = {
-  name: "",
-  icon: "",
-  color: "#3B82F6",
-  notes: "",
-  goalType: "targeted",
-  targetAmount: "",
-  targetPeriod: "monthly",
-  deadline: "",
-  isActive: true,
-};
 
 // ─── Review screen ────────────────────────────────────────────────────────────
 
-function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: GoalFormValues; onBack: () => void; onConfirm: () => void; isSubmitting: boolean }) {
+function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: EditGoalFormValues; onBack: () => void; onConfirm: () => void; isSubmitting: boolean }) {
   const isTargeted = values.goalType === "targeted";
 
   const rows = [
@@ -91,13 +82,12 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
     ...(isTargeted ? [{ label: "Period", value: values.targetPeriod }] : []),
     ...(values.deadline ? [{ label: "Deadline", value: values.deadline }] : []),
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
-    { label: "Status", value: values.isActive ? "Active" : "Paused" },
   ];
 
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your goal before creating it.</p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your changes before saving.</p>
 
         {/* Goal preview card */}
         <div
@@ -141,20 +131,6 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
             </div>
           ))}
         </div>
-
-        {!values.isActive && (
-          <div
-            style={{
-              background: "var(--bs-warning-bg-subtle, #fff3cd)",
-              border: "1px solid var(--bs-warning-border-subtle, #ffecb5)",
-              borderRadius: "var(--border-radius-md)",
-              padding: "8px 12px",
-              fontSize: 13,
-            }}
-          >
-            This goal will be created in a <strong>paused</strong> state.
-          </div>
-        )}
       </ModalBody>
 
       <ModalFooter>
@@ -162,7 +138,7 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
           Back
         </Button>
         <Button type="button" color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Confirm & create"}
+          {isSubmitting ? "Saving..." : "Confirm & save"}
         </Button>
       </ModalFooter>
     </>
@@ -171,33 +147,41 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoalModalProps) {
+export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditGoalModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
 
-  const formik = useFormik<GoalFormValues>({
+  const formik = useFormik<EditGoalFormValues>({
     enableReinitialize: true,
-    initialValues,
+    initialValues: {
+      name: goal.name,
+      icon: goal.icon ?? "",
+      color: goal.color ?? "#3B82F6",
+      notes: goal.notes ?? "",
+      goalType: goal.goalType,
+      targetAmount: goal.targetAmount ?? "",
+      targetPeriod: goal.targetPeriod ?? "monthly",
+      deadline: toDateInputValue(goal.deadline),
+    },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
-        const dto: CreateInvestmentGoalDTO = {
+        const data: UpdateInvestmentGoalDTO = {
           name: values.name,
           icon: values.icon || undefined,
           color: values.color || undefined,
           notes: values.notes || undefined,
-          goalType: values.goalType,
           targetAmount: values.goalType === "targeted" ? (values.targetAmount as number) : undefined,
           targetPeriod: values.goalType === "targeted" ? values.targetPeriod : undefined,
           deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
         };
-        await onSubmit(dto, values.isActive);
-        toast.success(`Goal "${values.name}" created successfully!`);
+        await onSubmit(goal.id, data);
+        toast.success(`Goal "${values.name}" updated successfully!`);
         resetForm();
         setStep("form");
         onClose();
       } catch (err) {
-        toast.error("Failed to create goal. Please try again.");
-        console.error("AddNewGoalModal submit error:", err);
+        toast.error("Failed to update goal. Please try again.");
+        console.error("EditGoalModal submit error:", err);
       }
     },
   });
@@ -213,7 +197,6 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
     if (Object.keys(errors).length === 0) {
       setStep("review");
     } else {
-      // Touch all fields to show validation errors
       formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
     }
   };
@@ -226,21 +209,20 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="lg" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? "New investment goal" : "Review your goal"}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? `Edit goal — ${goal.icon ?? "💰"} ${goal.name}` : "Review your changes"}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen values={formik.values} onBack={() => setStep("form")} onConfirm={() => formik.submitForm()} isSubmitting={formik.isSubmitting} />
       ) : (
         <>
           <ModalBody>
-            <form id="new-goal-form" onSubmit={formik.handleSubmit} noValidate>
+            <form id="edit-goal-form" onSubmit={formik.handleSubmit} noValidate>
               {/* ── Goal name ────────────────────────────────────────────── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal name *</Label>
                 <Input
                   type="text"
                   name="name"
-                  placeholder='e.g. "New Car", "Japan Trip"'
                   value={formik.values.name}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -429,14 +411,6 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
 
-              {/* ── Active toggle ─────────────────────────────────────────── */}
-              <FormGroup check>
-                <Input type="checkbox" name="isActive" id="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
-                <Label check for="isActive" style={{ fontSize: 13 }}>
-                  Active <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>(uncheck to create the goal in a paused state)</span>
-                </Label>
-              </FormGroup>
-
               {/* ── Live preview ──────────────────────────────────────────── */}
               {formik.values.name && (
                 <div
@@ -459,11 +433,6 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                     </p>
                   </div>
                   <div style={{ width: 14, height: 14, borderRadius: "50%", background: formik.values.color ?? "#ccc", flexShrink: 0 }} />
-                  {!formik.values.isActive && (
-                    <Badge color="warning" style={{ fontSize: 11 }}>
-                      Paused
-                    </Badge>
-                  )}
                 </div>
               )}
             </form>
@@ -474,7 +443,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
               Cancel
             </Button>
             <Button type="button" color="primary" disabled={!formik.dirty} onClick={handleReview}>
-              Review goal
+              Review changes
             </Button>
           </ModalFooter>
         </>

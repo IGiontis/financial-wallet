@@ -6,19 +6,41 @@ import { BsBell } from "react-icons/bs";
 import { FiUser, FiSettings, FiHelpCircle, FiLogOut, FiMenu } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
 
+import { useAuth } from "../../context/AuthContext";
+import { logout } from "../../firebase/auth";
+
 interface TopbarProps {
   toggleSidebar: () => void;
 }
 
 export function Topbar({ toggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
-  const user = {
-    name: "John Doe",
-    email: "[email protected]",
-    avatar: "",
+  // ── Derive display values from Firebase auth user ─────────────────────────
+  const displayName = currentUser?.displayName ?? currentUser?.email?.split("@")[0] ?? "User";
+  const email = currentUser?.email ?? "";
+  const avatar = currentUser?.photoURL ?? "";
+
+  const getUserInitials = () =>
+    displayName
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   };
 
+  // ── Notifications (still dummy — wire up later) ───────────────────────────
   const notificationCount = 3;
 
   const notifications = [
@@ -26,14 +48,6 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
     { id: 2, message: "Budget limit reached", time: "1 hour ago" },
     { id: 3, message: "Monthly report ready", time: "3 hours ago" },
   ];
-
-  const getUserInitials = () =>
-    user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
 
   return (
     <Navbar color="white" light className="border-bottom shadow-sm">
@@ -70,17 +84,15 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
           {/* User */}
           <UncontrolledDropdown>
             <DropdownToggle tag="button" className={styles.userButton}>
-              <div className={styles.userAvatar}>{user.avatar ? <img src={user.avatar} alt={user.name} className={styles.userAvatarImg} /> : getUserInitials()}</div>
-
-              <span className={`${styles.userName} d-none d-md-inline`}>{user.name}</span>
-
+              <div className={styles.userAvatar}>{avatar ? <img src={avatar} alt={displayName} className={styles.userAvatarImg} /> : getUserInitials()}</div>
+              <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>
               <IoChevronDown size={16} className="d-none d-md-inline" />
             </DropdownToggle>
 
             <DropdownMenu end className={styles.userDropdown}>
               <div className={styles.userInfo}>
-                <div className={styles.userInfoName}>{user.name}</div>
-                <div className={styles.userInfoEmail}>{user.email}</div>
+                <div className={styles.userInfoName}>{displayName}</div>
+                <div className={styles.userInfoEmail}>{email}</div>
               </div>
 
               <DropdownItem divider />
@@ -102,7 +114,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
               <DropdownItem divider />
 
-              <DropdownItem className={`${styles.dropdownItem} ${styles.logoutItem}`}>
+              <DropdownItem className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
                 <FiLogOut size={18} className={styles.dropdownItemIcon} />
                 Sign Out
               </DropdownItem>

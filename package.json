@@ -16,6 +16,7 @@
     "@tanstack/react-query-devtools": "^5.95.2",
     "bootstrap": "^5.3.8",
     "date-fns": "^4.1.0",
+    "firebase": "^12.11.0",
     "formik": "^2.4.9",
     "react": "^19.2.4",
     "react-countup": "^6.5.3",
@@ -24,6 +25,7 @@
     "react-is": "^19.2.4",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.13.2",
+    "react-toastify": "^11.0.5",
     "reactstrap": "^9.2.3",
     "recharts": "^3.8.1",
     "yup": "^1.7.1"
