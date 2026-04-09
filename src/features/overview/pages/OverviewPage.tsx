@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useCountUp } from "react-countup";
 import { Container, Row, Col, Card, CardBody, Spinner, Progress } from "reactstrap";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { startOfMonth, subMonths, startOfYear, format, isWithinInterval } from "date-fns";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
@@ -18,6 +18,7 @@ interface ChartDataPoint {
   month: string;
   income: number;
   expenses: number;
+  net: number;
 }
 
 interface DashboardMetrics {
@@ -42,75 +43,99 @@ const getDateRange = (period: TimePeriod): { start: Date; end: Date } => {
   const now = new Date();
   let start: Date;
   switch (period) {
-    case "current_month":  start = startOfMonth(now);               break;
-    case "last_3_months":  start = startOfMonth(subMonths(now, 2)); break;
-    case "last_6_months":  start = startOfMonth(subMonths(now, 5)); break;
-    case "year_to_date":   start = startOfYear(now);                break;
-    case "last_12_months": start = startOfMonth(subMonths(now, 11));break;
-    default:               start = startOfMonth(now);
+    case "current_month":
+      start = startOfMonth(now);
+      break;
+    case "last_3_months":
+      start = startOfMonth(subMonths(now, 2));
+      break;
+    case "last_6_months":
+      start = startOfMonth(subMonths(now, 5));
+      break;
+    case "year_to_date":
+      start = startOfYear(now);
+      break;
+    case "last_12_months":
+      start = startOfMonth(subMonths(now, 11));
+      break;
+    default:
+      start = startOfMonth(now);
   }
   return { start, end: now };
 };
 
 const filterTransactions = (transactions: Transaction[], range: { start: Date; end: Date }) =>
-  transactions.filter((tx) =>
-    isWithinInterval(firestoreToDate(tx.date), { start: range.start, end: range.end })
-  );
+  transactions.filter((tx) => isWithinInterval(firestoreToDate(tx.date), { start: range.start, end: range.end }));
 
 const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
   const map = new Map<string, { income: number; expenses: number; firstDay: Date }>();
   transactions.forEach((tx) => {
     const firstDay = startOfMonth(firestoreToDate(tx.date));
-    const key      = format(firstDay, "yyyy-MM");
+    const key = format(firstDay, "yyyy-MM");
     if (!map.has(key)) map.set(key, { income: 0, expenses: 0, firstDay });
     const d = map.get(key)!;
-    if (tx.type === "income") d.income   += tx.amount;
-    else                      d.expenses += Math.abs(tx.amount);
+    if (tx.type === "income") d.income += tx.amount;
+    else d.expenses += Math.abs(tx.amount);
   });
   return Array.from(map.values())
     .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
     .map((d) => ({
-      month:    format(d.firstDay, "MMM yy"),
-      income:   Math.round(d.income),
+      month: format(d.firstDay, "MMM yy"),
+      income: Math.round(d.income),
       expenses: Math.round(d.expenses),
+      net: Math.round(d.income - d.expenses),
     }));
 };
 
 const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
-  const totalIncome   = transactions.filter((t) => t.type === "income") .reduce((s, t) => s + t.amount, 0);
+  const totalIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Math.abs(t.amount), 0);
-  const netIncome     = totalIncome - totalExpenses;
-  const savingsRate   = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+  const netIncome = totalIncome - totalExpenses;
+  const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
   return { totalIncome, totalExpenses, netIncome, savingsRate };
 };
 
 // ============================================================================
-// CUSTOM TOOLTIP — needs formatCurrency so it's now a factory function
+// CUSTOM TOOLTIP
 // ============================================================================
 
 function makeTooltip(formatCurrency: (n: number) => string) {
   return function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
-    const income   = payload.find((p: any) => p.dataKey === "income")?.value   ?? 0;
+    const income = payload.find((p: any) => p.dataKey === "income")?.value ?? 0;
     const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
-    const net      = income - expenses;
+    const net = payload.find((p: any) => p.dataKey === "net")?.value ?? 0;
     return (
-      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 14px", minWidth: 170, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+      <div
+        style={{
+          background: "var(--color-background-primary)",
+          border: "0.5px solid var(--color-border-tertiary)",
+          borderRadius: 10,
+          padding: "12px 14px",
+          minWidth: 170,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        }}
+      >
         <p style={{ fontSize: 11, fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />Income
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#10B981", display: "inline-block" }} />
+            Income
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#10B981" }}>{formatCurrency(income)}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />Expenses
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#EF4444", display: "inline-block" }} />
+            Expenses
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#EF4444" }}>{formatCurrency(expenses)}</span>
         </div>
         <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Net</span>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 14, height: 2, background: "#3B82F6", display: "inline-block", borderRadius: 1 }} />
+            Net
+          </span>
           <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#10B981" : "#EF4444" }}>{formatCurrency(net)}</span>
         </div>
       </div>
@@ -119,33 +144,58 @@ function makeTooltip(formatCurrency: (n: number) => string) {
 }
 
 // ============================================================================
+// ROUNDED BAR SHAPE
+// ============================================================================
+
+function RoundedBar(props: any) {
+  const { x, y, width, height, fill } = props;
+  if (!height || height <= 0) return null;
+  const radius = Math.min(4, width / 2);
+  return (
+    <path
+      d={`M${x + radius},${y} h${width - 2 * radius} a${radius},${radius} 0 0 1 ${radius},${radius} v${height - radius} h${-width} v${-(height - radius)} a${radius},${radius} 0 0 1 ${radius},${-radius}z`}
+      fill={fill}
+    />
+  );
+}
+
+// ============================================================================
 // METRIC CARD
 // ============================================================================
 
-function MetricCard({ label, value, color, isPercentage = false, formatFn }: {
-  label: string; value: number; color: string; isPercentage?: boolean;
+function MetricCard({
+  label,
+  value,
+  color,
+  isPercentage = false,
+  formatFn,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  isPercentage?: boolean;
   formatFn?: (n: number) => string;
 }) {
   const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
   const { update } = useCountUp({
-    ref: spanRef, end: value, duration: 1.5,
-    decimals: isPercentage ? 1 : 0, separator: ",",
-    prefix: isPercentage ? "" : "",
+    ref: spanRef,
+    end: value,
+    duration: 1.5,
+    decimals: isPercentage ? 1 : 0,
+    separator: ",",
+    prefix: "",
     suffix: isPercentage ? "%" : "",
   });
+  useEffect(() => {
+    update(value);
+  }, [value, update]);
 
-  useEffect(() => { update(value); }, [value, update]);
-
-  // For currency cards, show formatted value directly since countUp doesn't know the currency symbol
   const displayValue = !isPercentage && formatFn ? formatFn(value) : undefined;
 
   return (
     <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
       <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
-      {displayValue
-        ? <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{displayValue}</p>
-        : <span ref={spanRef} style={{ fontSize: 22, fontWeight: 500, color }} />
-      }
+      {displayValue ? <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{displayValue}</p> : <span ref={spanRef} style={{ fontSize: 22, fontWeight: 500, color }} />}
     </div>
   );
 }
@@ -155,11 +205,11 @@ function MetricCard({ label, value, color, isPercentage = false, formatFn }: {
 // ============================================================================
 
 const PERIODS: { value: TimePeriod; label: string }[] = [
-  { value: "current_month",  label: "This month"   },
-  { value: "last_3_months",  label: "3 months"     },
-  { value: "last_6_months",  label: "6 months"     },
-  { value: "year_to_date",   label: "Year to date" },
-  { value: "last_12_months", label: "12 months"    },
+  { value: "current_month", label: "This month" },
+  { value: "last_3_months", label: "3 months" },
+  { value: "last_6_months", label: "6 months" },
+  { value: "year_to_date", label: "Year to date" },
+  { value: "last_12_months", label: "12 months" },
 ];
 
 // ============================================================================
@@ -168,23 +218,22 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
 
 export const OverviewPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("last_6_months");
-  const [isPending, startTransition]        = useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const { data: transactions = [], isLoading: txLoading,  isError: txError  } = useTransactions();
-  const { data: goals        = [], isLoading: goalLoading                     } = useInvestmentGoals();
+  const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
+  const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { format: formatCurrency } = useCurrencyConverter();
 
-  // Tooltip component created once per render with current formatCurrency
   const CustomTooltip = useMemo(() => makeTooltip(formatCurrency), [formatCurrency]);
 
   const handlePeriodChange = (period: TimePeriod) => {
     startTransition(() => setSelectedPeriod(period));
   };
 
-  const dateRange   = useMemo(() => getDateRange(selectedPeriod),                [selectedPeriod]);
-  const filtered    = useMemo(() => filterTransactions(transactions, dateRange),  [transactions, dateRange]);
-  const chartData   = useMemo(() => groupByMonth(filtered),                       [filtered]);
-  const metrics     = useMemo(() => calculateMetrics(filtered),                   [filtered]);
+  const dateRange = useMemo(() => getDateRange(selectedPeriod), [selectedPeriod]);
+  const filtered = useMemo(() => filterTransactions(transactions, dateRange), [transactions, dateRange]);
+  const chartData = useMemo(() => groupByMonth(filtered), [filtered]);
+  const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
   const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 4), [goals]);
 
   if (txLoading) {
@@ -209,11 +258,10 @@ export const OverviewPage: React.FC = () => {
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Financial Overview</h5>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            Track your income, expenses and savings goals
-          </p>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your income, expenses and savings goals</p>
         </div>
 
+        {/* Period pill tabs */}
         <div style={{ display: "flex", gap: 4, background: "var(--color-background-secondary)", borderRadius: 10, padding: 4 }}>
           {PERIODS.map((p) => (
             <button
@@ -222,12 +270,16 @@ export const OverviewPage: React.FC = () => {
               disabled={isPending}
               style={{
                 background: selectedPeriod === p.value ? "var(--color-background-primary)" : "transparent",
-                border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12,
+                border: "none",
+                borderRadius: 7,
+                padding: "6px 12px",
+                fontSize: 12,
                 fontWeight: selectedPeriod === p.value ? 600 : 400,
                 color: selectedPeriod === p.value ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                 cursor: "pointer",
                 boxShadow: selectedPeriod === p.value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s ease", whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
+                whiteSpace: "nowrap",
               }}
             >
               {p.label}
@@ -239,34 +291,42 @@ export const OverviewPage: React.FC = () => {
       {/* ── Metric cards ───────────────────────────────────────────────────── */}
       <Row className="g-3 mb-4" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
         <Col xs={6} lg={3}>
-          <MetricCard label="Total income"   value={metrics.totalIncome}   color="#10B981" formatFn={formatCurrency} />
+          <MetricCard label="Total income" value={metrics.totalIncome} color="#10B981" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
           <MetricCard label="Total expenses" value={metrics.totalExpenses} color="#EF4444" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
-          <MetricCard label="Net income" value={metrics.netIncome}
-            color={metrics.netIncome >= 0 ? "#10B981" : "#EF4444"} formatFn={formatCurrency} />
+          <MetricCard label="Net income" value={metrics.netIncome} color={metrics.netIncome >= 0 ? "#10B981" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
           <MetricCard label="Savings rate" value={metrics.savingsRate} color="#3B82F6" isPercentage />
         </Col>
       </Row>
 
-      {/* ── Chart + Goals ──────────────────────────────────────────────────── */}
+      {/* ── Combo chart + goal cards ────────────────────────────────────────── */}
       <Row className="g-3" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+        {/* Combo chart */}
         <Col xs={12} lg={8}>
           <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
             <CardBody style={{ padding: "1.25rem" }}>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
                   <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>Cash flow</p>
-                  <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Income vs expenses</p>
+                  <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Income, expenses and net</p>
                 </div>
-                <div className="d-flex gap-3">
-                  {[{ color: "#10B981", label: "Income" }, { color: "#EF4444", label: "Expenses" }].map((l) => (
+                <div className="d-flex gap-3 flex-wrap">
+                  {[
+                    { color: "#10B981", label: "Income", shape: "square" },
+                    { color: "#EF4444", label: "Expenses", shape: "square" },
+                    { color: "#3B82F6", label: "Net", shape: "line" },
+                  ].map((l) => (
                     <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
-                      <span style={{ width: 16, height: 2, background: l.color, display: "inline-block", borderRadius: 1 }} />
+                      {l.shape === "line" ? (
+                        <span style={{ width: 16, height: 2, background: l.color, display: "inline-block", borderRadius: 1, borderTop: `2px dashed ${l.color}`, marginTop: 1 }} />
+                      ) : (
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
+                      )}
                       {l.label}
                     </span>
                   ))}
@@ -279,24 +339,40 @@ export const OverviewPage: React.FC = () => {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={280} debounce={200}>
-                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
-                    <YAxis
-                      tickFormatter={(v) => formatCurrency(v)}
-                      tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
-                      axisLine={false} tickLine={false} width={56}
+                    <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={60} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--color-background-secondary)", radius: 4 }} />
+
+                    <Bar dataKey="income" name="Income" maxBarSize={32} shape={<RoundedBar />}>
+                      {chartData.map((_, i) => (
+                        <Cell key={i} fill="#10B981" fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="expenses" name="Expenses" maxBarSize={32} shape={<RoundedBar />}>
+                      {chartData.map((_, i) => (
+                        <Cell key={i} fill="#EF4444" fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net"
+                      stroke="#3B82F6"
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                      dot={{ r: 3, fill: "#3B82F6", strokeWidth: 0 }}
+                      activeDot={{ r: 5, strokeWidth: 0, fill: "#3B82F6" }}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: "var(--color-border-secondary)", strokeWidth: 1 }} />
-                    <Line type="monotone" dataKey="income"   stroke="#10B981" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#10B981" }} />
-                    <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#EF4444" }} />
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               )}
             </CardBody>
           </Card>
         </Col>
 
+        {/* Goal cards */}
         <Col xs={12} lg={4}>
           <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
             <CardBody style={{ padding: "1.25rem" }}>
@@ -308,21 +384,38 @@ export const OverviewPage: React.FC = () => {
                   <Spinner size="sm" color="secondary" />
                 </div>
               ) : activeGoals.length === 0 ? (
-                <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-secondary)", fontSize: 13, textAlign: "center" }}>
-                  No active goals yet.<br />Create one in the Investments page.
+                <div
+                  style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-secondary)", fontSize: 13, textAlign: "center" }}
+                >
+                  No active goals yet.
+                  <br />
+                  Create one in the Investments page.
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {activeGoals.map((goal) => {
-                    const isTargeted    = goal.goalType === "targeted";
-                    const pct           = Math.min(goal.percentageReached ?? 0, 100);
-                    const color         = goal.color ?? "#3B82F6";
+                    const isTargeted = goal.goalType === "targeted";
+                    const pct = Math.min(goal.percentageReached ?? 0, 100);
+                    const color = goal.color ?? "#3B82F6";
                     const progressColor = goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "primary";
                     return (
-                      <div key={goal.id} style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "12px", borderLeft: `3px solid ${color}` }}>
+                      <div
+                        key={goal.id}
+                        style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "12px", borderLeft: `3px solid ${color}` }}
+                      >
                         <div className="d-flex align-items-center gap-2 mb-2">
                           <span style={{ fontSize: 16 }}>{goal.icon ?? "💰"}</span>
-                          <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <p
+                            style={{
+                              fontWeight: 500,
+                              fontSize: 13,
+                              margin: 0,
+                              color: "var(--color-text-primary)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {goal.name}
                           </p>
                         </div>
@@ -335,9 +428,7 @@ export const OverviewPage: React.FC = () => {
                             </div>
                           </>
                         ) : (
-                          <p style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>
-                            {formatCurrency(goal.totalSaved)}
-                          </p>
+                          <p style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
                         )}
                       </div>
                     );

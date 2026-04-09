@@ -238,7 +238,7 @@ export function SettingsPage() {
   const initials = getInitials(userData?.firstName ?? currentUser?.displayName?.split(" ")[0] ?? "", userData?.lastName ?? currentUser?.displayName?.split(" ")[1] ?? "");
 
   return (
-    <Container fluid className="py-2" style={{ maxWidth: 720 }}>
+    <Container fluid className="py-4">
       <div style={{ marginBottom: "1.5rem" }}>
         <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Settings</h5>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Manage your profile, preferences and account security</p>

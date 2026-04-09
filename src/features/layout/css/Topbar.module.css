@@ -15,32 +15,6 @@
   position: relative;
 }
 
-/* Notification Button */
-.notificationButton {
-  position: relative;
-  background: transparent;
-  border: none;
-  padding: 0.5rem;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.notificationButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.bellIcon {
-  transition: color 0.2s ease;
-}
-
-.notificationButton:hover .bellIcon {
-  color: var(--bs-primary);
-}
-
 .notificationBadge {
   position: absolute;
   top: 0;
@@ -104,7 +78,7 @@
 }
 
 /* Dropdown Menus - Reactstrap automatically adds .dropdown-menu class */
-.notificationDropdown,
+
 .userDropdown {
   top: 50px !important;
   right: 0 !important;
@@ -229,7 +203,6 @@
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-  .notificationDropdown,
   .userDropdown {
     min-width: 280px;
   }

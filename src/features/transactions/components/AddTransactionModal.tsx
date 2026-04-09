@@ -4,6 +4,7 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { CreateTransactionDTO, TransactionType, Category } from "../../../shared/types/IndexTypes";
+import { format } from "date-fns";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ function ReviewScreen({
   const rows = [
     { label: "Type", value: isIncome ? "Income" : "Expense" },
     { label: "Amount", value: formatCurrency(Number(values.amount)) },
-    { label: "Date", value: values.date },
+    { label: "Date", value: format(new Date(values.date), "dd-MM-yyyy") },
     { label: "Description", value: values.description },
     { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),

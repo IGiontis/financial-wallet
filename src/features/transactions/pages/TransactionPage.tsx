@@ -386,8 +386,8 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
                     <span style={{ lineHeight: 1 }}>{date.getDate()}</span>
                     {(hasInc || hasExp) && (
                       <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
-                        {hasInc && <span style={{ width: 4, height: 4, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
-                        {hasExp && <span style={{ width: 4, height: 4, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
+                        {hasInc && <span style={{ width: 8, height: 8, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
+                        {hasExp && <span style={{ width: 8, height: 8, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
                       </div>
                     )}
                   </div>
@@ -396,11 +396,11 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
                 Income
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
                 Expense
               </span>
               <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>Click to select a day</span>
@@ -556,7 +556,7 @@ export function TransactionsPage() {
   const isError = txError || catError;
 
   return (
-    <Container fluid className="py-2">
+    <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
       <Row className="g-4">
         <Col lg={4}>
           {isLoading ? (
