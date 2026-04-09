@@ -37,7 +37,7 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
         <div className="sidebar-header d-flex align-items-center">
           <div className="d-flex align-items-center gap-2 sidebar-logo">
             <FiBriefcase size={24} className="flex-shrink-0" />
-            {!isCollapsed && <h4 className="mb-0 text-nowrap">FinWallet</h4>}
+            {!isCollapsed && <h4 className="mb-0 text-nowrap">MyFiWallet</h4>}
           </div>
         </div>
 

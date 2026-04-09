@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useCountUp } from "react-countup";
 import { Container, Row, Col, Card, CardBody, Spinner, Progress } from "reactstrap";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { startOfMonth, subMonths, startOfYear, format, isWithinInterval } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { startOfMonth, subMonths, startOfYear, endOfYear, format, isWithinInterval, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
@@ -12,13 +12,12 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 // TYPES
 // ============================================================================
 
-type TimePeriod = "current_month" | "last_3_months" | "last_6_months" | "year_to_date" | "last_12_months";
+type TimePeriod = "current_month" | "last_3_months" | "last_6_months" | "year_to_date" | "this_year";
 
 interface ChartDataPoint {
-  month: string;
+  label: string;
   income: number;
   expenses: number;
-  net: number;
 }
 
 interface DashboardMetrics {
@@ -41,32 +40,56 @@ function firestoreToDate(value: any): Date {
 
 const getDateRange = (period: TimePeriod): { start: Date; end: Date } => {
   const now = new Date();
-  let start: Date;
   switch (period) {
     case "current_month":
-      start = startOfMonth(now);
-      break;
+      return { start: startOfMonth(now), end: now };
     case "last_3_months":
-      start = startOfMonth(subMonths(now, 2));
-      break;
+      return { start: startOfMonth(subMonths(now, 2)), end: now };
     case "last_6_months":
-      start = startOfMonth(subMonths(now, 5));
-      break;
+      return { start: startOfMonth(subMonths(now, 5)), end: now };
     case "year_to_date":
-      start = startOfYear(now);
-      break;
-    case "last_12_months":
-      start = startOfMonth(subMonths(now, 11));
-      break;
+      return { start: startOfYear(now), end: now };
+    case "this_year":
+      return { start: startOfYear(now), end: endOfYear(now) };
     default:
-      start = startOfMonth(now);
+      return { start: startOfMonth(now), end: now };
   }
-  return { start, end: now };
 };
 
 const filterTransactions = (transactions: Transaction[], range: { start: Date; end: Date }) =>
   transactions.filter((tx) => isWithinInterval(firestoreToDate(tx.date), { start: range.start, end: range.end }));
 
+// Group by week — used for "This month"
+const groupByWeek = (transactions: Transaction[], range: { start: Date; end: Date }): ChartDataPoint[] => {
+  const weeks: { start: Date; end: Date; label: string }[] = [];
+  let cursor = startOfWeek(range.start, { weekStartsOn: 1 });
+  let weekNum = 1;
+  while (cursor <= range.end) {
+    const wEnd = endOfWeek(cursor, { weekStartsOn: 1 });
+    weeks.push({
+      start: cursor,
+      end: wEnd < range.end ? wEnd : range.end,
+      label: `Week ${weekNum}`,
+    });
+    cursor = addWeeks(cursor, 1);
+    weekNum++;
+  }
+  return weeks
+    .map((w) => {
+      const weekTx = transactions.filter((tx) => {
+        const d = firestoreToDate(tx.date);
+        return d >= w.start && d <= w.end;
+      });
+      return {
+        label: w.label,
+        income: Math.round(weekTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)),
+        expenses: Math.round(weekTx.filter((t) => t.type === "expense").reduce((s, t) => s + Math.abs(t.amount), 0)),
+      };
+    })
+    .filter((w) => w.income > 0 || w.expenses > 0);
+};
+
+// Group by month — used for all other periods
 const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
   const map = new Map<string, { income: number; expenses: number; firstDay: Date }>();
   transactions.forEach((tx) => {
@@ -80,10 +103,9 @@ const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
   return Array.from(map.values())
     .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
     .map((d) => ({
-      month: format(d.firstDay, "MMM yy"),
+      label: format(d.firstDay, "MMM yy"),
       income: Math.round(d.income),
       expenses: Math.round(d.expenses),
-      net: Math.round(d.income - d.expenses),
     }));
 };
 
@@ -96,7 +118,7 @@ const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
 };
 
 // ============================================================================
-// CUSTOM TOOLTIP
+// CUSTOM TOOLTIP — solid background so it's always readable
 // ============================================================================
 
 function makeTooltip(formatCurrency: (n: number) => string) {
@@ -104,39 +126,39 @@ function makeTooltip(formatCurrency: (n: number) => string) {
     if (!active || !payload?.length) return null;
     const income = payload.find((p: any) => p.dataKey === "income")?.value ?? 0;
     const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
-    const net = payload.find((p: any) => p.dataKey === "net")?.value ?? 0;
+    const net = income - expenses;
     return (
       <div
         style={{
-          background: "var(--color-background-primary)",
-          border: "0.5px solid var(--color-border-tertiary)",
+          background: "#1e1e2e",
+          border: "none",
           borderRadius: 10,
-          padding: "12px 14px",
-          minWidth: 170,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+          padding: "12px 16px",
+          minWidth: 180,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
         }}
       >
-        <p style={{ fontSize: 11, fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#10B981", display: "inline-block" }} />
+        <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#22C55E", display: "inline-block" }} />
             Income
           </span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#10B981" }}>{formatCurrency(income)}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{formatCurrency(income)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#EF4444", display: "inline-block" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: "#F87171", display: "inline-block" }} />
             Expenses
           </span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#EF4444" }}>{formatCurrency(expenses)}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#F87171" }}>{formatCurrency(expenses)}</span>
         </div>
-        <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 14, height: 2, background: "#3B82F6", display: "inline-block", borderRadius: 1 }} />
-            Net
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Net</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#22C55E" : "#F87171" }}>
+            {net >= 0 ? "+" : ""}
+            {formatCurrency(net)}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#10B981" : "#EF4444" }}>{formatCurrency(net)}</span>
         </div>
       </div>
     );
@@ -150,7 +172,7 @@ function makeTooltip(formatCurrency: (n: number) => string) {
 function RoundedBar(props: any) {
   const { x, y, width, height, fill } = props;
   if (!height || height <= 0) return null;
-  const radius = Math.min(4, width / 2);
+  const radius = Math.min(5, width / 2);
   return (
     <path
       d={`M${x + radius},${y} h${width - 2 * radius} a${radius},${radius} 0 0 1 ${radius},${radius} v${height - radius} h${-width} v${-(height - radius)} a${radius},${radius} 0 0 1 ${radius},${-radius}z`}
@@ -191,7 +213,6 @@ function MetricCard({
   }, [value, update]);
 
   const displayValue = !isPercentage && formatFn ? formatFn(value) : undefined;
-
   return (
     <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
       <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
@@ -209,7 +230,7 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
   { value: "last_3_months", label: "3 months" },
   { value: "last_6_months", label: "6 months" },
   { value: "year_to_date", label: "Year to date" },
-  { value: "last_12_months", label: "12 months" },
+  { value: "this_year", label: "This year" },
 ];
 
 // ============================================================================
@@ -232,7 +253,13 @@ export const OverviewPage: React.FC = () => {
 
   const dateRange = useMemo(() => getDateRange(selectedPeriod), [selectedPeriod]);
   const filtered = useMemo(() => filterTransactions(transactions, dateRange), [transactions, dateRange]);
-  const chartData = useMemo(() => groupByMonth(filtered), [filtered]);
+
+  // Weekly grouping for current month, monthly for everything else
+  const chartData = useMemo(() => {
+    if (selectedPeriod === "current_month") return groupByWeek(filtered, dateRange);
+    return groupByMonth(filtered);
+  }, [filtered, selectedPeriod, dateRange]);
+
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
   const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 4), [goals]);
 
@@ -291,42 +318,37 @@ export const OverviewPage: React.FC = () => {
       {/* ── Metric cards ───────────────────────────────────────────────────── */}
       <Row className="g-3 mb-4" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
         <Col xs={6} lg={3}>
-          <MetricCard label="Total income" value={metrics.totalIncome} color="#10B981" formatFn={formatCurrency} />
+          <MetricCard label="Total income" value={metrics.totalIncome} color="#22C55E" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
           <MetricCard label="Total expenses" value={metrics.totalExpenses} color="#EF4444" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
-          <MetricCard label="Net income" value={metrics.netIncome} color={metrics.netIncome >= 0 ? "#10B981" : "#EF4444"} formatFn={formatCurrency} />
+          <MetricCard label="Net income" value={metrics.netIncome} color={metrics.netIncome >= 0 ? "#22C55E" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg={3}>
           <MetricCard label="Savings rate" value={metrics.savingsRate} color="#3B82F6" isPercentage />
         </Col>
       </Row>
 
-      {/* ── Combo chart + goal cards ────────────────────────────────────────── */}
+      {/* ── Chart + Goal cards ─────────────────────────────────────────────── */}
       <Row className="g-3" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
-        {/* Combo chart */}
+        {/* Grouped bar chart */}
         <Col xs={12} lg={8}>
           <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
             <CardBody style={{ padding: "1.25rem" }}>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
                   <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>Cash flow</p>
-                  <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Income, expenses and net</p>
+                  <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{selectedPeriod === "current_month" ? "Weekly breakdown" : "Monthly breakdown"}</p>
                 </div>
-                <div className="d-flex gap-3 flex-wrap">
+                <div className="d-flex gap-3">
                   {[
-                    { color: "#10B981", label: "Income", shape: "square" },
-                    { color: "#EF4444", label: "Expenses", shape: "square" },
-                    { color: "#3B82F6", label: "Net", shape: "line" },
+                    { color: "#22C55E", label: "Income" },
+                    { color: "#F87171", label: "Expenses" },
                   ].map((l) => (
                     <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
-                      {l.shape === "line" ? (
-                        <span style={{ width: 16, height: 2, background: l.color, display: "inline-block", borderRadius: 1, borderTop: `2px dashed ${l.color}`, marginTop: 1 }} />
-                      ) : (
-                        <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
-                      )}
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
                       {l.label}
                     </span>
                   ))}
@@ -339,33 +361,22 @@ export const OverviewPage: React.FC = () => {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={280} debounce={200}>
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barGap={4}>
+                  <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barGap={3} barCategoryGap="30%">
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
                     <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={60} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--color-background-secondary)", radius: 4 }} />
-
-                    <Bar dataKey="income" name="Income" maxBarSize={32} shape={<RoundedBar />}>
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(128,128,128,0.06)", radius: 4 }} />
+                    <Bar dataKey="income" name="Income" maxBarSize={40} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
-                        <Cell key={i} fill="#10B981" fillOpacity={0.85} />
+                        <Cell key={i} fill="#22C55E" fillOpacity={0.85} />
                       ))}
                     </Bar>
-                    <Bar dataKey="expenses" name="Expenses" maxBarSize={32} shape={<RoundedBar />}>
+                    <Bar dataKey="expenses" name="Expenses" maxBarSize={40} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
-                        <Cell key={i} fill="#EF4444" fillOpacity={0.85} />
+                        <Cell key={i} fill="#F87171" fillOpacity={0.85} />
                       ))}
                     </Bar>
-                    <Line
-                      type="monotone"
-                      dataKey="net"
-                      name="Net"
-                      stroke="#3B82F6"
-                      strokeWidth={2}
-                      strokeDasharray="5 3"
-                      dot={{ r: 3, fill: "#3B82F6", strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 0, fill: "#3B82F6" }}
-                    />
-                  </ComposedChart>
+                  </BarChart>
                 </ResponsiveContainer>
               )}
             </CardBody>
