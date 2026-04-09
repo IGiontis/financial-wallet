@@ -24,13 +24,7 @@ function ProtectedRoute() {
   if (loading) return null;
 
   if (!currentUser) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   return <Outlet />;
@@ -61,7 +55,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/login",
-        element: <LoginPage/>,
+        element: <LoginPage />,
       },
       {
         path: "/register",
@@ -76,14 +70,14 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     errorElement: <ErrorBoundary />,
     children: [
-      {
-        index: true,
-        element: <OverviewPage />,
-      },
       // Protected routes — require login
       {
         element: <ProtectedRoute />,
         children: [
+          {
+            index: true,
+            element: <OverviewPage />,
+          },
           {
             path: "transactions",
             element: <TransactionsPage />,
