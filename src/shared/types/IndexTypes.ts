@@ -35,6 +35,7 @@ export interface User {
 
   // PREFERENCES
   currency: Currency; // Preferred currency (default: "USD")
+  baseCurrency: Currency;
   locale: string; // Language preference (default: "en-US")
 
   // METADATA
@@ -60,6 +61,7 @@ export interface CreateUserDTO {
   country?: string;
   city?: string;
   currency?: Currency; // Default: "USD"
+  baseCurrency?: Currency;
   locale?: string; // Default: "en-US"
 
   // NOTE: Password is NOT here!
@@ -80,6 +82,7 @@ export interface UpdateUserDTO {
   city?: string;
   photoUrl?: string;
   currency?: Currency;
+  baseCurrency?: Currency;
   locale?: string;
 }
 

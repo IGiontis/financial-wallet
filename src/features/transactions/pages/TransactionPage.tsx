@@ -1,85 +1,38 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Container, Row, Col, Card, CardBody, Input, Table, Badge, InputGroup, InputGroupText, Button } from "reactstrap";
-import { type Transaction, type Category } from "../../../shared/types/IndexTypes";
-
-// ============================================================
-// DUMMY DATA
-// ============================================================
-
-const DUMMY_CATEGORIES: Category[] = [
-  { id: "1", name: "Shopping", type: "expense", icon: "🛒", color: "#3B82F6", isDefault: true, userId: null, createdAt: new Date(), updatedAt: new Date() },
-  { id: "2", name: "Groceries", type: "expense", icon: "🥬", color: "#10B981", isDefault: true, userId: null, createdAt: new Date(), updatedAt: new Date() },
-  { id: "3", name: "Paycheck", type: "income", icon: "💰", color: "#8B5CF6", isDefault: true, userId: null, createdAt: new Date(), updatedAt: new Date() },
-];
-
-const DUMMY_TRANSACTIONS: Transaction[] = [
-  {
-    id: "1",
-    userId: "user1",
-    amount: 1200.0,
-    type: "income",
-    categoryId: "3",
-    date: new Date("2022-07-01"),
-    description: "Salary Inc.",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "2",
-    userId: "user1",
-    amount: 45.0,
-    type: "expense",
-    categoryId: "2",
-    date: new Date("2022-07-03"),
-    description: "Local Grocer",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { id: "3", userId: "user1", amount: 70.45, type: "expense", categoryId: "1", date: new Date("2022-07-05"), description: "Amazon", createdAt: new Date(), updatedAt: new Date() },
-  {
-    id: "4",
-    userId: "user1",
-    amount: 200.0,
-    type: "income",
-    categoryId: "3",
-    date: new Date("2022-07-08"),
-    description: "Freelance Work",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  { id: "5", userId: "user1", amount: 85.0, type: "expense", categoryId: "1", date: new Date("2022-07-10"), description: "Target", createdAt: new Date(), updatedAt: new Date() },
-  {
-    id: "6",
-    userId: "user1",
-    amount: 120.0,
-    type: "expense",
-    categoryId: "2",
-    date: new Date("2022-07-12"),
-    description: "Whole Foods",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "7",
-    userId: "user1",
-    amount: 1200.0,
-    type: "income",
-    categoryId: "3",
-    date: new Date("2022-07-15"),
-    description: "Salary Inc.",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  CardBody,
+  Input,
+  Table,
+  Badge,
+  InputGroup,
+  InputGroupText,
+  Button,
+  Spinner,
+  Alert,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "reactstrap";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { toast } from "react-toastify";
+import type { Transaction, Category } from "../../../shared/types/IndexTypes";
+import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
+import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
+import AddTransactionModal from "../components/AddTransactionModal";
+import EditTransactionModal from "../components/EditTransactionModal";
 
 // ============================================================
 // CONSTANTS
 // ============================================================
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 // ============================================================
@@ -91,45 +44,41 @@ function isSameDay(a: Date | null, b: Date | null): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-/** Midnight timestamp — strips time so date comparisons are safe */
 function midnight(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** Local "YYYY-MM-DD" key — avoids UTC-shift bugs from toISOString() */
 function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Date → <input type="date"> value string */
 function toInputValue(d: Date | null): string {
   return d ? toDateKey(d) : "";
 }
 
-/** <input type="date"> value string → Date (local midnight) */
 function fromInputValue(v: string): Date | null {
   if (!v) return null;
   const [y, m, day] = v.split("-").map(Number);
   return new Date(y, m - 1, day);
 }
 
-/** Format for display: "Jul 01, 2022" */
 function formatDisplay(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
-/** Format for table: "07/01/2022" */
 function formatTable(d: Date): string {
   return new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).format(d);
 }
 
-function formatCurrency(n: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+function firestoreToDate(value: any): Date {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (value?.seconds) return new Date(value.seconds * 1000);
+  return new Date(value);
 }
 
 // ============================================================
-// DATE FIELD — custom input that avoids browser-chrome placeholder issues
-// Uses a hidden <input type="date"> triggered via showPicker()
+// DATE FIELD
 // ============================================================
 
 interface DateFieldProps {
@@ -142,10 +91,7 @@ interface DateFieldProps {
 
 function DateField({ label, date, onChange, min, max }: DateFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // showPicker() is standard in all modern browsers (Chrome 99+, Firefox 101+, Safari 16+)
-  const openPicker = () => (inputRef.current as HTMLInputElement & { showPicker?: () => void })?.showPicker?.();
-
+  const openPicker = () => (inputRef.current as any)?.showPicker?.();
   return (
     <div
       onClick={openPicker}
@@ -161,13 +107,8 @@ function DateField({ label, date, onChange, min, max }: DateFieldProps) {
         userSelect: "none",
       }}
     >
-      {/* Label */}
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
-
-      {/* Value or placeholder */}
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
-
-      {/* Clear button — only when a date is set */}
       {date && (
         <button
           onClick={(e) => {
@@ -187,13 +128,10 @@ function DateField({ label, date, onChange, min, max }: DateFieldProps) {
             lineHeight: 1,
             padding: 0,
           }}
-          title="Clear date"
         >
           ×
         </button>
       )}
-
-      {/* The actual native input — invisible, just used for its date picker */}
       <input
         ref={inputRef}
         type="date"
@@ -209,20 +147,13 @@ function DateField({ label, date, onChange, min, max }: DateFieldProps) {
 }
 
 // ============================================================
-// DAY PANEL — transaction preview shown below the calendar grid
+// DAY PANEL
 // ============================================================
 
-interface DayPanelProps {
-  date: Date;
-  transactions: Transaction[];
-  categories: Category[];
-}
-
-function DayPanel({ date, transactions, categories }: DayPanelProps) {
+function DayPanel({ date, transactions, categories, formatCurrency }: { date: Date; transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string }) {
   return (
     <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: 12, paddingTop: 12 }}>
       <p style={{ fontSize: 13, fontWeight: 600, color: "#666", marginBottom: 8 }}>{date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-
       {transactions.length === 0 ? (
         <p style={{ fontSize: 13, color: "#bbb", margin: 0 }}>No transactions on this day.</p>
       ) : (
@@ -231,14 +162,7 @@ function DayPanel({ date, transactions, categories }: DayPanelProps) {
           return (
             <div
               key={tx.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "5px 0",
-                borderBottom: "1px solid rgba(0,0,0,0.05)",
-                fontSize: 13,
-              }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", fontSize: 13 }}
             >
               <span style={{ color: "#888" }}>
                 <span style={{ marginRight: 4 }}>{cat?.icon}</span>
@@ -257,8 +181,7 @@ function DayPanel({ date, transactions, categories }: DayPanelProps) {
 }
 
 // ============================================================
-// TRANSACTION CALENDAR
-// Single unified card: date range inputs + 2-step nav calendar
+// CALENDAR
 // ============================================================
 
 type CalView = "days" | "months" | "years";
@@ -271,28 +194,26 @@ interface CalendarProps {
   onFromChange: (d: Date | null) => void;
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
+  formatCurrency: (n: number) => string;
 }
 
-function TransactionCalendar({ allTransactions, categories, fromDate, toDate, onFromChange, onToChange, onDaySelect }: CalendarProps) {
+function TransactionCalendar({ allTransactions, categories, fromDate, toDate, onFromChange, onToChange, onDaySelect, formatCurrency }: CalendarProps) {
   const today = new Date();
-
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [calView, setCalView] = useState<CalView>("days");
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
 
-  // Transaction lookup map
   const txMap = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
     allTransactions.forEach((tx) => {
-      const k = toDateKey(tx.date);
+      const k = toDateKey(firestoreToDate(tx.date));
       if (!map[k]) map[k] = [];
       map[k].push(tx);
     });
     return map;
   }, [allTransactions]);
 
-  // Calendar grid cells
   const firstDow = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const cells: (Date | null)[] = [];
@@ -300,43 +221,22 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // Month navigation arrows — always navigate days view
   const prevMonth = () => {
     setCalView("days");
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear((y) => y - 1);
-    } else setViewMonth((m) => m - 1);
+    viewMonth === 0 ? (setViewMonth(11), setViewYear((y) => y - 1)) : setViewMonth((m) => m - 1);
   };
   const nextMonth = () => {
     setCalView("days");
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear((y) => y + 1);
-    } else setViewMonth((m) => m + 1);
+    viewMonth === 11 ? (setViewMonth(0), setViewYear((y) => y + 1)) : setViewMonth((m) => m + 1);
   };
 
-  // Year range for the year picker grid: 12 years centred around viewYear
   const yearStart = Math.floor(viewYear / 12) * 12;
   const yearOptions = Array.from({ length: 12 }, (_, i) => yearStart + i);
-
-  // Popover: hovered day takes priority, then fromDate
   const activeDate = hoveredDate ?? fromDate ?? null;
   const activeTx = activeDate ? (txMap[toDateKey(activeDate)] ?? []) : [];
+  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
 
-  // ── Shared button style helpers
-  const navBtn: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 20,
-    lineHeight: 1,
-    color: "#666",
-    padding: "2px 8px",
-    borderRadius: 6,
-  };
-
-  const pickerCell = (active: boolean, onClick: () => void, label: string): React.ReactNode => (
+  const pickerCell = (active: boolean, onClick: () => void, label: string) => (
     <button
       key={label}
       onClick={onClick}
@@ -357,26 +257,18 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
     </button>
   );
 
-  const hasDateFilter = !!(fromDate || toDate);
-
   return (
     <Card className="border-0 shadow-sm">
       <CardBody className="p-3">
-        {/* ── FROM / TO date fields ── */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
           <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
         </div>
-
-        {/* ── Divider ── */}
         <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
-
-        {/* ── Calendar nav: ‹ [Month Year label] › ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <button style={navBtn} onClick={prevMonth}>
             ‹
           </button>
-
           <button
             onClick={() => setCalView(calView === "days" ? "years" : "days")}
             style={{
@@ -395,13 +287,11 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
             {MONTH_NAMES[viewMonth]} {viewYear}
             <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>▾</span>
           </button>
-
           <button style={navBtn} onClick={nextMonth}>
             ›
           </button>
         </div>
 
-        {/* ── YEAR PICKER view ── */}
         {calView === "years" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
             {yearOptions.map((y) =>
@@ -416,8 +306,6 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
             )}
           </div>
         )}
-
-        {/* ── MONTH PICKER view ── */}
         {calView === "months" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginBottom: 8 }}>
             {MONTH_SHORT.map((m, i) =>
@@ -433,10 +321,8 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
           </div>
         )}
 
-        {/* ── DAYS view ── */}
         {calView === "days" && (
           <>
-            {/* Day-of-week headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
               {DAY_NAMES_SHORT.map((d) => (
                 <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#bbb", padding: "2px 0" }}>
@@ -444,29 +330,23 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
                 </div>
               ))}
             </div>
-
-            {/* Day grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
               {cells.map((date, i) => {
                 if (!date) return <div key={i} style={{ height: 38 }} />;
-
                 const k = toDateKey(date);
                 const dayTx = txMap[k] ?? [];
                 const hasInc = dayTx.some((t) => t.type === "income");
                 const hasExp = dayTx.some((t) => t.type === "expense");
-
                 const isFrom = isSameDay(date, fromDate);
                 const isTo = isSameDay(date, toDate);
                 const isEdge = isFrom || isTo;
                 const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
                 const isHov = isSameDay(date, hoveredDate);
                 const isToday = isSameDay(date, today);
-
-                let bg = "transparent";
-                let color = "#1a1a2e";
-                let border = "none";
-                let weight = 400;
-
+                let bg = "transparent",
+                  color = "#1a1a2e",
+                  border = "none",
+                  weight = 400;
                 if (isEdge) {
                   bg = "#1a1a2e";
                   color = "#fff";
@@ -480,7 +360,6 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
                   border = "1.5px solid #aaa";
                   weight = 600;
                 }
-
                 return (
                   <div
                     key={i}
@@ -498,7 +377,7 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
                       userSelect: "none",
                       background: bg,
                       color,
-                      border,
+                      border: border as any,
                       fontWeight: weight,
                       fontSize: 15,
                       transition: "background 0.1s",
@@ -507,47 +386,15 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
                     <span style={{ lineHeight: 1 }}>{date.getDate()}</span>
                     {(hasInc || hasExp) && (
                       <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
-                        {hasInc && (
-                          <span
-                            style={{
-                              width: 4,
-                              height: 4,
-                              borderRadius: "50%",
-                              display: "inline-block",
-                              background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981",
-                            }}
-                          />
-                        )}
-                        {hasExp && (
-                          <span
-                            style={{
-                              width: 4,
-                              height: 4,
-                              borderRadius: "50%",
-                              display: "inline-block",
-                              background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444",
-                            }}
-                          />
-                        )}
+                        {hasInc && <span style={{ width: 4, height: 4, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
+                        {hasExp && <span style={{ width: 4, height: 4, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
-
-            {/* Legend */}
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: "1px solid rgba(0,0,0,0.07)",
-                fontSize: 12,
-                color: "#aaa",
-              }}
-            >
+            <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
                 Income
@@ -558,14 +405,11 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
               </span>
               <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>Click to select a day</span>
             </div>
-
-            {/* Day transaction preview panel */}
-            {activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} />}
+            {activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
           </>
         )}
 
-        {/* Clear filter link — only when a filter is active */}
-        {hasDateFilter && (
+        {(fromDate || toDate) && (
           <button
             onClick={() => {
               onFromChange(null);
@@ -593,19 +437,73 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
 }
 
 // ============================================================
+// DELETE CONFIRM MODAL
+// ============================================================
+
+function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
+  return (
+    <Modal isOpen toggle={onClose} size="sm">
+      <ModalHeader toggle={onClose}>Delete transaction</ModalHeader>
+      <ModalBody>
+        <p style={{ fontSize: 14, margin: 0 }}>
+          Are you sure you want to delete <strong>{transaction.description}</strong>?
+        </p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>This cannot be undone.</p>
+      </ModalBody>
+      <ModalFooter>
+        <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
+          Cancel
+        </Button>
+        <Button color="danger" onClick={onConfirm} disabled={isDeleting}>
+          {isDeleting ? "Deleting..." : "Delete"}
+        </Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
 export function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-
-  // Default: Jan 1 of current year → today
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
   const [toDate, setToDate] = useState<Date | null>(new Date());
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
+  const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
 
-  // Calendar click → fills both FROM and TO with the same day
-  // Clicking the already-selected day clears the filter
+  const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
+  const { data: categories = [], isLoading: catLoading, isError: catError } = useCategories();
+  const { format: formatCurrency } = useCurrencyConverter();
+
+  const createMutation = useCreateTransaction();
+  const updateMutation = useUpdateTransaction();
+  const deleteMutation = useDeleteTransaction();
+
+  const handleCreate = (data: CreateTransactionDTO): Promise<void> =>
+    new Promise((resolve, reject) => {
+      createMutation.mutate(data, { onSuccess: () => resolve(), onError: (err) => reject(err) });
+    });
+
+  const handleUpdate = (transactionId: string, data: UpdateTransactionDTO): Promise<void> =>
+    new Promise((resolve, reject) => {
+      updateMutation.mutate({ transactionId, data }, { onSuccess: () => resolve(), onError: (err) => reject(err) });
+    });
+
+  const handleDelete = () => {
+    if (!deleteTransaction) return;
+    deleteMutation.mutate(deleteTransaction.id, {
+      onSuccess: () => {
+        toast.success("Transaction deleted.");
+        setDeleteTransaction(null);
+      },
+      onError: () => toast.error("Failed to delete transaction."),
+    });
+  };
+
   const handleDaySelect = useCallback(
     (date: Date) => {
       if (isSameDay(date, fromDate) && isSameDay(date, toDate)) {
@@ -619,7 +517,6 @@ export function TransactionsPage() {
     [fromDate, toDate],
   );
 
-  // FROM input: if new from is after current to, clear to
   const handleFromChange = useCallback(
     (d: Date | null) => {
       setFromDate(d);
@@ -628,7 +525,6 @@ export function TransactionsPage() {
     [toDate],
   );
 
-  // TO input: must be ≥ fromDate
   const handleToChange = useCallback(
     (d: Date | null) => {
       if (d && fromDate && midnight(d) < midnight(fromDate)) return;
@@ -637,43 +533,57 @@ export function TransactionsPage() {
     [fromDate],
   );
 
-  const getCategoryName = (id: string) => DUMMY_CATEGORIES.find((c) => c.id === id)?.name ?? "Unknown";
-
-  // Filter transactions
   const filteredTransactions = useMemo(() => {
-    return DUMMY_TRANSACTIONS.filter((tx) => {
-      const matchesSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "all" || tx.categoryId === selectedCategory;
+    return transactions
+      .filter((tx) => {
+        const txDate = firestoreToDate(tx.date);
+        const matchSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchCat = selectedCategory === "all" || tx.categoryId === selectedCategory;
+        const txMid = midnight(txDate);
+        let matchDate = true;
+        if (fromDate && toDate) matchDate = txMid >= midnight(fromDate) && txMid <= midnight(toDate);
+        else if (fromDate) matchDate = txMid >= midnight(fromDate);
+        else if (toDate) matchDate = txMid <= midnight(toDate);
+        return matchSearch && matchCat && matchDate;
+      })
+      .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
+  }, [transactions, searchQuery, selectedCategory, fromDate, toDate]);
 
-      let matchesDate = true;
-      const txMid = midnight(tx.date);
-      if (fromDate && toDate) matchesDate = txMid >= midnight(fromDate) && txMid <= midnight(toDate);
-      else if (fromDate) matchesDate = txMid >= midnight(fromDate);
-      else if (toDate) matchesDate = txMid <= midnight(toDate);
+  const getCategoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
+  const getCategoryIcon = (id: string) => categories.find((c) => c.id === id)?.icon ?? "";
 
-      return matchesSearch && matchesCategory && matchesDate;
-    });
-  }, [searchQuery, selectedCategory, fromDate, toDate]);
+  const isLoading = txLoading || catLoading;
+  const isError = txError || catError;
 
   return (
     <Container fluid className="py-2">
       <Row className="g-4">
-        {/* ── LEFT: unified calendar card ── */}
         <Col lg={4}>
-          <TransactionCalendar
-            allTransactions={DUMMY_TRANSACTIONS}
-            categories={DUMMY_CATEGORIES}
-            fromDate={fromDate}
-            toDate={toDate}
-            onFromChange={handleFromChange}
-            onToChange={handleToChange}
-            onDaySelect={handleDaySelect}
-          />
+          {isLoading ? (
+            <div className="text-center py-5">
+              <Spinner color="primary" />
+            </div>
+          ) : (
+            <TransactionCalendar
+              allTransactions={transactions}
+              categories={categories}
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromChange={handleFromChange}
+              onToChange={handleToChange}
+              onDaySelect={handleDaySelect}
+              formatCurrency={formatCurrency}
+            />
+          )}
         </Col>
 
-        {/* ── RIGHT: filters + table ── */}
         <Col lg={8}>
-          {/* Filters row — search | category | Add button */}
+          {isError && (
+            <Alert color="danger" className="mb-3">
+              Failed to load transactions. Please refresh.
+            </Alert>
+          )}
+
           <Card className="border-0 shadow-sm mb-3">
             <CardBody className="py-2">
               <Row className="g-2 align-items-center">
@@ -688,7 +598,7 @@ export function TransactionsPage() {
                 <Col md={4}>
                   <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                     <option value="all">All Categories</option>
-                    {DUMMY_CATEGORIES.map((c) => (
+                    {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.icon} {c.name}
                       </option>
@@ -696,66 +606,88 @@ export function TransactionsPage() {
                   </Input>
                 </Col>
                 <Col md={3} className="d-flex justify-content-end">
-                  <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }}>
-                    <i className="bi bi-plus-circle me-1" />
-                    Add Transaction
+                  <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+                    + Add Transaction
                   </Button>
                 </Col>
               </Row>
             </CardBody>
           </Card>
 
-          {/* Transactions table */}
           <Card className="border-0 shadow-sm">
             <CardBody className="p-0">
-              <Table responsive hover className="mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                      DATE
-                    </th>
-                    <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
-                    <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
-                    <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                      AMOUNT
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTransactions.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-5">
+                  <Spinner color="primary" />
+                </div>
+              ) : (
+                <Table responsive hover className="mb-0">
+                  <thead className="table-light">
                     <tr>
-                      <td colSpan={4} className="text-center text-muted py-5">
-                        <i className="bi bi-inbox d-block mb-2" style={{ fontSize: 28, opacity: 0.3 }} />
-                        No transactions found
-                      </td>
+                      <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                        DATE
+                      </th>
+                      <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
+                      <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
+                      <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                        AMOUNT
+                      </th>
+                      <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                        ACTIONS
+                      </th>
                     </tr>
-                  ) : (
-                    filteredTransactions.map((tx) => (
-                      <tr key={tx.id}>
-                        <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
-                          {formatTable(tx.date)}
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{tx.description}</td>
-                        <td>
-                          <Badge color="light" className="text-dark">
-                            {DUMMY_CATEGORIES.find((c) => c.id === tx.categoryId)?.icon} {getCategoryName(tx.categoryId)}
-                          </Badge>
-                        </td>
-                        <td className="text-end pe-3">
-                          <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
-                            {tx.type === "expense" && "-"}
-                            {formatCurrency(tx.amount)}
-                          </span>
+                  </thead>
+                  <tbody>
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center text-muted py-5">
+                          No transactions found
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
+                    ) : (
+                      filteredTransactions.map((tx) => (
+                        <tr key={tx.id}>
+                          <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
+                            {formatTable(firestoreToDate(tx.date))}
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{tx.description}</td>
+                          <td>
+                            <Badge color="light" className="text-dark">
+                              {getCategoryIcon(tx.categoryId)} {getCategoryName(tx.categoryId)}
+                            </Badge>
+                          </td>
+                          <td className="text-end">
+                            <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
+                              {tx.type === "expense" && "−"}
+                              {formatCurrency(tx.amount)}
+                            </span>
+                          </td>
+                          <td className="text-end pe-3">
+                            <div className="d-flex justify-content-end gap-2">
+                              <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                <FiEdit2 size={13} />
+                              </Button>
+                              <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
+                                <FiTrash2 size={13} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </Table>
+              )}
             </CardBody>
           </Card>
         </Col>
       </Row>
+
+      <AddTransactionModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} categories={categories} onSubmit={handleCreate} />
+      {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} />}
+      {deleteTransaction && (
+        <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
+      )}
     </Container>
   );
 }

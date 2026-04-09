@@ -6,8 +6,10 @@ import "react-toastify/dist/ReactToastify.css";
 import { queryClient } from "./lib/queryClient";
 import { router } from "./lib/router";
 import { AuthProvider } from "./context/AuthContext";
+import { seedDefaultCategories } from "./firebase/seedCategories";
 
 export function App() {
+  seedDefaultCategories();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

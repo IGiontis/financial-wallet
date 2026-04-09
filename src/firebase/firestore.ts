@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./config";
+
 import type {
   User,
   CreateUserDTO,
@@ -20,14 +21,21 @@ import type {
   CreateInvestmentContributionDTO,
 } from "../shared/types/IndexTypes";
 
+// ─── Helper ───────────────────────────────────────────────────────────────────
+// Firestore rejects undefined values — strip them before every write.
+
+const clean = (obj: Record<string, any>) => Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
+
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
 export const createUser = async (uid: string, data: CreateUserDTO) => {
   try {
+    const currency = data.currency ?? "USD";
     await setDoc(doc(db, "users", uid), {
-      ...data,
+      ...clean({ ...data }),
       id: uid,
-      currency: data.currency ?? "USD",
+      currency, // display currency — can be changed later
+      baseCurrency: currency, // base currency — set once, never changes
       locale: data.locale ?? "en-US",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -62,8 +70,7 @@ export const updateUser = async (uid: string, data: UpdateUserDTO) => {
 export const createTransaction = async (userId: string, data: CreateTransactionDTO) => {
   try {
     const ref = await addDoc(collection(db, "transactions"), {
-      ...data,
-      userId,
+      ...clean({ ...data, userId }),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -86,7 +93,7 @@ export const getTransactions = async (userId: string) => {
 export const updateTransaction = async (transactionId: string, data: UpdateTransactionDTO) => {
   try {
     await updateDoc(doc(db, "transactions", transactionId), {
-      ...data,
+      ...clean({ ...data }),
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -121,9 +128,17 @@ export const createCategory = async (userId: string, data: CreateCategoryDTO) =>
 
 export const getCategories = async (userId: string) => {
   try {
-    const q = query(collection(db, "categories"), where("userId", "in", [userId, null]));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
+    const [userSnap, defaultSnap] = await Promise.all([
+      getDocs(query(collection(db, "categories"), where("userId", "==", userId))),
+      getDocs(query(collection(db, "categories"), where("isDefault", "==", true))),
+    ]);
+
+    const userCats = userSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
+    const defaultCats = defaultSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
+
+    // Merge and deduplicate by id
+    const all = [...defaultCats, ...userCats];
+    return Array.from(new Map(all.map((c) => [c.id, c])).values());
   } catch (err) {
     throw err;
   }

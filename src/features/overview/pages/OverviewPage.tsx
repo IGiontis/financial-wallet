@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useCountUp } from "react-countup";
-import { Container, Row, Col, Card, CardBody, CardTitle, Spinner } from "reactstrap";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Container, Row, Col, Card, CardBody, Spinner, Progress } from "reactstrap";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { startOfMonth, subMonths, startOfYear, format, isWithinInterval } from "date-fns";
-import { type Transaction } from "../../../shared/types/IndexTypes";
-import { mockTransactions } from "./mockDataOverview";
+import type { Transaction } from "../../../shared/types/IndexTypes";
+import { useTransactions } from "../../transactions/hooks/useTransactions";
+import { useInvestmentGoals } from "../../budget/useInvestments";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 
 // ============================================================================
 // TYPES
@@ -26,219 +28,320 @@ interface DashboardMetrics {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS (unchanged)
+// HELPERS
 // ============================================================================
+
+function firestoreToDate(value: any): Date {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (value?.seconds) return new Date(value.seconds * 1000);
+  return new Date(value);
+}
 
 const getDateRange = (period: TimePeriod): { start: Date; end: Date } => {
   const now = new Date();
   let start: Date;
   switch (period) {
-    case "current_month":
-      start = startOfMonth(now);
-      break;
-    case "last_3_months":
-      start = startOfMonth(subMonths(now, 2));
-      break;
-    case "last_6_months":
-      start = startOfMonth(subMonths(now, 5));
-      break;
-    case "year_to_date":
-      start = startOfYear(now);
-      break;
-    case "last_12_months":
-      start = startOfMonth(subMonths(now, 11));
-      break;
-    default:
-      start = startOfMonth(now);
+    case "current_month":  start = startOfMonth(now);               break;
+    case "last_3_months":  start = startOfMonth(subMonths(now, 2)); break;
+    case "last_6_months":  start = startOfMonth(subMonths(now, 5)); break;
+    case "year_to_date":   start = startOfYear(now);                break;
+    case "last_12_months": start = startOfMonth(subMonths(now, 11));break;
+    default:               start = startOfMonth(now);
   }
   return { start, end: now };
 };
 
-const filterTransactionsByDateRange = (transactions: Transaction[], dateRange: { start: Date; end: Date }): Transaction[] => {
-  return transactions.filter((tx) => isWithinInterval(new Date(tx.date), { start: dateRange.start, end: dateRange.end }));
-};
+const filterTransactions = (transactions: Transaction[], range: { start: Date; end: Date }) =>
+  transactions.filter((tx) =>
+    isWithinInterval(firestoreToDate(tx.date), { start: range.start, end: range.end })
+  );
 
-const groupTransactionsByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
-  const monthlyData = new Map<string, { income: number; expenses: number; firstDay: Date }>();
+const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
+  const map = new Map<string, { income: number; expenses: number; firstDay: Date }>();
   transactions.forEach((tx) => {
-    const firstDayOfMonth = startOfMonth(new Date(tx.date));
-    const monthKey = format(firstDayOfMonth, "yyyy-MM");
-    if (!monthlyData.has(monthKey)) {
-      monthlyData.set(monthKey, { income: 0, expenses: 0, firstDay: firstDayOfMonth });
-    }
-    const data = monthlyData.get(monthKey)!;
-    if (tx.type === "income") data.income += tx.amount;
-    else data.expenses += Math.abs(tx.amount);
+    const firstDay = startOfMonth(firestoreToDate(tx.date));
+    const key      = format(firstDay, "yyyy-MM");
+    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, firstDay });
+    const d = map.get(key)!;
+    if (tx.type === "income") d.income   += tx.amount;
+    else                      d.expenses += Math.abs(tx.amount);
   });
-  return Array.from(monthlyData.entries())
-    .map(([_, data]) => ({
-      month: format(data.firstDay, "dd/MM/yyyy"),
-      income: data.income,
-      expenses: data.expenses,
-    }))
-    .sort((a, b) => {
-      const [dayA, monthA, yearA] = a.month.split("/").map(Number);
-      const [dayB, monthB, yearB] = b.month.split("/").map(Number);
-      return new Date(yearA, monthA - 1, dayA).getTime() - new Date(yearB, monthB - 1, dayB).getTime();
-    });
+  return Array.from(map.values())
+    .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
+    .map((d) => ({
+      month:    format(d.firstDay, "MMM yy"),
+      income:   Math.round(d.income),
+      expenses: Math.round(d.expenses),
+    }));
 };
 
 const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
-  const totalIncome = transactions.filter((tx) => tx.type === "income").reduce((sum, tx) => sum + tx.amount, 0);
-  const totalExpenses = transactions.filter((tx) => tx.type === "expense").reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-  const netIncome = totalIncome - totalExpenses;
-  const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+  const totalIncome   = transactions.filter((t) => t.type === "income") .reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Math.abs(t.amount), 0);
+  const netIncome     = totalIncome - totalExpenses;
+  const savingsRate   = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
   return { totalIncome, totalExpenses, netIncome, savingsRate };
 };
 
 // ============================================================================
-// HELPERS - defined OUTSIDE the component so they are stable references
+// CUSTOM TOOLTIP — needs formatCurrency so it's now a factory function
 // ============================================================================
 
-const formatCurrency = (value: number): string =>
-  new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-
-/**
- * FIX 1: CustomTooltip moved OUTSIDE OverviewPage.
- * Recharts compares tooltip by reference. Defining it inside the component
- * creates a new component type on every render, causing chart flickers.
- */
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
+function makeTooltip(formatCurrency: (n: number) => string) {
+  return function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    const income   = payload.find((p: any) => p.dataKey === "income")?.value   ?? 0;
+    const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
+    const net      = income - expenses;
     return (
-      <div className="bg-dark text-white px-3 py-2 rounded" style={{ fontSize: "14px" }}>
-        <p className="mb-1 fw-bold">{payload[0].payload.month}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} className="mb-0" style={{ color: entry.color }}>
-            {entry.name}: {formatCurrency(entry.value)}
-          </p>
-        ))}
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: 10, padding: "12px 14px", minWidth: 170, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+        <p style={{ fontSize: 11, fontWeight: 500, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />Income
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#10B981" }}>{formatCurrency(income)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />Expenses
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#EF4444" }}>{formatCurrency(expenses)}</span>
+        </div>
+        <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Net</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#10B981" : "#EF4444" }}>{formatCurrency(net)}</span>
+        </div>
       </div>
     );
-  }
-  return null;
-};
+  };
+}
+
+// ============================================================================
+// METRIC CARD
+// ============================================================================
+
+function MetricCard({ label, value, color, isPercentage = false, formatFn }: {
+  label: string; value: number; color: string; isPercentage?: boolean;
+  formatFn?: (n: number) => string;
+}) {
+  const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
+  const { update } = useCountUp({
+    ref: spanRef, end: value, duration: 1.5,
+    decimals: isPercentage ? 1 : 0, separator: ",",
+    prefix: isPercentage ? "" : "",
+    suffix: isPercentage ? "%" : "",
+  });
+
+  useEffect(() => { update(value); }, [value, update]);
+
+  // For currency cards, show formatted value directly since countUp doesn't know the currency symbol
+  const displayValue = !isPercentage && formatFn ? formatFn(value) : undefined;
+
+  return (
+    <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
+      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
+      {displayValue
+        ? <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{displayValue}</p>
+        : <span ref={spanRef} style={{ fontSize: 22, fontWeight: 500, color }} />
+      }
+    </div>
+  );
+}
+
+// ============================================================================
+// PERIOD TABS
+// ============================================================================
+
+const PERIODS: { value: TimePeriod; label: string }[] = [
+  { value: "current_month",  label: "This month"   },
+  { value: "last_3_months",  label: "3 months"     },
+  { value: "last_6_months",  label: "6 months"     },
+  { value: "year_to_date",   label: "Year to date" },
+  { value: "last_12_months", label: "12 months"    },
+];
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export const OverviewPage: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("last_12_months");
-  const [isPending, startTransition] = useTransition();
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("last_6_months");
+  const [isPending, startTransition]        = useTransition();
+
+  const { data: transactions = [], isLoading: txLoading,  isError: txError  } = useTransactions();
+  const { data: goals        = [], isLoading: goalLoading                     } = useInvestmentGoals();
+  const { format: formatCurrency } = useCurrencyConverter();
+
+  // Tooltip component created once per render with current formatCurrency
+  const CustomTooltip = useMemo(() => makeTooltip(formatCurrency), [formatCurrency]);
 
   const handlePeriodChange = (period: TimePeriod) => {
     startTransition(() => setSelectedPeriod(period));
   };
 
-  const dateRange = useMemo(() => getDateRange(selectedPeriod), [selectedPeriod]);
-  const filteredTransactions = useMemo(() => filterTransactionsByDateRange(mockTransactions, dateRange), [dateRange]);
-  const chartData = useMemo(() => groupTransactionsByMonth(filteredTransactions), [filteredTransactions]);
-  const metrics = useMemo(() => calculateMetrics(filteredTransactions), [filteredTransactions]);
+  const dateRange   = useMemo(() => getDateRange(selectedPeriod),                [selectedPeriod]);
+  const filtered    = useMemo(() => filterTransactions(transactions, dateRange),  [transactions, dateRange]);
+  const chartData   = useMemo(() => groupByMonth(filtered),                       [filtered]);
+  const metrics     = useMemo(() => calculateMetrics(filtered),                   [filtered]);
+  const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 4), [goals]);
+
+  if (txLoading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
+        <Spinner color="primary" />
+      </div>
+    );
+  }
+
+  if (txError) {
+    return (
+      <Container fluid className="py-4">
+        <p style={{ color: "var(--bs-danger)", fontSize: 14 }}>Failed to load overview. Please refresh.</p>
+      </Container>
+    );
+  }
 
   return (
     <Container fluid className="py-2">
-      {/* Header */}
-      <Row className="mb-4">
-        <Col md={8}>
-          <h2 className="mb-1">Financial Overview</h2>
-          <p className="text-muted mb-0">Track your income and expenses over time</p>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+        <div>
+          <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Financial Overview</h5>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+            Track your income, expenses and savings goals
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 4, background: "var(--color-background-secondary)", borderRadius: 10, padding: 4 }}>
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => handlePeriodChange(p.value)}
+              disabled={isPending}
+              style={{
+                background: selectedPeriod === p.value ? "var(--color-background-primary)" : "transparent",
+                border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12,
+                fontWeight: selectedPeriod === p.value ? 600 : 400,
+                color: selectedPeriod === p.value ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                cursor: "pointer",
+                boxShadow: selectedPeriod === p.value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s ease", whiteSpace: "nowrap",
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Metric cards ───────────────────────────────────────────────────── */}
+      <Row className="g-3 mb-4" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+        <Col xs={6} lg={3}>
+          <MetricCard label="Total income"   value={metrics.totalIncome}   color="#10B981" formatFn={formatCurrency} />
         </Col>
-        <Col md={4} className="d-flex align-items-center justify-content-md-end">
-          <div className="d-flex align-items-center w-100">
-            <select className="form-select" value={selectedPeriod} onChange={(e) => handlePeriodChange(e.target.value as TimePeriod)} disabled={isPending}>
-              <option value="current_month">Current Month</option>
-              <option value="last_3_months">Last 3 Months</option>
-              <option value="last_6_months">Last 6 Months</option>
-              <option value="year_to_date">Year to Date</option>
-              <option value="last_12_months">Last 12 Months</option>
-            </select>
-            {isPending && <Spinner size="sm" className="ms-2" color="primary" />}
-          </div>
+        <Col xs={6} lg={3}>
+          <MetricCard label="Total expenses" value={metrics.totalExpenses} color="#EF4444" formatFn={formatCurrency} />
+        </Col>
+        <Col xs={6} lg={3}>
+          <MetricCard label="Net income" value={metrics.netIncome}
+            color={metrics.netIncome >= 0 ? "#10B981" : "#EF4444"} formatFn={formatCurrency} />
+        </Col>
+        <Col xs={6} lg={3}>
+          <MetricCard label="Savings rate" value={metrics.savingsRate} color="#3B82F6" isPercentage />
         </Col>
       </Row>
 
-      {/* Summary Cards */}
-      <Row className="mb-4" style={{ opacity: isPending ? 0.6 : 1, transition: "opacity 0.2s" }}>
-        <Col lg={3} md={6} className="mb-3">
-          <Card className="h-100">
-            <CardBody>
-              <p className="text-muted mb-2" style={{ fontSize: "14px" }}>
-                Total Income
-              </p>
-              <h3 className="mb-0 text-success">
-                <AnimatedCurrency value={metrics.totalIncome} />
-              </h3>
-            </CardBody>
-          </Card>
-        </Col>
-        <Col lg={3} md={6} className="mb-3">
-          <Card className="h-100">
-            <CardBody>
-              <p className="text-muted mb-2" style={{ fontSize: "14px" }}>
-                Total Expenses
-              </p>
-              <h3 className="mb-0 text-danger">
-                <AnimatedCurrency value={metrics.totalExpenses} />
-              </h3>
-            </CardBody>
-          </Card>
-        </Col>
-        <Col lg={3} md={6} className="mb-3">
-          <Card className="h-100">
-            <CardBody>
-              <p className="text-muted mb-2" style={{ fontSize: "14px" }}>
-                Net Income
-              </p>
-              <h3 className={`mb-0 ${metrics.netIncome >= 0 ? "text-success" : "text-danger"}`}>
-                <AnimatedCurrency value={metrics.netIncome} />
-              </h3>
-            </CardBody>
-          </Card>
-        </Col>
-        <Col lg={3} md={6} className="mb-3">
-          <Card className="h-100">
-            <CardBody>
-              <p className="text-muted mb-2" style={{ fontSize: "14px" }}>
-                Savings Rate
-              </p>
-              <h3 className="mb-0">
-                <AnimatedPercentage value={metrics.savingsRate} />
-              </h3>
-            </CardBody>
-          </Card>
-        </Col>
-      </Row>
+      {/* ── Chart + Goals ──────────────────────────────────────────────────── */}
+      <Row className="g-3" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+        <Col xs={12} lg={8}>
+          <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
+            <CardBody style={{ padding: "1.25rem" }}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>Cash flow</p>
+                  <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Income vs expenses</p>
+                </div>
+                <div className="d-flex gap-3">
+                  {[{ color: "#10B981", label: "Income" }, { color: "#EF4444", label: "Expenses" }].map((l) => (
+                    <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
+                      <span style={{ width: 16, height: 2, background: l.color, display: "inline-block", borderRadius: 1 }} />
+                      {l.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-      {/* Cash Flow Chart */}
-      <Row style={{ opacity: isPending ? 0.6 : 1, transition: "opacity 0.2s" }}>
-        <Col xs={12}>
-          <Card>
-            <CardBody>
-              <CardTitle tag="h5" className="mb-3">
-                Cash Flow - Income vs Expenses
-              </CardTitle>
-
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={400} debounce={300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="month" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" tickFormatter={formatCurrency} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar dataKey="income" fill="#10b981" name="Income" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              {chartData.length === 0 ? (
+                <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+                  No transactions found for this period.
+                </div>
               ) : (
-                <div className="text-center text-muted py-5">
-                  <p>No transactions found for the selected period</p>
+                <ResponsiveContainer width="100%" height={280} debounce={200}>
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
+                    <YAxis
+                      tickFormatter={(v) => formatCurrency(v)}
+                      tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
+                      axisLine={false} tickLine={false} width={56}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: "var(--color-border-secondary)", strokeWidth: 1 }} />
+                    <Line type="monotone" dataKey="income"   stroke="#10B981" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#10B981" }} />
+                    <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: "#EF4444" }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardBody>
+          </Card>
+        </Col>
+
+        <Col xs={12} lg={4}>
+          <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
+            <CardBody style={{ padding: "1.25rem" }}>
+              <p style={{ fontWeight: 500, fontSize: 14, margin: "0 0 4px" }}>Active goals</p>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>Savings goals at a glance</p>
+
+              {goalLoading ? (
+                <div className="d-flex justify-content-center align-items-center" style={{ height: 200 }}>
+                  <Spinner size="sm" color="secondary" />
+                </div>
+              ) : activeGoals.length === 0 ? (
+                <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-secondary)", fontSize: 13, textAlign: "center" }}>
+                  No active goals yet.<br />Create one in the Investments page.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {activeGoals.map((goal) => {
+                    const isTargeted    = goal.goalType === "targeted";
+                    const pct           = Math.min(goal.percentageReached ?? 0, 100);
+                    const color         = goal.color ?? "#3B82F6";
+                    const progressColor = goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "primary";
+                    return (
+                      <div key={goal.id} style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "12px", borderLeft: `3px solid ${color}` }}>
+                        <div className="d-flex align-items-center gap-2 mb-2">
+                          <span style={{ fontSize: 16 }}>{goal.icon ?? "💰"}</span>
+                          <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {goal.name}
+                          </p>
+                        </div>
+                        {isTargeted && goal.targetAmount ? (
+                          <>
+                            <Progress value={pct} color={progressColor} style={{ height: 4, borderRadius: 2, marginBottom: 5 }} />
+                            <div className="d-flex justify-content-between">
+                              <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.totalSaved)}</span>
+                              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--color-text-secondary)" }}>{pct.toFixed(0)}%</span>
+                            </div>
+                          </>
+                        ) : (
+                          <p style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>
+                            {formatCurrency(goal.totalSaved)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardBody>
@@ -247,40 +350,4 @@ export const OverviewPage: React.FC = () => {
       </Row>
     </Container>
   );
-};
-
-// ============================================================================
-// ANIMATED SUB-COMPONENTS (unchanged logic, kept outside OverviewPage)
-// ============================================================================
-
-const AnimatedCurrency = ({ value }: { value: number }) => {
-  const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
-  const { update } = useCountUp({
-    ref: spanRef,
-    end: value,
-    duration: 2,
-    decimals: 2,
-    decimal: ".",
-    separator: ",",
-    prefix: "€",
-  });
-  useEffect(() => {
-    update(value);
-  }, [value, update]);
-  return <span ref={spanRef} />;
-};
-
-const AnimatedPercentage = ({ value }: { value: number }) => {
-  const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
-  const { update } = useCountUp({
-    ref: spanRef,
-    end: value,
-    duration: 2,
-    decimals: 1,
-    suffix: "%",
-  });
-  useEffect(() => {
-    update(value);
-  }, [value, update]);
-  return <span ref={spanRef} />;
 };

@@ -35,11 +35,10 @@ import AddDepositModal from "./AddDepositModal";
 import WithdrawModal from "./WithdrawModal";
 import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useInvestmentGoals, useContributions, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 
 const toDate = (value: any): Date | undefined => {
   if (!value) return undefined;
@@ -57,13 +56,11 @@ const statusConfig: Record<InvestmentGoalStatus, { label: string; color: string 
   completed: { label: "Completed", color: "secondary" },
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type FilterTab = "all" | "targeted" | "open_ended" | "completed";
 
 // ─── SummaryCards ─────────────────────────────────────────────────────────────
 
-function SummaryCards({ goals }: { goals: InvestmentGoalWithStats[] }) {
+function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const active = goals.filter((g) => g.isActive && !g.isCompleted);
   const completed = goals.filter((g) => g.isCompleted);
   const totalSaved = goals.reduce((s, g) => s + g.totalSaved, 0);
@@ -101,11 +98,11 @@ interface GoalCardProps {
   onDelete: (goal: InvestmentGoalWithStats) => void;
   onEdit: (goal: InvestmentGoalWithStats) => void;
   onTogglePause: (goal: InvestmentGoalWithStats) => void;
+  formatCurrency: (n: number) => string;
 }
 
-function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause }: GoalCardProps) {
+function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-
   const isTargeted = goal.goalType === "targeted";
   const pct = Math.min(goal.percentageReached ?? 0, 100);
   const st = goal.status ? statusConfig[goal.status] : null;
@@ -114,7 +111,6 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
   return (
     <Card className="mb-3 h-100" style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)" }}>
       <CardBody>
-        {/* Header */}
         <div className="d-flex justify-content-between align-items-start mb-3">
           <div className="d-flex align-items-center gap-2">
             <span style={{ fontSize: 24 }}>{goal.icon ?? "💰"}</span>
@@ -123,7 +119,6 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended"}</p>
             </div>
           </div>
-
           <div className="d-flex align-items-center gap-2">
             <div className="d-flex flex-column align-items-end gap-1">
               {st && (
@@ -160,7 +155,6 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </div>
         </div>
 
-        {/* Progress (targeted only) */}
         {isTargeted && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
@@ -175,7 +169,6 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </>
         )}
 
-        {/* Open-ended total */}
         {!isTargeted && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
@@ -183,7 +176,6 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </div>
         )}
 
-        {/* Key stats */}
         <Row className="g-2 mb-3">
           {goal.monthlyRequired !== undefined && (
             <Col xs={6}>
@@ -271,9 +263,8 @@ function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: In
 
 // ─── HistoryModal ─────────────────────────────────────────────────────────────
 
-function HistoryModal({ goal, onClose }: { goal: InvestmentGoalWithStats; onClose: () => void }) {
+function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalWithStats; onClose: () => void; formatCurrency: (n: number) => string }) {
   const { data: contributions = [], isLoading } = useContributions(goal.id);
-
   return (
     <Modal isOpen toggle={onClose} size="md">
       <ModalHeader toggle={onClose}>
@@ -294,7 +285,6 @@ function HistoryModal({ goal, onClose }: { goal: InvestmentGoalWithStats; onClos
             </Col>
           ))}
         </Row>
-
         {isLoading ? (
           <div className="text-center py-4">
             <Spinner size="sm" />
@@ -352,12 +342,12 @@ export default function InvestmentsPage() {
   const [editGoal, setEditGoal] = useState<InvestmentGoalWithStats | null>(null);
 
   const { data: goals = [], isLoading, isError } = useInvestmentGoals();
+  const { format: formatCurrency } = useCurrencyConverter();
+
   const createGoalMutation = useCreateGoal();
   const updateGoalMutation = useUpdateGoal();
   const addContribution = useAddContribution();
   const deleteGoalMutation = useDeleteGoal();
-
-  // ── Promise-based handlers ────────────────────────────────────────────────
 
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
     new Promise((resolve, reject) => {
@@ -388,8 +378,6 @@ export default function InvestmentsPage() {
     updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } });
   };
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
-
   const filtered = goals.filter((g) => {
     if (filter === "all") return !g.isCompleted;
     if (filter === "targeted") return g.goalType === "targeted" && !g.isCompleted;
@@ -403,8 +391,6 @@ export default function InvestmentsPage() {
     if (tab === "completed") return goals.filter((g) => g.isCompleted).length;
     return goals.filter((g) => g.goalType === tab && !g.isCompleted).length;
   };
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Container fluid className="py-4">
@@ -427,7 +413,7 @@ export default function InvestmentsPage() {
 
       {!isLoading && !isError && (
         <>
-          <SummaryCards goals={goals} />
+          <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
           <Nav tabs className="mb-4" style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
             {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => (
@@ -457,6 +443,7 @@ export default function InvestmentsPage() {
                 <Col xs={12} md={6} xl={4} key={goal.id}>
                   <GoalCard
                     goal={goal}
+                    formatCurrency={formatCurrency}
                     onViewHistory={setHistoryGoal}
                     onAddDeposit={setDepositGoal}
                     onWithdraw={setWithdrawGoal}
@@ -471,18 +458,11 @@ export default function InvestmentsPage() {
         </>
       )}
 
-      {/* ── Modals ───────────────────────────────────────────────────────── */}
-
-      {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} />}
-
+      {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
-
       {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
-
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
-
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
-
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} />
     </Container>
   );
