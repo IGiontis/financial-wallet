@@ -426,7 +426,16 @@ export default function InvestmentsPage() {
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
           {/* Filter tabs — scrollable on mobile */}
-          <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+          <div
+            style={{
+              overflowX: "auto",
+              marginBottom: "1.5rem",
+              // Hide scrollbar on the tabs container
+              msOverflowStyle: "none",
+              scrollbarWidth: "none",
+            }}
+          >
+            {" "}
             <div style={{ display: "flex", gap: 4, minWidth: "max-content", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: 0 }}>
               {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => (
                 <button

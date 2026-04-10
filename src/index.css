@@ -11,12 +11,3 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide scrollbar but keep scrolling */
-::-webkit-scrollbar {
-  width: 0px;
-  background: transparent;
-}
-
-* {
-  scrollbar-width: none;
-}
