@@ -7,9 +7,6 @@ import {
   CardBody,
   Badge,
   Button,
-  Nav,
-  NavItem,
-  NavLink,
   Progress,
   Modal,
   ModalHeader,
@@ -79,8 +76,8 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
       {cards.map((c) => (
         <Col xs={6} md={3} key={c.label}>
           <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 4px" }}>{c.label}</p>
-            <p style={{ fontSize: 22, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{c.value}</p>
+            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>{c.label}</p>
+            <p style={{ fontSize: 20, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{c.value}</p>
           </div>
         </Col>
       ))}
@@ -109,17 +106,18 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
   return (
-    <Card className="mb-3 h-100" style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)" }}>
+    <Card className="mb-3 h-100" style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none" }}>
       <CardBody>
+        {/* Header */}
         <div className="d-flex justify-content-between align-items-start mb-3">
-          <div className="d-flex align-items-center gap-2">
-            <span style={{ fontSize: 24 }}>{goal.icon ?? "💰"}</span>
-            <div>
-              <p style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{goal.name}</p>
+          <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
+            <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended"}</p>
             </div>
           </div>
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
             <div className="d-flex flex-column align-items-end gap-1">
               {st && (
                 <Badge color={st.color} style={{ fontSize: 11 }}>
@@ -155,11 +153,12 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </div>
         </div>
 
+        {/* Targeted progress */}
         {isTargeted && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.totalSaved)} saved</span>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)} goal</span>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.totalSaved)}</span>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)}</span>
             </div>
             <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.75rem" }} />
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
@@ -169,19 +168,21 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </>
         )}
 
+        {/* Open-ended total */}
         {!isTargeted && (
           <div className="mb-3">
-            <p style={{ fontSize: 22, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
+            <p style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>total saved</p>
           </div>
         )}
 
+        {/* Stats mini cards */}
         <Row className="g-2 mb-3">
           {goal.monthlyRequired !== undefined && (
             <Col xs={6}>
               <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Monthly needed</p>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.monthlyRequired)}</p>
+                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.monthlyRequired)}</p>
               </div>
             </Col>
           )}
@@ -189,7 +190,7 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
             <Col xs={6}>
               <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Months left</p>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{goal.monthsLeft}</p>
+                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.monthsLeft}</p>
               </div>
             </Col>
           )}
@@ -197,32 +198,33 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
             <Col xs={6}>
               <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Deadline</p>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{formatDate(toDate(goal.deadline))}</p>
+                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatDate(toDate(goal.deadline))}</p>
               </div>
             </Col>
           )}
           <Col xs={goal.monthlyRequired !== undefined ? 6 : 12}>
             <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Contributions</p>
-              <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{goal.contributionCount}</p>
+              <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.contributionCount}</p>
             </div>
           </Col>
         </Row>
 
         {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
 
-        <div className="d-flex gap-2">
+        {/* Action buttons — stack on mobile */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {!goal.isCompleted && (
-            <Button size="sm" color="primary" style={{ flex: 1 }} onClick={() => onAddDeposit(goal)}>
+            <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
               Add deposit
             </Button>
           )}
           {goal.totalSaved > 0 && !goal.isCompleted && (
-            <Button size="sm" color="secondary" outline style={{ flex: 1 }} onClick={() => onWithdraw(goal)}>
+            <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 80 }} onClick={() => onWithdraw(goal)}>
               Withdraw
             </Button>
           )}
-          <Button size="sm" color="secondary" outline onClick={() => onViewHistory(goal)}>
+          <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 70 }} onClick={() => onViewHistory(goal)}>
             History
           </Button>
         </div>
@@ -392,9 +394,17 @@ export default function InvestmentsPage() {
     return goals.filter((g) => g.goalType === tab && !g.isCompleted).length;
   };
 
+  const TAB_LABELS: Record<FilterTab, string> = {
+    all: "All",
+    targeted: "Targeted",
+    open_ended: "Open-ended",
+    completed: "Completed",
+  };
+
   return (
     <Container fluid className="py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
           <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your savings goals and contributions</p>
@@ -415,18 +425,45 @@ export default function InvestmentsPage() {
         <>
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
-          <Nav tabs className="mb-4" style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-            {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => (
-              <NavItem key={tab}>
-                <NavLink active={filter === tab} onClick={() => setFilter(tab)} style={{ cursor: "pointer", fontSize: 14, textTransform: "capitalize" }}>
-                  {tab.replace("_", " ")}
-                  <Badge color="secondary" className="ms-2" style={{ fontSize: 11 }}>
+          {/* Filter tabs — scrollable on mobile */}
+          <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", gap: 4, minWidth: "max-content", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: 0 }}>
+              {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setFilter(tab)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px 16px",
+                    fontSize: 14,
+                    fontWeight: filter === tab ? 600 : 400,
+                    color: filter === tab ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                    borderBottom: filter === tab ? "2px solid var(--bs-primary)" : "2px solid transparent",
+                    marginBottom: -1,
+                    whiteSpace: "nowrap",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {TAB_LABELS[tab]}
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      fontSize: 11,
+                      fontWeight: 400,
+                      background: "var(--color-background-secondary)",
+                      borderRadius: 10,
+                      padding: "1px 7px",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
                     {tabCount(tab)}
-                  </Badge>
-                </NavLink>
-              </NavItem>
-            ))}
-          </Nav>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
