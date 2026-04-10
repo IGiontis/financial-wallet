@@ -57,7 +57,7 @@ export const getUser = async (uid: string) => {
 export const updateUser = async (uid: string, data: UpdateUserDTO) => {
   try {
     await updateDoc(doc(db, "users", uid), {
-      ...data,
+      ...clean({ ...data }), // add clean() here
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
