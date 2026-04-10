@@ -4,6 +4,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Alert } from "reactstrap";
 import { loginWithEmail, loginWithGoogle } from "../../firebase/auth";
+import { createUser, getUser } from "../../firebase/firestore";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -61,7 +62,21 @@ export default function LoginPage() {
     setError(null);
     setGoogleLoading(true);
     try {
-      await loginWithGoogle();
+      const firebaseUser = await loginWithGoogle();
+
+      // Check if Firestore document exists — if not, create it
+      const existing = await getUser(firebaseUser.uid);
+      if (!existing) {
+        const displayName = firebaseUser.displayName ?? "";
+        const [firstName = "", lastName = ""] = displayName.split(" ");
+        await createUser(firebaseUser.uid, {
+          email: firebaseUser.email ?? "",
+          username: firebaseUser.uid.slice(0, 12),
+          firstName,
+          lastName,
+        });
+      }
+
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(getFriendlyError(err.code));
@@ -69,7 +84,6 @@ export default function LoginPage() {
       setGoogleLoading(false);
     }
   };
-
   return (
     <div style={styles.page}>
       <Container>
