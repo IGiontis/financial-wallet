@@ -81,7 +81,6 @@ export function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Load Firestore user data on mount
   useEffect(() => {
     if (!currentUser) return;
     getUser(currentUser.uid)
@@ -89,7 +88,7 @@ export function SettingsPage() {
       .finally(() => setLoadingUser(false));
   }, [currentUser]);
 
-  // ── Profile form ───────────────────────────────────────────────────────────
+  // ── Profile form (email/password users only) ───────────────────────────────
 
   const profileForm = useFormik({
     enableReinitialize: true,
@@ -127,6 +126,13 @@ export function SettingsPage() {
           country: values.country || undefined,
         };
         await updateUser(currentUser!.uid, data);
+
+        // Update the cache immediately so Topbar re-renders without refresh
+        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, ...data }));
+        queryClient.invalidateQueries({
+          queryKey: exchangeRateKeys.user(currentUser!.uid),
+        });
+
         toast.success("Profile updated successfully!");
       } catch {
         toast.error("Failed to update profile.");
@@ -139,7 +145,7 @@ export function SettingsPage() {
   const prefsForm = useFormik({
     enableReinitialize: true,
     initialValues: {
-      currency: userData?.currency ?? "USD",
+      currency: userData?.currency ?? "EUR",
       locale: userData?.locale ?? "en-US",
     },
     validationSchema: Yup.object({
@@ -151,8 +157,6 @@ export function SettingsPage() {
         await updateUser(currentUser!.uid, {
           currency: values.currency as "USD" | "EUR" | "GBP",
         });
-        // Immediately update the cached user object — all components using
-        // useCurrencyConverter will re-render with the new currency instantly
         queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, currency: values.currency }));
         queryClient.invalidateQueries({ queryKey: exchangeRateKeys.user(currentUser!.uid) });
         toast.success("Preferences saved!");
@@ -212,9 +216,7 @@ export function SettingsPage() {
     setDeleteError("");
     setDeleteLoading(true);
     try {
-      if (!googleUser) {
-        await reauthenticate(deletePassword);
-      }
+      if (!googleUser) await reauthenticate(deletePassword);
       await deleteAccount();
       await logout();
       navigate("/login", { replace: true });
@@ -238,7 +240,7 @@ export function SettingsPage() {
   const initials = getInitials(userData?.firstName ?? currentUser?.displayName?.split(" ")[0] ?? "", userData?.lastName ?? currentUser?.displayName?.split(" ")[1] ?? "");
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" style={{ maxWidth: 720 }}>
       <div style={{ marginBottom: "1.5rem" }}>
         <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Settings</h5>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Manage your profile, preferences and account security</p>
@@ -246,141 +248,154 @@ export function SettingsPage() {
 
       {/* ── Profile ─────────────────────────────────────────────────────────── */}
       <Section title="Profile" subtitle="Your personal information">
-        {/* Avatar */}
+        {/* Avatar row */}
         <div className="d-flex align-items-center gap-3 mb-4">
           <div
             style={{
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "var(--color-background-info)",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 20,
-              fontWeight: 500,
-              color: "var(--color-text-info)",
+              fontWeight: 600,
+              color: "#ffffff",
               flexShrink: 0,
             }}
           >
-            {currentUser?.photoURL ? <img src={currentUser.photoURL} alt="avatar" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} /> : initials}
+            {initials}
           </div>
           <div>
-            <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>
-              {userData?.firstName} {userData?.lastName}
-            </p>
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>@{userData?.username}</p>
+            <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>{userData?.firstName ? `${userData.firstName} ${userData.lastName}` : (currentUser?.displayName ?? "—")}</p>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>{currentUser?.email}</p>
           </div>
         </div>
 
-        <form onSubmit={profileForm.handleSubmit} noValidate>
-          <Row className="g-3">
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>First name *</Label>
-                <Input
-                  type="text"
-                  name="firstName"
-                  value={profileForm.values.firstName}
-                  onChange={profileForm.handleChange}
-                  onBlur={profileForm.handleBlur}
-                  invalid={!!(profileForm.touched.firstName && profileForm.errors.firstName)}
-                />
-                <FormFeedback>{profileForm.errors.firstName}</FormFeedback>
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Last name *</Label>
-                <Input
-                  type="text"
-                  name="lastName"
-                  value={profileForm.values.lastName}
-                  onChange={profileForm.handleChange}
-                  onBlur={profileForm.handleBlur}
-                  invalid={!!(profileForm.touched.lastName && profileForm.errors.lastName)}
-                />
-                <FormFeedback>{profileForm.errors.lastName}</FormFeedback>
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Username *</Label>
-                <Input
-                  type="text"
-                  name="username"
-                  value={profileForm.values.username}
-                  onChange={profileForm.handleChange}
-                  onBlur={profileForm.handleBlur}
-                  invalid={!!(profileForm.touched.username && profileForm.errors.username)}
-                />
-                <FormFeedback>{profileForm.errors.username}</FormFeedback>
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Display name <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
-                </Label>
-                <Input
-                  type="text"
-                  name="displayName"
-                  placeholder="How you want to appear in the app"
-                  value={profileForm.values.displayName}
-                  onChange={profileForm.handleChange}
-                  onBlur={profileForm.handleBlur}
-                />
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={4}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Age <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
-                </Label>
-                <Input
-                  type="number"
-                  name="age"
-                  min={13}
-                  max={120}
-                  value={profileForm.values.age}
-                  onChange={profileForm.handleChange}
-                  onBlur={profileForm.handleBlur}
-                  invalid={!!(profileForm.touched.age && profileForm.errors.age)}
-                />
-                <FormFeedback>{profileForm.errors.age}</FormFeedback>
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={4}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  City <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
-                </Label>
-                <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
-              </FormGroup>
-            </Col>
-            <Col xs={12} md={4}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Country <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
-                </Label>
-                <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
-                  <option value="">Select country...</option>
-                  {COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Input>
-              </FormGroup>
-            </Col>
-          </Row>
-
-          <div className="d-flex justify-content-end mt-4">
-            <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty}>
-              {profileForm.isSubmitting ? "Saving..." : "Save profile"}
-            </Button>
+        {/* Google users — read only message */}
+        {googleUser ? (
+          <div
+            style={{
+              background: "var(--color-background-secondary)",
+              borderRadius: "var(--border-radius-md)",
+              padding: "1rem",
+              fontSize: 13,
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            Your profile information is managed through your Google account. To update your name or photo, change them in your Google account settings.
           </div>
-        </form>
+        ) : (
+          /* Email/password users — editable form */
+          <form onSubmit={profileForm.handleSubmit} noValidate>
+            <Row className="g-3">
+              <Col xs={12} md={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>First name *</Label>
+                  <Input
+                    type="text"
+                    name="firstName"
+                    value={profileForm.values.firstName}
+                    onChange={profileForm.handleChange}
+                    onBlur={profileForm.handleBlur}
+                    invalid={!!(profileForm.touched.firstName && profileForm.errors.firstName)}
+                  />
+                  <FormFeedback>{profileForm.errors.firstName}</FormFeedback>
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Last name *</Label>
+                  <Input
+                    type="text"
+                    name="lastName"
+                    value={profileForm.values.lastName}
+                    onChange={profileForm.handleChange}
+                    onBlur={profileForm.handleBlur}
+                    invalid={!!(profileForm.touched.lastName && profileForm.errors.lastName)}
+                  />
+                  <FormFeedback>{profileForm.errors.lastName}</FormFeedback>
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Username *</Label>
+                  <Input
+                    type="text"
+                    name="username"
+                    value={profileForm.values.username}
+                    onChange={profileForm.handleChange}
+                    onBlur={profileForm.handleBlur}
+                    invalid={!!(profileForm.touched.username && profileForm.errors.username)}
+                  />
+                  <FormFeedback>{profileForm.errors.username}</FormFeedback>
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                    Display name <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    name="displayName"
+                    placeholder="How you want to appear in the app"
+                    value={profileForm.values.displayName}
+                    onChange={profileForm.handleChange}
+                    onBlur={profileForm.handleBlur}
+                  />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={4}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                    Age <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    name="age"
+                    min={13}
+                    max={120}
+                    value={profileForm.values.age}
+                    onChange={profileForm.handleChange}
+                    onBlur={profileForm.handleBlur}
+                    invalid={!!(profileForm.touched.age && profileForm.errors.age)}
+                  />
+                  <FormFeedback>{profileForm.errors.age}</FormFeedback>
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={4}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                    City <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  </Label>
+                  <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
+                </FormGroup>
+              </Col>
+              <Col xs={12} md={4}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                    Country <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  </Label>
+                  <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
+                    <option value="">Select country...</option>
+                    {COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Input>
+                </FormGroup>
+              </Col>
+            </Row>
+            <div className="d-flex justify-content-end mt-4">
+              <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty}>
+                {profileForm.isSubmitting ? "Saving..." : "Save profile"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Section>
 
       {/* ── Preferences ─────────────────────────────────────────────────────── */}
@@ -412,7 +427,6 @@ export function SettingsPage() {
               </FormGroup>
             </Col>
           </Row>
-
           <div className="d-flex justify-content-end mt-4">
             <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty}>
               {prefsForm.isSubmitting ? "Saving..." : "Save preferences"}
@@ -462,7 +476,6 @@ export function SettingsPage() {
                 </FormGroup>
               </Col>
             </Row>
-
             <div className="d-flex justify-content-end mt-4">
               <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty}>
                 {emailForm.isSubmitting ? "Updating..." : "Update email"}
@@ -520,7 +533,6 @@ export function SettingsPage() {
                 </FormGroup>
               </Col>
             </Row>
-
             <div className="d-flex justify-content-end mt-4">
               <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty}>
                 {passwordForm.isSubmitting ? "Changing..." : "Change password"}
@@ -530,7 +542,7 @@ export function SettingsPage() {
         </Section>
       )}
 
-      {/* Google user info */}
+      {/* ── Account security (Google users) ─────────────────────────────────── */}
       {googleUser && (
         <Section title="Account security" subtitle="Your account is managed by Google">
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
@@ -573,14 +585,12 @@ export function SettingsPage() {
         </ModalHeader>
         <ModalBody>
           <p style={{ fontSize: 14, margin: "0 0 1rem" }}>Are you sure? This will permanently delete your account and all your data. This cannot be undone.</p>
-
           {!googleUser && (
             <FormGroup className="mb-0">
               <Label style={{ fontSize: 13, fontWeight: 500 }}>Enter your password to confirm</Label>
               <Input type="password" placeholder="Your current password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
             </FormGroup>
           )}
-
           {deleteError && (
             <Alert color="danger" style={{ fontSize: 13, marginTop: "0.75rem", marginBottom: 0 }}>
               {deleteError}

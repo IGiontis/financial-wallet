@@ -273,7 +273,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount (USD) *</Label>
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount*</Label>
                         <Input
                           type="number"
                           name="targetAmount"

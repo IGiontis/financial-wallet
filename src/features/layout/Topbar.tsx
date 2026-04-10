@@ -1,12 +1,13 @@
 import { Navbar, Container, Button, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
-
 import { FiSettings, FiHelpCircle, FiLogOut, FiMenu } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
-
 import { useAuth } from "../../context/AuthContext";
 import { logout } from "../../firebase/auth";
+import { getUser } from "../../firebase/firestore";
+import { useQuery } from "@tanstack/react-query";
+import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -16,20 +17,38 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // ── Derive display values from Firebase auth user ─────────────────────────
-  const displayName = currentUser?.displayName ?? currentUser?.email?.split("@")[0] ?? "User";
+  // Use same query key as useCurrencyConverter so cache is shared
+  // When Settings saves and invalidates — Topbar updates instantly
+  const { data: firestoreUser } = useQuery({
+    queryKey: exchangeRateKeys.user(currentUser?.uid ?? ""),
+    queryFn: () => getUser(currentUser!.uid),
+    enabled: !!currentUser?.uid,
+    staleTime: 0,
+  });
+
+  const displayName = firestoreUser?.username
+    ? firestoreUser.username
+    : firestoreUser?.firstName
+      ? `${firestoreUser.firstName} ${firestoreUser.lastName ?? ""}`.trim()
+      : (currentUser?.displayName ?? "");
+
   const email = currentUser?.email ?? "";
-  const avatar = currentUser?.photoURL ?? "";
 
-  const getUserInitials = () =>
-    displayName
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const getUserInitials = (): string => {
+    if (firestoreUser?.firstName) {
+      return `${firestoreUser.firstName[0]}${firestoreUser.lastName?.[0] ?? ""}`.toUpperCase();
+    }
+    if (currentUser?.displayName) {
+      return currentUser.displayName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return (currentUser?.email?.[0] ?? "U").toUpperCase();
+  };
 
-  // ── Logout ────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
       await logout();
@@ -37,6 +56,17 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
     } catch (err) {
       console.error("Logout error:", err);
     }
+  };
+
+  const avatarStyle: React.CSSProperties = {
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 600,
+    color: "#fff",
+    flexShrink: 0,
   };
 
   return (
@@ -47,16 +77,18 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
         </Button>
 
         <div className={styles.rightContent}>
-          {/* User */}
           <UncontrolledDropdown>
             <DropdownToggle tag="button" className={styles.userButton}>
-              <div className={styles.userAvatar}>{avatar ? <img src={avatar} alt={displayName} className={styles.userAvatarImg} /> : getUserInitials()}</div>
-              <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>
+              <div className={styles.userAvatar}>{getUserInitials()}</div>
+              {/* Only show name once Firestore has loaded — prevents flash */}
+              {firestoreUser && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
               <IoChevronDown size={16} className="d-none d-md-inline" />
             </DropdownToggle>
 
             <DropdownMenu end className={styles.userDropdown}>
               <div className={styles.userInfo}>
+                <div style={{ ...avatarStyle, width: 36, height: 36, fontSize: 13, marginBottom: 8 }}>{getUserInitials()}</div>
+                {displayName && <div style={{ fontWeight: 500, fontSize: 13, color: "var(--color-text-primary)" }}>{displayName}</div>}
                 <div className={styles.userInfoEmail}>{email}</div>
               </div>
 
