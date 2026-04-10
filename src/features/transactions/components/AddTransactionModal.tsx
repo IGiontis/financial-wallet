@@ -7,8 +7,6 @@ import type { CreateTransactionDTO, TransactionType, Category } from "../../../s
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 
-// ─── Internal form values ─────────────────────────────────────────────────────
-
 interface TransactionFormValues {
   amount: number | "";
   type: TransactionType;
@@ -18,22 +16,16 @@ interface TransactionFormValues {
   notes: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const today = new Date().toISOString().split("T")[0];
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 const validationSchema = Yup.object({
-  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Amount must be greater than 0").max(10_000_000, "Amount is too large"),
+  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
   type: Yup.mixed<TransactionType>().oneOf(["income", "expense"]).required("Type is required"),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
-  description: Yup.string().required("Description is required").max(100, "Max 100 characters"),
+  description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
   notes: Yup.string().max(300, "Max 300 characters"),
 });
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -61,16 +53,14 @@ function ReviewScreen({
 }) {
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
-
   const rows = [
     { label: "Type", value: isIncome ? "Income" : "Expense" },
     { label: "Amount", value: formatAmount(Number(values.amount)) },
-    { label: "Date", value: format(new Date(values.date), "dd-MM-yyyy") },
-    { label: "Description", value: values.description },
+    { label: "Date", value: format(new Date(values.date), "dd/MM/yyyy") },
+    { label: "Payee", value: values.description },
     { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
   ];
-
   return (
     <>
       <ModalBody>
@@ -111,26 +101,15 @@ function ReviewScreen({
 
 export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
-
-  // User types in their display currency — we convert to base before storing
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
-    initialValues: {
-      amount: "",
-      type: "expense",
-      categoryId: "",
-      date: today,
-      description: "",
-      notes: "",
-    },
+    initialValues: { amount: "", type: "expense", categoryId: "", date: today, description: "", notes: "" },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
-        // User entered amount in display currency — convert to base currency for storage
         const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
-
         const dto: CreateTransactionDTO = {
           amount: amountInBase,
           type: values.type,
@@ -146,7 +125,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         onClose();
       } catch (err) {
         toast.error("Failed to save transaction. Please try again.");
-        console.error("AddTransactionModal submit error:", err);
       }
     },
   });
@@ -156,7 +134,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     setStep("form");
     onClose();
   };
-
   const handleReview = async () => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length === 0) setStep("review");
@@ -164,6 +141,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   };
 
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
+  const formatAmount = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="md">
@@ -176,13 +155,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           onBack={() => setStep("form")}
           onConfirm={() => formik.submitForm()}
           isSubmitting={formik.isSubmitting}
-          formatAmount={(n) => new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)}
+          formatAmount={formatAmount}
         />
       ) : (
         <>
           <ModalBody>
             <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle ── */}
+              {/* ── Type toggle — full width ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
@@ -222,80 +201,88 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Row>
               </FormGroup>
 
-              {/* ── Amount ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
-                <Input
-                  type="number"
-                  name="amount"
-                  min={0.01}
-                  step={0.01}
-                  placeholder="0.00"
-                  value={formik.values.amount}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.amount && formik.errors.amount)}
-                />
-                <FormFeedback>{formik.errors.amount}</FormFeedback>
-              </FormGroup>
+              {/* ── Row 1: Amount + Date ── */}
+              <Row className="g-3">
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
+                    <Input
+                      type="number"
+                      name="amount"
+                      min={0.01}
+                      step={0.01}
+                      placeholder="0.00"
+                      value={formik.values.amount}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.amount && formik.errors.amount)}
+                    />
+                    <FormFeedback>{formik.errors.amount}</FormFeedback>
+                  </FormGroup>
+                </Col>
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                    <Input
+                      type="date"
+                      name="date"
+                      value={formik.values.date}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.date && formik.errors.date)}
+                    />
+                    <FormFeedback>{formik.errors.date}</FormFeedback>
+                  </FormGroup>
+                </Col>
+              </Row>
 
-              {/* ── Description ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Description *</Label>
-                <Input
-                  type="text"
-                  name="description"
-                  placeholder='e.g. "Amazon", "Salary"'
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.description && formik.errors.description)}
-                />
-                <FormFeedback>{formik.errors.description}</FormFeedback>
-              </FormGroup>
+              {/* ── Row 2: Payee + Category ── */}
+              <Row className="g-3 mt-1">
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Payee *</Label>
+                    <Input
+                      type="text"
+                      name="description"
+                      placeholder='e.g. "Amazon", "Salary"'
+                      value={formik.values.description}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.description && formik.errors.description)}
+                    />
+                    <FormFeedback>{formik.errors.description}</FormFeedback>
+                  </FormGroup>
+                </Col>
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
+                    <Input
+                      type="select"
+                      name="categoryId"
+                      value={formik.values.categoryId}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
+                    >
+                      <option value="">Select...</option>
+                      {filteredCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.icon} {c.name}
+                        </option>
+                      ))}
+                    </Input>
+                    <FormFeedback>{formik.errors.categoryId}</FormFeedback>
+                  </FormGroup>
+                </Col>
+              </Row>
 
-              {/* ── Category ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
-                <Input
-                  type="select"
-                  name="categoryId"
-                  value={formik.values.categoryId}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
-                >
-                  <option value="">Select a category...</option>
-                  {filteredCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.icon} {c.name}
-                    </option>
-                  ))}
-                </Input>
-                <FormFeedback>{formik.errors.categoryId}</FormFeedback>
-              </FormGroup>
-
-              {/* ── Date ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
-                <Input
-                  type="date"
-                  name="date"
-                  value={formik.values.date}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.date && formik.errors.date)}
-                />
-                <FormFeedback>{formik.errors.date}</FormFeedback>
-              </FormGroup>
-
-              {/* ── Notes ── */}
-              <FormGroup className="mb-0">
+              {/* ── Notes — full width ── */}
+              <FormGroup className="mb-0 mt-3">
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input
                   type="textarea"
                   name="notes"
-                  rows={2}
+                  rows={3}
                   placeholder="Optional note..."
                   value={formik.values.notes}
                   onChange={formik.handleChange}

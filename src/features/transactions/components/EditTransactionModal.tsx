@@ -7,8 +7,6 @@ import type { Transaction, UpdateTransactionDTO, TransactionType, Category } fro
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { format } from "date-fns";
 
-// ─── Internal form values ─────────────────────────────────────────────────────
-
 interface EditTransactionFormValues {
   amount: number | "";
   type: TransactionType;
@@ -18,26 +16,20 @@ interface EditTransactionFormValues {
   notes: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const toDateInputValue = (value: any): string => {
   if (!value) return "";
   const d = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
   return d.toISOString().split("T")[0];
 };
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 const validationSchema = Yup.object({
-  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Amount must be greater than 0").max(10_000_000, "Amount is too large"),
+  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
   type: Yup.mixed<TransactionType>().oneOf(["income", "expense"]).required("Type is required"),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
-  description: Yup.string().required("Description is required").max(100, "Max 100 characters"),
+  description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
   notes: Yup.string().max(300, "Max 300 characters"),
 });
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface EditTransactionModalProps {
   transaction: Transaction;
@@ -66,16 +58,14 @@ function ReviewScreen({
 }) {
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
-
   const rows = [
     { label: "Type", value: isIncome ? "Income" : "Expense" },
     { label: "Amount", value: formatAmount(Number(values.amount)) },
     { label: "Date", value: format(new Date(values.date), "dd/MM/yyyy") },
-    { label: "Description", value: values.description },
+    { label: "Payee", value: values.description },
     { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
   ];
-
   return (
     <>
       <ModalBody>
@@ -116,16 +106,14 @@ function ReviewScreen({
 
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
-
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
-  // Convert stored base amount to display currency for the form
   const displayAmount = baseCurrency === displayCurrency ? transaction.amount : Math.round(convert(transaction.amount) * 100) / 100;
 
   const formik = useFormik<EditTransactionFormValues>({
     enableReinitialize: true,
     initialValues: {
-      amount: displayAmount, // shown in display currency
+      amount: displayAmount,
       type: transaction.type,
       categoryId: transaction.categoryId,
       date: toDateInputValue(transaction.date),
@@ -135,9 +123,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
-        // Convert the display currency amount back to base currency before saving
         const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
-
         const data: UpdateTransactionDTO = {
           amount: amountInBase,
           type: values.type,
@@ -163,7 +149,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     setStep("form");
     onClose();
   };
-
   const handleReview = async () => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length === 0) setStep("review");
@@ -171,7 +156,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   };
 
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
-
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
@@ -192,7 +176,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         <>
           <ModalBody>
             <form id="edit-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle ── */}
+              {/* ── Type toggle — full width ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
@@ -232,80 +216,88 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </Row>
               </FormGroup>
 
-              {/* ── Amount ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
-                <Input
-                  type="number"
-                  name="amount"
-                  min={0.01}
-                  step={0.01}
-                  placeholder="0.00"
-                  value={formik.values.amount}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.amount && formik.errors.amount)}
-                />
-                <FormFeedback>{formik.errors.amount}</FormFeedback>
-              </FormGroup>
+              {/* ── Row 1: Amount + Date ── */}
+              <Row className="g-3">
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
+                    <Input
+                      type="number"
+                      name="amount"
+                      min={0.01}
+                      step={0.01}
+                      placeholder="0.00"
+                      value={formik.values.amount}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.amount && formik.errors.amount)}
+                    />
+                    <FormFeedback>{formik.errors.amount}</FormFeedback>
+                  </FormGroup>
+                </Col>
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                    <Input
+                      type="date"
+                      name="date"
+                      value={formik.values.date}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.date && formik.errors.date)}
+                    />
+                    <FormFeedback>{formik.errors.date}</FormFeedback>
+                  </FormGroup>
+                </Col>
+              </Row>
 
-              {/* ── Description ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Description *</Label>
-                <Input
-                  type="text"
-                  name="description"
-                  placeholder='e.g. "Amazon", "Salary"'
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.description && formik.errors.description)}
-                />
-                <FormFeedback>{formik.errors.description}</FormFeedback>
-              </FormGroup>
+              {/* ── Row 2: Payee + Category ── */}
+              <Row className="g-3 mt-1">
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Payee *</Label>
+                    <Input
+                      type="text"
+                      name="description"
+                      placeholder='e.g. "Amazon", "Salary"'
+                      value={formik.values.description}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.description && formik.errors.description)}
+                    />
+                    <FormFeedback>{formik.errors.description}</FormFeedback>
+                  </FormGroup>
+                </Col>
+                <Col xs={6}>
+                  <FormGroup className="mb-0">
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
+                    <Input
+                      type="select"
+                      name="categoryId"
+                      value={formik.values.categoryId}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
+                    >
+                      <option value="">Select...</option>
+                      {filteredCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.icon} {c.name}
+                        </option>
+                      ))}
+                    </Input>
+                    <FormFeedback>{formik.errors.categoryId}</FormFeedback>
+                  </FormGroup>
+                </Col>
+              </Row>
 
-              {/* ── Category ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
-                <Input
-                  type="select"
-                  name="categoryId"
-                  value={formik.values.categoryId}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
-                >
-                  <option value="">Select a category...</option>
-                  {filteredCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.icon} {c.name}
-                    </option>
-                  ))}
-                </Input>
-                <FormFeedback>{formik.errors.categoryId}</FormFeedback>
-              </FormGroup>
-
-              {/* ── Date ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
-                <Input
-                  type="date"
-                  name="date"
-                  value={formik.values.date}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.date && formik.errors.date)}
-                />
-                <FormFeedback>{formik.errors.date}</FormFeedback>
-              </FormGroup>
-
-              {/* ── Notes ── */}
-              <FormGroup className="mb-0">
+              {/* ── Notes — full width ── */}
+              <FormGroup className="mb-0 mt-3">
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input
                   type="textarea"
                   name="notes"
-                  rows={2}
+                  rows={3}
                   placeholder="Optional note..."
                   value={formik.values.notes}
                   onChange={formik.handleChange}
