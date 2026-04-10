@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { CreateTransactionDTO, TransactionType, Category } from "../../../shared/types/IndexTypes";
 import { format } from "date-fns";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -18,8 +19,6 @@ interface TransactionFormValues {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatCurrency = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -51,19 +50,21 @@ function ReviewScreen({
   onBack,
   onConfirm,
   isSubmitting,
+  formatAmount,
 }: {
   values: TransactionFormValues;
   categories: Category[];
   onBack: () => void;
   onConfirm: () => void;
   isSubmitting: boolean;
+  formatAmount: (n: number) => string;
 }) {
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
 
   const rows = [
     { label: "Type", value: isIncome ? "Income" : "Expense" },
-    { label: "Amount", value: formatCurrency(Number(values.amount)) },
+    { label: "Amount", value: formatAmount(Number(values.amount)) },
     { label: "Date", value: format(new Date(values.date), "dd-MM-yyyy") },
     { label: "Description", value: values.description },
     { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
@@ -74,33 +75,18 @@ function ReviewScreen({
     <>
       <ModalBody>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your transaction before saving.</p>
-
-        <div
-          style={{
-            border: `2px solid ${isIncome ? "#10B981" : "#EF4444"}`,
-            borderRadius: "var(--border-radius-lg)",
-            padding: "1rem",
-          }}
-        >
+        <div style={{ border: `2px solid ${isIncome ? "#10B981" : "#EF4444"}`, borderRadius: "var(--border-radius-lg)", padding: "1rem" }}>
           <div className="d-flex align-items-center gap-3 mb-3">
             <span style={{ fontSize: 28 }}>{category?.icon ?? "💳"}</span>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: 600, fontSize: 15, margin: 0 }}>{values.description}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{category?.name ?? "—"}</p>
             </div>
-            <p
-              style={{
-                fontWeight: 700,
-                fontSize: 18,
-                margin: 0,
-                color: isIncome ? "#10B981" : "#EF4444",
-              }}
-            >
+            <p style={{ fontWeight: 700, fontSize: 18, margin: 0, color: isIncome ? "#10B981" : "#EF4444" }}>
               {isIncome ? "+" : "−"}
-              {formatCurrency(Number(values.amount))}
+              {formatAmount(Number(values.amount))}
             </p>
           </div>
-
           {rows.map((r) => (
             <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
               <span style={{ color: "var(--color-text-secondary)" }}>{r.label}</span>
@@ -109,7 +95,6 @@ function ReviewScreen({
           ))}
         </div>
       </ModalBody>
-
       <ModalFooter>
         <Button color="secondary" outline onClick={onBack} disabled={isSubmitting}>
           Back
@@ -127,6 +112,9 @@ function ReviewScreen({
 export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
 
+  // User types in their display currency — we convert to base before storing
+  const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
     initialValues: {
@@ -140,8 +128,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        // User entered amount in display currency — convert to base currency for storage
+        const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
+
         const dto: CreateTransactionDTO = {
-          amount: values.amount as number,
+          amount: amountInBase,
           type: values.type,
           categoryId: values.categoryId,
           date: new Date(values.date),
@@ -168,14 +159,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
-    if (Object.keys(errors).length === 0) {
-      setStep("review");
-    } else {
-      formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-    }
+    if (Object.keys(errors).length === 0) setStep("review");
+    else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
   };
 
-  // Filter categories by selected type
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
 
   return (
@@ -183,12 +170,19 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       <ModalHeader toggle={handleClose}>{step === "form" ? "Add transaction" : "Review transaction"}</ModalHeader>
 
       {step === "review" ? (
-        <ReviewScreen values={formik.values} categories={categories} onBack={() => setStep("form")} onConfirm={() => formik.submitForm()} isSubmitting={formik.isSubmitting} />
+        <ReviewScreen
+          values={formik.values}
+          categories={categories}
+          onBack={() => setStep("form")}
+          onConfirm={() => formik.submitForm()}
+          isSubmitting={formik.isSubmitting}
+          formatAmount={(n) => new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)}
+        />
       ) : (
         <>
           <ModalBody>
             <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle ───────────────────────────────────────── */}
+              {/* ── Type toggle ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
@@ -202,7 +196,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                           tabIndex={0}
                           onClick={() => {
                             formik.setFieldValue("type", t);
-                            formik.setFieldValue("categoryId", ""); // reset category on type change
+                            formik.setFieldValue("categoryId", "");
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -228,9 +222,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Row>
               </FormGroup>
 
-              {/* ── Amount ───────────────────────────────────────────── */}
+              {/* ── Amount ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount (USD) *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
                 <Input
                   type="number"
                   name="amount"
@@ -245,7 +239,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <FormFeedback>{formik.errors.amount}</FormFeedback>
               </FormGroup>
 
-              {/* ── Description ──────────────────────────────────────── */}
+              {/* ── Description ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Description *</Label>
                 <Input
@@ -260,7 +254,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <FormFeedback>{formik.errors.description}</FormFeedback>
               </FormGroup>
 
-              {/* ── Category ─────────────────────────────────────────── */}
+              {/* ── Category ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
                 <Input
@@ -281,7 +275,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <FormFeedback>{formik.errors.categoryId}</FormFeedback>
               </FormGroup>
 
-              {/* ── Date ─────────────────────────────────────────────── */}
+              {/* ── Date ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
                 <Input
@@ -295,7 +289,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <FormFeedback>{formik.errors.date}</FormFeedback>
               </FormGroup>
 
-              {/* ── Notes ────────────────────────────────────────────── */}
+              {/* ── Notes ── */}
               <FormGroup className="mb-0">
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input
@@ -313,7 +307,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               </FormGroup>
             </form>
           </ModalBody>
-
           <ModalFooter>
             <Button color="secondary" outline onClick={handleClose}>
               Cancel

@@ -25,6 +25,10 @@ export function useCurrencyConverter() {
     retry: 2,
   });
 
+  const convertToBase = (amount: number): number => {
+    if (!rateData) return amount;
+    return convertAmount(amount, displayCurrency, baseCurrency, rates);
+  };
   // User preferences
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: exchangeRateKeys.user(uid),
@@ -33,8 +37,8 @@ export function useCurrencyConverter() {
     staleTime: 0, // always fetch fresh when component mounts
   });
 
-  const baseCurrency = (userData?.baseCurrency ?? "USD") as Currency;
-  const displayCurrency = (userData?.currency ?? "USD") as Currency;
+  const baseCurrency = (userData?.baseCurrency ?? "EUR") as Currency;
+  const displayCurrency = (userData?.currency ?? "EUR") as Currency;
   const rates = rateData?.rates ?? {};
   const isLoading = ratesLoading || userLoading;
 
@@ -59,6 +63,7 @@ export function useCurrencyConverter() {
   return {
     convert,
     format,
+    convertToBase,
     baseCurrency,
     displayCurrency,
     isLoading,

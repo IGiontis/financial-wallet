@@ -30,7 +30,7 @@ const clean = (obj: Record<string, any>) => Object.fromEntries(Object.entries(ob
 
 export const createUser = async (uid: string, data: CreateUserDTO) => {
   try {
-    const currency = data.currency ?? "USD";
+    const currency = data.currency ?? "EUR";
     await setDoc(doc(db, "users", uid), {
       ...clean({ ...data }),
       id: uid,
