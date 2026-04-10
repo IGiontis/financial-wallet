@@ -289,7 +289,16 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* Period pill tabs */}
-        <div style={{ display: "flex", gap: 4, background: "var(--color-background-secondary)", borderRadius: 10, padding: 4 }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            background: "var(--color-background-secondary)",
+            borderRadius: 10,
+            padding: 4,
+          }}
+        >
           {PERIODS.map((p) => (
             <button
               key={p.value}
