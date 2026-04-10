@@ -4,6 +4,7 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Badge } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import { addMonths, format } from "date-fns";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,10 @@ interface GoalFormValues {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+
+
+// Default deadline = 1 month from today
+const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ const initialValues: GoalFormValues = {
   goalType: "targeted",
   targetAmount: "",
   targetPeriod: "monthly",
-  deadline: "",
+  deadline: defaultDeadline,
   isActive: true,
 };
 
@@ -89,7 +94,7 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
     { label: "Type", value: isTargeted ? "Targeted goal" : "Open-ended" },
     ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
     ...(isTargeted ? [{ label: "Period", value: values.targetPeriod }] : []),
-    ...(values.deadline ? [{ label: "Deadline", value: values.deadline }] : []),
+    ...(values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
     { label: "Status", value: values.isActive ? "Active" : "Paused" },
   ];

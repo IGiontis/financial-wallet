@@ -4,6 +4,7 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import { format } from "date-fns";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Edi
     { label: "Type", value: isTargeted ? "Targeted goal" : "Open-ended" },
     ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
     ...(isTargeted ? [{ label: "Period", value: values.targetPeriod }] : []),
-    ...(values.deadline ? [{ label: "Deadline", value: values.deadline }] : []),
+    ...(values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
   ];
 

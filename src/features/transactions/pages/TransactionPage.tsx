@@ -67,7 +67,10 @@ function formatDisplay(d: Date): string {
 }
 
 function formatTable(d: Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).format(d);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function firestoreToDate(value: any): Date {
