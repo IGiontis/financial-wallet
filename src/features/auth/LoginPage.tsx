@@ -5,6 +5,10 @@ import * as Yup from "yup";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Alert } from "reactstrap";
 import { loginWithEmail, loginWithGoogle } from "../../firebase/auth";
 
+// ─── In-app browser detection ─────────────────────────────────────────────────
+
+const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger/i.test(navigator.userAgent);
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
@@ -37,7 +41,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Redirect to the page the user was trying to visit, or home
   const from = (location.state as any)?.from ?? "/";
 
   const formik = useFormik({
@@ -75,8 +78,27 @@ export default function LoginPage() {
             {/* Logo / brand */}
             <div style={styles.brand}>
               <p style={styles.brandIcon}>💳</p>
-              <p style={styles.brandName}>WalletApp</p>
+              <p style={styles.brandName}>MyFiWallet</p>
             </div>
+
+            {/* In-app browser warning */}
+            {isInAppBrowser && (
+              <div
+                style={{
+                  background: "#FEF3C7",
+                  border: "1px solid #F59E0B",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "12px 16px",
+                  marginBottom: "1rem",
+                  fontSize: 13,
+                  color: "#92400E",
+                  textAlign: "center",
+                  lineHeight: 1.5,
+                }}
+              >
+                For the best experience, open this link in <strong>Chrome</strong> or <strong>Safari</strong>. Google login may not work inside Messenger or Instagram.
+              </div>
+            )}
 
             <Card style={styles.card}>
               <CardBody style={{ padding: "2rem" }}>
@@ -89,8 +111,20 @@ export default function LoginPage() {
                   </Alert>
                 )}
 
-                {/* Google button */}
-                <Button type="button" color="light" block onClick={handleGoogleLogin} disabled={googleLoading || formik.isSubmitting} style={styles.googleBtn}>
+                {/* Google button — disabled in in-app browsers */}
+                <Button
+                  type="button"
+                  color="light"
+                  block
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
+                  style={{
+                    ...styles.googleBtn,
+                    opacity: isInAppBrowser ? 0.5 : 1,
+                    cursor: isInAppBrowser ? "not-allowed" : "pointer",
+                  }}
+                  title={isInAppBrowser ? "Open in Chrome or Safari to use Google login" : undefined}
+                >
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, marginRight: 8 }} />
                   {googleLoading ? "Signing in..." : "Continue with Google"}
                 </Button>
