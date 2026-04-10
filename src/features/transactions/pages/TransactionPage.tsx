@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Container,
   Row,
@@ -85,28 +85,32 @@ function firestoreToDate(value: any): Date {
 // ============================================================
 
 function DateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: string; max?: string }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const openPicker = () => (inputRef.current as any)?.showPicker?.();
   return (
-    <div
-      onClick={openPicker}
-      style={{
-        flex: 1,
-        cursor: "pointer",
-        border: "1px solid rgba(0,0,0,0.13)",
-        borderRadius: 8,
-        padding: "7px 10px",
-        position: "relative",
-        background: "#fafafa",
-        minWidth: 0,
-        userSelect: "none",
-      }}
-    >
+    <div style={{ flex: 1, border: "1px solid rgba(0,0,0,0.13)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "#fafafa", minWidth: 0 }}>
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
+
+      {/* Input covers the entire div — works on iOS Safari */}
+      <input
+        type="date"
+        value={toInputValue(date)}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(fromInputValue(e.target.value))}
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: 0,
+          width: "100%",
+          height: "100%",
+          cursor: "pointer",
+        }}
+      />
+
+      {/* Clear button — shown on top of the input */}
       {date && (
         <button
-          onClick={(e) => {
+          onPointerDown={(e) => {
             e.stopPropagation();
             onChange(null);
           }}
@@ -122,25 +126,15 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
             fontSize: 16,
             lineHeight: 1,
             padding: 0,
+            zIndex: 1,
           }}
         >
           ×
         </button>
       )}
-      <input
-        ref={inputRef}
-        type="date"
-        style={{ position: "absolute", opacity: 0, width: 0, height: 0, pointerEvents: "none" }}
-        value={toInputValue(date)}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(fromInputValue(e.target.value))}
-        tabIndex={-1}
-      />
     </div>
   );
 }
-
 // ============================================================
 // DAY PANEL
 // ============================================================
