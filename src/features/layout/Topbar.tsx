@@ -26,11 +26,13 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
     staleTime: 0,
   });
 
-  const displayName = firestoreUser?.username
-    ? firestoreUser.username
-    : firestoreUser?.firstName
+  const isGoogle = currentUser?.providerData?.[0]?.providerId === "google.com";
+
+  const displayName = isGoogle
+    ? firestoreUser?.firstName
       ? `${firestoreUser.firstName} ${firestoreUser.lastName ?? ""}`.trim()
-      : (currentUser?.displayName ?? "");
+      : (currentUser?.displayName ?? "")
+    : (firestoreUser?.username ?? currentUser?.email?.split("@")[0] ?? "User");
 
   const email = currentUser?.email ?? "";
 
