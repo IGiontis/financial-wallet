@@ -84,15 +84,7 @@ function firestoreToDate(value: any): Date {
 // DATE FIELD
 // ============================================================
 
-interface DateFieldProps {
-  label: string;
-  date: Date | null;
-  onChange: (d: Date | null) => void;
-  min?: string;
-  max?: string;
-}
-
-function DateField({ label, date, onChange, min, max }: DateFieldProps) {
+function DateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: string; max?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const openPicker = () => (inputRef.current as any)?.showPicker?.();
   return (
@@ -189,7 +181,16 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
 
 type CalView = "days" | "months" | "years";
 
-interface CalendarProps {
+function TransactionCalendar({
+  allTransactions,
+  categories,
+  fromDate,
+  toDate,
+  onFromChange,
+  onToChange,
+  onDaySelect,
+  formatCurrency,
+}: {
   allTransactions: Transaction[];
   categories: Category[];
   fromDate: Date | null;
@@ -198,9 +199,7 @@ interface CalendarProps {
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
   formatCurrency: (n: number) => string;
-}
-
-function TransactionCalendar({ allTransactions, categories, fromDate, toDate, onFromChange, onToChange, onDaySelect, formatCurrency }: CalendarProps) {
+}) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -323,7 +322,6 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
             )}
           </div>
         )}
-
         {calView === "days" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
@@ -411,7 +409,6 @@ function TransactionCalendar({ allTransactions, categories, fromDate, toDate, on
             {activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
           </>
         )}
-
         {(fromDate || toDate) && (
           <button
             onClick={() => {
@@ -462,6 +459,83 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
         </Button>
       </ModalFooter>
     </Modal>
+  );
+}
+
+// ============================================================
+// TRANSACTION CARD (mobile only)
+// ============================================================
+
+function TransactionCard({
+  tx,
+  categories,
+  formatCurrency,
+  onEdit,
+  onDelete,
+}: {
+  tx: Transaction;
+  categories: Category[];
+  formatCurrency: (n: number) => string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const cat = categories.find((c) => c.id === tx.categoryId);
+  const isInc = tx.type === "income";
+  const dateStr = formatTable(firestoreToDate(tx.date));
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 16px",
+        borderBottom: "0.5px solid var(--color-border-tertiary)",
+      }}
+    >
+      {/* Category icon circle */}
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: isInc ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 18,
+        }}
+      >
+        {cat?.icon ?? "💳"}
+      </div>
+
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
+          {cat?.name ?? "—"} · {dateStr}
+        </p>
+      </div>
+
+      {/* Amount */}
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: isInc ? "#10B981" : "#EF4444" }}>
+          {isInc ? "+" : "−"}
+          {formatCurrency(tx.amount)}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+        <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
+          <FiEdit2 size={13} />
+        </Button>
+        <Button size="sm" color="light" style={{ padding: "4px 8px", color: "var(--bs-danger)" }} onClick={onDelete}>
+          <FiTrash2 size={13} />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -560,131 +634,198 @@ export function TransactionsPage() {
 
   return (
     <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
-      <Row className="g-4">
-        <Col lg={4}>
-          {isLoading ? (
-            <div className="text-center py-5">
-              <Spinner color="primary" />
-            </div>
-          ) : (
-            <TransactionCalendar
-              allTransactions={transactions}
-              categories={categories}
-              fromDate={fromDate}
-              toDate={toDate}
-              onFromChange={handleFromChange}
-              onToChange={handleToChange}
-              onDaySelect={handleDaySelect}
-              formatCurrency={formatCurrency}
-            />
-          )}
-        </Col>
-
-        <Col lg={8}>
-          {isError && (
-            <Alert color="danger" className="mb-3">
-              Failed to load transactions. Please refresh.
-            </Alert>
-          )}
-
-          <Card className="border-0 shadow-sm mb-3">
-            <CardBody className="py-2">
-              <Row className="g-2 align-items-center">
-                <Col md={5}>
-                  <InputGroup size="sm">
-                    <InputGroupText>
-                      <i className="bi bi-search" />
-                    </InputGroupText>
-                    <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                  </InputGroup>
-                </Col>
-                <Col md={4}>
-                  <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                    <option value="all">All Categories</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))}
-                  </Input>
-                </Col>
-                <Col md={3} className="d-flex justify-content-end">
-                  <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
-                    + Add Transaction
-                  </Button>
-                </Col>
-              </Row>
-            </CardBody>
-          </Card>
-
-          <Card className="border-0 shadow-sm">
-            <CardBody className="p-0">
-              {isLoading ? (
-                <div className="text-center py-5">
-                  <Spinner color="primary" />
-                </div>
-              ) : (
-                <Table responsive hover className="mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                        DATE
-                      </th>
-                      <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
-                      <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
-                      <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                        AMOUNT
-                      </th>
-                      <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                        ACTIONS
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTransactions.length === 0 ? (
+      {/* ── Desktop layout (lg+): side by side ── */}
+      <div className="d-none d-lg-block">
+        <Row className="g-4">
+          <Col lg={4}>
+            {isLoading ? (
+              <div className="text-center py-5">
+                <Spinner color="primary" />
+              </div>
+            ) : (
+              <TransactionCalendar
+                allTransactions={transactions}
+                categories={categories}
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromChange={handleFromChange}
+                onToChange={handleToChange}
+                onDaySelect={handleDaySelect}
+                formatCurrency={formatCurrency}
+              />
+            )}
+          </Col>
+          <Col lg={8}>
+            {isError && (
+              <Alert color="danger" className="mb-3">
+                Failed to load transactions. Please refresh.
+              </Alert>
+            )}
+            <Card className="border-0 shadow-sm mb-3">
+              <CardBody className="py-2">
+                <Row className="g-2 align-items-center">
+                  <Col md={5}>
+                    <InputGroup size="sm">
+                      <InputGroupText>
+                        <i className="bi bi-search" />
+                      </InputGroupText>
+                      <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    </InputGroup>
+                  </Col>
+                  <Col md={4}>
+                    <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                      <option value="all">All Categories</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.icon} {c.name}
+                        </option>
+                      ))}
+                    </Input>
+                  </Col>
+                  <Col md={3} className="d-flex justify-content-end">
+                    <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+                      + Add Transaction
+                    </Button>
+                  </Col>
+                </Row>
+              </CardBody>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardBody className="p-0">
+                {isLoading ? (
+                  <div className="text-center py-5">
+                    <Spinner color="primary" />
+                  </div>
+                ) : (
+                  <Table responsive hover className="mb-0">
+                    <thead className="table-light">
                       <tr>
-                        <td colSpan={5} className="text-center text-muted py-5">
-                          No transactions found
-                        </td>
+                        <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          DATE
+                        </th>
+                        <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
+                        <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
+                        <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          AMOUNT
+                        </th>
+                        <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          ACTIONS
+                        </th>
                       </tr>
-                    ) : (
-                      filteredTransactions.map((tx) => (
-                        <tr key={tx.id}>
-                          <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
-                            {formatTable(firestoreToDate(tx.date))}
-                          </td>
-                          <td style={{ fontWeight: 500 }}>{tx.description}</td>
-                          <td>
-                            <Badge color="light" className="text-dark">
-                              {getCategoryIcon(tx.categoryId)} {getCategoryName(tx.categoryId)}
-                            </Badge>
-                          </td>
-                          <td className="text-end">
-                            <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
-                              {tx.type === "expense" && "−"}
-                              {formatCurrency(tx.amount)}
-                            </span>
-                          </td>
-                          <td className="text-end pe-3">
-                            <div className="d-flex justify-content-end gap-2">
-                              <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
-                                <FiEdit2 size={13} />
-                              </Button>
-                              <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
-                                <FiTrash2 size={13} />
-                              </Button>
-                            </div>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center text-muted py-5">
+                            No transactions found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </Table>
-              )}
-            </CardBody>
-          </Card>
-        </Col>
-      </Row>
+                      ) : (
+                        filteredTransactions.map((tx) => (
+                          <tr key={tx.id}>
+                            <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
+                              {formatTable(firestoreToDate(tx.date))}
+                            </td>
+                            <td style={{ fontWeight: 500 }}>{tx.description}</td>
+                            <td>
+                              <Badge color="light" className="text-dark">
+                                {getCategoryIcon(tx.categoryId)} {getCategoryName(tx.categoryId)}
+                              </Badge>
+                            </td>
+                            <td className="text-end">
+                              <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
+                                {tx.type === "expense" && "−"}
+                                {formatCurrency(tx.amount)}
+                              </span>
+                            </td>
+                            <td className="text-end pe-3">
+                              <div className="d-flex justify-content-end gap-2">
+                                <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                  <FiEdit2 size={13} />
+                                </Button>
+                                <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
+                                  <FiTrash2 size={13} />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </Table>
+                )}
+              </CardBody>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+
+      {/* ── Mobile layout (<lg): stacked ── */}
+      <div className="d-lg-none">
+        {isError && (
+          <Alert color="danger" className="mb-3">
+            Failed to load transactions. Please refresh.
+          </Alert>
+        )}
+
+        {/* Calendar on top */}
+        {isLoading ? (
+          <div className="text-center py-5">
+            <Spinner color="primary" />
+          </div>
+        ) : (
+          <TransactionCalendar
+            allTransactions={transactions}
+            categories={categories}
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
+            onDaySelect={handleDaySelect}
+            formatCurrency={formatCurrency}
+          />
+        )}
+
+        {/* Search + filter + add */}
+        <div className="d-flex gap-2 align-items-center mt-3 mb-2">
+          <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
+          <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
+            <option value="all">All</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </Input>
+          <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+            +
+          </Button>
+        </div>
+
+        {/* Card list */}
+        <Card className="border-0 shadow-sm mt-2">
+          <CardBody className="p-0">
+            {isLoading ? (
+              <div className="text-center py-5">
+                <Spinner color="primary" />
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <p className="text-center text-muted py-5 mb-0">No transactions found</p>
+            ) : (
+              filteredTransactions.map((tx) => (
+                <TransactionCard
+                  key={tx.id}
+                  tx={tx}
+                  categories={categories}
+                  formatCurrency={formatCurrency}
+                  onEdit={() => setEditTransaction(tx)}
+                  onDelete={() => setDeleteTransaction(tx)}
+                />
+              ))
+            )}
+          </CardBody>
+        </Card>
+      </div>
 
       <AddTransactionModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} categories={categories} onSubmit={handleCreate} />
       {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} />}
