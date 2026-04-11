@@ -1,6 +1,6 @@
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
@@ -61,40 +61,47 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="sm">
+    <Modal isOpen={isOpen} toggle={handleClose} size="l">
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Add deposit — {goal.name}
       </ModalHeader>
+
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
-          <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount *</Label>
-            <Input
-              type="number"
-              name="amount"
-              min={0.01}
-              step={0.01}
-              placeholder="0.00"
-              value={formik.values.amount}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              invalid={!!(formik.touched.amount && formik.errors.amount)}
-            />
-            <FormFeedback>{formik.errors.amount}</FormFeedback>
-          </FormGroup>
+          <Row className="g-2">
+            <Col xs={12} md={6}>
+              <FormGroup>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount *</Label>
+                <Input
+                  type="number"
+                  name="amount"
+                  min={0.01}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={formik.values.amount}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalid={!!(formik.touched.amount && formik.errors.amount)}
+                />
+                <FormFeedback>{formik.errors.amount}</FormFeedback>
+              </FormGroup>
+            </Col>
 
-          <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
-            <Input
-              type="date"
-              name="date"
-              value={formik.values.date}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              invalid={!!(formik.touched.date && formik.errors.date)}
-            />
-            <FormFeedback>{formik.errors.date}</FormFeedback>
-          </FormGroup>
+            <Col xs={12} md={6}>
+              <FormGroup>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                <Input
+                  type="date"
+                  name="date"
+                  value={formik.values.date}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalid={!!(formik.touched.date && formik.errors.date)}
+                />
+                <FormFeedback>{formik.errors.date}</FormFeedback>
+              </FormGroup>
+            </Col>
+          </Row>
 
           <FormGroup className="mb-0">
             <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
@@ -112,10 +119,12 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
           </FormGroup>
         </ModalBody>
+
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
             Cancel
           </Button>
+
           <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty}>
             {formik.isSubmitting ? "Saving..." : "Add deposit"}
           </Button>

@@ -204,7 +204,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
   const isCustomPeriod = formik.values.targetPeriod === "custom";
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} size="m" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? "New investment goal" : "Review your goal"}</ModalHeader>
 
       {step === "review" ? (

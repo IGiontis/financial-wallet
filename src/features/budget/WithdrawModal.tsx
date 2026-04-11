@@ -1,7 +1,7 @@
 import React from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,49 +75,57 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
   const balanceAfter = goal.totalSaved - numericAmount;
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="sm">
+    <Modal isOpen={isOpen} toggle={handleClose} size="m">
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Withdraw — {goal.name}
       </ModalHeader>
+
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
           <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
             Current balance: <strong>{formatCurrency(goal.totalSaved)}</strong>
           </Alert>
 
-          <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount *</Label>
-            <Input
-              type="number"
-              name="amount"
-              min={0.01}
-              step={0.01}
-              placeholder="0.00"
-              value={formik.values.amount}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              invalid={!!(formik.touched.amount && formik.errors.amount)}
-            />
-            <FormFeedback>{formik.errors.amount}</FormFeedback>
-            {numericAmount > 0 && !formik.errors.amount && (
-              <FormText style={{ fontSize: 11 }}>
-                Balance after: <strong>{formatCurrency(Math.max(balanceAfter, 0))}</strong>
-              </FormText>
-            )}
-          </FormGroup>
+          <Row className="g-2">
+            <Col xs={12} md={6}>
+              <FormGroup>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount *</Label>
+                <Input
+                  type="number"
+                  name="amount"
+                  min={0.01}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={formik.values.amount}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalid={!!(formik.touched.amount && formik.errors.amount)}
+                />
+                <FormFeedback>{formik.errors.amount}</FormFeedback>
 
-          <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
-            <Input
-              type="date"
-              name="date"
-              value={formik.values.date}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              invalid={!!(formik.touched.date && formik.errors.date)}
-            />
-            <FormFeedback>{formik.errors.date}</FormFeedback>
-          </FormGroup>
+                {numericAmount > 0 && !formik.errors.amount && (
+                  <FormText style={{ fontSize: 11 }}>
+                    Balance after: <strong>{formatCurrency(Math.max(balanceAfter, 0))}</strong>
+                  </FormText>
+                )}
+              </FormGroup>
+            </Col>
+
+            <Col xs={12} md={6}>
+              <FormGroup>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                <Input
+                  type="date"
+                  name="date"
+                  value={formik.values.date}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalid={!!(formik.touched.date && formik.errors.date)}
+                />
+                <FormFeedback>{formik.errors.date}</FormFeedback>
+              </FormGroup>
+            </Col>
+          </Row>
 
           <FormGroup className="mb-0">
             <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
@@ -135,10 +143,12 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
           </FormGroup>
         </ModalBody>
+
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
             Cancel
           </Button>
+
           <Button type="submit" color="danger" disabled={formik.isSubmitting || !formik.dirty}>
             {formik.isSubmitting ? "Saving..." : "Confirm withdrawal"}
           </Button>

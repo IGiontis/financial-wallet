@@ -19,6 +19,9 @@ import {
   DropdownToggle,
   DropdownMenu,
   DropdownItem,
+  Nav,
+  NavItem,
+  NavLink,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
 import type {
@@ -75,10 +78,16 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
     <Row className="g-3 mb-4">
       {cards.map((c) => (
         <Col xs={6} md={3} key={c.label}>
-          <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
-            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>{c.label}</p>
-            <p style={{ fontSize: 20, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{c.value}</p>
-          </div>
+          <Card className="text-center">
+            <CardBody>
+              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
+                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>
+                  {c.label}
+                </p>
+                <p style={{ fontSize: 20, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{c.value}</p>
+              </div>
+            </CardBody>
+          </Card>
         </Col>
       ))}
     </Row>
@@ -109,7 +118,7 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
     <Card className="mb-3 h-100" style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none" }}>
       <CardBody>
         {/* Header */}
-        <div className="d-flex justify-content-between align-items-start mb-3">
+        <div className="d-flex justify-content-between gap-3 align-items-start mb-3">
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
@@ -409,6 +418,7 @@ export default function InvestmentsPage() {
           <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your savings goals and contributions</p>
         </div>
+
         <Button color="primary" onClick={() => setShowNewGoal(true)}>
           + New goal
         </Button>
@@ -419,66 +429,81 @@ export default function InvestmentsPage() {
           <Spinner color="primary" />
         </div>
       )}
+
       {isError && <Alert color="danger">Failed to load investment goals. Please refresh the page.</Alert>}
 
       {!isLoading && !isError && (
         <>
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
-          {/* Filter tabs — scrollable on mobile */}
+          {/* Tabs */}
           <div
             style={{
               overflowX: "auto",
               marginBottom: "1.5rem",
-              // Hide scrollbar on the tabs container
               msOverflowStyle: "none",
               scrollbarWidth: "none",
             }}
           >
-            {" "}
-            <div style={{ display: "flex", gap: 4, minWidth: "max-content", borderBottom: "0.5px solid var(--color-border-tertiary)", paddingBottom: 0 }}>
-              {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setFilter(tab)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "8px 16px",
-                    fontSize: 14,
-                    fontWeight: filter === tab ? 600 : 400,
-                    color: filter === tab ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                    borderBottom: filter === tab ? "2px solid var(--bs-primary)" : "2px solid transparent",
-                    marginBottom: -1,
-                    whiteSpace: "nowrap",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {TAB_LABELS[tab]}
-                  <span
-                    style={{
-                      marginLeft: 6,
-                      fontSize: 11,
-                      fontWeight: 400,
-                      background: "var(--color-background-secondary)",
-                      borderRadius: 10,
-                      padding: "1px 7px",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    {tabCount(tab)}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <Nav
+              tabs
+              style={{
+                flexWrap: "nowrap",
+                minWidth: "max-content",
+                borderBottom: "1px solid var(--color-border-tertiary)",
+              }}
+            >
+              {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => {
+                const isActive = filter === tab;
+
+                return (
+                  <NavItem key={tab}>
+                    <NavLink
+                      onClick={() => setFilter(tab)}
+                      className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
+                      style={{
+                        cursor: "pointer",
+                        border: "none",
+                        borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
+                        color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                        fontWeight: isActive ? 600 : 400,
+                        padding: "10px 16px",
+                        background: "transparent",
+                      }}
+                    >
+                      {TAB_LABELS[tab]}
+
+                      <Badge
+                        pill
+                        style={{
+                          color: "#e0f0ff",
+                          backgroundColor: "#0d6efd", // light blue
+                          fontWeight: 500,
+                          fontSize: 11,
+                          padding: "4px 8px",
+                        }}
+                      >
+                        {tabCount(tab)}
+                      </Badge>
+                    </NavLink>
+                  </NavItem>
+                );
+              })}
+            </Nav>
           </div>
 
           {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "4rem 0",
+                color: "var(--color-text-secondary)",
+              }}
+            >
               <p style={{ fontSize: 40 }}>💰</p>
               <p style={{ fontWeight: 500 }}>No goals here yet</p>
               <p style={{ fontSize: 14 }}>Create your first investment goal to start tracking.</p>
+
               <Button color="primary" onClick={() => setShowNewGoal(true)}>
                 + New goal
               </Button>
@@ -505,10 +530,15 @@ export default function InvestmentsPage() {
       )}
 
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
+
       {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
+
       {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
+
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
+
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
+
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} />
     </Container>
   );
