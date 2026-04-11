@@ -41,19 +41,31 @@ const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function getAmountColor(tx: Transaction): string {
   if (tx.isInvestmentTransaction) {
-    return tx.contributionType === "withdrawal" ? "#3e3a3a" : "#2563EB";
+    return tx.contributionType === "withdrawal" ? "#75678e" : "#1D4ED8";
   }
   return tx.type === "income" ? "#10B981" : "#EF4444";
 }
 
 function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  const isWithdrawal = contributionType === "withdrawal";
   return {
     fontSize: 10,
-    background: isWithdrawal ? "#3e3a3a" : "#2563EB",
+    background: contributionType === "withdrawal" ? "#75678e" : "#1D4ED8",
     color: "#ffffff",
     border: "none",
   };
+}
+
+// ============================================================
+// CATEGORY HELPERS
+// ============================================================
+
+// Investment transactions always display the "Investments" category
+// regardless of what categoryId is stored on the document.
+function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
+  if (tx.isInvestmentTransaction) {
+    return categories.find((c) => c.name === "Investments");
+  }
+  return categories.find((c) => c.id === tx.categoryId);
 }
 
 // ============================================================
@@ -110,23 +122,14 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
     <div style={{ flex: 1, border: "1px solid rgba(0,0,0,0.13)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "#fafafa", minWidth: 0 }}>
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
-
       <input
         type="date"
         value={toInputValue(date)}
         min={min}
         max={max}
         onChange={(e) => onChange(fromInputValue(e.target.value))}
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          width: "100%",
-          height: "100%",
-          cursor: "pointer",
-        }}
+        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
       />
-
       {date && (
         <button
           onPointerDown={(e) => {
@@ -167,7 +170,7 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
         <p style={{ fontSize: 13, color: "#bbb", margin: 0 }}>No transactions on this day.</p>
       ) : (
         transactions.map((tx) => {
-          const cat = categories.find((c) => c.id === tx.categoryId);
+          const cat = resolveCategory(tx, categories);
           return (
             <div
               key={tx.id}
@@ -493,20 +496,12 @@ function TransactionCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const cat = categories.find((c) => c.id === tx.categoryId);
+  const cat = resolveCategory(tx, categories);
   const isInc = tx.type === "income";
   const dateStr = formatTable(firestoreToDate(tx.date));
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 16px",
-        borderBottom: "0.5px solid var(--color-border-tertiary)",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       <div
         style={{
           width: 38,
@@ -522,21 +517,18 @@ function TransactionCard({
       >
         {cat?.icon ?? "💳"}
       </div>
-
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
           {cat?.name ?? "—"} · {dateStr}
         </p>
       </div>
-
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: getAmountColor(tx) }}>
           {isInc ? "+" : "−"}
           {formatCurrency(tx.amount)}
         </p>
       </div>
-
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
         <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
           <FiEdit2 size={13} />
@@ -636,9 +628,6 @@ export function TransactionsPage() {
       .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
   }, [transactions, searchQuery, selectedCategory, fromDate, toDate]);
 
-  const getCategoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? "—";
-  const getCategoryIcon = (id: string) => categories.find((c) => c.id === id)?.icon ?? "";
-
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
 
@@ -731,53 +720,55 @@ export function TransactionsPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredTransactions.map((tx) => (
-                          <tr key={tx.id}>
-                            <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
-                              {formatTable(firestoreToDate(tx.date))}
-                            </td>
-                            <td style={{ fontWeight: 500 }}>{tx.description}</td>
-                            <td>
-                              <Badge color="light" className="text-dark">
-                                {getCategoryIcon(tx.categoryId)} {getCategoryName(tx.categoryId)}
-                              </Badge>
-                            </td>
-                            <td className="text-end">
-                              {/* Amount: blue for deposit, dark red for withdrawal, green/red for normal */}
-                              <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
-                                {tx.type === "expense" && "−"}
-                                {formatCurrency(tx.amount)}
-                              </span>
-                            </td>
-                            <td className="text-end pe-3">
-                              <div className="d-flex justify-content-end gap-2 align-items-center">
-                                {tx.isInvestmentTransaction && (
-                                  /* Badge: blue for deposit, dark red for withdrawal — inline style overrides Bootstrap */
-                                  <span
-                                    style={{
-                                      ...getInvestmentBadgeStyle(tx.contributionType),
-                                      display: "inline-block",
-                                      padding: "2px 8px",
-                                      borderRadius: 4,
-                                      fontWeight: 600,
-                                      fontSize: 10,
-                                    }}
-                                  >
-                                    {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
-                                  </span>
-                                )}
-                                {!tx.isInvestmentTransaction && (
-                                  <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
-                                    <FiEdit2 size={13} />
+                        filteredTransactions.map((tx) => {
+                          const cat = resolveCategory(tx, categories);
+                          return (
+                            <tr key={tx.id}>
+                              <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
+                                {formatTable(firestoreToDate(tx.date))}
+                              </td>
+                              <td style={{ fontWeight: 500 }}>{tx.description}</td>
+                              <td>
+                                {/* Always shows "Investments" category for investment transactions */}
+                                <Badge color="light" className="text-dark">
+                                  {cat?.icon} {cat?.name ?? "—"}
+                                </Badge>
+                              </td>
+                              <td className="text-end">
+                                <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
+                                  {tx.type === "expense" && "−"}
+                                  {formatCurrency(tx.amount)}
+                                </span>
+                              </td>
+                              <td className="text-end pe-3">
+                                <div className="d-flex justify-content-end gap-2 align-items-center">
+                                  {tx.isInvestmentTransaction && (
+                                    <span
+                                      style={{
+                                        ...getInvestmentBadgeStyle(tx.contributionType),
+                                        display: "inline-block",
+                                        padding: "2px 8px",
+                                        borderRadius: 4,
+                                        fontWeight: 600,
+                                        fontSize: 10,
+                                      }}
+                                    >
+                                      {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+                                    </span>
+                                  )}
+                                  {!tx.isInvestmentTransaction && (
+                                    <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                      <FiEdit2 size={13} />
+                                    </Button>
+                                  )}
+                                  <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
+                                    <FiTrash2 size={13} />
                                   </Button>
-                                )}
-                                <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
-                                  <FiTrash2 size={13} />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </Table>
@@ -795,7 +786,6 @@ export function TransactionsPage() {
             Failed to load transactions. Please refresh.
           </Alert>
         )}
-
         {isLoading ? (
           <div className="text-center py-5">
             <Spinner color="primary" />
@@ -812,7 +802,6 @@ export function TransactionsPage() {
             formatCurrency={formatCurrency}
           />
         )}
-
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
           <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
@@ -827,7 +816,6 @@ export function TransactionsPage() {
             +
           </Button>
         </div>
-
         <Card className="border-0 shadow-sm mt-2">
           <CardBody className="p-0">
             {isLoading ? (

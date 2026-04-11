@@ -26,6 +26,11 @@ const DEFAULT_CATEGORIES = [
   { name: "Rental Income", type: "income", icon: "🏘️", color: "#14B8A6", isDefault: true, userId: null },
   { name: "Gift", type: "income", icon: "🎁", color: "#EC4899", isDefault: true, userId: null },
   { name: "Other Income", type: "income", icon: "💵", color: "#94A3B8", isDefault: true, userId: null },
+
+  // ── Investment category ─────────────────────────────────────────────────────
+  // Used automatically for all investment deposits and withdrawals.
+  // The contributionType field distinguishes deposits (blue) from withdrawals (dark red).
+  { name: "Investments", type: "investment", icon: "📊", color: "#818CF8", isDefault: true, userId: null },
 ];
 
 export const seedDefaultCategories = async (): Promise<void> => {

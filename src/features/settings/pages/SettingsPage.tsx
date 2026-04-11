@@ -416,8 +416,8 @@ export function SettingsPage() {
             </Col>
             <Col xs={12} md={6}>
               <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Language</Label>
-                <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Language <small className="text-muted">(Coming Soon)</small></Label>
+                <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange} disabled>
                   {LOCALES.map((l) => (
                     <option key={l.value} value={l.value}>
                       {l.label}

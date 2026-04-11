@@ -127,7 +127,6 @@ export function useAddContribution() {
       // 2. Also create a read-only transaction record so it shows
       //    in the Transactions page. Type = "investment", not editable.
       // const isDeposit = data.contributionType === "deposit";
-      console.log(data)
       await createTransaction(userId, {
         amount: data.amount,
         type: "investment",
