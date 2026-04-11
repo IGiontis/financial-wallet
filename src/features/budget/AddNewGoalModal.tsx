@@ -5,13 +5,14 @@ import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Badge } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { addMonths, format } from "date-fns";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PRESET_ICONS = ["💰", "🚗", "🏠", "✈️", "🎓", "💻", "🛡️", "🏖️", "🏋️", "💍", "🎸", "📱", "🌍", "🚀", "🐾", "🎉"];
 const PRESET_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
 
-// ─── Internal form values ─────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GoalFormValues {
   name: string;
@@ -27,10 +28,6 @@ interface GoalFormValues {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
-
-
-// Default deadline = 1 month from today
 const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -44,20 +41,20 @@ const validationSchema = Yup.object({
     .typeError("Target amount must be a number")
     .when("goalType", {
       is: "targeted",
-      then: (schema) => schema.required("Target amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
-      otherwise: (schema) => schema.optional().nullable(),
+      then: (s) => s.required("Target amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
+      otherwise: (s) => s.optional().nullable(),
     }),
   targetPeriod: Yup.mixed<TargetPeriod>()
     .oneOf(["monthly", "yearly", "custom"])
     .when("goalType", {
       is: "targeted",
-      then: (schema) => schema.required("Select a period"),
-      otherwise: (schema) => schema.optional().nullable(),
+      then: (s) => s.required("Select a period"),
+      otherwise: (s) => s.optional().nullable(),
     }),
   deadline: Yup.string().when("targetPeriod", {
     is: "custom",
-    then: (schema) => schema.required("Deadline is required for a custom period"),
-    otherwise: (schema) => schema.optional(),
+    then: (s) => s.required("Deadline is required for a custom period"),
+    otherwise: (s) => s.optional(),
   }),
   notes: Yup.string().max(300, "Max 300 characters"),
   isActive: Yup.boolean(),
@@ -87,7 +84,19 @@ const initialValues: GoalFormValues = {
 
 // ─── Review screen ────────────────────────────────────────────────────────────
 
-function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: GoalFormValues; onBack: () => void; onConfirm: () => void; isSubmitting: boolean }) {
+function ReviewScreen({
+  values,
+  onBack,
+  onConfirm,
+  isSubmitting,
+  formatCurrency,
+}: {
+  values: GoalFormValues;
+  onBack: () => void;
+  onConfirm: () => void;
+  isSubmitting: boolean;
+  formatCurrency: (n: number) => string;
+}) {
   const isTargeted = values.goalType === "targeted";
 
   const rows = [
@@ -103,50 +112,22 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
     <>
       <ModalBody>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your goal before creating it.</p>
-
-        {/* Goal preview card */}
-        <div
-          style={{
-            border: `2px solid ${values.color || "#3B82F6"}`,
-            borderRadius: "var(--border-radius-lg)",
-            padding: "1rem",
-            marginBottom: "1rem",
-          }}
-        >
+        <div style={{ border: `2px solid ${values.color || "#3B82F6"}`, borderRadius: "var(--border-radius-lg)", padding: "1rem", marginBottom: "1rem" }}>
           <div className="d-flex align-items-center gap-3 mb-3">
             <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended goal"}</p>
             </div>
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                background: values.color || "#3B82F6",
-                marginLeft: "auto",
-                flexShrink: 0,
-              }}
-            />
+            <div style={{ width: 16, height: 16, borderRadius: "50%", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
           </div>
-
           {rows.map((r) => (
-            <div
-              key={r.label}
-              className="d-flex justify-content-between"
-              style={{
-                padding: "6px 0",
-                borderTop: "0.5px solid var(--color-border-tertiary)",
-                fontSize: 13,
-              }}
-            >
+            <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
               <span style={{ color: "var(--color-text-secondary)" }}>{r.label}</span>
               <span style={{ fontWeight: 500, textTransform: "capitalize" }}>{r.value}</span>
             </div>
           ))}
         </div>
-
         {!values.isActive && (
           <div
             style={{
@@ -161,7 +142,6 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
           </div>
         )}
       </ModalBody>
-
       <ModalFooter>
         <Button type="button" color="secondary" outline onClick={onBack} disabled={isSubmitting}>
           Back
@@ -178,6 +158,7 @@ function ReviewScreen({ values, onBack, onConfirm, isSubmitting }: { values: Goa
 
 export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoalModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
+  const { format: formatCurrency } = useCurrencyConverter();
 
   const formik = useFormik<GoalFormValues>({
     enableReinitialize: true,
@@ -215,31 +196,30 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
-    if (Object.keys(errors).length === 0) {
-      setStep("review");
-    } else {
-      // Touch all fields to show validation errors
-      formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-    }
+    if (Object.keys(errors).length === 0) setStep("review");
+    else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
   };
 
   const isTargeted = formik.values.goalType === "targeted";
   const isCustomPeriod = formik.values.targetPeriod === "custom";
-
-  const handleIconSelect = (icon: string) => formik.setFieldValue("icon", formik.values.icon === icon ? "" : icon);
-  const handleColorSelect = (color: string) => formik.setFieldValue("color", color);
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="lg" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? "New investment goal" : "Review your goal"}</ModalHeader>
 
       {step === "review" ? (
-        <ReviewScreen values={formik.values} onBack={() => setStep("form")} onConfirm={() => formik.submitForm()} isSubmitting={formik.isSubmitting} />
+        <ReviewScreen
+          values={formik.values}
+          onBack={() => setStep("form")}
+          onConfirm={() => formik.submitForm()}
+          isSubmitting={formik.isSubmitting}
+          formatCurrency={formatCurrency}
+        />
       ) : (
         <>
           <ModalBody>
             <form id="new-goal-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Goal name ────────────────────────────────────────────── */}
+              {/* ── Goal name ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal name *</Label>
                 <Input
@@ -254,7 +234,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 <FormFeedback>{formik.errors.name}</FormFeedback>
               </FormGroup>
 
-              {/* ── Goal type ────────────────────────────────────────────── */}
+              {/* ── Goal type ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal type *</Label>
                 <Row className="g-2">
@@ -289,13 +269,13 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 </Row>
               </FormGroup>
 
-              {/* ── Targeted-only fields ─────────────────────────────────── */}
+              {/* ── Targeted-only fields ── */}
               {isTargeted && (
                 <>
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount*</Label>
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
                         <Input
                           type="number"
                           name="targetAmount"
@@ -349,7 +329,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
 
               <hr style={{ borderColor: "var(--color-border-tertiary)" }} />
 
-              {/* ── Icon picker ──────────────────────────────────────────── */}
+              {/* ── Icon picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
                   Icon <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
@@ -359,7 +339,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                     <button
                       key={icon}
                       type="button"
-                      onClick={() => handleIconSelect(icon)}
+                      onClick={() => formik.setFieldValue("icon", formik.values.icon === icon ? "" : icon)}
                       style={{
                         fontSize: 20,
                         border: `2px solid ${formik.values.icon === icon ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
@@ -388,7 +368,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 <FormFeedback>{formik.errors.icon}</FormFeedback>
               </FormGroup>
 
-              {/* ── Color picker ─────────────────────────────────────────── */}
+              {/* ── Color picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
                   Color <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
@@ -398,7 +378,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                     <button
                       key={color}
                       type="button"
-                      onClick={() => handleColorSelect(color)}
+                      onClick={() => formik.setFieldValue("color", color)}
                       style={{
                         width: 28,
                         height: 28,
@@ -417,7 +397,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 </div>
               </FormGroup>
 
-              {/* ── Notes ────────────────────────────────────────────────── */}
+              {/* ── Notes ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input
@@ -434,7 +414,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
 
-              {/* ── Active toggle ─────────────────────────────────────────── */}
+              {/* ── Active toggle ── */}
               <FormGroup check>
                 <Input type="checkbox" name="isActive" id="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
                 <Label check for="isActive" style={{ fontSize: 13 }}>
@@ -442,7 +422,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 </Label>
               </FormGroup>
 
-              {/* ── Live preview ──────────────────────────────────────────── */}
+              {/* ── Live preview ── */}
               {formik.values.name && (
                 <div
                   style={{
@@ -460,7 +440,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14 }}>{formik.values.name}</p>
                     <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
                       {isTargeted ? "Targeted goal" : "Open-ended"}
-                      {formik.values.targetAmount ? ` · $${Number(formik.values.targetAmount).toLocaleString()} target` : ""}
+                      {formik.values.targetAmount ? ` · ${formatCurrency(Number(formik.values.targetAmount))} target` : ""}
                     </p>
                   </div>
                   <div style={{ width: 14, height: 14, borderRadius: "50%", background: formik.values.color ?? "#ccc", flexShrink: 0 }} />
@@ -473,7 +453,6 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
               )}
             </form>
           </ModalBody>
-
           <ModalFooter>
             <Button type="button" color="secondary" outline onClick={handleClose}>
               Cancel
