@@ -44,7 +44,7 @@ export function useInvestmentGoals() {
 
       // Auto-mark completed goals in Firestore
       const completionUpdates = withStats
-        .filter((g) => g.status === "completed" && !g.isCompleted)
+        .filter((g) => g.status === "completed" && !g.isCompleted && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly")
         .map((g) => updateInvestmentGoal(g.id, { isCompleted: true, completedAt: new Date() }));
 
       if (completionUpdates.length > 0) await Promise.all(completionUpdates);

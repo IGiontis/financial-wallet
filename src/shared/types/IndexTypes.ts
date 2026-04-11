@@ -302,6 +302,7 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   lastContributionDate?: Date;
   contributionCount: number;
   withdrawalCount: number;
+  currentPeriodSaved?: number;
 }
 
 // ============================================================================
