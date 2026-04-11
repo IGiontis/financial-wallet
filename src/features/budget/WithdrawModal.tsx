@@ -86,7 +86,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           </Alert>
 
           <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount (USD) *</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount *</Label>
             <Input
               type="number"
               name="amount"

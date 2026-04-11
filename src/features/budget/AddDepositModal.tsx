@@ -68,7 +68,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
           <FormGroup>
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount (USD) *</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount *</Label>
             <Input
               type="number"
               name="amount"

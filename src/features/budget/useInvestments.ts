@@ -37,6 +37,7 @@ export function useInvestmentGoals() {
   return useQuery<InvestmentGoalWithStats[]>({
     queryKey: investmentKeys.all(userId),
     enabled: !!userId,
+    staleTime: 0,
     queryFn: async () => {
       const goals = await getInvestmentGoals(userId);
       const contributionArrays = await Promise.all(goals.map((g) => getContributions(g.id)));
