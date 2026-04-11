@@ -3,13 +3,13 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import type { CreateTransactionDTO, TransactionType, Category } from "../../../shared/types/IndexTypes";
+import type { CreateTransactionDTO, Category } from "../../../shared/types/IndexTypes";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 
 interface TransactionFormValues {
   amount: number | "";
-  type: TransactionType;
+  type: "income" | "expense";
   categoryId: string;
   date: string;
   description: string;
@@ -20,7 +20,7 @@ const today = new Date().toISOString().split("T")[0];
 
 const validationSchema = Yup.object({
   amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
-  type: Yup.mixed<TransactionType>().oneOf(["income", "expense"]).required("Type is required"),
+  type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required("Type is required"),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
   description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
@@ -33,8 +33,6 @@ interface AddTransactionModalProps {
   categories: Category[];
   onSubmit: (data: CreateTransactionDTO) => Promise<void>;
 }
-
-// ─── Review screen ────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   values,
@@ -97,8 +95,6 @@ function ReviewScreen({
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
@@ -140,6 +136,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
   };
 
+  // Only show income/expense categories — never investment
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
@@ -161,13 +158,14 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         <>
           <ModalBody>
             <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle — full width ── */}
+              {/* ── Type toggle — income / expense only ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
-                  {(["expense", "income"] as TransactionType[]).map((t) => {
+                  {(["expense", "income"] as ("income" | "expense")[]).map((t) => {
                     const isSelected = formik.values.type === t;
                     const color = t === "income" ? "#10B981" : "#EF4444";
+                    const bg = t === "income" ? "#f0fdf4" : "#fff5f5";
                     return (
                       <Col xs={6} key={t}>
                         <div
@@ -188,7 +186,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                             borderRadius: "var(--border-radius-md)",
                             padding: "10px 12px",
                             cursor: "pointer",
-                            background: isSelected ? (t === "income" ? "#f0fdf4" : "#fff5f5") : "var(--color-background-secondary)",
+                            background: isSelected ? bg : "var(--color-background-secondary)",
                             textAlign: "center",
                             transition: "all 0.15s ease",
                           }}
@@ -244,7 +242,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                     <Input
                       type="text"
                       name="description"
-                      placeholder='e.g. "Amazon", "Salary"'
+                      placeholder='e.g. "Amazon"'
                       value={formik.values.description}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -276,7 +274,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Col>
               </Row>
 
-              {/* ── Notes — full width ── */}
+              {/* ── Notes ── */}
               <FormGroup className="mb-0 mt-3">
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input

@@ -3,13 +3,13 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import type { Transaction, UpdateTransactionDTO, TransactionType, Category } from "../../../shared/types/IndexTypes";
+import type { Transaction, UpdateTransactionDTO, Category } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { format } from "date-fns";
 
 interface EditTransactionFormValues {
   amount: number | "";
-  type: TransactionType;
+  type: "income" | "expense";
   categoryId: string;
   date: string;
   description: string;
@@ -24,7 +24,7 @@ const toDateInputValue = (value: any): string => {
 
 const validationSchema = Yup.object({
   amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
-  type: Yup.mixed<TransactionType>().oneOf(["income", "expense"]).required("Type is required"),
+  type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required("Type is required"),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
   description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
@@ -38,8 +38,6 @@ interface EditTransactionModalProps {
   categories: Category[];
   onSubmit: (transactionId: string, data: UpdateTransactionDTO) => Promise<void>;
 }
-
-// ─── Review screen ────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   values,
@@ -102,19 +100,20 @@ function ReviewScreen({
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const displayAmount = baseCurrency === displayCurrency ? transaction.amount : Math.round(convert(transaction.amount) * 100) / 100;
 
+  // Only income/expense transactions can be edited — investment type is read-only
+  const editableType = (transaction.type === "investment" ? "expense" : transaction.type) as "income" | "expense";
+
   const formik = useFormik<EditTransactionFormValues>({
     enableReinitialize: true,
     initialValues: {
       amount: displayAmount,
-      type: transaction.type,
+      type: editableType,
       categoryId: transaction.categoryId,
       date: toDateInputValue(transaction.date),
       description: transaction.description,
@@ -155,6 +154,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
   };
 
+  // Only income/expense categories — never investment
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
@@ -176,13 +176,14 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         <>
           <ModalBody>
             <form id="edit-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle — full width ── */}
+              {/* ── Type toggle ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
-                  {(["expense", "income"] as TransactionType[]).map((t) => {
+                  {(["expense", "income"] as ("income" | "expense")[]).map((t) => {
                     const isSelected = formik.values.type === t;
                     const color = t === "income" ? "#10B981" : "#EF4444";
+                    const bg = t === "income" ? "#f0fdf4" : "#fff5f5";
                     return (
                       <Col xs={6} key={t}>
                         <div
@@ -203,7 +204,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                             borderRadius: "var(--border-radius-md)",
                             padding: "10px 12px",
                             cursor: "pointer",
-                            background: isSelected ? (t === "income" ? "#f0fdf4" : "#fff5f5") : "var(--color-background-secondary)",
+                            background: isSelected ? bg : "var(--color-background-secondary)",
                             textAlign: "center",
                             transition: "all 0.15s ease",
                           }}
@@ -259,7 +260,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     <Input
                       type="text"
                       name="description"
-                      placeholder='e.g. "Amazon", "Salary"'
+                      placeholder='e.g. "Amazon"'
                       value={formik.values.description}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -291,7 +292,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </Col>
               </Row>
 
-              {/* ── Notes — full width ── */}
+              {/* ── Notes ── */}
               <FormGroup className="mb-0 mt-3">
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input

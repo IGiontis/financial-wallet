@@ -353,12 +353,12 @@ export default function InvestmentsPage() {
 
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
     new Promise((resolve, reject) => {
-      addContribution.mutate(data, { onSuccess: () => resolve(), onError: (err) => reject(err) });
+      addContribution.mutate({ data, goalName: depositGoal?.name ?? "" }, { onSuccess: () => resolve(), onError: (err) => reject(err) });
     });
 
   const handleWithdraw = (data: CreateInvestmentContributionDTO): Promise<void> =>
     new Promise((resolve, reject) => {
-      addContribution.mutate(data, { onSuccess: () => resolve(), onError: (err) => reject(err) });
+      addContribution.mutate({ data, goalName: withdrawGoal?.name ?? "" }, { onSuccess: () => resolve(), onError: (err) => reject(err) });
     });
 
   const handleCreateGoal = (data: CreateInvestmentGoalDTO, isActive: boolean): Promise<void> =>

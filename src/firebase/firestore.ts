@@ -126,6 +126,9 @@ export const createCategory = async (userId: string, data: CreateCategoryDTO) =>
   }
 };
 
+// This fixes the duplicate categories issue by deduplicating by name+type
+// instead of just id (which fails when seed runs twice creating same name but different id)
+
 export const getCategories = async (userId: string) => {
   try {
     const [userSnap, defaultSnap] = await Promise.all([
@@ -136,9 +139,11 @@ export const getCategories = async (userId: string) => {
     const userCats = userSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
     const defaultCats = defaultSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
 
-    // Merge and deduplicate by id
+    // Merge — user categories take priority over defaults with the same name+type
     const all = [...defaultCats, ...userCats];
-    return Array.from(new Map(all.map((c) => [c.id, c])).values());
+
+    // Deduplicate by name+type (prevents duplicates if seed ran multiple times)
+    return Array.from(new Map(all.map((c) => [`${c.type}-${c.name}`, c])).values());
   } catch (err) {
     throw err;
   }

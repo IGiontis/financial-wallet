@@ -8,6 +8,7 @@ import {
   getContributions,
   createContribution,
   deleteContribution,
+  createTransaction,
 } from "../../firebase/firestore";
 import { computeGoalStats } from "./investmentsUtils";
 import type {
@@ -17,9 +18,9 @@ import type {
   InvestmentGoalWithStats,
   InvestmentContribution,
 } from "../../shared/types/IndexTypes";
+import { transactionKeys } from "../transactions/hooks/useTransactions";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
-// Centralised so invalidation is consistent everywhere
 
 export const investmentKeys = {
   all: (userId: string) => ["investments", userId] as const,
@@ -27,8 +28,6 @@ export const investmentKeys = {
 };
 
 // ─── useInvestmentGoals ───────────────────────────────────────────────────────
-// Fetches all goals for the current user and computes stats for each one.
-// Contributions for each goal are fetched in parallel.
 
 export function useInvestmentGoals() {
   const { currentUser } = useAuth();
@@ -46,16 +45,9 @@ export function useInvestmentGoals() {
       // Auto-mark completed goals in Firestore
       const completionUpdates = withStats
         .filter((g) => g.status === "completed" && !g.isCompleted)
-        .map((g) =>
-          updateInvestmentGoal(g.id, {
-            isCompleted: true,
-            completedAt: new Date(),
-          }),
-        );
+        .map((g) => updateInvestmentGoal(g.id, { isCompleted: true, completedAt: new Date() }));
 
-      if (completionUpdates.length > 0) {
-        await Promise.all(completionUpdates);
-      }
+      if (completionUpdates.length > 0) await Promise.all(completionUpdates);
 
       return withStats.map((g) => (g.status === "completed" ? { ...g, isCompleted: true } : g));
     },
@@ -63,16 +55,16 @@ export function useInvestmentGoals() {
 }
 
 // ─── useContributions ─────────────────────────────────────────────────────────
-// Fetches contributions for a single goal — used by HistoryModal.
 
 export function useContributions(goalId: string | null) {
   return useQuery<InvestmentContribution[]>({
     queryKey: investmentKeys.contributions(goalId ?? ""),
     enabled: !!goalId,
-    staleTime: 0, // always fetch fresh when modal opens
+    staleTime: 0,
     queryFn: () => getContributions(goalId!),
   });
 }
+
 // ─── useCreateGoal ────────────────────────────────────────────────────────────
 
 export function useCreateGoal() {
@@ -82,7 +74,6 @@ export function useCreateGoal() {
 
   return useMutation({
     mutationFn: ({ data, isActive }: { data: CreateInvestmentGoalDTO; isActive: boolean }) => createInvestmentGoal(userId, data, isActive),
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
@@ -103,6 +94,7 @@ export function useUpdateGoal() {
     },
   });
 }
+
 // ─── useDeleteGoal ────────────────────────────────────────────────────────────
 
 export function useDeleteGoal() {
@@ -112,7 +104,6 @@ export function useDeleteGoal() {
 
   return useMutation({
     mutationFn: (goalId: string) => deleteInvestmentGoal(goalId),
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
@@ -120,7 +111,8 @@ export function useDeleteGoal() {
 }
 
 // ─── useAddContribution ───────────────────────────────────────────────────────
-// Used by both AddDepositModal and WithdrawModal.
+// When a deposit or withdrawal is made, we also create a Transaction record
+// so it appears in the Transactions page as a read-only entry.
 
 export function useAddContribution() {
   const { currentUser } = useAuth();
@@ -128,14 +120,32 @@ export function useAddContribution() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (data: CreateInvestmentContributionDTO) => createContribution(userId, data),
+    mutationFn: async ({ data, goalName }: { data: CreateInvestmentContributionDTO; goalName: string }) => {
+      // 1. Create the investment contribution as before
+      await createContribution(userId, data);
 
-    onSuccess: (_result, variables) => {
-      // Invalidate both the goal list (stats change) and the contribution list
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      queryClient.invalidateQueries({
-        queryKey: investmentKeys.contributions(variables.goalId),
+      // 2. Also create a read-only transaction record so it shows
+      //    in the Transactions page. Type = "investment", not editable.
+      // const isDeposit = data.contributionType === "deposit";
+      console.log(data)
+      await createTransaction(userId, {
+        amount: data.amount,
+        type: "investment",
+        categoryId: "", // no category for investment transactions
+        date: data.date,
+        description: goalName,
+        notes: data.notes,
+        isInvestmentTransaction: true,
+        goalId: data.goalId,
+        goalName,
+        contributionType: data.contributionType,
       });
+    },
+    onSuccess: (_result, variables) => {
+      // Refresh both investment goals and transactions
+      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) });
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
@@ -149,12 +159,9 @@ export function useDeleteContribution(goalId: string) {
 
   return useMutation({
     mutationFn: (contributionId: string) => deleteContribution(contributionId),
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      queryClient.invalidateQueries({
-        queryKey: investmentKeys.contributions(goalId),
-      });
+      queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(goalId) });
     },
   });
 }

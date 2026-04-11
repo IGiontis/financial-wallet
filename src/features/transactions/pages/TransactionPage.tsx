@@ -36,6 +36,27 @@ const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 // ============================================================
+// COLOR HELPERS
+// ============================================================
+
+function getAmountColor(tx: Transaction): string {
+  if (tx.isInvestmentTransaction) {
+    return tx.contributionType === "withdrawal" ? "#3e3a3a" : "#2563EB";
+  }
+  return tx.type === "income" ? "#10B981" : "#EF4444";
+}
+
+function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
+  const isWithdrawal = contributionType === "withdrawal";
+  return {
+    fontSize: 10,
+    background: isWithdrawal ? "#3e3a3a" : "#2563EB",
+    color: "#ffffff",
+    border: "none",
+  };
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -90,7 +111,6 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
 
-      {/* Input covers the entire div — works on iOS Safari */}
       <input
         type="date"
         value={toInputValue(date)}
@@ -107,7 +127,6 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
         }}
       />
 
-      {/* Clear button — shown on top of the input */}
       {date && (
         <button
           onPointerDown={(e) => {
@@ -129,12 +148,13 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
             zIndex: 1,
           }}
         >
-          ×
+          x
         </button>
       )}
     </div>
   );
 }
+
 // ============================================================
 // DAY PANEL
 // ============================================================
@@ -157,7 +177,7 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
                 <span style={{ marginRight: 4 }}>{cat?.icon}</span>
                 {tx.description}
               </span>
-              <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
+              <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
                 {tx.type === "expense" ? "-" : "+"}
                 {formatCurrency(tx.amount)}
               </span>
@@ -263,7 +283,7 @@ function TransactionCalendar({
         <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <button style={navBtn} onClick={prevMonth}>
-            ‹
+            &lsaquo;
           </button>
           <button
             onClick={() => setCalView(calView === "days" ? "years" : "days")}
@@ -281,10 +301,10 @@ function TransactionCalendar({
             }}
           >
             {MONTH_NAMES[viewMonth]} {viewYear}
-            <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>▾</span>
+            <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>v</span>
           </button>
           <button style={navBtn} onClick={nextMonth}>
-            ›
+            &rsaquo;
           </button>
         </div>
 
@@ -487,7 +507,6 @@ function TransactionCard({
         borderBottom: "0.5px solid var(--color-border-tertiary)",
       }}
     >
-      {/* Category icon circle */}
       <div
         style={{
           width: 38,
@@ -504,7 +523,6 @@ function TransactionCard({
         {cat?.icon ?? "💳"}
       </div>
 
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
@@ -512,15 +530,13 @@ function TransactionCard({
         </p>
       </div>
 
-      {/* Amount */}
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: isInc ? "#10B981" : "#EF4444" }}>
+        <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: getAmountColor(tx) }}>
           {isInc ? "+" : "−"}
           {formatCurrency(tx.amount)}
         </p>
       </div>
 
-      {/* Actions */}
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
         <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
           <FiEdit2 size={13} />
@@ -628,7 +644,7 @@ export function TransactionsPage() {
 
   return (
     <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
-      {/* ── Desktop layout (lg+): side by side ── */}
+      {/* Desktop layout (lg+) */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
           <Col lg={4}>
@@ -727,16 +743,34 @@ export function TransactionsPage() {
                               </Badge>
                             </td>
                             <td className="text-end">
-                              <span style={{ fontWeight: 500, color: tx.type === "income" ? "#10B981" : "#EF4444" }}>
+                              {/* Amount: blue for deposit, dark red for withdrawal, green/red for normal */}
+                              <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
                                 {tx.type === "expense" && "−"}
                                 {formatCurrency(tx.amount)}
                               </span>
                             </td>
                             <td className="text-end pe-3">
-                              <div className="d-flex justify-content-end gap-2">
-                                <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
-                                  <FiEdit2 size={13} />
-                                </Button>
+                              <div className="d-flex justify-content-end gap-2 align-items-center">
+                                {tx.isInvestmentTransaction && (
+                                  /* Badge: blue for deposit, dark red for withdrawal — inline style overrides Bootstrap */
+                                  <span
+                                    style={{
+                                      ...getInvestmentBadgeStyle(tx.contributionType),
+                                      display: "inline-block",
+                                      padding: "2px 8px",
+                                      borderRadius: 4,
+                                      fontWeight: 600,
+                                      fontSize: 10,
+                                    }}
+                                  >
+                                    {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+                                  </span>
+                                )}
+                                {!tx.isInvestmentTransaction && (
+                                  <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                    <FiEdit2 size={13} />
+                                  </Button>
+                                )}
                                 <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
                                   <FiTrash2 size={13} />
                                 </Button>
@@ -754,7 +788,7 @@ export function TransactionsPage() {
         </Row>
       </div>
 
-      {/* ── Mobile layout (<lg): stacked ── */}
+      {/* Mobile layout (<lg) */}
       <div className="d-lg-none">
         {isError && (
           <Alert color="danger" className="mb-3">
@@ -762,7 +796,6 @@ export function TransactionsPage() {
           </Alert>
         )}
 
-        {/* Calendar on top */}
         {isLoading ? (
           <div className="text-center py-5">
             <Spinner color="primary" />
@@ -780,7 +813,6 @@ export function TransactionsPage() {
           />
         )}
 
-        {/* Search + filter + add */}
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
           <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
@@ -796,7 +828,6 @@ export function TransactionsPage() {
           </Button>
         </div>
 
-        {/* Card list */}
         <Card className="border-0 shadow-sm mt-2">
           <CardBody className="p-0">
             {isLoading ? (
