@@ -67,8 +67,13 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
   const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
   const targetedActive = active.filter((g) => g.goalType === "targeted").length;
 
+  const totalMonthly = goals.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
+  const remainingTotal = goals.reduce((sum, g) => sum + (g.remaining ?? 0), 0);
+
   const cards = [
     { label: "Total saved", value: formatCurrency(totalSaved) },
+    { label: "Monthly needed", value: formatCurrency(totalMonthly) },
+    { label: "Remaining", value: formatCurrency(remainingTotal) },
     { label: "Active goals", value: String(active.length) },
     { label: "On track", value: `${onTrack} / ${targetedActive}` },
     { label: "Completed", value: String(completed.length) },
@@ -77,14 +82,43 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
   return (
     <Row className="g-3 mb-4">
       {cards.map((c) => (
-        <Col xs={6} md={3} key={c.label}>
-          <Card className="text-center">
-            <CardBody>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
-                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 500 }}>
+        <Col xs={6} md={4} xl={2} className="d-flex" key={c.label}>
+          <Card className="text-center h-100 w-100">
+            <CardBody className="d-flex p-1">
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "1rem",
+                  width: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--color-text-secondary)",
+                    margin: "0 0 4px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    fontWeight: 500,
+                  }}
+                >
                   {c.label}
                 </p>
-                <p style={{ fontSize: 20, fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>{c.value}</p>
+
+                <p
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 500,
+                    margin: 0,
+                    color: "var(--color-text-primary)",
+                  }}
+                >
+                  {c.value}
+                </p>
               </div>
             </CardBody>
           </Card>
