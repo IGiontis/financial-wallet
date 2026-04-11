@@ -598,38 +598,20 @@ export default function InvestmentsPage() {
         <>
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
-          {/* Search bar */}
-          {/* Search bar */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1.25rem" }}>
-            <div style={{ position: "relative", width: "100%", maxWidth: 320 }}>
+          {/* Mobile: search above tabs */}
+          <div className="d-md-none mb-2">
+            <div style={{ position: "relative" }}>
               <Input
                 placeholder="Search goals..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
                   fontSize: 13,
-                  paddingLeft: "2rem",
-                  paddingRight: search ? "2.5rem" : "1rem",
                   border: "1px solid var(--color-border-primary)",
-                  borderRadius: "var(--border-radius-md)",
-                  background: "var(--color-background-secondary)",
-                  color: "var(--color-text-primary)",
-                  height: 36,
+
+                  paddingRight: search ? "2.5rem" : "1rem",
                 }}
               />
-              <span
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--color-text-secondary)",
-                  fontSize: 14,
-                  pointerEvents: "none",
-                }}
-              >
-                &#128269;
-              </span>
               {search && (
                 <button
                   onClick={() => setSearch("")}
@@ -652,6 +634,7 @@ export default function InvestmentsPage() {
               )}
             </div>
           </div>
+
           {/* Search context hint */}
           {isSearching && (
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
@@ -659,61 +642,98 @@ export default function InvestmentsPage() {
             </p>
           )}
 
-          {/* Tabs — greyed out when searching */}
-          {!isSearching && (
-            <div
-              style={{
-                overflowX: "auto",
-                marginBottom: "1.5rem",
-                msOverflowStyle: "none",
-                scrollbarWidth: "none",
-              }}
-            >
-              <Nav
-                tabs
-                style={{
-                  flexWrap: "nowrap",
-                  minWidth: "max-content",
-                  borderBottom: "1px solid var(--color-border-tertiary)",
-                }}
-              >
-                {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
-                  const isActive = filter === tab;
-                  return (
-                    <NavItem key={tab}>
-                      <NavLink
-                        onClick={() => setFilter(tab)}
-                        className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
-                        style={{
-                          cursor: "pointer",
-                          border: "none",
-                          borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
-                          color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                          fontWeight: isActive ? 600 : 400,
-                          padding: "10px 16px",
-                          background: "transparent",
-                        }}
-                      >
-                        {TAB_LABELS[tab]}
-                        <Badge
-                          pill
+          {/* Tabs + desktop search in same row */}
+          <div
+            style={{
+              overflowX: "auto",
+              marginBottom: "1.5rem",
+              msOverflowStyle: "none",
+              scrollbarWidth: "none",
+            }}
+          >
+            <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
+              {/* Tabs — hidden when searching */}
+              {!isSearching && (
+                <Nav tabs style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
+                  {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
+                    const isActive = filter === tab;
+                    return (
+                      <NavItem key={tab}>
+                        <NavLink
+                          onClick={() => setFilter(tab)}
+                          className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
                           style={{
-                            color: "#e0f0ff",
-                            backgroundColor: "#0d6efd",
-                            fontWeight: 500,
-                            fontSize: 11,
-                            padding: "4px 8px",
+                            cursor: "pointer",
+                            border: "none",
+                            borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
+                            color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                            fontWeight: isActive ? 600 : 400,
+                            padding: "10px 16px",
+                            background: "transparent",
                           }}
                         >
-                          {tabCount(tab)}
-                        </Badge>
-                      </NavLink>
-                    </NavItem>
-                  );
-                })}
-              </Nav>
+                          {TAB_LABELS[tab]}
+                          <Badge
+                            pill
+                            style={{
+                              color: "#e0f0ff",
+                              backgroundColor: "#0d6efd",
+                              fontWeight: 500,
+                              fontSize: 11,
+                              padding: "4px 8px",
+                            }}
+                          >
+                            {tabCount(tab)}
+                          </Badge>
+                        </NavLink>
+                      </NavItem>
+                    );
+                  })}
+                </Nav>
+              )}
+
+              {/* Desktop search — right side of tabs row */}
+              <div
+                className="d-none d-md-flex align-items-center justify-content-end"
+                style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
+              >
+                <div style={{ position: "relative", width: 220 }}>
+                  <Input
+                    placeholder="Search goals..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={{
+                      fontSize: 13,
+                      border: "1px solid var(--color-border-primary)",
+
+                      paddingRight: search ? "2.5rem" : "1rem",
+                      height: 32,
+                    }}
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch("")}
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--color-text-secondary)",
+                        fontSize: 18,
+                        lineHeight: 1,
+                        padding: "0 4px",
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          </div>
 
           {/* Goals grid */}
           {filtered.length === 0 ? (
