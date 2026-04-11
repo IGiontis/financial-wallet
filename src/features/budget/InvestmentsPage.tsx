@@ -63,20 +63,56 @@ type FilterTab = "all" | "targeted" | "open_ended" | "completed";
 function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const active = goals.filter((g) => g.isActive && !g.isCompleted);
   const completed = goals.filter((g) => g.isCompleted);
+  const paused = goals.filter((g) => !g.isActive && !g.isCompleted);
   const totalSaved = goals.reduce((s, g) => s + g.totalSaved, 0);
   const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
   const targetedActive = active.filter((g) => g.goalType === "targeted").length;
 
-  const totalMonthly = goals.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
+  // Fixed: only active (non-paused) goals count toward monthly needed
+  const totalMonthly = active.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
   const remainingTotal = goals.reduce((sum, g) => sum + (g.remaining ?? 0), 0);
 
-  const cards = [
-    { label: "Total saved", value: formatCurrency(totalSaved) },
-    { label: "Monthly needed", value: formatCurrency(totalMonthly) },
-    { label: "Remaining", value: formatCurrency(remainingTotal) },
-    { label: "Active goals", value: String(active.length) },
-    { label: "On track", value: `${onTrack} / ${targetedActive}` },
-    { label: "Completed", value: String(completed.length) },
+  // Overall progress across all targeted goals
+  const totalTarget = goals.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
+  const overallPct = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : null;
+
+  // Color for "On track" ratio
+  const onTrackRatio = targetedActive > 0 ? onTrack / targetedActive : 1;
+  const onTrackColor = onTrackRatio === 1 ? "var(--bs-success)" : onTrackRatio >= 0.5 ? "var(--bs-warning)" : "var(--bs-danger)";
+
+  const cards: { label: string; value: string; sub: string; valueColor?: string; showProgress?: boolean }[] = [
+    {
+      label: "Total saved",
+      value: formatCurrency(totalSaved),
+      sub: `across ${goals.length} goal${goals.length !== 1 ? "s" : ""}`,
+      showProgress: overallPct !== null,
+    },
+    {
+      label: "Monthly needed",
+      value: formatCurrency(totalMonthly),
+      sub: "from active goals only",
+    },
+    {
+      label: "Remaining",
+      value: formatCurrency(remainingTotal),
+      sub: "to reach all targets",
+    },
+    {
+      label: "Active goals",
+      value: String(active.length),
+      sub: paused.length > 0 ? `${paused.length} paused` : "none paused",
+    },
+    {
+      label: "On track",
+      value: `${onTrack} / ${targetedActive}`,
+      sub: "targeted goals",
+      valueColor: onTrackColor,
+    },
+    {
+      label: "Completed",
+      value: String(completed.length),
+      sub: completed.length === 1 ? "goal reached" : "goals reached",
+    },
   ];
 
   return (
@@ -114,11 +150,25 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
                     fontSize: 20,
                     fontWeight: 500,
                     margin: 0,
-                    color: "var(--color-text-primary)",
+                    color: c.valueColor ?? "var(--color-text-primary)",
                   }}
                 >
                   {c.value}
                 </p>
+
+                {/* Overall progress bar — only on "Total saved" card */}
+                {c.showProgress && overallPct !== null && (
+                  <>
+                    <Progress value={overallPct} color="primary" style={{ height: 5, borderRadius: 4, margin: "6px 0 2px" }} />
+                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{overallPct}% of total target</p>
+                  </>
+                )}
+
+                {/* Subtitle — skip if progress bar already shown on this card */}
+                {!c.showProgress && c.sub && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
+
+                {/* Show sub below progress bar too */}
+                {c.showProgress && c.sub && overallPct === null && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
               </div>
             </CardBody>
           </Card>
