@@ -22,6 +22,7 @@ import {
   Nav,
   NavItem,
   NavLink,
+  Input,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
 import type {
@@ -56,7 +57,22 @@ const statusConfig: Record<InvestmentGoalStatus, { label: string; color: string 
   completed: { label: "Completed", color: "secondary" },
 };
 
-type FilterTab = "all" | "targeted" | "open_ended" | "completed";
+// ─── Goal type helpers ─────────────────────────────────────────────────────────
+
+function getGoalTypeLabel(goal: InvestmentGoalWithStats): string {
+  if (goal.targetPeriod === "monthly") return "Recurring · Monthly";
+  if (goal.targetPeriod === "yearly") return "Recurring · Yearly";
+  if (goal.goalType === "targeted") return "Goal";
+  return "Tracking";
+}
+
+function getGoalTypeBadgeColor(goal: InvestmentGoalWithStats): string {
+  if (goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly") return "primary";
+  if (goal.goalType === "targeted") return "warning";
+  return "secondary";
+}
+
+type FilterTab = "all" | "recurring" | "goals" | "tracking" | "completed";
 
 // ─── SummaryCards ─────────────────────────────────────────────────────────────
 
@@ -64,38 +80,45 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
   const active = goals.filter((g) => g.isActive && !g.isCompleted);
   const completed = goals.filter((g) => g.isCompleted);
   const paused = goals.filter((g) => !g.isActive && !g.isCompleted);
-  const totalSaved = goals.reduce((s, g) => s + g.totalSaved, 0);
+
+  // Total saved — only from recurring goals (monthly / yearly)
+  const recurringGoals = goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly");
+  const totalSaved = recurringGoals.reduce((s, g) => s + g.totalSaved, 0);
+
+  // Monthly needed — only active recurring goals (no paused)
+  const totalMonthly = active.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
+
+  // Remaining — only deadline / one-time targeted goals
+  const remainingTotal = goals
+    .filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly" && !g.isCompleted)
+    .reduce((sum, g) => sum + (g.remaining ?? 0), 0);
+
   const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
   const targetedActive = active.filter((g) => g.goalType === "targeted").length;
 
-  // Fixed: only active (non-paused) goals count toward monthly needed
-  const totalMonthly = active.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
-  const remainingTotal = goals.reduce((sum, g) => sum + (g.remaining ?? 0), 0);
-
-  // Overall progress across all targeted goals
-  const totalTarget = goals.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
-  const overallPct = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : null;
-
-  // Color for "On track" ratio
   const onTrackRatio = targetedActive > 0 ? onTrack / targetedActive : 1;
   const onTrackColor = onTrackRatio === 1 ? "var(--bs-success)" : onTrackRatio >= 0.5 ? "var(--bs-warning)" : "var(--bs-danger)";
 
-  const cards: { label: string; value: string; sub: string; valueColor?: string; showProgress?: boolean }[] = [
+  const cards: {
+    label: string;
+    value: string;
+    sub: string;
+    valueColor?: string;
+  }[] = [
     {
       label: "Total saved",
       value: formatCurrency(totalSaved),
-      sub: `across ${goals.length} goal${goals.length !== 1 ? "s" : ""}`,
-      showProgress: overallPct !== null,
+      sub: `from ${recurringGoals.length} recurring goal${recurringGoals.length !== 1 ? "s" : ""}`,
     },
     {
       label: "Monthly needed",
       value: formatCurrency(totalMonthly),
-      sub: "from active goals only",
+      sub: "active recurring only",
     },
     {
       label: "Remaining",
       value: formatCurrency(remainingTotal),
-      sub: "to reach all targets",
+      sub: "to reach deadline goals",
     },
     {
       label: "Active goals",
@@ -144,7 +167,6 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
                 >
                   {c.label}
                 </p>
-
                 <p
                   style={{
                     fontSize: 20,
@@ -155,20 +177,7 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
                 >
                   {c.value}
                 </p>
-
-                {/* Overall progress bar — only on "Total saved" card */}
-                {c.showProgress && overallPct !== null && (
-                  <>
-                    <Progress value={overallPct} color="primary" style={{ height: 5, borderRadius: 4, margin: "6px 0 2px" }} />
-                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{overallPct}% of total target</p>
-                  </>
-                )}
-
-                {/* Subtitle — skip if progress bar already shown on this card */}
-                {!c.showProgress && c.sub && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
-
-                {/* Show sub below progress bar too */}
-                {c.showProgress && c.sub && overallPct === null && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
+                {c.sub && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
               </div>
             </CardBody>
           </Card>
@@ -182,6 +191,7 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
 
 interface GoalCardProps {
   goal: InvestmentGoalWithStats;
+  showTypeBadge?: boolean;
   onViewHistory: (goal: InvestmentGoalWithStats) => void;
   onAddDeposit: (goal: InvestmentGoalWithStats) => void;
   onWithdraw: (goal: InvestmentGoalWithStats) => void;
@@ -191,15 +201,23 @@ interface GoalCardProps {
   formatCurrency: (n: number) => string;
 }
 
-function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
+function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isTargeted = goal.goalType === "targeted";
+  const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
   const pct = Math.min(goal.percentageReached ?? 0, 100);
   const st = goal.status ? statusConfig[goal.status] : null;
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
   return (
-    <Card className="mb-3 h-100" style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none" }}>
+    <Card
+      className="mb-3 h-100"
+      style={{
+        border: "0.5px solid var(--color-border-tertiary)",
+        borderRadius: "var(--border-radius-lg)",
+        boxShadow: "none",
+      }}
+    >
       <CardBody>
         {/* Header */}
         <div className="d-flex justify-content-between gap-3 align-items-start mb-3">
@@ -207,9 +225,18 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
               <p style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended"}</p>
+              <div className="d-flex align-items-center gap-1 flex-wrap">
+                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
+                {/* Type badge shown when searching across all types */}
+                {showTypeBadge && (
+                  <Badge color={getGoalTypeBadgeColor(goal)} style={{ fontSize: 10, padding: "2px 6px" }}>
+                    {getGoalTypeLabel(goal).split(" · ")[0]}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
+
           <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
             <div className="d-flex flex-column align-items-end gap-1">
               {st && (
@@ -246,22 +273,39 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
           </div>
         </div>
 
-        {/* Targeted progress */}
-        {isTargeted && goal.targetAmount && (
+        {/* Recurring goal — current period progress */}
+        {isRecurring && goal.targetAmount && (
+          <>
+            <div className="d-flex justify-content-between mb-1">
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                {formatCurrency(goal.currentPeriodSaved ?? 0)} this {goal.targetPeriod === "monthly" ? "month" : "year"}
+              </span>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)} target</span>
+            </div>
+            <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
+            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+              {pct.toFixed(1)}% of {goal.targetPeriod === "monthly" ? "monthly" : "yearly"} target
+              {(goal.remaining ?? 0) > 0 && ` · ${formatCurrency(goal.remaining!)} remaining`}
+            </p>
+          </>
+        )}
+
+        {/* One-time targeted goal — deadline progress */}
+        {isTargeted && !isRecurring && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.totalSaved)}</span>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)}</span>
             </div>
-            <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.75rem" }} />
+            <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
               {pct.toFixed(1)}% reached
-              {goal.remaining !== undefined && goal.remaining > 0 && ` · ${formatCurrency(goal.remaining)} remaining`}
+              {(goal.remaining ?? 0) > 0 && ` · ${formatCurrency(goal.remaining!)} remaining`}
             </p>
           </>
         )}
 
-        {/* Open-ended total */}
+        {/* Tracking (open-ended) — just show total */}
         {!isTargeted && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
@@ -271,7 +315,15 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
 
         {/* Stats mini cards */}
         <Row className="g-2 mb-3">
-          {goal.monthlyRequired !== undefined && (
+          {isRecurring && (
+            <Col xs={6}>
+              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>All-time saved</p>
+                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
+              </div>
+            </Col>
+          )}
+          {goal.monthlyRequired !== undefined && !isRecurring && (
             <Col xs={6}>
               <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Monthly needed</p>
@@ -295,7 +347,7 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
               </div>
             </Col>
           )}
-          <Col xs={goal.monthlyRequired !== undefined ? 6 : 12}>
+          <Col xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12}>
             <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Contributions</p>
               <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.contributionCount}</p>
@@ -305,7 +357,7 @@ function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onE
 
         {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
 
-        {/* Action buttons — stack on mobile */}
+        {/* Action buttons */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {!goal.isCompleted && (
             <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
@@ -360,6 +412,7 @@ function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: In
 
 function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalWithStats; onClose: () => void; formatCurrency: (n: number) => string }) {
   const { data: contributions = [], isLoading } = useContributions(goal.id);
+
   return (
     <Modal isOpen toggle={onClose} size="md">
       <ModalHeader toggle={onClose}>
@@ -380,6 +433,7 @@ function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalW
             </Col>
           ))}
         </Row>
+
         {isLoading ? (
           <div className="text-center py-4">
             <Spinner size="sm" />
@@ -427,8 +481,17 @@ function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalW
 
 // ─── InvestmentsPage ──────────────────────────────────────────────────────────
 
+const TAB_LABELS: Record<FilterTab, string> = {
+  all: "All",
+  recurring: "Recurring",
+  goals: "Goals",
+  tracking: "Tracking",
+  completed: "Completed",
+};
+
 export default function InvestmentsPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
+  const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [withdrawGoal, setWithdrawGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -443,6 +506,8 @@ export default function InvestmentsPage() {
   const updateGoalMutation = useUpdateGoal();
   const addContribution = useAddContribution();
   const deleteGoalMutation = useDeleteGoal();
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
     new Promise((resolve, reject) => {
@@ -473,26 +538,41 @@ export default function InvestmentsPage() {
     updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } });
   };
 
-  const filtered = goals.filter((g) => {
+  // ── Filtering ─────────────────────────────────────────────────────────────
+
+  const isSearching = search.trim().length > 0;
+
+  const filterByTab = (g: InvestmentGoalWithStats): boolean => {
+    const isRecurring = g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
     if (filter === "all") return !g.isCompleted;
-    if (filter === "targeted") return g.goalType === "targeted" && !g.isCompleted;
-    if (filter === "open_ended") return g.goalType === "open_ended" && !g.isCompleted;
+    if (filter === "recurring") return isRecurring && !g.isCompleted;
+    if (filter === "goals") return g.goalType === "targeted" && !isRecurring && !g.isCompleted;
+    if (filter === "tracking") return g.goalType === "open_ended" && !g.isCompleted;
     if (filter === "completed") return g.isCompleted;
     return true;
-  });
+  };
 
-  const tabCount = (tab: FilterTab) => {
+  const filterBySearch = (g: InvestmentGoalWithStats): boolean => {
+    const q = search.toLowerCase().trim();
+    return g.name.toLowerCase().includes(q) || (g.notes?.toLowerCase().includes(q) ?? false);
+  };
+
+  // When searching: ignore tab, search all goals
+  // When not searching: apply tab filter
+  const filtered = isSearching ? goals.filter(filterBySearch) : goals.filter(filterByTab);
+
+  const tabCount = (tab: FilterTab): number => {
+    const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
     if (tab === "all") return goals.filter((g) => !g.isCompleted).length;
+    if (tab === "recurring") return goals.filter((g) => isRecurring(g) && !g.isCompleted).length;
+    if (tab === "goals") return goals.filter((g) => g.goalType === "targeted" && !isRecurring(g) && !g.isCompleted).length;
+    if (tab === "tracking") return goals.filter((g) => g.goalType === "open_ended" && !g.isCompleted).length;
     if (tab === "completed") return goals.filter((g) => g.isCompleted).length;
-    return goals.filter((g) => g.goalType === tab && !g.isCompleted).length;
+    return 0;
   };
 
-  const TAB_LABELS: Record<FilterTab, string> = {
-    all: "All",
-    targeted: "Targeted",
-    open_ended: "Open-ended",
-    completed: "Completed",
-  };
+  // Empty state label depends on context
+  const emptyLabel = isSearching ? `No results for "${search}"` : `No ${TAB_LABELS[filter].toLowerCase()} goals yet`;
 
   return (
     <Container fluid className="py-4">
@@ -502,7 +582,6 @@ export default function InvestmentsPage() {
           <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your savings goals and contributions</p>
         </div>
-
         <Button color="primary" onClick={() => setShowNewGoal(true)}>
           + New goal
         </Button>
@@ -520,77 +599,117 @@ export default function InvestmentsPage() {
         <>
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
-          {/* Tabs */}
-          <div
-            style={{
-              overflowX: "auto",
-              marginBottom: "1.5rem",
-              msOverflowStyle: "none",
-              scrollbarWidth: "none",
-            }}
-          >
-            <Nav
-              tabs
+          {/* Search bar */}
+          <div style={{ position: "relative", marginBottom: "1.25rem" }}>
+            <Input
+              placeholder="Search goals by name or notes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               style={{
-                flexWrap: "nowrap",
-                minWidth: "max-content",
-                borderBottom: "1px solid var(--color-border-tertiary)",
+                fontSize: 14,
+                paddingRight: search ? "2.5rem" : "1rem",
+                border: "1px solid var(--color-border-secondary)",
+                borderRadius: "var(--border-radius-md)",
+                background: "var(--color-background-secondary)",
+                color: "var(--color-text-primary)",
               }}
-            >
-              {(["all", "targeted", "open_ended", "completed"] as FilterTab[]).map((tab) => {
-                const isActive = filter === tab;
-
-                return (
-                  <NavItem key={tab}>
-                    <NavLink
-                      onClick={() => setFilter(tab)}
-                      className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
-                      style={{
-                        cursor: "pointer",
-                        border: "none",
-                        borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
-                        color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                        fontWeight: isActive ? 600 : 400,
-                        padding: "10px 16px",
-                        background: "transparent",
-                      }}
-                    >
-                      {TAB_LABELS[tab]}
-
-                      <Badge
-                        pill
-                        style={{
-                          color: "#e0f0ff",
-                          backgroundColor: "#0d6efd", // light blue
-                          fontWeight: 500,
-                          fontSize: 11,
-                          padding: "4px 8px",
-                        }}
-                      >
-                        {tabCount(tab)}
-                      </Badge>
-                    </NavLink>
-                  </NavItem>
-                );
-              })}
-            </Nav>
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--color-text-secondary)",
+                  fontSize: 18,
+                  lineHeight: 1,
+                  padding: "0 4px",
+                }}
+              >
+                ×
+              </button>
+            )}
           </div>
 
-          {filtered.length === 0 ? (
+          {/* Search context hint */}
+          {isSearching && (
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
+              Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""} across all categories
+            </p>
+          )}
+
+          {/* Tabs — greyed out when searching */}
+          {!isSearching && (
             <div
               style={{
-                textAlign: "center",
-                padding: "4rem 0",
-                color: "var(--color-text-secondary)",
+                overflowX: "auto",
+                marginBottom: "1.5rem",
+                msOverflowStyle: "none",
+                scrollbarWidth: "none",
               }}
             >
-              <p style={{ fontSize: 40 }}>💰</p>
-              <p style={{ fontWeight: 500 }}>No goals here yet</p>
-              <p style={{ fontSize: 14 }}>Create your first investment goal to start tracking.</p>
+              <Nav
+                tabs
+                style={{
+                  flexWrap: "nowrap",
+                  minWidth: "max-content",
+                  borderBottom: "1px solid var(--color-border-tertiary)",
+                }}
+              >
+                {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
+                  const isActive = filter === tab;
+                  return (
+                    <NavItem key={tab}>
+                      <NavLink
+                        onClick={() => setFilter(tab)}
+                        className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
+                        style={{
+                          cursor: "pointer",
+                          border: "none",
+                          borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
+                          color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                          fontWeight: isActive ? 600 : 400,
+                          padding: "10px 16px",
+                          background: "transparent",
+                        }}
+                      >
+                        {TAB_LABELS[tab]}
+                        <Badge
+                          pill
+                          style={{
+                            color: "#e0f0ff",
+                            backgroundColor: "#0d6efd",
+                            fontWeight: 500,
+                            fontSize: 11,
+                            padding: "4px 8px",
+                          }}
+                        >
+                          {tabCount(tab)}
+                        </Badge>
+                      </NavLink>
+                    </NavItem>
+                  );
+                })}
+              </Nav>
+            </div>
+          )}
 
-              <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                + New goal
-              </Button>
+          {/* Goals grid */}
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
+              <p style={{ fontSize: 40 }}>💰</p>
+              <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
+              {!isSearching && <p style={{ fontSize: 14 }}>Create your first investment goal to start tracking.</p>}
+              {!isSearching && (
+                <Button color="primary" onClick={() => setShowNewGoal(true)}>
+                  + New goal
+                </Button>
+              )}
             </div>
           ) : (
             <Row className="g-3">
@@ -598,6 +717,7 @@ export default function InvestmentsPage() {
                 <Col xs={12} md={6} xl={4} key={goal.id}>
                   <GoalCard
                     goal={goal}
+                    showTypeBadge={isSearching}
                     formatCurrency={formatCurrency}
                     onViewHistory={setHistoryGoal}
                     onAddDeposit={setDepositGoal}
@@ -614,15 +734,10 @@ export default function InvestmentsPage() {
       )}
 
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
-
       {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
-
       {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
-
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
-
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
-
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} />
     </Container>
   );
