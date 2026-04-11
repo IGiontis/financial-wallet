@@ -599,42 +599,59 @@ export default function InvestmentsPage() {
           <SummaryCards goals={goals} formatCurrency={formatCurrency} />
 
           {/* Search bar */}
-          <div style={{ position: "relative", marginBottom: "1.25rem" }}>
-            <Input
-              placeholder="Search goals by name or notes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                fontSize: 14,
-                paddingRight: search ? "2.5rem" : "1rem",
-                border: "1px solid var(--color-border-secondary)",
-                borderRadius: "var(--border-radius-md)",
-                background: "var(--color-background-secondary)",
-                color: "var(--color-text-primary)",
-              }}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
+          {/* Search bar */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1.25rem" }}>
+            <div style={{ position: "relative", width: "100%", maxWidth: 320 }}>
+              <Input
+                placeholder="Search goals..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  fontSize: 13,
+                  paddingLeft: "2rem",
+                  paddingRight: search ? "2.5rem" : "1rem",
+                  border: "1px solid var(--color-border-primary)",
+                  borderRadius: "var(--border-radius-md)",
+                  background: "var(--color-background-secondary)",
+                  color: "var(--color-text-primary)",
+                  height: 36,
+                }}
+              />
+              <span
                 style={{
                   position: "absolute",
-                  right: 10,
+                  left: 10,
                   top: "50%",
                   transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
                   color: "var(--color-text-secondary)",
-                  fontSize: 18,
-                  lineHeight: 1,
-                  padding: "0 4px",
+                  fontSize: 14,
+                  pointerEvents: "none",
                 }}
               >
-                ×
-              </button>
-            )}
+                &#128269;
+              </span>
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-text-secondary)",
+                    fontSize: 18,
+                    lineHeight: 1,
+                    padding: "0 4px",
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
-
           {/* Search context hint */}
           {isSearching && (
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
