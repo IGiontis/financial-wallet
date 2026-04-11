@@ -86,8 +86,7 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
   const totalSaved = recurringGoals.reduce((s, g) => s + g.totalSaved, 0);
 
   // Monthly needed — only active recurring goals (no paused)
-  const totalMonthly = active.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
-
+  const totalMonthly = active.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
   // Remaining — only deadline / one-time targeted goals
   const remainingTotal = goals
     .filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly" && !g.isCompleted)
