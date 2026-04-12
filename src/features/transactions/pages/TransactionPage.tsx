@@ -98,6 +98,10 @@ function formatDisplay(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
+function formatShort(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function formatTable(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -288,7 +292,16 @@ function TransactionCalendar({
   const yearOptions = Array.from({ length: 12 }, (_, i) => yearStart + i);
   const activeDate = hoveredDate ?? fromDate ?? null;
   const activeTx = activeDate ? (txMap[toDateKey(activeDate)] ?? []) : [];
-  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
+  const navBtn: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 20,
+    lineHeight: 1,
+    color: "#666",
+    padding: "2px 8px",
+    borderRadius: 6,
+  };
 
   const pickerCell = (active: boolean, onClick: () => void, label: string) => (
     <button
@@ -546,6 +559,7 @@ function TransactionCard({
         borderBottom: "0.5px solid var(--color-border-tertiary)",
       }}
     >
+      {/* Category icon bubble */}
       <div
         style={{
           width: 38,
@@ -562,6 +576,7 @@ function TransactionCard({
         {cat?.icon ?? "💳"}
       </div>
 
+      {/* Payee + category + date */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
@@ -584,6 +599,7 @@ function TransactionCard({
         )}
       </div>
 
+      {/* Amount */}
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: getAmountColor(tx) }}>
           {isPositive ? "+" : "−"}
@@ -591,6 +607,7 @@ function TransactionCard({
         </p>
       </div>
 
+      {/* Actions */}
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
         {!isInvestment && (
           <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
@@ -601,6 +618,122 @@ function TransactionCard({
           <FiTrash2 size={13} />
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MOBILE CONTEXT BAR
+// Sticky bar inside the card showing result count + dismissible
+// filter pills so the user always knows what they are looking at.
+// ============================================================
+
+function MobileContextBar({
+  totalItems,
+  currentPage,
+  pageSize,
+  searchQuery,
+  selectedCategory,
+  fromDate,
+  toDate,
+  onClearSearch,
+  onClearCategory,
+  onClearDates,
+}: {
+  totalItems: number;
+  currentPage: number;
+  pageSize: number;
+  searchQuery: string;
+  selectedCategory: string;
+  fromDate: Date | null;
+  toDate: Date | null;
+  onClearSearch: () => void;
+  onClearCategory: () => void;
+  onClearDates: () => void;
+}) {
+  const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, totalItems);
+  const hasFilters = searchQuery !== "" || selectedCategory !== "all" || fromDate !== null || toDate !== null;
+
+  const pillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    background: "#1a1a2e",
+    color: "#fff",
+    borderRadius: 20,
+    padding: "3px 10px",
+    fontSize: 11,
+    fontWeight: 500,
+    whiteSpace: "nowrap",
+  };
+
+  const pillClearBtn: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    color: "rgba(255,255,255,0.65)",
+    cursor: "pointer",
+    fontSize: 13,
+    lineHeight: 1,
+    padding: 0,
+    marginLeft: 2,
+  };
+
+  let dateLabel = "";
+  if (fromDate && toDate) {
+    dateLabel = isSameDay(fromDate, toDate) ? formatShort(fromDate) : `${formatShort(fromDate)} – ${formatShort(toDate)}`;
+  } else if (fromDate) {
+    dateLabel = `From ${formatShort(fromDate)}`;
+  } else if (toDate) {
+    dateLabel = `Until ${formatShort(toDate)}`;
+  }
+
+  return (
+    <div
+      style={{
+        padding: "8px 12px",
+        borderBottom: "1px solid rgba(0,0,0,0.07)",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+        background: "var(--bs-body-bg, #fff)",
+      }}
+    >
+      {/* Result count */}
+      <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, whiteSpace: "nowrap" }}>
+        {totalItems === 0 ? "No results" : `${from}–${to} of ${totalItems}`}
+      </span>
+
+      {/* Active filter pills */}
+      {hasFilters && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {searchQuery !== "" && (
+            <span style={pillStyle}>
+              "{searchQuery}"
+              <button style={pillClearBtn} onClick={onClearSearch} title="Clear search">
+                x
+              </button>
+            </span>
+          )}
+          {selectedCategory !== "all" && (
+            <span style={pillStyle}>
+              {selectedCategory}
+              <button style={pillClearBtn} onClick={onClearCategory} title="Clear category">
+                x
+              </button>
+            </span>
+          )}
+          {dateLabel && (
+            <span style={pillStyle}>
+              {dateLabel}
+              <button style={pillClearBtn} onClick={onClearDates} title="Clear dates">
+                x
+              </button>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -658,6 +791,69 @@ function Pagination({
 }
 
 // ============================================================
+// CATEGORY SELECT — shared between desktop and mobile
+// ============================================================
+
+function CategorySelect({
+  selectedCategory,
+  uniqueCategoriesByName,
+  mobile = false,
+  onChange,
+  onClear,
+}: {
+  selectedCategory: string;
+  uniqueCategoriesByName: Category[];
+  mobile?: boolean;
+  onChange: (val: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div style={{ position: "relative", width: "100%", ...(mobile ? { flex: 1 } : {}) }}>
+      <Input
+        type="select"
+        bsSize="sm"
+        value={selectedCategory}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
+          backgroundImage: "none",
+          width: "100%",
+        }}
+      >
+        <option value="all">{mobile ? "All" : "All Categories"}</option>
+        {uniqueCategoriesByName.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.icon} {c.name}
+          </option>
+        ))}
+      </Input>
+      {selectedCategory !== "all" && (
+        <button
+          onClick={onClear}
+          style={{
+            position: "absolute",
+            right: "1.8rem",
+            top: "50%",
+            transform: "translateY(-50%)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#555252",
+            fontSize: "16px",
+            lineHeight: 1,
+            padding: "0 4px",
+            zIndex: 2,
+          }}
+          title="Clear filter"
+        >
+          x
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
@@ -671,7 +867,6 @@ export function TransactionsPage() {
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Step 2: debounce search — filter only runs after user stops typing
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
@@ -746,7 +941,7 @@ export function TransactionsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  // Step 1: pre-convert dates once — no repeated firestoreToDate calls inside filter/sort
+  // Pre-convert dates once
   const transactionsWithDates = useMemo(
     () =>
       transactions.map((tx) => ({
@@ -785,12 +980,10 @@ export function TransactionsPage() {
       .map(({ tx }) => tx);
   }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories]);
 
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, selectedCategory, fromDate, toDate]);
 
-  // Step 3: pagination — slice the filtered list for the current page
   const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
   const pagedTransactions = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -800,9 +993,21 @@ export function TransactionsPage() {
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
 
+  const handleCategoryChange = useCallback((val: string) => {
+    setSelectedCategory(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleCategoryClear = useCallback(() => {
+    setSelectedCategory("all");
+    setCurrentPage(1);
+  }, []);
+
   return (
     <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
-      {/* Desktop layout (lg+) */}
+      {/* ======================================================
+          DESKTOP layout (lg+)
+      ====================================================== */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
           <Col lg={4}>
@@ -823,12 +1028,14 @@ export function TransactionsPage() {
               />
             )}
           </Col>
+
           <Col lg={8}>
             {isError && (
               <Alert color="danger" className="mb-3">
                 Failed to load transactions. Please refresh.
               </Alert>
             )}
+
             <Card className="border-0 shadow-sm mb-3">
               <CardBody className="py-2">
                 <Row className="g-2 align-items-center">
@@ -840,57 +1047,14 @@ export function TransactionsPage() {
                       <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </InputGroup>
                   </Col>
-
                   <Col md={4}>
-                    <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
-                      <Input
-                        type="select"
-                        bsSize="sm"
-                        value={selectedCategory}
-                        onChange={(e) => {
-                          setSelectedCategory(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        style={{
-                          paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
-                          backgroundImage: "none",
-                        }}
-                      >
-                        <option value="all">All Categories</option>
-                        {uniqueCategoriesByName.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.icon} {c.name}
-                          </option>
-                        ))}
-                      </Input>
-                      {selectedCategory !== "all" && (
-                        <button
-                          onClick={() => {
-                            setSelectedCategory("all");
-                            setCurrentPage(1);
-                          }}
-                          style={{
-                            position: "absolute",
-                            right: "1.8rem",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#555252",
-                            fontSize: "16px",
-                            lineHeight: 1,
-                            padding: "0 4px",
-                            zIndex: 2,
-                          }}
-                          title="Clear filter"
-                        >
-                          x
-                        </button>
-                      )}
-                    </div>
+                    <CategorySelect
+                      selectedCategory={selectedCategory}
+                      uniqueCategoriesByName={uniqueCategoriesByName}
+                      onChange={handleCategoryChange}
+                      onClear={handleCategoryClear}
+                    />
                   </Col>
-
                   <Col md={3} className="d-flex justify-content-end">
                     <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
                       + Add Transaction
@@ -901,9 +1065,7 @@ export function TransactionsPage() {
             </Card>
 
             <Card className="border-0 shadow-sm">
-              {/* Max height caps the table — overflowY makes it scroll internally */}
               <CardBody className="p-0">
-                {" "}
                 {isLoading ? (
                   <div className="text-center py-5">
                     <Spinner color="primary" />
@@ -911,14 +1073,7 @@ export function TransactionsPage() {
                 ) : (
                   <div style={{ maxHeight: "80vh", overflowY: "auto", overflowX: "auto" }}>
                     <Table hover className="mb-0">
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 1,
-                          background: "#fff", // must be explicit — sticky thead needs a background or rows bleed through
-                        }}
-                      >
+                      <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#f8f9fa" }}>
                         <tr>
                           <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
                             DATE
@@ -1008,13 +1163,16 @@ export function TransactionsPage() {
         </Row>
       </div>
 
-      {/* Mobile layout (<lg) */}
+      {/* ======================================================
+          MOBILE layout (<lg)
+      ====================================================== */}
       <div className="d-lg-none">
         {isError && (
           <Alert color="danger" className="mb-3">
             Failed to load transactions. Please refresh.
           </Alert>
         )}
+
         {isLoading ? (
           <div className="text-center py-5">
             <Spinner color="primary" />
@@ -1032,63 +1190,66 @@ export function TransactionsPage() {
           />
         )}
 
-        <div className="d-flex gap-2 align-items-center mt-3 mb-2">
-          <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
-          <div style={{ position: "relative", flex: 1 }}>
-            <Input
-              type="select"
-              bsSize="sm"
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{
-                paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
-                backgroundImage: "none",
-                width: "100%",
-              }}
-            >
-              <option value="all">All</option>
-              {uniqueCategoriesByName.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.icon} {c.name}
-                </option>
-              ))}
-            </Input>
-            {selectedCategory !== "all" && (
-              <button
-                onClick={() => {
-                  setSelectedCategory("all");
-                  setCurrentPage(1);
-                }}
-                style={{
-                  position: "absolute",
-                  right: "1.8rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#555252",
-                  fontSize: "16px",
-                  lineHeight: 1,
-                  padding: "0 4px",
-                  zIndex: 2,
-                }}
-                title="Clear filter"
-              >
-                x
-              </button>
-            )}
+        {/*
+          Sticky filter row.
+          If your app has a fixed top navbar, change `top: 0` to match
+          its height e.g. `top: 56` so the bar doesn't slide behind it.
+        */}
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            background: "var(--bs-body-bg, #fff)",
+            paddingTop: 10,
+            paddingBottom: 8,
+            borderBottom: "1px solid rgba(0,0,0,0.07)",
+          }}
+        >
+          <div className="d-flex gap-2 align-items-center">
+            <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
+            <CategorySelect
+              selectedCategory={selectedCategory}
+              uniqueCategoriesByName={uniqueCategoriesByName}
+              mobile
+              onChange={handleCategoryChange}
+              onClear={handleCategoryClear}
+            />
+            <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+              +
+            </Button>
           </div>
-          <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
-            +
-          </Button>
         </div>
 
+        {/* Transaction list card with context bar at the top */}
         <Card className="border-0 shadow-sm mt-2">
-          <CardBody className="p-0" style={{ maxHeight: "55vh", overflowY: "auto" }}>
+          {/*
+            Context bar: sticky inside the card so it stays visible
+            while scrolling the transaction list. Shows result count
+            and dismissible filter pills — much more useful than
+            column labels on a card-based layout.
+          */}
+          <MobileContextBar
+            totalItems={filteredTransactions.length}
+            currentPage={currentPage}
+            pageSize={PAGE_SIZE}
+            searchQuery={debouncedSearch}
+            selectedCategory={selectedCategory}
+            fromDate={fromDate}
+            toDate={toDate}
+            onClearSearch={() => {
+              setSearchQuery("");
+              setCurrentPage(1);
+            }}
+            onClearCategory={handleCategoryClear}
+            onClearDates={() => {
+              setFromDate(null);
+              setToDate(null);
+              setCurrentPage(1);
+            }}
+          />
+
+          <CardBody className="p-0">
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />
@@ -1108,6 +1269,7 @@ export function TransactionsPage() {
               ))
             )}
           </CardBody>
+
           <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
         </Card>
       </div>
