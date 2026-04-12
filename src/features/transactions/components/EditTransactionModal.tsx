@@ -281,7 +281,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                       invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                     >
                       <option value="">Select...</option>
-                      {filteredCategories.map((c) => (
+                    {[...filteredCategories].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.icon} {c.name}
                         </option>

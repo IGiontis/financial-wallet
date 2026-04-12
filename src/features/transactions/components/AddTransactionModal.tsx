@@ -263,11 +263,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                     >
                       <option value="">Select...</option>
-                      {filteredCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.icon} {c.name}
-                        </option>
-                      ))}
+                      {[...filteredCategories]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.icon} {c.name}
+                          </option>
+                        ))}
                     </Input>
                     <FormFeedback>{formik.errors.categoryId}</FormFeedback>
                   </FormGroup>

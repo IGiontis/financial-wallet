@@ -59,8 +59,6 @@ function getInvestmentBadgeStyle(contributionType: string | undefined): React.CS
 // CATEGORY HELPERS
 // ============================================================
 
-// Investment transactions always display the "Investments" category
-// regardless of what categoryId is stored on the document.
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
   if (tx.isInvestmentTransaction) {
     return categories.find((c) => c.name === "Investments");
@@ -612,12 +610,27 @@ export function TransactionsPage() {
     [fromDate],
   );
 
+  // Deduplicate categories by name and sort alphabetically for the filter dropdown
+  const uniqueCategoriesByName = useMemo(() => {
+    const seen = new Set<string>();
+    return [...categories]
+      .filter((c) => {
+        if (seen.has(c.name)) return false;
+        seen.add(c.name);
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories]);
+
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter((tx) => {
         const txDate = firestoreToDate(tx.date);
         const matchSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchCat = selectedCategory === "all" || tx.categoryId === selectedCategory;
+
+        // Match by category name so "Sports Betting" matches both income and expense variants
+        const matchCat = selectedCategory === "all" || categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId);
+
         const txMid = midnight(txDate);
         let matchDate = true;
         if (fromDate && toDate) matchDate = txMid >= midnight(fromDate) && txMid <= midnight(toDate);
@@ -625,17 +638,13 @@ export function TransactionsPage() {
         else if (toDate) matchDate = txMid <= midnight(toDate);
         return matchSearch && matchCat && matchDate;
       })
-      .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
-  }, [transactions, searchQuery, selectedCategory, fromDate, toDate]);
-
-  const uniqueCategoriesByName = useMemo(() => {
-  const seen = new Set<string>();
-  return categories.filter((c) => {
-    if (seen.has(c.name)) return false;
-    seen.add(c.name);
-    return true;
-  });
-}, [categories]);
+      .sort((a, b) => {
+        const dateDiff = firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        // Same date: most recently created wins
+        return firestoreToDate(b.createdAt).getTime() - firestoreToDate(a.createdAt).getTime();
+      });
+  }, [transactions, searchQuery, selectedCategory, fromDate, toDate, categories]);
 
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
@@ -681,10 +690,11 @@ export function TransactionsPage() {
                     </InputGroup>
                   </Col>
                   <Col md={4}>
+                    {/* Desktop category filter — deduplicated and sorted A→Z, value = name */}
                     <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                       <option value="all">All Categories</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
+                      {uniqueCategoriesByName.map((c) => (
+                        <option key={c.id} value={c.name}>
                           {c.icon} {c.name}
                         </option>
                       ))}
@@ -738,7 +748,6 @@ export function TransactionsPage() {
                               </td>
                               <td style={{ fontWeight: 500 }}>{tx.description}</td>
                               <td>
-                                {/* Always shows "Investments" category for investment transactions */}
                                 <Badge color="light" className="text-dark">
                                   {cat?.icon} {cat?.name ?? "—"}
                                 </Badge>
@@ -813,19 +822,11 @@ export function TransactionsPage() {
         )}
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
-          <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-            <option value="all">All Categories</option>
-            {uniqueCategoriesByName.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
-              </option>
-            ))}
-          </Input>
-          
+          {/* Mobile category filter — deduplicated and sorted A→Z, value = name */}
           <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
             <option value="all">All</option>
             {uniqueCategoriesByName.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={c.name}>
                 {c.icon} {c.name}
               </option>
             ))}
