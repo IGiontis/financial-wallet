@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Container,
   Row,
@@ -34,6 +34,7 @@ import EditTransactionModal from "../components/EditTransactionModal";
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const PAGE_SIZE = 50;
 
 // ============================================================
 // COLOR HELPERS
@@ -109,6 +110,19 @@ function firestoreToDate(value: any): Date {
   if (value instanceof Date) return value;
   if (value?.seconds) return new Date(value.seconds * 1000);
   return new Date(value);
+}
+
+// ============================================================
+// CUSTOM HOOK — DEBOUNCE
+// ============================================================
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
 }
 
 // ============================================================
@@ -549,18 +563,7 @@ function TransactionCard({
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p
-          style={{
-            fontWeight: 500,
-            fontSize: 14,
-            margin: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {tx.description}
-        </p>
+        <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
           {cat?.name ?? "—"} · {dateStr}
         </p>
@@ -603,6 +606,58 @@ function TransactionCard({
 }
 
 // ============================================================
+// PAGINATION CONTROLS
+// ============================================================
+
+function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const from = (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 16px",
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+        fontSize: 13,
+        color: "#888",
+      }}
+    >
+      <span>
+        {from}–{to} of {totalItems}
+      </span>
+      <div style={{ display: "flex", gap: 4 }}>
+        <Button size="sm" color="light" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
+          Prev
+        </Button>
+        <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, fontWeight: 500, color: "#444" }}>
+          {currentPage} / {totalPages}
+        </span>
+        <Button size="sm" color="light" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
@@ -614,6 +669,10 @@ export function TransactionsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Step 2: debounce search — filter only runs after user stops typing
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
   const { data: categories = [], isLoading: catLoading, isError: catError } = useCategories();
@@ -653,6 +712,7 @@ export function TransactionsPage() {
         setFromDate(date);
         setToDate(date);
       }
+      setCurrentPage(1);
     },
     [fromDate, toDate],
   );
@@ -661,6 +721,7 @@ export function TransactionsPage() {
     (d: Date | null) => {
       setFromDate(d);
       if (d && toDate && midnight(d) > midnight(toDate)) setToDate(null);
+      setCurrentPage(1);
     },
     [toDate],
   );
@@ -669,6 +730,7 @@ export function TransactionsPage() {
     (d: Date | null) => {
       if (d && fromDate && midnight(d) < midnight(fromDate)) return;
       setToDate(d);
+      setCurrentPage(1);
     },
     [fromDate],
   );
@@ -684,31 +746,56 @@ export function TransactionsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  const filteredTransactions = useMemo(() => {
-    return transactions
-      .filter((tx) => {
-        const txDate = firestoreToDate(tx.date);
-        const matchSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Step 1: pre-convert dates once — no repeated firestoreToDate calls inside filter/sort
+  const transactionsWithDates = useMemo(
+    () =>
+      transactions.map((tx) => ({
+        tx,
+        date: firestoreToDate(tx.date),
+        createdAt: firestoreToDate(tx.createdAt),
+      })),
+    [transactions],
+  );
 
-        // Fix C: investment transactions match by flag, not categoryId
+  const filteredTransactions = useMemo(() => {
+    const fromMid = fromDate ? midnight(fromDate) : null;
+    const toMid = toDate ? midnight(toDate) : null;
+    const query = debouncedSearch.toLowerCase();
+
+    return transactionsWithDates
+      .filter(({ tx, date }) => {
+        const matchSearch = tx.description.toLowerCase().includes(query);
         const matchCat =
           selectedCategory === "all" ||
           (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
 
-        const txMid = midnight(txDate);
+        const txMid = midnight(date);
         let matchDate = true;
-        if (fromDate && toDate) matchDate = txMid >= midnight(fromDate) && txMid <= midnight(toDate);
-        else if (fromDate) matchDate = txMid >= midnight(fromDate);
-        else if (toDate) matchDate = txMid <= midnight(toDate);
+        if (fromMid !== null && toMid !== null) matchDate = txMid >= fromMid && txMid <= toMid;
+        else if (fromMid !== null) matchDate = txMid >= fromMid;
+        else if (toMid !== null) matchDate = txMid <= toMid;
 
         return matchSearch && matchCat && matchDate;
       })
       .sort((a, b) => {
-        const dateDiff = firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime();
+        const dateDiff = b.date.getTime() - a.date.getTime();
         if (dateDiff !== 0) return dateDiff;
-        return firestoreToDate(b.createdAt).getTime() - firestoreToDate(a.createdAt).getTime();
-      });
-  }, [transactions, searchQuery, selectedCategory, fromDate, toDate, categories]);
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      })
+      .map(({ tx }) => tx);
+  }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories]);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, selectedCategory, fromDate, toDate]);
+
+  // Step 3: pagination — slice the filtered list for the current page
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
+  const pagedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(start, start + PAGE_SIZE);
+  }, [filteredTransactions, currentPage]);
 
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
@@ -754,17 +841,19 @@ export function TransactionsPage() {
                     </InputGroup>
                   </Col>
 
-                  {/* Fix A: desktop category filter with clear button */}
                   <Col md={4}>
                     <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
                       <Input
                         type="select"
                         bsSize="sm"
                         value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedCategory(e.target.value);
+                          setCurrentPage(1);
+                        }}
                         style={{
                           paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
-                          // backgroundImage: "none", // removes Bootstrap's arrow, keeps native one
+                          backgroundImage: "none",
                         }}
                       >
                         <option value="all">All Categories</option>
@@ -774,13 +863,15 @@ export function TransactionsPage() {
                           </option>
                         ))}
                       </Input>
-
                       {selectedCategory !== "all" && (
                         <button
-                          onClick={() => setSelectedCategory("all")}
+                          onClick={() => {
+                            setSelectedCategory("all");
+                            setCurrentPage(1);
+                          }}
                           style={{
                             position: "absolute",
-                            right: "2.4rem", // leave room for the native select arrow
+                            right: "1.8rem",
                             top: "50%",
                             transform: "translateY(-50%)",
                             background: "none",
@@ -810,14 +901,15 @@ export function TransactionsPage() {
             </Card>
 
             <Card className="border-0 shadow-sm">
-              <CardBody className="p-0">
+              {/* Max height caps the table — overflowY makes it scroll internally */}
+              <CardBody className="p-0" style={{ maxHeight: "60vh", overflowY: "auto" }}>
                 {isLoading ? (
                   <div className="text-center py-5">
                     <Spinner color="primary" />
                   </div>
                 ) : (
                   <Table responsive hover className="mb-0">
-                    <thead className="table-light">
+                    <thead className="table-light" style={{ position: "sticky", top: 0, zIndex: 1 }}>
                       <tr>
                         <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
                           DATE
@@ -833,14 +925,14 @@ export function TransactionsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTransactions.length === 0 ? (
+                      {pagedTransactions.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center text-muted py-5">
                             No transactions found
                           </td>
                         </tr>
                       ) : (
-                        filteredTransactions.map((tx) => {
+                        pagedTransactions.map((tx) => {
                           const cat = resolveCategory(tx, categories);
                           const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
                           return (
@@ -854,7 +946,6 @@ export function TransactionsPage() {
                                   {cat?.icon} {cat?.name ?? "—"}
                                 </Badge>
                               </td>
-                              {/* Fix B: desktop amount sign */}
                               <td className="text-end">
                                 <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
                                   {isPositive ? "+" : "−"}
@@ -895,6 +986,7 @@ export function TransactionsPage() {
                   </Table>
                 )}
               </CardBody>
+              <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
             </Card>
           </Col>
         </Row>
@@ -924,11 +1016,23 @@ export function TransactionsPage() {
           />
         )}
 
-        {/* Fix A: mobile category filter with clear button */}
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
-          <div className="d-flex align-items-center gap-1" style={{ flex: 1 }}>
-            <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <Input
+              type="select"
+              bsSize="sm"
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
+                backgroundImage: "none",
+                width: "100%",
+              }}
+            >
               <option value="all">All</option>
               {uniqueCategoriesByName.map((c) => (
                 <option key={c.id} value={c.name}>
@@ -936,6 +1040,31 @@ export function TransactionsPage() {
                 </option>
               ))}
             </Input>
+            {selectedCategory !== "all" && (
+              <button
+                onClick={() => {
+                  setSelectedCategory("all");
+                  setCurrentPage(1);
+                }}
+                style={{
+                  position: "absolute",
+                  right: "1.8rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#555252",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                  padding: "0 4px",
+                  zIndex: 2,
+                }}
+                title="Clear filter"
+              >
+                x
+              </button>
+            )}
           </div>
           <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
             +
@@ -943,15 +1072,15 @@ export function TransactionsPage() {
         </div>
 
         <Card className="border-0 shadow-sm mt-2">
-          <CardBody className="p-0">
+          <CardBody className="p-0" style={{ maxHeight: "55vh", overflowY: "auto" }}>
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />
               </div>
-            ) : filteredTransactions.length === 0 ? (
+            ) : pagedTransactions.length === 0 ? (
               <p className="text-center text-muted py-5 mb-0">No transactions found</p>
             ) : (
-              filteredTransactions.map((tx) => (
+              pagedTransactions.map((tx) => (
                 <TransactionCard
                   key={tx.id}
                   tx={tx}
@@ -963,6 +1092,7 @@ export function TransactionsPage() {
               ))
             )}
           </CardBody>
+          <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
         </Card>
       </div>
 
