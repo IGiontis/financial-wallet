@@ -74,8 +74,8 @@ export function useCreateGoal() {
 
   return useMutation({
     mutationFn: ({ data, isActive }: { data: CreateInvestmentGoalDTO; isActive: boolean }) => createInvestmentGoal(userId, data, isActive),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -89,8 +89,8 @@ export function useUpdateGoal() {
 
   return useMutation({
     mutationFn: ({ goalId, data }: { goalId: string; data: UpdateInvestmentGoalDTO }) => updateInvestmentGoal(goalId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -104,8 +104,8 @@ export function useDeleteGoal() {
 
   return useMutation({
     mutationFn: (goalId: string) => deleteInvestmentGoal(goalId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -140,11 +140,10 @@ export function useAddContribution() {
         contributionType: data.contributionType,
       });
     },
-    onSuccess: (_result, variables) => {
-      // Refresh both investment goals and transactions
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    onSuccess: async (_result, variables) => {
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) });
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
@@ -158,9 +157,9 @@ export function useDeleteContribution(goalId: string) {
 
   return useMutation({
     mutationFn: (contributionId: string) => deleteContribution(contributionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(goalId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      await queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(goalId) });
     },
   });
 }
