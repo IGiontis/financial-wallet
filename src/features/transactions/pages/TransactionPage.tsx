@@ -34,7 +34,7 @@ import EditTransactionModal from "../components/EditTransactionModal";
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 15;
 
 // ============================================================
 // COLOR HELPERS
@@ -902,88 +902,104 @@ export function TransactionsPage() {
 
             <Card className="border-0 shadow-sm">
               {/* Max height caps the table — overflowY makes it scroll internally */}
-              <CardBody className="p-0" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              <CardBody className="p-0">
+                {" "}
                 {isLoading ? (
                   <div className="text-center py-5">
                     <Spinner color="primary" />
                   </div>
                 ) : (
-                  <Table responsive hover className="mb-0">
-                    <thead className="table-light" style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                      <tr>
-                        <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                          DATE
-                        </th>
-                        <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
-                        <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
-                        <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                          AMOUNT
-                        </th>
-                        <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
-                          ACTIONS
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagedTransactions.length === 0 ? (
+                  <div style={{ maxHeight: "80vh", overflowY: "auto", overflowX: "auto" }}>
+                    <Table hover className="mb-0">
+                      <thead
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 1,
+                          background: "#fff", // must be explicit — sticky thead needs a background or rows bleed through
+                        }}
+                      >
                         <tr>
-                          <td colSpan={5} className="text-center text-muted py-5">
-                            No transactions found
-                          </td>
+                          <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                            DATE
+                          </th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
+                          <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                            AMOUNT
+                          </th>
+                          <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                            ACTIONS
+                          </th>
                         </tr>
-                      ) : (
-                        pagedTransactions.map((tx) => {
-                          const cat = resolveCategory(tx, categories);
-                          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
-                          return (
-                            <tr key={tx.id}>
-                              <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
-                                {formatTable(firestoreToDate(tx.date))}
-                              </td>
-                              <td style={{ fontWeight: 500 }}>{tx.description}</td>
-                              <td>
-                                <Badge color="light" className="text-dark">
-                                  {cat?.icon} {cat?.name ?? "—"}
-                                </Badge>
-                              </td>
-                              <td className="text-end">
-                                <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
-                                  {isPositive ? "+" : "−"}
-                                  {formatCurrency(tx.amount)}
-                                </span>
-                              </td>
-                              <td className="text-end pe-3">
-                                <div className="d-flex justify-content-end gap-2 align-items-center">
-                                  {tx.isInvestmentTransaction && (
-                                    <span
-                                      style={{
-                                        ...getInvestmentBadgeStyle(tx.contributionType),
-                                        display: "inline-block",
-                                        padding: "2px 8px",
-                                        borderRadius: 4,
-                                        fontWeight: 600,
-                                        fontSize: 10,
-                                      }}
+                      </thead>
+                      <tbody>
+                        {pagedTransactions.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center text-muted py-5">
+                              No transactions found
+                            </td>
+                          </tr>
+                        ) : (
+                          pagedTransactions.map((tx) => {
+                            const cat = resolveCategory(tx, categories);
+                            const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
+                            return (
+                              <tr key={tx.id}>
+                                <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
+                                  {formatTable(firestoreToDate(tx.date))}
+                                </td>
+                                <td style={{ fontWeight: 500 }}>{tx.description}</td>
+                                <td>
+                                  <Badge color="light" className="text-dark">
+                                    {cat?.icon} {cat?.name ?? "—"}
+                                  </Badge>
+                                </td>
+                                <td className="text-end">
+                                  <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
+                                    {isPositive ? "+" : "−"}
+                                    {formatCurrency(tx.amount)}
+                                  </span>
+                                </td>
+                                <td className="text-end pe-3">
+                                  <div className="d-flex justify-content-end gap-2 align-items-center">
+                                    {tx.isInvestmentTransaction && (
+                                      <span
+                                        style={{
+                                          ...getInvestmentBadgeStyle(tx.contributionType),
+                                          display: "inline-block",
+                                          padding: "2px 8px",
+                                          borderRadius: 4,
+                                          fontWeight: 600,
+                                          fontSize: 10,
+                                        }}
+                                      >
+                                        {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+                                      </span>
+                                    )}
+                                    {!tx.isInvestmentTransaction && (
+                                      <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                        <FiEdit2 size={13} />
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      color="light"
+                                      style={{ padding: "2px 8px", color: "var(--bs-danger)" }}
+                                      onClick={() => setDeleteTransaction(tx)}
+                                      title="Delete"
                                     >
-                                      {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
-                                    </span>
-                                  )}
-                                  {!tx.isInvestmentTransaction && (
-                                    <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
-                                      <FiEdit2 size={13} />
+                                      <FiTrash2 size={13} />
                                     </Button>
-                                  )}
-                                  <Button size="sm" color="light" style={{ padding: "2px 8px", color: "var(--bs-danger)" }} onClick={() => setDeleteTransaction(tx)} title="Delete">
-                                    <FiTrash2 size={13} />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </Table>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </Table>
+                  </div>
                 )}
               </CardBody>
               <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
