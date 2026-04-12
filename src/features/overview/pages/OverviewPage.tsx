@@ -240,8 +240,12 @@ export const OverviewPage: React.FC = () => {
 
   // Only recurring goals (monthly / yearly) count as "invested"
   // Deadline/targeted goals are earmarked savings, not true investments
-  const totalInvestments = useMemo(() => goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").reduce((s, g) => s + (g.totalSaved ?? 0), 0), [goals]);
-
+  const totalInvestments = useMemo(() => {
+    const recurringGoalIds = new Set(goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").map((g) => g.id));
+    return filtered
+      .filter((tx) => tx.isInvestmentTransaction && tx.contributionType === "deposit" && tx.goalId && recurringGoalIds.has(tx.goalId))
+      .reduce((s, tx) => s + tx.amount, 0);
+  }, [filtered, goals]);
   // Deadline/targeted goal deposits for the selected period
   const goalSavings = useMemo(() => {
     const deadlineGoalIds = new Set(goals.filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly").map((g) => g.id));

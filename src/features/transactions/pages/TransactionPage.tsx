@@ -121,7 +121,16 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
   return (
     <div
       onClick={() => inputRef.current?.showPicker()}
-      style={{ flex: 1, border: "1px solid rgba(0,0,0,0.13)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "#fafafa", minWidth: 0, cursor: "pointer" }}
+      style={{
+        flex: 1,
+        border: "1px solid rgba(0,0,0,0.13)",
+        borderRadius: 8,
+        padding: "7px 10px",
+        position: "relative",
+        background: "#fafafa",
+        minWidth: 0,
+        cursor: "pointer",
+      }}
     >
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
@@ -175,17 +184,25 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
       ) : (
         transactions.map((tx) => {
           const cat = resolveCategory(tx, categories);
+          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "deposit" : tx.type === "income";
           return (
             <div
               key={tx.id}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", fontSize: 13 }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "5px 0",
+                borderBottom: "1px solid rgba(0,0,0,0.05)",
+                fontSize: 13,
+              }}
             >
               <span style={{ color: "#888" }}>
                 <span style={{ marginRight: 4 }}>{cat?.icon}</span>
                 {tx.description}
               </span>
               <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
-                {tx.type === "expense" ? "-" : "+"}
+                {isPositive ? "+" : "−"}
                 {formatCurrency(tx.amount)}
               </span>
             </div>
@@ -357,8 +374,8 @@ function TransactionCalendar({
                 if (!date) return <div key={i} style={{ height: 38 }} />;
                 const k = toDateKey(date);
                 const dayTx = txMap[k] ?? [];
-                const hasInc = dayTx.some((t) => t.type === "income");
-                const hasExp = dayTx.some((t) => t.type === "expense");
+                const hasInc = dayTx.some((t) => t.type === "income" || (t.isInvestmentTransaction && t.contributionType === "deposit"));
+                const hasExp = dayTx.some((t) => t.type === "expense" || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
                 const isFrom = isSameDay(date, fromDate);
                 const isTo = isSameDay(date, toDate);
                 const isEdge = isFrom || isTo;
@@ -501,18 +518,27 @@ function TransactionCard({
   onDelete: () => void;
 }) {
   const cat = resolveCategory(tx, categories);
-  const isInc = tx.type === "income";
+  const isInvestment = !!tx.isInvestmentTransaction;
+  const isPositive = isInvestment ? tx.contributionType === "deposit" : tx.type === "income";
   const dateStr = formatTable(firestoreToDate(tx.date));
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 16px",
+        borderBottom: "0.5px solid var(--color-border-tertiary)",
+      }}
+    >
       <div
         style={{
           width: 38,
           height: 38,
           borderRadius: "50%",
           flexShrink: 0,
-          background: isInc ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+          background: isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -521,22 +547,53 @@ function TransactionCard({
       >
         {cat?.icon ?? "💳"}
       </div>
+
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
+        <p
+          style={{
+            fontWeight: 500,
+            fontSize: 14,
+            margin: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {tx.description}
+        </p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
           {cat?.name ?? "—"} · {dateStr}
         </p>
+        {isInvestment && (
+          <span
+            style={{
+              ...getInvestmentBadgeStyle(tx.contributionType),
+              display: "inline-block",
+              padding: "1px 6px",
+              borderRadius: 4,
+              fontWeight: 600,
+              fontSize: 10,
+              marginTop: 2,
+            }}
+          >
+            {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+          </span>
+        )}
       </div>
+
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: getAmountColor(tx) }}>
-          {isInc ? "+" : "−"}
+          {isPositive ? "+" : "−"}
           {formatCurrency(tx.amount)}
         </p>
       </div>
+
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-        <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
-          <FiEdit2 size={13} />
-        </Button>
+        {!isInvestment && (
+          <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
+            <FiEdit2 size={13} />
+          </Button>
+        )}
         <Button size="sm" color="light" style={{ padding: "4px 8px", color: "var(--bs-danger)" }} onClick={onDelete}>
           <FiTrash2 size={13} />
         </Button>
@@ -616,7 +673,6 @@ export function TransactionsPage() {
     [fromDate],
   );
 
-  // Deduplicate categories by name and sort alphabetically for the filter dropdown
   const uniqueCategoriesByName = useMemo(() => {
     const seen = new Set<string>();
     return [...categories]
@@ -634,20 +690,22 @@ export function TransactionsPage() {
         const txDate = firestoreToDate(tx.date);
         const matchSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-        // Match by category name so "Sports Betting" matches both income and expense variants
-        const matchCat = selectedCategory === "all" || categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId);
+        // Fix C: investment transactions match by flag, not categoryId
+        const matchCat =
+          selectedCategory === "all" ||
+          (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
 
         const txMid = midnight(txDate);
         let matchDate = true;
         if (fromDate && toDate) matchDate = txMid >= midnight(fromDate) && txMid <= midnight(toDate);
         else if (fromDate) matchDate = txMid >= midnight(fromDate);
         else if (toDate) matchDate = txMid <= midnight(toDate);
+
         return matchSearch && matchCat && matchDate;
       })
       .sort((a, b) => {
         const dateDiff = firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime();
         if (dateDiff !== 0) return dateDiff;
-        // Same date: most recently created wins
         return firestoreToDate(b.createdAt).getTime() - firestoreToDate(a.createdAt).getTime();
       });
   }, [transactions, searchQuery, selectedCategory, fromDate, toDate, categories]);
@@ -695,17 +753,53 @@ export function TransactionsPage() {
                       <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </InputGroup>
                   </Col>
+
+                  {/* Fix A: desktop category filter with clear button */}
                   <Col md={4}>
-                    {/* Desktop category filter — deduplicated and sorted A→Z, value = name */}
-                    <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                      <option value="all">All Categories</option>
-                      {uniqueCategoriesByName.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.icon} {c.name}
-                        </option>
-                      ))}
-                    </Input>
+                    <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                      <Input
+                        type="select"
+                        bsSize="sm"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        style={{
+                          paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
+                          // backgroundImage: "none", // removes Bootstrap's arrow, keeps native one
+                        }}
+                      >
+                        <option value="all">All Categories</option>
+                        {uniqueCategoriesByName.map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.icon} {c.name}
+                          </option>
+                        ))}
+                      </Input>
+
+                      {selectedCategory !== "all" && (
+                        <button
+                          onClick={() => setSelectedCategory("all")}
+                          style={{
+                            position: "absolute",
+                            right: "2.4rem", // leave room for the native select arrow
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "#555252",
+                            fontSize: "16px",
+                            lineHeight: 1,
+                            padding: "0 4px",
+                            zIndex: 2,
+                          }}
+                          title="Clear filter"
+                        >
+                          x
+                        </button>
+                      )}
+                    </div>
                   </Col>
+
                   <Col md={3} className="d-flex justify-content-end">
                     <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
                       + Add Transaction
@@ -714,6 +808,7 @@ export function TransactionsPage() {
                 </Row>
               </CardBody>
             </Card>
+
             <Card className="border-0 shadow-sm">
               <CardBody className="p-0">
                 {isLoading ? (
@@ -747,6 +842,7 @@ export function TransactionsPage() {
                       ) : (
                         filteredTransactions.map((tx) => {
                           const cat = resolveCategory(tx, categories);
+                          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "deposit" : tx.type === "income";
                           return (
                             <tr key={tx.id}>
                               <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
@@ -758,9 +854,10 @@ export function TransactionsPage() {
                                   {cat?.icon} {cat?.name ?? "—"}
                                 </Badge>
                               </td>
+                              {/* Fix B: desktop amount sign */}
                               <td className="text-end">
                                 <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
-                                  {tx.type === "expense" && "−"}
+                                  {isPositive ? "+" : "−"}
                                   {formatCurrency(tx.amount)}
                                 </span>
                               </td>
@@ -826,21 +923,25 @@ export function TransactionsPage() {
             formatCurrency={formatCurrency}
           />
         )}
+
+        {/* Fix A: mobile category filter with clear button */}
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
-          {/* Mobile category filter — deduplicated and sorted A→Z, value = name */}
-          <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
-            <option value="all">All</option>
-            {uniqueCategoriesByName.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.icon} {c.name}
-              </option>
-            ))}
-          </Input>
+          <div className="d-flex align-items-center gap-1" style={{ flex: 1 }}>
+            <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
+              <option value="all">All</option>
+              {uniqueCategoriesByName.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.icon} {c.name}
+                </option>
+              ))}
+            </Input>
+          </div>
           <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
             +
           </Button>
         </div>
+
         <Card className="border-0 shadow-sm mt-2">
           <CardBody className="p-0">
             {isLoading ? (
