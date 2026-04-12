@@ -72,11 +72,10 @@ function getGoalTypeBadgeColor(goal: InvestmentGoalWithStats): string {
   return "secondary";
 }
 
-type FilterTab = "all" | "recurring" | "goals" | "tracking" | "completed";
+// ── "paused" added here ───────────────────────────────────────────────────────
+type FilterTab = "all" | "recurring" | "goals" | "tracking" | "paused" | "completed";
 
 // ─── SummaryCards ─────────────────────────────────────────────────────────────
-// ─── SummaryCards ─────────────────────────────────────────────────────────────
-// Drop-in replacement for the SummaryCards component inside InvestmentsPage.tsx
 
 function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const active = goals.filter((g) => g.isActive && !g.isCompleted);
@@ -195,6 +194,7 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
     </Row>
   );
 }
+
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
 
 interface GoalCardProps {
@@ -232,10 +232,20 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
+              <p
+                style={{
+                  fontWeight: 500,
+                  margin: 0,
+                  color: "var(--color-text-primary)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {goal.name}
+              </p>
               <div className="d-flex align-items-center gap-1 flex-wrap">
                 <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
-                {/* Type badge shown when searching across all types */}
                 {showTypeBadge && (
                   <Badge color={getGoalTypeBadgeColor(goal)} style={{ fontSize: 10, padding: "2px 6px" }}>
                     {getGoalTypeLabel(goal).split(" · ")[0]}
@@ -263,14 +273,8 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
               toggle={() => setMenuOpen((o) => !o)}
               direction="down"
               popperModifiers={[
-                {
-                  name: "preventOverflow",
-                  options: { padding: 8 },
-                },
-                {
-                  name: "flip",
-                  options: { fallbackPlacements: ["top-end", "bottom-end"] },
-                },
+                { name: "preventOverflow", options: { padding: 8 } },
+                { name: "flip", options: { fallbackPlacements: ["top-end", "bottom-end"] } },
               ]}
             >
               <DropdownToggle
@@ -346,7 +350,13 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
         <Row className="g-2 mb-3">
           {isRecurring && (
             <Col xs={6}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "8px 10px",
+                }}
+              >
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>All-time saved</p>
                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
               </div>
@@ -354,7 +364,13 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
           )}
           {goal.monthlyRequired !== undefined && !isRecurring && (
             <Col xs={6}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "8px 10px",
+                }}
+              >
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Monthly needed</p>
                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.monthlyRequired)}</p>
               </div>
@@ -362,7 +378,13 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
           )}
           {goal.monthsLeft !== undefined && (
             <Col xs={6}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "8px 10px",
+                }}
+              >
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Months left</p>
                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.monthsLeft}</p>
               </div>
@@ -370,14 +392,26 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
           )}
           {goal.deadline && (
             <Col xs={6}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "8px 10px",
+                }}
+              >
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Deadline</p>
                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatDate(toDate(goal.deadline))}</p>
               </div>
             </Col>
           )}
           <Col xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12}>
-            <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+            <div
+              style={{
+                background: "var(--color-background-secondary)",
+                borderRadius: "var(--border-radius-md)",
+                padding: "8px 10px",
+              }}
+            >
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Contributions</p>
               <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.contributionCount}</p>
             </div>
@@ -455,7 +489,14 @@ function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalW
             { label: "Net saved", value: goal.totalSaved },
           ].map((s) => (
             <Col xs={4} key={s.label}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px", textAlign: "center" }}>
+              <div
+                style={{
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "8px 10px",
+                  textAlign: "center",
+                }}
+              >
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{s.label}</p>
                 <p style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>{formatCurrency(s.value)}</p>
               </div>
@@ -510,11 +551,13 @@ function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalW
 
 // ─── InvestmentsPage ──────────────────────────────────────────────────────────
 
+// ── "paused" added to labels ──────────────────────────────────────────────────
 const TAB_LABELS: Record<FilterTab, string> = {
   all: "All",
   recurring: "Recurring",
   goals: "Goals",
   tracking: "Tracking",
+  paused: "Paused",
   completed: "Completed",
 };
 
@@ -571,12 +614,15 @@ export default function InvestmentsPage() {
 
   const isSearching = search.trim().length > 0;
 
+  // ── All active tabs now exclude paused goals (!g.isActive).
+  // ── The new "paused" tab shows only !isActive && !isCompleted.
   const filterByTab = (g: InvestmentGoalWithStats): boolean => {
     const isRecurring = g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
-    if (filter === "all") return !g.isCompleted;
-    if (filter === "recurring") return isRecurring && !g.isCompleted;
-    if (filter === "goals") return g.goalType === "targeted" && !isRecurring && !g.isCompleted;
-    if (filter === "tracking") return g.goalType === "open_ended" && !g.isCompleted;
+    if (filter === "all") return g.isActive && !g.isCompleted;
+    if (filter === "recurring") return isRecurring && g.isActive && !g.isCompleted;
+    if (filter === "goals") return g.goalType === "targeted" && !isRecurring && g.isActive && !g.isCompleted;
+    if (filter === "tracking") return g.goalType === "open_ended" && g.isActive && !g.isCompleted;
+    if (filter === "paused") return !g.isActive && !g.isCompleted;
     if (filter === "completed") return g.isCompleted;
     return true;
   };
@@ -586,21 +632,19 @@ export default function InvestmentsPage() {
     return g.name.toLowerCase().includes(q) || (g.notes?.toLowerCase().includes(q) ?? false);
   };
 
-  // When searching: ignore tab, search all goals
-  // When not searching: apply tab filter
   const filtered = isSearching ? goals.filter(filterBySearch) : goals.filter(filterByTab);
 
   const tabCount = (tab: FilterTab): number => {
     const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
-    if (tab === "all") return goals.filter((g) => !g.isCompleted).length;
-    if (tab === "recurring") return goals.filter((g) => isRecurring(g) && !g.isCompleted).length;
-    if (tab === "goals") return goals.filter((g) => g.goalType === "targeted" && !isRecurring(g) && !g.isCompleted).length;
-    if (tab === "tracking") return goals.filter((g) => g.goalType === "open_ended" && !g.isCompleted).length;
+    if (tab === "all") return goals.filter((g) => g.isActive && !g.isCompleted).length;
+    if (tab === "recurring") return goals.filter((g) => isRecurring(g) && g.isActive && !g.isCompleted).length;
+    if (tab === "goals") return goals.filter((g) => g.goalType === "targeted" && !isRecurring(g) && g.isActive && !g.isCompleted).length;
+    if (tab === "tracking") return goals.filter((g) => g.goalType === "open_ended" && g.isActive && !g.isCompleted).length;
+    if (tab === "paused") return goals.filter((g) => !g.isActive && !g.isCompleted).length;
     if (tab === "completed") return goals.filter((g) => g.isCompleted).length;
     return 0;
   };
 
-  // Empty state label depends on context
   const emptyLabel = isSearching ? `No results for "${search}"` : `No ${TAB_LABELS[filter].toLowerCase()} goals yet`;
 
   return (
@@ -638,7 +682,6 @@ export default function InvestmentsPage() {
                 style={{
                   fontSize: 13,
                   border: "1px solid var(--color-border-primary)",
-
                   paddingRight: search ? "2.5rem" : "1rem",
                 }}
               />
@@ -685,7 +728,7 @@ export default function InvestmentsPage() {
               {/* Tabs — hidden when searching */}
               {!isSearching && (
                 <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
-                  {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
+                  {(["all", "recurring", "goals", "tracking", "paused", "completed"] as FilterTab[]).map((tab) => {
                     const isActive = filter === tab;
                     return (
                       <NavItem key={tab}>
@@ -707,7 +750,7 @@ export default function InvestmentsPage() {
                             pill
                             style={{
                               color: "#e0f0ff",
-                              backgroundColor: "#0d6efd",
+                              backgroundColor: tab === "paused" ? "#F59E0B" : "#0d6efd",
                               fontWeight: 500,
                               fontSize: 11,
                               padding: "4px 8px",
@@ -725,7 +768,11 @@ export default function InvestmentsPage() {
               {/* Desktop search — right side of tabs row */}
               <div
                 className="d-none d-md-flex align-items-center justify-content-end"
-                style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
+                style={{
+                  flex: isSearching ? 1 : "none",
+                  paddingBottom: 6,
+                  paddingLeft: isSearching ? 0 : 16,
+                }}
               >
                 <div style={{ position: "relative", width: 220 }}>
                   <Input
@@ -735,7 +782,6 @@ export default function InvestmentsPage() {
                     style={{
                       fontSize: 13,
                       border: "1px solid var(--color-border-primary)",
-
                       paddingRight: search ? "2.5rem" : "1rem",
                       height: 32,
                     }}
@@ -768,10 +814,10 @@ export default function InvestmentsPage() {
           {/* Goals grid */}
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
-              <p style={{ fontSize: 40 }}>💰</p>
+              <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "💰"}</p>
               <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
-              {!isSearching && <p style={{ fontSize: 14 }}>Create your first investment goal to start tracking.</p>}
-              {!isSearching && (
+              {!isSearching && filter !== "paused" && <p style={{ fontSize: 14 }}>Create your first investment goal to start tracking.</p>}
+              {!isSearching && filter !== "paused" && (
                 <Button color="primary" onClick={() => setShowNewGoal(true)}>
                   + New goal
                 </Button>
