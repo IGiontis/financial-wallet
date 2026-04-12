@@ -1,7 +1,7 @@
 import { Navbar, Container, Button, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
-import { FiSettings, FiHelpCircle, FiLogOut, FiMenu } from "react-icons/fi";
+import { FiSettings, FiLogOut, FiMenu } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
 import { useAuth } from "../../context/AuthContext";
 import { logout } from "../../firebase/auth";
@@ -99,11 +99,6 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
               <DropdownItem className={styles.dropdownItem} onClick={() => navigate("/settings")}>
                 <FiSettings size={18} className={styles.dropdownItemIcon} />
                 Settings
-              </DropdownItem>
-
-              <DropdownItem className={styles.dropdownItem} onClick={() => navigate("/help")}>
-                <FiHelpCircle size={18} className={styles.dropdownItemIcon} />
-                Help & Support
               </DropdownItem>
 
               <DropdownItem divider />
