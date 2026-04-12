@@ -172,10 +172,18 @@ function MetricCard({
   }, [value, update]);
   const displayValue = !isPercentage && formatFn ? formatFn(value) : undefined;
   return (
-    <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "1rem" }}>
-      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
-      {displayValue ? <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{displayValue}</p> : <span ref={spanRef} style={{ fontSize: 22, fontWeight: 500, color }} />}
-    </div>
+    <Card className="text-center">
+      <CardBody>
+        <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
+          {displayValue ? (
+            <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{displayValue}</p>
+          ) : (
+            <span ref={spanRef} style={{ fontSize: 22, fontWeight: 500, color }} />
+          )}
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -239,22 +247,32 @@ export const OverviewPage: React.FC = () => {
           <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Financial Overview</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your income, expenses and investments</p>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, background: "var(--color-background-secondary)", borderRadius: 10, padding: 4 }}>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            background: "var(--color-background-secondary)",
+            borderRadius: 10,
+            padding: 4,
+          }}
+        >
           {PERIODS.map((p) => (
             <button
               key={p.value}
               onClick={() => handlePeriodChange(p.value)}
               disabled={isPending}
               style={{
-                background: selectedPeriod === p.value ? "var(--color-background-primary)" : "transparent",
-                border: "none",
+                background: selectedPeriod === p.value ? "#ffffff" : "transparent",
+                border: selectedPeriod === p.value ? "0.5px solid rgba(0,0,0,0.10)" : "0.5px solid transparent",
                 borderRadius: 7,
                 padding: "6px 12px",
                 fontSize: 12,
                 fontWeight: selectedPeriod === p.value ? 600 : 400,
                 color: selectedPeriod === p.value ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                 cursor: "pointer",
-                boxShadow: selectedPeriod === p.value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                boxShadow: selectedPeriod === p.value ? "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)" : "none",
                 transition: "all 0.15s ease",
                 whiteSpace: "nowrap",
               }}

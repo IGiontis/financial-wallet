@@ -654,7 +654,7 @@ export default function InvestmentsPage() {
             <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
               {/* Tabs — hidden when searching */}
               {!isSearching && (
-                <Nav tabs style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
+                <Nav  style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
                   {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
                     const isActive = filter === tab;
                     return (

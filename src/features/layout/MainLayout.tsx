@@ -23,7 +23,7 @@ export function MainLayout() {
         <Topbar toggleSidebar={toggleSidebar} />
 
         <main className="page-content">
-          <Container fluid className="py-2">
+          <Container fluid className="py-2" style={{backgroundColor:"#E9ECEF"}}>
             <Outlet />
           </Container>
         </main>
