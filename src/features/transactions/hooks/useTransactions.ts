@@ -19,6 +19,7 @@ export function useTransactions() {
   return useQuery<Transaction[]>({
     queryKey: transactionKeys.all(userId),
     enabled: !!userId,
+    staleTime: 0, // always refetch when navigating to the page
     queryFn: () => getTransactions(userId),
   });
 }
@@ -33,7 +34,7 @@ export function useCategories() {
     queryKey: transactionKeys.categories(userId),
     enabled: !!userId,
     queryFn: () => getCategories(userId),
-    staleTime: 1000 * 60 * 10, // categories change rarely — cache 10 min
+    staleTime: 1000 * 60 * 10,
   });
 }
 
@@ -46,8 +47,8 @@ export function useCreateTransaction() {
 
   return useMutation({
     mutationFn: (data: CreateTransactionDTO) => createTransaction(userId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
@@ -61,8 +62,8 @@ export function useUpdateTransaction() {
 
   return useMutation({
     mutationFn: ({ transactionId, data }: { transactionId: string; data: UpdateTransactionDTO }) => updateTransaction(transactionId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
@@ -76,8 +77,8 @@ export function useDeleteTransaction() {
 
   return useMutation({
     mutationFn: (transactionId: string) => deleteTransaction(transactionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
