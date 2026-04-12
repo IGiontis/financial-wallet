@@ -86,9 +86,15 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
   const totalSaved = recurringGoals.reduce((s, g) => s + g.totalSaved, 0);
   const totalMonthly = active.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
   const remainingTotal = goals
-    .filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly" && !g.isCompleted)
+    .filter(
+      (g) =>
+        g.goalType === "targeted" &&
+        g.targetPeriod !== "monthly" &&
+        g.targetPeriod !== "yearly" &&
+        g.isActive && // exclude paused
+        !g.isCompleted,
+    )
     .reduce((sum, g) => sum + (g.remaining ?? 0), 0);
-
   const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
   const targetedActive = active.filter((g) => g.goalType === "targeted").length;
   const onTrackRatio = targetedActive > 0 ? onTrack / targetedActive : 1;
@@ -217,6 +223,41 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
   const st = goal.status ? statusConfig[goal.status] : null;
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
+  const isPaused = !goal.isActive && !goal.isCompleted;
+
+  // ── Reusable stat mini-card with clear label/value hierarchy ─────────────
+  const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
+    <Col xs={xs}>
+      <div
+        style={{
+          background: "var(--color-background-secondary)",
+          borderRadius: "var(--border-radius-md)",
+          padding: "8px 10px",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 13,
+            fontWeight: 400,
+            color: "#414344", // Bootstrap text-muted — readable but clearly secondary
+            margin: "0 0 2px",
+          }}
+        >
+          {label}
+        </p>
+        <p
+          style={{
+            fontSize: 15, // bigger than before so value clearly dominates
+            fontWeight: 600, // bolder so eye goes here first
+            margin: 0,
+            color: "var(--color-text-primary)",
+          }}
+        >
+          {value}
+        </p>
+      </div>
+    </Col>
+  );
   return (
     <Card
       className="mb-3 h-100"
@@ -224,17 +265,18 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
         border: "0.5px solid var(--color-border-tertiary)",
         borderRadius: "var(--border-radius-lg)",
         boxShadow: "none",
+        opacity: isPaused ? 0.72 : 1,
+        transition: "opacity 0.2s",
       }}
     >
-      <CardBody>
-        {/* Header */}
+      <CardBody style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div className="d-flex justify-content-between gap-3 align-items-start mb-3">
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
               <p
                 style={{
-                  fontWeight: 500,
+                  fontWeight: 600,
                   margin: 0,
                   color: "var(--color-text-primary)",
                   overflow: "hidden",
@@ -245,7 +287,7 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
                 {goal.name}
               </p>
               <div className="d-flex align-items-center gap-1 flex-wrap">
-                <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
                 {showTypeBadge && (
                   <Badge color={getGoalTypeBadgeColor(goal)} style={{ fontSize: 10, padding: "2px 6px" }}>
                     {getGoalTypeLabel(goal).split(" · ")[0]}
@@ -262,21 +304,13 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
                   {st.label}
                 </Badge>
               )}
-              {!goal.isActive && !goal.isCompleted && (
+              {isPaused && (
                 <Badge color="warning" style={{ fontSize: 11 }}>
                   Paused
                 </Badge>
               )}
             </div>
-            <Dropdown
-              isOpen={menuOpen}
-              toggle={() => setMenuOpen((o) => !o)}
-              direction="down"
-              popperModifiers={[
-                { name: "preventOverflow", options: { padding: 8 } },
-                { name: "flip", options: { fallbackPlacements: ["top-end", "bottom-end"] } },
-              ]}
-            >
+            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
               <DropdownToggle
                 tag="button"
                 style={{
@@ -290,7 +324,7 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
               >
                 <FiMoreVertical size={16} />
               </DropdownToggle>
-              <DropdownMenu positionFixed end>
+              <DropdownMenu end>
                 <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={goal.isCompleted}>
                   Edit goal
                 </DropdownItem>
@@ -310,15 +344,21 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
         {isRecurring && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                {formatCurrency(goal.currentPeriodSaved ?? 0)} this {goal.targetPeriod === "monthly" ? "month" : "year"}
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                {formatCurrency(goal.currentPeriodSaved ?? 0)}
+                <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}> this {goal.targetPeriod === "monthly" ? "month" : "year"}</span>
               </span>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)} target</span>
             </div>
             <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-              {pct.toFixed(1)}% of {goal.targetPeriod === "monthly" ? "monthly" : "yearly"} target
-              {(goal.remaining ?? 0) > 0 && ` · ${formatCurrency(goal.remaining!)} remaining`}
+              <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{pct.toFixed(1)}%</span> of {goal.targetPeriod === "monthly" ? "monthly" : "yearly"} target
+              {(goal.remaining ?? 0) > 0 && (
+                <>
+                  {" · "}
+                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.remaining!)}</span> remaining
+                </>
+              )}
             </p>
           </>
         )}
@@ -327,13 +367,18 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
         {isTargeted && !isRecurring && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.totalSaved)}</span>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</span>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>of {formatCurrency(goal.targetAmount)}</span>
             </div>
             <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-              {pct.toFixed(1)}% reached
-              {(goal.remaining ?? 0) > 0 && ` · ${formatCurrency(goal.remaining!)} remaining`}
+              <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{pct.toFixed(1)}%</span> reached
+              {(goal.remaining ?? 0) > 0 && (
+                <>
+                  {" · "}
+                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.remaining!)}</span> remaining
+                </>
+              )}
             </p>
           </>
         )}
@@ -341,87 +386,24 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
         {/* Tracking (open-ended) — just show total */}
         {!isTargeted && (
           <div className="mb-3">
-            <p style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
-            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>total saved</p>
+            <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>total saved</p>
           </div>
         )}
 
         {/* Stats mini cards */}
         <Row className="g-2 mb-3">
-          {isRecurring && (
-            <Col xs={6}>
-              <div
-                style={{
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "8px 10px",
-                }}
-              >
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>All-time saved</p>
-                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.totalSaved)}</p>
-              </div>
-            </Col>
-          )}
-          {goal.monthlyRequired !== undefined && !isRecurring && (
-            <Col xs={6}>
-              <div
-                style={{
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "8px 10px",
-                }}
-              >
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Monthly needed</p>
-                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatCurrency(goal.monthlyRequired)}</p>
-              </div>
-            </Col>
-          )}
-          {goal.monthsLeft !== undefined && (
-            <Col xs={6}>
-              <div
-                style={{
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "8px 10px",
-                }}
-              >
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Months left</p>
-                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.monthsLeft}</p>
-              </div>
-            </Col>
-          )}
-          {goal.deadline && (
-            <Col xs={6}>
-              <div
-                style={{
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "8px 10px",
-                }}
-              >
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Deadline</p>
-                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{formatDate(toDate(goal.deadline))}</p>
-              </div>
-            </Col>
-          )}
-          <Col xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12}>
-            <div
-              style={{
-                background: "var(--color-background-secondary)",
-                borderRadius: "var(--border-radius-md)",
-                padding: "8px 10px",
-              }}
-            >
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>Contributions</p>
-              <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{goal.contributionCount}</p>
-            </div>
-          </Col>
+          {isRecurring && <StatCell label="All-time saved" value={formatCurrency(goal.totalSaved)} />}
+          {goal.monthlyRequired !== undefined && !isRecurring && <StatCell label="Monthly needed" value={formatCurrency(goal.monthlyRequired)} />}
+          {goal.monthsLeft !== undefined && <StatCell label="Months left" value={goal.monthsLeft} />}
+          {goal.deadline && <StatCell label="Deadline" value={formatDate(toDate(goal.deadline))} />}
+          <StatCell label="Contributions" value={goal.contributionCount} xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12} />
         </Row>
 
         {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {/* Action buttons — marginTop auto pushes this to the bottom */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
           {!goal.isCompleted && (
             <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
               Add deposit
@@ -440,7 +422,6 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
     </Card>
   );
 }
-
 // ─── DeleteConfirmModal ───────────────────────────────────────────────────────
 
 function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
@@ -497,7 +478,7 @@ function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalW
                   textAlign: "center",
                 }}
               >
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{s.label}</p>
+                <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{s.label}</p>
                 <p style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>{formatCurrency(s.value)}</p>
               </div>
             </Col>
