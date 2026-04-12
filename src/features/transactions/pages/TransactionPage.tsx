@@ -184,7 +184,7 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
       ) : (
         transactions.map((tx) => {
           const cat = resolveCategory(tx, categories);
-          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "deposit" : tx.type === "income";
+          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
           return (
             <div
               key={tx.id}
@@ -519,7 +519,7 @@ function TransactionCard({
 }) {
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
-  const isPositive = isInvestment ? tx.contributionType === "deposit" : tx.type === "income";
+  const isPositive = isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
   const dateStr = formatTable(firestoreToDate(tx.date));
 
   return (
@@ -842,7 +842,7 @@ export function TransactionsPage() {
                       ) : (
                         filteredTransactions.map((tx) => {
                           const cat = resolveCategory(tx, categories);
-                          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "deposit" : tx.type === "income";
+                          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
                           return (
                             <tr key={tx.id}>
                               <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
