@@ -141,9 +141,11 @@ export function useAddContribution() {
       });
     },
     onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) });
-      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) }),
+        queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) }),
+        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
+      ]);
     },
   });
 }
