@@ -14,6 +14,7 @@ interface ChartDataPoint {
   label: string;
   income: number;
   expenses: number;
+  investments: number;
 }
 
 interface DashboardMetrics {
@@ -65,35 +66,45 @@ const groupByWeek = (transactions: Transaction[], range: { start: Date; end: Dat
     .map((w) => {
       const weekTx = transactions.filter((tx) => {
         const d = firestoreToDate(tx.date);
-        return d >= w.start && d <= w.end && !tx.isInvestmentTransaction;
+        return d >= w.start && d <= w.end;
       });
       return {
         label: w.label,
-        income: Math.round(weekTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)),
-        expenses: Math.round(weekTx.filter((t) => t.type === "expense").reduce((s, t) => s + Math.abs(t.amount), 0)),
+        income: Math.round(weekTx.filter((t) => t.type === "income" && !t.isInvestmentTransaction).reduce((s, t) => s + t.amount, 0)),
+        expenses: Math.round(weekTx.filter((t) => t.type === "expense" && !t.isInvestmentTransaction).reduce((s, t) => s + Math.abs(t.amount), 0)),
+        investments: Math.round(weekTx.filter((t) => t.isInvestmentTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
       };
     })
-    .filter((w) => w.income > 0 || w.expenses > 0);
+    .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0);
 };
 
 const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
-  const map = new Map<string, { income: number; expenses: number; firstDay: Date }>();
+  const map = new Map<string, { income: number; expenses: number; investments: number; firstDay: Date }>();
   transactions.forEach((tx) => {
-    // Exclude investment transactions from chart bars
-    if (tx.isInvestmentTransaction) return;
     const firstDay = startOfMonth(firestoreToDate(tx.date));
     const key = format(firstDay, "yyyy-MM");
-    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, firstDay });
+    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, firstDay });
     const d = map.get(key)!;
-    if (tx.type === "income") d.income += tx.amount;
-    else d.expenses += Math.abs(tx.amount);
+    if (tx.isInvestmentTransaction) {
+      // Only count deposits as investment inflow — withdrawals cancel out
+      if (tx.contributionType === "deposit") d.investments += tx.amount;
+    } else if (tx.type === "income") {
+      d.income += tx.amount;
+    } else {
+      d.expenses += Math.abs(tx.amount);
+    }
   });
   return Array.from(map.values())
     .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
-    .map((d) => ({ label: format(d.firstDay, "MMM yy"), income: Math.round(d.income), expenses: Math.round(d.expenses) }));
+    .map((d) => ({
+      label: format(d.firstDay, "MMM yy"),
+      income: Math.round(d.income),
+      expenses: Math.round(d.expenses),
+      investments: Math.round(d.investments),
+    }));
 };
 
-// Investment transactions are excluded — totalInvestments is derived from goals instead
+// Investment transactions excluded from income/expense metrics
 const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
   const totalIncome = transactions.filter((t) => t.type === "income" && !t.isInvestmentTransaction).reduce((s, t) => s + t.amount, 0);
 
@@ -110,6 +121,7 @@ function makeTooltip(formatCurrency: (n: number) => string) {
     if (!active || !payload?.length) return null;
     const income = payload.find((p: any) => p.dataKey === "income")?.value ?? 0;
     const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
+    const investments = payload.find((p: any) => p.dataKey === "investments")?.value ?? 0;
     const net = income - expenses;
     return (
       <div style={{ background: "#1e1e2e", border: "none", borderRadius: 10, padding: "12px 16px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
@@ -121,13 +133,22 @@ function makeTooltip(formatCurrency: (n: number) => string) {
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{formatCurrency(income)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 7 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: "#F87171", display: "inline-block" }} />
             Expenses
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#F87171" }}>{formatCurrency(expenses)}</span>
         </div>
+        {investments > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: "#818CF8", display: "inline-block" }} />
+              Invested
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#818CF8" }}>{formatCurrency(investments)}</span>
+          </div>
+        )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Net</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#22C55E" : "#F87171" }}>
@@ -215,12 +236,23 @@ export const OverviewPage: React.FC = () => {
     return groupByMonth(filtered);
   }, [filtered, selectedPeriod, dateRange]);
 
-  // Metrics (income/expenses/net) respect the selected date range
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
 
-  // Total invested = sum of all goal balances (already net of withdrawals, all-time)
-  // This must NOT be date-filtered — a goal balance is a running total, not a period sum
-  const totalInvestments = useMemo(() => goals.reduce((s, g) => s + (g.totalSaved ?? 0), 0), [goals]);
+  // Only recurring goals (monthly / yearly) count as "invested"
+  // Deadline/targeted goals are earmarked savings, not true investments
+  const totalInvestments = useMemo(() => goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").reduce((s, g) => s + (g.totalSaved ?? 0), 0), [goals]);
+
+  // Deadline/targeted goal deposits for the selected period
+  const goalSavings = useMemo(() => {
+    const deadlineGoalIds = new Set(goals.filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly").map((g) => g.id));
+    return filtered
+      .filter((tx) => tx.isInvestmentTransaction && tx.contributionType === "deposit" && tx.goalId && deadlineGoalIds.has(tx.goalId))
+      .reduce((s, tx) => s + tx.amount, 0);
+  }, [filtered, goals]);
+
+  const moneyLeft = useMemo(() => {
+    return metrics.totalIncome - metrics.totalExpenses - goalSavings;
+  }, [metrics.totalIncome, metrics.totalExpenses, goalSavings]);
 
   const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 6), [goals]);
 
@@ -292,14 +324,18 @@ export const OverviewPage: React.FC = () => {
           <MetricCard label="Total expenses" value={metrics.totalExpenses} color="#EF4444" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg>
-          {/* totalInvestments comes from goals, not filtered transactions — always shows all-time net */}
-          <MetricCard label="Invested" value={totalInvestments} color="#818CF8" formatFn={formatCurrency} />
-        </Col>
-        <Col xs={6} lg>
           <MetricCard label="Net income" value={metrics.netIncome} color={metrics.netIncome >= 0 ? "#22C55E" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg>
-          <MetricCard label="Savings rate" value={metrics.savingsRate} color="#3B82F6" isPercentage />
+          {/* Only recurring (monthly/yearly) goals — deadline goals are earmarked savings, not investments */}
+          <MetricCard label="Invested" value={totalInvestments} color="#818CF8" formatFn={formatCurrency} />
+        </Col>
+        <Col xs={6} lg>
+          <MetricCard label="Goal Savings" value={goalSavings} color="#F59E0B" formatFn={formatCurrency} />
+        </Col>
+
+        <Col xs={6} lg>
+          <MetricCard label="Money left" value={moneyLeft} color={moneyLeft >= 0 ? "#22C55E" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
       </Row>
 
@@ -317,6 +353,7 @@ export const OverviewPage: React.FC = () => {
                   {[
                     { color: "#22C55E", label: "Income" },
                     { color: "#F87171", label: "Expenses" },
+                    { color: "#818CF8", label: "Invested" },
                   ].map((l) => (
                     <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
                       <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
@@ -337,14 +374,19 @@ export const OverviewPage: React.FC = () => {
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
                     <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={60} />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(128,128,128,0.06)", radius: 4 }} />
-                    <Bar dataKey="income" name="Income" maxBarSize={40} shape={<RoundedBar />}>
+                    <Bar dataKey="income" name="Income" maxBarSize={32} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill="#22C55E" fillOpacity={0.85} />
                       ))}
                     </Bar>
-                    <Bar dataKey="expenses" name="Expenses" maxBarSize={40} shape={<RoundedBar />}>
+                    <Bar dataKey="expenses" name="Expenses" maxBarSize={32} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill="#F87171" fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="investments" name="Invested" maxBarSize={32} shape={<RoundedBar />}>
+                      {chartData.map((_, i) => (
+                        <Cell key={i} fill="#818CF8" fillOpacity={0.85} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -373,7 +415,6 @@ export const OverviewPage: React.FC = () => {
                   Create one in the Investments page.
                 </div>
               ) : (
-                // Grid container — minmax(0, 1fr) is the key fix
                 <div
                   style={{
                     display: "grid",
@@ -395,13 +436,10 @@ export const OverviewPage: React.FC = () => {
                           borderRadius: "var(--border-radius-md)",
                           padding: "12px",
                           borderLeft: `3px solid ${color}`,
-                          minWidth: 0, // prevents the cell itself from overflowing
+                          minWidth: 0,
                         }}
                       >
-                        <div
-                          className="d-flex align-items-center gap-2 mb-2"
-                          style={{ minWidth: 0 }} // needed so ellipsis propagates
-                        >
+                        <div className="d-flex align-items-center gap-2 mb-2" style={{ minWidth: 0 }}>
                           <span style={{ fontSize: 16, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
                           <p
                             style={{
@@ -412,7 +450,7 @@ export const OverviewPage: React.FC = () => {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
-                              minWidth: 0, // the actual element also needs this
+                              minWidth: 0,
                             }}
                           >
                             {goal.name}

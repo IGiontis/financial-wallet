@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Alert } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
@@ -10,14 +11,6 @@ interface DepositFormValues {
   date: string;
   notes: string;
 }
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-const validationSchema = Yup.object({
-  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Amount must be greater than 0").max(1_000_000, "Amount is too large"),
-  date: Yup.string().required("Date is required"),
-  notes: Yup.string().max(200, "Max 200 characters"),
-});
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +26,25 @@ interface AddDepositModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: AddDepositModalProps) {
+  const isDeadlineGoal = goal.goalType === "targeted" && goal.targetPeriod !== "monthly" && goal.targetPeriod !== "yearly";
+
+  const remaining = goal.remaining ?? 0;
+  const maxAmount = isDeadlineGoal && remaining > 0 ? remaining : 1_000_000;
+
+  const validationSchema = useMemo(
+    () =>
+      Yup.object({
+        amount: Yup.number()
+          .typeError("Amount must be a number")
+          .required("Amount is required")
+          .positive("Amount must be greater than 0")
+          .max(maxAmount, isDeadlineGoal ? `Cannot exceed remaining amount (${maxAmount.toFixed(2)})` : "Amount is too large"),
+        date: Yup.string().required("Date is required"),
+        notes: Yup.string().max(200, "Max 200 characters"),
+      }),
+    [maxAmount, isDeadlineGoal],
+  );
+
   const formik = useFormik<DepositFormValues>({
     enableReinitialize: true,
     initialValues: { amount: "", date: today, notes: "" },
@@ -60,14 +72,31 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
     onClose();
   };
 
+  const numericAmount = Number(formik.values.amount) || 0;
+  const balanceAfter = remaining - numericAmount;
+
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="l">
+    <Modal isOpen={isOpen} toggle={handleClose} size="md">
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Add deposit — {goal.name}
       </ModalHeader>
 
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
+          {/* Deadline goal info banner */}
+          {isDeadlineGoal && remaining > 0 && (
+            <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
+              This is a deadline goal. You can deposit up to <strong>{maxAmount.toFixed(2)}</strong> remaining to reach your target.
+            </Alert>
+          )}
+
+          {/* Goal already completed */}
+          {isDeadlineGoal && remaining <= 0 && (
+            <Alert color="success" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
+              This goal has been fully funded!
+            </Alert>
+          )}
+
           <Row className="g-2">
             <Col xs={12} md={6}>
               <FormGroup>
@@ -82,8 +111,20 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
+                  disabled={isDeadlineGoal && remaining <= 0}
                 />
                 <FormFeedback>{formik.errors.amount}</FormFeedback>
+                {isDeadlineGoal && remaining > 0 && (
+                  <FormText style={{ fontSize: 11 }}>
+                    Max deposit: <strong>{maxAmount.toFixed(2)}</strong>
+                    {numericAmount > 0 && !formik.errors.amount && (
+                      <>
+                        {" "}
+                        · Remaining after: <strong>{Math.max(balanceAfter, 0).toFixed(2)}</strong>
+                      </>
+                    )}
+                  </FormText>
+                )}
               </FormGroup>
             </Col>
 
@@ -97,6 +138,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.date && formik.errors.date)}
+                  disabled={isDeadlineGoal && remaining <= 0}
                 />
                 <FormFeedback>{formik.errors.date}</FormFeedback>
               </FormGroup>
@@ -114,6 +156,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               invalid={!!(formik.touched.notes && formik.errors.notes)}
+              disabled={isDeadlineGoal && remaining <= 0}
             />
             <FormFeedback>{formik.errors.notes}</FormFeedback>
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
@@ -124,8 +167,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           <Button type="button" color="secondary" outline onClick={handleClose}>
             Cancel
           </Button>
-
-          <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty}>
+          <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty || (isDeadlineGoal && remaining <= 0)}>
             {formik.isSubmitting ? "Saving..." : "Add deposit"}
           </Button>
         </ModalFooter>

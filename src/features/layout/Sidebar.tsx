@@ -23,7 +23,7 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
   const navItems: NavItemProp[] = [
     { path: "/", label: "Overview", icon: FiHome },
     { path: "/transactions", label: "Transactions", icon: FiCreditCard },
-    { path: "/investments", label: "Investments", icon: FiDollarSign },
+    { path: "/investments", label: "Investments/Goals", icon: FiDollarSign },
     { path: "/settings", label: "Settings", icon: FiSettings },
   ];
 

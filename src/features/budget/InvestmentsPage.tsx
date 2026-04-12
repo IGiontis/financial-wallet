@@ -75,65 +75,73 @@ function getGoalTypeBadgeColor(goal: InvestmentGoalWithStats): string {
 type FilterTab = "all" | "recurring" | "goals" | "tracking" | "completed";
 
 // ─── SummaryCards ─────────────────────────────────────────────────────────────
+// ─── SummaryCards ─────────────────────────────────────────────────────────────
+// Drop-in replacement for the SummaryCards component inside InvestmentsPage.tsx
 
 function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const active = goals.filter((g) => g.isActive && !g.isCompleted);
   const completed = goals.filter((g) => g.isCompleted);
   const paused = goals.filter((g) => !g.isActive && !g.isCompleted);
 
-  // Total saved — only from recurring goals (monthly / yearly)
   const recurringGoals = goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly");
   const totalSaved = recurringGoals.reduce((s, g) => s + g.totalSaved, 0);
-
-  // Monthly needed — only active recurring goals (no paused)
   const totalMonthly = active.reduce((sum, g) => sum + (g.monthlyRequired ?? 0), 0);
-  // Remaining — only deadline / one-time targeted goals
   const remainingTotal = goals
     .filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly" && !g.isCompleted)
     .reduce((sum, g) => sum + (g.remaining ?? 0), 0);
 
   const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
   const targetedActive = active.filter((g) => g.goalType === "targeted").length;
-
   const onTrackRatio = targetedActive > 0 ? onTrack / targetedActive : 1;
-  const onTrackColor = onTrackRatio === 1 ? "var(--bs-success)" : onTrackRatio >= 0.5 ? "var(--bs-warning)" : "var(--bs-danger)";
 
   const cards: {
     label: string;
     value: string;
-    sub: string;
-    valueColor?: string;
+    sub?: string;
+    accent: string;
+    icon: string;
   }[] = [
     {
       label: "Total saved",
       value: formatCurrency(totalSaved),
-      sub: `from ${recurringGoals.length} recurring goal${recurringGoals.length !== 1 ? "s" : ""}`,
+      sub: `${recurringGoals.length} recurring goal${recurringGoals.length !== 1 ? "s" : ""}`,
+      accent: "#10B981",
+      icon: "📈",
     },
     {
       label: "Monthly needed",
       value: formatCurrency(totalMonthly),
-      sub: "active recurring only",
+      sub: "",
+      accent: "#3B82F6",
+      icon: "📅",
     },
     {
       label: "Remaining",
       value: formatCurrency(remainingTotal),
       sub: "to reach deadline goals",
+      accent: "#F59E0B",
+      icon: "🎯",
     },
     {
       label: "Active goals",
       value: String(active.length),
       sub: paused.length > 0 ? `${paused.length} paused` : "none paused",
+      accent: "#6366F1",
+      icon: "🚀",
     },
     {
       label: "On track",
       value: `${onTrack} / ${targetedActive}`,
       sub: "targeted goals",
-      valueColor: onTrackColor,
+      accent: onTrackRatio === 1 ? "#10B981" : onTrackRatio >= 0.5 ? "#F59E0B" : "#EF4444",
+      icon: onTrackRatio === 1 ? "✅" : onTrackRatio >= 0.5 ? "⚠️" : "❌",
     },
     {
       label: "Completed",
       value: String(completed.length),
       sub: completed.length === 1 ? "goal reached" : "goals reached",
+      accent: "#8B5CF6",
+      icon: "🏆",
     },
   ];
 
@@ -141,51 +149,52 @@ function SummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStat
     <Row className="g-3 mb-4">
       {cards.map((c) => (
         <Col xs={6} md={4} xl={2} className="d-flex" key={c.label}>
-          <Card className="text-center h-100 w-100">
-            <CardBody className="d-flex p-1">
-              <div
+          <div
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              background: "#ffffff",
+              border: "0.5px solid var(--color-border-tertiary)",
+              borderTop: `3px solid ${c.accent}`,
+              padding: "14px 16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            <div className="d-flex align-items-center justify-content-between mb-1">
+              <p
                 style={{
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "1rem",
-                  width: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
+                  fontSize: 11,
+                  color: "var(--color-text-secondary)",
+                  margin: 0,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  fontWeight: 600,
                 }}
               >
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: "var(--color-text-secondary)",
-                    margin: "0 0 4px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    fontWeight: 500,
-                  }}
-                >
-                  {c.label}
-                </p>
-                <p
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 500,
-                    margin: 0,
-                    color: c.valueColor ?? "var(--color-text-primary)",
-                  }}
-                >
-                  {c.value}
-                </p>
-                {c.sub && <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "2px 0 0" }}>{c.sub}</p>}
-              </div>
-            </CardBody>
-          </Card>
+                {c.label}
+              </p>
+              <span style={{ fontSize: 14 }}>{c.icon}</span>
+            </div>
+            <p
+              style={{
+                fontSize: 20,
+                fontWeight: 600,
+                margin: 0,
+                color: c.accent,
+                lineHeight: 1.2,
+              }}
+            >
+              {c.value}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub}</p>
+          </div>
         </Col>
       ))}
     </Row>
   );
 }
-
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
 
 interface GoalCardProps {
@@ -249,14 +258,35 @@ function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, on
                 </Badge>
               )}
             </div>
-            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)} direction="down">
+            <Dropdown
+              isOpen={menuOpen}
+              toggle={() => setMenuOpen((o) => !o)}
+              direction="down"
+              popperModifiers={[
+                {
+                  name: "preventOverflow",
+                  options: { padding: 8 },
+                },
+                {
+                  name: "flip",
+                  options: { fallbackPlacements: ["top-end", "bottom-end"] },
+                },
+              ]}
+            >
               <DropdownToggle
                 tag="button"
-                style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: "2px 4px",
+                  cursor: "pointer",
+                  color: "var(--color-text-secondary)",
+                  lineHeight: 1,
+                }}
               >
                 <FiMoreVertical size={16} />
               </DropdownToggle>
-              <DropdownMenu end>
+              <DropdownMenu positionFixed end>
                 <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={goal.isCompleted}>
                   Edit goal
                 </DropdownItem>
@@ -654,7 +684,7 @@ export default function InvestmentsPage() {
             <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
               {/* Tabs — hidden when searching */}
               {!isSearching && (
-                <Nav  style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
+                <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
                   {(["all", "recurring", "goals", "tracking", "completed"] as FilterTab[]).map((tab) => {
                     const isActive = filter === tab;
                     return (
