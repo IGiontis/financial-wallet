@@ -628,6 +628,15 @@ export function TransactionsPage() {
       .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
   }, [transactions, searchQuery, selectedCategory, fromDate, toDate]);
 
+  const uniqueCategoriesByName = useMemo(() => {
+  const seen = new Set<string>();
+  return categories.filter((c) => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name);
+    return true;
+  });
+}, [categories]);
+
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
 
@@ -804,9 +813,18 @@ export function TransactionsPage() {
         )}
         <div className="d-flex gap-2 align-items-center mt-3 mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
+          <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+            <option value="all">All Categories</option>
+            {uniqueCategoriesByName.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </Input>
+          
           <Input type="select" bsSize="sm" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} style={{ flex: 1 }}>
             <option value="all">All</option>
-            {categories.map((c) => (
+            {uniqueCategoriesByName.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.icon} {c.name}
               </option>
