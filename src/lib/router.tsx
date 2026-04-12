@@ -1,26 +1,50 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
-import { OverviewPage } from "../features/overview/pages/OverviewPage";
-import { TransactionsPage } from "../features/transactions/pages/TransactionPage";
-import { SettingsPage } from "../features/settings/pages/SettingsPage";
 import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
-import InvestmentsPage from "../features/budget/InvestmentsPage";
-
 import { useAuth } from "../context/AuthContext";
-import LoginPage from "../features/auth/LoginPage";
-import RegisterPage from "../features/auth/RegisterPage";
+import { Spinner } from "reactstrap";
+
+// ─── Lazy page imports ────────────────────────────────────────────────────────
+// Each page becomes its own JS chunk and is only downloaded when first visited.
+// Named exports need the .then(m => ({ default: m.X })) unwrap.
+// Default exports (LoginPage, RegisterPage, InvestmentsPage) don't need it.
+
+const OverviewPage = lazy(() => import("../features/overview/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })));
+
+const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
+
+const SettingsPage = lazy(() => import("../features/settings/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+
+const InvestmentsPage = lazy(() => import("../features/budget/InvestmentsPage"));
+const LoginPage = lazy(() => import("../features/auth/LoginPage"));
+const RegisterPage = lazy(() => import("../features/auth/RegisterPage"));
+
+// ─── Page loading fallback ────────────────────────────────────────────────────
+// Shown while a lazy chunk is being downloaded on first visit.
+
+function PageLoader() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
+      }}
+    >
+      <Spinner color="primary" />
+    </div>
+  );
+}
 
 // ─── ProtectedRoute ───────────────────────────────────────────────────────────
-// Redirects to /login if the user is not authenticated.
-// Saves the attempted path so we can redirect back after login.
-// Shows nothing while Firebase is checking auth state on startup.
 
 function ProtectedRoute() {
   const { currentUser, loading } = useAuth();
   const location = useLocation();
 
-  // Firebase is still checking — render nothing to avoid flash
   if (loading) return null;
 
   if (!currentUser) {
@@ -31,8 +55,6 @@ function ProtectedRoute() {
 }
 
 // ─── PublicOnlyRoute ──────────────────────────────────────────────────────────
-// Redirects already-logged-in users away from /login and /register.
-// Prevents going back to login after you're already authenticated.
 
 function PublicOnlyRoute() {
   const { currentUser, loading } = useAuth();
@@ -49,17 +71,25 @@ function PublicOnlyRoute() {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const router = createBrowserRouter([
-  // ── Public only routes (login / register) ──────────────────────────────────
+  // ── Public only routes ──────────────────────────────────────────────────────
   {
     element: <PublicOnlyRoute />,
     children: [
       {
         path: "/login",
-        element: <LoginPage />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <LoginPage />
+          </Suspense>
+        ),
       },
       {
         path: "/register",
-        element: <RegisterPage />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <RegisterPage />
+          </Suspense>
+        ),
       },
     ],
   },
@@ -70,25 +100,40 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     errorElement: <ErrorBoundary />,
     children: [
-      // Protected routes — require login
       {
         element: <ProtectedRoute />,
         children: [
           {
             index: true,
-            element: <OverviewPage />,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <OverviewPage />
+              </Suspense>
+            ),
           },
           {
             path: "transactions",
-            element: <TransactionsPage />,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <TransactionsPage />
+              </Suspense>
+            ),
           },
           {
             path: "investments",
-            element: <InvestmentsPage />,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <InvestmentsPage />
+              </Suspense>
+            ),
           },
           {
             path: "settings",
-            element: <SettingsPage />,
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <SettingsPage />
+              </Suspense>
+            ),
           },
         ],
       },
