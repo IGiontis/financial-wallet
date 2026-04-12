@@ -222,7 +222,7 @@ export const OverviewPage: React.FC = () => {
   // This must NOT be date-filtered — a goal balance is a running total, not a period sum
   const totalInvestments = useMemo(() => goals.reduce((s, g) => s + (g.totalSaved ?? 0), 0), [goals]);
 
-  const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 4), [goals]);
+  const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 6), [goals]);
 
   if (txLoading) {
     return (
@@ -373,19 +373,36 @@ export const OverviewPage: React.FC = () => {
                   Create one in the Investments page.
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                // Grid container — minmax(0, 1fr) is the key fix
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                    gap: 10,
+                  }}
+                >
                   {activeGoals.map((goal) => {
                     const isTargeted = goal.goalType === "targeted";
                     const pct = Math.min(goal.percentageReached ?? 0, 100);
                     const color = goal.color ?? "#3B82F6";
                     const progressColor = goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "primary";
+
                     return (
                       <div
                         key={goal.id}
-                        style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "12px", borderLeft: `3px solid ${color}` }}
+                        style={{
+                          background: "var(--color-background-secondary)",
+                          borderRadius: "var(--border-radius-md)",
+                          padding: "12px",
+                          borderLeft: `3px solid ${color}`,
+                          minWidth: 0, // prevents the cell itself from overflowing
+                        }}
                       >
-                        <div className="d-flex align-items-center gap-2 mb-2">
-                          <span style={{ fontSize: 16 }}>{goal.icon ?? "💰"}</span>
+                        <div
+                          className="d-flex align-items-center gap-2 mb-2"
+                          style={{ minWidth: 0 }} // needed so ellipsis propagates
+                        >
+                          <span style={{ fontSize: 16, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
                           <p
                             style={{
                               fontWeight: 500,
@@ -395,11 +412,13 @@ export const OverviewPage: React.FC = () => {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
+                              minWidth: 0, // the actual element also needs this
                             }}
                           >
                             {goal.name}
                           </p>
                         </div>
+
                         {isTargeted && goal.targetAmount ? (
                           <>
                             <Progress value={pct} color={progressColor} style={{ height: 4, borderRadius: 2, marginBottom: 5 }} />
