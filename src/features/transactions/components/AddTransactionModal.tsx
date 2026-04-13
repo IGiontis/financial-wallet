@@ -53,7 +53,7 @@ const validationSchema = Yup.object({
     otherwise: (s) => s.optional(),
   }),
   odometer: Yup.number().typeError("Must be a number").min(0, "Must be positive").optional(),
-  place: Yup.string().max(100, "Max 100 characters").optional(),
+  place: Yup.string().max(20, "Max 20 characters").optional(),
 });
 
 // ─── Review screen ───────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                      Amount ({displayCurrency}) *{formik.values.showFuelDetails && <span style={{ fontSize: 11, color: "#3B82F6", marginLeft: 6 }}>auto-calculated</span>}
+                      Amount ({displayCurrency}) *
                     </Label>
                     <Input
                       type="number"

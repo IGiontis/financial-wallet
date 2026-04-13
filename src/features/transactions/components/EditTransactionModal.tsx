@@ -57,7 +57,7 @@ const validationSchema = Yup.object({
     otherwise: (s) => s.optional(),
   }),
   odometer: Yup.number().typeError("Must be a number").min(0, "Must be positive").optional(),
-  place: Yup.string().max(100, "Max 100 characters").optional(),
+  place: Yup.string().max(20, "Max 20 characters").optional(),
 });
 
 // ─── Review screen ───────────────────────────────────────────────────────────
