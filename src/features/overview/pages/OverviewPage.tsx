@@ -15,6 +15,7 @@ interface ChartDataPoint {
   income: number;
   expenses: number;
   investments: number;
+  goals: number; // targeted goal deposits — yellow bar
 }
 
 interface DashboardMetrics {
@@ -72,21 +73,27 @@ const groupByWeek = (transactions: Transaction[], range: { start: Date; end: Dat
         label: w.label,
         income: Math.round(weekTx.filter((t) => t.type === "income" && !t.isInvestmentTransaction).reduce((s, t) => s + t.amount, 0)),
         expenses: Math.round(weekTx.filter((t) => t.type === "expense" && !t.isInvestmentTransaction).reduce((s, t) => s + Math.abs(t.amount), 0)),
-        investments: Math.round(weekTx.filter((t) => t.isInvestmentTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
+        // investments = recurring/tracking only (blue) — excludes goal transactions
+        investments: Math.round(weekTx.filter((t) => t.isInvestmentTransaction && !t.isGoalTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
+        // goals = targeted goal deposits only (yellow)
+        goals: Math.round(weekTx.filter((t) => t.isGoalTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
       };
     })
-    .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0);
+    .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0 || w.goals > 0);
 };
 
 const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
-  const map = new Map<string, { income: number; expenses: number; investments: number; firstDay: Date }>();
+  const map = new Map<string, { income: number; expenses: number; investments: number; goals: number; firstDay: Date }>();
   transactions.forEach((tx) => {
     const firstDay = startOfMonth(firestoreToDate(tx.date));
     const key = format(firstDay, "yyyy-MM");
-    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, firstDay });
+    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, goals: 0, firstDay });
     const d = map.get(key)!;
-    if (tx.isInvestmentTransaction) {
-      // Only count deposits as investment inflow — withdrawals cancel out
+    if (tx.isGoalTransaction) {
+      // Targeted goal deposits → yellow bar
+      if (tx.contributionType === "deposit") d.goals += tx.amount;
+    } else if (tx.isInvestmentTransaction) {
+      // Recurring/tracking deposits → blue bar
       if (tx.contributionType === "deposit") d.investments += tx.amount;
     } else if (tx.type === "income") {
       d.income += tx.amount;
@@ -101,18 +108,15 @@ const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
       income: Math.round(d.income),
       expenses: Math.round(d.expenses),
       investments: Math.round(d.investments),
+      goals: Math.round(d.goals),
     }));
 };
 
-// Investment transactions excluded from income/expense metrics
 const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
   const totalIncome = transactions.filter((t) => t.type === "income" && !t.isInvestmentTransaction).reduce((s, t) => s + t.amount, 0);
-
   const totalExpenses = transactions.filter((t) => t.type === "expense" && !t.isInvestmentTransaction).reduce((s, t) => s + Math.abs(t.amount), 0);
-
   const netIncome = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
-
   return { totalIncome, totalExpenses, netIncome, savingsRate };
 };
 
@@ -122,6 +126,7 @@ function makeTooltip(formatCurrency: (n: number) => string) {
     const income = payload.find((p: any) => p.dataKey === "income")?.value ?? 0;
     const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
     const investments = payload.find((p: any) => p.dataKey === "investments")?.value ?? 0;
+    const goals = payload.find((p: any) => p.dataKey === "goals")?.value ?? 0;
     const net = income - expenses;
     return (
       <div style={{ background: "#1e1e2e", border: "none", borderRadius: 10, padding: "12px 16px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
@@ -147,6 +152,15 @@ function makeTooltip(formatCurrency: (n: number) => string) {
               Invested
             </span>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#818CF8" }}>{formatCurrency(investments)}</span>
+          </div>
+        )}
+        {goals > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: "#F59E0B", display: "inline-block" }} />
+              Goals
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#F59E0B" }}>{formatCurrency(goals)}</span>
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
@@ -187,7 +201,15 @@ function MetricCard({
   formatFn?: (n: number) => string;
 }) {
   const spanRef = useRef<HTMLSpanElement>(null) as React.RefObject<HTMLElement>;
-  const { update } = useCountUp({ ref: spanRef, end: value, duration: 1.5, decimals: isPercentage ? 1 : 0, separator: ",", prefix: "", suffix: isPercentage ? "%" : "" });
+  const { update } = useCountUp({
+    ref: spanRef,
+    end: value,
+    duration: 1.5,
+    decimals: isPercentage ? 1 : 0,
+    separator: ",",
+    prefix: "",
+    suffix: isPercentage ? "%" : "",
+  });
   useEffect(() => {
     update(value);
   }, [value, update]);
@@ -225,9 +247,7 @@ export const OverviewPage: React.FC = () => {
   const { format: formatCurrency } = useCurrencyConverter();
 
   const CustomTooltip = useMemo(() => makeTooltip(formatCurrency), [formatCurrency]);
-  const handlePeriodChange = (period: TimePeriod) => {
-    startTransition(() => setSelectedPeriod(period));
-  };
+  const handlePeriodChange = (period: TimePeriod) => startTransition(() => setSelectedPeriod(period));
 
   const dateRange = useMemo(() => getDateRange(selectedPeriod), [selectedPeriod]);
   const filtered = useMemo(() => filterTransactions(transactions, dateRange), [transactions, dateRange]);
@@ -235,28 +255,21 @@ export const OverviewPage: React.FC = () => {
     if (selectedPeriod === "current_month") return groupByWeek(filtered, dateRange);
     return groupByMonth(filtered);
   }, [filtered, selectedPeriod, dateRange]);
-
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
 
-  // Only recurring goals (monthly / yearly) count as "invested"
-  // Deadline/targeted goals are earmarked savings, not true investments
-  const totalInvestments = useMemo(() => {
-    const recurringGoalIds = new Set(goals.filter((g) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly").map((g) => g.id));
-    return filtered
-      .filter((tx) => tx.isInvestmentTransaction && tx.contributionType === "deposit" && tx.goalId && recurringGoalIds.has(tx.goalId))
-      .reduce((s, tx) => s + tx.amount, 0);
-  }, [filtered, goals]);
-  // Deadline/targeted goal deposits for the selected period
-  const goalSavings = useMemo(() => {
-    const deadlineGoalIds = new Set(goals.filter((g) => g.goalType === "targeted" && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly").map((g) => g.id));
-    return filtered
-      .filter((tx) => tx.isInvestmentTransaction && tx.contributionType === "deposit" && tx.goalId && deadlineGoalIds.has(tx.goalId))
-      .reduce((s, tx) => s + tx.amount, 0);
-  }, [filtered, goals]);
+  // Recurring/tracking investment deposits → blue metric card + blue chart bar
+  const totalInvestments = useMemo(
+    () => filtered.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction && tx.contributionType === "deposit").reduce((s, tx) => s + tx.amount, 0),
+    [filtered],
+  );
 
-  const moneyLeft = useMemo(() => {
-    return metrics.totalIncome - metrics.totalExpenses - totalInvestments - goalSavings;
-  }, [metrics.totalIncome, metrics.totalExpenses, totalInvestments, goalSavings]);
+  // Targeted goal deposits → yellow metric card + yellow chart bar
+  const goalSavings = useMemo(() => filtered.filter((tx) => tx.isGoalTransaction && tx.contributionType === "deposit").reduce((s, tx) => s + tx.amount, 0), [filtered]);
+
+  const moneyLeft = useMemo(
+    () => metrics.totalIncome - metrics.totalExpenses - totalInvestments - goalSavings,
+    [metrics.totalIncome, metrics.totalExpenses, totalInvestments, goalSavings],
+  );
 
   const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 6), [goals]);
 
@@ -283,17 +296,7 @@ export const OverviewPage: React.FC = () => {
           <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Financial Overview</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Track your income, expenses and investments</p>
         </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 4,
-            background: "var(--color-background-secondary)",
-            borderRadius: 10,
-            padding: 4,
-          }}
-        >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, background: "var(--color-background-secondary)", borderRadius: 10, padding: 4 }}>
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -331,13 +334,11 @@ export const OverviewPage: React.FC = () => {
           <MetricCard label="Net income" value={metrics.netIncome} color={metrics.netIncome >= 0 ? "#22C55E" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg>
-          {/* Only recurring (monthly/yearly) goals — deadline goals are earmarked savings, not investments */}
           <MetricCard label="Invested" value={totalInvestments} color="#818CF8" formatFn={formatCurrency} />
         </Col>
         <Col xs={6} lg>
           <MetricCard label="Goal Savings" value={goalSavings} color="#F59E0B" formatFn={formatCurrency} />
         </Col>
-
         <Col xs={6} lg>
           <MetricCard label="Money left" value={moneyLeft} color={moneyLeft >= 0 ? "#22C55E" : "#EF4444"} formatFn={formatCurrency} />
         </Col>
@@ -353,11 +354,12 @@ export const OverviewPage: React.FC = () => {
                   <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>Cash flow</p>
                   <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{selectedPeriod === "current_month" ? "Weekly breakdown" : "Monthly breakdown"}</p>
                 </div>
-                <div className="d-flex gap-3">
+                <div className="d-flex gap-3 flex-wrap">
                   {[
                     { color: "#22C55E", label: "Income" },
                     { color: "#F87171", label: "Expenses" },
                     { color: "#818CF8", label: "Invested" },
+                    { color: "#F59E0B", label: "Goals" },
                   ].map((l) => (
                     <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--color-text-secondary)" }}>
                       <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
@@ -378,19 +380,24 @@ export const OverviewPage: React.FC = () => {
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} dy={6} />
                     <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} axisLine={false} tickLine={false} width={60} />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(128,128,128,0.06)", radius: 4 }} />
-                    <Bar dataKey="income" name="Income" maxBarSize={32} shape={<RoundedBar />}>
+                    <Bar dataKey="income" name="Income" maxBarSize={28} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill="#22C55E" fillOpacity={0.85} />
                       ))}
                     </Bar>
-                    <Bar dataKey="expenses" name="Expenses" maxBarSize={32} shape={<RoundedBar />}>
+                    <Bar dataKey="expenses" name="Expenses" maxBarSize={28} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill="#F87171" fillOpacity={0.85} />
                       ))}
                     </Bar>
-                    <Bar dataKey="investments" name="Invested" maxBarSize={32} shape={<RoundedBar />}>
+                    <Bar dataKey="investments" name="Invested" maxBarSize={28} shape={<RoundedBar />}>
                       {chartData.map((_, i) => (
                         <Cell key={i} fill="#818CF8" fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="goals" name="Goals" maxBarSize={28} shape={<RoundedBar />}>
+                      {chartData.map((_, i) => (
+                        <Cell key={i} fill="#F59E0B" fillOpacity={0.85} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -400,7 +407,7 @@ export const OverviewPage: React.FC = () => {
           </Card>
         </Col>
 
-        {/* Goal cards */}
+        {/* Active goals panel */}
         <Col xs={12} lg={4}>
           <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", height: "100%" }}>
             <CardBody style={{ padding: "1.25rem" }}>
@@ -419,19 +426,12 @@ export const OverviewPage: React.FC = () => {
                   Create one in the Goals or Investments page.
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                    gap: 10,
-                  }}
-                >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
                   {activeGoals.map((goal) => {
                     const isTargeted = goal.goalType === "targeted";
                     const pct = Math.min(goal.percentageReached ?? 0, 100);
                     const color = goal.color ?? "#3B82F6";
                     const progressColor = goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "primary";
-
                     return (
                       <div
                         key={goal.id}
@@ -460,7 +460,6 @@ export const OverviewPage: React.FC = () => {
                             {goal.name}
                           </p>
                         </div>
-
                         {isTargeted && goal.targetAmount ? (
                           <>
                             <Progress value={pct} color={progressColor} style={{ height: 4, borderRadius: 2, marginBottom: 5 }} />

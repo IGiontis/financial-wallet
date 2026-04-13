@@ -73,6 +73,7 @@ export interface Transaction {
   // These transactions are READ-ONLY in the UI (cannot be edited, only deleted).
   isInvestmentTransaction?: boolean; // true = auto-created from investment contribution
   goalId?: string; // which investment goal this belongs to
+  isGoalTransaction?: boolean;
   goalName?: string; // goal name stored for display without extra fetches
   contributionType?: "deposit" | "withdrawal"; // direction of the investment
 }
@@ -89,6 +90,7 @@ export interface CreateTransactionDTO {
   metadata?: FuelMetadata;
   goalId?: string;
   goalName?: string;
+  isGoalTransaction?: boolean;
   contributionType?: "deposit" | "withdrawal";
 }
 

@@ -39,8 +39,10 @@ const PAGE_SIZE = 15;
 // ============================================================
 // COLOR HELPERS
 // ============================================================
-
 function getAmountColor(tx: Transaction): string {
+  if (tx.isGoalTransaction) {
+    return tx.contributionType === "withdrawal" ? "#D97706" : "#F59E0B";
+  }
   if (tx.isInvestmentTransaction) {
     return tx.contributionType === "withdrawal" ? "#75678e" : "#1D4ED8";
   }
@@ -56,17 +58,38 @@ function getInvestmentBadgeStyle(contributionType: string | undefined): React.CS
   };
 }
 
+function getGoalBadgeStyle(contributionType: string | undefined): React.CSSProperties {
+  return {
+    fontSize: 10,
+    background: contributionType === "withdrawal" ? "#D97706" : "#F59E0B",
+    color: "#ffffff",
+    border: "none",
+  };
+}
+
 // ============================================================
 // CATEGORY HELPERS
 // ============================================================
 
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
+  if (tx.isGoalTransaction) {
+    // Return a synthetic "Goal" category — no Firestore lookup needed
+    return {
+      id: "__goal__",
+      name: "Goal",
+      icon: "🎯",
+      type: "expense",
+      isDefault: true,
+      userId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Category;
+  }
   if (tx.isInvestmentTransaction) {
     return categories.find((c) => c.name === "Investments");
   }
   return categories.find((c) => c.id === tx.categoryId);
 }
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -198,7 +221,7 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
       ) : (
         transactions.map((tx) => {
           const cat = resolveCategory(tx, categories);
-          const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
+          const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
           return (
             <div
               key={tx.id}
@@ -567,7 +590,22 @@ function TransactionCard({
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
           {cat?.name ?? "—"} · {dateStr}
         </p>
-        {isInvestment && (
+        {tx.isGoalTransaction && (
+          <span
+            style={{
+              ...getGoalBadgeStyle(tx.contributionType),
+              display: "inline-block",
+              padding: "1px 6px",
+              borderRadius: 4,
+              fontWeight: 600,
+              fontSize: 10,
+              marginTop: 2,
+            }}
+          >
+            {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+          </span>
+        )}
+        {isInvestment && !tx.isGoalTransaction && (
           <span
             style={{
               ...getInvestmentBadgeStyle(tx.contributionType),
@@ -963,7 +1001,21 @@ export function TransactionsPage() {
                                 </td>
                                 <td className="text-end pe-3">
                                   <div className="d-flex justify-content-end gap-2 align-items-center">
-                                    {tx.isInvestmentTransaction && (
+                                    {tx.isGoalTransaction && (
+                                      <span
+                                        style={{
+                                          ...getGoalBadgeStyle(tx.contributionType),
+                                          display: "inline-block",
+                                          padding: "2px 8px",
+                                          borderRadius: 4,
+                                          fontWeight: 600,
+                                          fontSize: 10,
+                                        }}
+                                      >
+                                        {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+                                      </span>
+                                    )}
+                                    {tx.isInvestmentTransaction && !tx.isGoalTransaction && (
                                       <span
                                         style={{
                                           ...getInvestmentBadgeStyle(tx.contributionType),
@@ -1078,7 +1130,6 @@ export function TransactionsPage() {
                 }}
                 title="Clear filter"
               >
-                
                 x
               </button>
             )}

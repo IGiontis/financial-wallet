@@ -42,7 +42,6 @@ export function useInvestmentGoals() {
       const contributionArrays = await Promise.all(goals.map((g) => getContributions(g.id)));
       const withStats = goals.map((goal, i) => computeGoalStats(goal, contributionArrays[i]));
 
-      // Auto-mark completed goals in Firestore
       const completionUpdates = withStats
         .filter((g) => g.status === "completed" && !g.isCompleted && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly")
         .map((g) => updateInvestmentGoal(g.id, { isCompleted: true, completedAt: new Date() }));
@@ -111,8 +110,8 @@ export function useDeleteGoal() {
 }
 
 // ─── useAddContribution ───────────────────────────────────────────────────────
-// When a deposit or withdrawal is made, we also create a Transaction record
-// so it appears in the Transactions page as a read-only entry.
+// isGoalTransaction: true  → from GoalsPage  (targeted goal, yellow in UI)
+// isGoalTransaction: false → from InvestmentsPage (recurring/tracking, blue in UI)
 
 export function useAddContribution() {
   const { currentUser } = useAuth();
@@ -120,21 +119,20 @@ export function useAddContribution() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: async ({ data, goalName }: { data: CreateInvestmentContributionDTO; goalName: string }) => {
-      // 1. Create the investment contribution as before
+    mutationFn: async ({ data, goalName, isGoalTransaction = false }: { data: CreateInvestmentContributionDTO; goalName: string; isGoalTransaction?: boolean }) => {
+      // 1. Create the investment contribution record
       await createContribution(userId, data);
 
-      // 2. Also create a read-only transaction record so it shows
-      //    in the Transactions page. Type = "investment", not editable.
-      // const isDeposit = data.contributionType === "deposit";
+      // 2. Create a mirrored transaction so it appears in TransactionsPage
       await createTransaction(userId, {
         amount: data.amount,
         type: "investment",
-        categoryId: "", // no category for investment transactions
+        categoryId: "",
         date: data.date,
         description: goalName,
         notes: data.notes,
         isInvestmentTransaction: true,
+        isGoalTransaction, // ← the new flag
         goalId: data.goalId,
         goalName,
         contributionType: data.contributionType,
