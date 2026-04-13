@@ -63,37 +63,58 @@ interface EditGoalModalProps {
 
 function ReviewScreen({
   values,
+  goal,
   onBack,
   onConfirm,
   isSubmitting,
   formatCurrency,
 }: {
   values: EditGoalFormValues;
+  goal: InvestmentGoalWithStats;
   onBack: () => void;
   onConfirm: () => void;
   isSubmitting: boolean;
   formatCurrency: (n: number) => string;
 }) {
   const isTargeted = values.goalType === "targeted";
+  const isGoalsPageGoal = goal.targetPeriod === "custom";
+
   const rows = [
     { label: "Type", value: isTargeted ? "Targeted goal" : "Open-ended" },
     ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
-    ...(isTargeted ? [{ label: "Period", value: values.targetPeriod }] : []),
-    ...(values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    ...(isTargeted && !isGoalsPageGoal ? [{ label: "Period", value: values.targetPeriod }] : []),
+    ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
   ];
+
   return (
     <>
       <ModalBody>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your changes before saving.</p>
-        <div style={{ border: `2px solid ${values.color || "#3B82F6"}`, borderRadius: "var(--border-radius-lg)", padding: "1rem", marginBottom: "1rem" }}>
+        <div
+          style={{
+            border: `2px solid ${values.color || "#3B82F6"}`,
+            borderRadius: "var(--border-radius-lg)",
+            padding: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
           <div className="d-flex align-items-center gap-3 mb-3">
             <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended goal"}</p>
             </div>
-            <div style={{ width: 16, height: 16, borderRadius: "50%", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                background: values.color || "#3B82F6",
+                marginLeft: "auto",
+                flexShrink: 0,
+              }}
+            />
           </div>
           {rows.map((r) => (
             <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
@@ -118,7 +139,10 @@ function ReviewScreen({
 export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditGoalModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const { format: formatCurrency } = useCurrencyConverter();
+
   const isTargeted = goal.goalType === "targeted";
+  // Determined once from the saved goal — never changes during editing
+  const isGoalsPageGoal = goal.targetPeriod === "custom";
 
   const formik = useFormik<EditGoalFormValues>({
     enableReinitialize: true,
@@ -142,7 +166,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
           notes: values.notes || undefined,
           targetAmount: isTargeted ? (values.targetAmount as number) : undefined,
           targetPeriod: isTargeted ? values.targetPeriod : undefined,
-          deadline: isTargeted && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
+          deadline: isTargeted && isGoalsPageGoal && values.deadline ? new Date(values.deadline) : undefined,
         };
         await onSubmit(goal.id, data);
         toast.success(`Goal "${values.name}" updated successfully!`);
@@ -156,25 +180,29 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
     },
   });
 
-  const isCustomPeriod = formik.values.targetPeriod === "custom";
   const handleClose = () => {
     formik.resetForm();
     setStep("form");
     onClose();
   };
+
   const handleReview = async () => {
     const errors = await formik.validateForm();
-    if (Object.keys(errors).length === 0) setStep("review");
-    else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    if (Object.keys(errors).length === 0) {
+      setStep("review");
+    } else {
+      formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    }
   };
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="lg" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? `Edit goal — ${goal.icon ?? "💰"} ${goal.name}` : "Review your changes"}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? `Edit — ${goal.icon ?? "💰"} ${goal.name}` : "Review your changes"}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
           values={formik.values}
+          goal={goal}
           onBack={() => setStep("form")}
           onConfirm={() => formik.submitForm()}
           isSubmitting={formik.isSubmitting}
@@ -184,7 +212,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
         <>
           <ModalBody>
             <form id="edit-goal-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* Goal name */}
+              {/* ── Goal name ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal name *</Label>
                 <Input
@@ -198,90 +226,91 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                 <FormFeedback>{formik.errors.name}</FormFeedback>
               </FormGroup>
 
-              {/* Goal type — READ ONLY */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal type</Label>
-                <div
-                  style={{
-                    border: "0.5px solid var(--color-border-tertiary)",
-                    borderRadius: "var(--border-radius-md)",
-                    padding: "10px 14px",
-                    background: "var(--color-background-secondary)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div>
-                    <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px" }}>{isTargeted ? "Targeted" : "Open-ended"}</p>
-                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {isTargeted ? "Has a fixed target amount & deadline" : "No target — save as much as you want"}
-                    </p>
-                  </div>
-                  <span style={{ fontSize: 11, color: "var(--color-text-secondary)", fontStyle: "italic" }}>Cannot be changed</span>
-                </div>
-              </FormGroup>
+              {/* ── Goal type — READ ONLY ── */}
 
-              {/* Targeted-only fields */}
+              {/* ── Targeted fields ── */}
               {isTargeted && (
                 <>
-                  <Row className="g-3">
-                    <Col xs={12} md={6}>
-                      <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
-                        <Input
-                          type="number"
-                          name="targetAmount"
-                          min={1}
-                          step={1}
-                          placeholder="0"
-                          value={formik.values.targetAmount}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
-                        />
-                        <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                    <Col xs={12} md={6}>
-                      <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
-                        <Input
-                          type="select"
-                          name="targetPeriod"
-                          value={formik.values.targetPeriod}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
-                        >
-                          <option value="monthly">Monthly</option>
-                          <option value="yearly">Yearly</option>
-                          <option value="custom">Custom deadline</option>
-                        </Input>
-                        <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                  </Row>
-                  {isCustomPeriod && (
-                    <FormGroup className="mt-3">
-                      <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
-                      <Input
-                        type="date"
-                        name="deadline"
-                        value={formik.values.deadline}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        invalid={!!(formik.touched.deadline && formik.errors.deadline)}
-                      />
-                      <FormFeedback>{formik.errors.deadline}</FormFeedback>
-                    </FormGroup>
+                  {isGoalsPageGoal ? (
+                    /* GoalsPage goal — target amount + deadline side by side */
+                    <Row className="g-3">
+                      <Col xs={6}>
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
+                          <Input
+                            type="number"
+                            name="targetAmount"
+                            min={1}
+                            step={1}
+                            placeholder="0"
+                            value={formik.values.targetAmount}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
+                          />
+                          <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
+                        </FormGroup>
+                      </Col>
+                      <Col xs={6}>
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
+                          <Input
+                            type="date"
+                            name="deadline"
+                            value={formik.values.deadline}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.deadline && formik.errors.deadline)}
+                          />
+                          <FormFeedback>{formik.errors.deadline}</FormFeedback>
+                        </FormGroup>
+                      </Col>
+                    </Row>
+                  ) : (
+                    /* InvestmentsPage goal — target amount + period dropdown side by side */
+                    <Row className="g-3">
+                      <Col xs={6}>
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
+                          <Input
+                            type="number"
+                            name="targetAmount"
+                            min={1}
+                            step={1}
+                            placeholder="0"
+                            value={formik.values.targetAmount}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
+                          />
+                          <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
+                        </FormGroup>
+                      </Col>
+                      <Col xs={6}>
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
+                          <Input
+                            type="select"
+                            name="targetPeriod"
+                            value={formik.values.targetPeriod}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                          </Input>
+                          <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
+                        </FormGroup>
+                      </Col>
+                    </Row>
                   )}
                 </>
               )}
 
               <hr style={{ borderColor: "var(--color-border-tertiary)" }} />
 
-              {/* Icon picker */}
+              {/* ── Icon picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
                   Icon <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
@@ -320,7 +349,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                 <FormFeedback>{formik.errors.icon}</FormFeedback>
               </FormGroup>
 
-              {/* Color picker */}
+              {/* ── Color picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
                   Color <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
@@ -349,7 +378,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                 </div>
               </FormGroup>
 
-              {/* Notes */}
+              {/* ── Notes ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
                 <Input
@@ -366,7 +395,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
 
-              {/* Live preview */}
+              {/* ── Live preview ── */}
               {formik.values.name && (
                 <div
                   style={{
@@ -387,11 +416,20 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                       {formik.values.targetAmount ? ` · ${formatCurrency(Number(formik.values.targetAmount))} target` : ""}
                     </p>
                   </div>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: formik.values.color ?? "#ccc", flexShrink: 0 }} />
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: formik.values.color ?? "#ccc",
+                      flexShrink: 0,
+                    }}
+                  />
                 </div>
               )}
             </form>
           </ModalBody>
+
           <ModalFooter>
             <Button type="button" color="secondary" outline onClick={handleClose}>
               Cancel

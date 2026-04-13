@@ -310,7 +310,8 @@ export default function GoalsPage() {
                 <>
                   <p style={{ fontSize: 14 }}>Create your first savings goal to start tracking toward a target.</p>
                   <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    + New goal
+                    <span className="d-none d-sm-inline">+ New goal</span>
+                    <span className="d-sm-none">+ New</span>
                   </Button>
                 </>
               )}

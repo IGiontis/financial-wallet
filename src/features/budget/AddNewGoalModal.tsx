@@ -334,8 +334,8 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {isTargeted && (
                 <>
                   <Row className="g-3">
-                    {/* Target amount */}
-                    <Col xs={12} md={isGoalsPage ? 12 : 6}>
+                    {/* Target amount — always half width */}
+                    <Col xs={6}>
                       <FormGroup className="mb-0">
                         <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
                         <Input
@@ -353,9 +353,22 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                       </FormGroup>
                     </Col>
 
-                    {/* Period — InvestmentsPage only: Monthly | Yearly (no custom) */}
-                    {!isGoalsPage && (
-                      <Col xs={12} md={6}>
+                    {/* GoalsPage → deadline | InvestmentsPage → period dropdown */}
+                    <Col xs={6}>
+                      {isGoalsPage ? (
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
+                          <Input
+                            type="date"
+                            name="deadline"
+                            value={formik.values.deadline}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.deadline && formik.errors.deadline)}
+                          />
+                          <FormFeedback>{formik.errors.deadline}</FormFeedback>
+                        </FormGroup>
+                      ) : (
                         <FormGroup className="mb-0">
                           <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
                           <Input
@@ -371,25 +384,9 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                           </Input>
                           <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
                         </FormGroup>
-                      </Col>
-                    )}
+                      )}
+                    </Col>
                   </Row>
-
-                  {/* Deadline — GoalsPage only (period is always "custom") */}
-                  {isGoalsPage && (
-                    <FormGroup className="mt-3">
-                      <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
-                      <Input
-                        type="date"
-                        name="deadline"
-                        value={formik.values.deadline}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        invalid={!!(formik.touched.deadline && formik.errors.deadline)}
-                      />
-                      <FormFeedback>{formik.errors.deadline}</FormFeedback>
-                    </FormGroup>
-                  )}
                 </>
               )}
 
