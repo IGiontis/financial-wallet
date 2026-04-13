@@ -30,6 +30,7 @@ const DEFAULT_CATEGORIES = [
   { name: "Gifts", type: "income", icon: "🎁", color: "#F59E0B", isDefault: true, userId: null },
   { name: "Sports Betting", type: "income", icon: "🎰", color: "#10B981", isDefault: true, userId: null },
   { name: "Taxes", type: "income", icon: "🧾", color: "#10B981", isDefault: true, userId: null },
+  { name: "Government Aid", type: "income", icon: "🏛️", color: "#6366F1", isDefault: true, userId: null }, 
   { name: "Other Income", type: "income", icon: "💰", color: "#94A3B8", isDefault: true, userId: null },
 ];
 
