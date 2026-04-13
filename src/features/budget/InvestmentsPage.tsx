@@ -137,11 +137,12 @@ export default function InvestmentsPage() {
 
   const filterByTab = (g: InvestmentGoalWithStats): boolean => {
     if (!belongsHere(g)) return false;
-    if (filter === "all") return g.isActive && !g.isCompleted;
-    if (filter === "recurring") return isRecurring(g) && g.isActive && !g.isCompleted;
+    // Recurring goals never complete — ignore isCompleted for them
+    const effectivelyActive = isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted;
+    if (filter === "all") return effectivelyActive;
+    if (filter === "recurring") return isRecurring(g) && g.isActive;
     if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
-    if (filter === "paused") return !g.isActive && !g.isCompleted;
-    if (filter === "completed") return g.isCompleted;
+    if (filter === "paused") return !g.isActive;
     return false;
   };
 
