@@ -51,8 +51,12 @@ function OfflineScreen() {
 }
 
 export function App() {
-  seedDefaultCategories();
   const isOnline = useOnlineStatus();
+
+  // Runs once on mount — seeds only missing categories, safe on every app start
+  useEffect(() => {
+    seedDefaultCategories();
+  }, []);
 
   if (!isOnline) {
     return <OfflineScreen />;

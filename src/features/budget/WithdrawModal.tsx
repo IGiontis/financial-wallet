@@ -39,7 +39,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           .positive("Amount must be greater than 0")
           .max(goal.totalSaved, `Cannot exceed current balance (${formatCurrency(goal.totalSaved)})`),
         date: Yup.string().required("Date is required"),
-        notes: Yup.string().max(200, "Max 200 characters"),
+        notes: Yup.string().max(40, "Max 40 characters"),
       }),
     [goal.totalSaved],
   );
@@ -140,7 +140,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
               invalid={!!(formik.touched.notes && formik.errors.notes)}
             />
             <FormFeedback>{formik.errors.notes}</FormFeedback>
-            <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
+            <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 40</FormText>
           </FormGroup>
         </ModalBody>
 

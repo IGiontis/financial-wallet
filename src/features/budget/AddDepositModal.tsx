@@ -40,7 +40,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           .positive("Amount must be greater than 0")
           .max(maxAmount, isDeadlineGoal ? `Cannot exceed remaining amount (${maxAmount.toFixed(2)})` : "Amount is too large"),
         date: Yup.string().required("Date is required"),
-        notes: Yup.string().max(200, "Max 200 characters"),
+        notes: Yup.string().max(40, "Max 40 characters"),
       }),
     [maxAmount, isDeadlineGoal],
   );
@@ -159,7 +159,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
               disabled={isDeadlineGoal && remaining <= 0}
             />
             <FormFeedback>{formik.errors.notes}</FormFeedback>
-            <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 200</FormText>
+            <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 40</FormText>
           </FormGroup>
         </ModalBody>
 

@@ -348,7 +348,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        maxWidth: 140,
+                        maxWidth: 220,
                       }}
                     >
                       {c.notes}

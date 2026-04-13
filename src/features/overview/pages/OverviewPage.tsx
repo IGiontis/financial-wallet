@@ -217,7 +217,7 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
 ];
 
 export const OverviewPage: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("last_6_months");
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("current_month");
   const [isPending, startTransition] = useTransition();
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
