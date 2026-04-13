@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import type { CreateTransactionDTO, Category } from "../../../shared/types/IndexTypes";
+import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
+import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
+
+// ─── Form shape ──────────────────────────────────────────────────────────────
 
 interface TransactionFormValues {
   amount: number | "";
@@ -14,25 +17,46 @@ interface TransactionFormValues {
   date: string;
   description: string;
   notes: string;
+  showFuelDetails: boolean;
+  fuelType: FuelType | "";
+  pricePerUnit: number | "";
+  quantity: number | "";
+  odometer: number | "";
+  place: string;
 }
 
 const today = new Date().toISOString().split("T")[0];
 
+// ─── Validation ──────────────────────────────────────────────────────────────
+
 const validationSchema = Yup.object({
   amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
-  type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required("Type is required"),
+  type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required(),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
   description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
   notes: Yup.string().max(300, "Max 300 characters"),
+  showFuelDetails: Yup.boolean(),
+  fuelType: Yup.string().when("showFuelDetails", {
+    is: true,
+    then: (s) => s.required("Fuel type is required"),
+    otherwise: (s) => s.optional(),
+  }),
+  pricePerUnit: Yup.number().when("showFuelDetails", {
+    is: true,
+    then: (s) => s.typeError("Must be a number").required("Price is required").positive("Must be > 0"),
+    otherwise: (s) => s.optional(),
+  }),
+  quantity: Yup.number().when("showFuelDetails", {
+    is: true,
+    then: (s) => s.typeError("Must be a number").required("Quantity is required").positive("Must be > 0"),
+    otherwise: (s) => s.optional(),
+  }),
+  odometer: Yup.number().typeError("Must be a number").min(0, "Must be positive").optional(),
+  place: Yup.string().max(100, "Max 100 characters").optional(),
 });
 
-interface AddTransactionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  categories: Category[];
-  onSubmit: (data: CreateTransactionDTO) => Promise<void>;
-}
+// ─── Review screen ───────────────────────────────────────────────────────────
 
 function ReviewScreen({
   values,
@@ -51,7 +75,9 @@ function ReviewScreen({
 }) {
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
-  const rows = [
+  const unit = getUnitLabel(values.fuelType);
+
+  const baseRows = [
     { label: "Type", value: isIncome ? "Income" : "Expense" },
     { label: "Amount", value: formatAmount(Number(values.amount)) },
     { label: "Date", value: format(new Date(values.date), "dd/MM/yyyy") },
@@ -59,11 +85,39 @@ function ReviewScreen({
     { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
   ];
+
+  const fuelRows = values.showFuelDetails
+    ? [
+        {
+          label: "Fuel type",
+          value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—",
+        },
+        {
+          label: "Price / unit",
+          value: values.pricePerUnit !== "" ? `${values.pricePerUnit} / ${unit}` : "—",
+        },
+        {
+          label: "Quantity",
+          value: values.quantity !== "" ? `${values.quantity} ${unit}` : "—",
+        },
+        ...(values.odometer !== "" ? [{ label: "Odometer", value: `${values.odometer} km` }] : []),
+        ...(values.place ? [{ label: "Place", value: values.place }] : []),
+      ]
+    : [];
+
+  const rows = [...baseRows, ...fuelRows];
+
   return (
     <>
       <ModalBody>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your transaction before saving.</p>
-        <div style={{ border: `2px solid ${isIncome ? "#10B981" : "#EF4444"}`, borderRadius: "var(--border-radius-lg)", padding: "1rem" }}>
+        <div
+          style={{
+            border: `2px solid ${isIncome ? "#10B981" : "#EF4444"}`,
+            borderRadius: "var(--border-radius-lg)",
+            padding: "1rem",
+          }}
+        >
           <div className="d-flex align-items-center gap-3 mb-3">
             <span style={{ fontSize: 28 }}>{category?.icon ?? "💳"}</span>
             <div style={{ flex: 1 }}>
@@ -95,17 +149,54 @@ function ReviewScreen({
   );
 }
 
+// ─── Props ───────────────────────────────────────────────────────────────────
+
+interface AddTransactionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categories: Category[];
+  onSubmit: (data: CreateTransactionDTO) => Promise<void>;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
+  const [isFuelCategory, setIsFuelCategory] = useState(false);
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
-    initialValues: { amount: "", type: "expense", categoryId: "", date: today, description: "", notes: "" },
+    initialValues: {
+      amount: "",
+      type: "expense",
+      categoryId: "",
+      date: today,
+      description: "",
+      notes: "",
+      showFuelDetails: false,
+      fuelType: "",
+      pricePerUnit: "",
+      quantity: "",
+      odometer: "",
+      place: "",
+    },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
         const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
+
+        const metadata: FuelMetadata | undefined = values.showFuelDetails
+          ? {
+              fuelType: values.fuelType as FuelType,
+              pricePerUnit: Number(values.pricePerUnit),
+              quantity: Number(values.quantity),
+              totalCost: amountInBase,
+              ...(values.odometer !== "" ? { odometer: Number(values.odometer) } : {}),
+              ...(values.place ? { place: values.place } : {}),
+            }
+          : undefined;
+
         const dto: CreateTransactionDTO = {
           amount: amountInBase,
           type: values.type,
@@ -113,33 +204,69 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           date: new Date(values.date),
           description: values.description,
           notes: values.notes || undefined,
+          metadata,
         };
+
         await onSubmit(dto);
         toast.success(`Transaction "${values.description}" added!`);
         resetForm();
         setStep("form");
+        setIsFuelCategory(false);
         onClose();
-      } catch (err) {
+      } catch {
         toast.error("Failed to save transaction. Please try again.");
       }
     },
   });
 
+  // Auto-calculate amount from pricePerUnit x quantity when fuel details are shown
+  useEffect(() => {
+    if (formik.values.showFuelDetails && formik.values.pricePerUnit !== "" && formik.values.quantity !== "") {
+      const total = Math.round(Number(formik.values.pricePerUnit) * Number(formik.values.quantity) * 100) / 100;
+      formik.setFieldValue("amount", total);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formik.values.pricePerUnit, formik.values.quantity, formik.values.showFuelDetails]);
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const catId = e.target.value;
+    const isF = categories.find((c) => c.id === catId)?.name === "Fuel";
+    formik.setFieldValue("categoryId", catId);
+    setIsFuelCategory(isF);
+    if (!isF) {
+      formik.setFieldValue("showFuelDetails", false);
+      formik.setFieldValue("fuelType", "");
+      formik.setFieldValue("pricePerUnit", "");
+      formik.setFieldValue("quantity", "");
+      formik.setFieldValue("odometer", "");
+      formik.setFieldValue("place", "");
+    }
+  };
+
   const handleClose = () => {
     formik.resetForm();
     setStep("form");
+    setIsFuelCategory(false);
     onClose();
   };
+
   const handleReview = async () => {
     const errors = await formik.validateForm();
-    if (Object.keys(errors).length === 0) setStep("review");
-    else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    if (Object.keys(errors).length === 0) {
+      setStep("review");
+    } else {
+      formik.setTouched(Object.keys(formik.values).reduce((acc, k) => ({ ...acc, [k]: true }), {}));
+    }
   };
 
-  // Only show income/expense categories — never investment
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
   const formatAmount = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: displayCurrency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="md">
@@ -158,7 +285,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         <>
           <ModalBody>
             <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle — income / expense only ── */}
+              {/* ── Type toggle ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
                 <Row className="g-2">
@@ -174,11 +301,20 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                           onClick={() => {
                             formik.setFieldValue("type", t);
                             formik.setFieldValue("categoryId", "");
+                            formik.setFieldValue("showFuelDetails", false);
+                            formik.setFieldValue("fuelType", "");
+                            formik.setFieldValue("pricePerUnit", "");
+                            formik.setFieldValue("quantity", "");
+                            formik.setFieldValue("odometer", "");
+                            formik.setFieldValue("place", "");
+                            setIsFuelCategory(false);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               formik.setFieldValue("type", t);
                               formik.setFieldValue("categoryId", "");
+                              formik.setFieldValue("showFuelDetails", false);
+                              setIsFuelCategory(false);
                             }
                           }}
                           style={{
@@ -199,11 +335,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Row>
               </FormGroup>
 
-              {/* ── Row 1: Amount + Date ── */}
+              {/* ── Amount + Date ── */}
               <Row className="g-3">
                 <Col xs={6}>
                   <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                      Amount ({displayCurrency}) *{formik.values.showFuelDetails && <span style={{ fontSize: 11, color: "#3B82F6", marginLeft: 6 }}>auto-calculated</span>}
+                    </Label>
                     <Input
                       type="number"
                       name="amount"
@@ -213,6 +351,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       value={formik.values.amount}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
+                      readOnly={formik.values.showFuelDetails}
+                      style={formik.values.showFuelDetails ? { background: "#f1f5f9", cursor: "not-allowed" } : {}}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
                     />
                     <FormFeedback>{formik.errors.amount}</FormFeedback>
@@ -234,7 +374,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Col>
               </Row>
 
-              {/* ── Row 2: Payee + Category ── */}
+              {/* ── Payee + Category ── */}
               <Row className="g-3 mt-1">
                 <Col xs={6}>
                   <FormGroup className="mb-0">
@@ -258,7 +398,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       type="select"
                       name="categoryId"
                       value={formik.values.categoryId}
-                      onChange={formik.handleChange}
+                      onChange={handleCategoryChange}
                       onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                     >
@@ -275,6 +415,96 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   </FormGroup>
                 </Col>
               </Row>
+
+              {/* ── Fuel toggle row — only shown when Fuel category is selected ── */}
+              {isFuelCategory && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 14px",
+                    background: "#f8faff",
+                    borderRadius: 10,
+                    border: "1.5px solid #dbeafe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                  onClick={() => {
+                    const next = !formik.values.showFuelDetails;
+                    formik.setFieldValue("showFuelDetails", next);
+                    if (!next) {
+                      formik.setFieldValue("fuelType", "");
+                      formik.setFieldValue("pricePerUnit", "");
+                      formik.setFieldValue("quantity", "");
+                      formik.setFieldValue("odometer", "");
+                      formik.setFieldValue("place", "");
+                      formik.setFieldValue("amount", "");
+                    }
+                  }}
+                >
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6", margin: 0 }}>⛽ Add fuel details</p>
+                    <p style={{ fontSize: 11, color: "#94A3B8", margin: 0 }}>
+                      {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 22,
+                      borderRadius: 11,
+                      background: formik.values.showFuelDetails ? "#3B82F6" : "#CBD5E1",
+                      position: "relative",
+                      flexShrink: 0,
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 3,
+                        left: formik.values.showFuelDetails ? 21 : 3,
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        background: "#fff",
+                        transition: "left 0.2s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ── Full fuel details panel ── */}
+              {isFuelCategory && formik.values.showFuelDetails && (
+                <FuelDetailsPanel
+                  fuelType={formik.values.fuelType}
+                  pricePerUnit={formik.values.pricePerUnit}
+                  quantity={formik.values.quantity}
+                  odometer={formik.values.odometer}
+                  place={formik.values.place}
+                  errors={{
+                    fuelType: formik.errors.fuelType,
+                    pricePerUnit: formik.errors.pricePerUnit as string | undefined,
+                    quantity: formik.errors.quantity as string | undefined,
+                    odometer: formik.errors.odometer as string | undefined,
+                    place: formik.errors.place,
+                  }}
+                  touched={{
+                    fuelType: formik.touched.fuelType,
+                    pricePerUnit: formik.touched.pricePerUnit,
+                    quantity: formik.touched.quantity,
+                    odometer: formik.touched.odometer,
+                    place: formik.touched.place,
+                  }}
+                  setFieldValue={formik.setFieldValue}
+                  setFieldTouched={formik.setFieldTouched}
+                  displayCurrency={displayCurrency}
+                />
+              )}
 
               {/* ── Notes ── */}
               <FormGroup className="mb-0 mt-3">

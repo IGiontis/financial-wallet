@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, deleteField } from "firebase/firestore";
 import { db } from "./config";
 
 import type {
@@ -92,10 +92,13 @@ export const getTransactions = async (userId: string) => {
 
 export const updateTransaction = async (transactionId: string, data: UpdateTransactionDTO) => {
   try {
-    await updateDoc(doc(db, "transactions", transactionId), {
+    const firestoreData = {
       ...clean({ ...data }),
+      metadata: data.metadata === undefined ? deleteField() : data.metadata,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    await updateDoc(doc(db, "transactions", transactionId), firestoreData);
   } catch (err) {
     throw err;
   }

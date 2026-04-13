@@ -65,6 +65,7 @@ export interface Transaction {
   createdAt: Date;
   updatedAt: Date;
   notes?: string;
+  metadata?: FuelMetadata;
   recurringTransactionId?: string;
 
   // ── Investment transaction flags ──────────────────────────────────────────
@@ -85,6 +86,7 @@ export interface CreateTransactionDTO {
   notes?: string;
   // Investment-only fields
   isInvestmentTransaction?: boolean;
+  metadata?: FuelMetadata;
   goalId?: string;
   goalName?: string;
   contributionType?: "deposit" | "withdrawal";
@@ -97,6 +99,7 @@ export interface UpdateTransactionDTO {
   date?: Date;
   description?: string;
   notes?: string;
+  metadata?: FuelMetadata;
 }
 
 export interface TransactionFilters {
@@ -303,6 +306,19 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   contributionCount: number;
   withdrawalCount: number;
   currentPeriodSaved?: number;
+}
+
+// ── NEW: add after TransactionType ──────────────────────────────────────────
+
+export type FuelType = "petrol" | "diesel" | "lpg" | "cng" | "electric";
+
+export interface FuelMetadata {
+  fuelType: FuelType;
+  pricePerUnit: number; // €/L or €/kWh for electric
+  quantity: number; // liters or kWh
+  totalCost: number; // pricePerUnit × quantity — mirrors transaction.amount
+  odometer?: number; // km reading at fill-up (for efficiency charts later)
+  place?: string; // e.g. "Shell - Thessaloniki"
 }
 
 // ============================================================================
