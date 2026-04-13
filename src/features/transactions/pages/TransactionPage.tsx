@@ -805,6 +805,10 @@ export function TransactionsPage() {
         const matchSearch = tx.description.toLowerCase().includes(query);
         const matchCat =
           selectedCategory === "all" ||
+          // New: type filters
+          (selectedCategory === "income" && tx.type === "income") ||
+          (selectedCategory === "expense" && tx.type === "expense") ||
+          // Existing: category filters
           (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
 
         const txMid = midnight(date);
@@ -895,6 +899,12 @@ export function TransactionsPage() {
                         }}
                       >
                         <option value="all">All Categories</option>
+
+                        <option value="income">💰 Income</option>
+                        <option value="expense">💸 Expenses</option>
+
+                        <option disabled>──────────</option>
+
                         {uniqueCategoriesByName.map((c) => (
                           <option key={c.id} value={c.name}>
                             {c.icon} {c.name}
@@ -1095,13 +1105,16 @@ export function TransactionsPage() {
                 setSelectedCategory(e.target.value);
                 setCurrentPage(1);
               }}
-              style={{
-                paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
-                backgroundImage: "none",
-                width: "100%",
-              }}
             >
-              <option value="all">All</option>
+              <option value="all">All Categories</option>
+
+              {/* Type filters */}
+              <option value="income">💰 Income</option>
+              <option value="expense">💸 Expenses</option>
+
+              <option disabled>──────────</option>
+
+              {/* Existing categories */}
               {uniqueCategoriesByName.map((c) => (
                 <option key={c.id} value={c.name}>
                   {c.icon} {c.name}
