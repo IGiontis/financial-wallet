@@ -180,7 +180,8 @@ export default function GoalsPage() {
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Save toward specific targets with deadlines</p>
         </div>
         <Button color="primary" onClick={() => setShowNewGoal(true)}>
-          + New goal
+          <span className="d-none d-sm-inline">+ New goal</span>
+          <span className="d-sm-none">+ New</span>
         </Button>
       </div>
 
