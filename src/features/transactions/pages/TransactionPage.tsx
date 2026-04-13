@@ -1064,8 +1064,8 @@ export function TransactionsPage() {
                 }}
                 style={{
                   position: "absolute",
-                  right: "1.8rem",
-                  top: "50%",
+                  right: "0.5rem",
+                  top: "47%",
                   transform: "translateY(-50%)",
                   background: "none",
                   border: "none",
@@ -1078,6 +1078,7 @@ export function TransactionsPage() {
                 }}
                 title="Clear filter"
               >
+                
                 x
               </button>
             )}
