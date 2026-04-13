@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Nav, NavItem, Button } from "reactstrap";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -23,7 +23,8 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
   const navItems: NavItemProp[] = [
     { path: "/", label: "Overview", icon: FiHome },
     { path: "/transactions", label: "Transactions", icon: FiCreditCard },
-    { path: "/investments", label: "Investments/Goals", icon: FiDollarSign },
+    { path: "/investments", label: "Investments", icon: FiDollarSign },
+    { path: "/goals", label: "Goals", icon: FiTarget },
     { path: "/settings", label: "Settings", icon: FiSettings },
   ];
 

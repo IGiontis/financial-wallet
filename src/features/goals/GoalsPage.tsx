@@ -1,61 +1,66 @@
-// features/budget/InvestmentsPage.tsx
+// features/goals/GoalsPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Recurring + open-ended tracking goals.
-// Tabs: All · Recurring · Tracking · Paused · Completed
+// Targeted savings goals (specific amount + custom deadline).
+// Tabs: Active · Paused · Completed
 //
-// File location: src/features/budget/InvestmentsPage.tsx
+// File location: src/features/goals/GoalsPage.tsx
+//
+// All logic files (hooks, modals, shared components) live in features/budget/
+// and are imported via "../budget/..."
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import { Alert, Badge, Button, Col, Container, Input, Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
-import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
-import AddDepositModal from "./AddDepositModal";
-import WithdrawModal from "./WithdrawModal";
-import AddNewGoalModal from "./AddNewGoalModal";
-import EditGoalModal from "./EditGoalModal";
+import { GoalCard, DeleteConfirmModal, HistoryModal } from "../budget/components/InvestmentsShared";
+import AddDepositModal from "../budget/AddDepositModal";
+import WithdrawModal from "../budget/WithdrawModal";
+import AddNewGoalModal from "../budget/AddNewGoalModal";
+import EditGoalModal from "../budget/EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
+import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type InvestmentsFilterTab = "all" | "recurring" | "tracking" | "paused" | "completed";
+type GoalsFilterTab = "all" | "paused" | "completed";
 
-const TAB_LABELS: Record<InvestmentsFilterTab, string> = {
-  all: "All",
-  recurring: "Recurring",
-  tracking: "Tracking",
+const TAB_LABELS: Record<GoalsFilterTab, string> = {
+  all: "Active",
   paused: "Paused",
   completed: "Completed",
 };
 
-// ─── Scope helpers ────────────────────────────────────────────────────────────
-// A goal "belongs" to InvestmentsPage if it is recurring OR open-ended tracking.
-// Targeted goals with a custom deadline belong to GoalsPage instead.
+// ─── Scope helper ─────────────────────────────────────────────────────────────
+// A goal "belongs" to GoalsPage if it is targeted AND not recurring.
+// Recurring targeted goals (monthly/yearly) live in InvestmentsPage instead.
 
 const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
 
-const isTracking = (g: InvestmentGoalWithStats) => g.goalType === "open_ended";
+const belongsHere = (g: InvestmentGoalWithStats) => g.goalType === "targeted" && !isRecurring(g);
 
-const belongsHere = (g: InvestmentGoalWithStats) => isRecurring(g) || isTracking(g);
+// ─── GoalsSummaryCards ────────────────────────────────────────────────────────
 
-// ─── InvestmentsSummaryCards ──────────────────────────────────────────────────
-
-function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
+function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const mine = goals.filter(belongsHere);
   const active = mine.filter((g) => g.isActive && !g.isCompleted);
   const paused = mine.filter((g) => !g.isActive && !g.isCompleted);
   const completed = mine.filter((g) => g.isCompleted);
-  const totalSaved = mine.reduce((s, g) => s + g.totalSaved, 0);
-  const monthlyTarget = mine.filter((g) => g.targetPeriod === "monthly" && g.isActive && !g.isCompleted).reduce((s, g) => s + (g.targetAmount ?? 0), 0);
-  const recurringCount = active.filter(isRecurring).length;
-  const trackingCount = active.filter(isTracking).length;
+  const onTrack = active.filter((g) => g.status === "on_track" || g.status === "ahead").length;
+  const onTrackRatio = active.length > 0 ? onTrack / active.length : 1;
+  const remainingTotal = active.reduce((s, g) => s + (g.remaining ?? 0), 0);
+  const monthlyNeeded = active.reduce((s, g) => s + (g.monthlyRequired ?? 0), 0);
 
   const cards = [
-    { label: "Total saved", value: formatCurrency(totalSaved), sub: "all-time across all", accent: "#10B981", icon: "📈" },
-    { label: "Monthly target", value: formatCurrency(monthlyTarget), sub: "sum of monthly goals", accent: "#3B82F6", icon: "📅" },
-    { label: "Recurring", value: String(recurringCount), sub: recurringCount === 1 ? "active goal" : "active goals", accent: "#6366F1", icon: "🔁" },
-    { label: "Tracking", value: String(trackingCount), sub: trackingCount === 1 ? "open-ended goal" : "open-ended goals", accent: "#F59E0B", icon: "📊" },
+    { label: "Active goals", value: String(active.length), sub: "currently running", accent: "#6366F1", icon: "🎯" },
+    {
+      label: "On track",
+      value: `${onTrack} / ${active.length}`,
+      sub: "targeted goals",
+      accent: onTrackRatio === 1 ? "#10B981" : onTrackRatio >= 0.5 ? "#F59E0B" : "#EF4444",
+      icon: onTrackRatio === 1 ? "✅" : onTrackRatio >= 0.5 ? "⚠️" : "❌",
+    },
+    { label: "Remaining", value: formatCurrency(remainingTotal), sub: "to reach all goals", accent: "#F59E0B", icon: "💰" },
+    { label: "Monthly needed", value: formatCurrency(monthlyNeeded), sub: "across all goals", accent: "#3B82F6", icon: "📅" },
     { label: "Paused", value: String(paused.length), sub: paused.length === 1 ? "goal paused" : "goals paused", accent: "#9CA3AF", icon: "⏸️" },
     { label: "Completed", value: String(completed.length), sub: completed.length === 1 ? "goal reached" : "goals reached", accent: "#8B5CF6", icon: "🏆" },
   ];
@@ -90,10 +95,10 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   );
 }
 
-// ─── InvestmentsPage ──────────────────────────────────────────────────────────
+// ─── GoalsPage ────────────────────────────────────────────────────────────────
 
-export default function InvestmentsPage() {
-  const [filter, setFilter] = useState<InvestmentsFilterTab>("all");
+export default function GoalsPage() {
+  const [filter, setFilter] = useState<GoalsFilterTab>("all");
   const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -138,14 +143,12 @@ export default function InvestmentsPage() {
   const filterByTab = (g: InvestmentGoalWithStats): boolean => {
     if (!belongsHere(g)) return false;
     if (filter === "all") return g.isActive && !g.isCompleted;
-    if (filter === "recurring") return isRecurring(g) && g.isActive && !g.isCompleted;
-    if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
     if (filter === "paused") return !g.isActive && !g.isCompleted;
     if (filter === "completed") return g.isCompleted;
     return false;
   };
 
-  // Search scoped to investments only — will not surface targeted goals from GoalsPage
+  // Search scoped to targeted goals only — will not surface recurring/tracking
   const filterBySearch = (g: InvestmentGoalWithStats): boolean => {
     if (!belongsHere(g)) return false;
     const q = search.toLowerCase().trim();
@@ -154,28 +157,26 @@ export default function InvestmentsPage() {
 
   const filtered = isSearching ? goals.filter(filterBySearch) : goals.filter(filterByTab);
 
-  const tabCount = (tab: InvestmentsFilterTab): number => {
+  const tabCount = (tab: GoalsFilterTab): number => {
     const mine = goals.filter(belongsHere);
     if (tab === "all") return mine.filter((g) => g.isActive && !g.isCompleted).length;
-    if (tab === "recurring") return mine.filter((g) => isRecurring(g) && g.isActive && !g.isCompleted).length;
-    if (tab === "tracking") return mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length;
     if (tab === "paused") return mine.filter((g) => !g.isActive && !g.isCompleted).length;
     if (tab === "completed") return mine.filter((g) => g.isCompleted).length;
     return 0;
   };
 
-  const emptyLabel = isSearching ? `No results for "${search}"` : `No ${TAB_LABELS[filter].toLowerCase()} investments yet`;
+  const emptyLabel = isSearching ? `No results for "${search}"` : filter === "all" ? "No active goals yet" : `No ${TAB_LABELS[filter].toLowerCase()} goals yet`;
 
   return (
     <Container fluid className="py-4">
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Recurring contributions and open-ended tracking</p>
+          <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Goals</h5>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Save toward specific targets with deadlines</p>
         </div>
         <Button color="primary" onClick={() => setShowNewGoal(true)}>
-          + New investment
+          + New goal
         </Button>
       </div>
 
@@ -184,17 +185,17 @@ export default function InvestmentsPage() {
           <Spinner color="primary" />
         </div>
       )}
-      {isError && <Alert color="danger">Failed to load investments. Please refresh the page.</Alert>}
+      {isError && <Alert color="danger">Failed to load goals. Please refresh the page.</Alert>}
 
       {!isLoading && !isError && (
         <>
-          <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />
+          <GoalsSummaryCards goals={goals} formatCurrency={formatCurrency} />
 
           {/* Mobile search */}
           <div className="d-md-none mb-2">
             <div style={{ position: "relative" }}>
               <Input
-                placeholder="Search investments..."
+                placeholder="Search goals..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem" }}
@@ -233,7 +234,7 @@ export default function InvestmentsPage() {
             <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
               {!isSearching && (
                 <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
-                  {(["all", "recurring", "tracking", "paused", "completed"] as InvestmentsFilterTab[]).map((tab) => {
+                  {(["all", "paused", "completed"] as GoalsFilterTab[]).map((tab) => {
                     const isActive = filter === tab;
                     return (
                       <NavItem key={tab}>
@@ -266,7 +267,7 @@ export default function InvestmentsPage() {
               >
                 <div style={{ position: "relative", width: 220 }}>
                   <Input
-                    placeholder="Search investments..."
+                    placeholder="Search goals..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem", height: 32 }}
@@ -299,13 +300,13 @@ export default function InvestmentsPage() {
           {/* Grid */}
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
-              <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "📈"}</p>
+              <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "🎯"}</p>
               <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
               {!isSearching && filter !== "paused" && (
                 <>
-                  <p style={{ fontSize: 14 }}>Start tracking a recurring investment or open-ended savings goal.</p>
+                  <p style={{ fontSize: 14 }}>Create your first savings goal to start tracking toward a target.</p>
                   <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    + New investment
+                    + New goal
                   </Button>
                 </>
               )}
@@ -316,7 +317,7 @@ export default function InvestmentsPage() {
                 <Col xs={12} md={6} xl={4} key={goal.id}>
                   <GoalCard
                     goal={goal}
-                    showTypeBadge={isSearching}
+                    showTypeBadge={false}
                     formatCurrency={formatCurrency}
                     onViewHistory={setHistoryGoal}
                     onAddDeposit={setDepositGoal}
@@ -339,11 +340,11 @@ export default function InvestmentsPage() {
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
-        defaultGoalType="recurring":
-          - Shows "Tracking" vs "Recurring Goal" type selector
-          - Period options: Monthly / Yearly only (no custom deadline)
+        defaultGoalType="targeted":
+          - Hides the goal type selector (always targeted)
+          - Shows only the deadline picker (no monthly/yearly period options)
       */}
-      <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="recurring" />
+      <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="targeted" />
     </Container>
   );
 }

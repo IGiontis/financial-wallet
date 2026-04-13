@@ -255,8 +255,8 @@ export const OverviewPage: React.FC = () => {
   }, [filtered, goals]);
 
   const moneyLeft = useMemo(() => {
-    return metrics.totalIncome - metrics.totalExpenses - goalSavings;
-  }, [metrics.totalIncome, metrics.totalExpenses, goalSavings]);
+    return metrics.totalIncome - metrics.totalExpenses - totalInvestments - goalSavings;
+  }, [metrics.totalIncome, metrics.totalExpenses, totalInvestments, goalSavings]);
 
   const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 6), [goals]);
 
@@ -416,7 +416,7 @@ export const OverviewPage: React.FC = () => {
                 >
                   No active goals yet.
                   <br />
-                  Create one in the Investments page.
+                  Create one in the Goals or Investments page.
                 </div>
               ) : (
                 <div

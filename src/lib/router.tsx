@@ -14,7 +14,7 @@ import { Spinner } from "reactstrap";
 const OverviewPage = lazy(() => import("../features/overview/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })));
 
 const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
-
+const GoalsPage = lazy(() => import("../features/goals/GoalsPage"));
 const SettingsPage = lazy(() => import("../features/settings/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 const InvestmentsPage = lazy(() => import("../features/budget/InvestmentsPage"));
@@ -124,6 +124,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <InvestmentsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "goals",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <GoalsPage />
               </Suspense>
             ),
           },

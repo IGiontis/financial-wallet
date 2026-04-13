@@ -1,8 +1,25 @@
-import { useState } from "react";
+// features/budget/AddNewGoalModal.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Create a new investment goal or savings goal.
+//
+// File location: src/features/budget/AddNewGoalModal.tsx
+//
+// defaultGoalType="targeted"  (GoalsPage):
+//   - Hides the type selector — always creates a targeted goal
+//   - Shows target amount + deadline picker only
+//   - Modal title: "New goal"
+//
+// defaultGoalType="recurring"  (InvestmentsPage):
+//   - Shows type selector: "Tracking" | "Recurring Goal"
+//   - If recurring: shows target amount + Monthly/Yearly period (no deadline)
+//   - Modal title: "New investment"
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Badge } from "reactstrap";
+import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { addMonths, format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -11,6 +28,7 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 const PRESET_ICONS = ["💰", "🚗", "🏠", "✈️", "🎓", "💻", "🛡️", "🏖️", "🏋️", "💍", "🎸", "📱", "🌍", "🚀", "🐾", "🎉"];
 const PRESET_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
+const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,9 +44,14 @@ interface GoalFormValues {
   isActive: boolean;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
+interface AddNewGoalModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreateInvestmentGoalDTO, isActive: boolean) => Promise<void>;
+  // "targeted"  → GoalsPage  : locks form to targeted + custom deadline
+  // "recurring" → InvestmentsPage: shows Tracking vs Recurring Goal selector
+  defaultGoalType?: "targeted" | "recurring";
+}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -36,7 +59,7 @@ const validationSchema = Yup.object({
   name: Yup.string().required("Goal name is required").max(60, "Max 60 characters"),
   icon: Yup.string().max(4, "Keep it short (1–2 chars)"),
   color: Yup.string(),
-  goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required("Goal type is required"),
+  goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required(),
   targetAmount: Yup.number()
     .typeError("Target amount must be a number")
     .when("goalType", {
@@ -53,45 +76,25 @@ const validationSchema = Yup.object({
     }),
   deadline: Yup.string().when("targetPeriod", {
     is: "custom",
-    then: (s) => s.required("Deadline is required for a custom period"),
+    then: (s) => s.required("Deadline is required"),
     otherwise: (s) => s.optional(),
   }),
   notes: Yup.string().max(300, "Max 300 characters"),
   isActive: Yup.boolean(),
 });
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-interface AddNewGoalModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: CreateInvestmentGoalDTO, isActive: boolean) => Promise<void>;
-}
-
-// ─── Initial values ───────────────────────────────────────────────────────────
-
-const initialValues: GoalFormValues = {
-  name: "",
-  icon: "",
-  color: "#3B82F6",
-  notes: "",
-  goalType: "targeted",
-  targetAmount: "",
-  targetPeriod: "monthly",
-  deadline: defaultDeadline,
-  isActive: true,
-};
-
-// ─── Review screen ────────────────────────────────────────────────────────────
+// ─── ReviewScreen ─────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   values,
+  isGoalsPage,
   onBack,
   onConfirm,
   isSubmitting,
   formatCurrency,
 }: {
   values: GoalFormValues;
+  isGoalsPage: boolean;
   onBack: () => void;
   onConfirm: () => void;
   isSubmitting: boolean;
@@ -100,10 +103,15 @@ function ReviewScreen({
   const isTargeted = values.goalType === "targeted";
 
   const rows = [
-    { label: "Type", value: isTargeted ? "Targeted goal" : "Open-ended" },
+    {
+      label: "Type",
+      value: isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)",
+    },
     ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
-    ...(isTargeted ? [{ label: "Period", value: values.targetPeriod }] : []),
-    ...(values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    // Show Period row only for InvestmentsPage recurring goals
+    ...(isTargeted && !isGoalsPage ? [{ label: "Period", value: values.targetPeriod === "monthly" ? "Monthly" : "Yearly" }] : []),
+    // Show Deadline row only for GoalsPage (custom period)
+    ...(isGoalsPage && isTargeted && values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
     { label: "Status", value: values.isActive ? "Active" : "Paused" },
   ];
@@ -111,13 +119,22 @@ function ReviewScreen({
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your goal before creating it.</p>
-        <div style={{ border: `2px solid ${values.color || "#3B82F6"}`, borderRadius: "var(--border-radius-lg)", padding: "1rem", marginBottom: "1rem" }}>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review before creating.</p>
+        <div
+          style={{
+            border: `2px solid ${values.color || "#3B82F6"}`,
+            borderRadius: "var(--border-radius-lg)",
+            padding: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
           <div className="d-flex align-items-center gap-3 mb-3">
             <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended goal"}</p>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
+                {isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)"}
+              </p>
             </div>
             <div style={{ width: 16, height: 16, borderRadius: "50%", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
           </div>
@@ -128,6 +145,7 @@ function ReviewScreen({
             </div>
           ))}
         </div>
+
         {!values.isActive && (
           <div
             style={{
@@ -138,7 +156,7 @@ function ReviewScreen({
               fontSize: 13,
             }}
           >
-            This goal will be created in a <strong>paused</strong> state.
+            This will be created in a <strong>paused</strong> state.
           </div>
         )}
       </ModalBody>
@@ -156,13 +174,40 @@ function ReviewScreen({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoalModalProps) {
+export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoalType }: AddNewGoalModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const { format: formatCurrency } = useCurrencyConverter();
 
+  // GoalsPage passes "targeted" → lock to targeted + custom deadline
+  // InvestmentsPage passes "recurring" → show type selector
+  const isGoalsPage = defaultGoalType === "targeted";
+  const modalTitle = isGoalsPage ? "New goal" : "New investment";
+
+  // ── Initial values depend on which page opened the modal ─────────────────
+  // useMemo keeps the reference stable so enableReinitialize doesn't loop
+  const computedInitialValues = useMemo<GoalFormValues>(
+    () => ({
+      name: "",
+      icon: "",
+      color: "#3B82F6",
+      notes: "",
+      // GoalsPage  → always targeted
+      // InvestmentsPage → default to open_ended (tracking)
+      // goalType: isGoalsPage ? "targeted" : "open_ended",
+      goalType: "targeted",
+      targetAmount: "",
+      // GoalsPage  → always custom (deadline picker shown)
+      // InvestmentsPage → monthly as sensible default for recurring
+      targetPeriod: isGoalsPage ? "custom" : "monthly",
+      deadline: defaultDeadline,
+      isActive: true,
+    }),
+    [isGoalsPage],
+  );
+
   const formik = useFormik<GoalFormValues>({
     enableReinitialize: true,
-    initialValues,
+    initialValues: computedInitialValues,
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
@@ -177,39 +222,42 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
           deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
         };
         await onSubmit(dto, values.isActive);
-        toast.success(`Goal "${values.name}" created successfully!`);
-        resetForm();
+        toast.success(`"${values.name}" created!`);
+        resetForm({ values: computedInitialValues });
         setStep("form");
         onClose();
       } catch (err) {
-        toast.error("Failed to create goal. Please try again.");
+        toast.error("Failed to create. Please try again.");
         console.error("AddNewGoalModal submit error:", err);
       }
     },
   });
 
   const handleClose = () => {
-    formik.resetForm();
+    formik.resetForm({ values: computedInitialValues });
     setStep("form");
     onClose();
   };
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
-    if (Object.keys(errors).length === 0) setStep("review");
-    else formik.setTouched(Object.keys(formik.values).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    if (Object.keys(errors).length === 0) {
+      setStep("review");
+    } else {
+      formik.setTouched(Object.keys(formik.values).reduce<Record<string, boolean>>((acc, key) => ({ ...acc, [key]: true }), {}));
+    }
   };
 
   const isTargeted = formik.values.goalType === "targeted";
-  const isCustomPeriod = formik.values.targetPeriod === "custom";
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="m" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? "New investment goal" : "Review your goal"}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : `Review your ${isGoalsPage ? "goal" : "investment"}`}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
           values={formik.values}
+          isGoalsPage={isGoalsPage}
           onBack={() => setStep("form")}
           onConfirm={() => formik.submitForm()}
           isSubmitting={formik.isSubmitting}
@@ -219,13 +267,13 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
         <>
           <ModalBody>
             <form id="new-goal-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Goal name ── */}
+              {/* ── Goal / Investment name ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal name *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{isGoalsPage ? "Goal name" : "Investment name"} *</Label>
                 <Input
                   type="text"
                   name="name"
-                  placeholder='e.g. "New Car", "Japan Trip"'
+                  placeholder={isGoalsPage ? '"New Car", "Japan Trip"' : '"Monthly ETF", "Emergency Fund"'}
                   value={formik.values.name}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -234,46 +282,60 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                 <FormFeedback>{formik.errors.name}</FormFeedback>
               </FormGroup>
 
-              {/* ── Goal type ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal type *</Label>
-                <Row className="g-2">
-                  {(["targeted", "open_ended"] as InvestmentGoalType[]).map((type) => {
-                    const isSelected = formik.values.goalType === type;
-                    return (
-                      <Col xs={6} key={type}>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => formik.setFieldValue("goalType", type)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") formik.setFieldValue("goalType", type);
-                          }}
-                          style={{
-                            border: `2px solid ${isSelected ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
-                            borderRadius: "var(--border-radius-md)",
-                            padding: "10px 12px",
-                            cursor: "pointer",
-                            background: isSelected ? "var(--bs-primary-bg-subtle, #e7f1ff)" : "var(--color-background-secondary)",
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px" }}>{type === "targeted" ? "Targeted" : "Open-ended"}</p>
-                          <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                            {type === "targeted" ? "Has a fixed target amount & deadline" : "No target — save as much as you want"}
-                          </p>
-                        </div>
-                      </Col>
-                    );
-                  })}
-                </Row>
-              </FormGroup>
+              {/* ── Type selector — ONLY shown on InvestmentsPage ── */}
+              {!isGoalsPage && (
+                <FormGroup>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
+                  <Row className="g-2">
+                    {(
+                      [
+                        {
+                          value: "targeted" as InvestmentGoalType,
+                          title: "Recurring Goal",
+                          desc: "Has a monthly or yearly target amount",
+                        },
+                        {
+                          value: "open_ended" as InvestmentGoalType,
+                          title: "Tracking",
+                          desc: "No target — save as much as you want",
+                        },
+                      ] as const
+                    ).map(({ value, title, desc }) => {
+                      const isSelected = formik.values.goalType === value;
+                      return (
+                        <Col xs={6} key={value}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => formik.setFieldValue("goalType", value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") formik.setFieldValue("goalType", value);
+                            }}
+                            style={{
+                              border: `2px solid ${isSelected ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
+                              borderRadius: "var(--border-radius-md)",
+                              padding: "10px 12px",
+                              cursor: "pointer",
+                              background: isSelected ? "var(--bs-primary-bg-subtle, #e7f1ff)" : "var(--color-background-secondary)",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px" }}>{title}</p>
+                            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{desc}</p>
+                          </div>
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                </FormGroup>
+              )}
 
-              {/* ── Targeted-only fields ── */}
+              {/* ── Targeted fields ── */}
               {isTargeted && (
                 <>
                   <Row className="g-3">
-                    <Col xs={12} md={6}>
+                    {/* Target amount */}
+                    <Col xs={12} md={isGoalsPage ? 12 : 6}>
                       <FormGroup className="mb-0">
                         <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
                         <Input
@@ -290,27 +352,31 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                         <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
                       </FormGroup>
                     </Col>
-                    <Col xs={12} md={6}>
-                      <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
-                        <Input
-                          type="select"
-                          name="targetPeriod"
-                          value={formik.values.targetPeriod}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
-                        >
-                          <option value="monthly">Monthly</option>
-                          <option value="yearly">Yearly</option>
-                          <option value="custom">Custom deadline</option>
-                        </Input>
-                        <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
-                      </FormGroup>
-                    </Col>
+
+                    {/* Period — InvestmentsPage only: Monthly | Yearly (no custom) */}
+                    {!isGoalsPage && (
+                      <Col xs={12} md={6}>
+                        <FormGroup className="mb-0">
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
+                          <Input
+                            type="select"
+                            name="targetPeriod"
+                            value={formik.values.targetPeriod}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                          </Input>
+                          <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
+                        </FormGroup>
+                      </Col>
+                    )}
                   </Row>
 
-                  {isCustomPeriod && (
+                  {/* Deadline — GoalsPage only (period is always "custom") */}
+                  {isGoalsPage && (
                     <FormGroup className="mt-3">
                       <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
                       <Input
@@ -404,7 +470,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                   type="textarea"
                   name="notes"
                   rows={2}
-                  placeholder="Any extra details about this goal..."
+                  placeholder="Any extra details..."
                   value={formik.values.notes}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -417,8 +483,8 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
               {/* ── Active toggle ── */}
               <FormGroup check>
                 <Input type="checkbox" name="isActive" id="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
-                <Label check for="isActive" style={{ fontSize: 13 }}>
-                  Active <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>(uncheck to create the goal in a paused state)</span>
+                <Label check htmlFor="isActive" style={{ fontSize: 13 }}>
+                  Active <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>(uncheck to create in a paused state)</span>
                 </Label>
               </FormGroup>
 
@@ -439,7 +505,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14 }}>{formik.values.name}</p>
                     <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {isTargeted ? "Targeted goal" : "Open-ended"}
+                      {isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)"}
                       {formik.values.targetAmount ? ` · ${formatCurrency(Number(formik.values.targetAmount))} target` : ""}
                     </p>
                   </div>
@@ -453,12 +519,13 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit }: AddNewGoa
               )}
             </form>
           </ModalBody>
+
           <ModalFooter>
             <Button type="button" color="secondary" outline onClick={handleClose}>
               Cancel
             </Button>
             <Button type="button" color="primary" disabled={!formik.dirty} onClick={handleReview}>
-              Review goal
+              Review
             </Button>
           </ModalFooter>
         </>
