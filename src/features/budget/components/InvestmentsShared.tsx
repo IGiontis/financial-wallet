@@ -26,7 +26,6 @@ import {
   Progress,
   Row,
   Spinner,
-  Table,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentGoalStatus } from "../../../shared/types/IndexTypes";
@@ -286,21 +285,30 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         {goal.icon} {goal.name} — History
       </ModalHeader>
       <ModalBody>
-        <Row className="g-2 mb-3">
+        {/* Summary */}
+        <div className="d-flex gap-2 mb-3">
           {[
-            { label: "Deposited", value: goal.totalDeposited },
-            { label: "Withdrawn", value: goal.totalWithdrawn },
-            { label: "Net saved", value: goal.totalSaved },
+            { label: "Deposited", value: goal.totalDeposited, color: "#10B981" },
+            { label: "Withdrawn", value: goal.totalWithdrawn, color: "#EF4444" },
+            { label: "Net saved", value: goal.totalSaved, color: "var(--color-text-primary)" },
           ].map((s) => (
-            <Col xs={4} key={s.label}>
-              <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px", textAlign: "center" }}>
-                <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{s.label}</p>
-                <p style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>{formatCurrency(s.value)}</p>
-              </div>
-            </Col>
+            <div
+              key={s.label}
+              style={{
+                flex: 1,
+                background: "var(--color-background-secondary)",
+                borderRadius: "var(--border-radius-md)",
+                padding: "10px 8px",
+                textAlign: "center",
+              }}
+            >
+              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: s.color }}>{formatCurrency(s.value)}</p>
+            </div>
           ))}
-        </Row>
+        </div>
 
+        {/* Contributions */}
         {isLoading ? (
           <div className="text-center py-4">
             <Spinner size="sm" />
@@ -308,33 +316,61 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         ) : contributions.length === 0 ? (
           <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0" }}>No contribution history yet.</p>
         ) : (
-          <Table size="sm" responsive>
-            <thead>
-              <tr>
-                <th style={{ fontSize: 12, fontWeight: 500 }}>Date</th>
-                <th style={{ fontSize: 12, fontWeight: 500 }}>Type</th>
-                <th style={{ fontSize: 12, fontWeight: 500 }}>Amount</th>
-                <th style={{ fontSize: 12, fontWeight: 500 }}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contributions.map((c) => (
-                <tr key={c.id}>
-                  <td style={{ fontSize: 13 }}>{formatDate(toDate(c.date))}</td>
-                  <td>
-                    <Badge color={c.contributionType === "deposit" ? "success" : "danger"} style={{ fontSize: 11 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {contributions.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  background: "var(--color-background-secondary)",
+                  borderRadius: "var(--border-radius-md)",
+                  borderLeft: `3px solid ${c.contributionType === "deposit" ? "#10B981" : "#EF4444"}`,
+                }}
+              >
+                {/* Left: date + badge + note */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="d-flex align-items-center gap-2 mb-1">
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatDate(toDate(c.date))}</span>
+                    <Badge color={c.contributionType === "deposit" ? "success" : "danger"} style={{ fontSize: 10 }}>
                       {c.contributionType}
                     </Badge>
-                  </td>
-                  <td style={{ fontSize: 13, fontWeight: 500 }}>
-                    {c.contributionType === "withdrawal" ? "−" : "+"}
-                    {formatCurrency(c.amount)}
-                  </td>
-                  <td style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{c.notes ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+                  </div>
+                  {c.notes && (
+                    <p
+                      title={c.notes}
+                      style={{
+                        fontSize: 11,
+                        color: "var(--color-text-secondary)",
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: 140,
+                      }}
+                    >
+                      {c.notes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Right: amount */}
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: c.contributionType === "deposit" ? "#10B981" : "#EF4444",
+                    flexShrink: 0,
+                  }}
+                >
+                  {c.contributionType === "withdrawal" ? "−" : "+"}
+                  {formatCurrency(c.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </ModalBody>
       <ModalFooter>

@@ -19,14 +19,13 @@ import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, u
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type InvestmentsFilterTab = "all" | "recurring" | "tracking" | "paused" | "completed";
+type InvestmentsFilterTab = "all" | "recurring" | "tracking" | "paused";
 
 const TAB_LABELS: Record<InvestmentsFilterTab, string> = {
   all: "All",
   recurring: "Recurring",
   tracking: "Tracking",
   paused: "Paused",
-  completed: "Completed",
 };
 
 // ─── Scope helpers ────────────────────────────────────────────────────────────
@@ -157,11 +156,10 @@ export default function InvestmentsPage() {
 
   const tabCount = (tab: InvestmentsFilterTab): number => {
     const mine = goals.filter(belongsHere);
-    if (tab === "all") return mine.filter((g) => g.isActive && !g.isCompleted).length;
-    if (tab === "recurring") return mine.filter((g) => isRecurring(g) && g.isActive && !g.isCompleted).length;
+    if (tab === "all") return mine.filter((g) => (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted)).length;
+    if (tab === "recurring") return mine.filter((g) => isRecurring(g) && g.isActive).length;
     if (tab === "tracking") return mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length;
-    if (tab === "paused") return mine.filter((g) => !g.isActive && !g.isCompleted).length;
-    if (tab === "completed") return mine.filter((g) => g.isCompleted).length;
+    if (tab === "paused") return mine.filter((g) => !g.isActive).length;
     return 0;
   };
 
@@ -170,13 +168,14 @@ export default function InvestmentsPage() {
   return (
     <Container fluid className="py-4">
       {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
+      <div className="d-flex justify-content-between align-items-center mb-4 gap-2">
+        <div style={{ minWidth: 0 }}>
           <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Recurring contributions and open-ended tracking</p>
         </div>
-        <Button color="primary" onClick={() => setShowNewGoal(true)}>
-          + New investment
+        <Button color="primary" onClick={() => setShowNewGoal(true)} style={{ flexShrink: 0 }}>
+          <span className="d-none d-sm-inline">+ New investment</span>
+          <span className="d-sm-none">+ New</span>
         </Button>
       </div>
 
@@ -234,7 +233,7 @@ export default function InvestmentsPage() {
             <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
               {!isSearching && (
                 <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
-                  {(["all", "recurring", "tracking", "paused", "completed"] as InvestmentsFilterTab[]).map((tab) => {
+                  {(["all", "recurring", "tracking", "paused"] as InvestmentsFilterTab[]).map((tab) => {
                     const isActive = filter === tab;
                     return (
                       <NavItem key={tab}>
