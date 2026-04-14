@@ -12,6 +12,7 @@
 //     on recurring goals whose goalType is not "targeted".
 //  2. Deposit/Withdraw buttons: open-ended goals (goalType === "open_ended")
 //     are never treated as completed, so buttons always appear for them.
+//  3. HistoryModal: fixed max-height, tabbed filter, compact rows, scroll shadow.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -34,7 +35,7 @@ import {
   Spinner,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
-import type { InvestmentGoalWithStats, InvestmentGoalStatus } from "../../../shared/types/IndexTypes";
+import type { InvestmentGoalWithStats, InvestmentGoalStatus, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,7 +47,14 @@ export const toDate = (value: any): Date | undefined => {
   return new Date(value);
 };
 
-export const formatDate = (date?: Date) => (date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date) : "—");
+export const formatDate = (date?: Date) =>
+  date
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(date)
+    : "—";
 
 export const statusConfig: Record<InvestmentGoalStatus, { label: string; color: string }> = {
   on_track: { label: "On track", color: "success" },
@@ -93,11 +101,9 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
-  // FIX 2: Open-ended tracking goals should never be treated as completed.
-  // If isCompleted is incorrectly set to true for an open_ended goal
-  // (e.g. because percentageReached hit 100 due to a bad calculation),
-  // we ignore it so the deposit/withdraw buttons always remain visible.
+  // FIX 2: Open-ended and recurring goals should never be treated as completed.
   const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
+
   const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
     <Col xs={xs}>
       <div
@@ -239,10 +245,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </>
         )}
 
-        {/* FIX 1: Tracking — only render for non-targeted AND non-recurring goals.
-            Previously `!isTargetedGoal` was true for recurring goals whose
-            goalType happened not to be "targeted", causing this block to render
-            alongside the recurring progress block above. */}
+        {/* FIX 1: Tracking — only for non-targeted AND non-recurring goals */}
         {!isTargetedGoal && !isRecurring && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
@@ -269,12 +272,20 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           <StatCell label="Contributions" value={goal.contributionCount} xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12} />
         </Row>
 
-        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
+        {goal.notes && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--color-text-secondary)",
+              fontStyle: "italic",
+              marginBottom: "0.75rem",
+            }}
+          >
+            {goal.notes}
+          </p>
+        )}
 
-        {/* Action buttons
-            FIX 2: Use isEffectivelyCompleted instead of goal.isCompleted so that
-            open-ended tracking goals always show deposit/withdraw regardless of
-            what the backend returns for isCompleted. */}
+        {/* Action buttons */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
           {!isEffectivelyCompleted && (
             <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
@@ -326,116 +337,261 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
 }
 
 // ─── HistoryModal ─────────────────────────────────────────────────────────────
+// Tabbed (All · Deposits · Withdrawals), fixed-height scrollable list,
+// compact single-line rows, scroll shadow cue, transaction count footer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type HistoryTab = "all" | "deposits" | "withdrawals";
+
+const HISTORY_TAB_LABELS: Record<HistoryTab, string> = {
+  all: "All",
+  deposits: "Deposits",
+  withdrawals: "Withdrawals",
+};
+
+function HistorySummaryBar({
+  totalDeposited,
+  totalWithdrawn,
+  totalSaved,
+  formatCurrency,
+}: {
+  totalDeposited: number;
+  totalWithdrawn: number;
+  totalSaved: number;
+  formatCurrency: (n: number) => string;
+}) {
+  const cells = [
+    { label: "Deposited", value: formatCurrency(totalDeposited), color: "#10B981" },
+    { label: "Withdrawn", value: formatCurrency(totalWithdrawn), color: "#EF4444" },
+    { label: "Net saved", value: formatCurrency(totalSaved), color: "var(--color-text-primary)" },
+  ];
+
+  return (
+    <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      {cells.map((c, i) => (
+        <div
+          key={c.label}
+          style={{
+            flex: 1,
+            textAlign: "center",
+            padding: "10px 8px",
+            borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 500,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--color-text-secondary)",
+              margin: "0 0 2px",
+            }}
+          >
+            {c.label}
+          </p>
+          <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: c.color }}>{c.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; counts: Record<HistoryTab, number>; onChange: (tab: HistoryTab) => void }) {
+  return (
+    <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      {(["all", "deposits", "withdrawals"] as HistoryTab[]).map((tab) => {
+        const isActive = active === tab;
+        return (
+          <button
+            key={tab}
+            onClick={() => onChange(tab)}
+            style={{
+              flex: 1,
+              fontSize: 12,
+              fontWeight: isActive ? 600 : 400,
+              padding: "9px 0",
+              textAlign: "center",
+              background: "none",
+              border: "none",
+              borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
+              color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+              cursor: "pointer",
+              transition: "color 0.15s",
+            }}
+          >
+            {HISTORY_TAB_LABELS[tab]}
+            <span
+              style={{
+                marginLeft: 5,
+                fontSize: 11,
+                color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)",
+              }}
+            >
+              ({counts[tab]})
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContributionRow({ contribution, formatCurrency }: { contribution: InvestmentContribution; formatCurrency: (n: number) => string }) {
+  const isDeposit = contribution.contributionType === "deposit";
+  const color = isDeposit ? "#10B981" : "#EF4444";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 16px",
+        borderBottom: "0.5px solid var(--color-border-tertiary)",
+      }}
+    >
+      {/* Dot */}
+      <div
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: color,
+          flexShrink: 0,
+        }}
+      />
+
+      {/* Date */}
+      <span
+        style={{
+          fontSize: 12,
+          color: "var(--color-text-secondary)",
+          whiteSpace: "nowrap",
+          minWidth: 88,
+        }}
+      >
+        {formatDate(toDate(contribution.date))}
+      </span>
+
+      {/* Note */}
+      <span
+        title={contribution.notes}
+        style={{
+          fontSize: 12,
+          color: "var(--color-text-secondary)",
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {contribution.notes || "—"}
+      </span>
+
+      {/* Amount */}
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color,
+          flexShrink: 0,
+        }}
+      >
+        {isDeposit ? "+" : "−"}
+        {formatCurrency(contribution.amount)}
+      </span>
+    </div>
+  );
+}
 
 export function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalWithStats; onClose: () => void; formatCurrency: (n: number) => string }) {
+  const [activeTab, setActiveTab] = useState<HistoryTab>("all");
   const { data: contributions = [], isLoading } = useContributions(goal.id);
+
+  const deposits = contributions.filter((c) => c.contributionType === "deposit");
+  const withdrawals = contributions.filter((c) => c.contributionType === "withdrawal");
+
+  const counts: Record<HistoryTab, number> = {
+    all: contributions.length,
+    deposits: deposits.length,
+    withdrawals: withdrawals.length,
+  };
+
+  const filtered = activeTab === "deposits" ? deposits : activeTab === "withdrawals" ? withdrawals : contributions;
 
   return (
     <Modal isOpen toggle={onClose} size="md">
-      <ModalHeader toggle={onClose}>
+      <ModalHeader toggle={onClose} style={{ fontSize: 14, fontWeight: 500 }}>
         {goal.icon} {goal.name} — History
       </ModalHeader>
-      <ModalBody>
-        {/* Summary */}
-        <div className="d-flex gap-2 mb-3">
-          {[
-            { label: "Deposited", value: goal.totalDeposited, color: "#10B981" },
-            { label: "Withdrawn", value: goal.totalWithdrawn, color: "#EF4444" },
-            { label: "Net saved", value: goal.totalSaved, color: "var(--color-text-primary)" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              style={{
-                flex: 1,
-                background: "var(--color-background-secondary)",
-                borderRadius: "var(--border-radius-md)",
-                padding: "10px 8px",
-                textAlign: "center",
-              }}
-            >
-              <p
-                style={{
-                  fontSize: 11,
-                  color: "var(--color-text-secondary)",
-                  margin: "0 0 4px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                {s.label}
-              </p>
-              <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: s.color }}>{formatCurrency(s.value)}</p>
-            </div>
-          ))}
-        </div>
 
-        {/* Contributions */}
+      <ModalBody style={{ padding: 0 }}>
+        {/* Summary bar */}
+        <HistorySummaryBar totalDeposited={goal.totalDeposited} totalWithdrawn={goal.totalWithdrawn} totalSaved={goal.totalSaved} formatCurrency={formatCurrency} />
+
+        {/* Tabs */}
+        <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
+
+        {/* Content */}
         {isLoading ? (
-          <div className="text-center py-4">
+          <div style={{ textAlign: "center", padding: "2rem" }}>
             <Spinner size="sm" />
           </div>
-        ) : contributions.length === 0 ? (
-          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0" }}>No contribution history yet.</p>
+        ) : filtered.length === 0 ? (
+          <p
+            style={{
+              color: "var(--color-text-secondary)",
+              textAlign: "center",
+              padding: "2rem 0",
+              fontSize: 13,
+              margin: 0,
+            }}
+          >
+            {activeTab === "all" ? "No contributions yet." : `No ${activeTab} yet.`}
+          </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {contributions.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  background: "var(--color-background-secondary)",
-                  borderRadius: "var(--border-radius-md)",
-                  borderLeft: `3px solid ${c.contributionType === "deposit" ? "#10B981" : "#EF4444"}`,
-                }}
-              >
-                {/* Left: date + badge + note */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="d-flex align-items-center gap-2 mb-1">
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatDate(toDate(c.date))}</span>
-                    <Badge color={c.contributionType === "deposit" ? "success" : "danger"} style={{ fontSize: 10 }}>
-                      {c.contributionType}
-                    </Badge>
-                  </div>
-                  {c.notes && (
-                    <p
-                      title={c.notes}
-                      style={{
-                        fontSize: 11,
-                        color: "var(--color-text-secondary)",
-                        margin: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 220,
-                      }}
-                    >
-                      {c.notes}
-                    </p>
-                  )}
-                </div>
-
-                {/* Right: amount */}
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: c.contributionType === "deposit" ? "#10B981" : "#EF4444",
-                    flexShrink: 0,
-                  }}
-                >
-                  {c.contributionType === "withdrawal" ? "−" : "+"}
-                  {formatCurrency(c.amount)}
-                </span>
-              </div>
+          <div
+            style={{
+              maxHeight: 300,
+              overflowY: "auto",
+              // Scroll shadow: subtle fade at top/bottom when content overflows
+              background: `
+                linear-gradient(var(--color-background-primary) 30%, transparent),
+                linear-gradient(transparent, var(--color-background-primary) 70%) bottom,
+                linear-gradient(rgba(0,0,0,0.05), transparent),
+                linear-gradient(transparent, rgba(0,0,0,0.05)) bottom
+              `,
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "100% 20px, 100% 20px, 100% 7px, 100% 7px",
+              backgroundAttachment: "local, local, scroll, scroll",
+            }}
+          >
+            {filtered.map((c) => (
+              <ContributionRow key={c.id} contribution={c} formatCurrency={formatCurrency} />
             ))}
           </div>
         )}
+
+        {/* Row count hint */}
+        {!isLoading && filtered.length > 0 && (
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--color-text-secondary)",
+              textAlign: "center",
+              padding: "6px 0 8px",
+              margin: 0,
+              borderTop: "0.5px solid var(--color-border-tertiary)",
+            }}
+          >
+            {filtered.length} {filtered.length === 1 ? "transaction" : "transactions"}
+          </p>
+        )}
       </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
+
+      <ModalFooter style={{ padding: "10px 16px" }}>
+        <Button color="secondary" outline size="sm" onClick={onClose}>
           Close
         </Button>
       </ModalFooter>
