@@ -6,6 +6,12 @@
 //
 // InvestmentsPage imports: import { ... } from "./investmentShared"
 // GoalsPage imports:       import { ... } from "../budget/investmentShared"
+//
+// FIXES APPLIED:
+//  1. Tracking section: added !isRecurring guard so it doesn't double-render
+//     on recurring goals whose goalType is not "targeted".
+//  2. Deposit/Withdraw buttons: open-ended goals (goalType === "open_ended")
+//     are never treated as completed, so buttons always appear for them.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -87,9 +93,21 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
+  // FIX 2: Open-ended tracking goals should never be treated as completed.
+  // If isCompleted is incorrectly set to true for an open_ended goal
+  // (e.g. because percentageReached hit 100 due to a bad calculation),
+  // we ignore it so the deposit/withdraw buttons always remain visible.
+  const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended";
+
   const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
     <Col xs={xs}>
-      <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "8px 10px" }}>
+      <div
+        style={{
+          background: "var(--color-background-secondary)",
+          borderRadius: "var(--border-radius-md)",
+          padding: "8px 10px",
+        }}
+      >
         <p style={{ fontSize: 13, fontWeight: 400, color: "#414344", margin: "0 0 2px" }}>{label}</p>
         <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{value}</p>
       </div>
@@ -113,7 +131,18 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
+              <p
+                style={{
+                  fontWeight: 600,
+                  margin: 0,
+                  color: "var(--color-text-primary)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {goal.name}
+              </p>
               <div className="d-flex align-items-center gap-1 flex-wrap">
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
                 {showTypeBadge && (
@@ -141,15 +170,22 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
             <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
               <DropdownToggle
                 tag="button"
-                style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: "2px 4px",
+                  cursor: "pointer",
+                  color: "var(--color-text-secondary)",
+                  lineHeight: 1,
+                }}
               >
                 <FiMoreVertical size={16} />
               </DropdownToggle>
               <DropdownMenu end>
-                <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={goal.isCompleted}>
+                <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={isEffectivelyCompleted}>
                   Edit
                 </DropdownItem>
-                <DropdownItem style={{ fontSize: 13 }} onClick={() => onTogglePause(goal)} disabled={goal.isCompleted}>
+                <DropdownItem style={{ fontSize: 13 }} onClick={() => onTogglePause(goal)} disabled={isEffectivelyCompleted}>
                   {goal.isActive ? "Pause" : "Resume"}
                 </DropdownItem>
                 <DropdownItem divider />
@@ -204,11 +240,24 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </>
         )}
 
-        {/* Tracking: just show total */}
-        {!isTargetedGoal && (
+        {/* FIX 1: Tracking — only render for non-targeted AND non-recurring goals.
+            Previously `!isTargetedGoal` was true for recurring goals whose
+            goalType happened not to be "targeted", causing this block to render
+            alongside the recurring progress block above. */}
+        {!isTargetedGoal && !isRecurring && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>total saved</p>
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--color-text-secondary)",
+                margin: 0,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              total saved
+            </p>
           </div>
         )}
 
@@ -223,14 +272,17 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
         {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
 
-        {/* Action buttons */}
+        {/* Action buttons
+            FIX 2: Use isEffectivelyCompleted instead of goal.isCompleted so that
+            open-ended tracking goals always show deposit/withdraw regardless of
+            what the backend returns for isCompleted. */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
-          {!goal.isCompleted && (
+          {!isEffectivelyCompleted && (
             <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
               Add deposit
             </Button>
           )}
-          {goal.totalSaved > 0 && !goal.isCompleted && (
+          {goal.totalSaved > 0 && !isEffectivelyCompleted && (
             <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 80 }} onClick={() => onWithdraw(goal)}>
               Withdraw
             </Button>
@@ -302,7 +354,17 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
                 textAlign: "center",
               }}
             >
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</p>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-text-secondary)",
+                  margin: "0 0 4px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {s.label}
+              </p>
               <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: s.color }}>{formatCurrency(s.value)}</p>
             </div>
           ))}
