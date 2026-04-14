@@ -97,7 +97,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   // If isCompleted is incorrectly set to true for an open_ended goal
   // (e.g. because percentageReached hit 100 due to a bad calculation),
   // we ignore it so the deposit/withdraw buttons always remain visible.
-  const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended";
+const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
 
   const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
     <Col xs={xs}>
