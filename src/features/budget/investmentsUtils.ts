@@ -14,7 +14,6 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   const totalSaved = totalDeposited - totalWithdrawn;
 
   const contributionCount = contributions.filter((c) => c.contributionType === "deposit").length;
-
   const withdrawalCount = contributions.filter((c) => c.contributionType === "withdrawal").length;
 
   const sorted = [...contributions].sort((a, b) => toDate(b.date).getTime() - toDate(a.date).getTime());
@@ -35,58 +34,26 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
 
   const targetAmount = goal.targetAmount ?? 0;
 
-  // ── Recurring monthly goal (targetPeriod === "monthly") ───────────────────
-  // Never auto-completes. Status is based on THIS month's contributions only.
+  // ── Recurring monthly goal ────────────────────────────────────────────────
+  // FIX: currentPeriodSaved is now NET (deposits − withdrawals) for this month.
+  // Previously only deposits were summed, so a withdrawal in the same month
+  // had no effect on the displayed amount or the status badge.
   if (goal.targetPeriod === "monthly") {
     const now = new Date();
 
-    const thisMonthDeposits = contributions
-      .filter((c) => {
-        const d = toDate(c.date);
-        return c.contributionType === "deposit" && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, c) => sum + c.amount, 0);
+    const isThisMonth = (d: Date) => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+
+    const thisMonthDeposits = contributions.filter((c) => c.contributionType === "deposit" && isThisMonth(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
+
+    const thisMonthWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisMonth(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
+
+    // Net amount saved in the current month period
+    const currentPeriodSaved = Math.max(thisMonthDeposits - thisMonthWithdrawals, 0);
 
     let status: InvestmentGoalStatus;
-    if (thisMonthDeposits >= targetAmount * 1.1) {
+    if (currentPeriodSaved >= targetAmount * 1.1) {
       status = "ahead";
-    } else if (thisMonthDeposits >= targetAmount * 0.9) {
-      status = "on_track";
-    } else {
-      status = "behind";
-    }
-
-    return {
-      ...goal,
-      totalDeposited,
-      totalWithdrawn,
-      totalSaved, // all-time total still tracked
-      percentageReached: targetAmount > 0 ? (thisMonthDeposits / targetAmount) * 100 : 0,
-      remaining: Math.max(targetAmount - thisMonthDeposits, 0),
-      monthlyRequired: targetAmount,
-      currentPeriodSaved: thisMonthDeposits, // this month only
-      status,
-      contributionCount,
-      withdrawalCount,
-      lastContributionDate,
-    };
-  }
-
-  // ── Recurring yearly goal (targetPeriod === "yearly") ─────────────────────
-  if (goal.targetPeriod === "yearly") {
-    const now = new Date();
-
-    const thisYearDeposits = contributions
-      .filter((c) => {
-        const d = toDate(c.date);
-        return c.contributionType === "deposit" && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, c) => sum + c.amount, 0);
-
-    let status: InvestmentGoalStatus;
-    if (thisYearDeposits >= targetAmount * 1.1) {
-      status = "ahead";
-    } else if (thisYearDeposits >= targetAmount * 0.9) {
+    } else if (currentPeriodSaved >= targetAmount * 0.9) {
       status = "on_track";
     } else {
       status = "behind";
@@ -97,10 +64,49 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: targetAmount > 0 ? (thisYearDeposits / targetAmount) * 100 : 0,
-      remaining: Math.max(targetAmount - thisYearDeposits, 0),
+      percentageReached: targetAmount > 0 ? (currentPeriodSaved / targetAmount) * 100 : 0,
+      remaining: Math.max(targetAmount - currentPeriodSaved, 0),
+      monthlyRequired: targetAmount,
+      currentPeriodSaved,
+      status,
+      contributionCount,
+      withdrawalCount,
+      lastContributionDate,
+    };
+  }
+
+  // ── Recurring yearly goal ─────────────────────────────────────────────────
+  // FIX: same fix applied — currentPeriodSaved is NET for this calendar year.
+  if (goal.targetPeriod === "yearly") {
+    const now = new Date();
+
+    const isThisYear = (d: Date) => d.getFullYear() === now.getFullYear();
+
+    const thisYearDeposits = contributions.filter((c) => c.contributionType === "deposit" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
+
+    const thisYearWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
+
+    // Net amount saved in the current year period
+    const currentPeriodSaved = Math.max(thisYearDeposits - thisYearWithdrawals, 0);
+
+    let status: InvestmentGoalStatus;
+    if (currentPeriodSaved >= targetAmount * 1.1) {
+      status = "ahead";
+    } else if (currentPeriodSaved >= targetAmount * 0.9) {
+      status = "on_track";
+    } else {
+      status = "behind";
+    }
+
+    return {
+      ...goal,
+      totalDeposited,
+      totalWithdrawn,
+      totalSaved,
+      percentageReached: targetAmount > 0 ? (currentPeriodSaved / targetAmount) * 100 : 0,
+      remaining: Math.max(targetAmount - currentPeriodSaved, 0),
       yearlyRequired: targetAmount,
-      currentPeriodSaved: thisYearDeposits,
+      currentPeriodSaved,
       status,
       contributionCount,
       withdrawalCount,
@@ -109,7 +115,6 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   }
 
   // ── One-time targeted goal (targetPeriod === "custom" or no period) ────────
-  // This is the original logic — can complete when target is reached.
   const percentageReached = targetAmount > 0 ? (totalSaved / targetAmount) * 100 : 0;
   const remaining = Math.max(targetAmount - totalSaved, 0);
 
