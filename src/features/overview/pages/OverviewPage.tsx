@@ -14,8 +14,10 @@ interface ChartDataPoint {
   label: string;
   income: number;
   expenses: number;
-  investments: number;
-  goals: number; // targeted goal deposits — yellow bar
+  investments: number; // deposit-only — drives the bar height
+  goals: number; // deposit-only — drives the bar height
+  investmentsNet: number; // net (deposits − withdrawals) — used for money left in tooltip
+  goalsNet: number; // net (deposits − withdrawals) — used for money left in tooltip
 }
 
 interface DashboardMetrics {
@@ -73,34 +75,45 @@ const groupByWeek = (transactions: Transaction[], range: { start: Date; end: Dat
         label: w.label,
         income: Math.round(weekTx.filter((t) => t.type === "income" && !t.isInvestmentTransaction).reduce((s, t) => s + t.amount, 0)),
         expenses: Math.round(weekTx.filter((t) => t.type === "expense" && !t.isInvestmentTransaction).reduce((s, t) => s + Math.abs(t.amount), 0)),
-        // investments = recurring/tracking only (blue) — excludes goal transactions
+        // bar: deposit amounts only
         investments: Math.round(weekTx.filter((t) => t.isInvestmentTransaction && !t.isGoalTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
-        // goals = targeted goal deposits only (yellow)
         goals: Math.round(weekTx.filter((t) => t.isGoalTransaction && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
+        // net: deposits minus withdrawals — used for money left calculation
+        investmentsNet: Math.round(
+          weekTx.filter((t) => t.isInvestmentTransaction && !t.isGoalTransaction).reduce((s, t) => s + (t.contributionType === "deposit" ? t.amount : -t.amount), 0),
+        ),
+        goalsNet: Math.round(weekTx.filter((t) => t.isGoalTransaction).reduce((s, t) => s + (t.contributionType === "deposit" ? t.amount : -t.amount), 0)),
       };
     })
     .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0 || w.goals > 0);
 };
 
 const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
-  const map = new Map<string, { income: number; expenses: number; investments: number; goals: number; firstDay: Date }>();
+  const map = new Map<string, { income: number; expenses: number; investments: number; goals: number; investmentsNet: number; goalsNet: number; firstDay: Date }>();
+
   transactions.forEach((tx) => {
     const firstDay = startOfMonth(firestoreToDate(tx.date));
     const key = format(firstDay, "yyyy-MM");
-    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, goals: 0, firstDay });
+    if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, goals: 0, investmentsNet: 0, goalsNet: 0, firstDay });
     const d = map.get(key)!;
+
     if (tx.isGoalTransaction) {
-      // Targeted goal deposits → yellow bar
+      // bar: deposit-only
       if (tx.contributionType === "deposit") d.goals += tx.amount;
+      // net: deposits minus withdrawals
+      d.goalsNet += tx.contributionType === "deposit" ? tx.amount : -tx.amount;
     } else if (tx.isInvestmentTransaction) {
-      // Recurring/tracking deposits → blue bar
+      // bar: deposit-only
       if (tx.contributionType === "deposit") d.investments += tx.amount;
+      // net: deposits minus withdrawals
+      d.investmentsNet += tx.contributionType === "deposit" ? tx.amount : -tx.amount;
     } else if (tx.type === "income") {
       d.income += tx.amount;
     } else {
       d.expenses += Math.abs(tx.amount);
     }
   });
+
   return Array.from(map.values())
     .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
     .map((d) => ({
@@ -109,6 +122,8 @@ const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
       expenses: Math.round(d.expenses),
       investments: Math.round(d.investments),
       goals: Math.round(d.goals),
+      investmentsNet: Math.round(d.investmentsNet),
+      goalsNet: Math.round(d.goalsNet),
     }));
 };
 
@@ -127,7 +142,11 @@ function makeTooltip(formatCurrency: (n: number) => string) {
     const expenses = payload.find((p: any) => p.dataKey === "expenses")?.value ?? 0;
     const investments = payload.find((p: any) => p.dataKey === "investments")?.value ?? 0;
     const goals = payload.find((p: any) => p.dataKey === "goals")?.value ?? 0;
-    const net = income - expenses;
+    // Use net values from the raw data point for the correct money left calculation
+    const investmentsNet: number = payload[0]?.payload?.investmentsNet ?? investments;
+    const goalsNet: number = payload[0]?.payload?.goalsNet ?? goals;
+    const moneyLeft = income - expenses - investmentsNet - goalsNet;
+
     return (
       <div style={{ background: "#1e1e2e", border: "none", borderRadius: 10, padding: "12px 16px", minWidth: 180, boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
         <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</p>
@@ -164,10 +183,10 @@ function makeTooltip(formatCurrency: (n: number) => string) {
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Net</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: net >= 0 ? "#22C55E" : "#F87171" }}>
-            {net >= 0 ? "+" : ""}
-            {formatCurrency(net)}
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>Money left</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: moneyLeft >= 0 ? "#22C55E" : "#F87171" }}>
+            {moneyLeft >= 0 ? "+" : ""}
+            {formatCurrency(moneyLeft)}
           </span>
         </div>
       </div>
@@ -257,15 +276,19 @@ export const OverviewPage: React.FC = () => {
   }, [filtered, selectedPeriod, dateRange]);
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
 
-  // Recurring/tracking investment deposits → blue metric card + blue chart bar
+  // Net invested: deposits minus withdrawals so withdrawals reduce the card value
   const totalInvestments = useMemo(
-    () => filtered.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction && tx.contributionType === "deposit").reduce((s, tx) => s + tx.amount, 0),
+    () => filtered.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction).reduce((s, tx) => s + (tx.contributionType === "deposit" ? tx.amount : -tx.amount), 0),
     [filtered],
   );
 
-  // Targeted goal deposits → yellow metric card + yellow chart bar
-  const goalSavings = useMemo(() => filtered.filter((tx) => tx.isGoalTransaction && tx.contributionType === "deposit").reduce((s, tx) => s + tx.amount, 0), [filtered]);
+  // Net goal savings: deposits minus withdrawals so withdrawals reduce the card value
+  const goalSavings = useMemo(
+    () => filtered.filter((tx) => tx.isGoalTransaction).reduce((s, tx) => s + (tx.contributionType === "deposit" ? tx.amount : -tx.amount), 0),
+    [filtered],
+  );
 
+  // moneyLeft is automatically correct because totalInvestments and goalSavings are now net
   const moneyLeft = useMemo(
     () => metrics.totalIncome - metrics.totalExpenses - totalInvestments - goalSavings,
     [metrics.totalIncome, metrics.totalExpenses, totalInvestments, goalSavings],

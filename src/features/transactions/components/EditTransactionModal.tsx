@@ -8,7 +8,7 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { format } from "date-fns";
 import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
 
-// ─── Form shape ──────────────────────────────────────────────────────────────
+// ─── Form shape ───────────────────────────────────────────────────────────────
 
 interface EditTransactionFormValues {
   amount: number | "";
@@ -31,7 +31,7 @@ const toDateInputValue = (value: any): string => {
   return d.toISOString().split("T")[0];
 };
 
-// ─── Validation ──────────────────────────────────────────────────────────────
+// ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
   amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
@@ -60,7 +60,92 @@ const validationSchema = Yup.object({
   place: Yup.string().max(20, "Max 20 characters").optional(),
 });
 
-// ─── Review screen ───────────────────────────────────────────────────────────
+// ─── Colors ───────────────────────────────────────────────────────────────────
+
+const EXPENSE_COLORS = {
+  cardBorder: "#EF4444",
+  heroBg: "#FFF5F5",
+  heroBorder: "#FED7D7",
+  iconBg: "#FEE2E2",
+  nameTxt: "#7F1D1D",
+  subTxt: "#B91C1C",
+  badgeBg: "#FEE2E2",
+  badgeTxt: "#991B1B",
+  amtTxt: "#B91C1C",
+  sign: "−",
+};
+
+const INCOME_COLORS = {
+  cardBorder: "#10B981",
+  heroBg: "#F0FDF4",
+  heroBorder: "#BBF7D0",
+  iconBg: "#DCFCE7",
+  nameTxt: "#14532D",
+  subTxt: "#15803D",
+  badgeBg: "#DCFCE7",
+  badgeTxt: "#166534",
+  amtTxt: "#15803D",
+  sign: "+",
+};
+
+// ─── Small box cell ───────────────────────────────────────────────────────────
+// Solid border so boxes always show regardless of theme CSS variables.
+
+function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
+  return (
+    <div
+      style={{
+        gridColumn: fullWidth ? "1 / -1" : undefined,
+        border: "1.5px solid #e2e8f0",
+        borderRadius: 8,
+        padding: "8px 10px",
+        background: "#fff",
+      }}
+    >
+      <p
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: "#4a4f57",
+          margin: "0 0 3px",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: accent ?? "#1e293b",
+          margin: 0,
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SectionHead({ label }: { label: string }) {
+  return (
+    <p
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: "0.07em",
+        textTransform: "uppercase",
+        color: "#94a3b8",
+        margin: "12px 0 6px",
+      }}
+    >
+      {label}
+    </p>
+  );
+}
+
+// ─── ReviewScreen ─────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   values,
@@ -79,26 +164,20 @@ function ReviewScreen({
 }) {
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
+  const colors = isIncome ? INCOME_COLORS : EXPENSE_COLORS;
   const unit = getUnitLabel(values.fuelType);
 
-  const baseRows = [
-    { label: "Type", value: isIncome ? "Income" : "Expense" },
-    { label: "Amount", value: formatAmount(Number(values.amount)) },
-    { label: "Date", value: format(new Date(values.date), "dd/MM/yyyy") },
-    { label: "Payee", value: values.description },
-    { label: "Category", value: `${category?.icon ?? ""} ${category?.name ?? "—"}` },
-    ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
-  ];
+  const hasFuel = values.showFuelDetails && values.fuelType && values.pricePerUnit !== "" && values.quantity !== "";
 
-  const fuelRows = values.showFuelDetails
+  const fuelCells: { label: string; value: string }[] = hasFuel
     ? [
         {
           label: "Fuel type",
           value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—",
         },
         {
-          label: "Price / unit",
-          value: values.pricePerUnit !== "" ? `${values.pricePerUnit} / ${unit}` : "—",
+          label: `Price / ${unit}`,
+          value: values.pricePerUnit !== "" ? `€${values.pricePerUnit}` : "—",
         },
         {
           label: "Quantity",
@@ -109,38 +188,126 @@ function ReviewScreen({
       ]
     : [];
 
-  const rows = [...baseRows, ...fuelRows];
-
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your changes before saving.</p>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: "1rem" }}>Please review your changes before saving.</p>
+
+        {/* Hero */}
         <div
           style={{
-            border: `2px solid ${isIncome ? "#10B981" : "#EF4444"}`,
-            borderRadius: "var(--border-radius-lg)",
-            padding: "1rem",
+            border: `2px solid ${colors.cardBorder}`,
+            borderRadius: 12,
+            overflow: "hidden",
+            marginBottom: 16,
           }}
         >
-          <div className="d-flex align-items-center gap-3 mb-3">
-            <span style={{ fontSize: 28 }}>{category?.icon ?? "💳"}</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, fontSize: 15, margin: 0 }}>{values.description}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{category?.name ?? "—"}</p>
+          <div
+            style={{
+              background: colors.heroBg,
+              borderBottom: `1px solid ${colors.heroBorder}`,
+              padding: "14px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: colors.iconBg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 22,
+                flexShrink: 0,
+              }}
+            >
+              {category?.icon ?? "💳"}
             </div>
-            <p style={{ fontWeight: 700, fontSize: 18, margin: 0, color: isIncome ? "#10B981" : "#EF4444" }}>
-              {isIncome ? "+" : "−"}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  margin: 0,
+                  color: colors.nameTxt,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {values.description}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                <span style={{ fontSize: 12, color: colors.subTxt }}>
+                  {category?.icon} {category?.name ?? "—"}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    padding: "1px 7px",
+                    borderRadius: 20,
+                    background: colors.badgeBg,
+                    color: colors.badgeTxt,
+                  }}
+                >
+                  {isIncome ? "Income" : "Expense"}
+                </span>
+              </div>
+            </div>
+            <p
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                margin: 0,
+                color: colors.amtTxt,
+                flexShrink: 0,
+              }}
+            >
+              {colors.sign}
               {formatAmount(Number(values.amount))}
             </p>
           </div>
-          {rows.map((r) => (
-            <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
-              <span style={{ color: "var(--color-text-secondary)" }}>{r.label}</span>
-              <span style={{ fontWeight: 500 }}>{r.value}</span>
-            </div>
-          ))}
         </div>
+
+        {/* Base fields — small boxes */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          <GridCell label="Date" value={format(new Date(values.date), "dd/MM/yyyy")} />
+          <GridCell label="Category" value={`${category?.icon ?? ""} ${category?.name ?? "—"}`} />
+          <GridCell label="Amount" value={formatAmount(Number(values.amount))} accent={colors.amtTxt} />
+          <GridCell label="Type" value={isIncome ? "Income" : "Expense"} accent={colors.amtTxt} />
+          {values.notes && <GridCell label="Notes" value={values.notes} fullWidth />}
+        </div>
+
+        {/* Fuel details — small boxes */}
+        {hasFuel && fuelCells.length > 0 && (
+          <>
+            <SectionHead label="Fuel details" />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
+              {fuelCells.map((cell) => (
+                <GridCell key={cell.label} label={cell.label} value={cell.value} />
+              ))}
+            </div>
+          </>
+        )}
       </ModalBody>
+
       <ModalFooter>
         <Button color="secondary" outline onClick={onBack} disabled={isSubmitting}>
           Back
@@ -153,7 +320,7 @@ function ReviewScreen({
   );
 }
 
-// ─── Props ───────────────────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface EditTransactionModalProps {
   transaction: Transaction;
@@ -163,7 +330,7 @@ interface EditTransactionModalProps {
   onSubmit: (transactionId: string, data: UpdateTransactionDTO) => Promise<void>;
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
@@ -230,7 +397,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     },
   });
 
-  // Auto-calculate amount from pricePerUnit x quantity when fuel details are shown
   useEffect(() => {
     if (formik.values.showFuelDetails && formik.values.pricePerUnit !== "" && formik.values.quantity !== "") {
       const total = Math.round(Number(formik.values.pricePerUnit) * Number(formik.values.quantity) * 100) / 100;
@@ -270,6 +436,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   };
 
   const filteredCategories = categories.filter((c) => c.type === formik.values.type);
+
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -317,7 +484,16 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                             userSelect: "none",
                           }}
                         >
-                          <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: isSelected ? color : "inherit" }}>{t === "income" ? "Income" : "Expense"}</p>
+                          <p
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 13,
+                              margin: 0,
+                              color: isSelected ? color : "inherit",
+                            }}
+                          >
+                            {t === "income" ? "Income" : "Expense"}
+                          </p>
                         </div>
                       </Col>
                     );
@@ -407,7 +583,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </Col>
               </Row>
 
-              {/* ── Fuel toggle row ── */}
+              {/* ── Fuel toggle ── */}
               {isFuelCategory && (
                 <div
                   style={{
@@ -469,7 +645,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </div>
               )}
 
-              {/* ── Full fuel details panel ── */}
+              {/* ── Fuel details panel ── */}
               {isFuelCategory && formik.values.showFuelDetails && (
                 <FuelDetailsPanel
                   fuelType={formik.values.fuelType}

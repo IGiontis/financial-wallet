@@ -2,26 +2,8 @@ import { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import {
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  FormGroup,
-  Label,
-  Input,
-  FormFeedback,
-  FormText,
-  Row,
-  Col,
-} from "reactstrap";
-import type {
-  CreateTransactionDTO,
-  Category,
-  FuelMetadata,
-  FuelType,
-} from "../../../shared/types/IndexTypes";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
@@ -48,11 +30,7 @@ const today = new Date().toISOString().split("T")[0];
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
-  amount: Yup.number()
-    .typeError("Amount must be a number")
-    .required("Amount is required")
-    .positive("Must be greater than 0")
-    .max(10_000_000, "Amount is too large"),
+  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
   type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required(),
   categoryId: Yup.string().required("Category is required"),
   date: Yup.string().required("Date is required"),
@@ -66,21 +44,19 @@ const validationSchema = Yup.object({
   }),
   pricePerUnit: Yup.number().when("showFuelDetails", {
     is: true,
-    then: (s) =>
-      s.typeError("Must be a number").required("Price is required").positive("Must be > 0"),
+    then: (s) => s.typeError("Must be a number").required("Price is required").positive("Must be > 0"),
     otherwise: (s) => s.optional(),
   }),
   quantity: Yup.number().when("showFuelDetails", {
     is: true,
-    then: (s) =>
-      s.typeError("Must be a number").required("Quantity is required").positive("Must be > 0"),
+    then: (s) => s.typeError("Must be a number").required("Quantity is required").positive("Must be > 0"),
     otherwise: (s) => s.optional(),
   }),
   odometer: Yup.number().typeError("Must be a number").min(0, "Must be positive").optional(),
   place: Yup.string().max(20, "Max 20 characters").optional(),
 });
 
-// ─── Theme tokens ─────────────────────────────────────────────────────────────
+// ─── Colors ───────────────────────────────────────────────────────────────────
 
 const EXPENSE_COLORS = {
   cardBorder: "#EF4444",
@@ -108,33 +84,40 @@ const INCOME_COLORS = {
   sign: "+",
 };
 
-// ─── Review sub-components ────────────────────────────────────────────────────
+// ─── Small box cell ───────────────────────────────────────────────────────────
+// Visible solid border so boxes always show regardless of theme CSS variables.
 
-// Option B: white background, thin border, rounded corners — each field is a
-// standalone outlined box. Gap between boxes creates the grid feel.
-
-function GridCell({
-  label,
-  value,
-  fullWidth = false,
-}: {
-  label: string;
-  value: string;
-  fullWidth?: boolean;
-}) {
+function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
   return (
     <div
       style={{
         gridColumn: fullWidth ? "1 / -1" : undefined,
-        border: "0.5px solid var(--color-border-secondary)",
-        borderRadius: "var(--border-radius-md)",
+        border: "1.5px solid #e2e8f0",
+        borderRadius: 8,
         padding: "8px 10px",
+        background: "#fff",
       }}
     >
-      <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 2px" }}>
+      <p
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: "#4a4f57",
+          margin: "0 0 3px",
+        }}
+      >
         {label}
       </p>
-      <p style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-primary)", margin: 0 }}>
+      <p
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: accent ?? "#1e293b",
+          margin: 0,
+        }}
+      >
         {value}
       </p>
     </div>
@@ -143,19 +126,18 @@ function GridCell({
 
 function SectionHead({ label }: { label: string }) {
   return (
-    <div
+    <p
       style={{
         fontSize: 10,
-        fontWeight: 500,
+        fontWeight: 600,
         letterSpacing: "0.07em",
         textTransform: "uppercase",
-        color: "var(--color-text-secondary)",
-        padding: "4px 10px 2px",
-        borderTop: "0.5px solid var(--color-border-tertiary)",
+        color: "#94a3b8",
+        margin: "12px 0 6px",
       }}
     >
       {label}
-    </div>
+    </p>
   );
 }
 
@@ -181,19 +163,13 @@ function ReviewScreen({
   const colors = isIncome ? INCOME_COLORS : EXPENSE_COLORS;
   const unit = getUnitLabel(values.fuelType);
 
-  const hasFuel =
-    values.showFuelDetails &&
-    values.fuelType &&
-    values.pricePerUnit !== "" &&
-    values.quantity !== "";
+  const hasFuel = values.showFuelDetails && values.fuelType && values.pricePerUnit !== "" && values.quantity !== "";
 
   const fuelCells: { label: string; value: string }[] = hasFuel
     ? [
         {
           label: "Fuel type",
-          value: values.fuelType
-            ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1)
-            : "—",
+          value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—",
         },
         {
           label: `Price / ${unit}`,
@@ -203,9 +179,7 @@ function ReviewScreen({
           label: "Quantity",
           value: values.quantity !== "" ? `${values.quantity} ${unit}` : "—",
         },
-        ...(values.odometer !== ""
-          ? [{ label: "Odometer", value: `${values.odometer} km` }]
-          : []),
+        ...(values.odometer !== "" ? [{ label: "Odometer", value: `${values.odometer} km` }] : []),
         ...(values.place ? [{ label: "Place", value: values.place }] : []),
       ]
     : [];
@@ -213,39 +187,37 @@ function ReviewScreen({
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-          Please review your transaction before saving.
-        </p>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: "1rem" }}>Please review your transaction before saving.</p>
 
-        {/* Card wrapper — 2px colored border */}
+        {/* Hero — colored top border card */}
         <div
           style={{
             border: `2px solid ${colors.cardBorder}`,
-            borderRadius: "var(--border-radius-lg)",
+            borderRadius: 12,
             overflow: "hidden",
+            marginBottom: 16,
           }}
         >
-          {/* Hero */}
           <div
             style={{
               background: colors.heroBg,
-              padding: "14px",
+              borderBottom: `1px solid ${colors.heroBorder}`,
+              padding: "14px 16px",
               display: "flex",
               alignItems: "center",
               gap: 12,
-              borderBottom: `0.5px solid ${colors.heroBorder}`,
             }}
           >
             <div
               style={{
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 borderRadius: 10,
                 background: colors.iconBg,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 20,
+                fontSize: 22,
                 flexShrink: 0,
               }}
             >
@@ -254,8 +226,8 @@ function ReviewScreen({
             <div style={{ flex: 1, minWidth: 0 }}>
               <p
                 style={{
-                  fontSize: 14,
-                  fontWeight: 600,
+                  fontSize: 15,
+                  fontWeight: 700,
                   margin: 0,
                   color: colors.nameTxt,
                   overflow: "hidden",
@@ -265,72 +237,63 @@ function ReviewScreen({
               >
                 {values.description}
               </p>
-              <p style={{ fontSize: 11, margin: "3px 0 0", color: colors.subTxt }}>
-                {category?.icon} {category?.name ?? "—"}&nbsp;&nbsp;
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                <span style={{ fontSize: 12, color: colors.subTxt }}>
+                  {category?.icon} {category?.name ?? "—"}
+                </span>
                 <span
                   style={{
-                    display: "inline-block",
                     fontSize: 10,
+                    fontWeight: 600,
                     padding: "1px 7px",
                     borderRadius: 20,
                     background: colors.badgeBg,
                     color: colors.badgeTxt,
-                    fontWeight: 500,
                   }}
                 >
                   {isIncome ? "Income" : "Expense"}
                 </span>
-              </p>
+              </div>
             </div>
-            <p
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                margin: 0,
-                color: colors.amtTxt,
-                flexShrink: 0,
-              }}
-            >
+            <p style={{ fontSize: 20, fontWeight: 700, margin: 0, color: colors.amtTxt, flexShrink: 0 }}>
               {colors.sign}
               {formatAmount(Number(values.amount))}
             </p>
           </div>
-
-          {/* Base fields grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 8,
-              padding: 10,
-            }}
-          >
-            <GridCell label="Date" value={format(new Date(values.date), "dd/MM/yyyy")} />
-            <GridCell label="Category" value={`${category?.icon ?? ""} ${category?.name ?? "—"}`} />
-            {values.notes && (
-              <GridCell label="Notes" value={values.notes} fullWidth />
-            )}
-          </div>
-
-          {/* Fuel metadata */}
-          {hasFuel && fuelCells.length > 0 && (
-            <>
-              <SectionHead label="Fuel details" />
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 8,
-                  padding: "8px 10px 10px",
-                }}
-              >
-                {fuelCells.map((cell) => (
-                  <GridCell key={cell.label} label={cell.label} value={cell.value} />
-                ))}
-              </div>
-            </>
-          )}
         </div>
+
+        {/* Base fields — small boxes */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          <GridCell label="Date" value={format(new Date(values.date), "dd/MM/yyyy")} />
+          <GridCell label="Category" value={`${category?.icon ?? ""} ${category?.name ?? "—"}`} />
+          <GridCell label="Amount" value={formatAmount(Number(values.amount))} accent={colors.amtTxt} />
+          <GridCell label="Type" value={isIncome ? "Income" : "Expense"} accent={colors.amtTxt} />
+          {values.notes && <GridCell label="Notes" value={values.notes} fullWidth />}
+        </div>
+
+        {/* Fuel details — small boxes */}
+        {hasFuel && fuelCells.length > 0 && (
+          <>
+            <SectionHead label="Fuel details" />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
+              {fuelCells.map((cell) => (
+                <GridCell key={cell.label} label={cell.label} value={cell.value} />
+              ))}
+            </div>
+          </>
+        )}
       </ModalBody>
 
       <ModalFooter>
@@ -356,12 +319,7 @@ interface AddTransactionModalProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddTransactionModal({
-  isOpen,
-  onClose,
-  categories,
-  onSubmit,
-}: AddTransactionModalProps) {
+export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const [isFuelCategory, setIsFuelCategory] = useState(false);
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
@@ -385,10 +343,7 @@ export default function AddTransactionModal({
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
-        const amountInBase =
-          baseCurrency === displayCurrency
-            ? (values.amount as number)
-            : convertToBase(values.amount as number);
+        const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
 
         const metadata: FuelMetadata | undefined = values.showFuelDetails
           ? {
@@ -424,15 +379,8 @@ export default function AddTransactionModal({
   });
 
   useEffect(() => {
-    if (
-      formik.values.showFuelDetails &&
-      formik.values.pricePerUnit !== "" &&
-      formik.values.quantity !== ""
-    ) {
-      const total =
-        Math.round(
-          Number(formik.values.pricePerUnit) * Number(formik.values.quantity) * 100
-        ) / 100;
+    if (formik.values.showFuelDetails && formik.values.pricePerUnit !== "" && formik.values.quantity !== "") {
+      const total = Math.round(Number(formik.values.pricePerUnit) * Number(formik.values.quantity) * 100) / 100;
       formik.setFieldValue("amount", total);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,9 +413,7 @@ export default function AddTransactionModal({
     if (Object.keys(errors).length === 0) {
       setStep("review");
     } else {
-      formik.setTouched(
-        Object.keys(formik.values).reduce((acc, k) => ({ ...acc, [k]: true }), {})
-      );
+      formik.setTouched(Object.keys(formik.values).reduce((acc, k) => ({ ...acc, [k]: true }), {}));
     }
   };
 
@@ -483,9 +429,7 @@ export default function AddTransactionModal({
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="md">
-      <ModalHeader toggle={handleClose}>
-        {step === "form" ? "Add transaction" : "Review transaction"}
-      </ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? "Add transaction" : "Review transaction"}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
@@ -542,16 +486,7 @@ export default function AddTransactionModal({
                             transition: "all 0.15s ease",
                           }}
                         >
-                          <p
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 13,
-                              margin: 0,
-                              color: isSelected ? color : "inherit",
-                            }}
-                          >
-                            {t === "income" ? "Income" : "Expense"}
-                          </p>
+                          <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: isSelected ? color : "inherit" }}>{t === "income" ? "Income" : "Expense"}</p>
                         </div>
                       </Col>
                     );
@@ -563,9 +498,7 @@ export default function AddTransactionModal({
               <Row className="g-3">
                 <Col xs={6}>
                   <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                      Amount ({displayCurrency}) *
-                    </Label>
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
                     <Input
                       type="number"
                       name="amount"
@@ -576,11 +509,7 @@ export default function AddTransactionModal({
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                       readOnly={formik.values.showFuelDetails}
-                      style={
-                        formik.values.showFuelDetails
-                          ? { background: "#f1f5f9", cursor: "not-allowed" }
-                          : {}
-                      }
+                      style={formik.values.showFuelDetails ? { background: "#f1f5f9", cursor: "not-allowed" } : {}}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
                     />
                     <FormFeedback>{formik.errors.amount}</FormFeedback>
@@ -673,13 +602,9 @@ export default function AddTransactionModal({
                   }}
                 >
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6", margin: 0 }}>
-                      ⛽ Add fuel details
-                    </p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6", margin: 0 }}>⛽ Add fuel details</p>
                     <p style={{ fontSize: 11, color: "#94A3B8", margin: 0 }}>
-                      {formik.values.showFuelDetails
-                        ? "Liters, price/L, odometer, place — amount auto-calculated"
-                        : "Tap to add liters, price/L, odometer..."}
+                      {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
                     </p>
                   </div>
                   <div
