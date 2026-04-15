@@ -39,6 +39,7 @@ const PAGE_SIZE = 15;
 // ============================================================
 // COLOR HELPERS
 // ============================================================
+
 function getAmountColor(tx: Transaction): string {
   if (tx.isGoalTransaction) {
     return tx.contributionType === "withdrawal" ? "#D97706" : "#F59E0B";
@@ -73,7 +74,6 @@ function getGoalBadgeStyle(contributionType: string | undefined): React.CSSPrope
 
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
   if (tx.isGoalTransaction) {
-    // Return a synthetic "Goal" category — no Firestore lookup needed
     return {
       id: "__goal__",
       name: "Goal",
@@ -90,6 +90,7 @@ function resolveCategory(tx: Transaction, categories: Category[]): Category | un
   }
   return categories.find((c) => c.id === tx.categoryId);
 }
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -209,7 +210,7 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
 }
 
 // ============================================================
-// DAY PANEL
+// DAY PANEL — desktop only
 // ============================================================
 
 function DayPanel({ date, transactions, categories, formatCurrency }: { date: Date; transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string }) {
@@ -251,12 +252,12 @@ function DayPanel({ date, transactions, categories, formatCurrency }: { date: Da
 }
 
 // ============================================================
-// CALENDAR
+// CALENDAR INNER — shared grid logic
 // ============================================================
 
 type CalView = "days" | "months" | "years";
 
-function TransactionCalendar({
+function CalendarGrid({
   allTransactions,
   categories,
   fromDate,
@@ -265,6 +266,7 @@ function TransactionCalendar({
   onToChange,
   onDaySelect,
   formatCurrency,
+  showDayPanel, // desktop shows it, mobile does not
 }: {
   allTransactions: Transaction[];
   categories: Category[];
@@ -274,6 +276,7 @@ function TransactionCalendar({
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
   formatCurrency: (n: number) => string;
+  showDayPanel: boolean;
 }) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -311,7 +314,17 @@ function TransactionCalendar({
   const yearOptions = Array.from({ length: 12 }, (_, i) => yearStart + i);
   const activeDate = hoveredDate ?? fromDate ?? null;
   const activeTx = activeDate ? (txMap[toDateKey(activeDate)] ?? []) : [];
-  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
+
+  const navBtn: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 20,
+    lineHeight: 1,
+    color: "#666",
+    padding: "2px 8px",
+    borderRadius: 6,
+  };
 
   const pickerCell = (active: boolean, onClick: () => void, label: string) => (
     <button
@@ -335,179 +348,396 @@ function TransactionCalendar({
   );
 
   return (
+    <>
+      {/* Date range pickers */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
+        <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
+      </div>
+
+      <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
+
+      {/* Month nav */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <button style={navBtn} onClick={prevMonth}>
+          &lsaquo;
+        </button>
+        <button
+          onClick={() => setCalView(calView === "days" ? "years" : "days")}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 16,
+            fontWeight: 600,
+            color: "#1a1a2e",
+            borderRadius: 6,
+            padding: "4px 8px",
+            textDecoration: calView !== "days" ? "underline" : "none",
+            textUnderlineOffset: 3,
+          }}
+        >
+          {MONTH_NAMES[viewMonth]} {viewYear}
+          <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>v</span>
+        </button>
+        <button style={navBtn} onClick={nextMonth}>
+          &rsaquo;
+        </button>
+      </div>
+
+      {calView === "years" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
+          {yearOptions.map((y) =>
+            pickerCell(
+              y === viewYear,
+              () => {
+                setViewYear(y);
+                setCalView("months");
+              },
+              String(y),
+            ),
+          )}
+        </div>
+      )}
+
+      {calView === "months" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginBottom: 8 }}>
+          {MONTH_SHORT.map((m, i) =>
+            pickerCell(
+              i === viewMonth,
+              () => {
+                setViewMonth(i);
+                setCalView("days");
+              },
+              m,
+            ),
+          )}
+        </div>
+      )}
+
+      {calView === "days" && (
+        <>
+          {/* Day names */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+            {DAY_NAMES_SHORT.map((d) => (
+              <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#bbb", padding: "2px 0" }}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {cells.map((date, i) => {
+              if (!date) return <div key={i} style={{ height: 38 }} />;
+              const k = toDateKey(date);
+              const dayTx = txMap[k] ?? [];
+              const hasInc = dayTx.some((t) => t.type === "income" || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
+              const hasExp = dayTx.some((t) => t.type === "expense" || (t.isInvestmentTransaction && t.contributionType === "deposit"));
+              const isFrom = isSameDay(date, fromDate);
+              const isTo = isSameDay(date, toDate);
+              const isEdge = isFrom || isTo;
+              const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
+              const isHov = isSameDay(date, hoveredDate);
+              const isToday = isSameDay(date, today);
+              let bg = "transparent",
+                color = "#1a1a2e",
+                border = "none",
+                weight = 400;
+              if (isEdge) {
+                bg = "#1a1a2e";
+                color = "#fff";
+                weight = 600;
+              } else if (inRange) {
+                bg = "#e8eaf6";
+              } else if (isHov) {
+                bg = "#f5f5f5";
+              }
+              if (isToday && !isEdge) {
+                border = "1.5px solid #aaa";
+                weight = 600;
+              }
+              return (
+                <div
+                  key={i}
+                  onClick={() => onDaySelect(date)}
+                  onMouseEnter={() => setHoveredDate(date)}
+                  onMouseLeave={() => setHoveredDate(null)}
+                  style={{
+                    height: 38,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    userSelect: "none",
+                    background: bg,
+                    color,
+                    border: border as any,
+                    fontWeight: weight,
+                    fontSize: 15,
+                    transition: "background 0.1s",
+                  }}
+                >
+                  <span style={{ lineHeight: 1 }}>{date.getDate()}</span>
+                  {(hasInc || hasExp) && (
+                    <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
+                      {hasInc && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
+                      {hasExp && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+              Income
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
+              Expense
+            </span>
+            <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>{showDayPanel ? "Click to select a day" : "Tap to filter"}</span>
+          </div>
+
+          {/* Day panel — desktop only */}
+          {showDayPanel && activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
+        </>
+      )}
+
+      {/* Clear button */}
+      {(fromDate || toDate) && (
+        <button
+          onClick={() => {
+            onFromChange(null);
+            onToChange(null);
+          }}
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 12,
+            background: "none",
+            border: "1px solid rgba(0,0,0,0.1)",
+            borderRadius: 8,
+            cursor: "pointer",
+            padding: "6px 0",
+            fontSize: 12,
+            color: "#aaa",
+          }}
+        >
+          Clear date filter
+        </button>
+      )}
+    </>
+  );
+}
+
+// ============================================================
+// DESKTOP CALENDAR — full card wrapper
+// ============================================================
+
+function TransactionCalendar(props: {
+  allTransactions: Transaction[];
+  categories: Category[];
+  fromDate: Date | null;
+  toDate: Date | null;
+  onFromChange: (d: Date | null) => void;
+  onToChange: (d: Date | null) => void;
+  onDaySelect: (d: Date) => void;
+  formatCurrency: (n: number) => string;
+}) {
+  return (
     <Card className="border-0 shadow-sm">
       <CardBody className="p-3">
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
-          <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
-        </div>
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <button style={navBtn} onClick={prevMonth}>
-            &lsaquo;
-          </button>
+        <CalendarGrid {...props} showDayPanel />
+      </CardBody>
+    </Card>
+  );
+}
+
+// ============================================================
+// MOBILE CALENDAR — collapsible, no day panel
+// ============================================================
+
+function MobileCalendar(props: {
+  allTransactions: Transaction[];
+  categories: Category[];
+  fromDate: Date | null;
+  toDate: Date | null;
+  onFromChange: (d: Date | null) => void;
+  onToChange: (d: Date | null) => void;
+  onDaySelect: (d: Date) => void;
+  formatCurrency: (n: number) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasFilter = !!(props.fromDate || props.toDate);
+
+  return (
+    <Card className="border-0 shadow-sm mb-3">
+      <CardBody className="p-3">
+        {/* Always-visible header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flex: 1 }}>
+            {/* Compact FROM/TO pills showing selected dates */}
+            {(["from", "to"] as const).map((which) => {
+              const date = which === "from" ? props.fromDate : props.toDate;
+              return (
+                <div
+                  key={which}
+                  style={{
+                    flex: 1,
+                    border: `1px solid ${date ? "#1a1a2e" : "rgba(0,0,0,0.13)"}`,
+                    borderRadius: 8,
+                    padding: "6px 10px",
+                    background: date ? "#1a1a2e" : "#fafafa",
+                    cursor: "pointer",
+                    position: "relative",
+                  }}
+                  onClick={() => setExpanded(true)}
+                >
+                  <div style={{ fontSize: 9, color: date ? "rgba(255,255,255,0.6)" : "#aaa", fontWeight: 600, letterSpacing: "0.07em" }}>{which.toUpperCase()}</div>
+                  <div style={{ fontSize: 12, color: date ? "#fff" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Any"}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Toggle button */}
           <button
-            onClick={() => setCalView(calView === "days" ? "years" : "days")}
+            onClick={() => setExpanded((v) => !v)}
             style={{
-              background: "none",
+              background: expanded ? "#1a1a2e" : "#f1f5f9",
               border: "none",
+              borderRadius: 8,
+              padding: "8px 12px",
               cursor: "pointer",
-              fontSize: 16,
-              fontWeight: 600,
-              color: "#1a1a2e",
-              borderRadius: 6,
-              padding: "4px 8px",
-              textDecoration: calView !== "days" ? "underline" : "none",
-              textUnderlineOffset: 3,
+              fontSize: 13,
+              color: expanded ? "#fff" : "#64748b",
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
-            {MONTH_NAMES[viewMonth]} {viewYear}
-            <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>v</span>
+            {expanded ? "Hide" : "Calendar"}
           </button>
-          <button style={navBtn} onClick={nextMonth}>
-            &rsaquo;
-          </button>
+
+          {/* Clear — only when a filter is active */}
+          {hasFilter && (
+            <button
+              onClick={() => {
+                props.onFromChange(null);
+                props.onToChange(null);
+              }}
+              style={{
+                background: "none",
+                border: "1px solid rgba(0,0,0,0.1)",
+                borderRadius: 8,
+                padding: "8px 10px",
+                cursor: "pointer",
+                fontSize: 12,
+                color: "#aaa",
+                flexShrink: 0,
+              }}
+            >
+              Clear
+            </button>
+          )}
         </div>
 
-        {calView === "years" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
-            {yearOptions.map((y) =>
-              pickerCell(
-                y === viewYear,
-                () => {
-                  setViewYear(y);
-                  setCalView("months");
-                },
-                String(y),
-              ),
-            )}
+        {/* Collapsible full calendar grid */}
+        {expanded && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
+            <CalendarGrid {...props} showDayPanel={false} />
           </div>
-        )}
-        {calView === "months" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginBottom: 8 }}>
-            {MONTH_SHORT.map((m, i) =>
-              pickerCell(
-                i === viewMonth,
-                () => {
-                  setViewMonth(i);
-                  setCalView("days");
-                },
-                m,
-              ),
-            )}
-          </div>
-        )}
-        {calView === "days" && (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
-              {DAY_NAMES_SHORT.map((d) => (
-                <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#bbb", padding: "2px 0" }}>
-                  {d}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
-              {cells.map((date, i) => {
-                if (!date) return <div key={i} style={{ height: 38 }} />;
-                const k = toDateKey(date);
-                const dayTx = txMap[k] ?? [];
-                const hasInc = dayTx.some((t) => t.type === "income" || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
-                const hasExp = dayTx.some((t) => t.type === "expense" || (t.isInvestmentTransaction && t.contributionType === "deposit"));
-                const isFrom = isSameDay(date, fromDate);
-                const isTo = isSameDay(date, toDate);
-                const isEdge = isFrom || isTo;
-                const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
-                const isHov = isSameDay(date, hoveredDate);
-                const isToday = isSameDay(date, today);
-                let bg = "transparent",
-                  color = "#1a1a2e",
-                  border = "none",
-                  weight = 400;
-                if (isEdge) {
-                  bg = "#1a1a2e";
-                  color = "#fff";
-                  weight = 600;
-                } else if (inRange) {
-                  bg = "#e8eaf6";
-                } else if (isHov) {
-                  bg = "#f5f5f5";
-                }
-                if (isToday && !isEdge) {
-                  border = "1.5px solid #aaa";
-                  weight = 600;
-                }
-                return (
-                  <div
-                    key={i}
-                    onClick={() => onDaySelect(date)}
-                    onMouseEnter={() => setHoveredDate(date)}
-                    onMouseLeave={() => setHoveredDate(null)}
-                    style={{
-                      height: 44,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      userSelect: "none",
-                      background: bg,
-                      color,
-                      border: border as any,
-                      fontWeight: weight,
-                      fontSize: 15,
-                      transition: "background 0.1s",
-                    }}
-                  >
-                    <span style={{ lineHeight: 1 }}>{date.getDate()}</span>
-                    {(hasInc || hasExp) && (
-                      <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
-                        {hasInc && <span style={{ width: 8, height: 8, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
-                        {hasExp && <span style={{ width: 8, height: 8, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
-                Income
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
-                Expense
-              </span>
-              <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>Click to select a day</span>
-            </div>
-            {activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
-          </>
-        )}
-        {(fromDate || toDate) && (
-          <button
-            onClick={() => {
-              onFromChange(null);
-              onToChange(null);
-            }}
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 12,
-              background: "none",
-              border: "1px solid rgba(0,0,0,0.1)",
-              borderRadius: 8,
-              cursor: "pointer",
-              padding: "6px 0",
-              fontSize: 12,
-              color: "#aaa",
-            }}
-          >
-            Clear date filter
-          </button>
         )}
       </CardBody>
     </Card>
+  );
+}
+
+// ============================================================
+// CATEGORY SELECT — fixes native arrow + x overlap
+// ============================================================
+
+function CategorySelect({ value, onChange, categories, size }: { value: string; onChange: (v: string) => void; categories: Category[]; size?: string }) {
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          height: size === "sm" ? 31 : 38,
+          fontSize: size === "sm" ? 13 : 14,
+          paddingLeft: 10,
+          // leave room on right for our custom chevron (or x if active)
+          paddingRight: 32,
+          border: "1px solid #ced4da",
+          borderRadius: 4,
+          background: "#fff",
+          color: "#212529",
+          cursor: "pointer",
+          // kill the native browser arrow completely
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+        }}
+      >
+        <option value="all">All Categories</option>
+        <option value="income">💰 Income</option>
+        <option value="expense">💸 Expenses</option>
+        <option disabled>──────────</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.icon} {c.name}
+          </option>
+        ))}
+      </select>
+
+      {/* Custom right-side icon — x when filtered, chevron when not */}
+      {value !== "all" ? (
+        <button
+          onClick={() => onChange("all")}
+          style={{
+            position: "absolute",
+            right: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#6c757d",
+            fontSize: 16,
+            lineHeight: 1,
+            padding: 0,
+            zIndex: 2,
+          }}
+          title="Clear filter"
+        >
+          x
+        </button>
+      ) : (
+        <span
+          style={{
+            position: "absolute",
+            right: 10,
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+            color: "#6c757d",
+            fontSize: 11,
+          }}
+        >
+          ▾
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -709,7 +939,6 @@ export function TransactionsPage() {
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Step 2: debounce search — filter only runs after user stops typing
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
@@ -784,7 +1013,6 @@ export function TransactionsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  // Step 1: pre-convert dates once — no repeated firestoreToDate calls inside filter/sort
   const transactionsWithDates = useMemo(
     () =>
       transactions.map((tx) => ({
@@ -805,10 +1033,8 @@ export function TransactionsPage() {
         const matchSearch = tx.description.toLowerCase().includes(query);
         const matchCat =
           selectedCategory === "all" ||
-          // New: type filters
           (selectedCategory === "income" && tx.type === "income") ||
           (selectedCategory === "expense" && tx.type === "expense") ||
-          // Existing: category filters
           (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
 
         const txMid = midnight(date);
@@ -827,12 +1053,10 @@ export function TransactionsPage() {
       .map(({ tx }) => tx);
   }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories]);
 
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, selectedCategory, fromDate, toDate]);
 
-  // Step 3: pagination — slice the filtered list for the current page
   const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
   const pagedTransactions = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -842,9 +1066,20 @@ export function TransactionsPage() {
   const isLoading = txLoading || catLoading;
   const isError = txError || catError;
 
+  const calendarProps = {
+    allTransactions: transactions,
+    categories,
+    fromDate,
+    toDate,
+    onFromChange: handleFromChange,
+    onToChange: handleToChange,
+    onDaySelect: handleDaySelect,
+    formatCurrency,
+  };
+
   return (
     <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
-      {/* Desktop layout (lg+) */}
+      {/* ── Desktop layout (lg+) ── */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
           <Col lg={4}>
@@ -853,16 +1088,7 @@ export function TransactionsPage() {
                 <Spinner color="primary" />
               </div>
             ) : (
-              <TransactionCalendar
-                allTransactions={transactions}
-                categories={categories}
-                fromDate={fromDate}
-                toDate={toDate}
-                onFromChange={handleFromChange}
-                onToChange={handleToChange}
-                onDaySelect={handleDaySelect}
-                formatCurrency={formatCurrency}
-              />
+              <TransactionCalendar {...calendarProps} />
             )}
           </Col>
           <Col lg={8}>
@@ -882,63 +1108,17 @@ export function TransactionsPage() {
                       <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </InputGroup>
                   </Col>
-
                   <Col md={4}>
-                    <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
-                      <Input
-                        type="select"
-                        bsSize="sm"
-                        value={selectedCategory}
-                        onChange={(e) => {
-                          setSelectedCategory(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        style={{
-                          paddingRight: selectedCategory !== "all" ? "2rem" : undefined,
-                          backgroundImage: "none",
-                        }}
-                      >
-                        <option value="all">All Categories</option>
-
-                        <option value="income">💰 Income</option>
-                        <option value="expense">💸 Expenses</option>
-
-                        <option disabled>──────────</option>
-
-                        {uniqueCategoriesByName.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.icon} {c.name}
-                          </option>
-                        ))}
-                      </Input>
-                      {selectedCategory !== "all" && (
-                        <button
-                          onClick={() => {
-                            setSelectedCategory("all");
-                            setCurrentPage(1);
-                          }}
-                          style={{
-                            position: "absolute",
-                            right: "0.5rem",
-                            top: "47%",
-                            transform: "translateY(-50%)",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#555252",
-                            fontSize: "16px",
-                            lineHeight: 1,
-                            padding: "0 4px",
-                            zIndex: 2,
-                          }}
-                          title="Clear filter"
-                        >
-                          x
-                        </button>
-                      )}
-                    </div>
+                    <CategorySelect
+                      value={selectedCategory}
+                      onChange={(v) => {
+                        setSelectedCategory(v);
+                        setCurrentPage(1);
+                      }}
+                      categories={uniqueCategoriesByName}
+                      size="sm"
+                    />
                   </Col>
-
                   <Col md={3} className="d-flex justify-content-end">
                     <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
                       + Add Transaction
@@ -949,9 +1129,7 @@ export function TransactionsPage() {
             </Card>
 
             <Card className="border-0 shadow-sm">
-              {/* Max height caps the table — overflowY makes it scroll internally */}
               <CardBody className="p-0">
-                {" "}
                 {isLoading ? (
                   <div className="text-center py-5">
                     <Spinner color="primary" />
@@ -959,14 +1137,7 @@ export function TransactionsPage() {
                 ) : (
                   <div style={{ maxHeight: "80vh", overflowY: "auto", overflowX: "auto" }}>
                     <Table hover className="mb-0">
-                      <thead
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 1,
-                          background: "#fff", // must be explicit — sticky thead needs a background or rows bleed through
-                        }}
-                      >
+                      <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
                         <tr>
                           <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
                             DATE
@@ -1070,90 +1241,43 @@ export function TransactionsPage() {
         </Row>
       </div>
 
-      {/* Mobile layout (<lg) */}
+      {/* ── Mobile layout (<lg) ── */}
       <div className="d-lg-none">
         {isError && (
           <Alert color="danger" className="mb-3">
             Failed to load transactions. Please refresh.
           </Alert>
         )}
+
         {isLoading ? (
           <div className="text-center py-5">
             <Spinner color="primary" />
           </div>
         ) : (
-          <TransactionCalendar
-            allTransactions={transactions}
-            categories={categories}
-            fromDate={fromDate}
-            toDate={toDate}
-            onFromChange={handleFromChange}
-            onToChange={handleToChange}
-            onDaySelect={handleDaySelect}
-            formatCurrency={formatCurrency}
-          />
+          <MobileCalendar {...calendarProps} />
         )}
 
-        <div className="d-flex gap-2 align-items-center mt-3 mb-2">
+        {/* Search + filter + add row */}
+        <div className="d-flex gap-2 align-items-center mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
-          <div style={{ position: "relative", flex: 1 }}>
-            <Input
-              type="select"
-              bsSize="sm"
+          <div style={{ flex: 1 }}>
+            <CategorySelect
               value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
+              onChange={(v) => {
+                setSelectedCategory(v);
                 setCurrentPage(1);
               }}
-            >
-              <option value="all">All Categories</option>
-
-              {/* Type filters */}
-              <option value="income">💰 Income</option>
-              <option value="expense">💸 Expenses</option>
-
-              <option disabled>──────────</option>
-
-              {/* Existing categories */}
-              {uniqueCategoriesByName.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.icon} {c.name}
-                </option>
-              ))}
-            </Input>
-            {selectedCategory !== "all" && (
-              <button
-                onClick={() => {
-                  setSelectedCategory("all");
-                  setCurrentPage(1);
-                }}
-                style={{
-                  position: "absolute",
-                  right: "0.5rem",
-                  top: "47%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#555252",
-                  fontSize: "16px",
-                  lineHeight: 1,
-                  padding: "0 4px",
-                  zIndex: 2,
-                }}
-                title="Clear filter"
-              >
-                x
-              </button>
-            )}
+              categories={uniqueCategoriesByName}
+              size="sm"
+            />
           </div>
-          <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+          <Button color="primary" size="sm" style={{ whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setShowAddModal(true)}>
             +
           </Button>
         </div>
 
-        <Card className="border-0 shadow-sm mt-2">
-          <CardBody className="p-0" style={{ maxHeight: "55vh", overflowY: "auto" }}>
+        <Card className="border-0 shadow-sm">
+          <CardBody className="p-0" style={{ maxHeight: "60vh", overflowY: "auto" }}>
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />
