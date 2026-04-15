@@ -411,8 +411,8 @@ function TransactionCalendar({
                 if (!date) return <div key={i} style={{ height: 38 }} />;
                 const k = toDateKey(date);
                 const dayTx = txMap[k] ?? [];
-                const hasInc = dayTx.some((t) => t.type === "income" || (t.isInvestmentTransaction && t.contributionType === "deposit"));
-                const hasExp = dayTx.some((t) => t.type === "expense" || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
+                const hasInc = dayTx.some((t) => t.type === "income" || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
+                const hasExp = dayTx.some((t) => t.type === "expense" || (t.isInvestmentTransaction && t.contributionType === "deposit"));
                 const isFrom = isSameDay(date, fromDate);
                 const isTo = isSameDay(date, toDate);
                 const isEdge = isFrom || isTo;

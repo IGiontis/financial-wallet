@@ -29,8 +29,6 @@ const TAB_LABELS: Record<InvestmentsFilterTab, string> = {
 };
 
 // ─── Scope helpers ────────────────────────────────────────────────────────────
-// A goal "belongs" to InvestmentsPage if it is recurring OR open-ended tracking.
-// Targeted goals with a custom deadline belong to GoalsPage instead.
 
 const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
 
@@ -38,31 +36,69 @@ const isTracking = (g: InvestmentGoalWithStats) => g.goalType === "open_ended";
 
 const belongsHere = (g: InvestmentGoalWithStats) => isRecurring(g) || isTracking(g);
 
+// ─── Shared "effectively active" helper ──────────────────────────────────────
+// Recurring goals never truly complete — ignore isCompleted for them.
+// This rule is applied consistently across tabs, counts, and summary cards.
+
+const effectivelyActive = (g: InvestmentGoalWithStats) => (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted);
+
 // ─── InvestmentsSummaryCards ──────────────────────────────────────────────────
 
 function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const mine = goals.filter(belongsHere);
-  const active = mine.filter((g) => g.isActive && !g.isCompleted);
-  const paused = mine.filter((g) => !g.isActive && !g.isCompleted);
+  const active = mine.filter(effectivelyActive);
   const completed = mine.filter((g) => g.isCompleted);
+
   const totalSaved = mine.reduce((s, g) => s + g.totalSaved, 0);
-  const monthlyTarget = mine.filter((g) => g.targetPeriod === "monthly" && g.isActive && !g.isCompleted).reduce((s, g) => s + (g.targetAmount ?? 0), 0);
+
+  // Monthly progress: currentPeriodSaved vs targetAmount across all active monthly goals.
+  const activeMonthly = mine.filter((g) => g.targetPeriod === "monthly" && effectivelyActive(g));
+  const monthlyPeriodSaved = activeMonthly.reduce((s, g) => s + (g.currentPeriodSaved ?? 0), 0);
+  const monthlyTarget = activeMonthly.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
+
   const recurringCount = active.filter(isRecurring).length;
-  const trackingCount = active.filter(isTracking).length;
 
   const cards = [
-    { label: "Total saved", value: formatCurrency(totalSaved), sub: "all-time across all", accent: "#10B981", icon: "📈" },
-    { label: "Monthly target", value: formatCurrency(monthlyTarget), sub: "sum of monthly goals", accent: "#3B82F6", icon: "📅" },
-    { label: "Recurring", value: String(recurringCount), sub: recurringCount === 1 ? "active goal" : "active goals", accent: "#6366F1", icon: "🔁" },
-    { label: "Tracking", value: String(trackingCount), sub: trackingCount === 1 ? "open-ended goal" : "open-ended goals", accent: "#F59E0B", icon: "📊" },
-    { label: "Paused", value: String(paused.length), sub: paused.length === 1 ? "goal paused" : "goals paused", accent: "#9CA3AF", icon: "⏸️" },
-    { label: "Completed", value: String(completed.length), sub: completed.length === 1 ? "goal reached" : "goals reached", accent: "#8B5CF6", icon: "🏆" },
+    {
+      label: "Total saved",
+      value: formatCurrency(totalSaved),
+      sub: "all-time across all",
+      accent: "#10B981",
+      icon: "📈",
+      small: false,
+    },
+    {
+      label: "Monthly target",
+      // e.g. "€400 / €400" — how much saved vs how much needed this month
+      value: `${formatCurrency(monthlyPeriodSaved)} / ${formatCurrency(monthlyTarget)}`,
+      sub: "saved this month",
+      accent: "#3B82F6",
+      icon: "📅",
+      small: true,
+    },
+    {
+      label: "Recurring",
+      value: String(recurringCount),
+      sub: recurringCount === 1 ? "active goal" : "active goals",
+      accent: "#6366F1",
+      icon: "🔁",
+      small: false,
+    },
+
+    {
+      label: "Completed",
+      value: String(completed.length),
+      sub: completed.length === 1 ? "goal reached" : "goals reached",
+      accent: "#8B5CF6",
+      icon: "🏆",
+      small: false,
+    },
   ];
 
   return (
     <Row className="g-3 mb-4">
       {cards.map((c) => (
-        <Col xs={6} md={4} xl={2} className="d-flex" key={c.label}>
+        <Col xs={6} md={4} xl key={c.label} className="d-flex">
           <div
             style={{
               width: "100%",
@@ -80,7 +116,19 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{c.label}</p>
               <span style={{ fontSize: 14 }}>{c.icon}</span>
             </div>
-            <p style={{ fontSize: 20, fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.2 }}>{c.value}</p>
+            <p
+              style={{
+                // Monthly target value is longer (e.g. "€400 / €400") so we render it smaller
+                fontSize: c.small ? 14 : 20,
+                fontWeight: 600,
+                margin: 0,
+                color: c.accent,
+                lineHeight: 1.3,
+                wordBreak: "break-word",
+              }}
+            >
+              {c.value}
+            </p>
             <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub}</p>
           </div>
         </Col>
@@ -140,16 +188,13 @@ export default function InvestmentsPage() {
 
   const filterByTab = (g: InvestmentGoalWithStats): boolean => {
     if (!belongsHere(g)) return false;
-    // Recurring goals never complete — ignore isCompleted for them
-    const effectivelyActive = isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted;
-    if (filter === "all") return effectivelyActive;
+    if (filter === "all") return effectivelyActive(g);
     if (filter === "recurring") return isRecurring(g) && g.isActive;
     if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
     if (filter === "paused") return !g.isActive;
     return false;
   };
 
-  // Search scoped to investments only — will not surface targeted goals from GoalsPage
   const filterBySearch = (g: InvestmentGoalWithStats): boolean => {
     if (!belongsHere(g)) return false;
     const q = search.toLowerCase().trim();
@@ -160,7 +205,7 @@ export default function InvestmentsPage() {
 
   const tabCount = (tab: InvestmentsFilterTab): number => {
     const mine = goals.filter(belongsHere);
-    if (tab === "all") return mine.filter((g) => (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted)).length;
+    if (tab === "all") return mine.filter(effectivelyActive).length;
     if (tab === "recurring") return mine.filter((g) => isRecurring(g) && g.isActive).length;
     if (tab === "tracking") return mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length;
     if (tab === "paused") return mine.filter((g) => !g.isActive).length;
@@ -342,11 +387,6 @@ export default function InvestmentsPage() {
       {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
-      {/*
-        defaultGoalType="recurring":
-          - Shows "Tracking" vs "Recurring Goal" type selector
-          - Period options: Monthly / Yearly only (no custom deadline)
-      */}
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="recurring" />
     </Container>
   );
