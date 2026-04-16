@@ -26,6 +26,7 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
+import TransactionViewModal from "../components/TransactionsViewModal";
 
 // ============================================================
 // CONSTANTS
@@ -692,12 +693,13 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
         <option value="all">All Categories</option>
         <option value="income">💰 Income</option>
         <option value="expense">💸 Expenses</option>
-        <option disabled>──────────</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.name}>
-            {c.icon} {c.name}
-          </option>
-        ))}
+        <optgroup label="Categories">
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.icon} {c.name}
+            </option>
+          ))}
+        </optgroup>
       </select>
 
       {/* Custom right-side icon — x when filtered, chevron when not */}
@@ -777,12 +779,14 @@ function TransactionCard({
   formatCurrency,
   onEdit,
   onDelete,
+  onView,
 }: {
   tx: Transaction;
   categories: Category[];
   formatCurrency: (n: number) => string;
   onEdit: () => void;
   onDelete: () => void;
+  onView: () => void;
 }) {
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
@@ -815,11 +819,12 @@ function TransactionCard({
         {cat?.icon ?? "💳"}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onView}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
           {cat?.name ?? "—"} · {dateStr}
         </p>
+
         {tx.isGoalTransaction && (
           <span
             style={{
@@ -938,6 +943,7 @@ export function TransactionsPage() {
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewTransaction, setViewTransaction] = useState<Transaction | null>(null);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -1164,11 +1170,11 @@ export function TransactionsPage() {
                             const cat = resolveCategory(tx, categories);
                             const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
                             return (
-                              <tr key={tx.id}>
+                              <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
                                   {formatTable(firestoreToDate(tx.date))}
                                 </td>
-                                <td style={{ fontWeight: 500 }}>{tx.description}</td>
+                                <td style={{ fontWeight: 500 }}>{tx.description}</td>{" "}
                                 <td>
                                   <Badge color="light" className="text-dark">
                                     {cat?.icon} {cat?.name ?? "—"}
@@ -1293,6 +1299,7 @@ export function TransactionsPage() {
                   formatCurrency={formatCurrency}
                   onEdit={() => setEditTransaction(tx)}
                   onDelete={() => setDeleteTransaction(tx)}
+                  onView={() => setViewTransaction(tx)}
                 />
               ))
             )}
@@ -1306,6 +1313,7 @@ export function TransactionsPage() {
       {deleteTransaction && (
         <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
       )}
+      {viewTransaction && <TransactionViewModal transaction={viewTransaction} categories={categories} formatCurrency={formatCurrency} onClose={() => setViewTransaction(null)} />}
     </Container>
   );
 }

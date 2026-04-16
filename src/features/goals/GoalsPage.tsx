@@ -87,7 +87,7 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
               <span style={{ fontSize: 14 }}>{c.icon}</span>
             </div>
             <p style={{ fontSize: 20, fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.2 }}>{c.value}</p>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub}</p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub} </p>
           </div>
         </Col>
       ))}
