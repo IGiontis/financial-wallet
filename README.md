@@ -1,73 +1,123 @@
-# React + TypeScript + Vite
+# Financial Wallet
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal finance tracker built with React and Firebase. Track income, expenses, savings goals, and investments in one place — with charts, real-time exchange rates, and offline support via PWA.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **Income & Expenses** — log transactions and categorize them
+- **Goals** — set savings targets and track progress
+- **Investments** — monitor your portfolio
+- **Charts** — visual breakdowns powered by Recharts
+- **Currency conversion** — live exchange rates via Exchange Rate API
+- **PWA** — installable, works offline
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Layer     | Tools                                  |
+| --------- | -------------------------------------- |
+| Framework | React 19 + TypeScript                  |
+| Build     | Vite                                   |
+| State     | Redux Toolkit + React Query            |
+| Forms     | Formik + Yup                           |
+| UI        | Bootstrap 5 + Reactstrap + React Icons |
+| Backend   | Firebase (Auth + Firestore)            |
+| Testing   | Vitest + Testing Library               |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Getting Started
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+
+- Node.js 18+
+- A [Firebase](https://firebase.google.com) project with Auth and Firestore enabled
+- An [Exchange Rate API](https://www.exchangerate-api.com) key
+
+### Installation
+
+```bash
+git clone https://github.com/your-username/financial-wallet.git
+cd financial-wallet
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file in the root of the project:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_EXCHANGE_RATE_API_KEY=
 ```
+
+Fill in the values from your Firebase project settings and Exchange Rate API dashboard.
+
+### Running Locally
+
+```bash
+npm run dev
+```
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+---
+
+## Testing
+
+```bash
+npm run test          # run all tests
+npm run test:ui       # open Vitest UI
+npm run coverage      # generate coverage report
+```
+
+---
+
+## Deployment
+
+This project is deployed on [Netlify](https://netlify.com). To deploy your own instance:
+
+1. Push the repo to GitHub
+2. Connect the repo to Netlify
+3. Set the environment variables in Netlify → Site Settings → Environment Variables
+4. Set the build command to `npm run build` and publish directory to `dist`
+
+---
+
+## Project Structure
+
+```
+src/
+├── components/       # Reusable UI components
+├── pages/            # Route-level views (income, expenses, goals, investments)
+├── store/            # Redux slices
+├── hooks/            # Custom React Query hooks
+├── services/         # Firebase and API integrations
+└── utils/            # Helpers and formatters
+```
+
+> Adjust this to match your actual folder structure.
+
+---
+
+## License
+
+MIT
