@@ -98,7 +98,7 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   return (
     <Row className="g-3 mb-4">
       {cards.map((c) => (
-        <Col xs={6} md={4} xl key={c.label} className="d-flex">
+        <Col xs={6} md={4} xl={2} key={c.label} className="d-flex">
           <div
             style={{
               width: "100%",
@@ -362,7 +362,7 @@ export default function InvestmentsPage() {
           ) : (
             <Row className="g-3">
               {filtered.map((goal) => (
-                <Col xs={12} md={6} xl={4} key={goal.id}>
+                <Col xs={12} md={6} xl={3} key={goal.id}>
                   <GoalCard
                     goal={goal}
                     showTypeBadge={isSearching}
