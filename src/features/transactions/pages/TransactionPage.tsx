@@ -1174,7 +1174,7 @@ export function TransactionsPage() {
                                 <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
                                   {formatTable(firestoreToDate(tx.date))}
                                 </td>
-                                <td style={{ fontWeight: 500 }}>{tx.description}</td>{" "}
+                                <td style={{ fontWeight: 500 }}>{tx.description}</td>
                                 <td>
                                   <Badge color="light" className="text-dark">
                                     {cat?.icon} {cat?.name ?? "—"}
@@ -1217,7 +1217,16 @@ export function TransactionsPage() {
                                       </span>
                                     )}
                                     {!tx.isInvestmentTransaction && (
-                                      <Button size="sm" color="light" style={{ padding: "2px 8px" }} onClick={() => setEditTransaction(tx)} title="Edit">
+                                      <Button
+                                        size="sm"
+                                        color="light"
+                                        style={{ padding: "2px 8px" }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditTransaction(tx);
+                                        }}
+                                        title="Edit"
+                                      >
                                         <FiEdit2 size={13} />
                                       </Button>
                                     )}
@@ -1225,7 +1234,10 @@ export function TransactionsPage() {
                                       size="sm"
                                       color="light"
                                       style={{ padding: "2px 8px", color: "var(--bs-danger)" }}
-                                      onClick={() => setDeleteTransaction(tx)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteTransaction(tx);
+                                      }}
                                       title="Delete"
                                     >
                                       <FiTrash2 size={13} />

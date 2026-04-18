@@ -22,6 +22,7 @@ const DEFAULT_CATEGORIES = [
   { name: "Pet", type: "expense", icon: "🐾", color: "#F59E0B", isDefault: true, userId: null },
   { name: "Games", type: "expense", icon: "🎮", color: "#7C3AED", isDefault: true, userId: null },
   { name: "Taxes", type: "expense", icon: "🧾", color: "#EF4444", isDefault: true, userId: null },
+  { name: "Skroutz", type: "expense", icon: "📦", color: "#F97316", isDefault: true, userId: null },
   { name: "Other Expense", type: "expense", icon: "💸", color: "#94A3B8", isDefault: true, userId: null },
 
   // ── Income ──────────────────────────────────────────────────────────────────
