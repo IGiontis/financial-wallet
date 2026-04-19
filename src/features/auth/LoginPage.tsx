@@ -109,7 +109,7 @@ export default function LoginPage() {
                   lineHeight: 1.5,
                 }}
               >
-                For the best experience, open this link in <strong>Chrome</strong> or <strong>Safari</strong>. Google login may not work inside Messenger or Instagram.
+                For the best experience, open this link in <strong>Chrome</strong> or <strong>Safari</strong>. Google login may not work inside Messenger, Instagram or LinkedIn.
               </div>
             )}
 
