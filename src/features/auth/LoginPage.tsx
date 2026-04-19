@@ -8,8 +8,7 @@ import { createUser, getUser } from "../../firebase/firestore";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
-const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger/i.test(navigator.userAgent);
-
+const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger|LinkedIn/i.test(navigator.userAgent);
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
