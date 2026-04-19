@@ -1,6 +1,8 @@
-# Financial Wallet
+# MyFiWallet
 
 A personal finance tracker built with React and Firebase. Track income, expenses, savings goals, and investments in one place — with charts, real-time exchange rates, and offline support via PWA.
+
+🔗 **Live Demo:** [myfiwallet.netlify.app](https://myfiwallet.netlify.app)
 
 ---
 
@@ -12,20 +14,21 @@ A personal finance tracker built with React and Firebase. Track income, expenses
 - **Charts** — visual breakdowns powered by Recharts
 - **Currency conversion** — live exchange rates via Exchange Rate API
 - **PWA** — installable, works offline
+- **Authentication** — Google Sign-In via Firebase Auth
 
 ---
 
 ## Tech Stack
 
-| Layer     | Tools                                  |
-| --------- | -------------------------------------- |
-| Framework | React 19 + TypeScript                  |
-| Build     | Vite                                   |
-| State     | Redux Toolkit + React Query            |
-| Forms     | Formik + Yup                           |
-| UI        | Bootstrap 5 + Reactstrap + React Icons |
-| Backend   | Firebase (Auth + Firestore)            |
-| Testing   | Vitest + Testing Library               |
+| Layer | Tools |
+|-------|-------|
+| Framework | React 19 + TypeScript |
+| Build | Vite |
+| State | Redux Toolkit + React Query |
+| Forms | Formik + Yup |
+| UI | Bootstrap 5 + Reactstrap + React Icons |
+| Backend | Firebase (Auth + Firestore) |
+| Testing | Vitest + Testing Library |
 
 ---
 
@@ -40,7 +43,7 @@ A personal finance tracker built with React and Firebase. Track income, expenses
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/financial-wallet.git
+git clone https://github.com/IGiontis/financial-wallet.git
 cd financial-wallet
 npm install
 ```
@@ -49,7 +52,7 @@ npm install
 
 Create a `.env` file in the root of the project:
 
-```env
+```
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
@@ -84,9 +87,9 @@ npm run preview
 ## Testing
 
 ```bash
-npm run test          # run all tests
-npm run test:ui       # open Vitest UI
-npm run coverage      # generate coverage report
+npm run test        # run all tests
+npm run test:ui     # open Vitest UI
+npm run coverage    # generate coverage report
 ```
 
 ---
@@ -97,8 +100,8 @@ This project is deployed on [Netlify](https://netlify.com). To deploy your own i
 
 1. Push the repo to GitHub
 2. Connect the repo to Netlify
-3. Set the environment variables in Netlify → Site Settings → Environment Variables
-4. Set the build command to `npm run build` and publish directory to `dist`
+3. Set the environment variables in **Netlify → Site Settings → Environment Variables**
+4. Set the build command to `npm run build` and the publish directory to `dist`
 
 ---
 
@@ -106,15 +109,13 @@ This project is deployed on [Netlify](https://netlify.com). To deploy your own i
 
 ```
 src/
-├── components/       # Reusable UI components
-├── pages/            # Route-level views (income, expenses, goals, investments)
-├── store/            # Redux slices
-├── hooks/            # Custom React Query hooks
-├── services/         # Firebase and API integrations
-└── utils/            # Helpers and formatters
+├── components/     # Reusable UI components
+├── pages/          # Route-level views (income, expenses, goals, investments)
+├── store/          # Redux slices
+├── hooks/          # Custom React Query hooks
+├── services/       # Firebase and API integrations
+└── utils/          # Helpers and formatters
 ```
-
-> Adjust this to match your actual folder structure.
 
 ---
 
