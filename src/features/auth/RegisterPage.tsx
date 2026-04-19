@@ -6,6 +6,10 @@ import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedb
 import { registerWithEmail, loginWithGoogle } from "../../firebase/auth";
 import { createUser } from "../../firebase/firestore";
 
+// ─── In-app browser detection ─────────────────────────────────────────────────
+
+const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger|LinkedIn/i.test(navigator.userAgent);
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
@@ -58,17 +62,13 @@ export default function RegisterPage() {
     onSubmit: async (values) => {
       setError(null);
       try {
-        // 1. Create Firebase Auth user (handles password)
         const firebaseUser = await registerWithEmail(values.email, values.password);
-
-        // 2. Create Firestore user document with profile data
         await createUser(firebaseUser.uid, {
           email: values.email,
           username: values.username,
           firstName: values.firstName,
           lastName: values.lastName,
         });
-
         navigate("/", { replace: true });
       } catch (err: any) {
         setError(getFriendlyError(err.code));
@@ -80,24 +80,19 @@ export default function RegisterPage() {
     setError(null);
     setGoogleLoading(true);
     try {
-      // Google login creates the auth user automatically
-      // We still need to create a Firestore document for them
       const firebaseUser = await loginWithGoogle();
       const displayName = firebaseUser.displayName ?? "";
       const [firstName = "", lastName = ""] = displayName.split(" ");
 
       await createUser(firebaseUser.uid, {
         email: firebaseUser.email ?? "",
-        username: firebaseUser.uid.slice(0, 12), // temporary username from uid
+        username: firebaseUser.uid.slice(0, 12),
         firstName,
         lastName,
-        // photoUrl: firebaseUser.photoURL ?? undefined,
       });
 
       navigate("/", { replace: true });
     } catch (err: any) {
-      // If user already exists (logging in via Google, not registering)
-      // this will throw — handle gracefully
       if (err.code !== "firestore/already-exists") {
         setError(getFriendlyError(err.code));
       } else {
@@ -116,8 +111,27 @@ export default function RegisterPage() {
             {/* Logo / brand */}
             <div style={styles.brand}>
               <p style={styles.brandIcon}>💳</p>
-              <p style={styles.brandName}>WalletApp</p>
+              <p style={styles.brandName}>MyFiWallet</p>
             </div>
+
+            {/* In-app browser warning */}
+            {isInAppBrowser && (
+              <div
+                style={{
+                  background: "#FEF3C7",
+                  border: "1px solid #F59E0B",
+                  borderRadius: "var(--border-radius-md)",
+                  padding: "12px 16px",
+                  marginBottom: "1rem",
+                  fontSize: 13,
+                  color: "#92400E",
+                  textAlign: "center",
+                  lineHeight: 1.5,
+                }}
+              >
+                For the best experience, open this link in <strong>Chrome</strong> or <strong>Safari</strong>. Google login may not work inside Messenger, Instagram or LinkedIn.
+              </div>
+            )}
 
             <Card style={styles.card}>
               <CardBody style={{ padding: "2rem" }}>
@@ -131,7 +145,19 @@ export default function RegisterPage() {
                 )}
 
                 {/* Google button */}
-                <Button type="button" color="light" block onClick={handleGoogleRegister} disabled={googleLoading || formik.isSubmitting} style={styles.googleBtn}>
+                <Button
+                  type="button"
+                  color="light"
+                  block
+                  onClick={handleGoogleRegister}
+                  disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
+                  style={{
+                    ...styles.googleBtn,
+                    opacity: isInAppBrowser ? 0.5 : 1,
+                    cursor: isInAppBrowser ? "not-allowed" : "pointer",
+                  }}
+                  title={isInAppBrowser ? "Open in Chrome or Safari to use Google login" : undefined}
+                >
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, marginRight: 8 }} />
                   {googleLoading ? "Signing up..." : "Continue with Google"}
                 </Button>
