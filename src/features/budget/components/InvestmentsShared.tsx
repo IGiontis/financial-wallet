@@ -13,6 +13,7 @@
 //  2. Deposit/Withdraw buttons: open-ended goals (goalType === "open_ended")
 //     are never treated as completed, so buttons always appear for them.
 //  3. HistoryModal: fixed max-height, tabbed filter, compact rows, scroll shadow.
+//  4. StatCell: added border to make each stat look like a small card.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -104,13 +105,15 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   // FIX 2: Open-ended and recurring goals should never be treated as completed.
   const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
 
+  // FIX 4: StatCell now has a border to look like a small card.
   const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
     <Col xs={xs}>
       <div
         style={{
-          background: "var(--color-background-secondary)",
-          borderRadius: "var(--border-radius-md)",
+          background: "#ffffff",
+          borderRadius: "8px",
           padding: "8px 10px",
+          border: "1.5px solid rgb(191, 195, 201)",
         }}
       >
         <p style={{ fontSize: 13, fontWeight: 400, color: "#414344", margin: "0 0 2px" }}>{label}</p>

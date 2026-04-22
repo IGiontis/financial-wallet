@@ -294,8 +294,19 @@ export const OverviewPage: React.FC = () => {
     [metrics.totalIncome, metrics.totalExpenses, totalInvestments, goalSavings],
   );
 
-  const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted).slice(0, 6), [goals]);
-
+  const activeGoals = useMemo(
+    () =>
+      goals
+        .filter((g) => !g.isCompleted)
+        .sort((a, b) => {
+          if (!a.deadline && !b.deadline) return 0;
+          if (!a.deadline) return 1;
+          if (!b.deadline) return -1;
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        })
+        .slice(0, 6),
+    [goals],
+  );
   if (txLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
