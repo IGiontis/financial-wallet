@@ -28,73 +28,32 @@ import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 
-// ============================================================
-// CONSTANTS
-// ============================================================
-
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const PAGE_SIZE = 15;
 
-// ============================================================
-// COLOR HELPERS
-// ============================================================
-
-function getAmountColor(tx: Transaction): string {
-  if (tx.isGoalTransaction) {
-    return tx.contributionType === "withdrawal" ? "#D97706" : "#F59E0B";
-  }
-  if (tx.isInvestmentTransaction) {
-    return tx.contributionType === "withdrawal" ? "#75678e" : "#1D4ED8";
-  }
-  return tx.type === "income" ? "#10B981" : "#EF4444";
-}
-
 function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return {
-    fontSize: 10,
-    background: contributionType === "withdrawal" ? "#75678e" : "#1D4ED8",
-    color: "#ffffff",
-    border: "none",
-  };
+  return { fontSize: 10, background: contributionType === "withdrawal" ? "#EDE9FE" : "#DBEAFE", color: contributionType === "withdrawal" ? "#4338CA" : "#1E40AF", border: "none" };
 }
 
 function getGoalBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return {
-    fontSize: 10,
-    background: contributionType === "withdrawal" ? "#D97706" : "#F59E0B",
-    color: "#ffffff",
-    border: "none",
-  };
+  return { fontSize: 10, background: contributionType === "withdrawal" ? "#FEF3C7" : "#FEF9C3", color: contributionType === "withdrawal" ? "#92400E" : "#854D0E", border: "none" };
 }
 
-// ============================================================
-// CATEGORY HELPERS
-// ============================================================
+function getAmountChipStyle(tx: Transaction): React.CSSProperties {
+  if (tx.isGoalTransaction) return { background: "#FEF3C7", color: "#92400E" };
+  if (tx.isInvestmentTransaction) return { background: "#EDE9FE", color: "#4338CA" };
+  return tx.type === "income" ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" };
+}
 
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
   if (tx.isGoalTransaction) {
-    return {
-      id: "__goal__",
-      name: "Goal",
-      icon: "🎯",
-      type: "expense",
-      isDefault: true,
-      userId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as Category;
+    return { id: "__goal__", name: "Goal", icon: "🎯", type: "expense", isDefault: true, userId: null, createdAt: new Date(), updatedAt: new Date() } as Category;
   }
-  if (tx.isInvestmentTransaction) {
-    return categories.find((c) => c.name === "Investments");
-  }
+  if (tx.isInvestmentTransaction) return categories.find((c) => c.name === "Investments");
   return categories.find((c) => c.id === tx.categoryId);
 }
-
-// ============================================================
-// HELPERS
-// ============================================================
 
 function isSameDay(a: Date | null, b: Date | null): boolean {
   if (!a || !b) return false;
@@ -124,10 +83,7 @@ function formatDisplay(d: Date): string {
 }
 
 function formatTable(d: Date): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function firestoreToDate(value: any): Date {
@@ -136,10 +92,6 @@ function firestoreToDate(value: any): Date {
   if (value?.seconds) return new Date(value.seconds * 1000);
   return new Date(value);
 }
-
-// ============================================================
-// CUSTOM HOOK — DEBOUNCE
-// ============================================================
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState<T>(value);
@@ -150,26 +102,12 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
-// ============================================================
-// DATE FIELD
-// ============================================================
-
 function DateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: string; max?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
   return (
     <div
       onClick={() => inputRef.current?.showPicker()}
-      style={{
-        flex: 1,
-        border: "1px solid rgba(0,0,0,0.13)",
-        borderRadius: 8,
-        padding: "7px 10px",
-        position: "relative",
-        background: "#fafafa",
-        minWidth: 0,
-        cursor: "pointer",
-      }}
+      style={{ flex: 1, border: "1px solid rgba(0,0,0,0.13)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "#fafafa", minWidth: 0, cursor: "pointer" }}
     >
       <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
@@ -210,51 +148,74 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
   );
 }
 
-// ============================================================
-// DAY PANEL — desktop only
-// ============================================================
-
 function DayPanel({ date, transactions, categories, formatCurrency }: { date: Date; transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string }) {
+  const income = transactions.filter((tx) => tx.type === "income" && !tx.isInvestmentTransaction && !tx.isGoalTransaction);
+  const expenses = transactions.filter((tx) => tx.type === "expense" && !tx.isInvestmentTransaction && !tx.isGoalTransaction);
+  const investments = transactions.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction);
+  const goals = transactions.filter((tx) => tx.isGoalTransaction);
+  const sum = (txs: Transaction[]) => txs.reduce((s, t) => s + t.amount, 0);
+  const groups = [
+    { label: "Income", txs: income, total: sum(income), color: "#10B981", pillBg: "#D1FAE5", pillText: "#065F46", sign: "+" },
+    { label: "Expenses", txs: expenses, total: sum(expenses), color: "#EF4444", pillBg: "#FEE2E2", pillText: "#991B1B", sign: "−" },
+    { label: "Investments", txs: investments, total: sum(investments), color: "#818CF8", pillBg: "#EDE9FE", pillText: "#4338CA", sign: "" },
+    { label: "Goals", txs: goals, total: sum(goals), color: "#F59E0B", pillBg: "#FEF3C7", pillText: "#92400E", sign: "" },
+  ].filter((g) => g.txs.length > 0);
   return (
     <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: 12, paddingTop: 12 }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: "#666", marginBottom: 8 }}>{date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-      {transactions.length === 0 ? (
-        <p style={{ fontSize: 13, color: "#bbb", margin: 0 }}>No transactions on this day.</p>
-      ) : (
-        transactions.map((tx) => {
-          const cat = resolveCategory(tx, categories);
-          const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
-          return (
-            <div
-              key={tx.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "5px 0",
-                borderBottom: "1px solid rgba(0,0,0,0.05)",
-                fontSize: 13,
-              }}
-            >
-              <span style={{ color: "#888" }}>
-                <span style={{ marginRight: 4 }}>{cat?.icon}</span>
-                {tx.description}
-              </span>
-              <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
-                {isPositive ? "+" : "−"}
-                {formatCurrency(tx.amount)}
-              </span>
+      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 10 }}>
+        {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+      </p>
+      <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 2 }}>
+        {transactions.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>No transactions on this day.</p>
+        ) : (
+          groups.map((group) => (
+            <div key={group.label} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: group.color }}>{group.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: group.color }}>{formatCurrency(group.total)}</span>
+              </div>
+              {group.txs.map((tx) => {
+                const cat = resolveCategory(tx, categories);
+                const isPositive = tx.isGoalTransaction
+                  ? tx.contributionType === "withdrawal"
+                  : tx.isInvestmentTransaction
+                    ? tx.contributionType === "withdrawal"
+                    : tx.type === "income";
+                return (
+                  <div
+                    key={tx.id}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "0.5px solid rgba(0,0,0,0.05)", fontSize: 13 }}
+                  >
+                    <span style={{ color: "var(--color-text-secondary)" }}>
+                      <span style={{ marginRight: 4 }}>{cat?.icon}</span>
+                      {tx.description}
+                    </span>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "2px 7px",
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        background: group.pillBg,
+                        color: group.pillText,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {isPositive ? "+" : "−"}
+                      {formatCurrency(tx.amount)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
-
-// ============================================================
-// CALENDAR INNER — shared grid logic
-// ============================================================
 
 type CalView = "days" | "months" | "years";
 
@@ -267,7 +228,7 @@ function CalendarGrid({
   onToChange,
   onDaySelect,
   formatCurrency,
-  showDayPanel, // desktop shows it, mobile does not
+  showDayPanel,
 }: {
   allTransactions: Transaction[];
   categories: Category[];
@@ -316,16 +277,7 @@ function CalendarGrid({
   const activeDate = hoveredDate ?? fromDate ?? null;
   const activeTx = activeDate ? (txMap[toDateKey(activeDate)] ?? []) : [];
 
-  const navBtn: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 20,
-    lineHeight: 1,
-    color: "#666",
-    padding: "2px 8px",
-    borderRadius: 6,
-  };
+  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
 
   const pickerCell = (active: boolean, onClick: () => void, label: string) => (
     <button
@@ -350,15 +302,11 @@ function CalendarGrid({
 
   return (
     <>
-      {/* Date range pickers */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
         <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
       </div>
-
       <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
-
-      {/* Month nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <button style={navBtn} onClick={prevMonth}>
           &lsaquo;
@@ -385,7 +333,6 @@ function CalendarGrid({
           &rsaquo;
         </button>
       </div>
-
       {calView === "years" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
           {yearOptions.map((y) =>
@@ -400,7 +347,6 @@ function CalendarGrid({
           )}
         </div>
       )}
-
       {calView === "months" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginBottom: 8 }}>
           {MONTH_SHORT.map((m, i) =>
@@ -415,10 +361,8 @@ function CalendarGrid({
           )}
         </div>
       )}
-
       {calView === "days" && (
         <>
-          {/* Day names */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
             {DAY_NAMES_SHORT.map((d) => (
               <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#bbb", padding: "2px 0" }}>
@@ -426,8 +370,6 @@ function CalendarGrid({
               </div>
             ))}
           </div>
-
-          {/* Day cells */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
             {cells.map((date, i) => {
               if (!date) return <div key={i} style={{ height: 38 }} />;
@@ -492,8 +434,6 @@ function CalendarGrid({
               );
             })}
           </div>
-
-          {/* Legend */}
           <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
@@ -505,13 +445,9 @@ function CalendarGrid({
             </span>
             <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>{showDayPanel ? "Click to select a day" : "Tap to filter"}</span>
           </div>
-
-          {/* Day panel — desktop only */}
           {showDayPanel && activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
         </>
       )}
-
-      {/* Clear button */}
       {(fromDate || toDate) && (
         <button
           onClick={() => {
@@ -538,10 +474,6 @@ function CalendarGrid({
   );
 }
 
-// ============================================================
-// DESKTOP CALENDAR — full card wrapper
-// ============================================================
-
 function TransactionCalendar(props: {
   allTransactions: Transaction[];
   categories: Category[];
@@ -561,10 +493,6 @@ function TransactionCalendar(props: {
   );
 }
 
-// ============================================================
-// MOBILE CALENDAR — collapsible, no day panel
-// ============================================================
-
 function MobileCalendar(props: {
   allTransactions: Transaction[];
   categories: Category[];
@@ -577,14 +505,11 @@ function MobileCalendar(props: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasFilter = !!(props.fromDate || props.toDate);
-
   return (
     <Card className="border-0 shadow-sm mb-3">
       <CardBody className="p-3">
-        {/* Always-visible header row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", gap: 8, flex: 1 }}>
-            {/* Compact FROM/TO pills showing selected dates */}
             {(["from", "to"] as const).map((which) => {
               const date = which === "from" ? props.fromDate : props.toDate;
               return (
@@ -607,8 +532,6 @@ function MobileCalendar(props: {
               );
             })}
           </div>
-
-          {/* Toggle button */}
           <button
             onClick={() => setExpanded((v) => !v)}
             style={{
@@ -626,8 +549,6 @@ function MobileCalendar(props: {
           >
             {expanded ? "Hide" : "Calendar"}
           </button>
-
-          {/* Clear — only when a filter is active */}
           {hasFilter && (
             <button
               onClick={() => {
@@ -649,8 +570,6 @@ function MobileCalendar(props: {
             </button>
           )}
         </div>
-
-        {/* Collapsible full calendar grid */}
         {expanded && (
           <div style={{ marginTop: 12 }}>
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
@@ -661,10 +580,6 @@ function MobileCalendar(props: {
     </Card>
   );
 }
-
-// ============================================================
-// CATEGORY SELECT — fixes native arrow + x overlap
-// ============================================================
 
 function CategorySelect({ value, onChange, categories, size }: { value: string; onChange: (v: string) => void; categories: Category[]; size?: string }) {
   return (
@@ -677,14 +592,12 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
           height: size === "sm" ? 31 : 38,
           fontSize: size === "sm" ? 13 : 14,
           paddingLeft: 10,
-          // leave room on right for our custom chevron (or x if active)
           paddingRight: 32,
           border: "1px solid #ced4da",
           borderRadius: 4,
           background: "#fff",
           color: "#212529",
           cursor: "pointer",
-          // kill the native browser arrow completely
           appearance: "none",
           WebkitAppearance: "none",
           MozAppearance: "none",
@@ -701,8 +614,6 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
           ))}
         </optgroup>
       </select>
-
-      {/* Custom right-side icon — x when filtered, chevron when not */}
       {value !== "all" ? (
         <button
           onClick={() => onChange("all")}
@@ -725,27 +636,11 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
           x
         </button>
       ) : (
-        <span
-          style={{
-            position: "absolute",
-            right: 10,
-            top: "50%",
-            transform: "translateY(-50%)",
-            pointerEvents: "none",
-            color: "#6c757d",
-            fontSize: 11,
-          }}
-        >
-          ▾
-        </span>
+        <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#6c757d", fontSize: 11 }}>▾</span>
       )}
     </div>
   );
 }
-
-// ============================================================
-// DELETE CONFIRM MODAL
-// ============================================================
 
 function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
   return (
@@ -769,10 +664,6 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
   );
 }
 
-// ============================================================
-// TRANSACTION CARD (mobile only)
-// ============================================================
-
 function TransactionCard({
   tx,
   categories,
@@ -790,19 +681,11 @@ function TransactionCard({
 }) {
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
-  const isPositive = isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
-  const dateStr = formatTable(firestoreToDate(tx.date));
+  const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
+  const chipStyle = getAmountChipStyle(tx);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 16px",
-        borderBottom: "0.5px solid var(--color-border-tertiary)",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       <div
         style={{
           width: 38,
@@ -818,58 +701,69 @@ function TransactionCard({
       >
         {cat?.icon ?? "💳"}
       </div>
-
       <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onView}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
-          {cat?.name ?? "—"} · {dateStr}
+          {cat?.name ?? "—"} · {formatTable(firestoreToDate(tx.date))}
         </p>
-
         {tx.isGoalTransaction && (
-          <span
-            style={{
-              ...getGoalBadgeStyle(tx.contributionType),
-              display: "inline-block",
-              padding: "1px 6px",
-              borderRadius: 4,
-              fontWeight: 600,
-              fontSize: 10,
-              marginTop: 2,
-            }}
-          >
+          <span style={{ ...getGoalBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}>
             {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
           </span>
         )}
         {isInvestment && !tx.isGoalTransaction && (
           <span
+            style={{ ...getInvestmentBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}
+          >
+            {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+          </span>
+        )}
+        {!isInvestment && !tx.isGoalTransaction && (
+          <span
             style={{
-              ...getInvestmentBadgeStyle(tx.contributionType),
               display: "inline-block",
               padding: "1px 6px",
               borderRadius: 4,
               fontWeight: 600,
               fontSize: 10,
               marginTop: 2,
+              background: tx.type === "income" ? "#D1FAE5" : "#FEE2E2",
+              color: tx.type === "income" ? "#065F46" : "#991B1B",
             }}
           >
-            {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
+            {tx.type === "income" ? "Income" : "Expense"}
           </span>
         )}
       </div>
-
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <p style={{ fontWeight: 600, fontSize: 15, margin: 0, color: getAmountColor(tx) }}>
+        <span
+          style={{
+            display: "inline-block",
+            padding: "3px 9px",
+            borderRadius: 20,
+            fontSize: 13,
+            fontWeight: 500,
+            background: chipStyle.background,
+            color: chipStyle.color,
+            whiteSpace: "nowrap",
+          }}
+        >
           {isPositive ? "+" : "−"}
           {formatCurrency(tx.amount)}
-        </p>
+        </span>
       </div>
-
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-        {!isInvestment && (
-          <Button size="sm" color="light" style={{ padding: "4px 8px" }} onClick={onEdit}>
-            <FiEdit2 size={13} />
-          </Button>
-        )}
+        <Button
+          size="sm"
+          color="light"
+          disabled={isInvestment || tx.isGoalTransaction}
+          style={{ padding: "4px 8px", opacity: isInvestment || tx.isGoalTransaction ? 0.35 : 1, cursor: isInvestment || tx.isGoalTransaction ? "not-allowed" : "pointer" }}
+          onClick={() => {
+            if (!isInvestment && !tx.isGoalTransaction) onEdit();
+          }}
+        >
+          <FiEdit2 size={13} />
+        </Button>
         <Button size="sm" color="light" style={{ padding: "4px 8px", color: "var(--bs-danger)" }} onClick={onDelete}>
           <FiTrash2 size={13} />
         </Button>
@@ -877,10 +771,6 @@ function TransactionCard({
     </div>
   );
 }
-
-// ============================================================
-// PAGINATION CONTROLS
-// ============================================================
 
 function Pagination({
   currentPage,
@@ -896,21 +786,11 @@ function Pagination({
   onPageChange: (page: number) => void;
 }) {
   if (totalPages <= 1) return null;
-
   const from = (currentPage - 1) * pageSize + 1;
   const to = Math.min(currentPage * pageSize, totalItems);
-
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "10px 16px",
-        borderTop: "1px solid rgba(0,0,0,0.06)",
-        fontSize: 13,
-        color: "#888",
-      }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: 13, color: "#888" }}
     >
       <span>
         {from}–{to} of {totalItems}
@@ -929,10 +809,6 @@ function Pagination({
     </div>
   );
 }
-
-// ============================================================
-// MAIN PAGE
-// ============================================================
 
 export function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -1019,21 +895,12 @@ export function TransactionsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  const transactionsWithDates = useMemo(
-    () =>
-      transactions.map((tx) => ({
-        tx,
-        date: firestoreToDate(tx.date),
-        createdAt: firestoreToDate(tx.createdAt),
-      })),
-    [transactions],
-  );
+  const transactionsWithDates = useMemo(() => transactions.map((tx) => ({ tx, date: firestoreToDate(tx.date), createdAt: firestoreToDate(tx.createdAt) })), [transactions]);
 
   const filteredTransactions = useMemo(() => {
     const fromMid = fromDate ? midnight(fromDate) : null;
     const toMid = toDate ? midnight(toDate) : null;
     const query = debouncedSearch.toLowerCase();
-
     return transactionsWithDates
       .filter(({ tx, date }) => {
         const matchSearch = tx.description.toLowerCase().includes(query);
@@ -1042,18 +909,16 @@ export function TransactionsPage() {
           (selectedCategory === "income" && tx.type === "income") ||
           (selectedCategory === "expense" && tx.type === "expense") ||
           (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
-
         const txMid = midnight(date);
         let matchDate = true;
         if (fromMid !== null && toMid !== null) matchDate = txMid >= fromMid && txMid <= toMid;
         else if (fromMid !== null) matchDate = txMid >= fromMid;
         else if (toMid !== null) matchDate = txMid <= toMid;
-
         return matchSearch && matchCat && matchDate;
       })
       .sort((a, b) => {
-        const dateDiff = b.date.getTime() - a.date.getTime();
-        if (dateDiff !== 0) return dateDiff;
+        const d = b.date.getTime() - a.date.getTime();
+        if (d !== 0) return d;
         return b.createdAt.getTime() - a.createdAt.getTime();
       })
       .map(({ tx }) => tx);
@@ -1084,8 +949,7 @@ export function TransactionsPage() {
   };
 
   return (
-    <Container fluid className="py-2" style={{ minHeight: "100vh" }}>
-      {/* ── Desktop layout (lg+) ── */}
+    <Container fluid className="py-2">
       <div className="d-none d-lg-block">
         <Row className="g-4">
           <Col lg={4}>
@@ -1133,7 +997,6 @@ export function TransactionsPage() {
                 </Row>
               </CardBody>
             </Card>
-
             <Card className="border-0 shadow-sm">
               <CardBody className="p-0">
                 {isLoading ? (
@@ -1168,7 +1031,12 @@ export function TransactionsPage() {
                         ) : (
                           pagedTransactions.map((tx) => {
                             const cat = resolveCategory(tx, categories);
-                            const isPositive = tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income";
+                            const isPositive = tx.isGoalTransaction
+                              ? tx.contributionType === "withdrawal"
+                              : tx.isInvestmentTransaction
+                                ? tx.contributionType === "withdrawal"
+                                : tx.type === "income";
+                            const chipStyle = getAmountChipStyle(tx);
                             return (
                               <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
@@ -1181,13 +1049,39 @@ export function TransactionsPage() {
                                   </Badge>
                                 </td>
                                 <td className="text-end">
-                                  <span style={{ fontWeight: 500, color: getAmountColor(tx) }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "3px 10px",
+                                      borderRadius: 20,
+                                      fontSize: 13,
+                                      fontWeight: 500,
+                                      background: chipStyle.background,
+                                      color: chipStyle.color,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
                                     {isPositive ? "+" : "−"}
                                     {formatCurrency(tx.amount)}
                                   </span>
                                 </td>
                                 <td className="text-end pe-3">
-                                  <div className="d-flex justify-content-end gap-2 align-items-center">
+                                  <div className="d-flex justify-content-end gap-2 align-items-center" onClick={(e) => e.stopPropagation()}>
+                                    {!tx.isInvestmentTransaction && !tx.isGoalTransaction && (
+                                      <span
+                                        style={{
+                                          display: "inline-block",
+                                          padding: "2px 8px",
+                                          borderRadius: 4,
+                                          fontWeight: 600,
+                                          fontSize: 10,
+                                          background: tx.type === "income" ? "#D1FAE5" : "#FEE2E2",
+                                          color: tx.type === "income" ? "#065F46" : "#991B1B",
+                                        }}
+                                      >
+                                        {tx.type === "income" ? "Income" : "Expense"}
+                                      </span>
+                                    )}
                                     {tx.isGoalTransaction && (
                                       <span
                                         style={{
@@ -1216,28 +1110,27 @@ export function TransactionsPage() {
                                         {tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit"}
                                       </span>
                                     )}
-                                    {!tx.isInvestmentTransaction && (
-                                      <Button
-                                        size="sm"
-                                        color="light"
-                                        style={{ padding: "2px 8px" }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditTransaction(tx);
-                                        }}
-                                        title="Edit"
-                                      >
-                                        <FiEdit2 size={13} />
-                                      </Button>
-                                    )}
+                                    <Button
+                                      size="sm"
+                                      color="light"
+                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction}
+                                      style={{
+                                        padding: "2px 8px",
+                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction ? 0.35 : 1,
+                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction ? "not-allowed" : "pointer",
+                                      }}
+                                      onClick={() => {
+                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction) setEditTransaction(tx);
+                                      }}
+                                      title="Edit"
+                                    >
+                                      <FiEdit2 size={13} />
+                                    </Button>
                                     <Button
                                       size="sm"
                                       color="light"
                                       style={{ padding: "2px 8px", color: "var(--bs-danger)" }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteTransaction(tx);
-                                      }}
+                                      onClick={() => setDeleteTransaction(tx)}
                                       title="Delete"
                                     >
                                       <FiTrash2 size={13} />
@@ -1259,14 +1152,12 @@ export function TransactionsPage() {
         </Row>
       </div>
 
-      {/* ── Mobile layout (<lg) ── */}
       <div className="d-lg-none">
         {isError && (
           <Alert color="danger" className="mb-3">
             Failed to load transactions. Please refresh.
           </Alert>
         )}
-
         {isLoading ? (
           <div className="text-center py-5">
             <Spinner color="primary" />
@@ -1274,8 +1165,6 @@ export function TransactionsPage() {
         ) : (
           <MobileCalendar {...calendarProps} />
         )}
-
-        {/* Search + filter + add row */}
         <div className="d-flex gap-2 align-items-center mb-2">
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
           <div style={{ flex: 1 }}>
@@ -1293,7 +1182,6 @@ export function TransactionsPage() {
             +
           </Button>
         </div>
-
         <Card className="border-0 shadow-sm">
           <CardBody className="p-0" style={{ maxHeight: "60vh", overflowY: "auto" }}>
             {isLoading ? (

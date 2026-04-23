@@ -23,8 +23,19 @@ export function MainLayout() {
         <Topbar toggleSidebar={toggleSidebar} />
 
         <main className="page-content">
-          <Container fluid className="py-2" style={{ backgroundColor: "#E9ECEF" }}>
-            <Outlet />
+          <Container
+            fluid
+            className="py-2"
+            style={{
+              backgroundColor: "#E9ECEF",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: "100%",
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <Outlet />
+            </div>
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", margin: 0 }}>
               © {new Date().getFullYear()} Ilias Giontis · MyFiWallet. All rights reserved.
             </p>
