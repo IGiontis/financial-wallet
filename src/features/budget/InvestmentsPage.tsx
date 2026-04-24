@@ -47,7 +47,6 @@ const effectivelyActive = (g: InvestmentGoalWithStats) => (isRecurring(g) ? g.is
 function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
   const mine = goals.filter(belongsHere);
   const active = mine.filter(effectivelyActive);
-  const completed = mine.filter((g) => g.isCompleted);
 
   const totalSaved = mine.reduce((s, g) => s + g.totalSaved, 0);
 
@@ -55,6 +54,11 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   const activeMonthly = mine.filter((g) => g.targetPeriod === "monthly" && effectivelyActive(g));
   const monthlyPeriodSaved = activeMonthly.reduce((s, g) => s + (g.currentPeriodSaved ?? 0), 0);
   const monthlyTarget = activeMonthly.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
+
+  // Yearly progress: currentPeriodSaved vs targetAmount across all active yearly goals.
+  const activeYearly = mine.filter((g) => g.targetPeriod === "yearly" && effectivelyActive(g));
+  const yearlyPeriodSaved = activeYearly.reduce((s, g) => s + (g.currentPeriodSaved ?? 0), 0);
+  const yearlyTarget = activeYearly.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
 
   const recurringCount = active.filter(isRecurring).length;
 
@@ -86,12 +90,12 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
     },
 
     {
-      label: "Completed",
-      value: String(completed.length),
-      sub: completed.length === 1 ? "goal reached" : "goals reached",
-      accent: "#8B5CF6",
-      icon: "🏆",
-      small: false,
+      label: "Yearly target",
+      value: `${formatCurrency(yearlyPeriodSaved)} / ${formatCurrency(yearlyTarget)}`,
+      sub: "saved this year",
+      accent: "#F59E0B",
+      icon: "📆",
+      small: true,
     },
   ];
 

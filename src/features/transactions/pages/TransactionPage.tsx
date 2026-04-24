@@ -148,103 +148,27 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
   );
 }
 
-function DayPanel({ date, transactions, categories, formatCurrency }: { date: Date; transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string }) {
-  const income = transactions.filter((tx) => tx.type === "income" && !tx.isInvestmentTransaction && !tx.isGoalTransaction);
-  const expenses = transactions.filter((tx) => tx.type === "expense" && !tx.isInvestmentTransaction && !tx.isGoalTransaction);
-  const investments = transactions.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction);
-  const goals = transactions.filter((tx) => tx.isGoalTransaction);
-  const sum = (txs: Transaction[]) => txs.reduce((s, t) => s + t.amount, 0);
-  const groups = [
-    { label: "Income", txs: income, total: sum(income), color: "#10B981", pillBg: "#D1FAE5", pillText: "#065F46", sign: "+" },
-    { label: "Expenses", txs: expenses, total: sum(expenses), color: "#EF4444", pillBg: "#FEE2E2", pillText: "#991B1B", sign: "−" },
-    { label: "Investments", txs: investments, total: sum(investments), color: "#818CF8", pillBg: "#EDE9FE", pillText: "#4338CA", sign: "" },
-    { label: "Goals", txs: goals, total: sum(goals), color: "#F59E0B", pillBg: "#FEF3C7", pillText: "#92400E", sign: "" },
-  ].filter((g) => g.txs.length > 0);
-  return (
-    <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: 12, paddingTop: 12 }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 10 }}>
-        {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-      </p>
-      <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 2 }}>
-        {transactions.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>No transactions on this day.</p>
-        ) : (
-          groups.map((group) => (
-            <div key={group.label} style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: group.color }}>{group.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 500, color: group.color }}>{formatCurrency(group.total)}</span>
-              </div>
-              {group.txs.map((tx) => {
-                const cat = resolveCategory(tx, categories);
-                const isPositive = tx.isGoalTransaction
-                  ? tx.contributionType === "withdrawal"
-                  : tx.isInvestmentTransaction
-                    ? tx.contributionType === "withdrawal"
-                    : tx.type === "income";
-                return (
-                  <div
-                    key={tx.id}
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "0.5px solid rgba(0,0,0,0.05)", fontSize: 13 }}
-                  >
-                    <span style={{ color: "var(--color-text-secondary)" }}>
-                      <span style={{ marginRight: 4 }}>{cat?.icon}</span>
-                      {tx.description}
-                    </span>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "2px 7px",
-                        borderRadius: 20,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        background: group.pillBg,
-                        color: group.pillText,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {isPositive ? "+" : "−"}
-                      {formatCurrency(tx.amount)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 type CalView = "days" | "months" | "years";
 
 function CalendarGrid({
   allTransactions,
-  categories,
   fromDate,
   toDate,
   onFromChange,
   onToChange,
   onDaySelect,
-  formatCurrency,
-  showDayPanel,
 }: {
   allTransactions: Transaction[];
-  categories: Category[];
   fromDate: Date | null;
   toDate: Date | null;
   onFromChange: (d: Date | null) => void;
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
-  formatCurrency: (n: number) => string;
-  showDayPanel: boolean;
 }) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [calView, setCalView] = useState<CalView>("days");
-  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
 
   const txMap = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
@@ -274,8 +198,6 @@ function CalendarGrid({
 
   const yearStart = Math.floor(viewYear / 12) * 12;
   const yearOptions = Array.from({ length: 12 }, (_, i) => yearStart + i);
-  const activeDate = hoveredDate ?? fromDate ?? null;
-  const activeTx = activeDate ? (txMap[toDateKey(activeDate)] ?? []) : [];
 
   const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
 
@@ -333,6 +255,7 @@ function CalendarGrid({
           &rsaquo;
         </button>
       </div>
+
       {calView === "years" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
           {yearOptions.map((y) =>
@@ -381,7 +304,6 @@ function CalendarGrid({
               const isTo = isSameDay(date, toDate);
               const isEdge = isFrom || isTo;
               const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
-              const isHov = isSameDay(date, hoveredDate);
               const isToday = isSameDay(date, today);
               let bg = "transparent",
                 color = "#1a1a2e",
@@ -393,8 +315,6 @@ function CalendarGrid({
                 weight = 600;
               } else if (inRange) {
                 bg = "#e8eaf6";
-              } else if (isHov) {
-                bg = "#f5f5f5";
               }
               if (isToday && !isEdge) {
                 border = "1.5px solid #aaa";
@@ -404,8 +324,6 @@ function CalendarGrid({
                 <div
                   key={i}
                   onClick={() => onDaySelect(date)}
-                  onMouseEnter={() => setHoveredDate(date)}
-                  onMouseLeave={() => setHoveredDate(null)}
                   style={{
                     height: 38,
                     display: "flex",
@@ -443,9 +361,7 @@ function CalendarGrid({
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
               Expense
             </span>
-            <span style={{ marginLeft: "auto", fontStyle: "italic", fontSize: 11, color: "#ccc" }}>{showDayPanel ? "Click to select a day" : "Tap to filter"}</span>
           </div>
-          {showDayPanel && activeDate && <DayPanel date={activeDate} transactions={activeTx} categories={categories} formatCurrency={formatCurrency} />}
         </>
       )}
       {(fromDate || toDate) && (
@@ -476,18 +392,16 @@ function CalendarGrid({
 
 function TransactionCalendar(props: {
   allTransactions: Transaction[];
-  categories: Category[];
   fromDate: Date | null;
   toDate: Date | null;
   onFromChange: (d: Date | null) => void;
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
-  formatCurrency: (n: number) => string;
 }) {
   return (
     <Card className="border-0 shadow-sm">
       <CardBody className="p-3">
-        <CalendarGrid {...props} showDayPanel />
+        <CalendarGrid {...props} />
       </CardBody>
     </Card>
   );
@@ -495,18 +409,16 @@ function TransactionCalendar(props: {
 
 function MobileCalendar(props: {
   allTransactions: Transaction[];
-  categories: Category[];
   fromDate: Date | null;
   toDate: Date | null;
   onFromChange: (d: Date | null) => void;
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
-  formatCurrency: (n: number) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasFilter = !!(props.fromDate || props.toDate);
   return (
-    <Card className="border-0 shadow-sm mb-3">
+    <Card className="border-0 shadow-sm mb-3" style={{ flexShrink: 0 }}>
       <CardBody className="p-3">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", gap: 8, flex: 1 }}>
@@ -522,7 +434,6 @@ function MobileCalendar(props: {
                     padding: "6px 10px",
                     background: date ? "#1a1a2e" : "#fafafa",
                     cursor: "pointer",
-                    position: "relative",
                   }}
                   onClick={() => setExpanded(true)}
                 >
@@ -573,7 +484,7 @@ function MobileCalendar(props: {
         {expanded && (
           <div style={{ marginTop: 12 }}>
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
-            <CalendarGrid {...props} showDayPanel={false} />
+            <CalendarGrid {...props} />
           </div>
         )}
       </CardBody>
@@ -790,7 +701,16 @@ function Pagination({
   const to = Math.min(currentPage * pageSize, totalItems);
   return (
     <div
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: 13, color: "#888" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 16px",
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+        fontSize: 13,
+        color: "#888",
+        flexShrink: 0,
+      }}
     >
       <span>
         {from}–{to} of {totalItems}
@@ -939,17 +859,16 @@ export function TransactionsPage() {
 
   const calendarProps = {
     allTransactions: transactions,
-    categories,
     fromDate,
     toDate,
     onFromChange: handleFromChange,
     onToChange: handleToChange,
     onDaySelect: handleDaySelect,
-    formatCurrency,
   };
 
   return (
     <Container fluid className="py-2">
+      {/* ── Desktop ── */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
           <Col lg={4}>
@@ -1152,9 +1071,10 @@ export function TransactionsPage() {
         </Row>
       </div>
 
-      <div className="d-lg-none">
+      {/* ── Mobile ── */}
+      <div className="d-lg-none" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 60px)" }}>
         {isError && (
-          <Alert color="danger" className="mb-3">
+          <Alert color="danger" className="mb-3" style={{ flexShrink: 0 }}>
             Failed to load transactions. Please refresh.
           </Alert>
         )}
@@ -1165,7 +1085,7 @@ export function TransactionsPage() {
         ) : (
           <MobileCalendar {...calendarProps} />
         )}
-        <div className="d-flex gap-2 align-items-center mb-2">
+        <div className="d-flex gap-2 align-items-center mb-2" style={{ flexShrink: 0 }}>
           <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
           <div style={{ flex: 1 }}>
             <CategorySelect
@@ -1182,8 +1102,8 @@ export function TransactionsPage() {
             +
           </Button>
         </div>
-        <Card className="border-0 shadow-sm">
-          <CardBody className="p-0" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+        <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <CardBody className="p-0" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />

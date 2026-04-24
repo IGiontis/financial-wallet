@@ -1,5 +1,3 @@
-// ─── Colors ───────────────────────────────────────────────────────────────────
-
 export const EXPENSE_COLORS = {
   cardBorder: "#EF4444",
   heroBg: "#FFF5F5",
@@ -26,9 +24,33 @@ export const INCOME_COLORS = {
   sign: "+",
 };
 
-export type ReviewColors = typeof EXPENSE_COLORS;
+export const GOAL_COLORS = {
+  cardBorder: "#F59E0B",
+  heroBg: "#FFFBEB",
+  heroBorder: "#FDE68A",
+  iconBg: "#FEF3C7",
+  nameTxt: "#78350F",
+  subTxt: "#B45309",
+  badgeBg: "#FEF3C7",
+  badgeTxt: "#92400E",
+  amtTxt: "#B45309",
+  sign: "",
+};
 
-// ─── Primitives ───────────────────────────────────────────────────────────────
+export const INVESTMENT_COLORS = {
+  cardBorder: "#3B82F6",
+  heroBg: "#EFF6FF",
+  heroBorder: "#BFDBFE",
+  iconBg: "#DBEAFE",
+  nameTxt: "#1E3A5F",
+  subTxt: "#1D4ED8",
+  badgeBg: "#DBEAFE",
+  badgeTxt: "#1E40AF",
+  amtTxt: "#1D4ED8",
+  sign: "",
+};
+
+export type ReviewColors = typeof EXPENSE_COLORS;
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
   return (
@@ -43,8 +65,6 @@ export function SectionHead({ label }: { label: string }) {
   return <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", margin: "12px 0 6px" }}>{label}</p>;
 }
 
-// ─── Shared layout ────────────────────────────────────────────────────────────
-
 export interface FuelCell {
   label: string;
   value: string;
@@ -52,23 +72,24 @@ export interface FuelCell {
 
 export interface TransactionReviewBodyProps {
   subtitle: string;
-  icon: string;
   description: string;
   categoryIcon: string;
   categoryName: string;
-  primaryBadge: string; // "Income" | "Expense" | "Goal" | "Investment"
-  secondaryBadge?: string; // "Withdrawal" | "Deposit" — only for goal/investment
+  primaryBadge: string;
+  secondaryBadge?: string;
   colors: ReviewColors;
   amount: number;
   formatAmount: (n: number) => string;
-  dateFormatted: string; // already formatted dd/MM/yyyy
+  dateFormatted: string;
   notes?: string;
   fuelCells?: FuelCell[];
+  hideCategoryLabel?: boolean;
+  gradientFrom?: string;
+  gradientTo?: string;
 }
 
 export function TransactionReviewBody({
   subtitle,
-  icon,
   description,
   categoryIcon,
   categoryName,
@@ -80,38 +101,69 @@ export function TransactionReviewBody({
   dateFormatted,
   notes,
   fuelCells,
+  hideCategoryLabel = false,
+  gradientFrom,
+  gradientTo,
 }: TransactionReviewBodyProps) {
+  const hasGradient = !!(gradientFrom && gradientTo);
+
+  const heroBorderStyle = hasGradient
+    ? {
+        background: `linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, ${gradientFrom}, ${gradientTo}) border-box`,
+        border: "2px solid transparent",
+      }
+    : {
+        border: `2px solid ${colors.cardBorder}`,
+      };
+
+  const heroInnerBg = hasGradient ? `linear-gradient(135deg, ${gradientFrom}22, ${gradientTo}18)` : colors.heroBg;
+
+
   return (
     <>
       <p style={{ fontSize: 13, color: "#64748b", marginBottom: "1rem" }}>{subtitle}</p>
 
-      {/* Hero */}
-      <div style={{ border: `2px solid ${colors.cardBorder}`, borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
-        <div style={{ background: colors.heroBg, borderBottom: `1px solid ${colors.heroBorder}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 10,
-              background: colors.iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              flexShrink: 0,
-            }}
-          >
-            {icon}
-          </div>
+      <div
+        style={{
+          ...heroBorderStyle,
+          borderRadius: 12,
+          overflow: "hidden",
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            background: heroInnerBg,
+            borderBottom: hasGradient ? `1px solid transparent` : `1px solid ${colors.heroBorder}`,
+            backgroundImage: hasGradient ? `linear-gradient(135deg, ${gradientFrom}22, ${gradientTo}18)` : undefined,
+            padding: "14px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: colors.nameTxt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{description}</p>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-              <span style={{ fontSize: 12, color: colors.subTxt }}>
-                {categoryIcon} {categoryName}
-              </span>
+              {!hideCategoryLabel && (
+                <span style={{ fontSize: 12, color: colors.subTxt }}>
+                  {categoryIcon} {categoryName}
+                </span>
+              )}
               <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 20, background: colors.badgeBg, color: colors.badgeTxt }}>{primaryBadge}</span>
               {secondaryBadge && (
-                <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 20, background: colors.badgeBg, color: colors.badgeTxt }}>{secondaryBadge}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    padding: "1px 7px",
+                    borderRadius: 20,
+                    background: secondaryBadge === "Deposit" ? "#FEE2E2" : "#DCFCE7",
+                    color: secondaryBadge === "Deposit" ? "#991B1B" : "#166634",
+                  }}
+                >
+                  {secondaryBadge}
+                </span>
               )}
             </div>
           </div>
@@ -122,7 +174,6 @@ export function TransactionReviewBody({
         </div>
       </div>
 
-      {/* Base grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <GridCell label="Date" value={dateFormatted} />
         <GridCell label="Category" value={`${categoryIcon} ${categoryName}`} />
@@ -131,7 +182,6 @@ export function TransactionReviewBody({
         {notes && <GridCell label="Notes" value={notes} fullWidth />}
       </div>
 
-      {/* Fuel details */}
       {fuelCells && fuelCells.length > 0 && (
         <>
           <SectionHead label="Fuel details" />
