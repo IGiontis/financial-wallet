@@ -614,8 +614,8 @@ function TransactionCard({
       </div>
       <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onView}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {cat?.name ?? "—"} · {formatTable(firestoreToDate(tx.date))}
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
+          {cat?.name ?? "—"} · <span style={{ whiteSpace: "nowrap" }}>{formatTable(firestoreToDate(tx.date))}</span>
         </p>
         {tx.isGoalTransaction && (
           <span style={{ ...getGoalBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}>
