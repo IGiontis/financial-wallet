@@ -709,7 +709,7 @@ function Pagination({
         borderTop: "1px solid rgba(0,0,0,0.06)",
         fontSize: 13,
         color: "#888",
-        flexShrink: 0,
+        flex: "0 0 auto",
       }}
     >
       <span>
