@@ -98,7 +98,6 @@ function ReviewScreen({
       <ModalBody>
         <TransactionReviewBody
           subtitle="Please review your changes before saving."
-          icon={category?.icon ?? "💳"}
           description={values.description}
           categoryIcon={category?.icon ?? ""}
           categoryName={category?.name ?? "—"}
