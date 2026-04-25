@@ -297,7 +297,7 @@ export const OverviewPage: React.FC = () => {
   const activeGoals = useMemo(
     () =>
       goals
-        .filter((g) => !g.isCompleted)
+        .filter((g) => !g.isCompleted && g.isActive)
         .sort((a, b) => {
           if (!a.deadline && !b.deadline) return 0;
           if (!a.deadline) return 1;

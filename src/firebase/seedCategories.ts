@@ -4,7 +4,7 @@ import { db } from "./config";
 const DEFAULT_CATEGORIES = [
   // ── Expenses ────────────────────────────────────────────────────────────────
   { name: "Groceries", type: "expense", icon: "🛒", color: "#10B981", isDefault: true, userId: null },
-  { name: "Shopping", type: "expense", icon: "🛍️", color: "#3B82F6", isDefault: true, userId: null },
+  { name: "Shopping", type: "expense", icon: "🏪", color: "#3B82F6", isDefault: true, userId: null },
   { name: "Dining Out", type: "expense", icon: "🍽️", color: "#F59E0B", isDefault: true, userId: null },
   { name: "Drinks Out", type: "expense", icon: "🍺", color: "#F97316", isDefault: true, userId: null },
   { name: "Transport", type: "expense", icon: "🚗", color: "#6366F1", isDefault: true, userId: null },
