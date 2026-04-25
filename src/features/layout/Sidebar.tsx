@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Nav, NavItem, Button } from "reactstrap";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -25,16 +25,15 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
     { path: "/transactions", label: "Transactions", icon: FiCreditCard },
     { path: "/investments", label: "Investments", icon: FiDollarSign },
     { path: "/goals", label: "Goals", icon: FiTarget },
+    { path: "/planner", label: "Planner", icon: FiCalendar },
     { path: "/settings", label: "Settings", icon: FiSettings },
   ];
 
   return (
     <>
-      {/* Mobile overlay */}
       <div className={`sidebar-overlay d-lg-none ${isOpen ? "show" : ""}`} onClick={toggleSidebar} />
 
       <div className={`sidebar ${isOpen ? "open" : ""} ${isCollapsed ? "collapsed" : ""}`}>
-        {/* Header: Logo only — no toggle button here anymore */}
         <div className="sidebar-header d-flex align-items-center">
           <div className="d-flex align-items-center gap-2 sidebar-logo">
             <FiBriefcase size={24} className="flex-shrink-0" />
@@ -42,7 +41,6 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
           </div>
         </div>
 
-        {/* Navigation */}
         <Nav vertical className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
