@@ -132,7 +132,10 @@ export function PlannerPage() {
   const activeInvestmentGoals = useMemo(
     () =>
       goals
-        .filter((g) => isInvestmentGoal(g) && (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted) && g.status !== "ahead" && g.goalType !== "open_ended")
+        .filter(
+          (g) =>
+            isInvestmentGoal(g) && (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted) && g.status !== "ahead" && g.status !== "on_track" && g.goalType !== "open_ended",
+        )
         .sort((a, b) => a.name.localeCompare(b.name)),
     [goals],
   );
