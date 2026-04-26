@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Container, Row, Col, Card, CardBody, Input, InputGroup, InputGroupText, Spinner } from "reactstrap";
+import { Container, Row, Col, Card, CardBody, Input, InputGroup, InputGroupText, Spinner, Progress } from "reactstrap";
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths } from "date-fns";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
@@ -378,9 +378,11 @@ export function PlannerPage() {
                           <span style={{ fontSize: 10, color: "var(--color-text-secondary)", minWidth: 28, textAlign: "right" }}>{pct(item.value)}%</span>
                         </div>
                       </div>
-                      <div style={{ height: 6, background: "var(--color-background-secondary)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${pct(item.value)}%`, height: "100%", background: item.color, borderRadius: 3, transition: "width 0.4s ease" }} />
-                      </div>
+                      <Progress
+                        value={pct(item.value)}
+                        style={{ height: 6, borderRadius: 3 }}
+                        color={item.color === "#EF4444" ? "danger" : item.color === "#22C55E" ? "success" : item.color === "#F59E0B" ? "warning" : "info"}
+                      />
                     </div>
                   ))}
 
