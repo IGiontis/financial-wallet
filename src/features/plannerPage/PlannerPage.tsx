@@ -38,11 +38,19 @@ const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly"
 const isSavingsGoal = (g: InvestmentGoalWithStats) => g.goalType === "targeted" && !isRecurring(g);
 const isInvestmentGoal = (g: InvestmentGoalWithStats) => isRecurring(g) || g.goalType === "open_ended";
 
-function getMonthlyNeeded(g: InvestmentGoalWithStats): number {
+// Recalculates monthly needed based on the viewed month, not today.
+// monthsLeft=0 means deadline is this month — full remaining is due now.
+function getMonthlyNeededForDate(g: InvestmentGoalWithStats, viewDate: Date): number {
   if (g.goalType === "open_ended") return 0;
-  if (g.status === "ahead") return 0;
   if (g.targetPeriod === "monthly") return g.remaining ?? 0;
   if (g.targetPeriod === "yearly") return (g.yearlyRequired ?? 0) / 12;
+  if (g.deadline) {
+    const deadline = firestoreToDate(g.deadline);
+    const monthsLeft = Math.max(Math.ceil((deadline.getFullYear() - viewDate.getFullYear()) * 12 + (deadline.getMonth() - viewDate.getMonth())), 0);
+    // deadline is this month — full remaining amount is due
+    if (monthsLeft === 0) return g.remaining ?? 0;
+    return (g.remaining ?? 0) / monthsLeft;
+  }
   return g.monthlyRequired ?? 0;
 }
 
@@ -139,16 +147,30 @@ export function PlannerPage() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [goals],
   );
+
   const activeSavingsGoals = useMemo(
     () =>
       activeGoals
-        .filter((g) => isSavingsGoal(g) && g.status !== "ahead")
+        .filter((g) => {
+          if (!isSavingsGoal(g)) return false;
+          // exclude goals that are currently ahead (based on today's data)
+          if (g.status === "ahead") return false;
+          if (g.deadline) {
+            const deadline = firestoreToDate(g.deadline);
+            // exclude if deadline already passed before selected month starts
+            if (deadline < startOfMonth(currentDate)) return false;
+          }
+          // exclude if nothing is needed this month (would show as "Ahead" incorrectly)
+          const needed = getMonthlyNeededForDate(g, currentDate);
+          if (needed === 0) return false;
+          return true;
+        })
         .sort((a, b) => {
           if (a.deadline && !b.deadline) return -1;
           if (!a.deadline && b.deadline) return 1;
           return 0;
         }),
-    [activeGoals],
+    [activeGoals, currentDate],
   );
 
   const allSavingsEnabled = activeSavingsGoals.length > 0 && activeSavingsGoals.every((g) => !disabledGoals.has(g.id));
@@ -175,13 +197,13 @@ export function PlannerPage() {
   };
 
   const totalGoalsNeeded = useMemo(
-    () => activeSavingsGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeeded(g), 0),
-    [activeSavingsGoals, disabledGoals],
+    () => activeSavingsGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeededForDate(g, currentDate), 0),
+    [activeSavingsGoals, disabledGoals, currentDate],
   );
 
   const totalInvestmentsNeeded = useMemo(
-    () => activeInvestmentGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeeded(g), 0),
-    [activeInvestmentGoals, disabledGoals],
+    () => activeInvestmentGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeededForDate(g, currentDate), 0),
+    [activeInvestmentGoals, disabledGoals, currentDate],
   );
 
   const freeToSpend = salary - totalActualExpenses - totalGoalsNeeded - totalInvestmentsNeeded;
@@ -240,7 +262,7 @@ export function PlannerPage() {
       ) : (
         items.map((g) => {
           const enabled = !disabledGoals.has(g.id);
-          const needed = getMonthlyNeeded(g);
+          const needed = getMonthlyNeededForDate(g, currentDate);
           return (
             <div key={g.id} style={{ padding: "8px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -258,17 +280,15 @@ export function PlannerPage() {
                 >
                   {g.icon} {g.name}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : needed === 0 ? "#22C55E" : "#F59E0B" }}>
-                  {!enabled ? "Off" : needed === 0 ? "Ahead" : formatCurrency(needed)}
+                <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : "#F59E0B" }}>
+                  {!enabled ? "Off" : formatCurrency(needed)}
                 </span>
                 <Toggle enabled={enabled} onToggle={() => toggleGoal(g.id)} size="sm" />
               </div>
               {enabled && (
                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                   {g.status && (
-                    <span style={{ fontSize: 10, color: g.status === "ahead" ? "#22C55E" : g.status === "behind" ? "#EF4444" : "var(--color-text-secondary)" }}>
-                      {g.status === "ahead" ? "Ahead" : g.status === "behind" ? "Behind" : "On track"}
-                    </span>
+                    <span style={{ fontSize: 10, color: g.status === "behind" ? "#EF4444" : "var(--color-text-secondary)" }}>{g.status === "behind" ? "Behind" : "On track"}</span>
                   )}
                   {g.goalType === "targeted" && g.deadline && (
                     <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· deadline {format(firestoreToDate(g.deadline), "dd MMM yyyy")}</span>
@@ -296,7 +316,7 @@ export function PlannerPage() {
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Plan your spending for the month</p>
         </div>
         <Card className="border-0 shadow-sm" style={{ display: "inline-flex" }}>
-          <CardBody className="py-2 px-2" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <CardBody className="py-2 px-2" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button style={navBtnStyle} onClick={() => handleMonthChange("prev")}>
                 &lsaquo;
@@ -313,7 +333,15 @@ export function PlannerPage() {
                   setSalaryInput(localStorage.getItem(getSalaryKey(new Date())) ?? "");
                   setDisabledGoals(loadDisabledGoals(new Date()));
                 }}
-                style={{ ...navBtnStyle, fontSize: 11, padding: "2px 8px", borderTop: "0.5px solid var(--color-border-tertiary)", width: "100%", textAlign: "center" }}
+                style={{
+                  ...navBtnStyle,
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  borderTop: "0.5px solid var(--color-border-tertiary)",
+                  width: "100%",
+                  textAlign: "center",
+                  marginTop: 4,
+                }}
               >
                 Today
               </button>
@@ -357,7 +385,7 @@ export function PlannerPage() {
         ))}
       </Row>
 
-      {/* Bars + Goals + Investments — no h-100 on bars card so it only takes natural height */}
+      {/* Bars + Goals + Investments */}
       <Row className="g-3 align-items-start">
         <Col lg={8}>
           <Card className="border-0 shadow-sm">
