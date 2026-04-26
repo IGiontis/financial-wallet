@@ -296,14 +296,16 @@ export function PlannerPage() {
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Plan your spending for the month</p>
         </div>
         <Card className="border-0 shadow-sm" style={{ display: "inline-flex" }}>
-          <CardBody className="py-2 px-2" style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button style={navBtnStyle} onClick={() => handleMonthChange("prev")}>
-              &lsaquo;
-            </button>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", minWidth: 100, textAlign: "center" }}>{monthLabel}</span>
-            <button style={navBtnStyle} onClick={() => handleMonthChange("next")}>
-              &rsaquo;
-            </button>
+          <CardBody className="py-2 px-2" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button style={navBtnStyle} onClick={() => handleMonthChange("prev")}>
+                &lsaquo;
+              </button>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", minWidth: 100, textAlign: "center" }}>{monthLabel}</span>
+              <button style={navBtnStyle} onClick={() => handleMonthChange("next")}>
+                &rsaquo;
+              </button>
+            </div>
             {!isToday && (
               <button
                 onClick={() => {
@@ -311,7 +313,7 @@ export function PlannerPage() {
                   setSalaryInput(localStorage.getItem(getSalaryKey(new Date())) ?? "");
                   setDisabledGoals(loadDisabledGoals(new Date()));
                 }}
-                style={{ ...navBtnStyle, fontSize: 11, padding: "3px 8px", marginLeft: 2 }}
+                style={{ ...navBtnStyle, fontSize: 11, padding: "2px 8px", borderTop: "0.5px solid var(--color-border-tertiary)", width: "100%", textAlign: "center" }}
               >
                 Today
               </button>
