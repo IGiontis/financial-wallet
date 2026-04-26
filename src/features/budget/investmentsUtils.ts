@@ -35,9 +35,6 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   const targetAmount = goal.targetAmount ?? 0;
 
   // ── Recurring monthly goal ────────────────────────────────────────────────
-  // FIX: currentPeriodSaved is now NET (deposits − withdrawals) for this month.
-  // Previously only deposits were summed, so a withdrawal in the same month
-  // had no effect on the displayed amount or the status badge.
   if (goal.targetPeriod === "monthly") {
     const now = new Date();
 
@@ -47,13 +44,12 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
 
     const thisMonthWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisMonth(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
 
-    // Net amount saved in the current month period
     const currentPeriodSaved = Math.max(thisMonthDeposits - thisMonthWithdrawals, 0);
 
     let status: InvestmentGoalStatus;
-    if (currentPeriodSaved >= targetAmount * 1.1) {
+    if (currentPeriodSaved > targetAmount) {
       status = "ahead";
-    } else if (currentPeriodSaved >= targetAmount * 0.9) {
+    } else if (currentPeriodSaved === targetAmount) {
       status = "on_track";
     } else {
       status = "behind";
@@ -76,7 +72,6 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   }
 
   // ── Recurring yearly goal ─────────────────────────────────────────────────
-  // FIX: same fix applied — currentPeriodSaved is NET for this calendar year.
   if (goal.targetPeriod === "yearly") {
     const now = new Date();
 
@@ -86,13 +81,12 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
 
     const thisYearWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
 
-    // Net amount saved in the current year period
     const currentPeriodSaved = Math.max(thisYearDeposits - thisYearWithdrawals, 0);
 
     let status: InvestmentGoalStatus;
-    if (currentPeriodSaved >= targetAmount * 1.1) {
+    if (currentPeriodSaved > targetAmount) {
       status = "ahead";
-    } else if (currentPeriodSaved >= targetAmount * 0.9) {
+    } else if (currentPeriodSaved === targetAmount) {
       status = "on_track";
     } else {
       status = "behind";
@@ -142,8 +136,8 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
     const monthsSinceStart = Math.max(Math.ceil((now.getFullYear() - createdAt.getFullYear()) * 12 + (now.getMonth() - createdAt.getMonth())), 1);
     const avgMonthly = totalSaved / monthsSinceStart;
 
-    if (avgMonthly >= monthlyRequired * 1.1) status = "ahead";
-    else if (avgMonthly >= monthlyRequired * 0.9) status = "on_track";
+    if (avgMonthly > monthlyRequired) status = "ahead";
+    else if (avgMonthly === monthlyRequired) status = "on_track";
     else status = "behind";
   }
 

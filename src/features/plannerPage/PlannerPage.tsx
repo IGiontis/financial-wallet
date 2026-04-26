@@ -34,9 +34,14 @@ function saveDisabledGoals(date: Date, ids: Set<string>) {
   localStorage.setItem(getDisabledGoalsKey(date), JSON.stringify([...ids]));
 }
 
-function getAdjustedMonthlyNeeded(g: InvestmentGoalWithStats): number {
+const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
+const isSavingsGoal = (g: InvestmentGoalWithStats) => g.goalType === "targeted" && !isRecurring(g);
+const isInvestmentGoal = (g: InvestmentGoalWithStats) => isRecurring(g) || g.goalType === "open_ended";
+
+function getMonthlyNeeded(g: InvestmentGoalWithStats): number {
   if (g.goalType === "open_ended") return 0;
-  if (g.targetPeriod === "monthly") return g.remaining ?? g.monthlyRequired ?? 0;
+  if (g.status === "ahead") return 0;
+  if (g.targetPeriod === "monthly") return g.remaining ?? 0;
   if (g.targetPeriod === "yearly") return (g.yearlyRequired ?? 0) / 12;
   return g.monthlyRequired ?? 0;
 }
@@ -70,7 +75,7 @@ function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle
           width: thumb,
           height: thumb,
           borderRadius: "50%",
-          background: enabled ? "#fff" : "#fff", // dark grey when off
+          background: "#fff",
           transition: "left 0.2s",
           boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
         }}
@@ -122,51 +127,35 @@ export function PlannerPage() {
     [monthTransactions],
   );
 
-  const investmentGoalIds = useMemo(() => {
-    const ids = new Set<string>();
-    transactions.filter((tx) => tx.isInvestmentTransaction && !tx.isGoalTransaction && tx.goalId).forEach((tx) => ids.add(tx.goalId!));
-    return ids;
-  }, [transactions]);
+  const activeGoals = useMemo(() => goals.filter((g) => g.isActive && !g.isCompleted), [goals]);
 
-  const savingsGoalIds = useMemo(() => {
-    const ids = new Set<string>();
-    transactions.filter((tx) => tx.isGoalTransaction && tx.goalId).forEach((tx) => ids.add(tx.goalId!));
-    return ids;
-  }, [transactions]);
-
-  const activeGoals = useMemo(() => goals.filter((g) => !g.isCompleted && g.isActive), [goals]);
-
-  const investmentGoals = useMemo(
-    () => activeGoals.filter((g) => investmentGoalIds.has(g.id)).sort((a, b) => (a.deadline && !b.deadline ? -1 : !a.deadline && b.deadline ? 1 : 0)),
-    [activeGoals, investmentGoalIds],
+  const activeInvestmentGoals = useMemo(
+    () =>
+      goals
+        .filter((g) => isInvestmentGoal(g) && (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted) && g.status !== "ahead" && g.goalType !== "open_ended")
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [goals],
   );
-
-  const savingsGoals = useMemo(
+  const activeSavingsGoals = useMemo(
     () =>
       activeGoals
-        .filter((g) => savingsGoalIds.has(g.id) && !investmentGoalIds.has(g.id))
+        .filter((g) => isSavingsGoal(g) && g.status !== "ahead")
         .sort((a, b) => {
-          if (a.goalType === "targeted" && b.goalType !== "targeted") return -1;
-          if (a.goalType !== "targeted" && b.goalType === "targeted") return 1;
           if (a.deadline && !b.deadline) return -1;
           if (!a.deadline && b.deadline) return 1;
           return 0;
         }),
-    [activeGoals, savingsGoalIds, investmentGoalIds],
+    [activeGoals],
   );
 
-  // Master toggle state: all enabled = none disabled in that group
-  const allSavingsEnabled = savingsGoals.every((g) => !disabledGoals.has(g.id));
-  const allInvestmentsEnabled = investmentGoals.every((g) => !disabledGoals.has(g.id));
+  const allSavingsEnabled = activeSavingsGoals.length > 0 && activeSavingsGoals.every((g) => !disabledGoals.has(g.id));
+  const allInvestmentsEnabled = activeInvestmentGoals.length > 0 && activeInvestmentGoals.every((g) => !disabledGoals.has(g.id));
 
   const toggleAllSavings = () => {
     setDisabledGoals((prev) => {
       const next = new Set(prev);
-      if (allSavingsEnabled) {
-        savingsGoals.forEach((g) => next.add(g.id));
-      } else {
-        savingsGoals.forEach((g) => next.delete(g.id));
-      }
+      if (allSavingsEnabled) activeSavingsGoals.forEach((g) => next.add(g.id));
+      else activeSavingsGoals.forEach((g) => next.delete(g.id));
       saveDisabledGoals(currentDate, next);
       return next;
     });
@@ -175,21 +164,21 @@ export function PlannerPage() {
   const toggleAllInvestments = () => {
     setDisabledGoals((prev) => {
       const next = new Set(prev);
-      if (allInvestmentsEnabled) {
-        investmentGoals.forEach((g) => next.add(g.id));
-      } else {
-        investmentGoals.forEach((g) => next.delete(g.id));
-      }
+      if (allInvestmentsEnabled) activeInvestmentGoals.forEach((g) => next.add(g.id));
+      else activeInvestmentGoals.forEach((g) => next.delete(g.id));
       saveDisabledGoals(currentDate, next);
       return next;
     });
   };
 
-  const totalGoalsNeeded = useMemo(() => savingsGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getAdjustedMonthlyNeeded(g), 0), [savingsGoals, disabledGoals]);
+  const totalGoalsNeeded = useMemo(
+    () => activeSavingsGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeeded(g), 0),
+    [activeSavingsGoals, disabledGoals],
+  );
 
   const totalInvestmentsNeeded = useMemo(
-    () => investmentGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getAdjustedMonthlyNeeded(g), 0),
-    [investmentGoals, disabledGoals],
+    () => activeInvestmentGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeeded(g), 0),
+    [activeInvestmentGoals, disabledGoals],
   );
 
   const freeToSpend = salary - totalActualExpenses - totalGoalsNeeded - totalInvestmentsNeeded;
@@ -212,13 +201,13 @@ export function PlannerPage() {
       label: "Goals needed",
       value: formatCurrency(totalGoalsNeeded),
       color: allSavingsEnabled ? "#F59E0B" : "var(--color-text-secondary)",
-      toggle: { enabled: allSavingsEnabled, onToggle: toggleAllSavings },
+      toggle: activeSavingsGoals.length > 0 ? { enabled: allSavingsEnabled, onToggle: toggleAllSavings } : null,
     },
     {
       label: "Investments needed",
       value: formatCurrency(totalInvestmentsNeeded),
       color: allInvestmentsEnabled ? "#818CF8" : "var(--color-text-secondary)",
-      toggle: { enabled: allInvestmentsEnabled, onToggle: toggleAllInvestments },
+      toggle: activeInvestmentGoals.length > 0 ? { enabled: allInvestmentsEnabled, onToggle: toggleAllInvestments } : null,
     },
     { label: "Free to spend", value: formatCurrency(Math.max(0, freeToSpend)), color: freeToSpend >= 0 ? "#22C55E" : "#EF4444", toggle: null },
   ];
@@ -248,16 +237,9 @@ export function PlannerPage() {
       ) : (
         items.map((g) => {
           const enabled = !disabledGoals.has(g.id);
-          const needed = getAdjustedMonthlyNeeded(g);
-          const isAhead = g.status === "ahead" && needed === 0;
+          const needed = getMonthlyNeeded(g);
           return (
-            <div
-              key={g.id}
-              style={{
-                padding: "8px 0",
-                borderBottom: "0.5px solid var(--color-border-tertiary)",
-              }}
-            >
+            <div key={g.id} style={{ padding: "8px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span
                   style={{
@@ -273,33 +255,25 @@ export function PlannerPage() {
                 >
                   {g.icon} {g.name}
                 </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: !enabled ? "var(--color-text-secondary)" : isAhead ? "#22C55E" : "#F59E0B",
-                    flexShrink: 0,
-                  }}
-                >
-                  {!enabled ? "Off" : isAhead ? "Ahead" : formatCurrency(needed)}
+                <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : needed === 0 ? "#22C55E" : "#F59E0B" }}>
+                  {!enabled ? "Off" : needed === 0 ? "Ahead" : formatCurrency(needed)}
                 </span>
                 <Toggle enabled={enabled} onToggle={() => toggleGoal(g.id)} size="sm" />
               </div>
               {enabled && (
-                <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                   {g.status && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: g.status === "ahead" ? "#22C55E" : g.status === "behind" ? "#EF4444" : "var(--color-text-secondary)",
-                      }}
-                    >
+                    <span style={{ fontSize: 10, color: g.status === "ahead" ? "#22C55E" : g.status === "behind" ? "#EF4444" : "var(--color-text-secondary)" }}>
                       {g.status === "ahead" ? "Ahead" : g.status === "behind" ? "Behind" : "On track"}
                     </span>
                   )}
                   {g.goalType === "targeted" && g.deadline && (
-                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· {format(firestoreToDate(g.deadline), "dd MMM yyyy")}</span>
+                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· deadline {format(firestoreToDate(g.deadline), "dd MMM yyyy")}</span>
                   )}
+                  {g.targetPeriod === "monthly" && (
+                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· monthly target {formatCurrency(g.targetAmount ?? 0)}</span>
+                  )}
+                  {g.targetPeriod === "yearly" && <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· yearly target {formatCurrency(g.targetAmount ?? 0)}</span>}
                   {g.goalType === "open_ended" && <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· saved {formatCurrency(g.totalSaved)}</span>}
                 </div>
               )}
@@ -378,10 +352,10 @@ export function PlannerPage() {
         ))}
       </Row>
 
-      {/* Bars + Goals + Investments */}
-      <Row className="g-3">
+      {/* Bars + Goals + Investments — no h-100 on bars card so it only takes natural height */}
+      <Row className="g-3 align-items-start">
         <Col lg={8}>
-          <Card className="border-0 shadow-sm h-100">
+          <Card className="border-0 shadow-sm">
             <CardBody className="p-3">
               <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px", color: "var(--color-text-primary)" }}>Allocation breakdown</p>
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>How your income should be distributed this month</p>
@@ -432,26 +406,26 @@ export function PlannerPage() {
         </Col>
 
         <Col lg={4}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
-            <Card className="border-0 shadow-sm" style={{ flex: 1 }}>
-              <CardBody className="p-3" style={{ overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Card className="border-0 shadow-sm">
+              <CardBody className="p-3">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
                   <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>Savings goals</p>
-                  <Toggle enabled={allSavingsEnabled} onToggle={toggleAllSavings} size="sm" />
+                  {activeSavingsGoals.length > 0 && <Toggle enabled={allSavingsEnabled} onToggle={toggleAllSavings} size="sm" />}
                 </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Toggle to include/exclude from plan</p>
-                <GoalList items={savingsGoals} emptyText="No active savings goals." />
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Adjusted monthly needed</p>
+                <GoalList items={activeSavingsGoals} emptyText="No active savings goals." />
               </CardBody>
             </Card>
 
-            <Card className="border-0 shadow-sm" style={{ flex: 1 }}>
-              <CardBody className="p-3" style={{ overflowY: "auto" }}>
+            <Card className="border-0 shadow-sm">
+              <CardBody className="p-3">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
                   <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>Investments</p>
-                  <Toggle enabled={allInvestmentsEnabled} onToggle={toggleAllInvestments} size="sm" />
+                  {activeInvestmentGoals.length > 0 && <Toggle enabled={allInvestmentsEnabled} onToggle={toggleAllInvestments} size="sm" />}
                 </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Toggle to include/exclude from plan</p>
-                <GoalList items={investmentGoals} emptyText="No active investment goals." />
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Adjusted monthly needed</p>
+                <GoalList items={activeInvestmentGoals} emptyText="No active investments." />
               </CardBody>
             </Card>
           </div>
