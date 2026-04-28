@@ -107,7 +107,6 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   const currentPeriodSaved = goal.currentPeriodSaved ?? 0;
   const totalDue = targetAmount + arrears;
 
-  // When debt exists the bar spans totalDue; divider marks where current month ends
   const pctOfTotal = totalDue > 0 ? Math.min((currentPeriodSaved / totalDue) * 100, 100) : 0;
   const currentMonthSegmentPct = totalDue > 0 ? (targetAmount / totalDue) * 100 : 100;
 
@@ -144,100 +143,35 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
     const s = variantStyles[variant];
     return (
       <Col xs={xs}>
-        <div
-          style={{
-            background: s.bg,
-            borderRadius: 8,
-            padding: "8px 10px",
-            border: `1.5px solid ${s.border}`,
-          }}
-        >
-          <p style={{ fontSize: 13, fontWeight: 400, color: s.labelColor, margin: "0 0 2px" }}>{label}</p>
-          <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: s.valColor }}>{value}</p>
+        <div style={{ background: s.bg, borderRadius: 8, padding: "8px 10px", border: `1.5px solid ${s.border}` }}>
+          <p style={{ fontSize: 11, fontWeight: 400, color: s.labelColor, margin: "0 0 2px" }}>{label}</p>
+          <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: s.valColor }}>{value}</p>
         </div>
       </Col>
     );
   };
+
   // ── Recurring progress bar ─────────────────────────────────────────────────
   const RecurringProgressBar = () => {
-    // Ahead and no debt: simple full green bar
     if (isAhead && !hasDebt) {
       return (
-        <div
-          style={{
-            height: 8,
-            borderRadius: 4,
-            background: "#D1FAE5",
-            marginBottom: 6,
-            overflow: "hidden",
-          }}
-        >
+        <div style={{ height: 8, borderRadius: 4, background: "#D1FAE5", marginBottom: 6, overflow: "hidden" }}>
           <div style={{ height: 8, borderRadius: 4, background: "#10B981", width: "100%" }} />
         </div>
       );
     }
 
-    // Debt: segmented bar — blue tint for current month portion, red tint for arrears
     if (hasDebt) {
       return (
-        <div
-          style={{
-            position: "relative",
-            height: 8,
-            borderRadius: 4,
-            overflow: "hidden",
-            marginBottom: 6,
-          }}
-        >
-          {/* Current month background segment */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              width: `${currentMonthSegmentPct}%`,
-              height: "100%",
-              background: "#BFDBFE",
-            }}
-          />
-          {/* Arrears background segment */}
-          <div
-            style={{
-              position: "absolute",
-              left: `${currentMonthSegmentPct}%`,
-              width: `${100 - currentMonthSegmentPct}%`,
-              height: "100%",
-              background: "#FECACA",
-            }}
-          />
-          {/* Payment fill */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              width: `${pctOfTotal}%`,
-              height: "100%",
-              background: "#3B82F6",
-              borderRadius: "4px 0 0 4px",
-              zIndex: 2,
-            }}
-          />
-          {/* White divider between current month and arrears */}
-          <div
-            style={{
-              position: "absolute",
-              left: `calc(${currentMonthSegmentPct}% - 1px)`,
-              top: 0,
-              width: 2,
-              height: "100%",
-              background: "#fff",
-              zIndex: 3,
-            }}
-          />
+        <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+          <div style={{ position: "absolute", left: 0, width: `${currentMonthSegmentPct}%`, height: "100%", background: "#BFDBFE" }} />
+          <div style={{ position: "absolute", left: `${currentMonthSegmentPct}%`, width: `${100 - currentMonthSegmentPct}%`, height: "100%", background: "#FECACA" }} />
+          <div style={{ position: "absolute", left: 0, width: `${pctOfTotal}%`, height: "100%", background: "#3B82F6", borderRadius: "4px 0 0 4px", zIndex: 2 }} />
+          <div style={{ position: "absolute", left: `calc(${currentMonthSegmentPct}% - 1px)`, top: 0, width: 2, height: "100%", background: "#fff", zIndex: 3 }} />
         </div>
       );
     }
 
-    // Normal: standard reactstrap progress bar
     return <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
   };
 
@@ -246,8 +180,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
     if (hasDebt) {
       return (
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          {pctOfTotal.toFixed(0)}% of total due
-          {" · "}
+          {pctOfTotal.toFixed(0)}% of total due{" · "}
           <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(Math.max(totalDue - currentPeriodSaved, 0))}</span> remaining
         </p>
       );
@@ -294,18 +227,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
             <div style={{ minWidth: 0 }}>
-              <p
-                style={{
-                  fontWeight: 600,
-                  margin: 0,
-                  color: "var(--color-text-primary)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {goal.name}
-              </p>
+              <p style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
               <div className="d-flex align-items-center gap-1 flex-wrap">
                 <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
                 {showTypeBadge && (
@@ -333,14 +255,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
             <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
               <DropdownToggle
                 tag="button"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  padding: "2px 4px",
-                  cursor: "pointer",
-                  color: "var(--color-text-secondary)",
-                  lineHeight: 1,
-                }}
+                style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
               >
                 <FiMoreVertical size={16} />
               </DropdownToggle>
@@ -368,7 +283,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </>
         )}
 
-        {/* ── Targeted: deadline progress ─────────────────────────────────── */}
+        {/* ── Targeted: deadline progress ──────────────────────────────────*/}
         {isTargetedGoal && !isRecurring && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
@@ -392,54 +307,25 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
         {!isTargetedGoal && !isRecurring && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--color-text-secondary)",
-                margin: 0,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              total saved
-            </p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>total saved</p>
           </div>
         )}
 
         {/* ── Stat mini cards ─────────────────────────────────────────────── */}
         <Row className="g-2 mb-3">
-          {/* Debt cards — only when arrears exist */}
-          {isRecurring && hasDebt && <StatCell label={isYearly ? "Years behind" : "Months behind"} value={missedMonths} variant="red" />}
+          {isRecurring && hasDebt && <StatCell label={isYearly ? "Yrs behind" : "Mths behind"} value={missedMonths} variant="red" />}
           {isRecurring && hasDebt && <StatCell label="Arrears" value={formatCurrency(arrears)} variant="red" />}
-
-          {/* Surplus card — only when ahead this period */}
-          {isRecurring && isAhead && <StatCell label="Surplus"value={formatCurrency(periodSurplus)} variant="green-current" />}
-
-          {/* Standard recurring stats */}
+          {isRecurring && isAhead && <StatCell label="Surplus" value={formatCurrency(periodSurplus)} variant="green-current" />}
           {isRecurring && <StatCell label={`This ${periodLabel}`} value={formatCurrency(currentPeriodSaved)} />}
           {isRecurring && <StatCell label="Target" value={formatCurrency(targetAmount)} />}
-          {isRecurring && <StatCell label="All-time saved" value={formatCurrency(goal.totalSaved)} />}
-
-          {/* Non-recurring stats */}
+          {isRecurring && <StatCell label="All-time" value={formatCurrency(goal.totalSaved)} />}
           {!isRecurring && goal.monthlyRequired !== undefined && <StatCell label="Monthly needed" value={formatCurrency(goal.monthlyRequired)} />}
           {goal.monthsLeft !== undefined && <StatCell label="Months left" value={goal.monthsLeft} />}
           {goal.deadline && <StatCell label="Deadline" value={formatDate(toDate(goal.deadline))} />}
-
           <StatCell label="Contributions" value={goal.contributionCount} xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12} />
         </Row>
 
-        {goal.notes && (
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--color-text-secondary)",
-              fontStyle: "italic",
-              marginBottom: "0.75rem",
-            }}
-          >
-            {goal.notes}
-          </p>
-        )}
+        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
 
         {/* ── Action buttons ──────────────────────────────────────────────── */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
@@ -522,27 +408,8 @@ function HistorySummaryBar({
   return (
     <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       {cells.map((c, i) => (
-        <div
-          key={c.label}
-          style={{
-            flex: 1,
-            textAlign: "center",
-            padding: "10px 8px",
-            borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none",
-          }}
-        >
-          <p
-            style={{
-              fontSize: 10,
-              fontWeight: 500,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--color-text-secondary)",
-              margin: "0 0 2px",
-            }}
-          >
-            {c.label}
-          </p>
+        <div key={c.label} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+          <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{c.label}</p>
           <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: c.color }}>{c.value}</p>
         </div>
       ))}
@@ -574,15 +441,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
             }}
           >
             {HISTORY_TAB_LABELS[tab]}
-            <span
-              style={{
-                marginLeft: 5,
-                fontSize: 11,
-                color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)",
-              }}
-            >
-              ({counts[tab]})
-            </span>
+            <span style={{ marginLeft: 5, fontSize: 11, color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)" }}>({counts[tab]})</span>
           </button>
         );
       })}
@@ -595,45 +454,10 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
   const color = isDeposit ? "#10B981" : "#EF4444";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 16px",
-        borderBottom: "0.5px solid var(--color-border-tertiary)",
-      }}
-    >
-      <div
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: color,
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontSize: 12,
-          color: "var(--color-text-secondary)",
-          whiteSpace: "nowrap",
-          minWidth: 88,
-        }}
-      >
-        {formatDate(toDate(contribution.date))}
-      </span>
-      <span
-        title={contribution.notes}
-        style={{
-          fontSize: 12,
-          color: "var(--color-text-secondary)",
-          flex: 1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 88 }}>{formatDate(toDate(contribution.date))}</span>
+      <span title={contribution.notes} style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {contribution.notes || "—"}
       </span>
       <span style={{ fontSize: 13, fontWeight: 600, color, flexShrink: 0 }}>
@@ -648,16 +472,17 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
   const [activeTab, setActiveTab] = useState<HistoryTab>("all");
   const { data: contributions = [], isLoading } = useContributions(goal.id);
 
-  const deposits = contributions.filter((c) => c.contributionType === "deposit");
-  const withdrawals = contributions.filter((c) => c.contributionType === "withdrawal");
+  const sorted = [...contributions].sort((a, b) => toDate(b.date)!.getTime() - toDate(a.date)!.getTime());
+  const deposits = sorted.filter((c) => c.contributionType === "deposit");
+  const withdrawals = sorted.filter((c) => c.contributionType === "withdrawal");
 
   const counts: Record<HistoryTab, number> = {
-    all: contributions.length,
+    all: sorted.length,
     deposits: deposits.length,
     withdrawals: withdrawals.length,
   };
 
-  const filtered = activeTab === "deposits" ? deposits : activeTab === "withdrawals" ? withdrawals : contributions;
+  const filtered = activeTab === "deposits" ? deposits : activeTab === "withdrawals" ? withdrawals : sorted;
 
   return (
     <Modal isOpen toggle={onClose} size="md">
@@ -667,7 +492,6 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
 
       <ModalBody style={{ padding: 0 }}>
         <HistorySummaryBar totalDeposited={goal.totalDeposited} totalWithdrawn={goal.totalWithdrawn} totalSaved={goal.totalSaved} formatCurrency={formatCurrency} />
-
         <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
 
         {isLoading ? (
@@ -675,15 +499,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
             <Spinner size="sm" />
           </div>
         ) : filtered.length === 0 ? (
-          <p
-            style={{
-              color: "var(--color-text-secondary)",
-              textAlign: "center",
-              padding: "2rem 0",
-              fontSize: 13,
-              margin: 0,
-            }}
-          >
+          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0", fontSize: 13, margin: 0 }}>
             {activeTab === "all" ? "No contributions yet." : `No ${activeTab} yet.`}
           </p>
         ) : (
