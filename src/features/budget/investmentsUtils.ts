@@ -46,6 +46,39 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
 
     const currentPeriodSaved = Math.max(thisMonthDeposits - thisMonthWithdrawals, 0);
 
+    // ── Carryover: walk every past month since goal was created ─────────────
+    const goalCreated = toDate(goal.createdAt);
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let cursor = new Date(goalCreated.getFullYear(), goalCreated.getMonth(), 1);
+
+    let accumulatedBalance = 0; // positive = credit, negative = debt
+    let missedMonths = 0;
+
+    while (cursor < thisMonthStart) {
+      const y = cursor.getFullYear();
+      const m = cursor.getMonth();
+
+      const mDeposits = contributions
+        .filter((c) => c.contributionType === "deposit" && toDate(c.date).getFullYear() === y && toDate(c.date).getMonth() === m)
+        .reduce((sum, c) => sum + c.amount, 0);
+
+      const mWithdrawals = contributions
+        .filter((c) => c.contributionType === "withdrawal" && toDate(c.date).getFullYear() === y && toDate(c.date).getMonth() === m)
+        .reduce((sum, c) => sum + c.amount, 0);
+
+      const mNet = mDeposits - mWithdrawals;
+      const diff = mNet - targetAmount;
+
+      accumulatedBalance += diff;
+      if (diff < 0) missedMonths++;
+
+      cursor = new Date(y, m + 1, 1);
+    }
+
+    const arrears = accumulatedBalance < 0 ? Math.abs(accumulatedBalance) : 0;
+    const periodSurplus = currentPeriodSaved > targetAmount ? currentPeriodSaved - targetAmount : 0;
+    const totalDue = targetAmount + arrears;
+
     let status: InvestmentGoalStatus;
     if (currentPeriodSaved > targetAmount) {
       status = "ahead";
@@ -60,10 +93,13 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: targetAmount > 0 ? (currentPeriodSaved / targetAmount) * 100 : 0,
-      remaining: Math.max(targetAmount - currentPeriodSaved, 0),
+      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 0,
+      remaining: Math.max(totalDue - currentPeriodSaved, 0),
       monthlyRequired: targetAmount,
       currentPeriodSaved,
+      arrears,
+      missedMonths,
+      periodSurplus,
       status,
       contributionCount,
       withdrawalCount,
@@ -74,14 +110,37 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   // ── Recurring yearly goal ─────────────────────────────────────────────────
   if (goal.targetPeriod === "yearly") {
     const now = new Date();
+    const currentYear = now.getFullYear();
 
-    const isThisYear = (d: Date) => d.getFullYear() === now.getFullYear();
+    const isThisYear = (d: Date) => d.getFullYear() === currentYear;
 
     const thisYearDeposits = contributions.filter((c) => c.contributionType === "deposit" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
 
     const thisYearWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
 
     const currentPeriodSaved = Math.max(thisYearDeposits - thisYearWithdrawals, 0);
+
+    // ── Carryover: walk every past year since goal was created ──────────────
+    const goalStartYear = toDate(goal.createdAt).getFullYear();
+
+    let accumulatedBalance = 0;
+    let missedMonths = 0; // represents "years behind" for yearly goals
+
+    for (let y = goalStartYear; y < currentYear; y++) {
+      const yDeposits = contributions.filter((c) => c.contributionType === "deposit" && toDate(c.date).getFullYear() === y).reduce((sum, c) => sum + c.amount, 0);
+
+      const yWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && toDate(c.date).getFullYear() === y).reduce((sum, c) => sum + c.amount, 0);
+
+      const yNet = yDeposits - yWithdrawals;
+      const diff = yNet - targetAmount;
+
+      accumulatedBalance += diff;
+      if (diff < 0) missedMonths++;
+    }
+
+    const arrears = accumulatedBalance < 0 ? Math.abs(accumulatedBalance) : 0;
+    const periodSurplus = currentPeriodSaved > targetAmount ? currentPeriodSaved - targetAmount : 0;
+    const totalDue = targetAmount + arrears;
 
     let status: InvestmentGoalStatus;
     if (currentPeriodSaved > targetAmount) {
@@ -97,10 +156,13 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: targetAmount > 0 ? (currentPeriodSaved / targetAmount) * 100 : 0,
-      remaining: Math.max(targetAmount - currentPeriodSaved, 0),
+      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 0,
+      remaining: Math.max(totalDue - currentPeriodSaved, 0),
       yearlyRequired: targetAmount,
       currentPeriodSaved,
+      arrears,
+      missedMonths,
+      periodSurplus,
       status,
       contributionCount,
       withdrawalCount,

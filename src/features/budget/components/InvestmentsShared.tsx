@@ -6,14 +6,6 @@
 //
 // InvestmentsPage imports: import { ... } from "./investmentShared"
 // GoalsPage imports:       import { ... } from "../budget/investmentShared"
-//
-// FIXES APPLIED:
-//  1. Tracking section: added !isRecurring guard so it doesn't double-render
-//     on recurring goals whose goalType is not "targeted".
-//  2. Deposit/Withdraw buttons: open-ended goals (goalType === "open_ended")
-//     are never treated as completed, so buttons always appear for them.
-//  3. HistoryModal: fixed max-height, tabbed filter, compact rows, scroll shadow.
-//  4. StatCell: added border to make each stat look like a small card.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -96,31 +88,194 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
   const isTargetedGoal = goal.goalType === "targeted";
   const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
-  const pct = Math.min(goal.percentageReached ?? 0, 100);
+  const isYearly = goal.targetPeriod === "yearly";
+  const periodLabel = isYearly ? "year" : "month";
+
   const st = goal.status ? statusConfig[goal.status] : null;
   const isPaused = !goal.isActive && !goal.isCompleted;
+  const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
+
+  // ── Carryover values ───────────────────────────────────────────────────────
+  const arrears = goal.arrears ?? 0;
+  const missedMonths = goal.missedMonths ?? 0;
+  const periodSurplus = goal.periodSurplus ?? 0;
+  const hasDebt = arrears > 0;
+  const isAhead = periodSurplus > 0;
+
+  // ── Progress bar values ────────────────────────────────────────────────────
+  const targetAmount = goal.targetAmount ?? 0;
+  const currentPeriodSaved = goal.currentPeriodSaved ?? 0;
+  const totalDue = targetAmount + arrears;
+
+  // When debt exists the bar spans totalDue; divider marks where current month ends
+  const pctOfTotal = totalDue > 0 ? Math.min((currentPeriodSaved / totalDue) * 100, 100) : 0;
+  const currentMonthSegmentPct = totalDue > 0 ? (targetAmount / totalDue) * 100 : 100;
+
+  // Non-recurring pct (targeted goals)
+  const pct = Math.min(goal.percentageReached ?? 0, 100);
 
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
-  // FIX 2: Open-ended and recurring goals should never be treated as completed.
-  const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
+  // ── StatCell ───────────────────────────────────────────────────────────────
+  type StatVariant = "neutral" | "red" | "green-current";
 
-  // FIX 4: StatCell now has a border to look like a small card.
-  const StatCell = ({ label, value, xs = 6 }: { label: string; value: string | number; xs?: number }) => (
-    <Col xs={xs}>
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: "8px",
-          padding: "8px 10px",
-          border: "1.5px solid rgb(191, 195, 201)",
-        }}
-      >
-        <p style={{ fontSize: 13, fontWeight: 400, color: "#414344", margin: "0 0 2px" }}>{label}</p>
-        <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{value}</p>
-      </div>
-    </Col>
-  );
+  const variantStyles: Record<StatVariant, { bg: string; border: string; labelColor: string; valColor: string }> = {
+    neutral: {
+      bg: "#ffffff",
+      border: "rgb(191, 195, 201)",
+      labelColor: "#414344",
+      valColor: "var(--color-text-primary)",
+    },
+    red: {
+      bg: "#FEF2F2",
+      border: "#FECACA",
+      labelColor: "#991B1B",
+      valColor: "#B91C1C",
+    },
+    "green-current": {
+      bg: "#DCFCE7",
+      border: "#86EFAC",
+      labelColor: "#15803D",
+      valColor: "#15803D",
+    },
+  };
+
+  const StatCell = ({ label, value, xs = 6, variant = "neutral" }: { label: string; value: string | number; xs?: number; variant?: StatVariant }) => {
+    const s = variantStyles[variant];
+    return (
+      <Col xs={xs}>
+        <div
+          style={{
+            background: s.bg,
+            borderRadius: 8,
+            padding: "8px 10px",
+            border: `1.5px solid ${s.border}`,
+          }}
+        >
+          <p style={{ fontSize: 13, fontWeight: 400, color: s.labelColor, margin: "0 0 2px" }}>{label}</p>
+          <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: s.valColor }}>{value}</p>
+        </div>
+      </Col>
+    );
+  };
+  // ── Recurring progress bar ─────────────────────────────────────────────────
+  const RecurringProgressBar = () => {
+    // Ahead and no debt: simple full green bar
+    if (isAhead && !hasDebt) {
+      return (
+        <div
+          style={{
+            height: 8,
+            borderRadius: 4,
+            background: "#D1FAE5",
+            marginBottom: 6,
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ height: 8, borderRadius: 4, background: "#10B981", width: "100%" }} />
+        </div>
+      );
+    }
+
+    // Debt: segmented bar — blue tint for current month portion, red tint for arrears
+    if (hasDebt) {
+      return (
+        <div
+          style={{
+            position: "relative",
+            height: 8,
+            borderRadius: 4,
+            overflow: "hidden",
+            marginBottom: 6,
+          }}
+        >
+          {/* Current month background segment */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              width: `${currentMonthSegmentPct}%`,
+              height: "100%",
+              background: "#BFDBFE",
+            }}
+          />
+          {/* Arrears background segment */}
+          <div
+            style={{
+              position: "absolute",
+              left: `${currentMonthSegmentPct}%`,
+              width: `${100 - currentMonthSegmentPct}%`,
+              height: "100%",
+              background: "#FECACA",
+            }}
+          />
+          {/* Payment fill */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              width: `${pctOfTotal}%`,
+              height: "100%",
+              background: "#3B82F6",
+              borderRadius: "4px 0 0 4px",
+              zIndex: 2,
+            }}
+          />
+          {/* White divider between current month and arrears */}
+          <div
+            style={{
+              position: "absolute",
+              left: `calc(${currentMonthSegmentPct}% - 1px)`,
+              top: 0,
+              width: 2,
+              height: "100%",
+              background: "#fff",
+              zIndex: 3,
+            }}
+          />
+        </div>
+      );
+    }
+
+    // Normal: standard reactstrap progress bar
+    return <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
+  };
+
+  // ── Recurring progress note ────────────────────────────────────────────────
+  const recurringNote = () => {
+    if (hasDebt) {
+      return (
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+          {pctOfTotal.toFixed(0)}% of total due
+          {" · "}
+          <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(Math.max(totalDue - currentPeriodSaved, 0))}</span> remaining
+        </p>
+      );
+    }
+
+    if (isAhead) {
+      return (
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+          {"100% · "}
+          <span style={{ fontWeight: 600, color: "#10B981" }}>
+            {formatCurrency(periodSurplus)} surplus this {periodLabel}
+          </span>
+        </p>
+      );
+    }
+
+    return (
+      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+        <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{pct.toFixed(1)}%</span> of {periodLabel} target
+        {(goal.remaining ?? 0) > 0 && (
+          <>
+            {" · "}
+            <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.remaining!)}</span> remaining
+          </>
+        )}
+      </p>
+    );
+  };
 
   return (
     <Card
@@ -134,7 +289,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
       }}
     >
       <CardBody style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="d-flex justify-content-between gap-3 align-items-start mb-3">
           <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
@@ -205,30 +360,15 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </div>
         </div>
 
-        {/* Recurring: current period progress */}
-        {isRecurring && goal.targetAmount && (
+        {/* ── Recurring: progress bar + note ─────────────────────────────── */}
+        {isRecurring && targetAmount > 0 && (
           <>
-            <div className="d-flex justify-content-between mb-1">
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-                {formatCurrency(goal.currentPeriodSaved ?? 0)}
-                <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}> this {goal.targetPeriod === "monthly" ? "month" : "year"}</span>
-              </span>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{formatCurrency(goal.targetAmount)} target</span>
-            </div>
-            <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
-            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-              <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{pct.toFixed(1)}%</span> of {goal.targetPeriod === "monthly" ? "monthly" : "yearly"} target
-              {(goal.remaining ?? 0) > 0 && (
-                <>
-                  {" · "}
-                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.remaining!)}</span> remaining
-                </>
-              )}
-            </p>
+            <RecurringProgressBar />
+            {recurringNote()}
           </>
         )}
 
-        {/* Targeted: deadline progress */}
+        {/* ── Targeted: deadline progress ─────────────────────────────────── */}
         {isTargetedGoal && !isRecurring && goal.targetAmount && (
           <>
             <div className="d-flex justify-content-between mb-1">
@@ -248,7 +388,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </>
         )}
 
-        {/* FIX 1: Tracking — only for non-targeted AND non-recurring goals */}
+        {/* ── Open-ended tracking: big total number ───────────────────────── */}
         {!isTargetedGoal && !isRecurring && (
           <div className="mb-3">
             <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
@@ -266,12 +406,25 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </div>
         )}
 
-        {/* Stat mini cards */}
+        {/* ── Stat mini cards ─────────────────────────────────────────────── */}
         <Row className="g-2 mb-3">
+          {/* Debt cards — only when arrears exist */}
+          {isRecurring && hasDebt && <StatCell label={isYearly ? "Years behind" : "Months behind"} value={missedMonths} variant="red" />}
+          {isRecurring && hasDebt && <StatCell label="Arrears" value={formatCurrency(arrears)} variant="red" />}
+
+          {/* Surplus card — only when ahead this period */}
+          {isRecurring && isAhead && <StatCell label="Surplus"value={formatCurrency(periodSurplus)} variant="green-current" />}
+
+          {/* Standard recurring stats */}
+          {isRecurring && <StatCell label={`This ${periodLabel}`} value={formatCurrency(currentPeriodSaved)} />}
+          {isRecurring && <StatCell label="Target" value={formatCurrency(targetAmount)} />}
           {isRecurring && <StatCell label="All-time saved" value={formatCurrency(goal.totalSaved)} />}
-          {goal.monthlyRequired !== undefined && !isRecurring && <StatCell label="Monthly needed" value={formatCurrency(goal.monthlyRequired)} />}
+
+          {/* Non-recurring stats */}
+          {!isRecurring && goal.monthlyRequired !== undefined && <StatCell label="Monthly needed" value={formatCurrency(goal.monthlyRequired)} />}
           {goal.monthsLeft !== undefined && <StatCell label="Months left" value={goal.monthsLeft} />}
           {goal.deadline && <StatCell label="Deadline" value={formatDate(toDate(goal.deadline))} />}
+
           <StatCell label="Contributions" value={goal.contributionCount} xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12} />
         </Row>
 
@@ -288,7 +441,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           </p>
         )}
 
-        {/* Action buttons */}
+        {/* ── Action buttons ──────────────────────────────────────────────── */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
           {!isEffectivelyCompleted && (
             <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
@@ -340,9 +493,6 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
 }
 
 // ─── HistoryModal ─────────────────────────────────────────────────────────────
-// Tabbed (All · Deposits · Withdrawals), fixed-height scrollable list,
-// compact single-line rows, scroll shadow cue, transaction count footer.
-// ─────────────────────────────────────────────────────────────────────────────
 
 type HistoryTab = "all" | "deposits" | "withdrawals";
 
@@ -454,7 +604,6 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
         borderBottom: "0.5px solid var(--color-border-tertiary)",
       }}
     >
-      {/* Dot */}
       <div
         style={{
           width: 7,
@@ -464,8 +613,6 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
           flexShrink: 0,
         }}
       />
-
-      {/* Date */}
       <span
         style={{
           fontSize: 12,
@@ -476,8 +623,6 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
       >
         {formatDate(toDate(contribution.date))}
       </span>
-
-      {/* Note */}
       <span
         title={contribution.notes}
         style={{
@@ -491,16 +636,7 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
       >
         {contribution.notes || "—"}
       </span>
-
-      {/* Amount */}
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color,
-          flexShrink: 0,
-        }}
-      >
+      <span style={{ fontSize: 13, fontWeight: 600, color, flexShrink: 0 }}>
         {isDeposit ? "+" : "−"}
         {formatCurrency(contribution.amount)}
       </span>
@@ -530,13 +666,10 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
       </ModalHeader>
 
       <ModalBody style={{ padding: 0 }}>
-        {/* Summary bar */}
         <HistorySummaryBar totalDeposited={goal.totalDeposited} totalWithdrawn={goal.totalWithdrawn} totalSaved={goal.totalSaved} formatCurrency={formatCurrency} />
 
-        {/* Tabs */}
         <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
 
-        {/* Content */}
         {isLoading ? (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             <Spinner size="sm" />
@@ -558,7 +691,6 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
             style={{
               maxHeight: 300,
               overflowY: "auto",
-              // Scroll shadow: subtle fade at top/bottom when content overflows
               background: `
                 linear-gradient(var(--color-background-primary) 30%, transparent),
                 linear-gradient(transparent, var(--color-background-primary) 70%) bottom,
@@ -576,7 +708,6 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
           </div>
         )}
 
-        {/* Row count hint */}
         {!isLoading && filtered.length > 0 && (
           <p
             style={{

@@ -69,13 +69,11 @@ export interface Transaction {
   recurringTransactionId?: string;
 
   // ── Investment transaction flags ──────────────────────────────────────────
-  // Set automatically when a deposit/withdrawal is made from the Investments page.
-  // These transactions are READ-ONLY in the UI (cannot be edited, only deleted).
-  isInvestmentTransaction?: boolean; // true = auto-created from investment contribution
-  goalId?: string; // which investment goal this belongs to
+  isInvestmentTransaction?: boolean;
+  goalId?: string;
   isGoalTransaction?: boolean;
-  goalName?: string; // goal name stored for display without extra fetches
-  contributionType?: "deposit" | "withdrawal"; // direction of the investment
+  goalName?: string;
+  contributionType?: "deposit" | "withdrawal";
 }
 
 export interface CreateTransactionDTO {
@@ -85,7 +83,6 @@ export interface CreateTransactionDTO {
   date: Date;
   description: string;
   notes?: string;
-  // Investment-only fields
   isInvestmentTransaction?: boolean;
   metadata?: FuelMetadata;
   goalId?: string;
@@ -308,31 +305,29 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   contributionCount: number;
   withdrawalCount: number;
   currentPeriodSaved?: number;
+  // ── Carryover fields (recurring goals only) ───────────────────────────────
+  arrears?: number; // total unpaid amount accumulated from past periods
+  missedMonths?: number; // number of past periods where contribution < target
+  periodSurplus?: number; // how much over target was paid in the current period
 }
 
-// ── NEW: add after TransactionType ──────────────────────────────────────────
+// ── Fuel types ───────────────────────────────────────────────────────────────
 
 export type FuelType = "petrol" | "diesel" | "lpg" | "cng" | "electric";
 
 export interface FuelMetadata {
   fuelType: FuelType;
-  pricePerUnit: number; // €/L or €/kWh for electric
-  quantity: number; // liters or kWh
-  totalCost: number; // pricePerUnit × quantity — mirrors transaction.amount
-  odometer?: number; // km reading at fill-up (for efficiency charts later)
-  place?: string; // e.g. "Shell - Thessaloniki"
+  pricePerUnit: number;
+  quantity: number;
+  totalCost: number;
+  odometer?: number;
+  place?: string;
 }
 
 // ============================================================================
 // ENUMS & LITERAL TYPES
 // ============================================================================
 
-/**
- * Types of transactions.
- * "investment" is a SYSTEM type — auto-created when deposits/withdrawals
- * are made from the Investments page. Users CANNOT manually create investment
- * transactions. They are read-only in the transactions page (delete only).
- */
 export type TransactionType = "income" | "expense" | "investment";
 
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
