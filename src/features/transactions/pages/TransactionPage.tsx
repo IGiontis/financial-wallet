@@ -1072,7 +1072,7 @@ export function TransactionsPage() {
       </div>
 
       {/* ── Mobile ── */}
-      <div className="d-lg-none" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 60px)" }}>
+      <div className="d-lg-none" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 90px)" }}>
         {isError && (
           <Alert color="danger" className="mb-3" style={{ flexShrink: 0 }}>
             Failed to load transactions. Please refresh.
