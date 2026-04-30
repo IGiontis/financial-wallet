@@ -923,7 +923,7 @@ export function TransactionsPage() {
                     <Spinner color="primary" />
                   </div>
                 ) : (
-                  <div style={{ maxHeight: "80vh", overflowY: "auto", overflowX: "auto" }}>
+                  <div style={{ maxHeight: "60vh", overflowY: "auto", overflowX: "auto" }}>
                     <Table hover className="mb-0">
                       <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
                         <tr>
