@@ -427,7 +427,6 @@ function CustomRangeModal({ isOpen, onClose, onApply, initialRange, minYear }: C
           {/* Divider */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
             <div style={{ width: "0.5px", flex: 1, background: "var(--color-border-tertiary)", minHeight: 8 }} />
-            <span style={{ fontSize: 11, color: "var(--color-text-secondary)", padding: "6px 0" }}>to</span>
             <div style={{ width: "0.5px", flex: 1, background: "var(--color-border-tertiary)", minHeight: 8 }} />
           </div>
 
