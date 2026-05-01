@@ -31,14 +31,8 @@ const TAB_LABELS: Record<InvestmentsFilterTab, string> = {
 // ─── Scope helpers ────────────────────────────────────────────────────────────
 
 const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
-
 const isTracking = (g: InvestmentGoalWithStats) => g.goalType === "open_ended";
-
 const belongsHere = (g: InvestmentGoalWithStats) => isRecurring(g) || isTracking(g);
-
-// ─── Shared "effectively active" helper ──────────────────────────────────────
-// Recurring goals never truly complete — ignore isCompleted for them.
-// This rule is applied consistently across tabs, counts, and summary cards.
 
 const effectivelyActive = (g: InvestmentGoalWithStats) => (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted);
 
@@ -50,19 +44,48 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
 
   const totalSaved = mine.reduce((s, g) => s + g.totalSaved, 0);
 
-  // Monthly progress: currentPeriodSaved vs targetAmount across all active monthly goals.
+  // ── Monthly effective totals ───────────────────────────────────────────────
   const activeMonthly = mine.filter((g) => g.targetPeriod === "monthly" && effectivelyActive(g));
-  const monthlyPeriodSaved = activeMonthly.reduce((s, g) => s + (g.currentPeriodSaved ?? 0), 0);
-  const monthlyTarget = activeMonthly.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
 
-  // Yearly progress: currentPeriodSaved vs targetAmount across all active yearly goals.
+  const monthlyTotalDue = activeMonthly.reduce((s, g) => {
+    const credit = g.periodCredit ?? 0;
+    const arrears = g.arrears ?? 0;
+    return s + Math.max((g.targetAmount ?? 0) - credit, 0) + arrears;
+  }, 0);
+  const monthlyTotalRemaining = activeMonthly.reduce((s, g) => s + (g.remaining ?? 0), 0);
+  const monthlyEffectivePaid = Math.max(monthlyTotalDue - monthlyTotalRemaining, 0);
+
+  // ── Yearly effective totals ────────────────────────────────────────────────
   const activeYearly = mine.filter((g) => g.targetPeriod === "yearly" && effectivelyActive(g));
-  const yearlyPeriodSaved = activeYearly.reduce((s, g) => s + (g.currentPeriodSaved ?? 0), 0);
-  const yearlyTarget = activeYearly.reduce((s, g) => s + (g.targetAmount ?? 0), 0);
 
-  const recurringCount = active.filter(isRecurring).length;
+  const yearlyTotalDue = activeYearly.reduce((s, g) => {
+    const credit = g.periodCredit ?? 0;
+    const arrears = g.arrears ?? 0;
+    return s + Math.max((g.targetAmount ?? 0) - credit, 0) + arrears;
+  }, 0);
+  const yearlyTotalRemaining = activeYearly.reduce((s, g) => s + (g.remaining ?? 0), 0);
+  const yearlyEffectivePaid = Math.max(yearlyTotalDue - yearlyTotalRemaining, 0);
 
-  const cards = [
+  // ── Behind / ahead aggregates ─────────────────────────────────────────────
+  const recurringActive = active.filter(isRecurring);
+
+  const behindGoals = recurringActive.filter((g) => g.status === "behind");
+  const totalArrears = behindGoals.reduce((s, g) => s + (g.remaining ?? 0), 0);
+
+  const aheadGoals = recurringActive.filter((g) => g.status === "ahead");
+  const totalAheadBuffer = aheadGoals.reduce((s, g) => s + (g.periodSurplus ?? 0), 0);
+
+  const recurringCount = recurringActive.length;
+
+  // ── Labels ─────────────────────────────────────────────────────────────────
+  const monthlyLabel = activeMonthly.length === 0 ? "—" : monthlyTotalDue === 0 ? "All covered ✓" : `${formatCurrency(monthlyEffectivePaid)} / ${formatCurrency(monthlyTotalDue)}`;
+
+  const yearlyLabel = activeYearly.length === 0 ? "—" : yearlyTotalDue === 0 ? "All covered ✓" : `${formatCurrency(yearlyEffectivePaid)} / ${formatCurrency(yearlyTotalDue)}`;
+
+  // ── Card definitions ───────────────────────────────────────────────────────
+  type SummaryCard = { label: string; value: string; sub: string; accent: string; icon: string; small: boolean };
+
+  const cards: SummaryCard[] = [
     {
       label: "Total saved",
       value: formatCurrency(totalSaved),
@@ -73,12 +96,11 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
     },
     {
       label: "Monthly target",
-      // e.g. "€400 / €400" — how much saved vs how much needed this month
-      value: `${formatCurrency(monthlyPeriodSaved)} / ${formatCurrency(monthlyTarget)}`,
-      sub: "saved this month",
-      accent: "#3B82F6",
+      value: monthlyLabel,
+      sub: monthlyTotalDue === 0 && activeMonthly.length > 0 ? "credit covers this month" : "paid this month",
+      accent: monthlyTotalDue === 0 && activeMonthly.length > 0 ? "#059669" : "#3B82F6",
       icon: "📅",
-      small: true,
+      small: monthlyTotalDue > 0,
     },
     {
       label: "Recurring",
@@ -88,16 +110,36 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
       icon: "🔁",
       small: false,
     },
-
     {
       label: "Yearly target",
-      value: `${formatCurrency(yearlyPeriodSaved)} / ${formatCurrency(yearlyTarget)}`,
-      sub: "saved this year",
-      accent: "#F59E0B",
+      value: yearlyLabel,
+      sub: yearlyTotalDue === 0 && activeYearly.length > 0 ? "credit covers this year" : "paid this year",
+      accent: yearlyTotalDue === 0 && activeYearly.length > 0 ? "#059669" : "#F59E0B",
       icon: "📆",
-      small: true,
+      small: yearlyTotalDue > 0,
     },
   ];
+
+  // Show Behind OR Ahead — never both. Behind takes priority as the worse state.
+  if (behindGoals.length > 0) {
+    cards.push({
+      label: "Behind",
+      value: formatCurrency(totalArrears),
+      sub: `${behindGoals.length} goal${behindGoals.length !== 1 ? "s" : ""} in arrears`,
+      accent: "#EF4444",
+      icon: "⚠️",
+      small: true,
+    });
+  } else if (aheadGoals.length > 0) {
+    cards.push({
+      label: "Ahead",
+      value: formatCurrency(totalAheadBuffer),
+      sub: `${aheadGoals.length} goal${aheadGoals.length !== 1 ? "s" : ""} pre-paid`,
+      accent: "#059669",
+      icon: "🚀",
+      small: true,
+    });
+  }
 
   return (
     <Row className="g-3 mb-4">
@@ -120,19 +162,7 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{c.label}</p>
               <span style={{ fontSize: 14 }}>{c.icon}</span>
             </div>
-            <p
-              style={{
-                // Monthly target value is longer (e.g. "€400 / €400") so we render it smaller
-                fontSize: c.small ? 14 : 20,
-                fontWeight: 600,
-                margin: 0,
-                color: c.accent,
-                lineHeight: 1.3,
-                wordBreak: "break-word",
-              }}
-            >
-              {c.value}
-            </p>
+            <p style={{ fontSize: c.small ? 14 : 20, fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.3, wordBreak: "break-word" }}>{c.value}</p>
             <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub}</p>
           </div>
         </Col>
@@ -161,8 +191,6 @@ export default function InvestmentsPage() {
   const addContribution = useAddContribution();
   const deleteGoalMutation = useDeleteGoal();
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
     new Promise((resolve, reject) =>
       addContribution.mutate({ data, goalName: depositGoal?.name ?? "", isGoalTransaction: false }, { onSuccess: () => resolve(), onError: (err) => reject(err) }),
@@ -185,8 +213,6 @@ export default function InvestmentsPage() {
   };
 
   const handleTogglePause = (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } });
-
-  // ── Filtering ─────────────────────────────────────────────────────────────
 
   const isSearching = search.trim().length > 0;
 
@@ -220,7 +246,6 @@ export default function InvestmentsPage() {
 
   return (
     <Container fluid className="py-4">
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4 gap-2">
         <div style={{ minWidth: 0 }}>
           <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
@@ -243,7 +268,6 @@ export default function InvestmentsPage() {
         <>
           <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />
 
-          {/* Mobile search */}
           <div className="d-md-none mb-2">
             <div style={{ position: "relative" }}>
               <Input
@@ -281,7 +305,6 @@ export default function InvestmentsPage() {
             </p>
           )}
 
-          {/* Tabs + desktop search */}
           <div style={{ overflowX: "auto", marginBottom: "1.5rem", msOverflowStyle: "none", scrollbarWidth: "none" }}>
             <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
               {!isSearching && (
@@ -349,7 +372,6 @@ export default function InvestmentsPage() {
             </div>
           </div>
 
-          {/* Grid */}
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
               <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "📈"}</p>
@@ -385,7 +407,6 @@ export default function InvestmentsPage() {
         </>
       )}
 
-      {/* Modals */}
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
