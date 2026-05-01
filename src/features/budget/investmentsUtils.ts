@@ -51,7 +51,8 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     let cursor = new Date(goalCreated.getFullYear(), goalCreated.getMonth(), 1);
 
-    let accumulatedBalance = 0; // positive = credit, negative = debt
+    // positive = credit (overpaid), negative = debt (underpaid)
+    let accumulatedBalance = 0;
     let missedMonths = 0;
 
     while (cursor < thisMonthStart) {
@@ -75,14 +76,20 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       cursor = new Date(y, m + 1, 1);
     }
 
+    // Positive balance = credit carried forward (reduces this month's obligation).
+    // Negative balance = arrears (increases this month's obligation).
     const arrears = accumulatedBalance < 0 ? Math.abs(accumulatedBalance) : 0;
-    const periodSurplus = currentPeriodSaved > targetAmount ? currentPeriodSaved - targetAmount : 0;
-    const totalDue = targetAmount + arrears;
+    const credit = accumulatedBalance > 0 ? accumulatedBalance : 0;
+
+    // How much is actually owed this month after applying credit / arrears.
+    const totalDue = Math.max(targetAmount - credit, 0) + arrears;
+
+    const periodSurplus = currentPeriodSaved > totalDue ? currentPeriodSaved - totalDue : 0;
 
     let status: InvestmentGoalStatus;
-    if (currentPeriodSaved > targetAmount) {
+    if (totalDue === 0 || currentPeriodSaved >= totalDue) {
       status = "ahead";
-    } else if (currentPeriodSaved === targetAmount) {
+    } else if (currentPeriodSaved === totalDue) {
       status = "on_track";
     } else {
       status = "behind";
@@ -93,7 +100,7 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 0,
+      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 100,
       remaining: Math.max(totalDue - currentPeriodSaved, 0),
       monthlyRequired: targetAmount,
       currentPeriodSaved,
@@ -123,6 +130,7 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
     // ── Carryover: walk every past year since goal was created ──────────────
     const goalStartYear = toDate(goal.createdAt).getFullYear();
 
+    // positive = credit (overpaid), negative = debt (underpaid)
     let accumulatedBalance = 0;
     let missedMonths = 0; // represents "years behind" for yearly goals
 
@@ -138,14 +146,20 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       if (diff < 0) missedMonths++;
     }
 
+    // Positive balance = credit carried forward (reduces this year's obligation).
+    // Negative balance = arrears (increases this year's obligation).
     const arrears = accumulatedBalance < 0 ? Math.abs(accumulatedBalance) : 0;
-    const periodSurplus = currentPeriodSaved > targetAmount ? currentPeriodSaved - targetAmount : 0;
-    const totalDue = targetAmount + arrears;
+    const credit = accumulatedBalance > 0 ? accumulatedBalance : 0;
+
+    // How much is actually owed this year after applying credit / arrears.
+    const totalDue = Math.max(targetAmount - credit, 0) + arrears;
+
+    const periodSurplus = currentPeriodSaved > totalDue ? currentPeriodSaved - totalDue : 0;
 
     let status: InvestmentGoalStatus;
-    if (currentPeriodSaved > targetAmount) {
+    if (totalDue === 0 || currentPeriodSaved >= totalDue) {
       status = "ahead";
-    } else if (currentPeriodSaved === targetAmount) {
+    } else if (currentPeriodSaved === totalDue) {
       status = "on_track";
     } else {
       status = "behind";
@@ -156,7 +170,7 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 0,
+      percentageReached: totalDue > 0 ? (currentPeriodSaved / totalDue) * 100 : 100,
       remaining: Math.max(totalDue - currentPeriodSaved, 0),
       yearlyRequired: targetAmount,
       currentPeriodSaved,
