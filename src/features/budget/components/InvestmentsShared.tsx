@@ -99,16 +99,28 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   const arrears = goal.arrears ?? 0;
   const missedMonths = goal.missedMonths ?? 0;
   const periodSurplus = goal.periodSurplus ?? 0;
+  const periodCredit = goal.periodCredit ?? 0;
+
   const hasDebt = arrears > 0;
   const isAhead = periodSurplus > 0;
+
+  // Credit states (mutually exclusive with hasDebt)
+  // isCreditCovered: entire period obligation wiped out by carryover credit
+  // hasPartialCredit: credit reduces but doesn't eliminate this period's obligation
+  const isCreditCovered = periodCredit > 0 && !hasDebt && (goal.remaining ?? 0) === 0 && (goal.currentPeriodSaved ?? 0) < (goal.targetAmount ?? 0);
+  const hasPartialCredit = periodCredit > 0 && !hasDebt && !isCreditCovered && (goal.currentPeriodSaved ?? 0) < (goal.targetAmount ?? 0);
 
   // ── Progress bar values ────────────────────────────────────────────────────
   const targetAmount = goal.targetAmount ?? 0;
   const currentPeriodSaved = goal.currentPeriodSaved ?? 0;
-  const totalDue = targetAmount + arrears;
+  const totalDue = Math.max(targetAmount - periodCredit, 0) + arrears;
 
   const pctOfTotal = totalDue > 0 ? Math.min((currentPeriodSaved / totalDue) * 100, 100) : 0;
   const currentMonthSegmentPct = totalDue > 0 ? (targetAmount / totalDue) * 100 : 100;
+
+  // Credit bar segments (relative to targetAmount as the full bar width)
+  const creditPct = targetAmount > 0 ? Math.min((periodCredit / targetAmount) * 100, 100) : 0;
+  const paidThisPeriodPct = targetAmount > 0 ? Math.min((currentPeriodSaved / targetAmount) * 100, 100) : 0;
 
   // Non-recurring pct (targeted goals)
   const pct = Math.min(goal.percentageReached ?? 0, 100);
@@ -116,7 +128,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
   // ── StatCell ───────────────────────────────────────────────────────────────
-  type StatVariant = "neutral" | "red" | "green-current";
+  type StatVariant = "neutral" | "red" | "green-current" | "emerald";
 
   const variantStyles: Record<StatVariant, { bg: string; border: string; labelColor: string; valColor: string }> = {
     neutral: {
@@ -137,6 +149,12 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
       labelColor: "#15803D",
       valColor: "#15803D",
     },
+    emerald: {
+      bg: "#ECFDF5",
+      border: "#6EE7B7",
+      labelColor: "#065F46",
+      valColor: "#047857",
+    },
   };
 
   const StatCell = ({ label, value, xs = 6, variant = "neutral" }: { label: string; value: string | number; xs?: number; variant?: StatVariant }) => {
@@ -153,6 +171,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
   // ── Recurring progress bar ─────────────────────────────────────────────────
   const RecurringProgressBar = () => {
+    // Overpaid this period (surplus from current deposits)
     if (isAhead && !hasDebt) {
       return (
         <div style={{ height: 8, borderRadius: 4, background: "#D1FAE5", marginBottom: 6, overflow: "hidden" }}>
@@ -161,6 +180,67 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
       );
     }
 
+    // Entire obligation wiped by carryover credit — striped emerald bar
+    if (isCreditCovered) {
+      return (
+        <div style={{ height: 8, borderRadius: 4, background: "#A7F3D0", marginBottom: 6, overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: "100%",
+              background: "#059669",
+              backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.22) 4px, rgba(255,255,255,0.22) 8px)",
+            }}
+          />
+        </div>
+      );
+    }
+
+    // Partial credit — split bar: soft green for credit portion, normal green filling over it
+    if (hasPartialCredit) {
+      return (
+        <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6, background: "#E5E7EB" }}>
+          {/* Credit pre-fill segment (soft emerald) */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              width: `${creditPct}%`,
+              height: "100%",
+              background: "#A7F3D0",
+            }}
+          />
+          {/* Current period payments fill from left, overlaying the credit segment first */}
+          {paidThisPeriodPct > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                width: `${paidThisPeriodPct}%`,
+                height: "100%",
+                background: "#10B981",
+                borderRadius: "4px 0 0 4px",
+                zIndex: 2,
+              }}
+            />
+          )}
+          {/* Divider at the credit / obligation boundary */}
+          <div
+            style={{
+              position: "absolute",
+              left: `calc(${creditPct}% - 1px)`,
+              top: 0,
+              width: 2,
+              height: "100%",
+              background: "#fff",
+              zIndex: 3,
+            }}
+          />
+        </div>
+      );
+    }
+
+    // In arrears — split bar (blue for current month, red for arrears)
     if (hasDebt) {
       return (
         <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
@@ -172,6 +252,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
       );
     }
 
+    // Normal progress
     return <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
   };
 
@@ -182,6 +263,32 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
           {pctOfTotal.toFixed(0)}% of total due{" · "}
           <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(Math.max(totalDue - currentPeriodSaved, 0))}</span> remaining
+        </p>
+      );
+    }
+
+    if (isCreditCovered) {
+      return (
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+          <span style={{ fontWeight: 600, color: "#059669" }}>Covered by carryover</span>
+          {" · "}
+          <span style={{ fontWeight: 600, color: "#047857" }}>{formatCurrency(periodCredit)}</span> credit applied
+        </p>
+      );
+    }
+
+    if (hasPartialCredit) {
+      const effectiveDue = Math.max(targetAmount - periodCredit, 0);
+      const remaining = Math.max(effectiveDue - currentPeriodSaved, 0);
+      return (
+        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
+          <span style={{ fontWeight: 600, color: "#047857" }}>{formatCurrency(periodCredit)}</span> credit applied
+          {remaining > 0 && (
+            <>
+              {" · "}
+              <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(remaining)}</span> remaining
+            </>
+          )}
         </p>
       );
     }
@@ -316,6 +423,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           {isRecurring && hasDebt && <StatCell label={isYearly ? "Yrs behind" : "Mths behind"} value={missedMonths} variant="red" />}
           {isRecurring && hasDebt && <StatCell label="Arrears" value={formatCurrency(arrears)} variant="red" />}
           {isRecurring && isAhead && <StatCell label="Surplus" value={formatCurrency(periodSurplus)} variant="green-current" />}
+          {isRecurring && (isCreditCovered || hasPartialCredit) && <StatCell label="Credit" value={formatCurrency(periodCredit)} variant="emerald" />}
           {isRecurring && <StatCell label={`This ${periodLabel}`} value={formatCurrency(currentPeriodSaved)} />}
           {isRecurring && <StatCell label="Target" value={formatCurrency(targetAmount)} />}
           {isRecurring && <StatCell label="All-time" value={formatCurrency(goal.totalSaved)} />}

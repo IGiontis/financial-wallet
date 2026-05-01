@@ -309,6 +309,7 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   arrears?: number; // total unpaid amount accumulated from past periods
   missedMonths?: number; // number of past periods where contribution < target
   periodSurplus?: number; // how much over target was paid in the current period
+  periodCredit?: number;
 }
 
 // ── Fuel types ───────────────────────────────────────────────────────────────
