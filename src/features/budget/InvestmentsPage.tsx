@@ -70,10 +70,10 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   const recurringActive = active.filter(isRecurring);
 
   const behindGoals = recurringActive.filter((g) => g.status === "behind");
-  const totalArrears = behindGoals.reduce((s, g) => s + (g.remaining ?? 0), 0);
-
   const aheadGoals = recurringActive.filter((g) => g.status === "ahead");
+  const totalBehind = behindGoals.reduce((s, g) => s + (g.remaining ?? 0), 0);
   const totalAheadBuffer = aheadGoals.reduce((s, g) => s + (g.periodSurplus ?? 0), 0);
+  const netPosition = totalAheadBuffer - totalBehind;
 
   const recurringCount = recurringActive.length;
 
@@ -120,21 +120,23 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
     },
   ];
 
-  // Show Behind OR Ahead — never both. Behind takes priority as the worse state.
-  if (behindGoals.length > 0) {
+  // Show a single net status card.
+  // Net = (surplus across ahead goals) - (remaining across behind goals).
+  // Positive → net ahead. Negative → net behind. Zero → show nothing.
+  if (netPosition < 0) {
     cards.push({
       label: "Behind",
-      value: formatCurrency(totalArrears),
+      value: formatCurrency(Math.abs(netPosition)),
       sub: `${behindGoals.length} goal${behindGoals.length !== 1 ? "s" : ""} in arrears`,
       accent: "#EF4444",
       icon: "⚠️",
       small: true,
     });
-  } else if (aheadGoals.length > 0) {
+  } else if (netPosition > 0) {
     cards.push({
       label: "Ahead",
-      value: formatCurrency(totalAheadBuffer),
-      sub: `${aheadGoals.length} goal${aheadGoals.length !== 1 ? "s" : ""} pre-paid`,
+      value: formatCurrency(netPosition),
+      sub: `net across ${recurringActive.length} goal${recurringActive.length !== 1 ? "s" : ""}`,
       accent: "#059669",
       icon: "🚀",
       small: true,
