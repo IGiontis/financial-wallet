@@ -57,8 +57,9 @@ function useTooltipRenderer(formatCurrency: (n: number) => string) {
       const investments = valueOf("investments");
       const goals = valueOf("goals");
 
-      // Withdrawals are already folded into `income`, so subtract the GROSS
-      // deposits here — using net figures would count a withdrawal twice.
+      // `income` already includes withdrawals, so pair it with GROSS deposits.
+      // (The card below the chart uses plain income with net flows — both
+      // routes give the same figure; this one avoids re-deriving the split.)
       const moneyLeft = income - expenses - investments - goals;
 
       const rows = [

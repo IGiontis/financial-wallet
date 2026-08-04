@@ -27,6 +27,7 @@ import { useCategories } from "../transactions/hooks/useTransactions";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
 import { getFrequencyLabel } from "./billsUtils";
+import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import AddBillModal from "./AddBillModal";
 
 const FREQUENCY_COLOR: Record<BillWithStatus["frequency"], string> = {
@@ -159,11 +160,13 @@ function BillRow({
         </div>
 
         {/* Menu */}
-        <UncontrolledDropdown strategy="fixed">
+        <UncontrolledDropdown>
           <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0">
             <FiMoreVertical size={18} />
           </DropdownToggle>
-          <DropdownMenu end>
+          {/* Anchor to the toggle's right edge and keep the menu inside the
+              viewport, so it opens inward instead of off-screen. */}
+          <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
             <DropdownItem onClick={() => onEdit(bill)}>{t("common.edit")}</DropdownItem>
             <DropdownItem className="text-danger" onClick={() => onDelete(bill)}>
               {t("common.delete")}

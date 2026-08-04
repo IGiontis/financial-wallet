@@ -29,7 +29,11 @@ export interface ChartDataPoint {
 }
 
 export interface DashboardMetrics {
+  /** Headline income — plain income plus anything withdrawn back out. */
   totalIncome: number;
+  /** Income excluding withdrawals. Used for "money left" so a withdrawal isn't
+   *  counted twice (once here, once as a negative net investment). */
+  plainIncome: number;
   totalExpenses: number;
   netIncome: number;
   savingsRate: number;
@@ -165,14 +169,30 @@ export const calculateMetrics = (transactions: Transaction[]): DashboardMetrics 
   const netIncome = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
 
-  return { totalIncome, totalExpenses, netIncome, savingsRate };
+  return { totalIncome, plainIncome, totalExpenses, netIncome, savingsRate };
 };
 
-/** Gross amount put INTO non-goal investments this period (withdrawals count as income). */
-export const sumInvestments = (transactions: Transaction[]) => transactions.filter((tx) => isInvestmentContribution(tx) && isDeposit(tx)).reduce((s, tx) => s + tx.amount, 0);
+/**
+ * NET amount tied up in non-goal investments this period (deposits − withdrawals).
+ * Goes negative when you take out more than you put in, so totalling across
+ * months shows how much is actually invested.
+ */
+export const sumInvestments = (transactions: Transaction[]) => transactions.filter(isInvestmentContribution).reduce((s, tx) => s + signedContribution(tx), 0);
 
-/** Gross amount put INTO targeted goals this period (withdrawals count as income). */
-export const sumGoalSavings = (transactions: Transaction[]) => transactions.filter((tx) => isGoalContribution(tx) && isDeposit(tx)).reduce((s, tx) => s + tx.amount, 0);
+/** NET amount tied up in targeted goals this period (deposits − withdrawals). */
+export const sumGoalSavings = (transactions: Transaction[]) => transactions.filter(isGoalContribution).reduce((s, tx) => s + signedContribution(tx), 0);
 
 /** Total pulled back out of goals and investments — surfaced as income. */
 export const sumWithdrawals = (transactions: Transaction[]) => transactions.filter(isWithdrawal).reduce((s, tx) => s + tx.amount, 0);
+
+/**
+ * Spendable money left over.
+ *
+ * Uses PLAIN income (not the headline figure) together with NET investment and
+ * goal flows. A withdrawal already lifts this by showing up as a negative net
+ * flow, so including it in income here would count it twice.
+ */
+export const calculateMoneyLeft = (transactions: Transaction[]): number => {
+  const { plainIncome, totalExpenses } = calculateMetrics(transactions);
+  return plainIncome - totalExpenses - sumInvestments(transactions) - sumGoalSavings(transactions);
+};

@@ -27,6 +27,7 @@ import {
 import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentGoalStatus, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
+import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -344,14 +345,14 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
                 </Badge>
               )}
             </div>
-            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)} strategy="fixed">
+            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
               <DropdownToggle
                 tag="button"
                 style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
               >
                 <FiMoreVertical size={16} />
               </DropdownToggle>
-              <DropdownMenu end>
+              <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
                 <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={isEffectivelyCompleted}>
                   Edit
                 </DropdownItem>

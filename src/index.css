@@ -163,6 +163,36 @@
   color: var(--bs-table-color);
 }
 
+/* ── Light-variant buttons & badges ───────────────────────────────────────── */
+/* Bootstrap's `.btn-light` / `.badge.bg-light` are fixed near-white and do not
+   follow colour modes, so they stayed glaringly white in dark mode. Re-point
+   them at the token surfaces. */
+[data-bs-theme="dark"] .btn-light {
+  --bs-btn-bg: var(--color-background-secondary);
+  --bs-btn-color: var(--color-text-primary);
+  --bs-btn-border-color: var(--color-border-primary);
+  --bs-btn-hover-bg: var(--color-surface-raised);
+  --bs-btn-hover-color: var(--color-text-primary);
+  --bs-btn-hover-border-color: var(--color-border-primary);
+  --bs-btn-active-bg: var(--color-surface-raised);
+  --bs-btn-active-color: var(--color-text-primary);
+  --bs-btn-disabled-bg: var(--color-background-secondary);
+  --bs-btn-disabled-color: var(--color-text-secondary);
+  --bs-btn-disabled-border-color: var(--color-border-tertiary);
+}
+
+[data-bs-theme="dark"] .badge.bg-light,
+[data-bs-theme="dark"] .badge.text-bg-light {
+  background-color: var(--color-background-secondary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* `.text-dark` is used to force readable text on light badges — in dark mode
+   that lands as near-black on a dark chip. */
+[data-bs-theme="dark"] .badge.text-dark {
+  color: var(--color-text-primary) !important;
+}
+
 /* ── Modals ───────────────────────────────────────────────────────────────── */
 .modal-content {
   background-color: var(--color-surface-raised);

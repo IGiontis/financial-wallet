@@ -5,7 +5,18 @@ import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { firestoreToDate } from "../../../shared/utils/dates";
-import { calculateMetrics, filterTransactions, getDateRange, groupByMonth, groupByWeek, sumGoalSavings, sumInvestments, type CustomRange, type TimePeriod } from "../overviewUtils";
+import {
+  calculateMetrics,
+  calculateMoneyLeft,
+  filterTransactions,
+  getDateRange,
+  groupByMonth,
+  groupByWeek,
+  sumGoalSavings,
+  sumInvestments,
+  type CustomRange,
+  type TimePeriod,
+} from "../overviewUtils";
 import { MetricCard } from "../components/MetricCard";
 import { CashFlowChart, CashFlowLegend } from "../components/CashFlowChart";
 import { CustomRangeModal } from "../components/CustomRangeModal";
@@ -57,9 +68,11 @@ export const OverviewPage = () => {
   );
 
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
+  // Net flows — negative when more was withdrawn than deposited, so totals
+  // across months show how much is actually tied up.
   const totalInvestments = useMemo(() => sumInvestments(filtered), [filtered]);
   const goalSavings = useMemo(() => sumGoalSavings(filtered), [filtered]);
-  const moneyLeft = metrics.totalIncome - metrics.totalExpenses - totalInvestments - goalSavings;
+  const moneyLeft = useMemo(() => calculateMoneyLeft(filtered), [filtered]);
 
   const activeGoals = useMemo(
     () =>

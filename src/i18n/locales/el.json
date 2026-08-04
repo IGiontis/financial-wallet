@@ -179,7 +179,12 @@
     "noneFound": "Δεν βρέθηκαν συναλλαγές",
     "allCategories": "Όλες οι κατηγορίες",
     "categories": "Κατηγορίες",
-    "clearFilter": "Καθαρισμός φίλτρου"
+    "clearFilter": "Καθαρισμός φίλτρου",
+    "totalSpent": "Ξοδέψατε",
+    "totalEarned": "Κερδίσατε",
+    "net": "Καθαρό",
+    "transactionCount_one": "{{count}} συναλλαγή",
+    "transactionCount_other": "{{count}} συναλλαγές"
   },
   "investments": {
     "title": "Επενδύσεις",

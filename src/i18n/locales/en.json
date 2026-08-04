@@ -179,7 +179,12 @@
     "noneFound": "No transactions found",
     "allCategories": "All Categories",
     "categories": "Categories",
-    "clearFilter": "Clear filter"
+    "clearFilter": "Clear filter",
+    "totalSpent": "Spent",
+    "totalEarned": "Earned",
+    "net": "Net",
+    "transactionCount_one": "{{count}} transaction",
+    "transactionCount_other": "{{count}} transactions"
   },
   "investments": {
     "title": "Investments",

@@ -26,6 +26,7 @@ import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared
 import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
+import styles from "./css/TransactionPage.module.css";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -53,6 +54,77 @@ function getAmountChipStyle(tx: Transaction): React.CSSProperties {
   if (tx.isGoalTransaction) return tinted("--color-goal");
   if (tx.isInvestmentTransaction) return tinted("--color-invest");
   return tinted(tx.type === "income" ? "--color-income" : "--color-expense");
+}
+
+// ─── Filter summary ───────────────────────────────────────────────────────────
+// Answers "how much have I spent on Food this period?" for whatever filter is
+// currently applied. Deposits into goals/investments are excluded from the
+// spent/earned figures (they are transfers, not spending); withdrawals count as
+// money coming back in, matching the Overview's model.
+
+interface FilterTotals {
+  earned: number;
+  spent: number;
+  net: number;
+  count: number;
+}
+
+function computeFilterTotals(transactions: Transaction[]): FilterTotals {
+  let earned = 0;
+  let spent = 0;
+
+  for (const tx of transactions) {
+    if (tx.isInvestmentTransaction) {
+      if (tx.contributionType === "withdrawal") earned += tx.amount;
+      continue;
+    }
+    if (tx.type === "income") earned += tx.amount;
+    else spent += Math.abs(tx.amount);
+  }
+
+  return { earned, spent, net: earned - spent, count: transactions.length };
+}
+
+function FilterSummary({ transactions, formatCurrency }: { transactions: Transaction[]; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
+  const { earned, spent, net, count } = useMemo(() => computeFilterTotals(transactions), [transactions]);
+
+  if (count === 0) return null;
+
+  return (
+    <div className={styles.summaryBar}>
+      {spent > 0 && (
+        <span className={styles.summaryItem}>
+          <span className={styles.summaryLabel}>{t("transactions.totalSpent")}</span>
+          <span className={styles.summaryValue} style={{ color: "var(--color-expense)" }}>
+            {formatCurrency(spent)}
+          </span>
+        </span>
+      )}
+
+      {earned > 0 && (
+        <span className={styles.summaryItem}>
+          <span className={styles.summaryLabel}>{t("transactions.totalEarned")}</span>
+          <span className={styles.summaryValue} style={{ color: "var(--color-income)" }}>
+            {formatCurrency(earned)}
+          </span>
+        </span>
+      )}
+
+      {/* Net only adds information when both sides are present */}
+      {spent > 0 && earned > 0 && (
+        <span className={styles.summaryItem}>
+          <span className={styles.summaryLabel}>{t("transactions.net")}</span>
+          <span className={styles.summaryValue} style={{ color: net >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+            {net >= 0 ? "+" : ""}
+            {formatCurrency(net)}
+          </span>
+        </span>
+      )}
+
+      <span className={styles.summaryCount}>{t("transactions.transactionCount", { count })}</span>
+    </div>
+  );
 }
 
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
@@ -314,7 +386,7 @@ function CalendarGrid({
               const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
               const isToday = isSameDay(date, today);
               let bg = "transparent",
-                color = "var(--color-accent-strong)",
+                color = "var(--color-text-primary)",
                 border = "none",
                 weight = 400;
               if (isEdge) {
@@ -383,7 +455,7 @@ function CalendarGrid({
             width: "100%",
             marginTop: 12,
             background: "none",
-            border: "1px solid rgba(0,0,0,0.1)",
+            border: "1px solid var(--color-border-tertiary)",
             borderRadius: 8,
             cursor: "pointer",
             padding: "6px 0",
@@ -454,13 +526,15 @@ function MobileCalendar(props: {
           <button
             onClick={() => setExpanded((v) => !v)}
             style={{
+              // The active fill is dark in BOTH themes, so its label must stay
+              // light — using the accent's on-colour turned it dark-on-dark.
               background: expanded ? "var(--color-tooltip-bg)" : "var(--color-background-secondary)",
               border: "none",
               borderRadius: 8,
               padding: "8px 12px",
               cursor: "pointer",
               fontSize: 13,
-              color: expanded ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)",
+              color: expanded ? "var(--color-tooltip-text)" : "var(--color-text-secondary)",
               fontWeight: 500,
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -476,7 +550,7 @@ function MobileCalendar(props: {
               }}
               style={{
                 background: "none",
-                border: "1px solid rgba(0,0,0,0.1)",
+                border: "1px solid var(--color-border-tertiary)",
                 borderRadius: 8,
                 padding: "8px 10px",
                 cursor: "pointer",
@@ -717,7 +791,7 @@ function Pagination({
         alignItems: "center",
         justifyContent: "space-between",
         padding: "10px 16px",
-        borderTop: "1px solid rgba(0,0,0,0.06)",
+        borderTop: "1px solid var(--color-border-tertiary)",
         fontSize: 13,
         color: "var(--color-text-secondary)",
         flex: "0 0 auto",
@@ -921,6 +995,13 @@ export function TransactionsPage() {
                     </Button>
                   </Col>
                 </Row>
+
+                {/* Totals for the active filter — e.g. how much on Food this month */}
+                {!isLoading && (
+                  <div className="mt-2">
+                    <FilterSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />
+                  </div>
+                )}
               </CardBody>
             </Card>
             <Card className="border-0 shadow-sm">
@@ -930,9 +1011,9 @@ export function TransactionsPage() {
                     <Spinner color="primary" />
                   </div>
                 ) : (
-                  <div style={{ maxHeight: "60vh", overflowY: "auto", overflowX: "auto" }}>
+                  <div className={styles.tableScroll}>
                     <Table hover className="mb-0">
-                      <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--color-surface)" }}>
+                      <thead>
                         <tr>
                           <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             DATE
@@ -1079,7 +1160,7 @@ export function TransactionsPage() {
       </div>
 
       {/* ── Mobile ── */}
-      <div className="d-lg-none" style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 90px)" }}>
+      <div className={`d-lg-none ${styles.mobileShell}`}>
         {isError && (
           <Alert color="danger" className="mb-3" style={{ flexShrink: 0 }}>
             Failed to load transactions. Please refresh.
@@ -1111,8 +1192,16 @@ export function TransactionsPage() {
             +
           </Button>
         </div>
+
+        {/* Totals for the active filter */}
+        {!isLoading && (
+          <div className="mb-2" style={{ flexShrink: 0 }}>
+            <FilterSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />
+          </div>
+        )}
+
         <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <CardBody className="p-0" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <CardBody className={`p-0 ${styles.mobileScroll}`}>
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />

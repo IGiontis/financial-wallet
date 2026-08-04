@@ -1,0 +1,79 @@
+/* Transactions layout — sizing that Bootstrap utilities can't express. */
+
+/* ── Desktop table ────────────────────────────────────────────────────────── */
+/* Grow with the viewport instead of a fixed 60vh: never shorter than ~5 rows,
+   never taller than the space left below the filters. */
+.tableScroll {
+  overflow: auto;
+  max-height: clamp(260px, calc(100dvh - 20rem), 70dvh);
+  overscroll-behavior: contain;
+}
+
+/* Sticky header must sit on a solid surface or rows show through as it scrolls */
+.tableScroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-tertiary);
+  white-space: nowrap;
+}
+
+/* ── Mobile list ──────────────────────────────────────────────────────────── */
+/* Fill the screen below the header, honouring the on-screen keyboard (dvh) and
+   the home indicator, rather than subtracting a hard-coded pixel value. */
+.mobileShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100dvh - 8.5rem - env(safe-area-inset-bottom));
+}
+
+.mobileScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Category summary bar ─────────────────────────────────────────────────── */
+/* Totals for whatever filter is active — "how much have I spent on Food?" */
+.summaryBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+}
+
+.summaryItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  font-size: 12.5px;
+}
+
+.summaryLabel {
+  color: var(--color-text-secondary);
+}
+
+.summaryValue {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.summaryCount {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 575.98px) {
+  .summaryCount {
+    margin-left: 0;
+    width: 100%;
+  }
+}

@@ -10,6 +10,7 @@ import { logout } from "../../firebase/auth";
 import { getUser } from "../../firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
+import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -93,7 +94,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
             {theme === "dark" ? <FiSun size={19} /> : <FiMoon size={19} />}
           </Button>
 
-          <UncontrolledDropdown strategy="fixed">
+          <UncontrolledDropdown>
             <DropdownToggle tag="button" className={styles.userButton}>
               <div className={styles.userAvatar}>{getUserInitials()}</div>
               {/* Only show name once Firestore has loaded — prevents flash */}
@@ -101,7 +102,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
               <IoChevronDown size={16} className="d-none d-md-inline" />
             </DropdownToggle>
 
-            <DropdownMenu end className={styles.userDropdown}>
+            <DropdownMenu end className={styles.userDropdown} modifiers={DROPDOWN_MENU_MODIFIERS}>
               <div className={styles.userInfo}>
                 <div style={{ ...avatarStyle, width: 36, height: 36, fontSize: 13, marginBottom: 8 }}>{getUserInitials()}</div>
                 {displayName && <div style={{ fontWeight: 500, fontSize: 13, color: "var(--color-text-primary)" }}>{displayName}</div>}
