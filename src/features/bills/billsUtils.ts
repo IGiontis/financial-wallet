@@ -118,16 +118,29 @@ function clampDayOfMonth(year: number, month: number, day: number): Date {
 // Normalizes every frequency AND interval to a per-month figure, so the overview
 // can total a €60 bill every 2 months alongside a €15 monthly one.
 
-export function monthlyEquivalent(bill: Bill): number {
+export function monthlyEquivalent(bill: Bill, effectiveAmount?: number): number {
   const interval = getIntervalCount(bill);
+  const amount = effectiveAmount ?? bill.amount;
   switch (bill.frequency) {
     case "monthly":
-      return bill.amount / interval;
+      return amount / interval;
     case "weekly":
-      return (bill.amount * 52) / 12 / interval;
+      return (amount * 52) / 12 / interval;
     case "yearly":
-      return bill.amount / 12 / interval;
+      return amount / 12 / interval;
   }
+}
+
+// ─── Average of real payments ────────────────────────────────────────────────
+// Variable bills (electricity, water) are stored with an estimate, so recent
+// actuals give a far better forecast. Undefined until something has been paid.
+
+const AVERAGE_WINDOW = 6;
+
+export function averagePaidAmount(payments: BillPayment[]): number | undefined {
+  if (payments.length === 0) return undefined;
+  const recent = payments.slice(0, AVERAGE_WINDOW);
+  return recent.reduce((sum, p) => sum + p.amount, 0) / recent.length;
 }
 
 // ─── Status ─────────────────────────────────────────────────────────────────
@@ -140,15 +153,21 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
   const currentPeriodKey = getCurrentPeriodKey(bill, now);
   const payment = payments.find((p) => p.periodKey === currentPeriodKey);
 
+  // For variable bills, forecast from what has actually been paid rather than
+  // the (necessarily rough) stored estimate.
+  const average = averagePaidAmount(payments);
+  const forecastAmount = bill.isVariableAmount ? (average ?? bill.amount) : bill.amount;
+
   return {
     ...bill,
     currentPeriodKey,
     isPaidThisPeriod: !!payment,
     payment,
     payments,
+    averagePaidAmount: average,
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
     nextDueDate: getNextDueDate(bill, now),
-    monthlyEquivalent: monthlyEquivalent(bill),
+    monthlyEquivalent: monthlyEquivalent(bill, forecastAmount),
   };
 }
 

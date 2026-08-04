@@ -23,6 +23,7 @@ function useDateNames(locale: string) {
 interface BillFormValues {
   name: string;
   amount: number | "";
+  isVariableAmount: boolean;
   categoryId: string;
   frequency: BillFrequency;
   intervalCount: number | "";
@@ -74,6 +75,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       name: bill?.name ?? "",
       // Show the stored (base-currency) amount in the user's display currency for editing.
       amount: bill ? Number(convert(bill.amount).toFixed(2)) : "",
+      isVariableAmount: bill?.isVariableAmount ?? false,
       categoryId: bill?.categoryId ?? "",
       frequency: bill?.frequency ?? "monthly",
       intervalCount: bill?.intervalCount ?? 1,
@@ -88,17 +90,24 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         const typed = values.amount as number;
         const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
         const interval = Math.max(1, Number(values.intervalCount) || 1);
-        const [anchorYear, anchorMonthNum] = values.anchorMonth.split("-").map(Number);
+
+        // A cleared month input yields NaN, which would become an Invalid Date
+        // and be rejected by Firestore — fall back to the current month.
+        const [rawYear, rawMonth] = values.anchorMonth.split("-").map(Number);
+        const now = new Date();
+        const anchorYear = Number.isFinite(rawYear) ? rawYear : now.getFullYear();
+        const anchorMonthIndex = Number.isFinite(rawMonth) ? Math.min(Math.max(rawMonth, 1), 12) - 1 : now.getMonth();
 
         const data: CreateBillDTO = {
           name: values.name.trim(),
           amount: amountInBase,
+          isVariableAmount: values.isVariableAmount,
           categoryId: values.categoryId,
           frequency: values.frequency,
           intervalCount: interval,
           // Only meaningful for multi-period cycles, but stored either way so the
           // bucket maths stays stable if the user later raises the interval.
-          anchorDate: new Date(anchorYear, (anchorMonthNum || 1) - 1, 1),
+          anchorDate: new Date(anchorYear, anchorMonthIndex, 1),
           dueDay: values.dueDay === "" ? undefined : Number(values.dueDay),
           dueMonth: values.frequency === "yearly" && values.dueMonth !== "" ? Number(values.dueMonth) : undefined,
           notes: values.notes.trim() || undefined,
@@ -143,7 +152,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             </Col>
             <Col xs={12} sm={5}>
               <FormGroup className="mb-0">
-                <Label className="small fw-medium">{t("common.amount")} ({displayCurrency}) *</Label>
+                <Label className="small fw-medium">
+                  {formik.values.isVariableAmount ? t("bills.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
+                </Label>
                 <Input
                   type="number"
                   name="amount"
@@ -159,6 +170,26 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               </FormGroup>
             </Col>
           </Row>
+
+          {/* Variable-amount switch — for electricity, water and friends */}
+          <FormGroup switch className="mt-3 mb-0 d-flex align-items-start gap-2">
+            <Input
+              type="switch"
+              role="switch"
+              id="bill-variable-amount"
+              name="isVariableAmount"
+              checked={formik.values.isVariableAmount}
+              onChange={formik.handleChange}
+            />
+            <div>
+              <Label for="bill-variable-amount" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
+                {t("bills.variableAmount")}
+              </Label>
+              <div className="text-body-secondary" style={{ fontSize: 11 }}>
+                {t("bills.variableAmountHint")}
+              </div>
+            </div>
+          </FormGroup>
 
           <FormGroup className="mt-3 mb-0">
             <Label className="small fw-medium">{t("common.category")} *</Label>

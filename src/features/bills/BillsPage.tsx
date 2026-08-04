@@ -18,7 +18,6 @@ import {
   ModalBody,
   ModalFooter,
 } from "reactstrap";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { FiMoreVertical, FiCheck, FiClock } from "react-icons/fi";
 import type { Bill, BillWithStatus, CreateBillDTO } from "../../shared/types/IndexTypes";
@@ -29,6 +28,9 @@ import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid,
 import { getFrequencyLabel } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import AddBillModal from "./AddBillModal";
+import BillDetailModal from "./BillDetailModal";
+import MarkPaidModal from "./MarkPaidModal";
+import styles from "./css/BillsPage.module.css";
 
 const FREQUENCY_COLOR: Record<BillWithStatus["frequency"], string> = {
   weekly: "info",
@@ -41,8 +43,13 @@ const FREQUENCY_COLOR: Record<BillWithStatus["frequency"], string> = {
 function SummaryCards({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
   const active = bills.filter((b) => b.isActive);
-  const dueNow = active.filter((b) => !b.isPaidThisPeriod).reduce((s, b) => s + b.amount, 0);
-  const paid = active.filter((b) => b.isPaidThisPeriod).reduce((s, b) => s + b.amount, 0);
+
+  // Variable bills have no fixed figure — forecast from their recent average.
+  const expectedAmount = (b: BillWithStatus) => (b.isVariableAmount ? (b.averagePaidAmount ?? b.amount) : b.amount);
+
+  const dueNow = active.filter((b) => !b.isPaidThisPeriod).reduce((s, b) => s + expectedAmount(b), 0);
+  // What was actually paid, not what was estimated.
+  const paid = active.filter((b) => b.isPaidThisPeriod).reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0);
   const monthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
 
   const cards = [
@@ -90,40 +97,54 @@ function BillRow({
   bill,
   categoryLabel,
   formatCurrency,
-  onTogglePaid,
+  onMarkPaid,
   isToggling,
+  onOpenDetails,
   onEdit,
   onDelete,
 }: {
   bill: BillWithStatus;
   categoryLabel: string;
   formatCurrency: (n: number) => string;
-  onTogglePaid: (bill: BillWithStatus) => void;
+  onMarkPaid: (bill: BillWithStatus) => void;
   isToggling: boolean;
+  onOpenDetails: (bill: BillWithStatus) => void;
   onEdit: (bill: BillWithStatus) => void;
   onDelete: (bill: BillWithStatus) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const freqLabel = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
   const paidDate = bill.payment ? firestoreToDate(bill.payment.paidDate) : undefined;
+  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
 
   return (
-    <Card style={{ border: "1px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-md)", boxShadow: "none" }}>
+    <Card
+      className={styles.billRow}
+      onClick={() => onOpenDetails(bill)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetails(bill);
+        }
+      }}
+      title={t("bills.viewDetails")}
+    >
       <CardBody className="d-flex align-items-center gap-3 py-3">
-        {/* Paid toggle */}
-        <Button
-          color={paid ? "success" : "secondary"}
-          outline={!paid}
-          size="sm"
-          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 p-0"
-          style={{ width: 40, height: 40 }}
-          onClick={() => onTogglePaid(bill)}
-          disabled={isToggling}
-          title={paid ? t("bills.undoPayment") : t("bills.markAsPaid")}
+        {/* Status dot — reads as state, not as a button you might hit by accident */}
+        <span
+          className={styles.statusDot}
+          style={{
+            background: paid ? "var(--color-income)" : "color-mix(in srgb, var(--color-goal) 20%, transparent)",
+            color: paid ? "#fff" : "var(--color-goal)",
+            border: paid ? "none" : "1.5px solid color-mix(in srgb, var(--color-goal) 45%, transparent)",
+          }}
+          aria-hidden
         >
-          <FiCheck size={18} />
-        </Button>
+          {paid ? <FiCheck size={16} /> : <FiClock size={15} />}
+        </span>
 
         {/* Main */}
         <div className="flex-grow-1" style={{ minWidth: 0 }}>
@@ -132,41 +153,61 @@ function BillRow({
             <Badge color={FREQUENCY_COLOR[bill.frequency]} pill className="flex-shrink-0" style={{ fontSize: 10 }}>
               {t(freqLabel.key, { count: freqLabel.count })}
             </Badge>
+            {!bill.isActive && (
+              <Badge color="secondary" pill className="flex-shrink-0" style={{ fontSize: 10 }}>
+                {t("common.paused")}
+              </Badge>
+            )}
           </div>
+
+          {/* Explicit status line so it's obvious what has and hasn't been paid */}
           <div className="text-body-secondary text-truncate" style={{ fontSize: 12 }}>
             {categoryLabel}
             {paid && paidDate ? (
-              <span className="text-success">
-                {" "}
-                · {t("bills.paid")} {format(paidDate, "MMM d")}
-              </span>
+              <span className="text-success"> · {t("bills.paidOn", { date: dateFmt.format(paidDate) })}</span>
             ) : bill.nextDueDate ? (
-              <span>
-                {" "}
-                · <FiClock size={11} style={{ verticalAlign: "-1px" }} /> {t("bills.due")} {format(bill.nextDueDate, "MMM d")}
-              </span>
+              <span> · {t("bills.dueOn", { date: dateFmt.format(bill.nextDueDate) })}</span>
             ) : null}
           </div>
         </div>
 
-        {/* Amount */}
+        {/* Amount — for variable bills show the recent average, marked as such */}
         <div className="text-end flex-shrink-0">
-          <div className="fw-semibold text-body-emphasis">{formatCurrency(bill.amount)}</div>
-          {!bill.isActive && (
-            <Badge color="secondary" pill style={{ fontSize: 10 }}>
-              {t("common.paused")}
-            </Badge>
+          <div className="fw-semibold text-body-emphasis" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatCurrency(bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount)}
+          </div>
+          {bill.isVariableAmount && (
+            <div className="text-body-secondary" style={{ fontSize: 10 }}>
+              {bill.averagePaidAmount ? t("bills.averageShort") : t("bills.variesLabel")}
+            </div>
           )}
         </div>
 
+        {/* Explicit pay action — no ambiguous tap target */}
+        {!paid && (
+          <Button
+            color="success"
+            size="sm"
+            className="flex-shrink-0"
+            disabled={isToggling}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkPaid(bill);
+            }}
+          >
+            {t("bills.markPaidShort")}
+          </Button>
+        )}
+
         {/* Menu */}
-        <UncontrolledDropdown>
+        <UncontrolledDropdown onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0">
             <FiMoreVertical size={18} />
           </DropdownToggle>
           {/* Anchor to the toggle's right edge and keep the menu inside the
               viewport, so it opens inward instead of off-screen. */}
           <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
+            <DropdownItem onClick={() => onOpenDetails(bill)}>{t("bills.viewDetails")}</DropdownItem>
             <DropdownItem onClick={() => onEdit(bill)}>{t("common.edit")}</DropdownItem>
             <DropdownItem className="text-danger" onClick={() => onDelete(bill)}>
               {t("common.delete")}
@@ -195,18 +236,27 @@ export default function BillsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
+  const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
+  const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
 
   const categoryLabel = useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, `${c.icon ?? ""} ${c.name}`.trim()]));
     return (id: string) => map.get(id) ?? "Uncategorized";
   }, [categories]);
 
-  const handleTogglePaid = (bill: BillWithStatus) => {
-    if (bill.isPaidThisPeriod && bill.payment) {
-      unmarkPaid.mutate({ paymentId: bill.payment.id, transactionId: bill.payment.transactionId });
-    } else {
-      markPaid.mutate({ bill, paidDate: new Date() });
-    }
+  // Keep the open detail modal in sync after a payment is added or undone.
+  const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
+
+  // Paying always goes through a confirmation step so it's clear what is being
+  // recorded — and so variable bills can capture their real amount.
+  const handleConfirmPaid = (amountInBase: number, paidDate: Date) => {
+    if (!payingBill) return;
+    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase }, { onSuccess: () => setPayingBill(null) });
+  };
+
+  const handleUndoPayment = (bill: BillWithStatus) => {
+    if (!bill.payment) return;
+    unmarkPaid.mutate({ paymentId: bill.payment.id, transactionId: bill.payment.transactionId });
   };
 
   const handleSubmit = async (data: CreateBillDTO): Promise<void> => {
@@ -274,8 +324,9 @@ export default function BillsPage() {
                   bill={bill}
                   categoryLabel={categoryLabel(bill.categoryId)}
                   formatCurrency={formatCurrency}
-                  onTogglePaid={handleTogglePaid}
+                  onMarkPaid={setPayingBill}
                   isToggling={toggling}
+                  onOpenDetails={setDetailBill}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}
                 />
@@ -286,6 +337,30 @@ export default function BillsPage() {
       )}
 
       <AddBillModal isOpen={showModal} onClose={() => setShowModal(false)} categories={categories} bill={editBill} onSubmit={handleSubmit} />
+
+      {/* Details + payment history */}
+      {liveDetailBill && (
+        <BillDetailModal
+          bill={liveDetailBill}
+          categoryLabel={categoryLabel(liveDetailBill.categoryId)}
+          formatCurrency={formatCurrency}
+          isBusy={toggling}
+          onClose={() => setDetailBill(null)}
+          onMarkPaid={(b) => {
+            // Hand off to the confirmation step — never stack the two modals.
+            setDetailBill(null);
+            setPayingBill(b);
+          }}
+          onUndoPayment={handleUndoPayment}
+          onEdit={(b) => {
+            setDetailBill(null);
+            openEdit(b);
+          }}
+        />
+      )}
+
+      {/* Payment confirmation — captures the real amount and date */}
+      {payingBill && <MarkPaidModal bill={payingBill} isSaving={markPaid.isPending} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />}
 
       {/* Delete confirmation */}
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} size="sm">

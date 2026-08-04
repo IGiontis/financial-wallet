@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPeriodKey, monthlyEquivalent, computeBillStatus, getNextDueDate, getFrequencyLabel } from "./billsUtils";
+import { getPeriodKey, monthlyEquivalent, computeBillStatus, getNextDueDate, getFrequencyLabel, averagePaidAmount } from "./billsUtils";
 import type { Bill, BillPayment } from "../../shared/types/IndexTypes";
 
 const makeBill = (overrides: Partial<Bill> = {}): Bill =>
@@ -172,6 +172,52 @@ describe("getNextDueDate", () => {
     const due = getNextDueDate(makeBill({ dueDay: 31 }), new Date("2026-02-01"));
     expect(due?.getMonth()).toBe(1);
     expect(due?.getDate()).toBe(28);
+  });
+});
+
+// ─── Variable-amount bills ───────────────────────────────────────────────────
+
+describe("variable-amount bills", () => {
+  it("has no average before anything is paid", () => {
+    expect(averagePaidAmount([])).toBeUndefined();
+  });
+
+  it("averages the recorded payments", () => {
+    // Electricity: 50, 120, 70 → average 80.
+    const pays = [payment("2026-03", new Date("2026-03-01")), payment("2026-02", new Date("2026-02-01")), payment("2026-01", new Date("2026-01-01"))];
+    pays[0].amount = 50;
+    pays[1].amount = 120;
+    pays[2].amount = 70;
+    expect(averagePaidAmount(pays)).toBeCloseTo(80);
+  });
+
+  it("only averages the most recent six payments", () => {
+    // Seven payments: six of 100 then an old outlier of 1000 that must be ignored.
+    const pays = Array.from({ length: 7 }, (_, i) => {
+      const p = payment(`2026-0${i + 1}`, new Date(2026, i, 1));
+      p.amount = i < 6 ? 100 : 1000;
+      return p;
+    });
+    expect(averagePaidAmount(pays)).toBe(100);
+  });
+
+  it("forecasts a variable bill from its average, not the stale estimate", () => {
+    const electricity = makeBill({ amount: 60, isVariableAmount: true });
+    const pays = [payment("2026-03", new Date("2026-03-01")), payment("2026-02", new Date("2026-02-01"))];
+    pays[0].amount = 100;
+    pays[1].amount = 140;
+
+    const status = computeBillStatus(electricity, pays, new Date("2026-04-10"));
+    expect(status.averagePaidAmount).toBeCloseTo(120);
+    // Monthly forecast follows the average (120), not the 60 estimate.
+    expect(status.monthlyEquivalent).toBeCloseTo(120);
+  });
+
+  it("leaves fixed bills on their stated amount", () => {
+    const rent = makeBill({ amount: 500 });
+    const pays = [payment("2026-03", new Date("2026-03-01"))];
+    pays[0].amount = 480; // a one-off underpayment shouldn't move the forecast
+    expect(computeBillStatus(rent, pays, new Date("2026-03-10")).monthlyEquivalent).toBe(500);
   });
 });
 

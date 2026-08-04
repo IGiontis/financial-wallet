@@ -324,7 +324,14 @@ export interface Bill {
   id: string;
   userId: string;
   name: string;
-  amount: number; // stored in base currency
+  /**
+   * Stored in base currency. For a variable bill (see `isVariableAmount`) this
+   * is an *estimate* used for forecasting — the real figure is captured on each
+   * payment.
+   */
+  amount: number;
+  /** Electricity, water… — the charge differs every period, so ask when paying. */
+  isVariableAmount?: boolean;
   categoryId: string; // expense category this is logged under when paid
   frequency: BillFrequency;
   /**
@@ -348,6 +355,7 @@ export interface Bill {
 export interface CreateBillDTO {
   name: string;
   amount: number;
+  isVariableAmount?: boolean;
   categoryId: string;
   frequency: BillFrequency;
   intervalCount?: number;
@@ -362,6 +370,7 @@ export interface CreateBillDTO {
 export interface UpdateBillDTO {
   name?: string;
   amount?: number;
+  isVariableAmount?: boolean;
   categoryId?: string;
   frequency?: BillFrequency;
   intervalCount?: number;
@@ -394,6 +403,8 @@ export interface CreateBillPaymentDTO {
 }
 
 export interface BillWithStatus extends Bill {
+  /** Average of recent real payments — the useful figure for variable bills. */
+  averagePaidAmount?: number;
   currentPeriodKey: string;
   isPaidThisPeriod: boolean;
   payment?: BillPayment; // the payment record for the current period, if paid

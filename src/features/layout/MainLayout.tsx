@@ -37,7 +37,16 @@ export function MainLayout() {
               <Outlet />
             </div>
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", margin: 0 }}>
-              © {new Date().getFullYear()} Ilias Giontis · MyFiWallet. All rights reserved.
+              © {new Date().getFullYear()}{" "}
+              <a
+                href="https://igiontisportfolio.netlify.app/#home"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                Ilias Giontis
+              </a>{" "}
+              · MyFiWallet. All rights reserved.
             </p>
           </Container>
         </main>

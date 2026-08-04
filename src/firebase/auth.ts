@@ -21,58 +21,38 @@ const googleProvider = new GoogleAuthProvider();
 // ─── Register with email & password ──────────────────────────────────────────
 
 export const registerWithEmail = async (email: string, password: string) => {
-  try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    return result.user;
-  } catch (err) {
-    throw err;
-  }
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  return result.user;
 };
 
 // ─── Login with email & password ─────────────────────────────────────────────
 
 export const loginWithEmail = async (email: string, password: string) => {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
-  } catch (err) {
-    throw err;
-  }
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
 };
 
 // ─── Login with Google ────────────────────────────────────────────────────────
 
 export const loginWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (err) {
-    throw err;
-  }
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 };
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
 
 export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    throw err;
-  }
+  await signOut(auth);
 };
 
 // ─── Re-authenticate ──────────────────────────────────────────────────────────
 // Required before sensitive operations (email/password change, delete account)
 
 export const reauthenticate = async (currentPassword: string) => {
-  try {
-    const user = auth.currentUser;
-    if (!user || !user.email) throw new Error("No authenticated user");
-    const credential = EmailAuthProvider.credential(user.email, currentPassword);
-    await reauthenticateWithCredential(user, credential);
-  } catch (err) {
-    throw err;
-  }
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error("No authenticated user");
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
 };
 
 // ─── Update email ─────────────────────────────────────────────────────────────
@@ -81,37 +61,25 @@ export const reauthenticate = async (currentPassword: string) => {
 // protection is on (the modern default), so we use the verify-before flow.
 
 export const updateUserEmail = async (newEmail: string) => {
-  try {
-    const user = auth.currentUser;
-    if (!user) throw new Error("No authenticated user");
-    await verifyBeforeUpdateEmail(user, newEmail);
-  } catch (err) {
-    throw err;
-  }
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user");
+  await verifyBeforeUpdateEmail(user, newEmail);
 };
 
 // ─── Update password ──────────────────────────────────────────────────────────
 
 export const updateUserPassword = async (newPassword: string) => {
-  try {
-    const user = auth.currentUser;
-    if (!user) throw new Error("No authenticated user");
-    await updatePassword(user, newPassword);
-  } catch (err) {
-    throw err;
-  }
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user");
+  await updatePassword(user, newPassword);
 };
 
 // ─── Delete account ───────────────────────────────────────────────────────────
 
 export const deleteAccount = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) throw new Error("No authenticated user");
-    await deleteUser(user);
-  } catch (err) {
-    throw err;
-  }
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user");
+  await deleteUser(user);
 };
 
 // ─── Check if user signed in with Google ─────────────────────────────────────
