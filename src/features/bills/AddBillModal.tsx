@@ -6,6 +6,7 @@ import type { Bill, BillFrequency, CreateBillDTO, Category } from "../../shared/
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { categoryLabel } from "../../shared/utils/categories";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -131,7 +132,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
   const intervalUnitKey = frequency === "weekly" ? "bills.intervalWeeks" : frequency === "yearly" ? "bills.intervalYears" : "bills.intervalMonths";
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="md">
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{isEdit ? t("bills.editBill") : t("bills.newBill")}</ModalHeader>
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
@@ -206,7 +207,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
+                    {c.icon} {categoryLabel(c.name, t)}
                   </option>
                 ))}
             </Input>

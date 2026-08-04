@@ -8,6 +8,7 @@ import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
 import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, periodProgress, yearlyBreakdown } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
+import { categoryLabel } from "../../shared/utils/categories";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import MarkPaidModal from "./MarkPaidModal";
@@ -249,7 +250,7 @@ function BillRow({
 
       {/* Category + due indicator */}
       <div className={`${styles.rowMeta} ${styles.rowMetaText}`}>
-        <span className="text-body-secondary">{category?.name ?? "—"}</span>
+        <span className="text-body-secondary">{categoryLabel(category?.name, t) || "—"}</span>
         <span className="text-body-secondary d-none d-sm-inline">·</span>
         <DueChip bill={bill} />
       </div>
@@ -316,8 +317,8 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
   const { t } = useTranslation();
 
   const { total, categories } = useMemo(
-    () => yearlyBreakdown(bills, (id) => categoryFor(id)?.name ?? "—"),
-    [bills, categoryFor],
+    () => yearlyBreakdown(bills, (id) => categoryLabel(categoryFor(id)?.name, t) || "—"),
+    [bills, categoryFor, t],
   );
 
   return (
@@ -528,7 +529,7 @@ export default function BillsPage() {
       {liveDetailBill && (
         <BillDetailModal
           bill={liveDetailBill}
-          categoryLabel={`${categoryFor(liveDetailBill.categoryId)?.icon ?? ""} ${categoryFor(liveDetailBill.categoryId)?.name ?? "—"}`.trim()}
+          categoryLabel={`${categoryFor(liveDetailBill.categoryId)?.icon ?? ""} ${categoryLabel(categoryFor(liveDetailBill.categoryId)?.name, t) || "—"}`.trim()}
           formatCurrency={formatCurrency}
           isBusy={busy}
           onClose={() => setDetailBill(null)}
@@ -547,7 +548,7 @@ export default function BillsPage() {
 
       {payingBill && <MarkPaidModal bill={payingBill} isSaving={markPaid.isPending} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />}
 
-      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} size="sm">
+      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>
         <ModalBody>
           <p className="mb-0" style={{ fontSize: 14 }}>

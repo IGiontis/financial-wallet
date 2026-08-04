@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { FiCheck, FiRotateCcw } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
 import { getFrequencyLabel, getFrequencyToken } from "./billsUtils";
 
 interface BillDetailModalProps {
@@ -125,7 +125,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                 className="d-flex align-items-center justify-content-between px-2 py-2"
                 style={{ borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)", fontSize: 13 }}
               >
-                <span>{format(firestoreToDate(p.paidDate), "dd MMM yyyy")}</span>
+                <span>{format(firestoreToDate(p.paidDate), "dd MMM yyyy", { locale: dateFnsLocale(i18n.resolvedLanguage) })}</span>
                 <span className="fw-semibold">{formatCurrency(p.amount)}</span>
               </div>
             ))}

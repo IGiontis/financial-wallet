@@ -1,6 +1,8 @@
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "reactstrap";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
+import { categoryLabel } from "../../../shared/utils/categories";
 import { EXPENSE_COLORS, INCOME_COLORS, GOAL_COLORS, INVESTMENT_COLORS, TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 
 function firestoreToDate(value: any): Date {
@@ -24,6 +26,7 @@ interface Props {
 }
 
 export default function TransactionViewModal({ transaction: tx, categories, formatCurrency, onClose }: Props) {
+  const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isGoal = !!tx.isGoalTransaction;
   const isInvestment = !!tx.isInvestmentTransaction && !isGoal;
@@ -43,8 +46,8 @@ export default function TransactionViewModal({ transaction: tx, categories, form
   const gradientFrom = isGoal ? "var(--color-goal)" : isInvestment ? "var(--bs-primary)" : undefined;
   const gradientTo = isGoal || isInvestment ? directionColor : undefined;
 
-  const primaryBadge = isGoal ? "Goal" : isInvestment ? "Investment" : isPositive ? "Income" : "Expense";
-  const secondaryBadge = (isGoal || isInvestment) && tx.contributionType ? (tx.contributionType === "withdrawal" ? "Withdrawal" : "Deposit") : undefined;
+  const primaryBadge = isGoal ? categoryLabel("Goal", t) : isInvestment ? categoryLabel("Investments", t) : isPositive ? t("transactions.income") : t("transactions.expense");
+  const secondaryBadge = (isGoal || isInvestment) && tx.contributionType ? (tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")) : undefined;
 
   const meta = tx.metadata as any;
   const fuelCells: FuelCell[] = meta?.fuelType
@@ -58,14 +61,14 @@ export default function TransactionViewModal({ transaction: tx, categories, form
     : [];
 
   return (
-    <Modal isOpen toggle={onClose} size="md">
-      <ModalHeader toggle={onClose}>Transaction details</ModalHeader>
+    <Modal isOpen toggle={onClose} centered size="md">
+      <ModalHeader toggle={onClose}>{t("transactions.transactionDetails")}</ModalHeader>
       <ModalBody>
         <TransactionReviewBody
           subtitle="Here are the full details for this transaction."
           description={tx.description}
           categoryIcon={cat?.icon ?? ""}
-          categoryName={cat?.name ?? "—"}
+          categoryName={categoryLabel(cat?.name, t) || "—"}
           primaryBadge={primaryBadge}
           secondaryBadge={secondaryBadge}
           colors={colors}
@@ -81,7 +84,7 @@ export default function TransactionViewModal({ transaction: tx, categories, form
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       </ModalFooter>
     </Modal>

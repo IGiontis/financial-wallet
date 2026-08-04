@@ -251,7 +251,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   const isTargeted = formik.values.goalType === "targeted";
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="m" scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : `Review your ${isGoalsPage ? "goal" : "investment"}`}</ModalHeader>
 
       {step === "review" ? (

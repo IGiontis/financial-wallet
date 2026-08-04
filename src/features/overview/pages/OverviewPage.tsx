@@ -63,8 +63,11 @@ export const OverviewPage = () => {
     selectedPeriod === "current_month" || (selectedPeriod === "custom" && appliedRange.fromMonth === appliedRange.toMonth && appliedRange.fromYear === appliedRange.toYear);
 
   const chartData = useMemo(
-    () => (isSingleMonth ? groupByWeek(filtered, dateRange, (n) => `${t("common.week", { defaultValue: "Week" })} ${n}`) : groupByMonth(filtered)),
-    [filtered, isSingleMonth, dateRange, t],
+    () =>
+      isSingleMonth
+        ? groupByWeek(filtered, dateRange, (n) => `${t("common.week", { defaultValue: "Week" })} ${n}`)
+        : groupByMonth(filtered, (d) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "2-digit" }).format(d)),
+    [filtered, isSingleMonth, dateRange, t, i18n.resolvedLanguage],
   );
 
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);

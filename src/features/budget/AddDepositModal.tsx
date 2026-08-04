@@ -85,7 +85,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
   const balanceAfterBase = remaining - amountInBaseLive;
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="md">
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Add deposit — {goal.name}
       </ModalHeader>

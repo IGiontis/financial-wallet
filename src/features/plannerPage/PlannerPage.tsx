@@ -5,6 +5,7 @@ import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
+import { dateFnsLocale } from "../../shared/utils/dates";
 import type { InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 function firestoreToDate(value: any): Date {
@@ -94,13 +95,14 @@ function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle
 }
 
 export function PlannerPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = dateFnsLocale(i18n.resolvedLanguage);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [salaryInput, setSalaryInput] = useState<string>(() => localStorage.getItem(getSalaryKey(new Date())) ?? "");
   const [disabledGoals, setDisabledGoals] = useState<Set<string>>(() => loadDisabledGoals(new Date()));
 
   const monthRange = useMemo(() => ({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }), [currentDate]);
-  const monthLabel = format(currentDate, "MMMM yyyy");
+  const monthLabel = format(currentDate, "MMMM yyyy", { locale });
   const isToday = format(currentDate, "yyyy-MM") === format(new Date(), "yyyy-MM");
   const salary = parseFloat(salaryInput) || 0;
 
@@ -293,7 +295,7 @@ export function PlannerPage() {
                     <span style={{ fontSize: 10, color: g.status === "behind" ? "var(--color-expense)" : "var(--color-text-secondary)" }}>{g.status === "behind" ? "Behind" : "On track"}</span>
                   )}
                   {g.goalType === "targeted" && g.deadline && (
-                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· deadline {format(firestoreToDate(g.deadline), "dd MMM yyyy")}</span>
+                    <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· deadline {format(firestoreToDate(g.deadline), "dd MMM yyyy", { locale })}</span>
                   )}
                   {g.targetPeriod === "monthly" && (
                     <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· monthly target {formatCurrency(g.targetAmount ?? 0)}</span>

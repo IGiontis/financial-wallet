@@ -120,7 +120,7 @@ export const groupByWeek = (transactions: Transaction[], range: DateRange, weekL
     .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0 || w.goals > 0);
 };
 
-export const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
+export const groupByMonth = (transactions: Transaction[], monthLabel: (d: Date) => string = (d) => format(d, "MMM yy")): ChartDataPoint[] => {
   const map = new Map<string, Omit<ChartDataPoint, "label"> & { firstDay: Date }>();
 
   transactions.forEach((tx) => {
@@ -147,7 +147,7 @@ export const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
   return Array.from(map.values())
     .sort((a, b) => a.firstDay.getTime() - b.firstDay.getTime())
     .map((d) => ({
-      label: format(d.firstDay, "MMM yy"),
+      label: monthLabel(d.firstDay),
       income: Math.round(d.income),
       expenses: Math.round(d.expenses),
       investments: Math.round(d.investments),

@@ -196,7 +196,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="lg" scrollable>
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="lg" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? `Edit — ${goal.icon ?? "💰"} ${goal.name}` : "Review your changes"}</ModalHeader>
 
       {step === "review" ? (

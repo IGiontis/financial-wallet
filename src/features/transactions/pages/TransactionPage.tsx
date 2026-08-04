@@ -23,14 +23,12 @@ import { useTranslation } from "react-i18next";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
+import { categoryLabel } from "../../../shared/utils/categories";
 import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
 
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const PAGE_SIZE = 15;
 
 // ─── Tinted chips ─────────────────────────────────────────────────────────────
@@ -158,12 +156,12 @@ function fromInputValue(v: string): Date | null {
   return new Date(y, m - 1, day);
 }
 
-function formatDisplay(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+function formatDisplay(d: Date, lang: string): string {
+  return d.toLocaleDateString(lang, { month: "short", day: "2-digit", year: "numeric" });
 }
 
-function formatTable(d: Date): string {
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+function formatTable(d: Date, lang: string): string {
+  return d.toLocaleDateString(lang, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function firestoreToDate(value: any): Date {
@@ -183,6 +181,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 function DateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: string; max?: string }) {
+  const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div
@@ -190,7 +189,9 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
       style={{ flex: 1, border: "1px solid var(--color-border-primary)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "var(--color-background-secondary)", minWidth: 0, cursor: "pointer" }}
     >
       <div style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 13, color: date ? "var(--color-accent-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
+      <div style={{ fontSize: 13, color: date ? "var(--color-accent-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>
+        {date ? formatDisplay(date, i18n.resolvedLanguage ?? "en") : t("transactions.selectDate")}
+      </div>
       <input
         ref={inputRef}
         type="date"
@@ -245,10 +246,28 @@ function CalendarGrid({
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "en";
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [calView, setCalView] = useState<CalView>("days");
+
+  // Locale-aware month/weekday names — built from Intl instead of a hardcoded
+  // English array, so the calendar actually follows the app language.
+  const monthNames = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(lang, { month: "long" });
+    return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
+  }, [lang]);
+  const monthShort = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(lang, { month: "short" });
+    return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
+  }, [lang]);
+  const dayNamesShort = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(lang, { weekday: "short" });
+    // Sunday-first, matching the grid's day-of-week numbering below.
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2023, 0, 1 + i)));
+  }, [lang]);
 
   const txMap = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
@@ -305,8 +324,8 @@ function CalendarGrid({
   return (
     <>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
-        <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
+        <DateField label={t("transactions.dateFrom").toUpperCase()} date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
+        <DateField label={t("transactions.dateTo").toUpperCase()} date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
       </div>
       <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -328,7 +347,7 @@ function CalendarGrid({
             textUnderlineOffset: 3,
           }}
         >
-          {MONTH_NAMES[viewMonth]} {viewYear}
+          {monthNames[viewMonth]} {viewYear}
           <span style={{ fontSize: 10, marginLeft: 4, color: "var(--color-text-secondary)" }}>v</span>
         </button>
         <button style={navBtn} onClick={nextMonth}>
@@ -352,7 +371,7 @@ function CalendarGrid({
       )}
       {calView === "months" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginBottom: 8 }}>
-          {MONTH_SHORT.map((m, i) =>
+          {monthShort.map((m, i) =>
             pickerCell(
               i === viewMonth,
               () => {
@@ -367,8 +386,8 @@ function CalendarGrid({
       {calView === "days" && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
-            {DAY_NAMES_SHORT.map((d) => (
-              <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", padding: "2px 0" }}>
+            {dayNamesShort.map((d, i) => (
+              <div key={i} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", padding: "2px 0" }}>
                 {d}
               </div>
             ))}
@@ -435,11 +454,11 @@ function CalendarGrid({
           <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-income)", display: "inline-block" }} />
-              Income
+              {t("transactions.income")}
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-expense)", display: "inline-block" }} />
-              Expense
+              {t("transactions.expense")}
             </span>
           </div>
         </>
@@ -495,6 +514,8 @@ function MobileCalendar(props: {
   onToChange: (d: Date | null) => void;
   onDaySelect: (d: Date) => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "en";
   const [expanded, setExpanded] = useState(false);
   const hasFilter = !!(props.fromDate || props.toDate);
   return (
@@ -504,6 +525,7 @@ function MobileCalendar(props: {
           <div style={{ display: "flex", gap: 8, flex: 1 }}>
             {(["from", "to"] as const).map((which) => {
               const date = which === "from" ? props.fromDate : props.toDate;
+              const label = which === "from" ? t("transactions.dateFrom") : t("transactions.dateTo");
               return (
                 <div
                   key={which}
@@ -517,8 +539,8 @@ function MobileCalendar(props: {
                   }}
                   onClick={() => setExpanded(true)}
                 >
-                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{which.toUpperCase()}</div>
-                  <div style={{ fontSize: 12, color: date ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Any"}</div>
+                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{label.toUpperCase()}</div>
+                  <div style={{ fontSize: 12, color: date ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date, lang) : t("transactions.anyDate")}</div>
                 </div>
               );
             })}
@@ -540,7 +562,7 @@ function MobileCalendar(props: {
               flexShrink: 0,
             }}
           >
-            {expanded ? "Hide" : "Calendar"}
+            {expanded ? t("transactions.hideCalendar") : t("transactions.showCalendar")}
           </button>
           {hasFilter && (
             <button
@@ -559,7 +581,7 @@ function MobileCalendar(props: {
                 flexShrink: 0,
               }}
             >
-              Clear
+              {t("transactions.clear")}
             </button>
           )}
         </div>
@@ -598,12 +620,12 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
         }}
       >
         <option value="all">{t("transactions.allCategories")}</option>
-        <option value="income">💰 Income</option>
-        <option value="expense">💸 Expenses</option>
+        <option value="income">💰 {t("transactions.income")}</option>
+        <option value="expense">💸 {t("transactions.expense")}</option>
         <optgroup label={t("transactions.categories")}>
           {categories.map((c) => (
             <option key={c.id} value={c.name}>
-              {c.icon} {c.name}
+              {c.icon} {categoryLabel(c.name, t)}
             </option>
           ))}
         </optgroup>
@@ -639,20 +661,20 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
 function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
   const { t } = useTranslation();
   return (
-    <Modal isOpen toggle={onClose} size="sm">
+    <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{t("transactions.deleteTransaction")}</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: 14, margin: 0 }}>
-          Are you sure you want to delete <strong>{transaction.description}</strong>?
+          {t("transactions.deleteConfirm", { defaultValue: "Are you sure you want to delete {{name}}?", name: transaction.description })}
         </p>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>This cannot be undone.</p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button color="danger" onClick={onConfirm} disabled={isDeleting}>
-          {isDeleting ? "Deleting..." : "Delete"}
+          {isDeleting ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>
@@ -674,7 +696,7 @@ function TransactionCard({
   onDelete: () => void;
   onView: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
   const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
@@ -700,7 +722,7 @@ function TransactionCard({
       <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onView}>
         <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
-          {cat?.name ?? "—"} · <span style={{ whiteSpace: "nowrap" }}>{formatTable(firestoreToDate(tx.date))}</span>
+          {categoryLabel(cat?.name, t) || "—"} · <span style={{ whiteSpace: "nowrap" }}>{formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}</span>
         </p>
         {tx.isGoalTransaction && (
           <span style={{ ...getGoalBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}>
@@ -781,6 +803,7 @@ function Pagination({
   pageSize: number;
   onPageChange: (page: number) => void;
 }) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
   const from = (currentPage - 1) * pageSize + 1;
   const to = Math.min(currentPage * pageSize, totalItems);
@@ -797,18 +820,16 @@ function Pagination({
         flex: "0 0 auto",
       }}
     >
-      <span>
-        {from}–{to} of {totalItems}
-      </span>
+      <span>{t("transactions.paginationRange", { from, to, total: totalItems })}</span>
       <div style={{ display: "flex", gap: 4 }}>
         <Button size="sm" color="light" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
-          Prev
+          {t("common.prev")}
         </Button>
         <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
           {currentPage} / {totalPages}
         </span>
         <Button size="sm" color="light" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
-          Next
+          {t("common.next")}
         </Button>
       </div>
     </div>
@@ -816,7 +837,7 @@ function Pagination({
 }
 
 export function TransactionsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
@@ -1047,12 +1068,12 @@ export function TransactionsPage() {
                             return (
                               <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                                  {formatTable(firestoreToDate(tx.date))}
+                                  {formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
                                 </td>
                                 <td style={{ fontWeight: 500 }}>{tx.description}</td>
                                 <td>
                                   <Badge color="light" className="text-dark">
-                                    {cat?.icon} {cat?.name ?? "—"}
+                                    {cat?.icon} {categoryLabel(cat?.name, t) || "—"}
                                   </Badge>
                                 </td>
                                 <td className="text-end">

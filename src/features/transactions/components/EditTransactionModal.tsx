@@ -8,6 +8,7 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
+import { categoryLabel } from "../../../shared/utils/categories";
 import {
   EXPENSE_COLORS, INCOME_COLORS,
   TransactionReviewBody,
@@ -78,6 +79,7 @@ function ReviewScreen({
   isSubmitting: boolean;
   formatAmount: (n: number) => string;
 }) {
+  const { t } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
   const colors = isIncome ? INCOME_COLORS : EXPENSE_COLORS;
@@ -101,8 +103,8 @@ function ReviewScreen({
           subtitle="Please review your changes before saving."
           description={values.description}
           categoryIcon={category?.icon ?? ""}
-          categoryName={category?.name ?? "—"}
-          primaryBadge={isIncome ? "Income" : "Expense"}
+          categoryName={categoryLabel(category?.name, t) || "—"}
+          primaryBadge={isIncome ? t("transactions.income") : t("transactions.expense")}
           colors={colors}
           amount={Number(values.amount)}
           formatAmount={formatAmount}
@@ -112,9 +114,9 @@ function ReviewScreen({
         />
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" outline onClick={onBack} disabled={isSubmitting}>Back</Button>
+        <Button color="secondary" outline onClick={onBack} disabled={isSubmitting}>{t("common.back")}</Button>
         <Button color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Confirm & save"}
+          {isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
         </Button>
       </ModalFooter>
     </>
@@ -234,8 +236,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="md">
-      <ModalHeader toggle={handleClose}>{step === "form" ? "Edit transaction" : "Review changes"}</ModalHeader>
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
+      <ModalHeader toggle={handleClose}>{step === "form" ? t("transactions.editTransaction") : t("transactions.reviewChanges")}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
@@ -325,7 +327,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     >
                       <option value="">{t("common.none")}</option>
                       {[...filteredCategories].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                        <option key={c.id} value={c.id}>{c.icon} {categoryLabel(c.name, t)}</option>
                       ))}
                     </Input>
                     <FormFeedback>{formik.errors.categoryId}</FormFeedback>
@@ -387,8 +389,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             </form>
           </ModalBody>
           <ModalFooter>
-            <Button color="secondary" outline onClick={handleClose}>Cancel</Button>
-            <Button color="primary" disabled={!formik.dirty} onClick={handleReview}>Review changes</Button>
+            <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
+            <Button color="primary" disabled={!formik.dirty} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>
           </ModalFooter>
         </>
       )}

@@ -98,7 +98,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} size="m">
+    <Modal isOpen={isOpen} toggle={handleClose} centered size="m">
       <ModalHeader toggle={handleClose}>
         {goal.icon ?? "💰"} Withdraw — {goal.name}
       </ModalHeader>

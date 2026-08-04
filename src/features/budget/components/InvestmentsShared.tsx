@@ -28,6 +28,7 @@ import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentGoalStatus, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
 import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
+import i18n from "../../../i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,10 @@ export const toDate = (value: any): Date | undefined => {
   return new Date(value);
 };
 
-export const formatDate = (date?: Date) => (date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date) : "—");
+// Not a component, so it reads the app language straight off the shared i18n
+// instance rather than the useTranslation() hook — was hardcoded to en-US
+// before, which is why dates here stayed English regardless of app language.
+export const formatDate = (date?: Date) => (date ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", day: "numeric", year: "numeric" }).format(date) : "—");
 
 export const statusConfig: Record<InvestmentGoalStatus, { label: string; color: string }> = {
   on_track: { label: "On track", color: "success" },
@@ -461,7 +465,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
 export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
   return (
-    <Modal isOpen toggle={onClose} size="sm">
+    <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>Delete</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: 14, margin: 0 }}>
@@ -583,7 +587,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
   const filtered = activeTab === "deposits" ? deposits : activeTab === "withdrawals" ? withdrawals : sorted;
 
   return (
-    <Modal isOpen toggle={onClose} size="md">
+    <Modal isOpen toggle={onClose} centered size="md">
       <ModalHeader toggle={onClose} style={{ fontSize: 14, fontWeight: 500 }}>
         {goal.icon} {goal.name} — History
       </ModalHeader>
