@@ -63,7 +63,7 @@ export function getCurrentPeriodKey(bill: Pick<Bill, "frequency" | "intervalCoun
 // A soft hint for "roughly when I expect it". Undefined when the user left the
 // due day blank.
 
-export function getNextDueDate(bill: Bill, now: Date = new Date()): Date | undefined {
+export function getNextDueDate(bill: Bill, now: Date = new Date(), skipCurrentPeriod = false): Date | undefined {
   const { frequency, dueDay, dueMonth } = bill;
   const interval = getIntervalCount(bill);
 
@@ -72,7 +72,7 @@ export function getNextDueDate(bill: Bill, now: Date = new Date()): Date | undef
     // Weekday within the current bucket, rolling to the next bucket once passed.
     const periodStart = getPeriodStart(bill, now);
     const candidate = weekdayWithin(periodStart, dueDay);
-    if (candidate >= startOfDay(now)) return candidate;
+    if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
     return weekdayWithin(addWeeks(periodStart, interval), dueDay);
   }
 
@@ -80,7 +80,7 @@ export function getNextDueDate(bill: Bill, now: Date = new Date()): Date | undef
     if (dueDay == null) return undefined;
     const periodStart = getPeriodStart(bill, now);
     const candidate = clampDayOfMonth(periodStart.getFullYear(), periodStart.getMonth(), dueDay);
-    if (candidate >= startOfDay(now)) return candidate;
+    if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
     const next = addMonths(periodStart, interval);
     return clampDayOfMonth(next.getFullYear(), next.getMonth(), dueDay);
   }
@@ -89,7 +89,7 @@ export function getNextDueDate(bill: Bill, now: Date = new Date()): Date | undef
   if (dueDay == null || dueMonth == null) return undefined;
   const periodStart = getPeriodStart(bill, now);
   const candidate = clampDayOfMonth(periodStart.getFullYear(), dueMonth, dueDay);
-  if (candidate >= startOfDay(now)) return candidate;
+  if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
   return clampDayOfMonth(periodStart.getFullYear() + interval, dueMonth, dueDay);
 }
 
@@ -166,7 +166,7 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
     payments,
     averagePaidAmount: average,
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
-    nextDueDate: getNextDueDate(bill, now),
+    nextDueDate: getNextDueDate(bill, now, !!payment),
     monthlyEquivalent: monthlyEquivalent(bill, forecastAmount),
   };
 }
