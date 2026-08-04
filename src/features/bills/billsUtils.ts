@@ -286,6 +286,40 @@ export function yearlyBreakdown(bills: BillWithStatus[], labelFor: (categoryId: 
 // ─── Display helper ─────────────────────────────────────────────────────────
 // Returns the i18n key + count for a bill's cadence, e.g. "every 2 months".
 
+/** Roughly how many months pass between two payments. */
+export function monthsBetweenPayments(bill: Pick<Bill, "frequency" | "intervalCount">): number {
+  const interval = getIntervalCount(bill);
+  switch (bill.frequency) {
+    case "weekly":
+      return (interval * 7) / 30.44; // average month length
+    case "monthly":
+      return interval;
+    case "yearly":
+      return interval * 12;
+  }
+}
+
+/**
+ * Colour token for a bill's cadence, forming a scale you can read at a glance:
+ * the more often a bill recurs, the "hotter" its badge.
+ *
+ *   weekly-ish  → red      (hits you constantly)
+ *   monthly     → blue     (the common case)
+ *   2–3 months  → amber
+ *   4–11 months → indigo
+ *   yearly+     → green    (rare, easy to forget)
+ *
+ * Uses existing semantic tokens — no new palette.
+ */
+export function getFrequencyToken(bill: Pick<Bill, "frequency" | "intervalCount">): string {
+  const months = monthsBetweenPayments(bill);
+  if (months < 1) return "--color-expense";
+  if (months < 2) return "--bs-primary";
+  if (months < 4) return "--color-goal";
+  if (months < 12) return "--color-invest";
+  return "--color-income";
+}
+
 export function getFrequencyLabel(bill: Pick<Bill, "frequency" | "intervalCount">): { key: string; count: number } {
   const interval = getIntervalCount(bill);
   if (interval === 1) {

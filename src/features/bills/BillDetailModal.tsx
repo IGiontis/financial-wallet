@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiCheck, FiRotateCcw } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { getFrequencyLabel } from "./billsUtils";
+import { getFrequencyLabel, getFrequencyToken } from "./billsUtils";
 
 interface BillDetailModalProps {
   bill: BillWithStatus;
@@ -59,7 +59,8 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             <Fact label={t("common.amount")} value={formatCurrency(bill.amount)} />
           </Col>
           <Col xs={6}>
-            <Fact label={t("bills.repeats")} value={t(freq.key, { count: freq.count })} />
+            {/* Same colour scale as the list, so cadence stays recognisable */}
+            <Fact label={t("bills.repeats")} value={t(freq.key, { count: freq.count })} accent={`var(${getFrequencyToken(bill)})`} />
           </Col>
           <Col xs={6}>
             <Fact label={t("common.category")} value={categoryLabel} />

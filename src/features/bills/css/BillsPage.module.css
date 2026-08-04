@@ -41,7 +41,7 @@
 
 .statBox {
   height: 100%;
-  padding: 0.75rem 0.5rem;
+  padding: 0.625rem 0.5rem;
   text-align: center;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
@@ -49,17 +49,33 @@
 }
 
 .statValue {
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  /* Long currency values shouldn't blow out the box on narrow screens */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statLabel {
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+
+/* Secondary detail line — context without another box */
+.statSub {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  opacity: 0.75;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Section headers ──────────────────────────────────────────────────────── */
@@ -71,14 +87,58 @@
   flex-shrink: 0;
 }
 
+/* Count pill beside the section title */
+.countChip {
+  flex-shrink: 0;
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Section total on the right — a neutral pill so the header reads as one row */
+.totalChip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cadence badge — colour encodes how often a bill recurs */
+.freqChip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
 /* ── Bill rows ────────────────────────────────────────────────────────────── */
 
+/* Mobile-first: a 2-column grid that wraps onto a second row, so nothing has to
+   be truncated. Desktop collapses it back to a single comfortable line. */
 .billRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "icon main menu"
+    "icon meta meta"
+    ". amount action";
+  column-gap: 0.75rem;
+  row-gap: 0.375rem;
   align-items: center;
-  gap: 0.75rem;
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.875rem;
   text-align: left;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
@@ -87,6 +147,65 @@
   transition:
     border-color 0.15s ease,
     background-color 0.15s ease;
+}
+
+.rowIcon {
+  grid-area: icon;
+  align-self: start;
+}
+.rowMain {
+  grid-area: main;
+  min-width: 0;
+}
+.rowMeta {
+  grid-area: meta;
+  min-width: 0;
+}
+.rowAmount {
+  grid-area: amount;
+}
+.rowAction {
+  grid-area: action;
+  justify-self: end;
+}
+.rowMenu {
+  grid-area: menu;
+  justify-self: end;
+}
+
+/* Name and frequency badge wrap instead of ellipsing */
+.rowTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Category + due indicator; wraps to a second line on very narrow screens */
+.rowMetaText {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 12px;
+}
+
+@media (min-width: 576px) {
+  .billRow {
+    grid-template-columns: auto 1fr auto auto auto;
+    grid-template-areas:
+      "icon main   amount action menu"
+      "icon meta   amount action menu";
+    row-gap: 0.125rem;
+    column-gap: 0.875rem;
+  }
+
+  .rowIcon,
+  .rowAmount,
+  .rowAction,
+  .rowMenu {
+    align-self: center;
+  }
 }
 
 .billRow:hover {
@@ -140,6 +259,14 @@
   font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
+}
+
+/* Divider inside the dark panel — the default <hr> would be invisible there */
+.yearlyDivider {
+  margin: 0.75rem 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  opacity: 1;
 }
 
 .yearlyTrack {

@@ -10,6 +10,7 @@ import {
   groupBills,
   computePeriodTotals,
   yearlyBreakdown,
+  getFrequencyToken,
 } from "./billsUtils";
 import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
@@ -384,6 +385,43 @@ describe("yearlyBreakdown", () => {
 });
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
+
+describe("getFrequencyToken", () => {
+  // The scale runs hot (frequent) → cool (rare) so cadence is recognisable
+  // without reading the label.
+  it("marks weekly bills as the most frequent", () => {
+    expect(getFrequencyToken(makeBill({ frequency: "weekly" }))).toBe("--color-expense");
+  });
+
+  it("gives plain monthly bills the primary colour", () => {
+    expect(getFrequencyToken(makeBill({ frequency: "monthly" }))).toBe("--bs-primary");
+  });
+
+  it("groups every-2 and every-3 months together", () => {
+    expect(getFrequencyToken(makeBill({ intervalCount: 2 }))).toBe("--color-goal");
+    expect(getFrequencyToken(makeBill({ intervalCount: 3 }))).toBe("--color-goal");
+  });
+
+  it("shifts to indigo for 4–11 month cycles", () => {
+    expect(getFrequencyToken(makeBill({ intervalCount: 4 }))).toBe("--color-invest");
+    expect(getFrequencyToken(makeBill({ intervalCount: 6 }))).toBe("--color-invest");
+  });
+
+  it("marks yearly and rarer bills as the calmest", () => {
+    expect(getFrequencyToken(makeBill({ frequency: "yearly" }))).toBe("--color-income");
+    expect(getFrequencyToken(makeBill({ intervalCount: 12 }))).toBe("--color-income");
+  });
+
+  it("treats a fortnightly bill as frequent, like weekly", () => {
+    // Every 2 weeks ≈ 0.46 months → still under a month.
+    expect(getFrequencyToken(makeBill({ frequency: "weekly", intervalCount: 2 }))).toBe("--color-expense");
+  });
+
+  it("gives every-6-weeks its own step up the scale", () => {
+    // ≈1.4 months — no longer "weekly hot", not yet quarterly.
+    expect(getFrequencyToken(makeBill({ frequency: "weekly", intervalCount: 6 }))).toBe("--bs-primary");
+  });
+});
 
 describe("getFrequencyLabel", () => {
   it("uses the simple label when the interval is 1", () => {

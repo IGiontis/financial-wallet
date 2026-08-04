@@ -6,7 +6,7 @@ import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
-import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, groupBills, yearlyBreakdown, type BillGroup } from "./billsUtils";
+import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, yearlyBreakdown, type BillGroup } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
@@ -86,26 +86,50 @@ function PeriodSummary({ bills, formatCurrency }: { bills: BillWithStatus[]; for
 // ─── Quick stats ─────────────────────────────────────────────────────────────
 
 function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const active = bills.filter((b) => b.isActive);
-  const overdueCount = groupBills(active).overdue.length;
+  const grouped = groupBills(active);
+  const overdueCount = grouped.overdue.length;
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
 
+  // Soonest unpaid bill — the "what's next" answer the screen was missing.
+  const nextBill = grouped.overdue[0] ?? grouped.upcoming.find((b) => b.nextDueDate);
+  const nextDays = nextBill ? daysUntilDue(nextBill) : undefined;
+
+  const nextValue =
+    nextBill && nextBill.nextDueDate
+      ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextBill.nextDueDate)
+      : "—";
+  const nextSub = nextBill ? nextBill.name : t("bills.allSettled");
+  const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--color-expense)" : nextDays <= 5 ? "var(--color-goal)" : "var(--color-text-primary)";
+
   const stats = [
-    { value: String(overdueCount), label: t("bills.overdueCount"), color: overdueCount > 0 ? "var(--color-expense)" : "var(--color-text-primary)" },
-    { value: formatCurrency(avgMonthly), label: t("bills.avgMonthly"), color: "var(--bs-primary)" },
-    { value: String(active.length), label: t("bills.totalActive"), color: "var(--color-invest)" },
+    {
+      value: String(overdueCount),
+      label: t("bills.overdueCount"),
+      color: overdueCount > 0 ? "var(--color-expense)" : "var(--color-text-primary)",
+      sub: overdueCount > 0 ? formatCurrency(grouped.overdue.reduce((s, b) => s + expectedAmount(b), 0)) : t("bills.noneLate"),
+    },
+    { value: nextValue, label: t("bills.nextUp"), color: nextColor, sub: nextSub },
+    { value: formatCurrency(avgMonthly), label: t("bills.avgMonthly"), color: "var(--bs-primary)", sub: t("bills.perYearShort", { amount: formatCurrency(avgMonthly * 12) }) },
+    {
+      value: String(active.length),
+      label: t("bills.totalActive"),
+      color: "var(--color-invest)",
+      sub: bills.length > active.length ? t("bills.pausedCount", { count: bills.length - active.length }) : t("bills.allRunning"),
+    },
   ];
 
   return (
     <Row className="g-2 mb-4">
       {stats.map((s) => (
-        <Col xs={4} key={s.label}>
+        <Col xs={6} lg={3} key={s.label}>
           <div className={styles.statBox}>
             <div className={styles.statValue} style={{ color: s.color }}>
               {s.value}
             </div>
             <div className={styles.statLabel}>{s.label}</div>
+            <div className={styles.statSub}>{s.sub}</div>
           </div>
         </Col>
       ))}
@@ -165,6 +189,7 @@ function BillRow({
 }) {
   const { t } = useTranslation();
   const freq = getFrequencyLabel(bill);
+  const freqToken = getFrequencyToken(bill);
   const paid = bill.isPaidThisPeriod;
   const overdue = !paid && (daysUntilDue(bill) ?? 0) < 0;
 
@@ -182,61 +207,61 @@ function BillRow({
       }}
       title={t("bills.viewDetails")}
     >
-      <span className={styles.iconTile} aria-hidden>
+      <span className={`${styles.iconTile} ${styles.rowIcon}`} aria-hidden>
         {category?.icon ?? "🧾"}
       </span>
 
-      <div className="flex-grow-1" style={{ minWidth: 0 }}>
-        <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
-          <span className="fw-semibold text-truncate text-body-emphasis">{bill.name}</span>
-          <Badge color="secondary" pill className="flex-shrink-0 fw-normal" style={{ fontSize: 9.5 }}>
-            {t(freq.key, { count: freq.count })}
-          </Badge>
-        </div>
-
-        <div className="d-flex align-items-center gap-2 text-truncate" style={{ minWidth: 0 }}>
-          <span className="text-body-secondary text-truncate" style={{ fontSize: 12 }}>
-            {category?.name ?? "—"}
-          </span>
-          <span className="text-body-secondary flex-shrink-0" style={{ fontSize: 11 }}>
-            ·
-          </span>
-          <DueChip bill={bill} />
-        </div>
+      {/* Name + cadence — wraps rather than truncating */}
+      <div className={`${styles.rowMain} ${styles.rowTitle}`}>
+        <span className="fw-semibold text-body-emphasis" style={{ fontSize: 14 }}>
+          {bill.name}
+        </span>
+        {/* Colour encodes the cadence, so frequency is recognisable at a glance */}
+        <span className={styles.freqChip} style={{ background: `color-mix(in srgb, var(${freqToken}) 15%, transparent)`, color: `var(${freqToken})` }}>
+          {t(freq.key, { count: freq.count })}
+        </span>
       </div>
 
-      <div className="text-end flex-shrink-0">
-        <div className="fw-semibold text-body-emphasis" style={{ fontVariantNumeric: "tabular-nums" }}>
+      {/* Category + due indicator */}
+      <div className={`${styles.rowMeta} ${styles.rowMetaText}`}>
+        <span className="text-body-secondary">{category?.name ?? "—"}</span>
+        <span className="text-body-secondary d-none d-sm-inline">·</span>
+        <DueChip bill={bill} />
+      </div>
+
+      <div className={styles.rowAmount}>
+        <span className="fw-semibold text-body-emphasis" style={{ fontVariantNumeric: "tabular-nums", fontSize: 15 }}>
           {formatCurrency(expectedAmount(bill))}
-        </div>
+        </span>
         {bill.isVariableAmount && (
-          <div className="text-body-secondary" style={{ fontSize: 9.5 }}>
+          <span className="text-body-secondary ms-1" style={{ fontSize: 10 }}>
             {bill.averagePaidAmount ? t("bills.averageShort") : t("bills.variesLabel")}
-          </div>
+          </span>
         )}
       </div>
 
-      {paid ? (
-        <Button color="success" outline size="sm" className="flex-shrink-0" disabled onClick={(e) => e.stopPropagation()}>
-          <FiCheck size={14} className="me-1" />
-          {t("bills.paidAction")}
-        </Button>
-      ) : (
-        <Button
-          color="success"
-          size="sm"
-          className="flex-shrink-0"
-          disabled={isBusy}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkPaid(bill);
-          }}
-        >
-          {t("bills.payAction")}
-        </Button>
-      )}
+      <div className={styles.rowAction}>
+        {paid ? (
+          <Button color="success" outline size="sm" disabled onClick={(e) => e.stopPropagation()}>
+            <FiCheck size={14} className="me-1" />
+            {t("bills.paidAction")}
+          </Button>
+        ) : (
+          <Button
+            color="success"
+            size="sm"
+            disabled={isBusy}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkPaid(bill);
+            }}
+          >
+            {t("bills.payAction")}
+          </Button>
+        )}
+      </div>
 
-      <UncontrolledDropdown onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+      <UncontrolledDropdown className={styles.rowMenu} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0">
           <FiMoreVertical size={18} />
         </DropdownToggle>
@@ -254,24 +279,39 @@ function BillRow({
 
 // ─── Grouped section ─────────────────────────────────────────────────────────
 
-function BillSection({ group, bills, children }: { group: BillGroup; bills: BillWithStatus[]; children: React.ReactNode }) {
+function BillSection({
+  group,
+  bills,
+  formatCurrency,
+  children,
+}: {
+  group: BillGroup;
+  bills: BillWithStatus[];
+  formatCurrency: (n: number) => string;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   if (bills.length === 0) return null;
 
   const meta = SECTION_META[group];
+  // Total still owed in this section — paid sections show what was covered.
+  const sectionTotal = bills.reduce((s, b) => s + (b.isPaidThisPeriod ? (b.payment?.amount ?? b.amount) : expectedAmount(b)), 0);
 
   return (
     <section className="mb-4">
-      <div className="d-flex align-items-center justify-content-between mb-2">
-        <span className="d-flex align-items-center gap-2">
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+        <span className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
           <span className={styles.sectionDot} style={{ background: meta.dot }} />
-          <span className="fw-semibold text-body-emphasis" style={{ fontSize: 13 }}>
+          <span className="fw-semibold text-body-emphasis text-truncate" style={{ fontSize: 13 }}>
             {t(meta.titleKey)}
           </span>
+          {/* Tinted count chip, coloured to match the section */}
+          <span className={styles.countChip} style={{ background: `color-mix(in srgb, ${meta.dot} 16%, transparent)`, color: meta.dot }}>
+            {bills.length}
+          </span>
         </span>
-        <span className="text-body-secondary" style={{ fontSize: 12 }}>
-          {bills.length}
-        </span>
+        {/* Section total, also chipped so the header reads as one unit */}
+        <span className={`${styles.totalChip} flex-shrink-0`}>{formatCurrency(sectionTotal)}</span>
       </div>
       <div className="d-flex flex-column gap-2">{children}</div>
     </section>
@@ -303,10 +343,26 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
         </p>
       ) : (
         <>
-          <div className="d-flex align-items-baseline gap-2 mb-3">
+          {/* Yearly headline, with the monthly equivalent below it — the two
+              figures people actually budget against. */}
+          <div className="d-flex align-items-baseline gap-2">
             <span className={styles.yearlyAmount}>{formatCurrency(total)}</span>
             <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.perYear")}</span>
           </div>
+
+          <hr className={styles.yearlyDivider} />
+
+          <div className="d-flex align-items-baseline justify-content-between gap-2 mb-3">
+            <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.monthlyEquivalentLabel")}</span>
+            <span className="fw-semibold" style={{ fontSize: 17, fontVariantNumeric: "tabular-nums" }}>
+              {formatCurrency(total / 12)}
+              <span className="fw-normal ms-1" style={{ fontSize: 11, opacity: 0.7 }}>
+                {t("bills.perMonthShort")}
+              </span>
+            </span>
+          </div>
+
+          <hr className={styles.yearlyDivider} />
 
           <div className="text-uppercase mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", opacity: 0.6 }}>
             {t("bills.byCategory")}
@@ -320,8 +376,11 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
                     <span aria-hidden>{categoryFor(c.categoryId)?.icon ?? "•"}</span>
                     {c.label}
                   </span>
-                  <span className="flex-shrink-0" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <span className="flex-shrink-0 text-end" style={{ fontVariantNumeric: "tabular-nums" }}>
                     {formatCurrency(c.yearlyAmount)} <span style={{ opacity: 0.6 }}>{Math.round(c.percentage)}%</span>
+                    <span className="d-block" style={{ fontSize: 10, opacity: 0.55 }}>
+                      {formatCurrency(c.yearlyAmount / 12)} {t("bills.perMonthShort")}
+                    </span>
                   </span>
                 </div>
                 <div className={styles.yearlyTrack}>
@@ -452,13 +511,13 @@ export default function BillsPage() {
               </div>
             ) : (
               <>
-                <BillSection group="overdue" bills={groups.overdue}>
+                <BillSection group="overdue" bills={groups.overdue} formatCurrency={formatCurrency}>
                   {groups.overdue.map(renderRow)}
                 </BillSection>
-                <BillSection group="upcoming" bills={groups.upcoming}>
+                <BillSection group="upcoming" bills={groups.upcoming} formatCurrency={formatCurrency}>
                   {groups.upcoming.map(renderRow)}
                 </BillSection>
-                <BillSection group="paid" bills={groups.paid}>
+                <BillSection group="paid" bills={groups.paid} formatCurrency={formatCurrency}>
                   {groups.paid.map(renderRow)}
                 </BillSection>
               </>
