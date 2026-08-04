@@ -6,23 +6,28 @@ import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
-import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, isUpcomingReminder, yearlyBreakdown, type BillGroup } from "./billsUtils";
+import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, periodProgress, yearlyBreakdown } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import MarkPaidModal from "./MarkPaidModal";
 import styles from "./css/BillsPage.module.css";
 
-// ─── Section styling ─────────────────────────────────────────────────────────
-
-const SECTION_META: Record<BillGroup, { dot: string; titleKey: string }> = {
-  overdue: { dot: "var(--color-expense)", titleKey: "bills.sectionOverdue" },
-  upcoming: { dot: "var(--color-goal)", titleKey: "bills.sectionUpcoming" },
-  paid: { dot: "var(--color-income)", titleKey: "bills.sectionPaid" },
-};
-
 /** Bars in the yearly panel cycle through the semantic accents. */
 const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
+
+/** Number of ticks in a bill row's countdown strip — enough to read as a
+ * gradient of progress without being fussy on a narrow phone screen. */
+const TIMELINE_TICKS = 8;
+
+/** Colour scale shared by the due-chip and the countdown ticks: red once
+ * late, amber as it approaches, the default accent while there's still time. */
+function dueColor(days: number | undefined): string {
+  if (days === undefined) return "var(--color-text-secondary)";
+  if (days < 0) return "var(--color-expense)";
+  if (days <= 5) return "var(--color-goal)";
+  return "var(--bs-primary)";
+}
 
 // ─── Period summary — the signature card ─────────────────────────────────────
 
@@ -140,45 +145,30 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
 // ─── Due indicator ───────────────────────────────────────────────────────────
 
 function DueChip({ bill }: { bill: BillWithStatus }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const days = daysUntilDue(bill);
 
-  if (bill.isPaidThisPeriod) {
-    const paidOn = bill.lastPaidDate;
-    const paidLabel = (
-      <>
-        ✓ {t("bills.paidRecently")}
-        {paidOn && ` ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(paidOn)}`}
-      </>
-    );
-
-    // Long-interval bills (yearly, quarterly…) resurface here as a nudge to
-    // start setting money aside, rather than staying silently "paid" for months.
-    if (isUpcomingReminder(bill)) {
-      const days = daysUntilDue(bill) ?? 0;
-      return (
-        <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-goal)" }}>
-          🔔 {t("bills.savingReminder", { count: days })}
-          <span className="text-body-secondary fw-normal"> · {paidLabel}</span>
-        </span>
-      );
-    }
-
-    return (
+  if (days === undefined) {
+    // No due date to count down to — the only thing left to say is that it's paid.
+    return bill.isPaidThisPeriod ? (
       <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-income)" }}>
-        {paidLabel}
+        ✓ {t("bills.paidRecently")}
       </span>
-    );
+    ) : null;
   }
 
-  const days = daysUntilDue(bill);
-  if (days === undefined) return null;
-
-  // Red once late, amber as it approaches, muted while it's still far off.
-  const color = days < 0 ? "var(--color-expense)" : days <= 5 ? "var(--color-goal)" : "var(--color-text-secondary)";
+  // The countdown always points at the *next* payment — even right after
+  // paying, so it keeps ticking down instead of going silent for months.
+  const color = dueColor(days);
   const label = days < 0 ? t("bills.overdueByDays", { count: Math.abs(days) }) : days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
 
   return (
-    <span className="fw-medium" style={{ fontSize: 11.5, color }}>
+    <span className="fw-medium d-inline-flex align-items-center gap-1" style={{ fontSize: 11.5, color }}>
+      {bill.isPaidThisPeriod && (
+        <span aria-hidden style={{ color: "var(--color-income)" }}>
+          ✓
+        </span>
+      )}
       {label}
     </span>
   );
@@ -209,14 +199,28 @@ function BillRow({
   const freq = getFrequencyLabel(bill);
   const freqToken = getFrequencyToken(bill);
   const paid = bill.isPaidThisPeriod;
-  const overdue = !paid && (daysUntilDue(bill) ?? 0) < 0;
-  // A reminder row is technically "paid" but shown to prompt saving ahead —
-  // it shouldn't be dimmed like a genuinely settled bill.
-  const dimmed = paid && !isUpcomingReminder(bill);
+  const days = daysUntilDue(bill);
+  const overdue = !paid && (days ?? 0) < 0;
+
+  // A row of calendar ticks that fills in day by day as the current cycle
+  // progresses toward the next due date — a running countdown, not a static
+  // paid/unpaid switch. Coloured by *position in the cycle*, not a fixed day
+  // count: a fixed "5 days left" threshold barely registers on a 90-day
+  // quarterly bill, so the last stretch of ticks turns amber/red proportionally
+  // instead — the last ~20% of the bar, then red once genuinely overdue.
+  const progress = periodProgress(bill, bill.nextDueDate);
+  const filledTicks = progress !== undefined ? Math.round(progress * TIMELINE_TICKS) : 0;
+  const tickColorAt = (index: number) => {
+    if (overdue) return "var(--color-expense)";
+    const position = (index + 1) / TIMELINE_TICKS;
+    if (position >= 0.8) return "var(--color-expense)";
+    if (position >= 0.6) return "var(--color-goal)";
+    return "var(--bs-primary)";
+  };
 
   return (
     <div
-      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""} ${dimmed ? styles.billRowPaid : ""}`}
+      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -294,53 +298,15 @@ function BillRow({
           </DropdownItem>
         </DropdownMenu>
       </UncontrolledDropdown>
+
+      {progress !== undefined && (
+        <div className={styles.rowTimeline}>
+          {Array.from({ length: TIMELINE_TICKS }, (_, i) => (
+            <span key={i} className={styles.rowTimelineTick} style={{ background: i < filledTicks ? tickColorAt(i) : undefined }} />
+          ))}
+        </div>
+      )}
     </div>
-  );
-}
-
-// ─── Grouped section ─────────────────────────────────────────────────────────
-
-function BillSection({
-  group,
-  bills,
-  formatCurrency,
-  children,
-}: {
-  group: BillGroup;
-  bills: BillWithStatus[];
-  formatCurrency: (n: number) => string;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  if (bills.length === 0) return null;
-
-  const meta = SECTION_META[group];
-  // Total still owed in this section. The "paid" section shows what was
-  // covered; reminder bills sitting in "upcoming" are already paid, so they
-  // contribute nothing here — nothing is actually due yet.
-  const sectionTotal = bills.reduce((s, b) => {
-    if (!b.isPaidThisPeriod) return s + expectedAmount(b);
-    return group === "paid" ? s + (b.payment?.amount ?? b.amount) : s;
-  }, 0);
-
-  return (
-    <section className="mb-4">
-      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-        <span className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
-          <span className={styles.sectionDot} style={{ background: meta.dot }} />
-          <span className="fw-semibold text-body-emphasis text-truncate" style={{ fontSize: 13 }}>
-            {t(meta.titleKey)}
-          </span>
-          {/* Tinted count chip, coloured to match the section */}
-          <span className={styles.countChip} style={{ background: `color-mix(in srgb, ${meta.dot} 16%, transparent)`, color: meta.dot }}>
-            {bills.length}
-          </span>
-        </span>
-        {/* Section total, also chipped so the header reads as one unit */}
-        <span className={`${styles.totalChip} flex-shrink-0`}>{formatCurrency(sectionTotal)}</span>
-      </div>
-      <div className="d-flex flex-column gap-2">{children}</div>
-    </section>
   );
 }
 
@@ -446,7 +412,16 @@ export default function BillsPage() {
     return (id: string) => map.get(id);
   }, [categories]);
 
-  const groups = useMemo(() => groupBills(bills), [bills]);
+  // One continuous list ordered by how soon the next payment is due —
+  // overdue bills float to the top (negative days), paid ones keep their
+  // spot in line rather than being tucked away in a separate section.
+  const sortedBills = useMemo(() => {
+    return [...bills].sort((a, b) => {
+      const da = daysUntilDue(a) ?? Number.MAX_SAFE_INTEGER;
+      const db = daysUntilDue(b) ?? Number.MAX_SAFE_INTEGER;
+      return da - db;
+    });
+  }, [bills]);
   const busy = markPaid.isPending || unmarkPaid.isPending;
 
   // Keep an open detail modal in sync after a payment lands or is undone.
@@ -536,17 +511,7 @@ export default function BillsPage() {
                 </Button>
               </div>
             ) : (
-              <>
-                <BillSection group="overdue" bills={groups.overdue} formatCurrency={formatCurrency}>
-                  {groups.overdue.map(renderRow)}
-                </BillSection>
-                <BillSection group="upcoming" bills={groups.upcoming} formatCurrency={formatCurrency}>
-                  {groups.upcoming.map(renderRow)}
-                </BillSection>
-                <BillSection group="paid" bills={groups.paid} formatCurrency={formatCurrency}>
-                  {groups.paid.map(renderRow)}
-                </BillSection>
-              </>
+              <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
             )}
           </Col>
 

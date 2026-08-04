@@ -165,9 +165,6 @@
     "allRunning": "all running",
     "pausedCount_one": "{{count}} paused",
     "pausedCount_other": "{{count}} paused",
-    "sectionOverdue": "Overdue",
-    "sectionUpcoming": "Upcoming",
-    "sectionPaid": "Paid",
     "dueToday": "Due today",
     "dueInDays_one": "in {{count}} day",
     "dueInDays_other": "in {{count}} days",
@@ -210,9 +207,7 @@
     "markPaidShort": "Pay",
     "viewDetails": "View details",
     "deleteBill": "Delete bill",
-    "deleteConfirm": "Delete {{name}}? Past payments already logged as expenses will stay in your history.",
-    "savingReminder_one": "Save ahead · due in {{count}} day",
-    "savingReminder_other": "Save ahead · due in {{count}} days"
+    "deleteConfirm": "Delete {{name}}? Past payments already logged as expenses will stay in your history."
   },
   "transactions": {
     "title": "Transactions",

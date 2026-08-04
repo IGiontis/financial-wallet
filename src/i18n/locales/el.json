@@ -165,9 +165,6 @@
     "allRunning": "όλα σε ισχύ",
     "pausedCount_one": "{{count}} σε παύση",
     "pausedCount_other": "{{count}} σε παύση",
-    "sectionOverdue": "Ληξιπρόθεσμα",
-    "sectionUpcoming": "Επερχόμενα",
-    "sectionPaid": "Πληρωμένα",
     "dueToday": "Λήγει σήμερα",
     "dueInDays_one": "σε {{count}} ημέρα",
     "dueInDays_other": "σε {{count}} ημέρες",
@@ -210,9 +207,7 @@
     "markPaidShort": "Πληρωμή",
     "viewDetails": "Λεπτομέρειες",
     "deleteBill": "Διαγραφή παγίου",
-    "deleteConfirm": "Διαγραφή του {{name}}; Οι προηγούμενες πληρωμές που έχουν καταγραφεί ως έξοδα θα παραμείνουν στο ιστορικό σας.",
-    "savingReminder_one": "Βάλε στην άκρη · σε {{count}} ημέρα",
-    "savingReminder_other": "Βάλε στην άκρη · σε {{count}} ημέρες"
+    "deleteConfirm": "Διαγραφή του {{name}}; Οι προηγούμενες πληρωμές που έχουν καταγραφεί ως έξοδα θα παραμείνουν στο ιστορικό σας."
   },
   "transactions": {
     "title": "Συναλλαγές",

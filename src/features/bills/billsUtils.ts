@@ -186,60 +186,41 @@ export function daysUntilDue(bill: BillWithStatus, now: Date = new Date()): numb
   return Math.round((startOfDue - startOfToday) / 86_400_000);
 }
 
-// How many days before the *next* payment a bill should resurface as a
-// "start saving" reminder, instead of sitting silently in "Paid" until the
-// day itself. Longer gaps between payments get a longer lead time, so there's
-// more runway to set money aside for the bigger, rarer ones.
-//   monthly       (1 mo)  → 15 days
-//   every 2 mo            → 30 days
-//   every 4 mo             → 40 days
-//   yearly        (12 mo) → 90 days
-// Values between these anchors are interpolated; beyond a year the last
-// segment's slope keeps extending. Skipped for weekly bills — they come
-// around often enough to stay top of mind without a nudge.
-const REMINDER_LEAD_ANCHORS: [months: number, days: number][] = [
-  [1, 15],
-  [2, 30],
-  [4, 40],
-  [12, 90],
-];
-
-function reminderLeadDays(bill: Pick<Bill, "frequency" | "intervalCount">): number {
-  const months = monthsBetweenPayments(bill);
-  if (months < 1) return 0;
-
-  const [firstMonths, firstDays] = REMINDER_LEAD_ANCHORS[0];
-  if (months <= firstMonths) return firstDays;
-
-  for (let i = 1; i < REMINDER_LEAD_ANCHORS.length; i++) {
-    const [prevMonths, prevDays] = REMINDER_LEAD_ANCHORS[i - 1];
-    const [curMonths, curDays] = REMINDER_LEAD_ANCHORS[i];
-    if (months <= curMonths) {
-      const ratio = (months - prevMonths) / (curMonths - prevMonths);
-      return Math.round(prevDays + ratio * (curDays - prevDays));
-    }
-  }
-
-  const [prevMonths, prevDays] = REMINDER_LEAD_ANCHORS[REMINDER_LEAD_ANCHORS.length - 2];
-  const [lastMonths, lastDays] = REMINDER_LEAD_ANCHORS[REMINDER_LEAD_ANCHORS.length - 1];
-  const slope = (lastDays - prevDays) / (lastMonths - prevMonths);
-  return Math.round(lastDays + slope * (months - lastMonths));
-}
-
-/** True once a paid bill's next occurrence is close enough to be worth saving for. */
-export function isUpcomingReminder(bill: BillWithStatus, now: Date = new Date()): boolean {
-  if (!bill.isPaidThisPeriod) return false;
-  const lead = reminderLeadDays(bill);
-  if (lead === 0) return false;
-  const days = daysUntilDue(bill, now);
-  return days !== undefined && days >= 0 && days <= lead;
-}
-
 export function getBillGroup(bill: BillWithStatus, now: Date = new Date()): BillGroup {
-  if (bill.isPaidThisPeriod) return isUpcomingReminder(bill, now) ? "upcoming" : "paid";
+  if (bill.isPaidThisPeriod) return "paid";
   const days = daysUntilDue(bill, now);
   // No due date set → it can't be late, so treat it as upcoming.
   return days !== undefined && days < 0 ? "overdue" : "upcoming";
+}
+
+// ─── Period progress ────────────────────────────────────────────────────────
+// How far a bill has travelled from its last due date toward its next one —
+// a continuous line that fills in a little more every day, rather than a
+// binary paid/unpaid flag. Independent of payment status: a bill that was
+// just paid still shows the countdown ticking down toward the next one.
+
+/** Fraction (0–1) of the way from the previous due date to `nextDueDate`. */
+export function periodProgress(bill: Pick<Bill, "frequency" | "intervalCount">, nextDueDate: Date | undefined, now: Date = new Date()): number | undefined {
+  if (!nextDueDate) return undefined;
+  const interval = getIntervalCount(bill);
+
+  let previousDueDate: Date;
+  switch (bill.frequency) {
+    case "weekly":
+      previousDueDate = addWeeks(nextDueDate, -interval);
+      break;
+    case "monthly":
+      previousDueDate = addMonths(nextDueDate, -interval);
+      break;
+    case "yearly":
+      previousDueDate = addYears(nextDueDate, -interval);
+      break;
+  }
+
+  const cycleMs = nextDueDate.getTime() - previousDueDate.getTime();
+  if (cycleMs <= 0) return undefined;
+  const elapsedMs = now.getTime() - previousDueDate.getTime();
+  return Math.min(1, Math.max(0, elapsedMs / cycleMs));
 }
 
 export interface GroupedBills {
