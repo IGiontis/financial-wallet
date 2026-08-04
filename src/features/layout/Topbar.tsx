@@ -93,7 +93,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
             {theme === "dark" ? <FiSun size={19} /> : <FiMoon size={19} />}
           </Button>
 
-          <UncontrolledDropdown>
+          <UncontrolledDropdown strategy="fixed">
             <DropdownToggle tag="button" className={styles.userButton}>
               <div className={styles.userAvatar}>{getUserInitials()}</div>
               {/* Only show name once Firestore has loaded — prevents flash */}

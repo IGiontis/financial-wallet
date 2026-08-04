@@ -1,68 +1,50 @@
-export const EXPENSE_COLORS = {
-  cardBorder: "#EF4444",
-  heroBg: "#FFF5F5",
-  heroBorder: "#FED7D7",
-  iconBg: "#FEE2E2",
-  nameTxt: "#7F1D1D",
-  subTxt: "#B91C1C",
-  badgeBg: "#FEE2E2",
-  badgeTxt: "#991B1B",
-  amtTxt: "#B91C1C",
-  sign: "−",
-};
+// ─── Review palettes ──────────────────────────────────────────────────────────
+// Derived from the semantic tokens instead of fixed pastels, so the review
+// screen stays legible in both themes. Tints are kept low (8–16%) so the panel
+// reads as a calm surface rather than a block of saturated colour.
 
-export const INCOME_COLORS = {
-  cardBorder: "#10B981",
-  heroBg: "#F0FDF4",
-  heroBorder: "#BBF7D0",
-  iconBg: "#DCFCE7",
-  nameTxt: "#14532D",
-  subTxt: "#15803D",
-  badgeBg: "#DCFCE7",
-  badgeTxt: "#166534",
-  amtTxt: "#15803D",
-  sign: "+",
-};
+const palette = (token: string, sign: string) => ({
+  cardBorder: `var(${token})`,
+  heroBg: `color-mix(in srgb, var(${token}) 8%, var(--color-surface))`,
+  heroBorder: `color-mix(in srgb, var(${token}) 28%, transparent)`,
+  iconBg: `color-mix(in srgb, var(${token}) 16%, transparent)`,
+  // Headline stays neutral — only the amount and accents carry colour.
+  nameTxt: "var(--color-text-primary)",
+  subTxt: `var(${token})`,
+  badgeBg: `color-mix(in srgb, var(${token}) 16%, transparent)`,
+  badgeTxt: `var(${token})`,
+  amtTxt: `var(${token})`,
+  sign,
+});
 
-export const GOAL_COLORS = {
-  cardBorder: "#F59E0B",
-  heroBg: "#FFFBEB",
-  heroBorder: "#FDE68A",
-  iconBg: "#FEF3C7",
-  nameTxt: "#78350F",
-  subTxt: "#B45309",
-  badgeBg: "#FEF3C7",
-  badgeTxt: "#92400E",
-  amtTxt: "#B45309",
-  sign: "",
-};
-
-export const INVESTMENT_COLORS = {
-  cardBorder: "#3B82F6",
-  heroBg: "#EFF6FF",
-  heroBorder: "#BFDBFE",
-  iconBg: "#DBEAFE",
-  nameTxt: "#1E3A5F",
-  subTxt: "#1D4ED8",
-  badgeBg: "#DBEAFE",
-  badgeTxt: "#1E40AF",
-  amtTxt: "#1D4ED8",
-  sign: "",
-};
+export const EXPENSE_COLORS = palette("--color-expense", "−");
+export const INCOME_COLORS = palette("--color-income", "+");
+export const GOAL_COLORS = palette("--color-goal", "");
+export const INVESTMENT_COLORS = palette("--color-invest", "");
 
 export type ReviewColors = typeof EXPENSE_COLORS;
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
   return (
-    <div style={{ gridColumn: fullWidth ? "1 / -1" : undefined, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", background: "var(--color-surface)" }}>
-      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "#4a4f57", margin: "0 0 3px" }}>{label}</p>
-      <p style={{ fontSize: 13, fontWeight: 600, color: accent ?? "#1e293b", margin: 0 }}>{value}</p>
+    <div
+      style={{
+        gridColumn: fullWidth ? "1 / -1" : undefined,
+        border: "1px solid var(--color-border-tertiary)",
+        borderRadius: 8,
+        padding: "8px 10px",
+        background: "var(--color-surface)",
+      }}
+    >
+      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 3px" }}>{label}</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: accent ?? "var(--color-text-primary)", margin: 0 }}>{value}</p>
     </div>
   );
 }
 
 export function SectionHead({ label }: { label: string }) {
-  return <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", margin: "12px 0 6px" }}>{label}</p>;
+  return (
+    <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "12px 0 6px" }}>{label}</p>
+  );
 }
 
 export interface FuelCell {
@@ -109,7 +91,7 @@ export function TransactionReviewBody({
 
   const heroBorderStyle = hasGradient
     ? {
-        background: `linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, ${gradientFrom}, ${gradientTo}) border-box`,
+        background: `linear-gradient(var(--color-surface), var(--color-surface)) padding-box, linear-gradient(135deg, ${gradientFrom}, ${gradientTo}) border-box`,
         border: "2px solid transparent",
       }
     : {
@@ -121,7 +103,7 @@ export function TransactionReviewBody({
 
   return (
     <>
-      <p style={{ fontSize: 13, color: "#64748b", marginBottom: "1rem" }}>{subtitle}</p>
+      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{subtitle}</p>
 
       <div
         style={{
@@ -158,8 +140,8 @@ export function TransactionReviewBody({
                     fontWeight: 600,
                     padding: "1px 7px",
                     borderRadius: 20,
-                    background: secondaryBadge === "Deposit" ? "#FEE2E2" : "#DCFCE7",
-                    color: secondaryBadge === "Deposit" ? "#991B1B" : "#166634",
+                    background: secondaryBadge === "Deposit" ? "color-mix(in srgb, var(--color-expense) 16%, transparent)" : "color-mix(in srgb, var(--color-income) 16%, transparent)",
+                    color: secondaryBadge === "Deposit" ? "var(--color-expense)" : "var(--color-income)",
                   }}
                 >
                   {secondaryBadge}

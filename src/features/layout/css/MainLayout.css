@@ -33,6 +33,9 @@
   flex-grow: 1;
   background-color: var(--color-background-primary);
   overflow-y: auto;
+  /* `clip` (not `hidden`) stops a stray wide child from creating a horizontal
+     scrollbar, without breaking position: sticky inside the page. */
+  overflow-x: clip;
   /* Respect the home-indicator / rounded corners on installed PWAs */
   padding-bottom: env(safe-area-inset-bottom);
 }

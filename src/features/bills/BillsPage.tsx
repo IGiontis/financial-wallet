@@ -159,7 +159,7 @@ function BillRow({
         </div>
 
         {/* Menu */}
-        <UncontrolledDropdown>
+        <UncontrolledDropdown strategy="fixed">
           <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0">
             <FiMoreVertical size={18} />
           </DropdownToggle>

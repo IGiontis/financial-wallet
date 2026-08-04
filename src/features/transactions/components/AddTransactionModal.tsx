@@ -242,7 +242,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   {(["expense", "income"] as ("income" | "expense")[]).map((tt) => {
                     const isSelected = formik.values.type === tt;
                     const color = tt === "income" ? "var(--color-income)" : "var(--color-expense)";
-                    const bg = tt === "income" ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)";
+                    const bg = tt === "income" ? "color-mix(in srgb, var(--color-income) 12%, transparent)" : "color-mix(in srgb, var(--color-expense) 12%, transparent)";
                     return (
                       <Col xs={6} key={tt}>
                         <div
@@ -345,7 +345,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               {/* ── Fuel toggle ── */}
               {isFuelCategory && (
                 <div
-                  style={{ marginTop: 12, padding: "10px 14px", background: "#f8faff", borderRadius: 10, border: "1.5px solid #dbeafe", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
+                  style={{ marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--bs-primary) 6%, var(--color-surface))", borderRadius: "var(--border-radius-md)", border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
                   onClick={() => {
                     const next = !formik.values.showFuelDetails;
                     formik.setFieldValue("showFuelDetails", next);
@@ -360,13 +360,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   }}
                 >
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6", margin: 0 }}>⛽ {t("transactions.addFuelDetails")}</p>
-                    <p style={{ fontSize: 11, color: "#94A3B8", margin: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.addFuelDetails")}</p>
+                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
                       {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
                     </p>
                   </div>
-                  <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "#3B82F6" : "#CBD5E1", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                    <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                  <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "var(--bs-primary)" : "var(--color-border-primary)", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "var(--color-surface)", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
                   </div>
                 </div>
               )}

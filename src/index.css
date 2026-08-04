@@ -127,6 +127,9 @@
   max-height: min(70vh, 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Never wider than the screen — an overflowing menu was pushing the page
+     sideways and creating a horizontal scrollbar. */
+  max-width: calc(100vw - 1rem);
 }
 
 .dropdown-item {

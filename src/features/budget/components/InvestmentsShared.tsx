@@ -344,7 +344,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
                 </Badge>
               )}
             </div>
-            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
+            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)} strategy="fixed">
               <DropdownToggle
                 tag="button"
                 style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}

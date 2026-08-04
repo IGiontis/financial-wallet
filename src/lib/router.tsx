@@ -1,21 +1,12 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
 import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
-// Route components live in their own module so this file only exports `router`
-// — otherwise React Fast Refresh can't hot-reload it.
+// Route components and lazy page chunks live in their own modules so this file
+// only exports `router` — otherwise React Fast Refresh can't hot-reload it.
 import { PageLoader, ProtectedRoute, PublicOnlyRoute } from "./routeGuards";
-
-const OverviewPage = lazy(() => import("../features/overview/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })));
-const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
-const GoalsPage = lazy(() => import("../features/goals/GoalsPage"));
-const SettingsPage = lazy(() => import("../features/settings/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const InvestmentsPage = lazy(() => import("../features/budget/InvestmentsPage"));
-const BillsPage = lazy(() => import("../features/bills/BillsPage"));
-const PlannerPage = lazy(() => import("../features/plannerPage/PlannerPage").then((m) => ({ default: m.PlannerPage })));
-const LoginPage = lazy(() => import("../features/auth/LoginPage"));
-const RegisterPage = lazy(() => import("../features/auth/RegisterPage"));
+import { OverviewPage, TransactionsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, PlannerPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
   {

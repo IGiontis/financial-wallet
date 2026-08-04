@@ -69,7 +69,7 @@ function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle
         width: w,
         height: h,
         borderRadius: h / 2,
-        background: enabled ? "#22C55E" : "#373a41",
+        background: enabled ? "var(--color-income)" : "var(--color-border-primary)",
         cursor: "pointer",
         position: "relative",
         transition: "background 0.2s",
@@ -222,28 +222,28 @@ export function PlannerPage() {
   }
 
   const metricCards = [
-    { label: "Income", value: formatCurrency(salary), color: "#22C55E", toggle: null },
-    { label: "Expenses", value: formatCurrency(totalActualExpenses), color: "#EF4444", toggle: null },
+    { label: "Income", value: formatCurrency(salary), color: "var(--color-income)", toggle: null },
+    { label: "Expenses", value: formatCurrency(totalActualExpenses), color: "var(--color-expense)", toggle: null },
     {
       label: "Goals needed",
       value: formatCurrency(totalGoalsNeeded),
-      color: allSavingsEnabled ? "#F59E0B" : "var(--color-text-secondary)",
+      color: allSavingsEnabled ? "var(--color-goal)" : "var(--color-text-secondary)",
       toggle: activeSavingsGoals.length > 0 ? { enabled: allSavingsEnabled, onToggle: toggleAllSavings } : null,
     },
     {
       label: "Investments needed",
       value: formatCurrency(totalInvestmentsNeeded),
-      color: allInvestmentsEnabled ? "#818CF8" : "var(--color-text-secondary)",
+      color: allInvestmentsEnabled ? "var(--color-invest)" : "var(--color-text-secondary)",
       toggle: activeInvestmentGoals.length > 0 ? { enabled: allInvestmentsEnabled, onToggle: toggleAllInvestments } : null,
     },
-    { label: "Free to spend", value: formatCurrency(Math.max(0, freeToSpend)), color: freeToSpend >= 0 ? "#22C55E" : "#EF4444", toggle: null },
+    { label: "Free to spend", value: formatCurrency(Math.max(0, freeToSpend)), color: freeToSpend >= 0 ? "var(--color-income)" : "var(--color-expense)", toggle: null },
   ];
 
   const bars = [
-    { label: "Expenses", value: totalActualExpenses, color: "#EF4444" },
-    { label: "Goals needed", value: totalGoalsNeeded, color: "#F59E0B" },
-    { label: "Investments needed", value: totalInvestmentsNeeded, color: "#818CF8" },
-    { label: "Free to spend", value: Math.max(0, freeToSpend), color: "#22C55E" },
+    { label: "Expenses", value: totalActualExpenses, color: "var(--color-expense)" },
+    { label: "Goals needed", value: totalGoalsNeeded, color: "var(--color-goal)" },
+    { label: "Investments needed", value: totalInvestmentsNeeded, color: "var(--color-invest)" },
+    { label: "Free to spend", value: Math.max(0, freeToSpend), color: "var(--color-income)" },
   ];
 
   const navBtnStyle: React.CSSProperties = {
@@ -282,7 +282,7 @@ export function PlannerPage() {
                 >
                   {g.icon} {g.name}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : "#F59E0B" }}>
+                <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : "var(--color-goal)" }}>
                   {!enabled ? "Off" : formatCurrency(needed)}
                 </span>
                 <Toggle enabled={enabled} onToggle={() => toggleGoal(g.id)} size="sm" />
@@ -290,7 +290,7 @@ export function PlannerPage() {
               {enabled && (
                 <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                   {g.status && (
-                    <span style={{ fontSize: 10, color: g.status === "behind" ? "#EF4444" : "var(--color-text-secondary)" }}>{g.status === "behind" ? "Behind" : "On track"}</span>
+                    <span style={{ fontSize: 10, color: g.status === "behind" ? "var(--color-expense)" : "var(--color-text-secondary)" }}>{g.status === "behind" ? "Behind" : "On track"}</span>
                   )}
                   {g.goalType === "targeted" && g.deadline && (
                     <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· deadline {format(firestoreToDate(g.deadline), "dd MMM yyyy")}</span>
@@ -413,7 +413,7 @@ export function PlannerPage() {
                       <Progress
                         value={pct(item.value)}
                         style={{ height: 6, borderRadius: 3 }}
-                        color={item.color === "#EF4444" ? "danger" : item.color === "#22C55E" ? "success" : item.color === "#F59E0B" ? "warning" : "info"}
+                        color={item.color === "var(--color-expense)" ? "danger" : item.color === "var(--color-income)" ? "success" : item.color === "var(--color-goal)" ? "warning" : "info"}
                       />
                     </div>
                   ))}
@@ -432,8 +432,8 @@ export function PlannerPage() {
                   >
                     <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{freeToSpend >= 0 ? "You can still spend" : "You are over budget by"}</p>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: 20, fontWeight: 500, color: freeToSpend >= 0 ? "#22C55E" : "#EF4444", margin: 0 }}>{formatCurrency(Math.abs(freeToSpend))}</p>
-                      {freeToSpend < 0 && <p style={{ fontSize: 11, color: "#EF4444", margin: "2px 0 0" }}>Consider reducing expenses or adjusting your goals.</p>}
+                      <p style={{ fontSize: 20, fontWeight: 500, color: freeToSpend >= 0 ? "var(--color-income)" : "var(--color-expense)", margin: 0 }}>{formatCurrency(Math.abs(freeToSpend))}</p>
+                      {freeToSpend < 0 && <p style={{ fontSize: 11, color: "var(--color-expense)", margin: "2px 0 0" }}>Consider reducing expenses or adjusting your goals.</p>}
                     </div>
                   </div>
                 </>

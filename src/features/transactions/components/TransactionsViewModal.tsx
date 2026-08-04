@@ -30,7 +30,7 @@ export default function TransactionViewModal({ transaction: tx, categories, form
   const isPositive = isGoal || isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
 
   const contributionSign = tx.contributionType === "withdrawal" ? "+" : "−";
-  const directionColor = tx.contributionType === "withdrawal" ? "#10B981" : "#EF4444";
+  const directionColor = tx.contributionType === "withdrawal" ? "var(--color-income)" : "var(--color-expense)";
 
   const colors = isGoal
     ? { ...GOAL_COLORS, sign: contributionSign }
@@ -40,7 +40,7 @@ export default function TransactionViewModal({ transaction: tx, categories, form
         ? INCOME_COLORS
         : EXPENSE_COLORS;
 
-  const gradientFrom = isGoal ? "#F59E0B" : isInvestment ? "#3B82F6" : undefined;
+  const gradientFrom = isGoal ? "var(--color-goal)" : isInvestment ? "var(--bs-primary)" : undefined;
   const gradientTo = isGoal || isInvestment ? directionColor : undefined;
 
   const primaryBadge = isGoal ? "Goal" : isInvestment ? "Investment" : isPositive ? "Income" : "Expense";

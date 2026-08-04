@@ -57,11 +57,9 @@ function useTooltipRenderer(formatCurrency: (n: number) => string) {
       const investments = valueOf("investments");
       const goals = valueOf("goals");
 
-      // Net flows account for withdrawals, so "money left" stays truthful.
-      const point = payload[0]?.payload;
-      const investmentsNet = point?.investmentsNet ?? investments;
-      const goalsNet = point?.goalsNet ?? goals;
-      const moneyLeft = income - expenses - investmentsNet - goalsNet;
+      // Withdrawals are already folded into `income`, so subtract the GROSS
+      // deposits here — using net figures would count a withdrawal twice.
+      const moneyLeft = income - expenses - investments - goals;
 
       const rows = [
         { labelKey: "overview.income", value: income, token: "--color-income", always: true },

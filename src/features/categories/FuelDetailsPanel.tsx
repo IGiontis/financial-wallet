@@ -45,12 +45,12 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
       style={{
         marginTop: 16,
         padding: "12px 14px",
-        background: "#f8faff",
+        background: "color-mix(in srgb, var(--bs-primary) 6%, var(--color-surface))",
         borderRadius: 10,
-        border: "1.5px solid #dbeafe",
+        border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)",
       }}
     >
-      <p style={{ fontSize: 12, fontWeight: 600, color: "#3B82F6", marginBottom: 12, letterSpacing: "0.05em" }}>⛽ FUEL DETAILS</p>
+      <p style={{ fontSize: 12, fontWeight: 600, color: "var(--bs-primary)", marginBottom: 12, letterSpacing: "0.05em" }}>⛽ FUEL DETAILS</p>
 
       {/* Fuel type + Place */}
       <Row className="g-3">
@@ -150,15 +150,15 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
           <Col xs={6} className="d-flex align-items-end">
             <div
               style={{
-                background: "#EFF6FF",
-                border: "1px solid #BFDBFE",
+                background: "color-mix(in srgb, var(--bs-primary) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--bs-primary) 28%, transparent)",
                 borderRadius: 8,
                 padding: "8px 12px",
                 width: "100%",
               }}
             >
-              <p style={{ fontSize: 11, color: "#3B82F6", margin: 0, fontWeight: 500 }}>Total (auto-calculated)</p>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#1D4ED8", margin: 0 }}>
+              <p style={{ fontSize: 11, color: "var(--bs-primary)", margin: 0, fontWeight: 500 }}>Total (auto-calculated)</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "var(--bs-primary)", margin: 0 }}>
                 {totalCost} {displayCurrency}
               </p>
             </div>

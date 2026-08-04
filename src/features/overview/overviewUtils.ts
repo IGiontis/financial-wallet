@@ -64,6 +64,12 @@ export const filterTransactions = (transactions: Transaction[], range: DateRange
 // ─── Transaction classification ───────────────────────────────────────────────
 // Investment/goal contributions are mirrored as transactions, so plain income
 // and expense totals must exclude them to avoid double counting.
+//
+// Money flow model:
+//   • A DEPOSIT into a goal/investment is money leaving the spendable pool.
+//   • A WITHDRAWAL is money coming back into it, so it counts as INCOME.
+// Because withdrawals are counted as income, the investment/goal totals must be
+// GROSS deposits (not net), otherwise a withdrawal would be counted twice.
 
 const signedContribution = (tx: Transaction) => (tx.contributionType === "deposit" ? tx.amount : -tx.amount);
 
@@ -71,6 +77,11 @@ const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isInvestm
 const isPlainExpense = (tx: Transaction) => tx.type === "expense" && !tx.isInvestmentTransaction;
 const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
 const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
+
+/** Any withdrawal out of a goal or investment — treated as income. */
+const isWithdrawal = (tx: Transaction) => !!tx.isInvestmentTransaction && tx.contributionType === "withdrawal";
+
+const isDeposit = (tx: Transaction) => tx.contributionType === "deposit";
 
 // ─── Grouping ─────────────────────────────────────────────────────────────────
 
@@ -93,10 +104,11 @@ export const groupByWeek = (transactions: Transaction[], range: DateRange, weekL
       });
       return {
         label: w.label,
-        income: Math.round(weekTx.filter(isPlainIncome).reduce((s, t) => s + t.amount, 0)),
+        // Withdrawals are income, so they land in the income bar.
+        income: Math.round(weekTx.filter((t) => isPlainIncome(t) || isWithdrawal(t)).reduce((s, t) => s + t.amount, 0)),
         expenses: Math.round(weekTx.filter(isPlainExpense).reduce((s, t) => s + Math.abs(t.amount), 0)),
-        investments: Math.round(weekTx.filter((t) => isInvestmentContribution(t) && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
-        goals: Math.round(weekTx.filter((t) => isGoalContribution(t) && t.contributionType === "deposit").reduce((s, t) => s + t.amount, 0)),
+        investments: Math.round(weekTx.filter((t) => isInvestmentContribution(t) && isDeposit(t)).reduce((s, t) => s + t.amount, 0)),
+        goals: Math.round(weekTx.filter((t) => isGoalContribution(t) && isDeposit(t)).reduce((s, t) => s + t.amount, 0)),
         investmentsNet: Math.round(weekTx.filter(isInvestmentContribution).reduce((s, t) => s + signedContribution(t), 0)),
         goalsNet: Math.round(weekTx.filter(isGoalContribution).reduce((s, t) => s + signedContribution(t), 0)),
       };
@@ -114,10 +126,12 @@ export const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
     const d = map.get(key)!;
 
     if (isGoalContribution(tx)) {
-      if (tx.contributionType === "deposit") d.goals += tx.amount;
+      if (isDeposit(tx)) d.goals += tx.amount;
+      else d.income += tx.amount; // withdrawal → income
       d.goalsNet += signedContribution(tx);
     } else if (tx.isInvestmentTransaction) {
-      if (tx.contributionType === "deposit") d.investments += tx.amount;
+      if (isDeposit(tx)) d.investments += tx.amount;
+      else d.income += tx.amount; // withdrawal → income
       d.investmentsNet += signedContribution(tx);
     } else if (tx.type === "income") {
       d.income += tx.amount;
@@ -142,15 +156,23 @@ export const groupByMonth = (transactions: Transaction[]): ChartDataPoint[] => {
 // ─── Metrics ──────────────────────────────────────────────────────────────────
 
 export const calculateMetrics = (transactions: Transaction[]): DashboardMetrics => {
-  const totalIncome = transactions.filter(isPlainIncome).reduce((s, t) => s + t.amount, 0);
+  const plainIncome = transactions.filter(isPlainIncome).reduce((s, t) => s + t.amount, 0);
+  // Withdrawing from a goal/investment puts money back in your pocket → income.
+  const withdrawn = transactions.filter(isWithdrawal).reduce((s, t) => s + t.amount, 0);
+
+  const totalIncome = plainIncome + withdrawn;
   const totalExpenses = transactions.filter(isPlainExpense).reduce((s, t) => s + Math.abs(t.amount), 0);
   const netIncome = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : 0;
+
   return { totalIncome, totalExpenses, netIncome, savingsRate };
 };
 
-/** Net investment flow (deposits minus withdrawals) for non-goal investments. */
-export const sumInvestments = (transactions: Transaction[]) => transactions.filter(isInvestmentContribution).reduce((s, tx) => s + signedContribution(tx), 0);
+/** Gross amount put INTO non-goal investments this period (withdrawals count as income). */
+export const sumInvestments = (transactions: Transaction[]) => transactions.filter((tx) => isInvestmentContribution(tx) && isDeposit(tx)).reduce((s, tx) => s + tx.amount, 0);
 
-/** Net savings flow (deposits minus withdrawals) across targeted goals. */
-export const sumGoalSavings = (transactions: Transaction[]) => transactions.filter(isGoalContribution).reduce((s, tx) => s + signedContribution(tx), 0);
+/** Gross amount put INTO targeted goals this period (withdrawals count as income). */
+export const sumGoalSavings = (transactions: Transaction[]) => transactions.filter((tx) => isGoalContribution(tx) && isDeposit(tx)).reduce((s, tx) => s + tx.amount, 0);
+
+/** Total pulled back out of goals and investments — surfaced as income. */
+export const sumWithdrawals = (transactions: Transaction[]) => transactions.filter(isWithdrawal).reduce((s, tx) => s + tx.amount, 0);
