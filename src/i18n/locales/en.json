@@ -210,7 +210,9 @@
     "markPaidShort": "Pay",
     "viewDetails": "View details",
     "deleteBill": "Delete bill",
-    "deleteConfirm": "Delete {{name}}? Past payments already logged as expenses will stay in your history."
+    "deleteConfirm": "Delete {{name}}? Past payments already logged as expenses will stay in your history.",
+    "savingReminder_one": "Save ahead · due in {{count}} day",
+    "savingReminder_other": "Save ahead · due in {{count}} days"
   },
   "transactions": {
     "title": "Transactions",

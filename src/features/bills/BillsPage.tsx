@@ -6,7 +6,7 @@ import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
-import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, yearlyBreakdown, type BillGroup } from "./billsUtils";
+import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, isUpcomingReminder, yearlyBreakdown, type BillGroup } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
@@ -144,10 +144,28 @@ function DueChip({ bill }: { bill: BillWithStatus }) {
 
   if (bill.isPaidThisPeriod) {
     const paidOn = bill.lastPaidDate;
-    return (
-      <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-income)" }}>
+    const paidLabel = (
+      <>
         ✓ {t("bills.paidRecently")}
         {paidOn && ` ${new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(paidOn)}`}
+      </>
+    );
+
+    // Long-interval bills (yearly, quarterly…) resurface here as a nudge to
+    // start setting money aside, rather than staying silently "paid" for months.
+    if (isUpcomingReminder(bill)) {
+      const days = daysUntilDue(bill) ?? 0;
+      return (
+        <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-goal)" }}>
+          🔔 {t("bills.savingReminder", { count: days })}
+          <span className="text-body-secondary fw-normal"> · {paidLabel}</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-income)" }}>
+        {paidLabel}
       </span>
     );
   }
@@ -192,10 +210,13 @@ function BillRow({
   const freqToken = getFrequencyToken(bill);
   const paid = bill.isPaidThisPeriod;
   const overdue = !paid && (daysUntilDue(bill) ?? 0) < 0;
+  // A reminder row is technically "paid" but shown to prompt saving ahead —
+  // it shouldn't be dimmed like a genuinely settled bill.
+  const dimmed = paid && !isUpcomingReminder(bill);
 
   return (
     <div
-      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""} ${paid ? styles.billRowPaid : ""}`}
+      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""} ${dimmed ? styles.billRowPaid : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -294,8 +315,13 @@ function BillSection({
   if (bills.length === 0) return null;
 
   const meta = SECTION_META[group];
-  // Total still owed in this section — paid sections show what was covered.
-  const sectionTotal = bills.reduce((s, b) => s + (b.isPaidThisPeriod ? (b.payment?.amount ?? b.amount) : expectedAmount(b)), 0);
+  // Total still owed in this section. The "paid" section shows what was
+  // covered; reminder bills sitting in "upcoming" are already paid, so they
+  // contribute nothing here — nothing is actually due yet.
+  const sectionTotal = bills.reduce((s, b) => {
+    if (!b.isPaidThisPeriod) return s + expectedAmount(b);
+    return group === "paid" ? s + (b.payment?.amount ?? b.amount) : s;
+  }, 0);
 
   return (
     <section className="mb-4">
