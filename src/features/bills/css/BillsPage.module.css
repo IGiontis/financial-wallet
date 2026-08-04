@@ -1,14 +1,92 @@
-/* Bills list — only what Bootstrap can't express. */
+/* Bills screen — mobile-first. Only what Bootstrap utilities can't express;
+   all colours come from the existing token layer. */
 
-.billRow {
+/* ── Period summary (the signature card) ──────────────────────────────────── */
+
+.periodCard {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.bigAmount {
+  font-size: 2rem;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-expense);
+}
+
+.bigAmountSettled {
+  color: var(--color-income);
+}
+
+/* Progress track — thin, rounded, theme-aware */
+.progressTrack {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-income);
+  transition: width 0.3s ease;
+}
+
+/* ── Quick stats row ──────────────────────────────────────────────────────── */
+
+.statBox {
+  height: 100%;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
-  box-shadow: none;
+  background: var(--color-surface);
+}
+
+.statValue {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Section headers ──────────────────────────────────────────────────────── */
+
+.sectionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Bill rows ────────────────────────────────────────────────────────────── */
+
+.billRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem;
+  text-align: left;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
   cursor: pointer;
   transition:
     border-color 0.15s ease,
-    background-color 0.15s ease,
-    transform 0.1s ease;
+    background-color 0.15s ease;
 }
 
 .billRow:hover {
@@ -16,22 +94,77 @@
   background: color-mix(in srgb, var(--bs-primary) 4%, var(--color-surface));
 }
 
-.billRow:active {
-  transform: scale(0.995);
-}
-
 .billRow:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
 }
 
-/* Status indicator — communicates state, unlike the old tap-to-pay circle */
-.statusDot {
-  width: 36px;
-  height: 36px;
+/* Left stripe marks urgency without shouting */
+.billRowOverdue {
+  border-left: 3px solid var(--color-expense);
+}
+
+.billRowPaid {
+  opacity: 0.62;
+}
+
+.billRowPaid:hover {
+  opacity: 0.85;
+}
+
+/* Category emoji in a rounded tile */
+.iconTile {
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  font-size: 18px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+/* ── Yearly projection ────────────────────────────────────────────────────── */
+/* Deliberately darker than the surrounding cards so it reads as a summary
+   panel. Uses the always-dark tooltip token, which exists in both themes. */
+
+.yearlyCard {
+  border-radius: var(--border-radius-lg);
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+}
+
+.yearlyAmount {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.yearlyTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.yearlyFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Larger screens ───────────────────────────────────────────────────────── */
+/* The list stays comfortable rather than stretching to full width, and the
+   yearly panel sits beside the sections instead of far below them. */
+
+@media (min-width: 992px) {
+  .bigAmount {
+    font-size: 2.5rem;
+  }
+
+  .billRow {
+    padding: 0.875rem 1rem;
+  }
 }

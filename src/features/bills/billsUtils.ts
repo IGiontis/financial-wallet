@@ -171,6 +171,118 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
   };
 }
 
+// ─── Grouping by urgency ────────────────────────────────────────────────────
+// The list is split into overdue / upcoming / paid so the things that need
+// attention sit at the top instead of being buried in one flat list.
+
+export type BillGroup = "overdue" | "upcoming" | "paid";
+
+/** Whole days until the next due date. Negative = that many days late. */
+export function daysUntilDue(bill: BillWithStatus, now: Date = new Date()): number | undefined {
+  if (!bill.nextDueDate) return undefined;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const due = bill.nextDueDate;
+  const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  return Math.round((startOfDue - startOfToday) / 86_400_000);
+}
+
+export function getBillGroup(bill: BillWithStatus, now: Date = new Date()): BillGroup {
+  if (bill.isPaidThisPeriod) return "paid";
+  const days = daysUntilDue(bill, now);
+  // No due date set → it can't be late, so treat it as upcoming.
+  return days !== undefined && days < 0 ? "overdue" : "upcoming";
+}
+
+export interface GroupedBills {
+  overdue: BillWithStatus[];
+  upcoming: BillWithStatus[];
+  paid: BillWithStatus[];
+}
+
+/** Splits bills into the three sections, each sorted by urgency. */
+export function groupBills(bills: BillWithStatus[], now: Date = new Date()): GroupedBills {
+  const groups: GroupedBills = { overdue: [], upcoming: [], paid: [] };
+
+  for (const bill of bills) {
+    groups[getBillGroup(bill, now)].push(bill);
+  }
+
+  // Most overdue first; soonest due first; most recently paid first.
+  const byDays = (a: BillWithStatus, b: BillWithStatus) => (daysUntilDue(a, now) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDue(b, now) ?? Number.MAX_SAFE_INTEGER);
+  groups.overdue.sort(byDays);
+  groups.upcoming.sort(byDays);
+  groups.paid.sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
+
+  return groups;
+}
+
+/** Amount a bill is expected to cost — the recent average for variable bills. */
+export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
+
+// ─── Period totals ──────────────────────────────────────────────────────────
+
+export interface PeriodTotals {
+  due: number; // still to pay
+  paid: number; // already covered
+  total: number; // due + paid
+  paidPct: number; // 0–100
+  unpaidCount: number;
+  totalCount: number;
+}
+
+export function computePeriodTotals(bills: BillWithStatus[]): PeriodTotals {
+  const active = bills.filter((b) => b.isActive);
+
+  const due = active.filter((b) => !b.isPaidThisPeriod).reduce((s, b) => s + expectedAmount(b), 0);
+  // Use what was actually paid, which can differ from the estimate.
+  const paid = active.filter((b) => b.isPaidThisPeriod).reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0);
+  const total = due + paid;
+
+  return {
+    due,
+    paid,
+    total,
+    paidPct: total > 0 ? (paid / total) * 100 : 0,
+    unpaidCount: active.filter((b) => !b.isPaidThisPeriod).length,
+    totalCount: active.length,
+  };
+}
+
+// ─── Yearly projection ──────────────────────────────────────────────────────
+
+export interface CategoryCost {
+  categoryId: string;
+  label: string;
+  yearlyAmount: number;
+  percentage: number;
+}
+
+/**
+ * Projected annual cost, split by category. Built from each bill's monthly
+ * equivalent (which already accounts for interval and variable averages), so
+ * quarterly and fortnightly bills are comparable.
+ */
+export function yearlyBreakdown(bills: BillWithStatus[], labelFor: (categoryId: string) => string): { total: number; categories: CategoryCost[] } {
+  const active = bills.filter((b) => b.isActive);
+  const total = active.reduce((s, b) => s + b.monthlyEquivalent * 12, 0);
+
+  const byCategory = new Map<string, number>();
+  for (const bill of active) {
+    byCategory.set(bill.categoryId, (byCategory.get(bill.categoryId) ?? 0) + bill.monthlyEquivalent * 12);
+  }
+
+  const categories = Array.from(byCategory.entries())
+    .map(([categoryId, yearlyAmount]) => ({
+      categoryId,
+      label: labelFor(categoryId),
+      yearlyAmount,
+      percentage: total > 0 ? (yearlyAmount / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.yearlyAmount - a.yearlyAmount);
+
+  return { total, categories };
+}
+
 // ─── Display helper ─────────────────────────────────────────────────────────
 // Returns the i18n key + count for a bill's cadence, e.g. "every 2 months".
 

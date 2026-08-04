@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { getPeriodKey, monthlyEquivalent, computeBillStatus, getNextDueDate, getFrequencyLabel, averagePaidAmount } from "./billsUtils";
-import type { Bill, BillPayment } from "../../shared/types/IndexTypes";
+import {
+  getPeriodKey,
+  monthlyEquivalent,
+  computeBillStatus,
+  getNextDueDate,
+  getFrequencyLabel,
+  averagePaidAmount,
+  daysUntilDue,
+  groupBills,
+  computePeriodTotals,
+  yearlyBreakdown,
+} from "./billsUtils";
+import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
 const makeBill = (overrides: Partial<Bill> = {}): Bill =>
   ({
@@ -218,6 +229,157 @@ describe("variable-amount bills", () => {
     const pays = [payment("2026-03", new Date("2026-03-01"))];
     pays[0].amount = 480; // a one-off underpayment shouldn't move the forecast
     expect(computeBillStatus(rent, pays, new Date("2026-03-10")).monthlyEquivalent).toBe(500);
+  });
+});
+
+// ─── Grouping by urgency ─────────────────────────────────────────────────────
+
+/** Builds a status object without going through Firestore. */
+const statusOf = (overrides: Partial<BillWithStatus>, bill: Partial<Bill> = {}): BillWithStatus =>
+  ({
+    ...makeBill(bill),
+    currentPeriodKey: "2026-07",
+    isPaidThisPeriod: false,
+    payments: [],
+    monthlyEquivalent: 15,
+    ...overrides,
+  }) as BillWithStatus;
+
+describe("daysUntilDue", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("counts whole days ahead", () => {
+    expect(daysUntilDue(statusOf({ nextDueDate: new Date("2026-07-20") }), now)).toBe(5);
+  });
+
+  it("returns 0 on the due date itself", () => {
+    expect(daysUntilDue(statusOf({ nextDueDate: new Date("2026-07-15T23:00:00") }), now)).toBe(0);
+  });
+
+  it("goes negative once the date has passed", () => {
+    expect(daysUntilDue(statusOf({ nextDueDate: new Date("2026-07-12") }), now)).toBe(-3);
+  });
+
+  it("is undefined when no due date is set", () => {
+    expect(daysUntilDue(statusOf({ nextDueDate: undefined }), now)).toBeUndefined();
+  });
+});
+
+describe("groupBills", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("sorts a past-due unpaid bill into overdue", () => {
+    const groups = groupBills([statusOf({ id: "a", nextDueDate: new Date("2026-07-10") })], now);
+    expect(groups.overdue).toHaveLength(1);
+    expect(groups.upcoming).toHaveLength(0);
+  });
+
+  it("sorts a future unpaid bill into upcoming", () => {
+    const groups = groupBills([statusOf({ id: "a", nextDueDate: new Date("2026-07-25") })], now);
+    expect(groups.upcoming).toHaveLength(1);
+  });
+
+  it("puts paid bills in their own group regardless of date", () => {
+    // Paid wins even though the date has passed.
+    const groups = groupBills([statusOf({ id: "a", isPaidThisPeriod: true, nextDueDate: new Date("2026-07-01") })], now);
+    expect(groups.paid).toHaveLength(1);
+    expect(groups.overdue).toHaveLength(0);
+  });
+
+  it("treats a bill with no due date as upcoming, never overdue", () => {
+    const groups = groupBills([statusOf({ id: "a", nextDueDate: undefined })], now);
+    expect(groups.upcoming).toHaveLength(1);
+    expect(groups.overdue).toHaveLength(0);
+  });
+
+  it("lists the most overdue bill first", () => {
+    const groups = groupBills(
+      [statusOf({ id: "recent", nextDueDate: new Date("2026-07-14") }), statusOf({ id: "ancient", nextDueDate: new Date("2026-07-01") })],
+      now,
+    );
+    expect(groups.overdue.map((b) => b.id)).toEqual(["ancient", "recent"]);
+  });
+
+  it("lists the soonest upcoming bill first", () => {
+    const groups = groupBills(
+      [statusOf({ id: "later", nextDueDate: new Date("2026-07-28") }), statusOf({ id: "sooner", nextDueDate: new Date("2026-07-18") })],
+      now,
+    );
+    expect(groups.upcoming.map((b) => b.id)).toEqual(["sooner", "later"]);
+  });
+});
+
+// ─── Period totals ───────────────────────────────────────────────────────────
+
+describe("computePeriodTotals", () => {
+  it("splits the period into paid and still-due", () => {
+    const totals = computePeriodTotals([
+      statusOf({ id: "a", isPaidThisPeriod: true, payment: { amount: 100 } as never }, { amount: 100 }),
+      statusOf({ id: "b" }, { amount: 300 }),
+    ]);
+    expect(totals.paid).toBe(100);
+    expect(totals.due).toBe(300);
+    expect(totals.total).toBe(400);
+    expect(totals.paidPct).toBeCloseTo(25);
+    expect(totals.unpaidCount).toBe(1);
+    expect(totals.totalCount).toBe(2);
+  });
+
+  it("counts the real amount paid, not the estimate", () => {
+    // Electricity estimated at 60 but actually cost 95.
+    const totals = computePeriodTotals([statusOf({ id: "a", isPaidThisPeriod: true, payment: { amount: 95 } as never }, { amount: 60, isVariableAmount: true })]);
+    expect(totals.paid).toBe(95);
+  });
+
+  it("forecasts unpaid variable bills from their average", () => {
+    const totals = computePeriodTotals([statusOf({ id: "a", averagePaidAmount: 110 }, { amount: 60, isVariableAmount: true })]);
+    expect(totals.due).toBe(110);
+  });
+
+  it("ignores paused bills", () => {
+    expect(computePeriodTotals([statusOf({ id: "a" }, { amount: 50, isActive: false })]).total).toBe(0);
+  });
+
+  it("reports 0% rather than dividing by zero when there is nothing to pay", () => {
+    expect(computePeriodTotals([]).paidPct).toBe(0);
+  });
+});
+
+// ─── Yearly projection ───────────────────────────────────────────────────────
+
+describe("yearlyBreakdown", () => {
+  const labels: Record<string, string> = { rent: "Housing", net: "Internet" };
+  const labelFor = (id: string) => labels[id] ?? id;
+
+  it("annualizes each bill's monthly equivalent", () => {
+    const { total } = yearlyBreakdown([statusOf({ id: "a", monthlyEquivalent: 100 }), statusOf({ id: "b", monthlyEquivalent: 50 })], labelFor);
+    expect(total).toBe(1800); // (100 + 50) * 12
+  });
+
+  it("merges bills that share a category", () => {
+    const { categories } = yearlyBreakdown(
+      [statusOf({ id: "a", monthlyEquivalent: 100 }, { categoryId: "rent" }), statusOf({ id: "b", monthlyEquivalent: 20 }, { categoryId: "rent" })],
+      labelFor,
+    );
+    expect(categories).toHaveLength(1);
+    expect(categories[0].yearlyAmount).toBe(1440);
+    expect(categories[0].label).toBe("Housing");
+  });
+
+  it("ranks categories by cost and computes their share", () => {
+    const { categories } = yearlyBreakdown(
+      [statusOf({ id: "a", monthlyEquivalent: 25 }, { categoryId: "net" }), statusOf({ id: "b", monthlyEquivalent: 75 }, { categoryId: "rent" })],
+      labelFor,
+    );
+    expect(categories.map((c) => c.categoryId)).toEqual(["rent", "net"]);
+    expect(categories[0].percentage).toBeCloseTo(75);
+    expect(categories[1].percentage).toBeCloseTo(25);
+  });
+
+  it("returns nothing when every bill is paused", () => {
+    const { total, categories } = yearlyBreakdown([statusOf({ id: "a", monthlyEquivalent: 100 }, { isActive: false })], labelFor);
+    expect(total).toBe(0);
+    expect(categories).toHaveLength(0);
   });
 });
 
