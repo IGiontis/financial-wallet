@@ -345,9 +345,9 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
         <>
           {/* Yearly headline, with the monthly equivalent below it — the two
               figures people actually budget against. */}
-          <div className="d-flex align-items-baseline gap-2">
-            <span className={styles.yearlyAmount}>{formatCurrency(total)}</span>
+          <div className="d-flex align-items-baseline justify-content-between gap-2">
             <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.perYear")}</span>
+            <span className={styles.yearlyAmount}>{formatCurrency(total)}</span>
           </div>
 
           <hr className={styles.yearlyDivider} />
