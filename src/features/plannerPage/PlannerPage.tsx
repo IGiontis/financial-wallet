@@ -4,6 +4,7 @@ import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonth
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useTranslation } from "react-i18next";
 import type { InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 function firestoreToDate(value: any): Date {
@@ -83,7 +84,7 @@ function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle
           width: thumb,
           height: thumb,
           borderRadius: "50%",
-          background: "#fff",
+          background: "var(--color-surface)",
           transition: "left 0.2s",
           boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
         }}
@@ -93,6 +94,7 @@ function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle
 }
 
 export function PlannerPage() {
+  const { t } = useTranslation();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [salaryInput, setSalaryInput] = useState<string>(() => localStorage.getItem(getSalaryKey(new Date())) ?? "");
   const [disabledGoals, setDisabledGoals] = useState<Set<string>>(() => loadDisabledGoals(new Date()));
@@ -312,8 +314,8 @@ export function PlannerPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <div>
-          <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Monthly Planner</h5>
-          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>Plan your spending for the month</p>
+          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
+          <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
         </div>
         <Card className="border-0 shadow-sm" style={{ display: "inline-flex" }}>
           <CardBody className="py-2 px-2" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
@@ -355,7 +357,7 @@ export function PlannerPage() {
         <CardBody className="py-3 px-3">
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 160 }}>
-              <p style={{ fontSize: 13, fontWeight: 500, margin: "0 0 1px", color: "var(--color-text-primary)" }}>Expected income this month</p>
+              <p style={{ fontSize: 13, fontWeight: 500, margin: "0 0 1px", color: "var(--color-text-primary)" }}>{t("planner.expectedIncome")}</p>
               <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>Salary, bonuses, or any extra income</p>
             </div>
             <div style={{ width: 160, flexShrink: 0 }}>
@@ -390,8 +392,8 @@ export function PlannerPage() {
         <Col lg={8}>
           <Card className="border-0 shadow-sm">
             <CardBody className="p-3">
-              <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px", color: "var(--color-text-primary)" }}>Allocation breakdown</p>
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>How your income should be distributed this month</p>
+              <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px", color: "var(--color-text-primary)" }}>{t("planner.allocationBreakdown")}</p>
+              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>{t("planner.allocationHint")}</p>
 
               {salary === 0 ? (
                 <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--color-text-secondary)", fontSize: 13 }}>
@@ -445,10 +447,10 @@ export function PlannerPage() {
             <Card className="border-0 shadow-sm">
               <CardBody className="p-3">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>Savings goals</p>
+                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>{t("planner.savingsGoals")}</p>
                   {activeSavingsGoals.length > 0 && <Toggle enabled={allSavingsEnabled} onToggle={toggleAllSavings} size="sm" />}
                 </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Adjusted monthly needed</p>
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>{t("planner.adjustedMonthlyNeeded")}</p>
                 <GoalList items={activeSavingsGoals} emptyText="No active savings goals." />
               </CardBody>
             </Card>
@@ -456,10 +458,10 @@ export function PlannerPage() {
             <Card className="border-0 shadow-sm">
               <CardBody className="p-3">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>Investments</p>
+                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>{t("planner.investments")}</p>
                   {activeInvestmentGoals.length > 0 && <Toggle enabled={allInvestmentsEnabled} onToggle={toggleAllInvestments} size="sm" />}
                 </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>Adjusted monthly needed</p>
+                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>{t("planner.adjustedMonthlyNeeded")}</p>
                 <GoalList items={activeInvestmentGoals} emptyText="No active investments." />
               </CardBody>
             </Card>

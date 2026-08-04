@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -13,7 +14,7 @@ export default defineConfig({
         description: "Personal finance tracker",
         theme_color: "#1a1a2e",
         background_color: "#ffffff",
-        display: "standalone",       // makes it feel like a native app
+        display: "standalone", // makes it feel like a native app
         start_url: "/",
         icons: [
           {
@@ -30,4 +31,10 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    css: false,
+  },
 });

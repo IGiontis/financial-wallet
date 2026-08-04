@@ -5,11 +5,8 @@ import {
   Col,
   Card,
   CardBody,
-  Input,
   Table,
   Badge,
-  InputGroup,
-  InputGroupText,
   Button,
   Spinner,
   Alert,
@@ -22,6 +19,8 @@ import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
+import { useTranslation } from "react-i18next";
+import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 import AddTransactionModal from "../components/AddTransactionModal";
@@ -33,18 +32,27 @@ const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 const DAY_NAMES_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const PAGE_SIZE = 15;
 
+// ─── Tinted chips ─────────────────────────────────────────────────────────────
+// Built from the semantic tokens rather than fixed pastels, so the fill and text
+// both track the active theme (light pastel on white, muted glow on dark).
+
+const tinted = (token: string, strength = 16): React.CSSProperties => ({
+  background: `color-mix(in srgb, var(${token}) ${strength}%, transparent)`,
+  color: `var(${token})`,
+});
+
 function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, background: contributionType === "withdrawal" ? "#EDE9FE" : "#DBEAFE", color: contributionType === "withdrawal" ? "#4338CA" : "#1E40AF", border: "none" };
+  return { fontSize: 10, border: "none", ...tinted(contributionType === "withdrawal" ? "--color-invest" : "--bs-primary") };
 }
 
 function getGoalBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, background: contributionType === "withdrawal" ? "#FEF3C7" : "#FEF9C3", color: contributionType === "withdrawal" ? "#92400E" : "#854D0E", border: "none" };
+  return { fontSize: 10, border: "none", ...tinted("--color-goal", contributionType === "withdrawal" ? 22 : 14) };
 }
 
 function getAmountChipStyle(tx: Transaction): React.CSSProperties {
-  if (tx.isGoalTransaction) return { background: "#FEF3C7", color: "#92400E" };
-  if (tx.isInvestmentTransaction) return { background: "#EDE9FE", color: "#4338CA" };
-  return tx.type === "income" ? { background: "#D1FAE5", color: "#065F46" } : { background: "#FEE2E2", color: "#991B1B" };
+  if (tx.isGoalTransaction) return tinted("--color-goal");
+  if (tx.isInvestmentTransaction) return tinted("--color-invest");
+  return tinted(tx.type === "income" ? "--color-income" : "--color-expense");
 }
 
 function resolveCategory(tx: Transaction, categories: Category[]): Category | undefined {
@@ -107,10 +115,10 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
   return (
     <div
       onClick={() => inputRef.current?.showPicker()}
-      style={{ flex: 1, border: "1px solid rgba(0,0,0,0.13)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "#fafafa", minWidth: 0, cursor: "pointer" }}
+      style={{ flex: 1, border: "1px solid var(--color-border-primary)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "var(--color-background-secondary)", minWidth: 0, cursor: "pointer" }}
     >
-      <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 13, color: date ? "#1a1a2e" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
+      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 13, color: date ? "var(--color-accent-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Select date"}</div>
       <input
         ref={inputRef}
         type="date"
@@ -134,7 +142,7 @@ function DateField({ label, date, onChange, min, max }: { label: string; date: D
             background: "none",
             border: "none",
             cursor: "pointer",
-            color: "#bbb",
+            color: "var(--color-text-secondary)",
             fontSize: 16,
             lineHeight: 1,
             padding: 0,
@@ -199,15 +207,15 @@ function CalendarGrid({
   const yearStart = Math.floor(viewYear / 12) * 12;
   const yearOptions = Array.from({ length: 12 }, (_, i) => yearStart + i);
 
-  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#666", padding: "2px 8px", borderRadius: 6 };
+  const navBtn: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "var(--color-text-secondary)", padding: "2px 8px", borderRadius: 6 };
 
   const pickerCell = (active: boolean, onClick: () => void, label: string) => (
     <button
       key={label}
       onClick={onClick}
       style={{
-        background: active ? "#1a1a2e" : "transparent",
-        color: active ? "#fff" : "#333",
+        background: active ? "var(--color-accent-strong)" : "transparent",
+        color: active ? "var(--color-accent-on-strong)" : "var(--color-text-primary)",
         border: "none",
         borderRadius: 8,
         cursor: "pointer",
@@ -228,7 +236,7 @@ function CalendarGrid({
         <DateField label="FROM" date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
         <DateField label="TO" date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
       </div>
-      <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
+      <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <button style={navBtn} onClick={prevMonth}>
           &lsaquo;
@@ -241,7 +249,7 @@ function CalendarGrid({
             cursor: "pointer",
             fontSize: 16,
             fontWeight: 600,
-            color: "#1a1a2e",
+            color: "var(--color-accent-strong)",
             borderRadius: 6,
             padding: "4px 8px",
             textDecoration: calView !== "days" ? "underline" : "none",
@@ -249,7 +257,7 @@ function CalendarGrid({
           }}
         >
           {MONTH_NAMES[viewMonth]} {viewYear}
-          <span style={{ fontSize: 10, marginLeft: 4, color: "#aaa" }}>v</span>
+          <span style={{ fontSize: 10, marginLeft: 4, color: "var(--color-text-secondary)" }}>v</span>
         </button>
         <button style={navBtn} onClick={nextMonth}>
           &rsaquo;
@@ -288,7 +296,7 @@ function CalendarGrid({
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
             {DAY_NAMES_SHORT.map((d) => (
-              <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#bbb", padding: "2px 0" }}>
+              <div key={d} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", padding: "2px 0" }}>
                 {d}
               </div>
             ))}
@@ -306,18 +314,18 @@ function CalendarGrid({
               const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
               const isToday = isSameDay(date, today);
               let bg = "transparent",
-                color = "#1a1a2e",
+                color = "var(--color-accent-strong)",
                 border = "none",
                 weight = 400;
               if (isEdge) {
-                bg = "#1a1a2e";
-                color = "#fff";
+                bg = "var(--color-accent-strong)";
+                color = "var(--color-accent-on-strong)";
                 weight = 600;
               } else if (inRange) {
-                bg = "#e8eaf6";
+                bg = "var(--color-accent-soft)";
               }
               if (isToday && !isEdge) {
-                border = "1.5px solid #aaa";
+                border = "1.5px solid var(--color-border-primary)";
                 weight = 600;
               }
               return (
@@ -344,21 +352,21 @@ function CalendarGrid({
                   <span style={{ lineHeight: 1 }}>{date.getDate()}</span>
                   {(hasInc || hasExp) && (
                     <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
-                      {hasInc && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#10B981" }} />}
-                      {hasExp && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "rgba(255,255,255,0.6)" : "#EF4444" }} />}
+                      {hasInc && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-income)" }} />}
+                      {hasExp && <span style={{ width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: isEdge ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-expense)" }} />}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#aaa" }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-income)", display: "inline-block" }} />
               Income
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#EF4444", display: "inline-block" }} />
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-expense)", display: "inline-block" }} />
               Expense
             </span>
           </div>
@@ -380,7 +388,7 @@ function CalendarGrid({
             cursor: "pointer",
             padding: "6px 0",
             fontSize: 12,
-            color: "#aaa",
+            color: "var(--color-text-secondary)",
           }}
         >
           Clear date filter
@@ -429,16 +437,16 @@ function MobileCalendar(props: {
                   key={which}
                   style={{
                     flex: 1,
-                    border: `1px solid ${date ? "#1a1a2e" : "rgba(0,0,0,0.13)"}`,
+                    border: `1px solid ${date ? "var(--color-accent-strong)" : "var(--color-border-primary)"}`,
                     borderRadius: 8,
                     padding: "6px 10px",
-                    background: date ? "#1a1a2e" : "#fafafa",
+                    background: date ? "var(--color-accent-strong)" : "var(--color-background-secondary)",
                     cursor: "pointer",
                   }}
                   onClick={() => setExpanded(true)}
                 >
-                  <div style={{ fontSize: 9, color: date ? "rgba(255,255,255,0.6)" : "#aaa", fontWeight: 600, letterSpacing: "0.07em" }}>{which.toUpperCase()}</div>
-                  <div style={{ fontSize: 12, color: date ? "#fff" : "#ccc", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Any"}</div>
+                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{which.toUpperCase()}</div>
+                  <div style={{ fontSize: 12, color: date ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date) : "Any"}</div>
                 </div>
               );
             })}
@@ -446,13 +454,13 @@ function MobileCalendar(props: {
           <button
             onClick={() => setExpanded((v) => !v)}
             style={{
-              background: expanded ? "#1a1a2e" : "#f1f5f9",
+              background: expanded ? "var(--color-tooltip-bg)" : "var(--color-background-secondary)",
               border: "none",
               borderRadius: 8,
               padding: "8px 12px",
               cursor: "pointer",
               fontSize: 13,
-              color: expanded ? "#fff" : "#64748b",
+              color: expanded ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)",
               fontWeight: 500,
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -473,7 +481,7 @@ function MobileCalendar(props: {
                 padding: "8px 10px",
                 cursor: "pointer",
                 fontSize: 12,
-                color: "#aaa",
+                color: "var(--color-text-secondary)",
                 flexShrink: 0,
               }}
             >
@@ -483,7 +491,7 @@ function MobileCalendar(props: {
         </div>
         {expanded && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginBottom: 12 }} />
+            <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
             <CalendarGrid {...props} />
           </div>
         )}
@@ -493,6 +501,7 @@ function MobileCalendar(props: {
 }
 
 function CategorySelect({ value, onChange, categories, size }: { value: string; onChange: (v: string) => void; categories: Category[]; size?: string }) {
+  const { t } = useTranslation();
   return (
     <div style={{ position: "relative", width: "100%" }}>
       <select
@@ -504,20 +513,20 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
           fontSize: size === "sm" ? 13 : 14,
           paddingLeft: 10,
           paddingRight: 32,
-          border: "1px solid #ced4da",
+          border: "1px solid var(--color-border-primary)",
           borderRadius: 4,
-          background: "#fff",
-          color: "#212529",
+          background: "var(--color-surface)",
+          color: "var(--color-text-primary)",
           cursor: "pointer",
           appearance: "none",
           WebkitAppearance: "none",
           MozAppearance: "none",
         }}
       >
-        <option value="all">All Categories</option>
+        <option value="all">{t("transactions.allCategories")}</option>
         <option value="income">💰 Income</option>
         <option value="expense">💸 Expenses</option>
-        <optgroup label="Categories">
+        <optgroup label={t("transactions.categories")}>
           {categories.map((c) => (
             <option key={c.id} value={c.name}>
               {c.icon} {c.name}
@@ -536,27 +545,28 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
             background: "none",
             border: "none",
             cursor: "pointer",
-            color: "#6c757d",
+            color: "var(--color-text-secondary)",
             fontSize: 16,
             lineHeight: 1,
             padding: 0,
             zIndex: 2,
           }}
-          title="Clear filter"
+          title={t("transactions.clearFilter")}
         >
           x
         </button>
       ) : (
-        <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#6c757d", fontSize: 11 }}>▾</span>
+        <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-secondary)", fontSize: 11 }}>▾</span>
       )}
     </div>
   );
 }
 
 function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <Modal isOpen toggle={onClose} size="sm">
-      <ModalHeader toggle={onClose}>Delete transaction</ModalHeader>
+      <ModalHeader toggle={onClose}>{t("transactions.deleteTransaction")}</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: 14, margin: 0 }}>
           Are you sure you want to delete <strong>{transaction.description}</strong>?
@@ -590,6 +600,7 @@ function TransactionCard({
   onDelete: () => void;
   onView: () => void;
 }) {
+  const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
   const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
@@ -638,11 +649,11 @@ function TransactionCard({
               fontWeight: 600,
               fontSize: 10,
               marginTop: 2,
-              background: tx.type === "income" ? "#D1FAE5" : "#FEE2E2",
-              color: tx.type === "income" ? "#065F46" : "#991B1B",
+              background: `color-mix(in srgb, var(${tx.type === "income" ? "--color-income" : "--color-expense"}) 16%, transparent)`,
+              color: tx.type === "income" ? "var(--color-income)" : "var(--color-expense)",
             }}
           >
-            {tx.type === "income" ? "Income" : "Expense"}
+            {tx.type === "income" ? t("transactions.income") : t("transactions.expense")}
           </span>
         )}
       </div>
@@ -708,7 +719,7 @@ function Pagination({
         padding: "10px 16px",
         borderTop: "1px solid rgba(0,0,0,0.06)",
         fontSize: 13,
-        color: "#888",
+        color: "var(--color-text-secondary)",
         flex: "0 0 auto",
       }}
     >
@@ -719,7 +730,7 @@ function Pagination({
         <Button size="sm" color="light" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
           Prev
         </Button>
-        <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, fontWeight: 500, color: "#444" }}>
+        <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
           {currentPage} / {totalPages}
         </span>
         <Button size="sm" color="light" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
@@ -731,6 +742,7 @@ function Pagination({
 }
 
 export function TransactionsPage() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
@@ -890,12 +902,7 @@ export function TransactionsPage() {
               <CardBody className="py-2">
                 <Row className="g-2 align-items-center">
                   <Col md={5}>
-                    <InputGroup size="sm">
-                      <InputGroupText>
-                        <i className="bi bi-search" />
-                      </InputGroupText>
-                      <Input type="text" placeholder="Search payee or memo…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    </InputGroup>
+                    <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchPlaceholder")} size="sm" block />
                   </Col>
                   <Col md={4}>
                     <CategorySelect
@@ -910,7 +917,7 @@ export function TransactionsPage() {
                   </Col>
                   <Col md={3} className="d-flex justify-content-end">
                     <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
-                      + Add Transaction
+                      + {t("transactions.addTransactionBtn")}
                     </Button>
                   </Col>
                 </Row>
@@ -925,17 +932,17 @@ export function TransactionsPage() {
                 ) : (
                   <div style={{ maxHeight: "60vh", overflowY: "auto", overflowX: "auto" }}>
                     <Table hover className="mb-0">
-                      <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
+                      <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--color-surface)" }}>
                         <tr>
-                          <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             DATE
                           </th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>PAYEE</th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>CATEGORY</th>
-                          <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>PAYEE</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>CATEGORY</th>
+                          <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             AMOUNT
                           </th>
-                          <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "#999" }}>
+                          <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             ACTIONS
                           </th>
                         </tr>
@@ -958,7 +965,7 @@ export function TransactionsPage() {
                             const chipStyle = getAmountChipStyle(tx);
                             return (
                               <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
-                                <td className="ps-3" style={{ fontSize: 13, color: "#888" }}>
+                                <td className="ps-3" style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
                                   {formatTable(firestoreToDate(tx.date))}
                                 </td>
                                 <td style={{ fontWeight: 500 }}>{tx.description}</td>
@@ -994,11 +1001,11 @@ export function TransactionsPage() {
                                           borderRadius: 4,
                                           fontWeight: 600,
                                           fontSize: 10,
-                                          background: tx.type === "income" ? "#D1FAE5" : "#FEE2E2",
-                                          color: tx.type === "income" ? "#065F46" : "#991B1B",
+                                          background: `color-mix(in srgb, var(${tx.type === "income" ? "--color-income" : "--color-expense"}) 16%, transparent)`,
+                                          color: tx.type === "income" ? "var(--color-income)" : "var(--color-expense)",
                                         }}
                                       >
-                                        {tx.type === "income" ? "Income" : "Expense"}
+                                        {tx.type === "income" ? t("transactions.income") : t("transactions.expense")}
                                       </span>
                                     )}
                                     {tx.isGoalTransaction && (
@@ -1041,7 +1048,7 @@ export function TransactionsPage() {
                                       onClick={() => {
                                         if (!tx.isInvestmentTransaction && !tx.isGoalTransaction) setEditTransaction(tx);
                                       }}
-                                      title="Edit"
+                                      title={t("common.edit")}
                                     >
                                       <FiEdit2 size={13} />
                                     </Button>
@@ -1050,7 +1057,7 @@ export function TransactionsPage() {
                                       color="light"
                                       style={{ padding: "2px 8px", color: "var(--bs-danger)" }}
                                       onClick={() => setDeleteTransaction(tx)}
-                                      title="Delete"
+                                      title={t("common.delete")}
                                     >
                                       <FiTrash2 size={13} />
                                     </Button>
@@ -1086,7 +1093,9 @@ export function TransactionsPage() {
           <MobileCalendar {...calendarProps} />
         )}
         <div className="d-flex gap-2 align-items-center mb-2" style={{ flexShrink: 0 }}>
-          <Input type="text" bsSize="sm" placeholder="Search…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1 }} />
+          <div style={{ flex: 1 }}>
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} size="sm" block />
+          </div>
           <div style={{ flex: 1 }}>
             <CategorySelect
               value={selectedCategory}
@@ -1109,7 +1118,7 @@ export function TransactionsPage() {
                 <Spinner color="primary" />
               </div>
             ) : pagedTransactions.length === 0 ? (
-              <p className="text-center text-muted py-5 mb-0">No transactions found</p>
+              <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
             ) : (
               pagedTransactions.map((tx) => (
                 <TransactionCard

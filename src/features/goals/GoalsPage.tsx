@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
-import { Alert, Badge, Button, Col, Container, Input, Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
+import { Alert, Badge, Button, Col, Container,  Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "../budget/components/InvestmentsShared";
 import AddDepositModal from "../budget/AddDepositModal";
@@ -18,16 +18,18 @@ import WithdrawModal from "../budget/WithdrawModal";
 import AddNewGoalModal from "../budget/AddNewGoalModal";
 import EditGoalModal from "../budget/EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useTranslation } from "react-i18next";
+import { SearchInput } from "../../shared/components/SearchInput";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type GoalsFilterTab = "all" | "paused" | "completed";
 
-const TAB_LABELS: Record<GoalsFilterTab, string> = {
-  all: "Active",
-  paused: "Paused",
-  completed: "Completed",
+const TAB_LABEL_KEYS: Record<GoalsFilterTab, string> = {
+  all: "common.active",
+  paused: "common.paused",
+  completed: "common.completed",
 };
 
 // ─── Scope helper ─────────────────────────────────────────────────────────────
@@ -41,6 +43,7 @@ const belongsHere = (g: InvestmentGoalWithStats) => g.goalType === "targeted" &&
 // ─── GoalsSummaryCards ────────────────────────────────────────────────────────
 
 function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
   const mine = goals.filter(belongsHere);
   const active = mine.filter((g) => g.isActive && !g.isCompleted);
   const paused = mine.filter((g) => !g.isActive && !g.isCompleted);
@@ -51,18 +54,18 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
   const monthlyNeeded = active.reduce((s, g) => s + (g.monthlyRequired ?? 0), 0);
 
   const cards = [
-    { label: "Active goals", value: String(active.length), sub: "currently running", accent: "#6366F1", icon: "🎯" },
+    { label: t("goals.activeGoals"), value: String(active.length), sub: t("goals.currentlyRunning"), accent: "var(--color-invest)", icon: "🎯" },
     {
-      label: "On track",
+      label: t("goals.onTrack"),
       value: `${onTrack} / ${active.length}`,
-      sub: "targeted goals",
+      sub: t("goals.targetedGoals"),
       accent: onTrackRatio === 1 ? "#10B981" : onTrackRatio >= 0.5 ? "#F59E0B" : "#EF4444",
       icon: onTrackRatio === 1 ? "✅" : onTrackRatio >= 0.5 ? "⚠️" : "❌",
     },
-    { label: "Remaining", value: formatCurrency(remainingTotal), sub: "to reach all goals", accent: "#F59E0B", icon: "💰" },
-    { label: "Monthly needed", value: formatCurrency(monthlyNeeded), sub: "across all goals", accent: "#3B82F6", icon: "📅" },
-    { label: "Paused", value: String(paused.length), sub: paused.length === 1 ? "goal paused" : "goals paused", accent: "#9CA3AF", icon: "⏸️" },
-    { label: "Completed", value: String(completed.length), sub: completed.length === 1 ? "goal reached" : "goals reached", accent: "#8B5CF6", icon: "🏆" },
+    { label: t("goals.remainingLabel"), value: formatCurrency(remainingTotal), sub: t("goals.toReachAll"), accent: "var(--color-goal)", icon: "💰" },
+    { label: t("goals.monthlyNeeded"), value: formatCurrency(monthlyNeeded), sub: t("goals.acrossAllGoals"), accent: "var(--bs-primary)", icon: "📅" },
+    { label: t("common.paused"), value: String(paused.length), sub: paused.length === 1 ? t("goals.goalPaused") : t("goals.goalsPaused"), accent: "#9CA3AF", icon: "⏸️" },
+    { label: t("common.completed"), value: String(completed.length), sub: completed.length === 1 ? t("goals.goalReached") : t("goals.goalsReached"), accent: "#8B5CF6", icon: "🏆" },
   ];
 
   return (
@@ -73,7 +76,7 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
             style={{
               width: "100%",
               borderRadius: 12,
-              background: "#ffffff",
+              background: "var(--color-surface)",
               border: "0.5px solid var(--color-border-tertiary)",
               borderTop: `3px solid ${c.accent}`,
               padding: "14px 16px",
@@ -98,6 +101,7 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
 // ─── GoalsPage ────────────────────────────────────────────────────────────────
 
 export default function GoalsPage() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<GoalsFilterTab>("all");
   const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -169,19 +173,25 @@ export default function GoalsPage() {
     return 0;
   };
 
-  const emptyLabel = isSearching ? `No results for "${search}"` : filter === "all" ? "No active goals yet" : `No ${TAB_LABELS[filter].toLowerCase()} goals yet`;
+  const emptyLabel = isSearching
+    ? t("investments.noResultsFor", { query: search })
+    : filter === "all"
+      ? t("goals.noActiveYet")
+      : filter === "paused"
+        ? t("goals.noPausedYet")
+        : t("goals.noCompletedYet");
 
   return (
     <Container fluid className="py-4">
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Goals</h5>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Save toward specific targets with deadlines</p>
+          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("goals.title")}</h1>
+          <p className="small text-body-secondary mb-0">{t("goals.subtitle")}</p>
         </div>
         <Button color="primary" onClick={() => setShowNewGoal(true)}>
-          <span className="d-none d-sm-inline">+ New goal</span>
-          <span className="d-sm-none">+ New</span>
+          <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
+          <span className="d-sm-none">+ {t("bills.new")}</span>
         </Button>
       </div>
 
@@ -190,7 +200,7 @@ export default function GoalsPage() {
           <Spinner color="primary" />
         </div>
       )}
-      {isError && <Alert color="danger">Failed to load goals. Please refresh the page.</Alert>}
+      {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
       {!isLoading && !isError && (
         <>
@@ -198,39 +208,12 @@ export default function GoalsPage() {
 
           {/* Mobile search */}
           <div className="d-md-none mb-2">
-            <div style={{ position: "relative" }}>
-              <Input
-                placeholder="Search goals..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem" }}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  style={{
-                    position: "absolute",
-                    right: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--color-text-secondary)",
-                    fontSize: 18,
-                    lineHeight: 1,
-                    padding: "0 4px",
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder={t("goals.searchPlaceholder")} block />
           </div>
 
           {isSearching && (
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+              {t("investments.showingResults", { count: filtered.length })}
             </p>
           )}
 
@@ -256,8 +239,8 @@ export default function GoalsPage() {
                             background: "transparent",
                           }}
                         >
-                          {TAB_LABELS[tab]}
-                          <Badge pill style={{ color: "#e0f0ff", backgroundColor: tab === "paused" ? "#F59E0B" : "#0d6efd", fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
+                          {t(TAB_LABEL_KEYS[tab])}
+                          <Badge pill color={tab === "paused" ? "warning" : "primary"} style={{ fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
                             {tabCount(tab)}
                           </Badge>
                         </NavLink>
@@ -270,34 +253,7 @@ export default function GoalsPage() {
                 className="d-none d-md-flex align-items-center justify-content-end"
                 style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
               >
-                <div style={{ position: "relative", width: 220 }}>
-                  <Input
-                    placeholder="Search goals..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem", height: 32 }}
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch("")}
-                      style={{
-                        position: "absolute",
-                        right: 10,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-secondary)",
-                        fontSize: 18,
-                        lineHeight: 1,
-                        padding: "0 4px",
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+                <SearchInput value={search} onChange={setSearch} placeholder={t("goals.searchPlaceholder")} size="sm" />
               </div>
             </div>
           </div>
@@ -309,10 +265,10 @@ export default function GoalsPage() {
               <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
               {!isSearching && filter !== "paused" && (
                 <>
-                  <p style={{ fontSize: 14 }}>Create your first savings goal to start tracking toward a target.</p>
+                  <p style={{ fontSize: 14 }}>{t("goals.createFirstHint")}</p>
                   <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    <span className="d-none d-sm-inline">+ New goal</span>
-                    <span className="d-sm-none">+ New</span>
+                    <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
+                    <span className="d-sm-none">+ {t("bills.new")}</span>
                   </Button>
                 </>
               )}

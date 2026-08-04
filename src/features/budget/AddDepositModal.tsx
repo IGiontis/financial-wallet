@@ -3,6 +3,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Alert } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -26,10 +27,14 @@ interface AddDepositModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: AddDepositModalProps) {
+  const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+
   const isDeadlineGoal = goal.goalType === "targeted" && goal.targetPeriod !== "monthly" && goal.targetPeriod !== "yearly";
 
+  // `remaining` is stored in base currency; the user types in their display currency.
   const remaining = goal.remaining ?? 0;
-  const maxAmount = isDeadlineGoal && remaining > 0 ? remaining : 1_000_000;
+  const remainingInDisplay = convert(remaining);
+  const maxAmount = isDeadlineGoal && remaining > 0 ? remainingInDisplay : 1_000_000;
 
   const validationSchema = useMemo(
     () =>
@@ -38,11 +43,12 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           .typeError("Amount must be a number")
           .required("Amount is required")
           .positive("Amount must be greater than 0")
-          .max(maxAmount, isDeadlineGoal ? `Cannot exceed remaining amount (${maxAmount.toFixed(2)})` : "Amount is too large"),
+          .max(maxAmount, isDeadlineGoal ? `Cannot exceed remaining amount (${format(remaining)})` : "Amount is too large"),
         date: Yup.string().required("Date is required"),
         notes: Yup.string().max(40, "Max 40 characters"),
       }),
-    [maxAmount, isDeadlineGoal],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [maxAmount, isDeadlineGoal, remaining],
   );
 
   const formik = useFormik<DepositFormValues>({
@@ -51,9 +57,11 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        const typed = values.amount as number;
+        const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
         const dto: CreateInvestmentContributionDTO = {
           goalId: goal.id,
-          amount: values.amount as number,
+          amount: amountInBase,
           contributionType: "deposit",
           date: new Date(values.date),
           notes: values.notes || undefined,
@@ -73,7 +81,8 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
   };
 
   const numericAmount = Number(formik.values.amount) || 0;
-  const balanceAfter = remaining - numericAmount;
+  const amountInBaseLive = baseCurrency === displayCurrency ? numericAmount : convertToBase(numericAmount);
+  const balanceAfterBase = remaining - amountInBaseLive;
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="md">
@@ -86,7 +95,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           {/* Deadline goal info banner */}
           {isDeadlineGoal && remaining > 0 && (
             <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
-              This is a deadline goal. You can deposit up to <strong>{maxAmount.toFixed(2)}</strong> remaining to reach your target.
+              This is a deadline goal. You can deposit up to <strong>{format(remaining)}</strong> remaining to reach your target.
             </Alert>
           )}
 
@@ -100,7 +109,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           <Row className="g-2">
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
                 <Input
                   type="number"
                   name="amount"
@@ -116,11 +125,11 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
                 <FormFeedback>{formik.errors.amount}</FormFeedback>
                 {isDeadlineGoal && remaining > 0 && (
                   <FormText style={{ fontSize: 11 }}>
-                    Max deposit: <strong>{maxAmount.toFixed(2)}</strong>
+                    Max deposit: <strong>{format(remaining)}</strong>
                     {numericAmount > 0 && !formik.errors.amount && (
                       <>
                         {" "}
-                        · Remaining after: <strong>{Math.max(balanceAfter, 0).toFixed(2)}</strong>
+                        · Remaining after: <strong>{format(Math.max(balanceAfterBase, 0))}</strong>
                       </>
                     )}
                   </FormText>

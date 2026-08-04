@@ -3,10 +3,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatCurrency = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -30,6 +27,11 @@ interface WithdrawModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: WithdrawModalProps) {
+  const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+
+  // Balances are stored in base currency; the user types in their display currency.
+  const balanceInDisplay = convert(goal.totalSaved);
+
   const validationSchema = React.useMemo(
     () =>
       Yup.object({
@@ -37,11 +39,12 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           .typeError("Amount must be a number")
           .required("Amount is required")
           .positive("Amount must be greater than 0")
-          .max(goal.totalSaved, `Cannot exceed current balance (${formatCurrency(goal.totalSaved)})`),
+          .max(balanceInDisplay, `Cannot exceed current balance (${format(goal.totalSaved)})`),
         date: Yup.string().required("Date is required"),
         notes: Yup.string().max(40, "Max 40 characters"),
       }),
-    [goal.totalSaved],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [goal.totalSaved, balanceInDisplay],
   );
 
   const formik = useFormik<WithdrawFormValues>({
@@ -50,9 +53,11 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        const typed = values.amount as number;
+        const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
         const dto: CreateInvestmentContributionDTO = {
           goalId: goal.id,
-          amount: values.amount as number,
+          amount: amountInBase,
           contributionType: "withdrawal",
           date: new Date(values.date),
           notes: values.notes || undefined,
@@ -72,7 +77,8 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
   };
 
   const numericAmount = Number(formik.values.amount) || 0;
-  const balanceAfter = goal.totalSaved - numericAmount;
+  const amountInBaseLive = baseCurrency === displayCurrency ? numericAmount : convertToBase(numericAmount);
+  const balanceAfterBase = goal.totalSaved - amountInBaseLive;
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="m">
@@ -83,13 +89,13 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
           <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
-            Current balance: <strong>{formatCurrency(goal.totalSaved)}</strong>
+            Current balance: <strong>{format(goal.totalSaved)}</strong>
           </Alert>
 
           <Row className="g-2">
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount ({displayCurrency}) *</Label>
                 <Input
                   type="number"
                   name="amount"
@@ -105,7 +111,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
 
                 {numericAmount > 0 && !formik.errors.amount && (
                   <FormText style={{ fontSize: 11 }}>
-                    Balance after: <strong>{formatCurrency(Math.max(balanceAfter, 0))}</strong>
+                    Balance after: <strong>{format(Math.max(balanceAfterBase, 0))}</strong>
                   </FormText>
                 )}
               </FormGroup>

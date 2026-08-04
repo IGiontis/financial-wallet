@@ -24,7 +24,7 @@ A personal finance tracker built with React and Firebase. Track income, expenses
 |-------|-------|
 | Framework | React 19 + TypeScript |
 | Build | Vite |
-| State | Redux Toolkit + React Query |
+| Server state | TanStack Query (React Query) |
 | Forms | Formik + Yup |
 | UI | Bootstrap 5 + Reactstrap + React Icons |
 | Backend | Firebase (Auth + Firestore) |
@@ -109,12 +109,13 @@ This project is deployed on [Netlify](https://netlify.com). To deploy your own i
 
 ```
 src/
-├── components/     # Reusable UI components
-├── pages/          # Route-level views (income, expenses, goals, investments)
-├── store/          # Redux slices
-├── hooks/          # Custom React Query hooks
-├── services/       # Firebase and API integrations
-└── utils/          # Helpers and formatters
+├── features/       # Feature modules (auth, overview, transactions, budget, goals, settings…)
+│   └── <feature>/  #   pages, components and React Query hooks for that feature
+├── firebase/       # Firebase config, auth and Firestore data access
+├── shared/         # Cross-feature hooks, types and utils
+├── context/        # React context providers (auth)
+├── lib/            # Router and query-client setup
+└── test/           # Vitest setup
 ```
 
 ---

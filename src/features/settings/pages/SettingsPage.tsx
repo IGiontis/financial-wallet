@@ -5,11 +5,13 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, Alert } from "reactstrap";
 import { useAuth } from "../../../context/AuthContext";
-import { getUser, updateUser } from "../../../firebase/firestore";
+import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { SUPPORTED_LANGUAGES } from "../../../i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -19,14 +21,8 @@ const CURRENCIES = [
   { value: "GBP", label: "GBP — British Pound (£)" },
 ];
 
-const LOCALES = [
-  { value: "en-US", label: "English (US)" },
-  { value: "en-GB", label: "English (UK)" },
-  { value: "el-GR", label: "Greek (Ελληνικά)" },
-  { value: "de-DE", label: "German (Deutsch)" },
-  { value: "fr-FR", label: "French (Français)" },
-  { value: "es-ES", label: "Spanish (Español)" },
-];
+// Languages the app actually ships translations for — see src/i18n
+const LOCALES = SUPPORTED_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }));
 
 const COUNTRIES = ["Greece", "United States", "United Kingdom", "Germany", "France", "Spain", "Italy", "Netherlands", "Portugal", "Other"];
 
@@ -34,19 +30,19 @@ const COUNTRIES = ["Greece", "United States", "United Kingdom", "Germany", "Fran
 
 const getInitials = (first: string, last: string) => `${first?.[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase() || "?";
 
-const getFriendlyError = (code: string): string => {
+const getErrorKey = (code: string): string => {
   switch (code) {
     case "auth/wrong-password":
     case "auth/invalid-credential":
-      return "Current password is incorrect.";
+      return "errors.wrongPassword";
     case "auth/email-already-in-use":
-      return "This email is already in use.";
+      return "errors.emailInUse";
     case "auth/weak-password":
-      return "New password must be at least 6 characters.";
+      return "errors.weakPassword";
     case "auth/requires-recent-login":
-      return "Please log out and log back in before making this change.";
+      return "errors.requiresRecentLogin";
     default:
-      return "Something went wrong. Please try again.";
+      return "errors.generic";
   }
 };
 
@@ -73,6 +69,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const googleUser = isGoogleUser();
   const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
 
   const [userData, setUserData] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -133,9 +130,9 @@ export function SettingsPage() {
           queryKey: exchangeRateKeys.user(currentUser!.uid),
         });
 
-        toast.success("Profile updated successfully!");
+        toast.success(t("settings.profileUpdated"));
       } catch {
-        toast.error("Failed to update profile.");
+        toast.error(t("settings.profileUpdateFailed"));
       }
     },
   });
@@ -146,7 +143,9 @@ export function SettingsPage() {
     enableReinitialize: true,
     initialValues: {
       currency: userData?.currency ?? "EUR",
-      locale: userData?.locale ?? "en-US",
+      // Fall back to the language i18n resolved (browser detection) so the
+      // dropdown always reflects what the user is actually seeing.
+      locale: userData?.locale ?? i18n.resolvedLanguage ?? "en",
     },
     validationSchema: Yup.object({
       currency: Yup.string().oneOf(["USD", "EUR", "GBP"]).required(),
@@ -156,12 +155,15 @@ export function SettingsPage() {
       try {
         await updateUser(currentUser!.uid, {
           currency: values.currency as "USD" | "EUR" | "GBP",
+          locale: values.locale,
         });
-        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, currency: values.currency }));
+        // Apply the language immediately — i18next persists it to localStorage
+        await i18n.changeLanguage(values.locale);
+        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, currency: values.currency, locale: values.locale }));
         queryClient.invalidateQueries({ queryKey: exchangeRateKeys.user(currentUser!.uid) });
-        toast.success("Preferences saved!");
+        toast.success(t("settings.preferencesSaved"));
       } catch {
-        toast.error("Failed to save preferences.");
+        toast.error(t("settings.preferencesFailed"));
       }
     },
   });
@@ -178,11 +180,10 @@ export function SettingsPage() {
       try {
         await reauthenticate(values.currentPassword);
         await updateUserEmail(values.newEmail);
-        await updateUser(currentUser!.uid, {});
-        toast.success("Email updated successfully!");
+        toast.success(t("settings.emailVerificationSent"));
         resetForm();
       } catch (err: any) {
-        toast.error(getFriendlyError(err.code));
+        toast.error(t(getErrorKey(err.code)));
       }
     },
   });
@@ -202,10 +203,10 @@ export function SettingsPage() {
       try {
         await reauthenticate(values.currentPassword);
         await updateUserPassword(values.newPassword);
-        toast.success("Password changed successfully!");
+        toast.success(t("settings.passwordChanged"));
         resetForm();
       } catch (err: any) {
-        toast.error(getFriendlyError(err.code));
+        toast.error(t(getErrorKey(err.code)));
       }
     },
   });
@@ -217,11 +218,13 @@ export function SettingsPage() {
     setDeleteLoading(true);
     try {
       if (!googleUser) await reauthenticate(deletePassword);
+      // Remove all Firestore data while still authenticated, then the auth account.
+      await deleteAllUserData(currentUser!.uid);
       await deleteAccount();
       await logout();
       navigate("/login", { replace: true });
     } catch (err: any) {
-      setDeleteError(getFriendlyError(err.code));
+      setDeleteError(getErrorKey(err.code));
     } finally {
       setDeleteLoading(false);
     }
@@ -242,12 +245,12 @@ export function SettingsPage() {
   return (
     <Container fluid className="py-4" style={{ maxWidth: 720 }}>
       <div style={{ marginBottom: "1.5rem" }}>
-        <h5 style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>Settings</h5>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Manage your profile, preferences and account security</p>
+        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
+        <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
       </div>
 
       {/* ── Profile ─────────────────────────────────────────────────────────── */}
-      <Section title="Profile" subtitle="Your personal information">
+      <Section title={t("settings.profile")} subtitle={t("settings.profileSubtitle")}>
         {/* Avatar row */}
         <div className="d-flex align-items-center gap-3 mb-4">
           <div
@@ -284,7 +287,7 @@ export function SettingsPage() {
               color: "var(--color-text-secondary)",
             }}
           >
-            Your profile information is managed through your Google account. To update your name or photo, change them in your Google account settings.
+            {t("settings.googleManaged")}
           </div>
         ) : (
           /* Email/password users — editable form */
@@ -292,7 +295,7 @@ export function SettingsPage() {
             <Row className="g-3">
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>First name *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.firstName")} *</Label>
                   <Input
                     type="text"
                     name="firstName"
@@ -306,7 +309,7 @@ export function SettingsPage() {
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Last name *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.lastName")} *</Label>
                   <Input
                     type="text"
                     name="lastName"
@@ -320,7 +323,7 @@ export function SettingsPage() {
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Username *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.username")} *</Label>
                   <Input
                     type="text"
                     name="username"
@@ -335,12 +338,12 @@ export function SettingsPage() {
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Display name <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                    Display name <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input
                     type="text"
                     name="displayName"
-                    placeholder="How you want to appear in the app"
+                    placeholder={t("settings.displayNameHint")}
                     value={profileForm.values.displayName}
                     onChange={profileForm.handleChange}
                     onBlur={profileForm.handleBlur}
@@ -350,7 +353,7 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Age <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                    Age <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input
                     type="number"
@@ -368,7 +371,7 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    City <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                    City <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
                 </FormGroup>
@@ -376,10 +379,10 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Country <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                    Country <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
-                    <option value="">Select country...</option>
+                    <option value="">{t("settings.selectCountry")}</option>
                     {COUNTRIES.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -391,7 +394,7 @@ export function SettingsPage() {
             </Row>
             <div className="d-flex justify-content-end mt-4">
               <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty}>
-                {profileForm.isSubmitting ? "Saving..." : "Save profile"}
+                {profileForm.isSubmitting ? t("common.saving") : t("settings.saveProfile")}
               </Button>
             </div>
           </form>
@@ -399,12 +402,12 @@ export function SettingsPage() {
       </Section>
 
       {/* ── Preferences ─────────────────────────────────────────────────────── */}
-      <Section title="Preferences" subtitle="Currency and language settings">
+      <Section title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")}>
         <form onSubmit={prefsForm.handleSubmit} noValidate>
           <Row className="g-3">
             <Col xs={12} md={6}>
               <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Currency</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currency")}</Label>
                 <Input type="select" name="currency" value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
                   {CURRENCIES.map((c) => (
                     <option key={c.value} value={c.value}>
@@ -416,8 +419,8 @@ export function SettingsPage() {
             </Col>
             <Col xs={12} md={6}>
               <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Language <small className="text-muted">(Coming Soon)</small></Label>
-                <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange} disabled>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.language")}</Label>
+                <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
                   {LOCALES.map((l) => (
                     <option key={l.value} value={l.value}>
                       {l.label}
@@ -429,7 +432,7 @@ export function SettingsPage() {
           </Row>
           <div className="d-flex justify-content-end mt-4">
             <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty}>
-              {prefsForm.isSubmitting ? "Saving..." : "Save preferences"}
+              {prefsForm.isSubmitting ? t("common.saving") : t("settings.savePreferences")}
             </Button>
           </div>
         </form>
@@ -437,18 +440,18 @@ export function SettingsPage() {
 
       {/* ── Email (email/password users only) ───────────────────────────────── */}
       {!googleUser && (
-        <Section title="Email address" subtitle="Change the email associated with your account">
+        <Section title={t("settings.emailAddress")} subtitle={t("settings.emailSubtitle")}>
           <form onSubmit={emailForm.handleSubmit} noValidate>
             <Row className="g-3">
               <Col xs={12}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Current email</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentEmail")}</Label>
                   <Input type="text" value={currentUser?.email ?? ""} disabled style={{ background: "var(--color-background-secondary)" }} />
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>New email *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
                   <Input
                     type="email"
                     name="newEmail"
@@ -462,11 +465,11 @@ export function SettingsPage() {
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Current password *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
                   <Input
                     type="password"
                     name="currentPassword"
-                    placeholder="Required to confirm"
+                    placeholder={t("settings.requiredToConfirm")}
                     value={emailForm.values.currentPassword}
                     onChange={emailForm.handleChange}
                     onBlur={emailForm.handleBlur}
@@ -478,7 +481,7 @@ export function SettingsPage() {
             </Row>
             <div className="d-flex justify-content-end mt-4">
               <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty}>
-                {emailForm.isSubmitting ? "Updating..." : "Update email"}
+                {emailForm.isSubmitting ? t("settings.updating") : t("settings.updateEmail")}
               </Button>
             </div>
           </form>
@@ -487,12 +490,12 @@ export function SettingsPage() {
 
       {/* ── Password (email/password users only) ─────────────────────────────── */}
       {!googleUser && (
-        <Section title="Change password" subtitle="Use a strong password of at least 6 characters">
+        <Section title={t("settings.changePassword")} subtitle={t("settings.passwordSubtitle")}>
           <form onSubmit={passwordForm.handleSubmit} noValidate>
             <Row className="g-3">
               <Col xs={12}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Current password *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
                   <Input
                     type="password"
                     name="currentPassword"
@@ -506,7 +509,7 @@ export function SettingsPage() {
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>New password *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
                   <Input
                     type="password"
                     name="newPassword"
@@ -520,7 +523,7 @@ export function SettingsPage() {
               </Col>
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Confirm new password *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
                   <Input
                     type="password"
                     name="confirmPassword"
@@ -535,7 +538,7 @@ export function SettingsPage() {
             </Row>
             <div className="d-flex justify-content-end mt-4">
               <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty}>
-                {passwordForm.isSubmitting ? "Changing..." : "Change password"}
+                {passwordForm.isSubmitting ? t("settings.changing") : t("settings.changePassword")}
               </Button>
             </div>
           </form>
@@ -544,9 +547,9 @@ export function SettingsPage() {
 
       {/* ── Account security (Google users) ─────────────────────────────────── */}
       {googleUser && (
-        <Section title="Account security" subtitle="Your account is managed by Google">
+        <Section title={t("settings.accountSecurity")} subtitle={t("settings.googleSecuritySubtitle")}>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            You signed in with Google. Email and password changes are managed through your Google account.
+            {t("settings.googleSecurityBody")}
           </p>
         </Section>
       )}
@@ -554,12 +557,12 @@ export function SettingsPage() {
       {/* ── Danger zone ─────────────────────────────────────────────────────── */}
       <Card style={{ border: "0.5px solid var(--bs-danger)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: "1rem" }}>
         <CardBody style={{ padding: "1.5rem" }}>
-          <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>Danger zone</p>
+          <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
-            Once you delete your account all your data — transactions, goals and categories — will be permanently removed. This cannot be undone.
+            {t("settings.dangerZoneBody")}
           </p>
           <Button color="danger" outline onClick={() => setShowDeleteModal(true)}>
-            Delete account
+            {t("settings.deleteAccount")}
           </Button>
         </CardBody>
       </Card>
@@ -581,19 +584,19 @@ export function SettingsPage() {
             setDeletePassword("");
           }}
         >
-          Delete account
+          {t("settings.deleteAccount")}
         </ModalHeader>
         <ModalBody>
-          <p style={{ fontSize: 14, margin: "0 0 1rem" }}>Are you sure? This will permanently delete your account and all your data. This cannot be undone.</p>
+          <p style={{ fontSize: 14, margin: "0 0 1rem" }}>{t("settings.deleteConfirmBody")}</p>
           {!googleUser && (
             <FormGroup className="mb-0">
-              <Label style={{ fontSize: 13, fontWeight: 500 }}>Enter your password to confirm</Label>
-              <Input type="password" placeholder="Your current password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
+              <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.enterPasswordConfirm")}</Label>
+              <Input type="password" placeholder={t("settings.yourCurrentPassword")} value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
             </FormGroup>
           )}
           {deleteError && (
             <Alert color="danger" style={{ fontSize: 13, marginTop: "0.75rem", marginBottom: 0 }}>
-              {deleteError}
+              {t(deleteError)}
             </Alert>
           )}
         </ModalBody>
@@ -608,10 +611,10 @@ export function SettingsPage() {
             }}
             disabled={deleteLoading}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button color="danger" onClick={handleDeleteAccount} disabled={deleteLoading || (!googleUser && !deletePassword)}>
-            {deleteLoading ? "Deleting..." : "Delete my account"}
+            {deleteLoading ? t("common.deleting") : t("settings.deleteMyAccount")}
           </Button>
         </ModalFooter>
       </Modal>

@@ -53,6 +53,117 @@ export function getGoalTypeLabel(goal: InvestmentGoalWithStats): string {
   return "Tracking";
 }
 
+// ─── StatCell ─────────────────────────────────────────────────────────────────
+// Declared at module scope so React preserves component identity between renders.
+// Variants are token-tinted, so they adapt to light and dark instead of being
+// fixed pastels.
+
+type StatVariant = "neutral" | "red" | "green-current" | "emerald";
+
+const STAT_TOKEN: Record<Exclude<StatVariant, "neutral">, string> = {
+  red: "--color-expense",
+  "green-current": "--color-income",
+  emerald: "--color-income",
+};
+
+export function StatCell({ label, value, xs = 6, variant = "neutral" }: { label: string; value: string | number; xs?: number; variant?: StatVariant }) {
+  const isNeutral = variant === "neutral";
+  const token = isNeutral ? undefined : STAT_TOKEN[variant];
+
+  const style: React.CSSProperties = isNeutral
+    ? { background: "var(--color-surface)", border: "1.5px solid var(--color-border-primary)" }
+    : {
+        background: `color-mix(in srgb, var(${token}) 14%, transparent)`,
+        border: `1.5px solid color-mix(in srgb, var(${token}) 35%, transparent)`,
+      };
+
+  const labelColor = isNeutral ? "var(--color-text-secondary)" : `var(${token})`;
+  const valueColor = isNeutral ? "var(--color-text-primary)" : `var(${token})`;
+
+  return (
+    <Col xs={xs}>
+      <div style={{ ...style, borderRadius: 8, padding: "8px 10px" }}>
+        <p style={{ fontSize: 11, fontWeight: 400, color: labelColor, margin: "0 0 2px" }}>{label}</p>
+        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: valueColor }}>{value}</p>
+      </div>
+    </Col>
+  );
+}
+
+// ─── Recurring progress bar ───────────────────────────────────────────────────
+// Five visual states for a recurring goal's period progress.
+
+interface RecurringProgressBarProps {
+  isAhead: boolean;
+  isCreditCovered: boolean;
+  hasDebt: boolean;
+  isWithdrawalDebt: boolean;
+  pctOfTotal: number;
+  currentMonthSegmentPct: number;
+  displayPct: number;
+  progressColor: string;
+}
+
+export function RecurringProgressBar({
+  isAhead,
+  isCreditCovered,
+  hasDebt,
+  isWithdrawalDebt,
+  pctOfTotal,
+  currentMonthSegmentPct,
+  displayPct,
+  progressColor,
+}: RecurringProgressBarProps) {
+  const track = (token: string, strength = 22): React.CSSProperties => ({
+    background: `color-mix(in srgb, var(${token}) ${strength}%, transparent)`,
+  });
+
+  // 1. Ahead — net-positive this period
+  if (isAhead) {
+    return (
+      <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-income") }}>
+        <div style={{ height: 8, borderRadius: 4, background: "var(--color-income)", width: "100%" }} />
+      </div>
+    );
+  }
+
+  // 2. Covered by carryover — nothing deposited this month, credit covers it
+  if (isCreditCovered) {
+    return (
+      <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-income", 30) }}>
+        <div
+          style={{
+            height: "100%",
+            width: "100%",
+            background: "var(--color-income)",
+            backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.22) 4px, rgba(255,255,255,0.22) 8px)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 3. Arrears — past missed months (primary = this period's target, red = arrears)
+  if (hasDebt) {
+    return (
+      <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+        <div style={{ position: "absolute", left: 0, width: `${currentMonthSegmentPct}%`, height: "100%", ...track("--bs-primary", 28) }} />
+        <div style={{ position: "absolute", left: `${currentMonthSegmentPct}%`, width: `${100 - currentMonthSegmentPct}%`, height: "100%", ...track("--color-expense", 28) }} />
+        <div style={{ position: "absolute", left: 0, width: `${pctOfTotal}%`, height: "100%", background: "var(--bs-primary)", borderRadius: "4px 0 0 4px", zIndex: 2 }} />
+        <div style={{ position: "absolute", left: `calc(${currentMonthSegmentPct}% - 1px)`, top: 0, width: 2, height: "100%", background: "var(--color-surface)", zIndex: 3 }} />
+      </div>
+    );
+  }
+
+  // 4. Over-withdrawn — withdrawal consumed the credit, empty red bar
+  if (isWithdrawalDebt) {
+    return <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-expense") }} />;
+  }
+
+  // 5. Normal — credit silently baked into totalDue so displayPct is correct
+  return <Progress value={displayPct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
+}
+
 export function getGoalTypeBadgeColor(goal: InvestmentGoalWithStats): string {
   if (goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly") return "primary";
   if (goal.goalType === "targeted") return "warning";
@@ -133,79 +244,8 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
 
   const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
-  // ── StatCell ───────────────────────────────────────────────────────────────
-  type StatVariant = "neutral" | "red" | "green-current" | "emerald";
-
-  const variantStyles: Record<StatVariant, { bg: string; border: string; labelColor: string; valColor: string }> = {
-    neutral: { bg: "#ffffff", border: "rgb(191,195,201)", labelColor: "#414344", valColor: "var(--color-text-primary)" },
-    red: { bg: "#FEF2F2", border: "#FECACA", labelColor: "#991B1B", valColor: "#B91C1C" },
-    "green-current": { bg: "#DCFCE7", border: "#86EFAC", labelColor: "#15803D", valColor: "#15803D" },
-    emerald: { bg: "#ECFDF5", border: "#6EE7B7", labelColor: "#065F46", valColor: "#047857" },
-  };
-
-  const StatCell = ({ label, value, xs = 6, variant = "neutral" }: { label: string; value: string | number; xs?: number; variant?: StatVariant }) => {
-    const s = variantStyles[variant];
-    return (
-      <Col xs={xs}>
-        <div style={{ background: s.bg, borderRadius: 8, padding: "8px 10px", border: `1.5px solid ${s.border}` }}>
-          <p style={{ fontSize: 11, fontWeight: 400, color: s.labelColor, margin: "0 0 2px" }}>{label}</p>
-          <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: s.valColor }}>{value}</p>
-        </div>
-      </Col>
-    );
-  };
-
-  // ── Recurring progress bar ─────────────────────────────────────────────────
-  const RecurringProgressBar = () => {
-    // 1. Ahead — net-positive this period
-    if (isAhead) {
-      return (
-        <div style={{ height: 8, borderRadius: 4, background: "#D1FAE5", marginBottom: 6, overflow: "hidden" }}>
-          <div style={{ height: 8, borderRadius: 4, background: "#10B981", width: "100%" }} />
-        </div>
-      );
-    }
-
-    // 2. Covered by carryover — nothing deposited this month, credit covers it
-    if (isCreditCovered) {
-      return (
-        <div style={{ height: 8, borderRadius: 4, background: "#A7F3D0", marginBottom: 6, overflow: "hidden" }}>
-          <div
-            style={{
-              height: "100%",
-              width: "100%",
-              background: "#059669",
-              backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.22) 4px, rgba(255,255,255,0.22) 8px)",
-            }}
-          />
-        </div>
-      );
-    }
-
-    // 3. Arrears — past missed months (blue = this month target, red = arrears)
-    if (hasDebt) {
-      return (
-        <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-          <div style={{ position: "absolute", left: 0, width: `${currentMonthSegmentPct}%`, height: "100%", background: "#BFDBFE" }} />
-          <div style={{ position: "absolute", left: `${currentMonthSegmentPct}%`, width: `${100 - currentMonthSegmentPct}%`, height: "100%", background: "#FECACA" }} />
-          <div style={{ position: "absolute", left: 0, width: `${pctOfTotal}%`, height: "100%", background: "#3B82F6", borderRadius: "4px 0 0 4px", zIndex: 2 }} />
-          <div style={{ position: "absolute", left: `calc(${currentMonthSegmentPct}% - 1px)`, top: 0, width: 2, height: "100%", background: "#fff", zIndex: 3 }} />
-        </div>
-      );
-    }
-
-    // 4. Over-withdrawn — withdrawal consumed the credit, red empty bar
-    if (isWithdrawalDebt) {
-      return (
-        <div style={{ height: 8, borderRadius: 4, background: "#FEE2E2", marginBottom: 6, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: 0, background: "#EF4444" }} />
-        </div>
-      );
-    }
-
-    // 5. Normal — credit silently baked into totalDue so displayPct is correct
-    return <Progress value={displayPct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
-  };
+  // StatCell and RecurringProgressBar are declared at module scope (below) so
+  // React keeps their identity across renders instead of remounting them.
 
   // ── Recurring progress note ────────────────────────────────────────────────
   const recurringNote = () => {
@@ -221,9 +261,9 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
     if (isCreditCovered) {
       return (
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          <span style={{ fontWeight: 600, color: "#059669" }}>Covered by carryover</span>
+          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>Covered by carryover</span>
           {" · "}
-          <span style={{ fontWeight: 600, color: "#047857" }}>{formatCurrency(periodCredit)}</span> credit applied
+          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>{formatCurrency(periodCredit)}</span> credit applied
         </p>
       );
     }
@@ -232,7 +272,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
       return (
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
           {"100% · "}
-          <span style={{ fontWeight: 600, color: "#10B981" }}>
+          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>
             {formatCurrency(periodSurplus)} surplus this {periodLabel}
           </span>
         </p>
@@ -242,7 +282,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
     if (isWithdrawalDebt) {
       return (
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          <span style={{ fontWeight: 600, color: "#B91C1C" }}>{formatCurrency(remaining)}</span> owed this {periodLabel}
+          <span style={{ fontWeight: 600, color: "var(--color-expense)" }}>{formatCurrency(remaining)}</span> owed this {periodLabel}
           <span style={{ color: "var(--color-text-secondary)" }}> · withdrawn past credit</span>
         </p>
       );
@@ -330,7 +370,16 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
         {/* ── Recurring: progress bar + note ─────────────────────────────── */}
         {isRecurring && targetAmount > 0 && (
           <>
-            <RecurringProgressBar />
+            <RecurringProgressBar
+              isAhead={isAhead}
+              isCreditCovered={isCreditCovered}
+              hasDebt={hasDebt}
+              isWithdrawalDebt={isWithdrawalDebt}
+              pctOfTotal={pctOfTotal}
+              currentMonthSegmentPct={currentMonthSegmentPct}
+              displayPct={displayPct}
+              progressColor={progressColor}
+            />
             {recurringNote()}
           </>
         )}
@@ -455,8 +504,8 @@ function HistorySummaryBar({
   formatCurrency: (n: number) => string;
 }) {
   const cells = [
-    { label: "Deposited", value: formatCurrency(totalDeposited), color: "#10B981" },
-    { label: "Withdrawn", value: formatCurrency(totalWithdrawn), color: "#EF4444" },
+    { label: "Deposited", value: formatCurrency(totalDeposited), color: "var(--color-income)" },
+    { label: "Withdrawn", value: formatCurrency(totalWithdrawn), color: "var(--color-expense)" },
     { label: "Net saved", value: formatCurrency(totalSaved), color: "var(--color-text-primary)" },
   ];
   return (
@@ -505,7 +554,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
 
 function ContributionRow({ contribution, formatCurrency }: { contribution: InvestmentContribution; formatCurrency: (n: number) => string }) {
   const isDeposit = contribution.contributionType === "deposit";
-  const color = isDeposit ? "#10B981" : "#EF4444";
+  const color = isDeposit ? "var(--color-income)" : "var(--color-expense)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />

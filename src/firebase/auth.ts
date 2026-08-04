@@ -5,11 +5,11 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  updateEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser,
+  verifyBeforeUpdateEmail,
   type User,
 } from "firebase/auth";
 import { auth } from "./config";
@@ -76,12 +76,15 @@ export const reauthenticate = async (currentPassword: string) => {
 };
 
 // ─── Update email ─────────────────────────────────────────────────────────────
+// Sends a verification link to the new address. The email only changes after the
+// user clicks it. `updateEmail` is rejected by Firebase when email-enumeration
+// protection is on (the modern default), so we use the verify-before flow.
 
 export const updateUserEmail = async (newEmail: string) => {
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("No authenticated user");
-    await updateEmail(user, newEmail);
+    await verifyBeforeUpdateEmail(user, newEmail);
   } catch (err) {
     throw err;
   }

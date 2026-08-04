@@ -1,0 +1,85 @@
+/* Month range picker — the in-range / edge highlighting has no Bootstrap
+   equivalent, so it lives here. Everything else uses Bootstrap utilities. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.cell {
+  padding: 9px 0;
+  min-height: 40px; /* touch target */
+  text-align: center;
+  font-size: 12px;
+  border: 0.5px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.cell:hover:not(:disabled):not(.edge) {
+  background: var(--color-border-tertiary);
+  color: var(--color-text-primary);
+}
+
+/* Months strictly between the two selected edges */
+.cell.inRange {
+  background: color-mix(in srgb, var(--bs-primary) 22%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* The selected start / end months */
+.cell.edge {
+  background: var(--bs-primary);
+  color: #fff;
+  font-weight: 500;
+}
+
+.cell:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Year stepper buttons */
+.navBtn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.navBtn:hover:not(:disabled) {
+  background: var(--color-border-tertiary);
+}
+
+.navBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Vertical divider between the From and To grids (desktop only) */
+.divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border-tertiary);
+}
+
+@media (max-width: 575.98px) {
+  .divider {
+    display: none;
+  }
+}

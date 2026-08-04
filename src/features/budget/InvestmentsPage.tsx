@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
-import { Alert, Badge, Button, Col, Container, Input, Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
+import { Alert, Badge, Button, Col, Container, Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
 import AddDepositModal from "./AddDepositModal";
@@ -16,16 +16,18 @@ import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
+import { useTranslation } from "react-i18next";
+import { SearchInput } from "../../shared/components/SearchInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type InvestmentsFilterTab = "all" | "recurring" | "tracking" | "paused";
 
-const TAB_LABELS: Record<InvestmentsFilterTab, string> = {
-  all: "All",
-  recurring: "Recurring",
-  tracking: "Tracking",
-  paused: "Paused",
+const TAB_LABEL_KEYS: Record<InvestmentsFilterTab, string> = {
+  all: "common.all",
+  recurring: "investments.recurring",
+  tracking: "investments.tracking",
+  paused: "common.paused",
 };
 
 // ─── Scope helpers ────────────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ const effectivelyActive = (g: InvestmentGoalWithStats) => (isRecurring(g) ? g.is
 // ─── InvestmentsSummaryCards ──────────────────────────────────────────────────
 
 function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
   const mine = goals.filter(belongsHere);
   const active = mine.filter(effectivelyActive);
 
@@ -78,42 +81,42 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   const recurringCount = recurringActive.length;
 
   // ── Labels ─────────────────────────────────────────────────────────────────
-  const monthlyLabel = activeMonthly.length === 0 ? "—" : monthlyTotalDue === 0 ? "All covered ✓" : `${formatCurrency(monthlyEffectivePaid)} / ${formatCurrency(monthlyTotalDue)}`;
+  const monthlyLabel = activeMonthly.length === 0 ? "—" : monthlyTotalDue === 0 ? t("investments.allCovered") : `${formatCurrency(monthlyEffectivePaid)} / ${formatCurrency(monthlyTotalDue)}`;
 
-  const yearlyLabel = activeYearly.length === 0 ? "—" : yearlyTotalDue === 0 ? "All covered ✓" : `${formatCurrency(yearlyEffectivePaid)} / ${formatCurrency(yearlyTotalDue)}`;
+  const yearlyLabel = activeYearly.length === 0 ? "—" : yearlyTotalDue === 0 ? t("investments.allCovered") : `${formatCurrency(yearlyEffectivePaid)} / ${formatCurrency(yearlyTotalDue)}`;
 
   // ── Card definitions ───────────────────────────────────────────────────────
   type SummaryCard = { label: string; value: string; sub: string; accent: string; icon: string; small: boolean };
 
   const cards: SummaryCard[] = [
     {
-      label: "Total saved",
+      label: t("investments.totalSaved"),
       value: formatCurrency(totalSaved),
-      sub: "all-time across all",
-      accent: "#10B981",
+      sub: t("investments.allTimeAcross"),
+      accent: "var(--color-income)",
       icon: "📈",
       small: false,
     },
     {
-      label: "Monthly target",
+      label: t("investments.monthlyTarget"),
       value: monthlyLabel,
-      sub: monthlyTotalDue === 0 && activeMonthly.length > 0 ? "credit covers this month" : "paid this month",
+      sub: monthlyTotalDue === 0 && activeMonthly.length > 0 ? t("investments.creditCoversMonth") : t("investments.paidThisMonth"),
       accent: monthlyTotalDue === 0 && activeMonthly.length > 0 ? "#059669" : "#3B82F6",
       icon: "📅",
       small: monthlyTotalDue > 0,
     },
     {
-      label: "Recurring",
+      label: t("investments.recurring"),
       value: String(recurringCount),
-      sub: recurringCount === 1 ? "active goal" : "active goals",
-      accent: "#6366F1",
+      sub: recurringCount === 1 ? t("investments.activeGoal") : t("investments.activeGoals"),
+      accent: "var(--color-invest)",
       icon: "🔁",
       small: false,
     },
     {
-      label: "Yearly target",
+      label: t("investments.yearlyTarget"),
       value: yearlyLabel,
-      sub: yearlyTotalDue === 0 && activeYearly.length > 0 ? "credit covers this year" : "paid this year",
+      sub: yearlyTotalDue === 0 && activeYearly.length > 0 ? t("investments.creditCoversYear") : t("investments.paidThisYear"),
       accent: yearlyTotalDue === 0 && activeYearly.length > 0 ? "#059669" : "#F59E0B",
       icon: "📆",
       small: yearlyTotalDue > 0,
@@ -125,19 +128,19 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
   // Positive → net ahead. Negative → net behind. Zero → show nothing.
   if (netPosition < 0) {
     cards.push({
-      label: "Behind",
+      label: t("investments.behind"),
       value: formatCurrency(Math.abs(netPosition)),
-      sub: `${behindGoals.length} goal${behindGoals.length !== 1 ? "s" : ""} in arrears`,
-      accent: "#EF4444",
+      sub: t("investments.goalsInArrears", { count: behindGoals.length }),
+      accent: "var(--color-expense)",
       icon: "⚠️",
       small: true,
     });
   } else if (netPosition > 0) {
     cards.push({
-      label: "Ahead",
+      label: t("investments.ahead"),
       value: formatCurrency(netPosition),
-      sub: `net across ${recurringActive.length} goal${recurringActive.length !== 1 ? "s" : ""}`,
-      accent: "#059669",
+      sub: t("investments.netAcrossGoals", { count: recurringActive.length }),
+      accent: "var(--color-income)",
       icon: "🚀",
       small: true,
     });
@@ -151,7 +154,7 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
             style={{
               width: "100%",
               borderRadius: 12,
-              background: "#ffffff",
+              background: "var(--color-surface)",
               border: "0.5px solid var(--color-border-tertiary)",
               borderTop: `3px solid ${c.accent}`,
               padding: "14px 16px",
@@ -176,6 +179,7 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
 // ─── InvestmentsPage ──────────────────────────────────────────────────────────
 
 export default function InvestmentsPage() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<InvestmentsFilterTab>("all");
   const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -244,18 +248,18 @@ export default function InvestmentsPage() {
     return 0;
   };
 
-  const emptyLabel = isSearching ? `No results for "${search}"` : `No ${TAB_LABELS[filter].toLowerCase()} investments yet`;
+  const emptyLabel = isSearching ? t("investments.noResultsFor", { query: search }) : t("investments.noneYet");
 
   return (
     <Container fluid className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4 gap-2">
         <div style={{ minWidth: 0 }}>
-          <h5 style={{ fontWeight: 500, margin: 0, color: "var(--color-text-primary)" }}>Investments</h5>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>Recurring contributions and open-ended tracking</p>
+          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("investments.title")}</h1>
+          <p className="small text-body-secondary mb-0">{t("investments.subtitle")}</p>
         </div>
         <Button color="primary" onClick={() => setShowNewGoal(true)} style={{ flexShrink: 0 }}>
-          <span className="d-none d-sm-inline">+ New investment</span>
-          <span className="d-sm-none">+ New</span>
+          <span className="d-none d-sm-inline">+ {t("investments.newInvestment")}</span>
+          <span className="d-sm-none">+ {t("bills.new")}</span>
         </Button>
       </div>
 
@@ -264,46 +268,19 @@ export default function InvestmentsPage() {
           <Spinner color="primary" />
         </div>
       )}
-      {isError && <Alert color="danger">Failed to load investments. Please refresh the page.</Alert>}
+      {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
       {!isLoading && !isError && (
         <>
           <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />
 
           <div className="d-md-none mb-2">
-            <div style={{ position: "relative" }}>
-              <Input
-                placeholder="Search investments..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem" }}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  style={{
-                    position: "absolute",
-                    right: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--color-text-secondary)",
-                    fontSize: 18,
-                    lineHeight: 1,
-                    padding: "0 4px",
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder={t("investments.searchPlaceholder")} block />
           </div>
 
           {isSearching && (
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              Showing {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+              {t("investments.showingResults", { count: filtered.length })}
             </p>
           )}
 
@@ -328,8 +305,8 @@ export default function InvestmentsPage() {
                             background: "transparent",
                           }}
                         >
-                          {TAB_LABELS[tab]}
-                          <Badge pill style={{ color: "#e0f0ff", backgroundColor: tab === "paused" ? "#F59E0B" : "#0d6efd", fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
+                          {t(TAB_LABEL_KEYS[tab])}
+                          <Badge pill color={tab === "paused" ? "warning" : "primary"} style={{ fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
                             {tabCount(tab)}
                           </Badge>
                         </NavLink>
@@ -342,34 +319,7 @@ export default function InvestmentsPage() {
                 className="d-none d-md-flex align-items-center justify-content-end"
                 style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
               >
-                <div style={{ position: "relative", width: 220 }}>
-                  <Input
-                    placeholder="Search investments..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{ fontSize: 13, border: "1px solid var(--color-border-primary)", paddingRight: search ? "2.5rem" : "1rem", height: 32 }}
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch("")}
-                      style={{
-                        position: "absolute",
-                        right: 10,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-secondary)",
-                        fontSize: 18,
-                        lineHeight: 1,
-                        padding: "0 4px",
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+                <SearchInput value={search} onChange={setSearch} placeholder={t("investments.searchPlaceholder")} size="sm" />
               </div>
             </div>
           </div>
@@ -380,9 +330,9 @@ export default function InvestmentsPage() {
               <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
               {!isSearching && filter !== "paused" && (
                 <>
-                  <p style={{ fontSize: 14 }}>Start tracking a recurring investment or open-ended savings goal.</p>
+                  <p style={{ fontSize: 14 }}>{t("investments.startTrackingHint")}</p>
                   <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    + New investment
+                    + {t("investments.newInvestment")}
                   </Button>
                 </>
               )}

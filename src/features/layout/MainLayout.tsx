@@ -27,7 +27,7 @@ export function MainLayout() {
             fluid
             className="py-2"
             style={{
-              backgroundColor: "#E9ECEF",
+              backgroundColor: "var(--color-background-primary)",
               display: "flex",
               flexDirection: "column",
               minHeight: "100%",

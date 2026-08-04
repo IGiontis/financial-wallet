@@ -67,6 +67,7 @@ export interface Transaction {
   notes?: string;
   metadata?: FuelMetadata;
   recurringTransactionId?: string;
+  billId?: string; // set when this expense was logged by paying a recurring bill
 
   // ── Investment transaction flags ──────────────────────────────────────────
   isInvestmentTransaction?: boolean;
@@ -89,6 +90,7 @@ export interface CreateTransactionDTO {
   goalName?: string;
   isGoalTransaction?: boolean;
   contributionType?: "deposit" | "withdrawal";
+  billId?: string;
 }
 
 export interface UpdateTransactionDTO {
@@ -310,6 +312,95 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   missedMonths?: number; // number of past periods where contribution < target
   periodSurplus?: number; // how much over target was paid in the current period
   periodCredit?: number;
+}
+
+// ============================================================================
+// BILL TYPES  (recurring / monthly bills the user checks off when paid)
+// ============================================================================
+
+export type BillFrequency = "weekly" | "monthly" | "yearly";
+
+export interface Bill {
+  id: string;
+  userId: string;
+  name: string;
+  amount: number; // stored in base currency
+  categoryId: string; // expense category this is logged under when paid
+  frequency: BillFrequency;
+  /**
+   * Repeat every N periods of `frequency`. 1 = every month/week/year (default),
+   * 2 = every 2 months, 3 = quarterly, 4 = every 4 months, etc.
+   * Periods are anchored to `anchorDate` (or `createdAt` for older bills).
+   */
+  intervalCount?: number;
+  /** Start of the very first period — anchors every later period bucket. */
+  anchorDate?: Date;
+  dueDay?: number; // monthly/yearly: day of month (1–31); weekly: weekday (0=Sun … 6=Sat)
+  dueMonth?: number; // yearly only: month (0–11)
+  notes?: string;
+  icon?: string;
+  color?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateBillDTO {
+  name: string;
+  amount: number;
+  categoryId: string;
+  frequency: BillFrequency;
+  intervalCount?: number;
+  anchorDate?: Date;
+  dueDay?: number;
+  dueMonth?: number;
+  notes?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateBillDTO {
+  name?: string;
+  amount?: number;
+  categoryId?: string;
+  frequency?: BillFrequency;
+  intervalCount?: number;
+  anchorDate?: Date;
+  dueDay?: number;
+  dueMonth?: number;
+  notes?: string;
+  icon?: string;
+  color?: string;
+  isActive?: boolean;
+}
+
+export interface BillPayment {
+  id: string;
+  userId: string;
+  billId: string;
+  periodKey: string; // "2026-07" (monthly), "2026-W30" (weekly), "2026" (yearly)
+  amount: number;
+  paidDate: Date;
+  transactionId?: string; // the mirrored expense transaction
+  createdAt: Date;
+}
+
+export interface CreateBillPaymentDTO {
+  billId: string;
+  periodKey: string;
+  amount: number;
+  paidDate: Date;
+  transactionId?: string;
+}
+
+export interface BillWithStatus extends Bill {
+  currentPeriodKey: string;
+  isPaidThisPeriod: boolean;
+  payment?: BillPayment; // the payment record for the current period, if paid
+  payments: BillPayment[]; // all payments for this bill, newest first (history)
+  lastPaidDate?: Date;
+  nextDueDate?: Date;
+  monthlyEquivalent: number; // normalized cost per month, for the overview total
 }
 
 // ── Fuel types ───────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
+import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
 import {
@@ -134,6 +135,7 @@ interface EditTransactionModalProps {
 
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
+  const { t } = useTranslation();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
@@ -249,15 +251,15 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>Type</Label>
                 <Row className="g-2">
-                  {(["expense", "income"] as ("income" | "expense")[]).map((t) => {
-                    const isSelected = formik.values.type === t;
-                    const color = t === "income" ? "#10B981" : "#EF4444";
-                    const bg = t === "income" ? "#f0fdf4" : "#fff5f5";
+                  {(["expense", "income"] as ("income" | "expense")[]).map((tt) => {
+                    const isSelected = formik.values.type === tt;
+                    const color = tt === "income" ? "var(--color-income)" : "var(--color-expense)";
+                    const bg = tt === "income" ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)";
                     return (
-                      <Col xs={6} key={t}>
+                      <Col xs={6} key={tt}>
                         <div style={{ border: `2px solid ${isSelected ? color : "var(--color-border-tertiary)"}`, borderRadius: "var(--border-radius-md)", padding: "10px 12px", cursor: "not-allowed", background: isSelected ? bg : "var(--color-background-secondary)", textAlign: "center", opacity: isSelected ? 1 : 0.3, userSelect: "none" }}>
                           <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: isSelected ? color : "inherit" }}>
-                            {t === "income" ? "Income" : "Expense"}
+                            {tt === "income" ? t("transactions.income") : t("transactions.expense")}
                           </p>
                         </div>
                       </Col>
@@ -281,7 +283,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                       type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
                       value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                       readOnly={formik.values.showFuelDetails}
-                      style={formik.values.showFuelDetails ? { background: "#f1f5f9", cursor: "not-allowed" } : {}}
+                      style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
                     />
                     <FormFeedback>{formik.errors.amount}</FormFeedback>
@@ -289,7 +291,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </Col>
                 <Col xs={6}>
                   <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.date")} *</Label>
                     <Input
                       type="date" name="date" value={formik.values.date}
                       onChange={formik.handleChange} onBlur={formik.handleBlur}
@@ -304,7 +306,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               <Row className="g-3 mt-1">
                 <Col xs={6}>
                   <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Payee *</Label>
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
                     <Input
                       type="text" name="description" placeholder='"Amazon"'
                       value={formik.values.description} onChange={formik.handleChange} onBlur={formik.handleBlur}
@@ -315,13 +317,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 </Col>
                 <Col xs={6}>
                   <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>Category *</Label>
+                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
                     <Input
                       type="select" name="categoryId" value={formik.values.categoryId}
                       onChange={handleCategoryChange} onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                     >
-                      <option value="">Select...</option>
+                      <option value="">{t("common.none")}</option>
                       {[...filteredCategories].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
                         <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                       ))}
@@ -373,9 +375,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
               {/* ── Notes ── */}
               <FormGroup className="mb-0 mt-3">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
                 <Input
-                  type="textarea" name="notes" rows={3} placeholder="Optional note..."
+                  type="textarea" name="notes" rows={3} placeholder={t("common.optionalNote")}
                   value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.notes && formik.errors.notes)}
                 />

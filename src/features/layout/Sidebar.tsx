@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { Nav, NavItem, Button } from "reactstrap";
+import { useTranslation } from "react-i18next";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -20,13 +21,16 @@ interface NavItemProp {
 }
 
 export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }: SidebarProps) {
+  const { t } = useTranslation();
+
   const navItems: NavItemProp[] = [
-    { path: "/", label: "Overview", icon: FiHome },
-    { path: "/transactions", label: "Transactions", icon: FiCreditCard },
-    { path: "/investments", label: "Investments", icon: FiDollarSign },
-    { path: "/goals", label: "Goals", icon: FiTarget },
-    { path: "/planner", label: "Planner", icon: FiCalendar },
-    { path: "/settings", label: "Settings", icon: FiSettings },
+    { path: "/", label: t("nav.overview"), icon: FiHome },
+    { path: "/transactions", label: t("nav.transactions"), icon: FiCreditCard },
+    { path: "/investments", label: t("nav.investments"), icon: FiDollarSign },
+    { path: "/goals", label: t("nav.goals"), icon: FiTarget },
+    { path: "/bills", label: t("nav.bills"), icon: FiRepeat },
+    { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
+    { path: "/settings", label: t("nav.settings"), icon: FiSettings },
   ];
 
   return (
@@ -70,14 +74,14 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
               className={`nav-link text-white d-flex align-items-center rounded w-100
                 ${isCollapsed ? "justify-content-center" : "gap-2"}`}
               onClick={onToggleCollapse}
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isCollapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
             >
               {isCollapsed ? (
                 <FiChevronsRight size={20} />
               ) : (
                 <>
                   <FiChevronsLeft size={20} className="flex-shrink-0" />
-                  <span>Hide Bar</span>
+                  <span>{t("nav.hideBar")}</span>
                 </>
               )}
             </Button>

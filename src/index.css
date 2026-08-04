@@ -1,13 +1,263 @@
-/* Sidebar hover effects */
-.hover-bg-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+/* ============================================================================
+   MyFiWallet — Design tokens & base styles
+   Bootstrap-first: we drive Bootstrap 5.3's native colour modes via
+   [data-bs-theme] and layer our own tokens on top. Every component references
+   these via var(--token); this file is the single source of truth.
+   ============================================================================ */
+
+/* ── Light theme (default) ────────────────────────────────────────────────── */
+:root,
+[data-bs-theme="light"] {
+  /* Surfaces — cards sit clearly ABOVE a visibly grey page background */
+  --color-background-primary: #e8ecf1; /* app / page background — noticeably grey */
+  --color-background-secondary: #f1f4f8; /* insets, inputs, subtle fills          */
+  --color-surface: #ffffff; /* cards / panels — pure white           */
+  --color-surface-raised: #ffffff;
+
+  /* Text */
+  --color-text-primary: #16202e;
+  --color-text-secondary: #52627a;
+
+  /* Borders */
+  --color-border-primary: #c2ccd9;
+  --color-border-tertiary: #dde3ea;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+
+  /* Sidebar */
+  --sidebar-bg: #212936;
+  --sidebar-text: #e6ebf2;
+
+  /* Semantic accents — tuned for contrast on light backgrounds */
+  --color-income: #16a34a;
+  --color-expense: #dc2626;
+  --color-invest: #6366f1;
+  --color-goal: #d97706;
+  --color-tooltip-bg: #1e293b;
+  --color-tooltip-text: #ffffff;
+
+  /* Strong neutral used for selected days / active pills, and its soft tint */
+  --color-accent-strong: #1e293b;
+  --color-accent-soft: #e3e8f2;
+  --color-accent-on-strong: #ffffff;
 }
 
-/* Make the app look better */
+/* ── Dark theme ───────────────────────────────────────────────────────────── */
+[data-bs-theme="dark"] {
+  /* Softer, slightly warmer charcoal — less "navy blue", easier on the eyes.
+     Each surface step is a clear lift so cards read as raised, not flat. */
+  --color-background-primary: #14181e; /* page background               */
+  --color-background-secondary: #1e242c; /* insets, inputs                */
+  --color-surface: #1f262f; /* cards — lifted above the page */
+  --color-surface-raised: #262e39; /* dropdowns, modals, popovers   */
+
+  --color-text-primary: #eef2f7;
+  --color-text-secondary: #adbbca; /* ~7:1 on the dark surfaces — comfortably readable */
+
+  --color-border-primary: #3b4654;
+  --color-border-tertiary: #2d3641;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  --sidebar-bg: #191f26;
+  --sidebar-text: #dde5ee;
+
+  /* Brighter accents so they stay legible on dark surfaces */
+  --color-income: #4ade80;
+  --color-expense: #f87171;
+  --color-invest: #a5b4fc;
+  --color-goal: #fbbf24;
+  --color-tooltip-bg: #263141;
+  --color-tooltip-text: #f1f5f9;
+
+  /* On dark, the "strong" accent inverts to a light chip so it still reads as selected */
+  --color-accent-strong: #dbe4f0;
+  --color-accent-soft: #2c3949;
+  --color-accent-on-strong: #10161f;
+}
+
+/* ── Shared (theme-independent) ───────────────────────────────────────────── */
+:root {
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 14px;
+}
+
+/* ── Bootstrap bridge ─────────────────────────────────────────────────────── */
+/* Point Bootstrap's own variables at our tokens so every Bootstrap component
+   (cards, inputs, dropdowns, modals, tables…) themes automatically. */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --bs-body-bg: var(--color-background-primary);
+  --bs-body-color: var(--color-text-primary);
+  --bs-emphasis-color: var(--color-text-primary);
+  --bs-secondary-color: var(--color-text-secondary);
+  --bs-border-color: var(--color-border-tertiary);
+
+  --bs-card-bg: var(--color-surface);
+  --bs-card-border-color: var(--color-border-tertiary);
+  --bs-card-cap-bg: var(--color-surface);
+
+  --bs-modal-bg: var(--color-surface-raised);
+  --bs-dropdown-bg: var(--color-surface-raised);
+  --bs-dropdown-color: var(--color-text-primary);
+  --bs-dropdown-link-color: var(--color-text-primary);
+  --bs-dropdown-link-hover-bg: var(--color-background-secondary);
+  --bs-dropdown-link-hover-color: var(--color-text-primary);
+  --bs-dropdown-border-color: var(--color-border-tertiary);
+
+  --bs-tertiary-bg: var(--color-background-secondary);
+  --bs-secondary-bg: var(--color-background-secondary);
+}
+
+/* ── Dropdown menus ───────────────────────────────────────────────────────── */
+/* Always a solid raised surface (never transparent), with room to breathe. */
+.dropdown-menu {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  /* Never taller than the viewport — scroll inside instead of off-screen */
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dropdown-item {
+  color: var(--color-text-primary);
+  min-height: 44px; /* comfortable touch target */
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+/* Bootstrap tables are transparent by default, so they showed the grey page
+   colour through. Pin them to the card surface in both themes. */
+.table {
+  --bs-table-bg: var(--color-surface);
+  --bs-table-color: var(--color-text-primary);
+  --bs-table-border-color: var(--color-border-tertiary);
+  --bs-table-striped-bg: var(--color-background-secondary);
+  --bs-table-striped-color: var(--color-text-primary);
+  --bs-table-hover-bg: var(--color-background-secondary);
+  --bs-table-hover-color: var(--color-text-primary);
+}
+
+.table > :not(caption) > * > * {
+  background-color: var(--bs-table-bg);
+  color: var(--bs-table-color);
+}
+
+/* ── Modals ───────────────────────────────────────────────────────────────── */
+.modal-content {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--color-border-tertiary);
+}
+
+/* Full-height sheets on phones so long forms stay reachable */
+@media (max-width: 575.98px) {
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+  .modal-body {
+    max-height: calc(100dvh - 12rem);
+    overflow-y: auto;
+  }
+}
+
+/* ── Form controls ────────────────────────────────────────────────────────── */
+/* Bootstrap's .form-control defaults to --bs-body-bg, which is our grey page
+   colour — that made inputs blend into the background. Inputs must sit on the
+   surface colour so they read as distinct, tappable fields in both themes. */
+.form-control,
+.form-select,
+.input-group-text {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-primary);
+  color: var(--color-text-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.form-control::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+/* Disabled / readonly fields fall back to the muted inset colour */
+.form-control:disabled,
+.form-control[readonly],
+.form-select:disabled {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+html {
+  background-color: var(--color-background-primary);
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
+  background-color: var(--color-background-primary);
+  color: var(--color-text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Cards: crisp white surface, subtle lift off the grey page */
+.card {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-tertiary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Smooth theme transition (respects reduced-motion) */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .card,
+  .modal-content,
+  .dropdown-menu {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
+}
+
+/* Focus rings that match the brand */
+:focus-visible {
+  outline: 2px solid var(--bs-primary, #0d6efd);
+  outline-offset: 2px;
+}
+
+/* Sidebar hover effect */
+.hover-bg-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}

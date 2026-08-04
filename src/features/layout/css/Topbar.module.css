@@ -1,4 +1,10 @@
-/* Remove the .open class logic - Reactstrap handles this automatically */
+/* Topbar — only what Bootstrap can't express. All colours come from tokens
+   so the bar themes automatically in light and dark mode. */
+
+.topbar {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-tertiary) !important;
+}
 
 .topbarContainer {
   padding: 0.1rem 1rem;
@@ -7,29 +13,36 @@
 .rightContent {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-left: auto;
 }
 
-.dropdownContainer {
-  position: relative;
+/* ── Theme toggle ─────────────────────────────────────────────────────────── */
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.notificationBadge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background-color: #dc3545;
-  color: white;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.15rem 0.4rem;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
+.themeToggle:hover,
+.themeToggle:focus {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-primary);
 }
 
-/* User Button */
+/* ── User button ──────────────────────────────────────────────────────────── */
+
 .userButton {
   display: flex;
   align-items: center;
@@ -37,21 +50,24 @@
   background: transparent;
   border: none;
   padding: 0.25rem 0.5rem;
-  border-radius: 8px;
+  min-height: 44px; /* comfortable touch target */
+  border-radius: var(--border-radius-md);
   cursor: pointer;
+  color: var(--color-text-primary);
   transition: background-color 0.2s ease;
 }
 
 .userButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--color-background-secondary);
 }
 
 .userAvatar {
   width: 36px;
   height: 36px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,115 +75,32 @@
   font-size: 0.875rem;
 }
 
-.userAvatarImg {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 .userName {
   font-weight: 500;
   font-size: 0.9rem;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
-.userCaret {
-  color: #666;
-  transition: transform 0.2s ease;
-}
-
-/* Dropdown Menus - Reactstrap automatically adds .dropdown-menu class */
+/* ── User dropdown ────────────────────────────────────────────────────────── */
 
 .userDropdown {
   top: 50px !important;
   right: 0 !important;
   left: auto !important;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
-/* Notification Dropdown Specific */
-.dropdownHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #e9ecef;
-  background-color: #f8f9fa;
-  border-radius: 8px 8px 0 0;
-}
-
-.dropdownHeaderTitle {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #333;
-}
-
-.headerBadge {
-  background-color: #007bff;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  min-width: 24px;
-  text-align: center;
-}
-
-.notificationList {
-  padding: 0;
-}
-
-.notificationItem {
-  padding: 0.75rem 1rem !important;
-  cursor: pointer;
-  border-bottom: 1px solid #e9ecef;
-  transition: background-color 0.2s ease;
-}
-
-.notificationItem:hover {
-  background-color: #f8f9fa !important;
-}
-
-.notificationMessage {
-  font-size: 0.9rem;
-  color: #333;
-  margin-bottom: 0.25rem;
-}
-
-.notificationTime {
-  font-size: 0.75rem;
-  color: #6c757d;
-}
-
-.viewAllButton {
-  text-align: center;
-  color: #007bff;
-  font-weight: 500;
-  padding: 0.75rem !important;
-  cursor: pointer;
-}
-
-.viewAllButton:hover {
-  background-color: #f8f9fa !important;
-}
-
-/* User Dropdown Specific */
 .userInfo {
   padding: 1rem;
-  background-color: #f8f9fa;
-}
-
-.userInfoName {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #333;
-  margin-bottom: 0.25rem;
+  background-color: var(--color-background-secondary);
 }
 
 .userInfoEmail {
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--color-text-secondary);
+  word-break: break-all;
 }
 
 .dropdownItem {
@@ -175,33 +108,25 @@
   align-items: center;
   padding: 0.75rem 1rem !important;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  color: #333;
-}
-
-.dropdownItem:hover {
-  background-color: #f8f9fa !important;
+  color: var(--color-text-primary);
 }
 
 .dropdownItemIcon {
   margin-right: 0.75rem;
   flex-shrink: 0;
-  color: #6c757d;
+  color: var(--color-text-secondary);
 }
 
 .logoutItem {
-  color: #dc3545 !important;
+  color: var(--bs-danger) !important;
 }
 
 .logoutItem .dropdownItemIcon {
-  color: #dc3545;
+  color: var(--bs-danger);
 }
 
-.logoutItem:hover {
-  background-color: #fee !important;
-}
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
 
-/* Mobile responsiveness */
 @media (max-width: 768px) {
   .userDropdown {
     min-width: 280px;

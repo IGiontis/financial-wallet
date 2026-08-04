@@ -1,42 +1,21 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
 import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
-import { useAuth } from "../context/AuthContext";
-import { Spinner } from "reactstrap";
+// Route components live in their own module so this file only exports `router`
+// — otherwise React Fast Refresh can't hot-reload it.
+import { PageLoader, ProtectedRoute, PublicOnlyRoute } from "./routeGuards";
 
 const OverviewPage = lazy(() => import("../features/overview/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })));
 const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
 const GoalsPage = lazy(() => import("../features/goals/GoalsPage"));
 const SettingsPage = lazy(() => import("../features/settings/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const InvestmentsPage = lazy(() => import("../features/budget/InvestmentsPage"));
+const BillsPage = lazy(() => import("../features/bills/BillsPage"));
 const PlannerPage = lazy(() => import("../features/plannerPage/PlannerPage").then((m) => ({ default: m.PlannerPage })));
 const LoginPage = lazy(() => import("../features/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../features/auth/RegisterPage"));
-
-function PageLoader() {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-      <Spinner color="primary" />
-    </div>
-  );
-}
-
-function ProtectedRoute() {
-  const { currentUser, loading } = useAuth();
-  const location = useLocation();
-  if (loading) return null;
-  if (!currentUser) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  return <Outlet />;
-}
-
-function PublicOnlyRoute() {
-  const { currentUser, loading } = useAuth();
-  if (loading) return null;
-  if (currentUser) return <Navigate to="/" replace />;
-  return <Outlet />;
-}
 
 export const router = createBrowserRouter([
   {
@@ -97,6 +76,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <GoalsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "bills",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BillsPage />
               </Suspense>
             ),
           },

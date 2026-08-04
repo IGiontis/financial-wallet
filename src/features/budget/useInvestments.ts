@@ -6,9 +6,9 @@ import {
   updateInvestmentGoal,
   deleteInvestmentGoal,
   getContributions,
-  createContribution,
+  getAllContributions,
+  createContributionWithTransaction,
   deleteContribution,
-  createTransaction,
 } from "../../firebase/firestore";
 import { computeGoalStats } from "./investmentsUtils";
 import type {
@@ -38,16 +38,19 @@ export function useInvestmentGoals() {
     enabled: !!userId,
     staleTime: 0,
     queryFn: async () => {
-      const goals = await getInvestmentGoals(userId);
-      const contributionArrays = await Promise.all(goals.map((g) => getContributions(g.id)));
-      const withStats = goals.map((goal, i) => computeGoalStats(goal, contributionArrays[i]));
+      // Two reads total (goals + all contributions) instead of one-per-goal (N+1).
+      const [goals, allContributions] = await Promise.all([getInvestmentGoals(userId), getAllContributions(userId)]);
 
-      const completionUpdates = withStats
-        .filter((g) => g.status === "completed" && !g.isCompleted && g.targetPeriod !== "monthly" && g.targetPeriod !== "yearly")
-        .map((g) => updateInvestmentGoal(g.id, { isCompleted: true, completedAt: new Date() }));
+      const byGoal = new Map<string, InvestmentContribution[]>();
+      for (const c of allContributions) {
+        const arr = byGoal.get(c.goalId);
+        if (arr) arr.push(c);
+        else byGoal.set(c.goalId, [c]);
+      }
 
-      if (completionUpdates.length > 0) await Promise.all(completionUpdates);
-
+      // Pure computation — no side-effect writes inside the query. "Completed" is
+      // derived on read, so refetch-on-focus never fires redundant Firestore writes.
+      const withStats = goals.map((goal) => computeGoalStats(goal, byGoal.get(goal.id) ?? []));
       return withStats.map((g) => (g.status === "completed" ? { ...g, isCompleted: true } : g));
     },
   });
@@ -120,11 +123,9 @@ export function useAddContribution() {
 
   return useMutation({
     mutationFn: async ({ data, goalName, isGoalTransaction = false }: { data: CreateInvestmentContributionDTO; goalName: string; isGoalTransaction?: boolean }) => {
-      // 1. Create the investment contribution record
-      await createContribution(userId, data);
-
-      // 2. Create a mirrored transaction so it appears in TransactionsPage
-      await createTransaction(userId, {
+      // Contribution record + its mirrored TransactionsPage entry, written
+      // atomically so a partial failure can't leave the totals out of sync.
+      await createContributionWithTransaction(userId, data, {
         amount: data.amount,
         type: "investment",
         categoryId: "",
@@ -132,7 +133,7 @@ export function useAddContribution() {
         description: goalName,
         notes: data.notes,
         isInvestmentTransaction: true,
-        isGoalTransaction, // ← the new flag
+        isGoalTransaction,
         goalId: data.goalId,
         goalName,
         contributionType: data.contributionType,

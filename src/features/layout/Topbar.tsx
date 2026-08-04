@@ -1,9 +1,11 @@
 import { Navbar, Container, Button, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
-import { FiSettings, FiLogOut, FiMenu } from "react-icons/fi";
+import { FiSettings, FiLogOut, FiMenu, FiSun, FiMoon } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../shared/hooks/useTheme";
+import { useTranslation } from "react-i18next";
 import { logout } from "../../firebase/auth";
 import { getUser } from "../../firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +18,8 @@ interface TopbarProps {
 export function Topbar({ toggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { t } = useTranslation();
 
   // Use same query key as useCurrencyConverter so cache is shared
   // When Settings saves and invalidates — Topbar updates instantly
@@ -72,13 +76,23 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
   };
 
   return (
-    <Navbar color="white" light className="border-bottom shadow-sm">
+    <Navbar className={`border-bottom shadow-sm ${styles.topbar}`}>
       <Container fluid className={`${styles.topbarContainer} d-flex align-items-center justify-content-between`}>
         <Button color="light" className="d-lg-none me-2" onClick={toggleSidebar}>
           <FiMenu size={24} />
         </Button>
 
         <div className={styles.rightContent}>
+          <Button
+            color="link"
+            className={styles.themeToggle}
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
+            title={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
+          >
+            {theme === "dark" ? <FiSun size={19} /> : <FiMoon size={19} />}
+          </Button>
+
           <UncontrolledDropdown>
             <DropdownToggle tag="button" className={styles.userButton}>
               <div className={styles.userAvatar}>{getUserInitials()}</div>
@@ -98,14 +112,14 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
 
               <DropdownItem className={styles.dropdownItem} onClick={() => navigate("/settings")}>
                 <FiSettings size={18} className={styles.dropdownItemIcon} />
-                Settings
+                {t("nav.settings")}
               </DropdownItem>
 
               <DropdownItem divider />
 
               <DropdownItem className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
                 <FiLogOut size={18} className={styles.dropdownItemIcon} />
-                Sign Out
+                {t("nav.signOut")}
               </DropdownItem>
             </DropdownMenu>
           </UncontrolledDropdown>

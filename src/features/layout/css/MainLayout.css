@@ -31,6 +31,25 @@
 
 .page-content {
   flex-grow: 1;
-  background-color: #f8f9fa;
+  background-color: var(--color-background-primary);
   overflow-y: auto;
+  /* Respect the home-indicator / rounded corners on installed PWAs */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Clear the notch: push the top bar below the status bar in standalone mode */
+.main-content {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Sidebar header should also sit below the notch when it slides in on mobile */
+.sidebar {
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (min-width: 992px) {
+  /* On desktop the sidebar is fixed full-height — no notch to clear */
+  .main-content {
+    padding-top: 0;
+  }
 }

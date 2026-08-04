@@ -1,0 +1,61 @@
+/* Segmented control (pill-style tab switcher) — used for period pickers and
+   filters. Bootstrap has no equivalent, so this is one of the few genuine
+   module-CSS additions. Fully theme-aware and touch-friendly. */
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.item {
+  border: 0.5px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 8px 12px;
+  min-height: 38px; /* comfortable touch target */
+  white-space: nowrap;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.item:hover:not(:disabled):not(.active) {
+  color: var(--color-text-primary);
+}
+
+.item.active {
+  background: var(--color-surface);
+  border-color: var(--color-border-tertiary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Horizontal scroll instead of wrapping on narrow screens */
+@media (max-width: 575.98px) {
+  .group {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .group::-webkit-scrollbar {
+    display: none;
+  }
+}

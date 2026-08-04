@@ -9,8 +9,8 @@
 .sidebar {
   width: var(--sidebar-width);
   min-height: 100vh;
-  background-color: #343a40;
-  color: white;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -44,7 +44,7 @@
 /* ─── Header ─── */
 .sidebar-header {
   padding: 1rem;
-  border-bottom: 1px solid #495057;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   min-height: 64px; /* Stable height during collapse */
 }
 
@@ -72,12 +72,22 @@
 
 .sidebar-nav .nav-link {
   padding: 0.75rem 1rem;
-  transition: background-color 0.2s;
+  min-height: 44px; /* comfortable touch target */
+  color: var(--sidebar-text);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
   white-space: nowrap; /* Prevent text wrap during animation */
 }
 
 .sidebar-nav .nav-link:hover {
   background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Active route — Bootstrap's .bg-primary is applied in the component */
+.sidebar-nav .nav-link.bg-primary {
+  color: #fff;
 }
 
 /* Tighter padding when collapsed so icon stays centered */

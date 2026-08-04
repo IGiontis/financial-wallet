@@ -54,7 +54,7 @@ export type ReviewColors = typeof EXPENSE_COLORS;
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
   return (
-    <div style={{ gridColumn: fullWidth ? "1 / -1" : undefined, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", background: "#fff" }}>
+    <div style={{ gridColumn: fullWidth ? "1 / -1" : undefined, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", background: "var(--color-surface)" }}>
       <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "#4a4f57", margin: "0 0 3px" }}>{label}</p>
       <p style={{ fontSize: 13, fontWeight: 600, color: accent ?? "#1e293b", margin: 0 }}>{value}</p>
     </div>

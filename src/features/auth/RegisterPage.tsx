@@ -3,8 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Alert } from "reactstrap";
+import { useTranslation } from "react-i18next";
 import { registerWithEmail, loginWithGoogle } from "../../firebase/auth";
 import { createUser } from "../../firebase/firestore";
+import styles from "./css/Auth.module.css";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -12,33 +14,34 @@ const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger|LinkedIn/i.test(n
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
+// Messages are i18n keys; FormFeedback translates them at render time.
+
 const validationSchema = Yup.object({
-  firstName: Yup.string().required("First name is required").max(50),
-  lastName: Yup.string().required("Last name is required").max(50),
+  firstName: Yup.string().required("validation.nameRequired").max(50),
+  lastName: Yup.string().required("validation.nameRequired").max(50),
   username: Yup.string()
-    .required("Username is required")
-    .min(3, "Min 3 characters")
-    .max(30, "Max 30 characters")
-    .matches(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
-  email: Yup.string().email("Enter a valid email").required("Email is required"),
-  password: Yup.string().required("Password is required").min(6, "Min 6 characters"),
-  confirmPassword: Yup.string()
-    .required("Please confirm your password")
-    .oneOf([Yup.ref("password")], "Passwords do not match"),
+    .required("validation.required")
+    .min(3, "validation.minChars")
+    .max(30, "validation.maxChars")
+    .matches(/^[a-zA-Z0-9_]+$/, "validation.required"),
+  email: Yup.string().email("validation.emailInvalid").required("validation.emailRequired"),
+  password: Yup.string().required("validation.passwordRequired").min(6, "validation.passwordMin"),
+  confirmPassword: Yup.string().required("validation.required").oneOf([Yup.ref("password")], "validation.passwordsNoMatch"),
 });
 
 // ─── Firebase error messages ──────────────────────────────────────────────────
+// Returns an i18n key so the message follows the selected language.
 
-const getFriendlyError = (code: string): string => {
+const getErrorKey = (code: string): string => {
   switch (code) {
     case "auth/email-already-in-use":
-      return "An account with this email already exists.";
+      return "errors.emailInUse";
     case "auth/invalid-email":
-      return "Invalid email address.";
+      return "validation.emailInvalid";
     case "auth/weak-password":
-      return "Password should be at least 6 characters.";
+      return "errors.weakPassword";
     default:
-      return "Something went wrong. Please try again.";
+      return "errors.generic";
   }
 };
 
@@ -46,6 +49,7 @@ const getFriendlyError = (code: string): string => {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -70,8 +74,8 @@ export default function RegisterPage() {
           lastName: values.lastName,
         });
         navigate("/", { replace: true });
-      } catch (err: any) {
-        setError(getFriendlyError(err.code));
+      } catch (err) {
+        setError(getErrorKey((err as { code?: string }).code ?? ""));
       }
     },
   });
@@ -92,9 +96,10 @@ export default function RegisterPage() {
       });
 
       navigate("/", { replace: true });
-    } catch (err: any) {
-      if (err.code !== "firestore/already-exists") {
-        setError(getFriendlyError(err.code));
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? "";
+      if (code !== "firestore/already-exists") {
+        setError(getErrorKey(code));
       } else {
         navigate("/", { replace: true });
       }
@@ -104,170 +109,153 @@ export default function RegisterPage() {
   };
 
   return (
-    <div style={styles.page}>
+    <div className={styles.page}>
       <Container>
         <Row className="justify-content-center">
           <Col xs={12} sm={10} md={7} lg={6} xl={5}>
-            {/* Logo / brand */}
-            <div style={styles.brand}>
-              <p style={styles.brandIcon}>💳</p>
-              <p style={styles.brandName}>MyFiWallet</p>
+            {/* Brand */}
+            <div className="text-center mb-4">
+              <div className={`${styles.brandBadge} mx-auto mb-3`}>💳</div>
+              <div className="fs-5 fw-semibold text-body-emphasis">MyFiWallet</div>
+              <div className="small text-body-secondary">{t("auth.startTracking")}</div>
             </div>
 
-            {/* In-app browser warning */}
-            {isInAppBrowser && (
-              <div
-                style={{
-                  background: "#FEF3C7",
-                  border: "1px solid #F59E0B",
-                  borderRadius: "var(--border-radius-md)",
-                  padding: "12px 16px",
-                  marginBottom: "1rem",
-                  fontSize: 13,
-                  color: "#92400E",
-                  textAlign: "center",
-                  lineHeight: 1.5,
-                }}
-              >
-                For the best experience, open this link in <strong>Chrome</strong> or <strong>Safari</strong>. Google login may not work inside Messenger, Instagram or LinkedIn.
-              </div>
-            )}
+            {isInAppBrowser && <div className={`${styles.inAppWarn} p-3 mb-3 text-center small`}>{t("auth.inAppBrowserWarning")}</div>}
 
-            <Card style={styles.card}>
-              <CardBody style={{ padding: "2rem" }}>
-                <h5 style={styles.title}>Create your account</h5>
-                <p style={styles.subtitle}>Start tracking your finances today</p>
+            <Card className={styles.card}>
+              <CardBody className="p-4 p-sm-5">
+                <h1 className="h5 fw-semibold text-body-emphasis mb-1">{t("auth.createAccount")}</h1>
+                <p className="small text-body-secondary mb-4">{t("auth.createAccountSubtitle")}</p>
 
                 {error && (
-                  <Alert color="danger" style={{ fontSize: 13 }}>
-                    {error}
+                  <Alert color="danger" className="small py-2">
+                    {t(error)}
                   </Alert>
                 )}
 
-                {/* Google button */}
                 <Button
                   type="button"
-                  color="light"
-                  block
+                  className={`${styles.googleBtn} w-100`}
                   onClick={handleGoogleRegister}
                   disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
-                  style={{
-                    ...styles.googleBtn,
-                    opacity: isInAppBrowser ? 0.5 : 1,
-                    cursor: isInAppBrowser ? "not-allowed" : "pointer",
-                  }}
                   title={isInAppBrowser ? "Open in Chrome or Safari to use Google login" : undefined}
                 >
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, marginRight: 8 }} />
-                  {googleLoading ? "Signing up..." : "Continue with Google"}
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width={18} height={18} />
+                  {googleLoading ? t("auth.signingUp") : t("auth.continueWithGoogle")}
                 </Button>
 
-                <div style={styles.divider}>
-                  <span style={styles.dividerLine} />
-                  <span style={styles.dividerText}>or</span>
-                  <span style={styles.dividerLine} />
-                </div>
+                <div className={`${styles.divider} text-body-secondary small`}>{t("auth.or")}</div>
 
-                {/* Register form */}
                 <form onSubmit={formik.handleSubmit} noValidate>
                   <Row>
                     <Col xs={6}>
                       <FormGroup>
-                        <Label style={styles.label}>First name *</Label>
+                        <Label className="small fw-medium">{t("auth.firstName")} *</Label>
                         <Input
                           type="text"
                           name="firstName"
+                          autoComplete="given-name"
                           placeholder="John"
                           value={formik.values.firstName}
                           onChange={formik.handleChange}
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.firstName && formik.errors.firstName)}
                         />
-                        <FormFeedback>{formik.errors.firstName}</FormFeedback>
+                        <FormFeedback>{formik.errors.firstName && t(formik.errors.firstName)}</FormFeedback>
                       </FormGroup>
                     </Col>
                     <Col xs={6}>
                       <FormGroup>
-                        <Label style={styles.label}>Last name *</Label>
+                        <Label className="small fw-medium">{t("auth.lastName")} *</Label>
                         <Input
                           type="text"
                           name="lastName"
+                          autoComplete="family-name"
                           placeholder="Doe"
                           value={formik.values.lastName}
                           onChange={formik.handleChange}
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.lastName && formik.errors.lastName)}
                         />
-                        <FormFeedback>{formik.errors.lastName}</FormFeedback>
+                        <FormFeedback>{formik.errors.lastName && t(formik.errors.lastName)}</FormFeedback>
                       </FormGroup>
                     </Col>
                   </Row>
 
                   <FormGroup>
-                    <Label style={styles.label}>Username *</Label>
+                    <Label className="small fw-medium">{t("auth.username")} *</Label>
                     <Input
                       type="text"
                       name="username"
+                      autoComplete="username"
                       placeholder="john_doe"
                       value={formik.values.username}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.username && formik.errors.username)}
                     />
-                    <FormFeedback>{formik.errors.username}</FormFeedback>
+                    <FormFeedback>{formik.errors.username && t(formik.errors.username)}</FormFeedback>
                   </FormGroup>
 
                   <FormGroup>
-                    <Label style={styles.label}>Email *</Label>
+                    <Label className="small fw-medium">{t("auth.email")} *</Label>
                     <Input
                       type="email"
                       name="email"
+                      autoComplete="email"
                       placeholder="you@example.com"
                       value={formik.values.email}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.email && formik.errors.email)}
                     />
-                    <FormFeedback>{formik.errors.email}</FormFeedback>
+                    <FormFeedback>{formik.errors.email && t(formik.errors.email)}</FormFeedback>
                   </FormGroup>
 
-                  <FormGroup>
-                    <Label style={styles.label}>Password *</Label>
-                    <Input
-                      type="password"
-                      name="password"
-                      placeholder="••••••••"
-                      value={formik.values.password}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      invalid={!!(formik.touched.password && formik.errors.password)}
-                    />
-                    <FormFeedback>{formik.errors.password}</FormFeedback>
-                  </FormGroup>
+                  <Row>
+                    <Col xs={12} sm={6}>
+                      <FormGroup>
+                        <Label className="small fw-medium">{t("auth.password")} *</Label>
+                        <Input
+                          type="password"
+                          name="password"
+                          autoComplete="new-password"
+                          placeholder="••••••••"
+                          value={formik.values.password}
+                          onChange={formik.handleChange}
+                          onBlur={formik.handleBlur}
+                          invalid={!!(formik.touched.password && formik.errors.password)}
+                        />
+                        <FormFeedback>{formik.errors.password && t(formik.errors.password)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <FormGroup className="mb-4">
+                        <Label className="small fw-medium">{t("auth.confirmPassword")} *</Label>
+                        <Input
+                          type="password"
+                          name="confirmPassword"
+                          autoComplete="new-password"
+                          placeholder="••••••••"
+                          value={formik.values.confirmPassword}
+                          onChange={formik.handleChange}
+                          onBlur={formik.handleBlur}
+                          invalid={!!(formik.touched.confirmPassword && formik.errors.confirmPassword)}
+                        />
+                        <FormFeedback>{formik.errors.confirmPassword && t(formik.errors.confirmPassword)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                  </Row>
 
-                  <FormGroup className="mb-4">
-                    <Label style={styles.label}>Confirm password *</Label>
-                    <Input
-                      type="password"
-                      name="confirmPassword"
-                      placeholder="••••••••"
-                      value={formik.values.confirmPassword}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      invalid={!!(formik.touched.confirmPassword && formik.errors.confirmPassword)}
-                    />
-                    <FormFeedback>{formik.errors.confirmPassword}</FormFeedback>
-                  </FormGroup>
-
-                  <Button type="submit" color="primary" block disabled={formik.isSubmitting || googleLoading}>
-                    {formik.isSubmitting ? "Creating account..." : "Create account"}
+                  <Button type="submit" color="primary" className="w-100" disabled={formik.isSubmitting || googleLoading}>
+                    {formik.isSubmitting ? t("auth.creatingAccount") : t("auth.createAccount")}
                   </Button>
                 </form>
 
-                <p style={styles.footer}>
-                  Already have an account?{" "}
-                  <Link to="/login" style={styles.link}>
-                    Sign in
+                <p className="text-center small text-body-secondary mt-4 mb-0">
+                  {t("auth.haveAccount")}{" "}
+                  <Link to="/login" className="fw-medium text-decoration-none">
+                    {t("auth.signIn")}
                   </Link>
                 </p>
               </CardBody>
@@ -278,83 +266,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    background: "var(--color-background-primary, #f8f9fa)",
-    padding: "2rem 0",
-  },
-  brand: {
-    textAlign: "center",
-    marginBottom: "1.5rem",
-  },
-  brandIcon: {
-    fontSize: 40,
-    margin: 0,
-  },
-  brandName: {
-    fontSize: 20,
-    fontWeight: 600,
-    margin: 0,
-    color: "var(--color-text-primary)",
-  },
-  card: {
-    border: "0.5px solid var(--color-border-tertiary)",
-    borderRadius: "var(--border-radius-lg)",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-  },
-  title: {
-    fontWeight: 600,
-    margin: "0 0 4px",
-    color: "var(--color-text-primary)",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "var(--color-text-secondary)",
-    marginBottom: "1.5rem",
-  },
-  googleBtn: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 14,
-    border: "1px solid var(--color-border-tertiary)",
-    borderRadius: "var(--border-radius-md)",
-  },
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    margin: "1.25rem 0",
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    background: "var(--color-border-tertiary)",
-  },
-  dividerText: {
-    fontSize: 12,
-    color: "var(--color-text-secondary)",
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 500,
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: 13,
-    color: "var(--color-text-secondary)",
-    marginTop: "1.25rem",
-    marginBottom: 0,
-  },
-  link: {
-    color: "var(--bs-primary)",
-    textDecoration: "none",
-    fontWeight: 500,
-  },
-};

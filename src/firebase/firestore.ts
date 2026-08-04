@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, deleteField } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, deleteField, writeBatch } from "firebase/firestore";
 import { db } from "./config";
 
 import type {
@@ -19,6 +19,11 @@ import type {
   UpdateInvestmentGoalDTO,
   InvestmentContribution,
   CreateInvestmentContributionDTO,
+  Bill,
+  CreateBillDTO,
+  UpdateBillDTO,
+  BillPayment,
+  CreateBillPaymentDTO,
 } from "../shared/types/IndexTypes";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -291,9 +296,194 @@ export const getContributions = async (goalId: string) => {
   }
 };
 
+// Fetches every contribution for a user in a single query, so goal stats can be
+// computed without an N+1 fan-out (one read per goal).
+export const getAllContributions = async (userId: string) => {
+  try {
+    const q = query(collection(db, "investmentContributions"), where("userId", "==", userId));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentContribution);
+  } catch (err) {
+    throw err;
+  }
+};
+
+// Atomically writes a contribution AND its mirrored transaction in one batch.
+// Either both land or neither does — no orphaned records if one write fails.
+export const createContributionWithTransaction = async (
+  userId: string,
+  contribution: CreateInvestmentContributionDTO,
+  transaction: CreateTransactionDTO,
+) => {
+  try {
+    const batch = writeBatch(db);
+
+    const contributionRef = doc(collection(db, "investmentContributions"));
+    batch.set(contributionRef, {
+      ...clean({ ...contribution, userId }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const transactionRef = doc(collection(db, "transactions"));
+    batch.set(transactionRef, {
+      ...clean({ ...transaction, userId }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+    return { contributionId: contributionRef.id, transactionId: transactionRef.id };
+  } catch (err) {
+    throw err;
+  }
+};
+
 export const deleteContribution = async (contributionId: string) => {
   try {
     await deleteDoc(doc(db, "investmentContributions", contributionId));
+  } catch (err) {
+    throw err;
+  }
+};
+
+// ─── BILLS ────────────────────────────────────────────────────────────────────
+
+export const getBills = async (userId: string) => {
+  try {
+    const q = query(collection(db, "bills"), where("userId", "==", userId));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Bill);
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const createBill = async (userId: string, data: CreateBillDTO) => {
+  try {
+    const ref = await addDoc(collection(db, "bills"), {
+      ...clean({ ...data, userId, isActive: true }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return ref.id;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const updateBill = async (billId: string, data: UpdateBillDTO) => {
+  try {
+    await updateDoc(doc(db, "bills", billId), {
+      ...clean({ ...data }),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const deleteBill = async (billId: string) => {
+  try {
+    await deleteDoc(doc(db, "bills", billId));
+  } catch (err) {
+    throw err;
+  }
+};
+
+// ─── BILL PAYMENTS ────────────────────────────────────────────────────────────
+
+export const getBillPayments = async (userId: string) => {
+  try {
+    const q = query(collection(db, "billPayments"), where("userId", "==", userId));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BillPayment);
+  } catch (err) {
+    throw err;
+  }
+};
+
+// Marks a bill paid for a period: writes the payment record AND a mirrored
+// expense transaction atomically, so paid bills always show up in expenses.
+export const markBillPaid = async (
+  userId: string,
+  bill: { id: string; name: string; amount: number; categoryId: string },
+  periodKey: string,
+  paidDate: Date,
+) => {
+  try {
+    const batch = writeBatch(db);
+
+    const transactionRef = doc(collection(db, "transactions"));
+    batch.set(transactionRef, {
+      ...clean({
+        userId,
+        amount: bill.amount,
+        type: "expense",
+        categoryId: bill.categoryId,
+        date: paidDate,
+        description: bill.name,
+        billId: bill.id,
+      }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const paymentRef = doc(collection(db, "billPayments"));
+    const payment: CreateBillPaymentDTO = { billId: bill.id, periodKey, amount: bill.amount, paidDate, transactionId: transactionRef.id };
+    batch.set(paymentRef, {
+      ...clean({ ...payment, userId }),
+      createdAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+    return { paymentId: paymentRef.id, transactionId: transactionRef.id };
+  } catch (err) {
+    throw err;
+  }
+};
+
+// Undoes a payment: removes both the payment record and its expense transaction.
+export const unmarkBillPaid = async (payment: { id: string; transactionId?: string }) => {
+  try {
+    const batch = writeBatch(db);
+    if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));
+    batch.delete(doc(db, "billPayments", payment.id));
+    await batch.commit();
+  } catch (err) {
+    throw err;
+  }
+};
+
+// ─── ACCOUNT DELETION ─────────────────────────────────────────────────────────
+// Removes every document belonging to a user before their auth account is
+// deleted, so no orphaned personal data is left behind (matches the UI promise
+// and privacy expectations). Runs while the user is still authenticated.
+
+export const deleteAllUserData = async (userId: string) => {
+  try {
+    // Collections keyed by userId (categories: only the user's own, never defaults)
+    const ownedCollections = ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments"];
+
+    const refs = (
+      await Promise.all(
+        ownedCollections.map(async (name) => {
+          const snap = await getDocs(query(collection(db, name), where("userId", "==", userId)));
+          return snap.docs.map((d) => d.ref);
+        }),
+      )
+    ).flat();
+
+    // Include the user profile document itself
+    refs.push(doc(db, "users", userId));
+
+    // Firestore allows max 500 writes per batch — commit in chunks
+    const CHUNK = 450;
+    for (let i = 0; i < refs.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
   } catch (err) {
     throw err;
   }
