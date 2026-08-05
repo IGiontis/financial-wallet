@@ -104,7 +104,21 @@
     "to": "To",
     "apply": "Apply",
     "month": "month",
-    "months": "months"
+    "months": "months",
+    "goalStartedOn": "Started {{date}}",
+    "goalDeadlineOn": "Deadline {{date}}",
+    "goalOfTarget": "of {{target}} saved",
+    "goalTotalSavedOverall": "{{amount}} saved overall",
+    "goalProjectionEarly": "At this pace you'll reach it by {{date}} — ahead of your deadline.",
+    "goalProjectionLate": "At this pace you'll reach it by {{date}}, after your deadline. Consider saving more.",
+    "goalProjectionNone": "Add a deposit to see a projection.",
+    "goalCompletedMsg": "🎉 Goal reached!",
+    "thisPeriodMonthly": "This month",
+    "thisPeriodYearly": "This year",
+    "goalOpenEndedHint": "Ongoing savings — no fixed target",
+    "recentActivity": "Recent activity",
+    "noContributionsYet": "No contributions yet.",
+    "manageGoal": "Manage"
   },
   "bills": {
     "title": "Bills",
@@ -321,7 +335,9 @@
     "noActiveYet": "No active goals yet",
     "noPausedYet": "No paused goals yet",
     "noCompletedYet": "No completed goals yet",
-    "createFirstHint": "Create your first savings goal to start tracking toward a target."
+    "createFirstHint": "Create your first savings goal to start tracking toward a target.",
+    "ahead": "Ahead",
+    "behind": "Behind"
   },
   "planner": {
     "title": "Monthly Planner",

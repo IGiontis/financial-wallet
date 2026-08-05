@@ -1,0 +1,20 @@
+/* Overview page — only what Bootstrap utilities can't express. */
+
+/* Goal card in the "Active goals" panel — clickable, opens the detail modal. */
+.goalCard {
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.goalCard:hover,
+.goalCard:focus-visible {
+  border-color: var(--color-border-primary);
+}
+
+.goalCard:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}

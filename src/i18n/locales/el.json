@@ -104,7 +104,21 @@
     "to": "Έως",
     "apply": "Εφαρμογή",
     "month": "μήνας",
-    "months": "μήνες"
+    "months": "μήνες",
+    "goalStartedOn": "Ξεκίνησε {{date}}",
+    "goalDeadlineOn": "Προθεσμία {{date}}",
+    "goalOfTarget": "από {{target}}",
+    "goalTotalSavedOverall": "{{amount}} αποταμιευμένα συνολικά",
+    "goalProjectionEarly": "Με αυτόν τον ρυθμό θα το πετύχεις μέχρι {{date}} — πριν την προθεσμία σου.",
+    "goalProjectionLate": "Με αυτόν τον ρυθμό θα το πετύχεις μέχρι {{date}}, μετά την προθεσμία σου. Σκέψου να αποταμιεύεις περισσότερο.",
+    "goalProjectionNone": "Πρόσθεσε μια κατάθεση για να δεις πρόβλεψη.",
+    "goalCompletedMsg": "🎉 Ο στόχος επιτεύχθηκε!",
+    "thisPeriodMonthly": "Αυτόν τον μήνα",
+    "thisPeriodYearly": "Φέτος",
+    "goalOpenEndedHint": "Συνεχής αποταμίευση — χωρίς σταθερό στόχο",
+    "recentActivity": "Πρόσφατη δραστηριότητα",
+    "noContributionsYet": "Δεν υπάρχουν καταθέσεις ακόμα.",
+    "manageGoal": "Διαχείριση"
   },
   "bills": {
     "title": "Πάγια",
@@ -321,7 +335,9 @@
     "noActiveYet": "Δεν υπάρχουν ενεργοί στόχοι ακόμη",
     "noPausedYet": "Δεν υπάρχουν στόχοι σε παύση",
     "noCompletedYet": "Δεν υπάρχουν ολοκληρωμένοι στόχοι",
-    "createFirstHint": "Δημιουργήστε τον πρώτο σας στόχο αποταμίευσης για να ξεκινήσετε."
+    "createFirstHint": "Δημιουργήστε τον πρώτο σας στόχο αποταμίευσης για να ξεκινήσετε.",
+    "ahead": "Μπροστά",
+    "behind": "Πίσω"
   },
   "planner": {
     "title": "Μηνιαίος προγραμματισμός",

@@ -5,6 +5,7 @@ import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { firestoreToDate } from "../../../shared/utils/dates";
+import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 import {
   calculateMetrics,
   calculateMoneyLeft,
@@ -20,7 +21,9 @@ import {
 import { MetricCard } from "../components/MetricCard";
 import { CashFlowChart, CashFlowLegend } from "../components/CashFlowChart";
 import { CustomRangeModal } from "../components/CustomRangeModal";
+import GoalDetailModal from "../components/GoalDetailModal";
 import segmented from "../../../shared/css/Segmented.module.css";
+import styles from "./css/OverviewPage.module.css";
 
 const PERIODS: { value: TimePeriod; labelKey: string }[] = [
   { value: "current_month", labelKey: "overview.periods.currentMonth" },
@@ -38,6 +41,7 @@ export const OverviewPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("current_month");
   const [isPending, startTransition] = useTransition();
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [appliedRange, setAppliedRange] = useState<CustomRange>({
     fromMonth: now.getMonth(),
     fromYear: now.getFullYear(),
@@ -90,6 +94,10 @@ export const OverviewPage = () => {
         .slice(0, 6),
     [goals],
   );
+
+  // Keep an open detail modal in sync if the goal's stats change underneath it
+  // (e.g. a deposit logged from another tab) instead of freezing a stale snapshot.
+  const liveSelectedGoal = selectedGoal ? (goals.find((g) => g.id === selectedGoal.id) ?? null) : null;
 
   const customLabel = useMemo(() => {
     if (selectedPeriod !== "custom") return t("overview.periods.custom");
@@ -146,6 +154,8 @@ export const OverviewPage = () => {
         initialRange={appliedRange}
         minYear={minYear}
       />
+
+      {liveSelectedGoal && <GoalDetailModal goal={liveSelectedGoal} formatCurrency={formatCurrency} onClose={() => setSelectedGoal(null)} />}
 
       {/* Header */}
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
@@ -238,7 +248,16 @@ export const OverviewPage = () => {
                     return (
                       <div
                         key={goal.id}
-                        className="p-3"
+                        className={`p-3 ${styles.goalCard}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedGoal(goal)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedGoal(goal);
+                          }
+                        }}
                         style={{
                           background: "var(--color-background-secondary)",
                           borderRadius: "var(--border-radius-md)",
