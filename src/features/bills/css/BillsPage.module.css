@@ -101,11 +101,11 @@
 .billRow {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "icon main     main     lastpaid"
-    "icon subtitle subtitle permonth"
-    "icon status   status   menu";
+    "icon main     lastpaid"
+    "icon subtitle permonth"
+    "icon status   menu";
   column-gap: 0.625rem;
   row-gap: 0.25rem;
   align-items: center;
@@ -127,11 +127,8 @@
   align-self: start;
 }
 
-/* Name + subtitle share one flex column so the subtitle can ellipse alone */
 .rowMain {
   grid-area: main;
-  display: flex;
-  flex-direction: column;
   min-width: 0;
 }
 
@@ -162,6 +159,9 @@
   grid-area: status;
   justify-self: start;
   text-align: left;
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
 }
 .rowMenu {
   grid-area: menu;
@@ -231,6 +231,7 @@
   .rowStatus {
     justify-self: end;
     text-align: right;
+    display: block;
   }
 }
 

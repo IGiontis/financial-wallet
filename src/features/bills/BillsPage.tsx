@@ -265,17 +265,18 @@ function BillRow({
         {category?.icon ?? "🧾"}
       </span>
 
-      <div className={styles.rowMain}>
-        <span className="fw-semibold text-body-emphasis text-truncate" style={{ fontSize: 14 }}>
-          {bill.name}
-        </span>
-        <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
-      </div>
+      {/* Name and subtitle are separate grid children: on a phone they occupy
+          two different rows, each paired with its own figure on the right. */}
+      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`} style={{ fontSize: 14 }}>
+        {bill.name}
+      </span>
+      <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
 
-      {/* What actually left the account last time, and when */}
+      {/* What actually left the account last time. The date rides with the
+          status chip on a phone so this column stays exactly one line tall. */}
       <div className={styles.rowLastPaid}>
         <span className={styles.cellValue}>{lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}</span>
-        <span className={styles.cellSub}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
+        <span className={`${styles.cellSub} d-none d-md-block`}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
       </div>
 
       <div className={styles.rowPerMonth}>
@@ -291,6 +292,9 @@ function BillRow({
 
       <div className={styles.rowStatus}>
         <StatusChip bill={bill} />
+        {/* Phone: when it was last paid. Desktop: that lives in its own column,
+            so the space goes to the next due date instead. */}
+        <span className={`${styles.cellSub} d-md-none ms-1`}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
         {paid && bill.nextDueDate && <span className={`${styles.cellSub} d-none d-md-block`}>{t("bills.nextShort", { date: dateFmt.format(bill.nextDueDate) })}</span>}
       </div>
 
