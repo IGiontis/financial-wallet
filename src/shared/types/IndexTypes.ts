@@ -373,6 +373,8 @@ export interface CreateBillPaymentDTO {
 export interface BillWithStatus extends Bill {
   /** Average of recent real payments — the useful figure for variable bills. */
   averagePaidAmount?: number;
+  /** Cheapest/dearest of those same payments, for "usually €80–122". */
+  paidAmountRange?: { min: number; max: number };
   currentPeriodKey: string;
   isPaidThisPeriod: boolean;
   payment?: BillPayment; // the payment record for the current period, if paid

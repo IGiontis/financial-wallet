@@ -9,12 +9,10 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
-import {
-  EXPENSE_COLORS, INCOME_COLORS,
-  TransactionReviewBody,
-  type FuelCell,
-} from "./TransactionReviewBody";
+import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
+import { getUnitLabel } from "../../categories/fuelTypes";
+import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
+import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 

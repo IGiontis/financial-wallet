@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { firestoreToDate } from "../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../shared/utils/validationMessage";
@@ -23,10 +24,9 @@ interface EditGoalFormValues {
   deadline: string;
 }
 
-const toDateInputValue = (value: any): string => {
+const toDateInputValue = (value: unknown): string => {
   if (!value) return "";
-  const d = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
-  return d.toISOString().split("T")[0];
+  return firestoreToDate(value).toISOString().split("T")[0];
 };
 
 const validationSchema = Yup.object({

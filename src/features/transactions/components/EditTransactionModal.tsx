@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { firestoreToDate } from "../../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
@@ -8,13 +9,11 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { format } from "date-fns";
-import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
+import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
+import { getUnitLabel } from "../../categories/fuelTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
-import {
-  EXPENSE_COLORS, INCOME_COLORS,
-  TransactionReviewBody,
-  type FuelCell,
-} from "./TransactionReviewBody";
+import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
+import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -33,10 +32,9 @@ interface EditTransactionFormValues {
   place: string;
 }
 
-const toDateInputValue = (value: any): string => {
+const toDateInputValue = (value: unknown): string => {
   if (!value) return "";
-  const d = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
-  return d.toISOString().split("T")[0];
+  return firestoreToDate(value).toISOString().split("T")[0];
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────

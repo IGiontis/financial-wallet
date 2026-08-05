@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
 import { FiSettings, FiLogOut, FiMenu, FiSun, FiMoon } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../shared/hooks/useAuth";
 import { useTheme } from "../../shared/hooks/useTheme";
 import { useTranslation } from "react-i18next";
 import { logout } from "../../firebase/auth";

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../shared/hooks/useAuth";
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getCategories } from "../../../firebase/firestore";
 import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 

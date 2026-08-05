@@ -143,6 +143,18 @@ export function averagePaidAmount(payments: BillPayment[]): number | undefined {
   return recent.reduce((sum, p) => sum + p.amount, 0) / recent.length;
 }
 
+/**
+ * Cheapest and dearest of the recent payments — answers "what do I usually pay?"
+ * better than an average alone for a bill that swings (€80 in spring, €122 in
+ * winter). Undefined until there's history; `min === max` once there is only
+ * one distinct figure, which callers render as a single amount.
+ */
+export function paidAmountRange(payments: BillPayment[]): { min: number; max: number } | undefined {
+  if (payments.length === 0) return undefined;
+  const recent = payments.slice(0, AVERAGE_WINDOW).map((p) => p.amount);
+  return { min: Math.min(...recent), max: Math.max(...recent) };
+}
+
 // ─── Status ─────────────────────────────────────────────────────────────────
 
 export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
@@ -165,6 +177,7 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
     payment,
     payments,
     averagePaidAmount: average,
+    paidAmountRange: paidAmountRange(payments),
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
     nextDueDate: getNextDueDate(bill, now, !!payment),
     monthlyEquivalent: monthlyEquivalent(bill, forecastAmount),
@@ -248,6 +261,50 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
 
 /** Amount a bill is expected to cost — the recent average for variable bills. */
 export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
+
+// ─── Sinking fund ───────────────────────────────────────────────────────────
+// A bill that lands every few months is easy to forget until it arrives all at
+// once. Treating each one as its own little savings pot answers the question
+// "how much should I already have put aside for this?" — the figure is derived
+// from how far through the cycle we are, so nothing has to be tracked by hand.
+
+/** Below this many months apart, saving ahead isn't worth the screen space. */
+const SINKING_FUND_MIN_MONTHS = 2;
+
+export interface SinkingFund {
+  /** What the next payment is expected to cost. */
+  target: number;
+  /** How much should already be set aside, pro-rated across the cycle. */
+  saved: number;
+  /** Still to put aside before the due date. */
+  remaining: number;
+  /** Steady rate that gets you there — the same figure the yearly panel uses. */
+  perMonth: number;
+  /** 0–1, for the progress bar. */
+  progress: number;
+}
+
+/**
+ * Undefined when the bill recurs too often to be worth saving for, or when
+ * there's no due date to work back from.
+ */
+export function sinkingFund(bill: BillWithStatus, now: Date = new Date()): SinkingFund | undefined {
+  if (monthsBetweenPayments(bill) < SINKING_FUND_MIN_MONTHS) return undefined;
+
+  const progress = periodProgress(bill, bill.nextDueDate, now);
+  if (progress === undefined) return undefined;
+
+  const target = expectedAmount(bill);
+  const saved = target * progress;
+
+  return {
+    target,
+    saved,
+    remaining: Math.max(target - saved, 0),
+    perMonth: bill.monthlyEquivalent,
+    progress,
+  };
+}
 
 // ─── Period totals ──────────────────────────────────────────────────────────
 

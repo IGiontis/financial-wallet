@@ -278,7 +278,7 @@ function CalendarGrid({
                     userSelect: "none",
                     background: bg,
                     color,
-                    border: border as any,
+                    border,
                     fontWeight: weight,
                     fontSize: 15,
                     transition: "background 0.1s",

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../shared/hooks/useAuth";
 import {
   getInvestmentGoals,
   createInvestmentGoal,

@@ -1,16 +1,7 @@
 import { FormGroup, Label, Input, FormFeedback, Row, Col } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { FuelType } from "../../shared/types/IndexTypes";
-
-export const FUEL_TYPES: { value: FuelType; label: string }[] = [
-  { value: "petrol", label: "Petrol" },
-  { value: "diesel", label: "Diesel" },
-  { value: "lpg", label: "LPG" },
-  { value: "cng", label: "CNG" },
-  { value: "electric", label: "Electric" },
-];
-
-export const getUnitLabel = (fuelType: FuelType | ""): string => (fuelType === "electric" ? "kWh" : "L");
+import { FUEL_TYPES, getUnitLabel } from "./fuelTypes";
 
 interface FuelDetailsPanelProps {
   fuelType: FuelType | "";
@@ -32,7 +23,7 @@ interface FuelDetailsPanelProps {
     odometer: boolean;
     place: boolean;
   }>;
-  setFieldValue: (field: string, value: any) => void;
+  setFieldValue: (field: string, value: string | number) => void;
   setFieldTouched: (field: string, touched?: boolean) => void;
   displayCurrency: string;
 }

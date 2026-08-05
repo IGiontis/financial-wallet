@@ -11,6 +11,8 @@ import {
   computePeriodTotals,
   yearlyBreakdown,
   getFrequencyToken,
+  sinkingFund,
+  paidAmountRange,
 } from "./billsUtils";
 import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
@@ -430,5 +432,96 @@ describe("getFrequencyLabel", () => {
 
   it("uses the every-N label for custom intervals", () => {
     expect(getFrequencyLabel(makeBill({ intervalCount: 3 }))).toEqual({ key: "bills.everyNMonths", count: 3 });
+  });
+});
+
+// ─── Sinking fund ────────────────────────────────────────────────────────────
+
+describe("sinkingFund", () => {
+  // Quarterly bill of €90, due 1 Apr, so the cycle runs 1 Jan → 1 Apr.
+  const quarterly = (now: Date): BillWithStatus =>
+    computeBillStatus(makeBill({ amount: 90, intervalCount: 3, dueDay: 1, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }), [], now);
+
+  it("is undefined for bills that recur more often than every 2 months", () => {
+    const monthly = computeBillStatus(makeBill({ dueDay: 1 }), [], new Date("2026-02-15"));
+    expect(sinkingFund(monthly)).toBeUndefined();
+  });
+
+  it("is undefined when the bill has no due date to work back from", () => {
+    const noDueDay = computeBillStatus(makeBill({ intervalCount: 3 }), [], new Date("2026-02-15"));
+    expect(sinkingFund(noDueDay)).toBeUndefined();
+  });
+
+  it("expects the full amount to be ready on the due date itself", () => {
+    const fund = sinkingFund(quarterly(new Date("2026-01-01")), new Date("2026-01-01"));
+    expect(fund!.progress).toBeCloseTo(1);
+    expect(fund!.saved).toBeCloseTo(90);
+    expect(fund!.remaining).toBeCloseTo(0);
+  });
+
+  it("resets to almost nothing the day after a payment cycle rolls over", () => {
+    // 2 Jan sits 1 day into the 1 Jan → 1 Apr cycle.
+    const fund = sinkingFund(quarterly(new Date("2026-01-02")), new Date("2026-01-02"));
+    expect(fund!.progress).toBeLessThan(0.02);
+    expect(fund!.remaining).toBeGreaterThan(88);
+  });
+
+  it("pro-rates what should be set aside partway through the cycle", () => {
+    // 1 Feb is 31 of the 90 days between 1 Jan and 1 Apr.
+    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"));
+    expect(fund!.progress).toBeGreaterThan(0.3);
+    expect(fund!.progress).toBeLessThan(0.4);
+    expect(fund!.saved).toBeCloseTo(90 * fund!.progress);
+    expect(fund!.saved + fund!.remaining).toBeCloseTo(90);
+  });
+
+  it("carries the monthly rate that reaches the target", () => {
+    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"));
+    expect(fund!.perMonth).toBeCloseTo(30); // €90 every 3 months
+  });
+
+  it("never reports more saved than the target", () => {
+    const fund = sinkingFund(quarterly(new Date("2026-04-01")), new Date("2026-04-01"));
+    expect(fund!.saved).toBeLessThanOrEqual(90);
+    expect(fund!.remaining).toBeGreaterThanOrEqual(0);
+  });
+
+  it("uses the recent average for a variable bill, not the stale estimate", () => {
+    const bill = computeBillStatus(
+      makeBill({ amount: 80, isVariableAmount: true, intervalCount: 3, dueDay: 1, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }),
+      [payment("2025-10", new Date("2025-10-01"))].map((p) => ({ ...p, amount: 120 })),
+      new Date("2026-02-01"),
+    );
+    expect(sinkingFund(bill, new Date("2026-02-01"))!.target).toBe(120);
+  });
+});
+
+// ─── Typical amount range ────────────────────────────────────────────────────
+
+describe("paidAmountRange", () => {
+  const at = (amount: number, date: string): BillPayment => ({ ...payment("k", new Date(date)), amount });
+
+  it("is undefined with no history", () => {
+    expect(paidAmountRange([])).toBeUndefined();
+  });
+
+  it("collapses to a single figure when every payment matched", () => {
+    expect(paidAmountRange([at(50, "2026-01-01"), at(50, "2026-02-01")])).toEqual({ min: 50, max: 50 });
+  });
+
+  it("spans the cheapest and dearest recent payment", () => {
+    const range = paidAmountRange([at(122, "2026-02-01"), at(80, "2026-01-01"), at(95, "2025-12-01")]);
+    expect(range).toEqual({ min: 80, max: 122 });
+  });
+
+  it("only looks at the same 6-payment window as the average", () => {
+    // 7 payments, newest first; the €999 outlier sits outside the window.
+    const payments = [at(50, "2026-06-01"), at(51, "2026-05-01"), at(52, "2026-04-01"), at(53, "2026-03-01"), at(54, "2026-02-01"), at(55, "2026-01-01"), at(999, "2025-12-01")];
+    expect(paidAmountRange(payments)).toEqual({ min: 50, max: 55 });
+  });
+
+  it("is exposed on the computed bill status", () => {
+    const bill = computeBillStatus(makeBill({ isVariableAmount: true }), [at(122, "2026-02-01"), at(80, "2026-01-01")], new Date("2026-02-15"));
+    expect(bill.paidAmountRange).toEqual({ min: 80, max: 122 });
   });
 });

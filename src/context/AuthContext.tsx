@@ -1,20 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { type User } from "firebase/auth";
 import { onAuthStateChange } from "../firebase/auth";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface AuthContextType {
-  currentUser: User | null; // Firebase auth user
-  loading: boolean; // true while Firebase checks login state on startup
-}
-
-// ─── Context ──────────────────────────────────────────────────────────────────
-
-const AuthContext = createContext<AuthContextType>({
-  currentUser: null,
-  loading: true,
-});
+import { AuthContext } from "./authContextValue";
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -40,8 +27,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-// Use this anywhere in your app: const { currentUser } = useAuth()
-
-export const useAuth = () => useContext(AuthContext);

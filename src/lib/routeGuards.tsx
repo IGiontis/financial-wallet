@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Spinner } from "reactstrap";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../shared/hooks/useAuth";
 
 /** Centred spinner shown while a lazy route chunk loads. */
 export function PageLoader() {

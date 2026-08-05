@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
-import { EXPENSE_COLORS, INCOME_COLORS, GOAL_COLORS, INVESTMENT_COLORS, TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
+import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
+import { EXPENSE_COLORS, INCOME_COLORS, GOAL_COLORS, INVESTMENT_COLORS } from "./reviewPalettes";
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -43,7 +44,7 @@ export default function TransactionViewModal({ transaction: tx, categories, form
   const primaryBadge = isGoal ? categoryLabel("Goal", t) : isInvestment ? categoryLabel("Investments", t) : isPositive ? t("transactions.income") : t("transactions.expense");
   const secondaryBadge = (isGoal || isInvestment) && tx.contributionType ? (tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")) : undefined;
 
-  const meta = tx.metadata as any;
+  const meta = tx.metadata;
   const fuelCells: FuelCell[] = meta?.fuelType
     ? [
         { label: t("transactions.fuelType"), value: String(meta.fuelType).charAt(0).toUpperCase() + String(meta.fuelType).slice(1) },

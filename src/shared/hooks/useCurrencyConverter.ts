@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "./useAuth";
 import { getUser } from "../../firebase/firestore";
 import { fetchExchangeRates, convertAmount } from "../../firebase/exchangeRate";
 import type { Currency } from "../../shared/types/IndexTypes";

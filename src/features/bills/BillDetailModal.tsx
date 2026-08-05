@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiCheck, FiRotateCcw } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
-import { expectedAmount, getFrequencyLabel, getFrequencyToken } from "./billsUtils";
+import { expectedAmount, getFrequencyLabel, getFrequencyToken, sinkingFund } from "./billsUtils";
 
 interface BillDetailModalProps {
   bill: BillWithStatus;
@@ -42,6 +42,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
   const freq = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
   const paidDate = bill.payment ? firestoreToDate(bill.payment.paidDate) : undefined;
+  const fund = sinkingFund(bill);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -113,6 +114,29 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             </>
           )}
         </div>
+
+        {/* Saving-ahead plan — only for bills spaced far enough apart that
+            putting money by actually matters. */}
+        {fund && !paid && (
+          <div className="p-3 mb-3" style={{ borderRadius: "var(--border-radius-md)", background: "var(--color-background-secondary)" }}>
+            <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+              <span className="fw-semibold" style={{ fontSize: 13 }}>
+                🐷 {t("bills.setAsideTitle")}
+              </span>
+              <span className="fw-semibold" style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                {formatCurrency(fund.saved)} <span className="text-body-secondary fw-normal">/ {formatCurrency(fund.target)}</span>
+              </span>
+            </div>
+
+            <div style={{ height: 6, borderRadius: 3, background: "var(--color-border-tertiary)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.round(fund.progress * 100)}%`, background: "var(--color-income)", borderRadius: 3, transition: "width 0.3s ease" }} />
+            </div>
+
+            <div className="text-body-secondary mt-2" style={{ fontSize: 12 }}>
+              {fund.remaining <= 0 ? t("bills.setAsideReady") : `${t("bills.setAsideToGo", { amount: formatCurrency(fund.remaining) })} · ${t("bills.setAsideExplain", { amount: formatCurrency(fund.perMonth) })}`}
+            </div>
+          </div>
+        )}
 
         {bill.notes && (
           <p className="text-body-secondary mb-3" style={{ fontSize: 13 }}>

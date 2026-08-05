@@ -90,91 +90,166 @@
 
 /* ── Bill rows ────────────────────────────────────────────────────────────── */
 
-/* Mobile-first: a 2-column grid that wraps onto a second row, so nothing has to
-   be truncated. Desktop collapses it back to a single comfortable line. */
+/* Phone: three tight lines inside one row. The name/subtitle column is the only
+   thing allowed to shrink, so every figure on the right stays fully legible and
+   the amounts still line up vertically down the list.
+
+       [icon]  Electricity            €122.40
+               Every 2 mo · €80–122   €51/mo
+               [ Paid ]                    ⋮
+*/
 .billRow {
+  position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "icon main menu"
-    "icon meta meta"
-    ". amount action";
-  column-gap: 0.75rem;
-  row-gap: 0.375rem;
+    "icon main     main     lastpaid"
+    "icon subtitle subtitle permonth"
+    "icon status   status   menu";
+  column-gap: 0.625rem;
+  row-gap: 0.25rem;
   align-items: center;
   width: 100%;
-  padding: 0.875rem;
+  padding: 0.75rem 0.875rem;
   text-align: left;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   background: var(--color-surface);
   cursor: pointer;
-  /* opacity/filter cover the paid → grey → back-to-colour fade (see .billRow
-     inline style in BillsPage.tsx) as a bill's next due date approaches. */
+  overflow: hidden;
   transition:
     border-color 0.15s ease,
-    background-color 0.15s ease,
-    opacity 0.4s ease,
-    filter 0.4s ease;
+    background-color 0.15s ease;
 }
 
 .rowIcon {
   grid-area: icon;
   align-self: start;
 }
+
+/* Name + subtitle share one flex column so the subtitle can ellipse alone */
 .rowMain {
   grid-area: main;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
-.rowMeta {
-  grid-area: meta;
+
+.rowSubtitle {
+  grid-area: subtitle;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
 }
-.rowAmount {
-  grid-area: amount;
-}
-.rowAction {
-  grid-area: action;
+
+.rowLastPaid,
+.rowPerMonth,
+.rowStatus {
+  min-width: 0;
   justify-self: end;
+  text-align: right;
+}
+.rowLastPaid {
+  grid-area: lastpaid;
+}
+.rowPerMonth {
+  grid-area: permonth;
+}
+.rowStatus {
+  grid-area: status;
+  justify-self: start;
+  text-align: left;
 }
 .rowMenu {
   grid-area: menu;
   justify-self: end;
 }
 
-/* Name and frequency badge wrap instead of ellipsing */
-.rowTitle {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.375rem;
+/* Figures never wrap or shrink — they're the reason the row exists */
+.cellValue {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
 }
 
-/* Category + due indicator; wraps to a second line on very narrow screens */
-.rowMetaText {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
-  font-size: 12px;
+.cellSub {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
 }
 
-@media (min-width: 576px) {
+.statusChip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* Cadence colour as a hairline on the leading edge — keeps the "how often"
+   signal without spending a chip on it. */
+.rowCadenceBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+/* ── Desktop: real columns under a header ─────────────────────────────────── */
+
+@media (min-width: 768px) {
   .billRow {
-    grid-template-columns: auto 1fr auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) 96px 84px 104px 32px;
     grid-template-areas:
-      "icon main   amount action menu"
-      "icon meta   amount action menu";
-    row-gap: 0.125rem;
-    column-gap: 0.875rem;
+      "icon main     lastpaid permonth status menu"
+      "icon subtitle lastpaid permonth status menu";
+    row-gap: 0;
+    column-gap: 0.75rem;
+    padding: 0.75rem 1rem;
   }
 
   .rowIcon,
-  .rowAmount,
-  .rowAction,
+  .rowLastPaid,
+  .rowPerMonth,
+  .rowStatus,
   .rowMenu {
     align-self: center;
   }
+
+  .rowStatus {
+    justify-self: end;
+    text-align: right;
+  }
+}
+
+/* Column captions row — shares the grid so headings sit over their columns */
+.listHeader {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  border: 0;
+  background: none;
+  cursor: default;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.listHeader:hover {
+  background: none;
 }
 
 .billRow:hover {
@@ -187,27 +262,10 @@
   outline-offset: 2px;
 }
 
-/* Left stripe marks urgency without shouting */
-.billRowOverdue {
-  border-left: 3px solid var(--color-expense);
-}
-
-/* Calendar-tick countdown strip — fills in from left to right as the current
-   cycle progresses toward the next due date. Sits outside the named grid
-   areas so it always spans the full row width. */
-.rowTimeline {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 3px;
-  margin-top: 0.5rem;
-}
-
-.rowTimelineTick {
-  flex: 1;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--color-background-secondary);
-  transition: background-color 0.3s ease;
+/* Left stripe marks urgency without shouting — overrides the cadence hairline */
+.billRowOverdue .rowCadenceBar {
+  width: 3px;
+  background: var(--color-expense) !important;
 }
 
 /* Category emoji in a rounded tile */

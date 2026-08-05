@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../shared/hooks/useAuth";
 import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, unmarkBillPaid } from "../../firebase/firestore";
 import { computeBillStatus } from "./billsUtils";
 import { transactionKeys } from "../transactions/hooks/useTransactions";

@@ -6,7 +6,7 @@ import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
-import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, periodProgress, yearlyBreakdown } from "./billsUtils";
+import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, monthsBetweenPayments, yearlyBreakdown } from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import { categoryLabel } from "../../shared/utils/categories";
 import AddBillModal from "./AddBillModal";
@@ -16,10 +16,6 @@ import styles from "./css/BillsPage.module.css";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
 const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
-
-/** Number of ticks in a bill row's countdown strip — enough to read as a
- * gradient of progress without being fussy on a narrow phone screen. */
-const TIMELINE_TICKS = 8;
 
 /** Colour scale shared by the due-chip and the countdown ticks: red once
  * late, amber as it approaches, the default accent while there's still time. */
@@ -145,43 +141,87 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
 
 // ─── Due indicator ───────────────────────────────────────────────────────────
 
-function DueChip({ bill }: { bill: BillWithStatus }) {
+/** One pill that answers "where does this stand?" — paid, due soon, or late. */
+function StatusChip({ bill }: { bill: BillWithStatus }) {
   const { t } = useTranslation();
   const days = daysUntilDue(bill);
 
-  if (days === undefined) {
-    // No due date to count down to — the only thing left to say is that it's paid.
-    return bill.isPaidThisPeriod ? (
-      <span className="fw-medium" style={{ fontSize: 11.5, color: "var(--color-income)" }}>
+  // Settled for this period: say so plainly. The countdown to the next one is
+  // shown beside it on wide screens, so it doesn't need to shout here.
+  if (bill.isPaidThisPeriod) {
+    return (
+      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-income) 15%, transparent)", color: "var(--color-income)" }}>
         ✓ {t("bills.paidRecently")}
       </span>
-    ) : null;
+    );
   }
 
-  // The countdown always points at the *next* payment — even right after
-  // paying, so it keeps ticking down instead of going silent for months.
+  if (days === undefined) {
+    return <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>{t("bills.unpaid")}</span>;
+  }
+
   const color = dueColor(days);
   const label = days < 0 ? t("bills.overdueByDays", { count: Math.abs(days) }) : days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
 
   return (
-    <span className="fw-medium d-inline-flex align-items-center gap-1" style={{ fontSize: 11.5, color }}>
-      {bill.isPaidThisPeriod && (
-        <span aria-hidden style={{ color: "var(--color-income)" }}>
-          ✓
-        </span>
-      )}
+    <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
       {label}
     </span>
   );
 }
 
+/** Column captions — desktop only; on a phone each figure carries its own label. */
+function BillListHeader() {
+  const { t } = useTranslation();
+  return (
+    <div className={`${styles.billRow} ${styles.listHeader} d-none d-md-grid`} aria-hidden>
+      <span className={styles.rowIcon} />
+      <span className={styles.rowMain}>{t("bills.colBill")}</span>
+      <span className={styles.rowLastPaid}>{t("bills.colLastPaid")}</span>
+      <span className={styles.rowPerMonth}>{t("bills.colPerMonth")}</span>
+      <span className={styles.rowStatus}>{t("bills.colStatus")}</span>
+      <span className={styles.rowMenu} />
+    </div>
+  );
+}
+
 // ─── Bill row ────────────────────────────────────────────────────────────────
+// Information first: what was paid, when, what it usually costs, and what it
+// works out to per month. The pay action lives in the ⋮ menu and the detail
+// modal, so the row itself never spends space on buttons.
+//
+// One markup, two layouts. On a phone the four columns stack into three tight
+// lines with every figure right-aligned, so amounts still read down the page;
+// from `md` up the same cells snap back into real columns under a header.
+
+/** "Every 2 months · usually €80–122" — the descriptive half of the first cell. */
+function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
+  const freq = getFrequencyLabel(bill);
+  const range = bill.paidAmountRange;
+
+  let amountNote: string;
+  if (!bill.isVariableAmount) {
+    amountNote = t("bills.fixedAmount");
+  } else if (!range) {
+    amountNote = t("bills.variesNoHistory");
+  } else if (range.min === range.max) {
+    amountNote = t("bills.usuallyOne", { amount: formatCurrency(range.min) });
+  } else {
+    amountNote = t("bills.usuallyRange", { min: formatCurrency(range.min), max: formatCurrency(range.max) });
+  }
+
+  return (
+    <span className={styles.rowSubtitle}>
+      {t(freq.key, { count: freq.count })} · {amountNote}
+    </span>
+  );
+}
 
 function BillRow({
   bill,
   category,
   formatCurrency,
-  isBusy,
   onOpenDetails,
   onMarkPaid,
   onEdit,
@@ -190,34 +230,22 @@ function BillRow({
   bill: BillWithStatus;
   category: Category | undefined;
   formatCurrency: (n: number) => string;
-  isBusy: boolean;
   onOpenDetails: (b: BillWithStatus) => void;
   onMarkPaid: (b: BillWithStatus) => void;
   onEdit: (b: BillWithStatus) => void;
   onDelete: (b: BillWithStatus) => void;
 }) {
-  const { t } = useTranslation();
-  const freq = getFrequencyLabel(bill);
+  const { t, i18n } = useTranslation();
   const freqToken = getFrequencyToken(bill);
   const paid = bill.isPaidThisPeriod;
   const days = daysUntilDue(bill);
   const overdue = !paid && (days ?? 0) < 0;
 
-  // A row of calendar ticks that fills in day by day as the current cycle
-  // progresses toward the next due date — a running countdown, not a static
-  // paid/unpaid switch. Coloured by *position in the cycle*, not a fixed day
-  // count: a fixed "5 days left" threshold barely registers on a 90-day
-  // quarterly bill, so the last stretch of ticks turns amber/red proportionally
-  // instead — the last ~20% of the bar, then red once genuinely overdue.
-  const progress = periodProgress(bill, bill.nextDueDate);
-  const filledTicks = progress !== undefined ? Math.round(progress * TIMELINE_TICKS) : 0;
-  const tickColorAt = (index: number) => {
-    if (overdue) return "var(--color-expense)";
-    const position = (index + 1) / TIMELINE_TICKS;
-    if (position >= 0.8) return "var(--color-expense)";
-    if (position >= 0.6) return "var(--color-goal)";
-    return "var(--bs-primary)";
-  };
+  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+  const lastPaidAmount = bill.payments[0]?.amount;
+
+  // "Per month" only says something when the bill isn't already monthly.
+  const showPerMonth = monthsBetweenPayments(bill) !== 1;
 
   return (
     <div
@@ -237,61 +265,46 @@ function BillRow({
         {category?.icon ?? "🧾"}
       </span>
 
-      {/* Name + cadence — wraps rather than truncating */}
-      <div className={`${styles.rowMain} ${styles.rowTitle}`}>
-        <span className="fw-semibold text-body-emphasis" style={{ fontSize: 14 }}>
+      <div className={styles.rowMain}>
+        <span className="fw-semibold text-body-emphasis text-truncate" style={{ fontSize: 14 }}>
           {bill.name}
         </span>
-        {/* Colour encodes the cadence, so frequency is recognisable at a glance */}
-        <span className={styles.freqChip} style={{ background: `color-mix(in srgb, var(${freqToken}) 15%, transparent)`, color: `var(${freqToken})` }}>
-          {t(freq.key, { count: freq.count })}
-        </span>
+        <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
       </div>
 
-      {/* Category + due indicator */}
-      <div className={`${styles.rowMeta} ${styles.rowMetaText}`}>
-        <span className="text-body-secondary">{categoryLabel(category?.name, t) || "—"}</span>
-        <span className="text-body-secondary d-none d-sm-inline">·</span>
-        <DueChip bill={bill} />
+      {/* What actually left the account last time, and when */}
+      <div className={styles.rowLastPaid}>
+        <span className={styles.cellValue}>{lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}</span>
+        <span className={styles.cellSub}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
       </div>
 
-      <div className={styles.rowAmount}>
-        <span className="fw-semibold text-body-emphasis" style={{ fontVariantNumeric: "tabular-nums", fontSize: 15 }}>
-          {formatCurrency(expectedAmount(bill))}
-        </span>
-        {bill.isVariableAmount && (
-          <span className="text-body-secondary ms-1" style={{ fontSize: 10 }}>
-            {bill.averagePaidAmount ? t("bills.averageShort") : t("bills.variesLabel")}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.rowAction}>
-        {paid ? (
-          <Button color="success" outline size="sm" disabled onClick={(e) => e.stopPropagation()}>
-            <FiCheck size={14} className="me-1" />
-            {t("bills.paidAction")}
-          </Button>
+      <div className={styles.rowPerMonth}>
+        {showPerMonth ? (
+          <>
+            <span className={styles.cellValue}>{formatCurrency(bill.monthlyEquivalent)}</span>
+            <span className={`${styles.cellSub} d-md-none`}>{t("bills.perMonthShort")}</span>
+          </>
         ) : (
-          <Button
-            color="success"
-            size="sm"
-            disabled={isBusy}
-            onClick={(e) => {
-              e.stopPropagation();
-              onMarkPaid(bill);
-            }}
-          >
-            {t("bills.payAction")}
-          </Button>
+          <span className={styles.cellSub}>—</span>
         )}
+      </div>
+
+      <div className={styles.rowStatus}>
+        <StatusChip bill={bill} />
+        {paid && bill.nextDueDate && <span className={`${styles.cellSub} d-none d-md-block`}>{t("bills.nextShort", { date: dateFmt.format(bill.nextDueDate) })}</span>}
       </div>
 
       <UncontrolledDropdown className={styles.rowMenu} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0">
+        <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0" aria-label={t("bills.viewDetails")}>
           <FiMoreVertical size={18} />
         </DropdownToggle>
         <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
+          {!paid && (
+            <DropdownItem onClick={() => onMarkPaid(bill)}>
+              <FiCheck size={14} className="me-2" />
+              {t("bills.markAsPaid")}
+            </DropdownItem>
+          )}
           <DropdownItem onClick={() => onOpenDetails(bill)}>{t("bills.viewDetails")}</DropdownItem>
           <DropdownItem onClick={() => onEdit(bill)}>{t("common.edit")}</DropdownItem>
           <DropdownItem className="text-danger" onClick={() => onDelete(bill)}>
@@ -300,13 +313,9 @@ function BillRow({
         </DropdownMenu>
       </UncontrolledDropdown>
 
-      {progress !== undefined && (
-        <div className={styles.rowTimeline}>
-          {Array.from({ length: TIMELINE_TICKS }, (_, i) => (
-            <span key={i} className={styles.rowTimelineTick} style={{ background: i < filledTicks ? tickColorAt(i) : undefined }} />
-          ))}
-        </div>
-      )}
+      {/* Cadence colour is still worth keeping, but as a hairline on the edge
+          rather than another chip competing for space. */}
+      <span className={styles.rowCadenceBar} style={{ background: `var(${freqToken})` }} aria-hidden />
     </div>
   );
 }
@@ -466,7 +475,6 @@ export default function BillsPage() {
       bill={bill}
       category={categoryFor(bill.categoryId)}
       formatCurrency={formatCurrency}
-      isBusy={busy}
       onOpenDetails={setDetailBill}
       onMarkPaid={setPayingBill}
       onEdit={openEdit}
@@ -512,7 +520,10 @@ export default function BillsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
+              <>
+                <BillListHeader />
+                <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
+              </>
             )}
           </Col>
 

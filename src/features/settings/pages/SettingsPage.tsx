@@ -4,7 +4,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, Alert } from "reactstrap";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
@@ -30,6 +30,9 @@ const COUNTRIES = ["Greece", "United States", "United Kingdom", "Germany", "Fran
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getInitials = (first: string, last: string) => `${first?.[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase() || "?";
+
+/** Firebase rejects with an object carrying a `code`; anything else is unknown. */
+const errorCode = (err: unknown): string => (typeof err === "object" && err !== null && "code" in err ? String((err as { code: unknown }).code) : "");
 
 const getErrorKey = (code: string): string => {
   switch (code) {
@@ -128,7 +131,7 @@ export function SettingsPage() {
         // Write straight into the cache so the Topbar updates without a refresh.
         // No invalidate afterwards — that would discard this and re-read the
         // document we just wrote.
-        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, ...data }));
+        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: User | null) => ({ ...(old ?? {}), ...data }) as User);
 
         toast.success(t("settings.profileUpdated"));
       } catch {
@@ -159,7 +162,7 @@ export function SettingsPage() {
         });
         // Apply the language immediately — i18next persists it to localStorage
         await i18n.changeLanguage(values.locale);
-        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, currency: values.currency, locale: values.locale }));
+        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: User | null) => ({ ...(old ?? {}), currency: values.currency, locale: values.locale }) as User);
         toast.success(t("settings.preferencesSaved"));
       } catch {
         toast.error(t("settings.preferencesFailed"));
@@ -181,8 +184,8 @@ export function SettingsPage() {
         await updateUserEmail(values.newEmail);
         toast.success(t("settings.emailVerificationSent"));
         resetForm();
-      } catch (err: any) {
-        toast.error(t(getErrorKey(err.code)));
+      } catch (err) {
+        toast.error(t(getErrorKey(errorCode(err))));
       }
     },
   });
@@ -204,8 +207,8 @@ export function SettingsPage() {
         await updateUserPassword(values.newPassword);
         toast.success(t("settings.passwordChanged"));
         resetForm();
-      } catch (err: any) {
-        toast.error(t(getErrorKey(err.code)));
+      } catch (err) {
+        toast.error(t(getErrorKey(errorCode(err))));
       }
     },
   });
@@ -222,8 +225,8 @@ export function SettingsPage() {
       await deleteAccount();
       await logout();
       navigate("/login", { replace: true });
-    } catch (err: any) {
-      setDeleteError(getErrorKey(err.code));
+    } catch (err) {
+      setDeleteError(getErrorKey(errorCode(err)));
     } finally {
       setDeleteLoading(false);
     }
