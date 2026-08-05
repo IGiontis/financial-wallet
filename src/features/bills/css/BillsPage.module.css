@@ -154,6 +154,10 @@
 }
 .rowPerMonth {
   grid-area: permonth;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px;
 }
 .rowStatus {
   grid-area: status;
@@ -249,8 +253,9 @@
   color: var(--color-text-secondary);
 }
 
-.listHeader:hover {
+.listHeader.listHeader:hover {
   background: none;
+  border-color: transparent;
 }
 
 .billRow:hover {
