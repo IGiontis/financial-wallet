@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Alert } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -27,6 +29,7 @@ interface AddDepositModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: AddDepositModalProps) {
+  const { t } = useTranslation();
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const isDeadlineGoal = goal.goalType === "targeted" && goal.targetPeriod !== "monthly" && goal.targetPeriod !== "yearly";
@@ -40,12 +43,12 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
     () =>
       Yup.object({
         amount: Yup.number()
-          .typeError("Amount must be a number")
-          .required("Amount is required")
-          .positive("Amount must be greater than 0")
-          .max(maxAmount, isDeadlineGoal ? `Cannot exceed remaining amount (${format(remaining)})` : "Amount is too large"),
-        date: Yup.string().required("Date is required"),
-        notes: Yup.string().max(40, "Max 40 characters"),
+          .typeError("validation.amountNumber")
+          .required("validation.amountRequired")
+          .positive("validation.amountPositive")
+          .max(maxAmount, isDeadlineGoal ? t("investments.cannotExceedRemaining", { amount: format(remaining) }) : "validation.amountTooLarge"),
+        date: Yup.string().required("validation.dateRequired"),
+        notes: Yup.string().max(40, "validation.maxChars|40"),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [maxAmount, isDeadlineGoal, remaining],
@@ -87,7 +90,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>
-        {goal.icon ?? "💰"} Add deposit — {goal.name}
+        {t("investments.addDepositTitle", { icon: goal.icon ?? "💰", name: goal.name })}
       </ModalHeader>
 
       <form onSubmit={formik.handleSubmit} noValidate>
@@ -95,21 +98,21 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
           {/* Deadline goal info banner */}
           {isDeadlineGoal && remaining > 0 && (
             <Alert color="info" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
-              This is a deadline goal. You can deposit up to <strong>{format(remaining)}</strong> remaining to reach your target.
+              {t("investments.deadlineGoalHint", { amount: format(remaining) })}
             </Alert>
           )}
 
           {/* Goal already completed */}
           {isDeadlineGoal && remaining <= 0 && (
             <Alert color="success" style={{ fontSize: 13, padding: "8px 12px", marginBottom: "1rem" }}>
-              This goal has been fully funded!
+              {t("investments.goalFullyFunded")}
             </Alert>
           )}
 
           <Row className="g-2">
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Amount ({displayCurrency}) *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.amountLabel", { currency: displayCurrency })} *</Label>
                 <Input
                   type="number"
                   name="amount"
@@ -122,14 +125,14 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
                   disabled={isDeadlineGoal && remaining <= 0}
                 />
-                <FormFeedback>{formik.errors.amount}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
                 {isDeadlineGoal && remaining > 0 && (
                   <FormText style={{ fontSize: 11 }}>
-                    Max deposit: <strong>{format(remaining)}</strong>
+                    {t("investments.maxDepositHint", { amount: format(remaining) })}
                     {numericAmount > 0 && !formik.errors.amount && (
                       <>
                         {" "}
-                        · Remaining after: <strong>{format(Math.max(balanceAfterBase, 0))}</strong>
+                        · {t("investments.remainingAfter", { amount: format(Math.max(balanceAfterBase, 0)) })}
                       </>
                     )}
                   </FormText>
@@ -139,7 +142,7 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
 
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.dateLabel")} *</Label>
                 <Input
                   type="date"
                   name="date"
@@ -149,35 +152,35 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
                   invalid={!!(formik.touched.date && formik.errors.date)}
                   disabled={isDeadlineGoal && remaining <= 0}
                 />
-                <FormFeedback>{formik.errors.date}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
               </FormGroup>
             </Col>
           </Row>
 
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
             <Input
               type="textarea"
               name="notes"
               rows={2}
-              placeholder="Optional note..."
+              placeholder={t("common.optionalNote")}
               value={formik.values.notes}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               invalid={!!(formik.touched.notes && formik.errors.notes)}
               disabled={isDeadlineGoal && remaining <= 0}
             />
-            <FormFeedback>{formik.errors.notes}</FormFeedback>
+            <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 40</FormText>
           </FormGroup>
         </ModalBody>
 
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty || (isDeadlineGoal && remaining <= 0)}>
-            {formik.isSubmitting ? "Saving..." : "Add deposit"}
+            {formik.isSubmitting ? t("common.saving") : t("investments.addDeposit")}
           </Button>
         </ModalFooter>
       </form>

@@ -11,6 +11,7 @@ import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../../shared/utils/validationMessage";
 import { SUPPORTED_LANGUAGES } from "../../../i18n";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -99,15 +100,15 @@ export function SettingsPage() {
       country: userData?.country ?? "",
     },
     validationSchema: Yup.object({
-      firstName: Yup.string().required("First name is required").max(50),
-      lastName: Yup.string().required("Last name is required").max(50),
+      firstName: Yup.string().required("validation.firstNameRequired").max(50),
+      lastName: Yup.string().required("validation.lastNameRequired").max(50),
       displayName: Yup.string().max(50),
       username: Yup.string()
-        .required("Username is required")
+        .required("validation.usernameRequired")
         .min(3)
         .max(30)
-        .matches(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
-      age: Yup.number().typeError("Must be a number").min(13).max(120).optional(),
+        .matches(/^[a-zA-Z0-9_]+$/, "validation.usernameFormat"),
+      age: Yup.number().typeError("validation.mustBeNumber").min(13).max(120).optional(),
       city: Yup.string().max(100),
       country: Yup.string().max(100),
     }),
@@ -124,11 +125,10 @@ export function SettingsPage() {
         };
         await updateUser(currentUser!.uid, data);
 
-        // Update the cache immediately so Topbar re-renders without refresh
+        // Write straight into the cache so the Topbar updates without a refresh.
+        // No invalidate afterwards — that would discard this and re-read the
+        // document we just wrote.
         queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, ...data }));
-        queryClient.invalidateQueries({
-          queryKey: exchangeRateKeys.user(currentUser!.uid),
-        });
 
         toast.success(t("settings.profileUpdated"));
       } catch {
@@ -160,7 +160,6 @@ export function SettingsPage() {
         // Apply the language immediately — i18next persists it to localStorage
         await i18n.changeLanguage(values.locale);
         queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: any) => ({ ...old, currency: values.currency, locale: values.locale }));
-        queryClient.invalidateQueries({ queryKey: exchangeRateKeys.user(currentUser!.uid) });
         toast.success(t("settings.preferencesSaved"));
       } catch {
         toast.error(t("settings.preferencesFailed"));
@@ -173,8 +172,8 @@ export function SettingsPage() {
   const emailForm = useFormik({
     initialValues: { newEmail: "", currentPassword: "" },
     validationSchema: Yup.object({
-      newEmail: Yup.string().email("Enter a valid email").required("Email is required"),
-      currentPassword: Yup.string().required("Current password is required"),
+      newEmail: Yup.string().email("Enter a valid email").required("validation.emailRequired"),
+      currentPassword: Yup.string().required("validation.currentPasswordRequired"),
     }),
     onSubmit: async (values, { resetForm }) => {
       try {
@@ -193,10 +192,10 @@ export function SettingsPage() {
   const passwordForm = useFormik({
     initialValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
     validationSchema: Yup.object({
-      currentPassword: Yup.string().required("Current password is required"),
-      newPassword: Yup.string().required("New password is required").min(6, "Min 6 characters"),
+      currentPassword: Yup.string().required("validation.currentPasswordRequired"),
+      newPassword: Yup.string().required("validation.newPasswordRequired").min(6, "validation.passwordMin"),
       confirmPassword: Yup.string()
-        .required("Please confirm your password")
+        .required("validation.confirmPasswordRequired")
         .oneOf([Yup.ref("newPassword")], "Passwords do not match"),
     }),
     onSubmit: async (values, { resetForm }) => {
@@ -304,7 +303,7 @@ export function SettingsPage() {
                     onBlur={profileForm.handleBlur}
                     invalid={!!(profileForm.touched.firstName && profileForm.errors.firstName)}
                   />
-                  <FormFeedback>{profileForm.errors.firstName}</FormFeedback>
+                  <FormFeedback>{validationMessage(profileForm.errors.firstName, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -318,7 +317,7 @@ export function SettingsPage() {
                     onBlur={profileForm.handleBlur}
                     invalid={!!(profileForm.touched.lastName && profileForm.errors.lastName)}
                   />
-                  <FormFeedback>{profileForm.errors.lastName}</FormFeedback>
+                  <FormFeedback>{validationMessage(profileForm.errors.lastName, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -332,7 +331,7 @@ export function SettingsPage() {
                     onBlur={profileForm.handleBlur}
                     invalid={!!(profileForm.touched.username && profileForm.errors.username)}
                   />
-                  <FormFeedback>{profileForm.errors.username}</FormFeedback>
+                  <FormFeedback>{validationMessage(profileForm.errors.username, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -365,7 +364,7 @@ export function SettingsPage() {
                     onBlur={profileForm.handleBlur}
                     invalid={!!(profileForm.touched.age && profileForm.errors.age)}
                   />
-                  <FormFeedback>{profileForm.errors.age}</FormFeedback>
+                  <FormFeedback>{validationMessage(profileForm.errors.age, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={4}>
@@ -460,7 +459,7 @@ export function SettingsPage() {
                     onBlur={emailForm.handleBlur}
                     invalid={!!(emailForm.touched.newEmail && emailForm.errors.newEmail)}
                   />
-                  <FormFeedback>{emailForm.errors.newEmail}</FormFeedback>
+                  <FormFeedback>{validationMessage(emailForm.errors.newEmail, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -475,7 +474,7 @@ export function SettingsPage() {
                     onBlur={emailForm.handleBlur}
                     invalid={!!(emailForm.touched.currentPassword && emailForm.errors.currentPassword)}
                   />
-                  <FormFeedback>{emailForm.errors.currentPassword}</FormFeedback>
+                  <FormFeedback>{validationMessage(emailForm.errors.currentPassword, t)}</FormFeedback>
                 </FormGroup>
               </Col>
             </Row>
@@ -504,7 +503,7 @@ export function SettingsPage() {
                     onBlur={passwordForm.handleBlur}
                     invalid={!!(passwordForm.touched.currentPassword && passwordForm.errors.currentPassword)}
                   />
-                  <FormFeedback>{passwordForm.errors.currentPassword}</FormFeedback>
+                  <FormFeedback>{validationMessage(passwordForm.errors.currentPassword, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -518,7 +517,7 @@ export function SettingsPage() {
                     onBlur={passwordForm.handleBlur}
                     invalid={!!(passwordForm.touched.newPassword && passwordForm.errors.newPassword)}
                   />
-                  <FormFeedback>{passwordForm.errors.newPassword}</FormFeedback>
+                  <FormFeedback>{validationMessage(passwordForm.errors.newPassword, t)}</FormFeedback>
                 </FormGroup>
               </Col>
               <Col xs={12} md={6}>
@@ -532,7 +531,7 @@ export function SettingsPage() {
                     onBlur={passwordForm.handleBlur}
                     invalid={!!(passwordForm.touched.confirmPassword && passwordForm.errors.confirmPassword)}
                   />
-                  <FormFeedback>{passwordForm.errors.confirmPassword}</FormFeedback>
+                  <FormFeedback>{validationMessage(passwordForm.errors.confirmPassword, t)}</FormFeedback>
                 </FormGroup>
               </Col>
             </Row>

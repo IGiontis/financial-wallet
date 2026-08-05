@@ -19,6 +19,11 @@ export function firestoreToDate(value: unknown): Date {
   return new Date(value as string | number);
 }
 
+/** Same conversion, but a missing value stays missing instead of becoming today. */
+export function firestoreToDateOrUndefined(value: unknown): Date | undefined {
+  return value ? firestoreToDate(value) : undefined;
+}
+
 // ─── date-fns locale ───────────────────────────────────────────────────────
 // date-fns's `format()` renders month/day names in English unless given a
 // `locale` option explicitly — it doesn't read i18next's active language.

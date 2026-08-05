@@ -4,6 +4,8 @@ import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../shared/utils/validationMessage";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
 
@@ -29,6 +31,7 @@ interface WithdrawModalProps {
 const today = new Date().toISOString().split("T")[0];
 
 export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: WithdrawModalProps) {
+  const { t } = useTranslation();
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   // Balances are stored in base currency; the user types in their display currency.
@@ -40,13 +43,13 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
     () =>
       Yup.object({
         amount: Yup.number()
-          .typeError("Amount must be a number")
-          .required("Amount is required")
-          .positive("Amount must be greater than 0")
-          .max(10_000_000, "Amount is too large"),
-        gain: Yup.number().typeError("Must be a number").min(0, "Cannot be negative").max(10_000_000, "Amount is too large"),
-        date: Yup.string().required("Date is required"),
-        notes: Yup.string().max(40, "Max 40 characters"),
+          .typeError("validation.amountNumber")
+          .required("validation.amountRequired")
+          .positive("validation.amountPositive")
+          .max(10_000_000, "validation.amountTooLarge"),
+        gain: Yup.number().typeError("validation.mustBeNumber").min(0, "validation.cannotBeNegative").max(10_000_000, "validation.amountTooLarge"),
+        date: Yup.string().required("validation.dateRequired"),
+        notes: Yup.string().max(40, "validation.maxChars|40"),
       }),
     [],
   );
@@ -100,7 +103,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="m">
       <ModalHeader toggle={handleClose}>
-        {goal.icon ?? "💰"} Withdraw — {goal.name}
+        {t("investments.withdrawTitle", { icon: goal.icon ?? "💰", name: goal.name })}
       </ModalHeader>
 
       <form onSubmit={formik.handleSubmit} noValidate>
@@ -110,17 +113,17 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
             style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}
           >
             <span style={{ fontSize: 13 }}>
-              <span className="text-body-secondary">Current balance:</span> <strong>{format(goal.totalSaved)}</strong>
+              <span className="text-body-secondary">{t("goals.currentBalance")}</span> <strong>{format(goal.totalSaved)}</strong>
             </span>
             <Button type="button" size="sm" color="secondary" outline onClick={withdrawAll} disabled={goal.totalSaved <= 0}>
-              Withdraw all
+              {t("investments.withdrawAll")}
             </Button>
           </div>
 
           <Row className="g-2">
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Withdrawal amount ({displayCurrency}) *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.withdrawalAmountLabel", { currency: displayCurrency })} *</Label>
                 <Input
                   type="number"
                   name="amount"
@@ -132,11 +135,11 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
                 />
-                <FormFeedback>{formik.errors.amount}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
 
                 {numericAmount > 0 && !formik.errors.amount && !exceedsBalance && (
                   <FormText style={{ fontSize: 11 }}>
-                    Balance after: <strong>{format(Math.max(balanceAfterBase, 0))}</strong>
+                    {t("investments.balanceAfter", { amount: format(Math.max(balanceAfterBase, 0)) })}
                   </FormText>
                 )}
               </FormGroup>
@@ -144,7 +147,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
 
             <Col xs={12} md={6}>
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Date *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.dateLabel")} *</Label>
                 <Input
                   type="date"
                   name="date"
@@ -153,7 +156,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.date && formik.errors.date)}
                 />
-                <FormFeedback>{formik.errors.date}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
               </FormGroup>
             </Col>
           </Row>
@@ -163,7 +166,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           {isFullWithdrawal && (
             <FormGroup>
               <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                Profit / extra earned ({displayCurrency}) <span className="text-body-secondary fw-normal">(optional)</span>
+                {t("investments.profitLabel", { currency: displayCurrency })} <span className="text-body-secondary fw-normal">(optional)</span>
               </Label>
               <Input
                 type="number"
@@ -176,8 +179,8 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
                 onBlur={formik.handleBlur}
                 invalid={!!(formik.touched.gain && formik.errors.gain)}
               />
-              <FormFeedback>{formik.errors.gain}</FormFeedback>
-              <FormText style={{ fontSize: 11 }}>Put in {format(goal.totalSaved)} and it grew? Add the gain here — it's withdrawn on top of your capital.</FormText>
+              <FormFeedback>{validationMessage(formik.errors.gain, t)}</FormFeedback>
+              <FormText style={{ fontSize: 11 }}>{t("investments.profitHint", { amount: format(goal.totalSaved) })}</FormText>
             </FormGroup>
           )}
 
@@ -188,29 +191,29 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           )}
 
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
             <Input
               type="textarea"
               name="notes"
               rows={2}
-              placeholder="Reason for withdrawal..."
+              placeholder={t("investments.reasonPlaceholder")}
               value={formik.values.notes}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               invalid={!!(formik.touched.notes && formik.errors.notes)}
             />
-            <FormFeedback>{formik.errors.notes}</FormFeedback>
+            <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
             <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 40</FormText>
           </FormGroup>
         </ModalBody>
 
         <ModalFooter>
           <Button type="button" color="secondary" outline onClick={handleClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
 
           <Button type="submit" color="danger" disabled={formik.isSubmitting || !formik.dirty}>
-            {formik.isSubmitting ? "Saving..." : "Confirm withdrawal"}
+            {formik.isSubmitting ? t("common.saving") : t("investments.confirmWithdrawal")}
           </Button>
         </ModalFooter>
       </form>

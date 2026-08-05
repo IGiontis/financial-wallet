@@ -9,9 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "My Finance App",
-        short_name: "Finance",
-        description: "Personal finance tracker",
+        name: "MyFiWallet",
+        short_name: "MyFiWallet",
+        description: "Track spending, bills, savings goals and investments in one place.",
         theme_color: "#1a1a2e",
         background_color: "#ffffff",
         display: "standalone", // makes it feel like a native app

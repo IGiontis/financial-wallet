@@ -3,14 +3,8 @@ import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
+import { firestoreToDate } from "../../../shared/utils/dates";
 import { EXPENSE_COLORS, INCOME_COLORS, GOAL_COLORS, INVESTMENT_COLORS, TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
-
-function firestoreToDate(value: any): Date {
-  if (!value) return new Date();
-  if (value instanceof Date) return value;
-  if (value?.seconds) return new Date(value.seconds * 1000);
-  return new Date(value);
-}
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -52,11 +46,11 @@ export default function TransactionViewModal({ transaction: tx, categories, form
   const meta = tx.metadata as any;
   const fuelCells: FuelCell[] = meta?.fuelType
     ? [
-        { label: "Fuel type", value: String(meta.fuelType).charAt(0).toUpperCase() + String(meta.fuelType).slice(1) },
+        { label: t("transactions.fuelType"), value: String(meta.fuelType).charAt(0).toUpperCase() + String(meta.fuelType).slice(1) },
         ...(meta.pricePerUnit != null ? [{ label: "Price / unit", value: `€${meta.pricePerUnit}` }] : []),
-        ...(meta.quantity != null ? [{ label: "Quantity", value: String(meta.quantity) }] : []),
-        ...(meta.odometer != null ? [{ label: "Odometer", value: `${meta.odometer} km` }] : []),
-        ...(meta.place ? [{ label: "Place", value: meta.place }] : []),
+        ...(meta.quantity != null ? [{ label: t("transactions.quantity"), value: String(meta.quantity) }] : []),
+        ...(meta.odometer != null ? [{ label: t("transactions.odometer"), value: `${meta.odometer} km` }] : []),
+        ...(meta.place ? [{ label: t("transactions.place"), value: meta.place }] : []),
       ]
     : [];
 

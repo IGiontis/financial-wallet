@@ -20,7 +20,6 @@ export function useBills() {
   return useQuery<BillWithStatus[]>({
     queryKey: billKeys.all(userId),
     enabled: !!userId,
-    staleTime: 0,
     queryFn: async () => {
       const [bills, payments] = await Promise.all([getBills(userId), getBillPayments(userId)]);
       const now = new Date();

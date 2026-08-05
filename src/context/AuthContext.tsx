@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { type User } from "firebase/auth";
 import { onAuthStateChange } from "../firebase/auth";
 
@@ -34,7 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
-  return <AuthContext.Provider value={{ currentUser, loading }}>{children}</AuthContext.Provider>;
+  // Memoised so consumers don't re-render every time a parent renders — every
+  // page in the app reads this context.
+  const value = useMemo(() => ({ currentUser, loading }), [currentUser, loading]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

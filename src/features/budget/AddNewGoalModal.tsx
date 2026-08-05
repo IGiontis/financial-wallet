@@ -19,6 +19,8 @@ import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../shared/utils/validationMessage";
 import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { addMonths, format } from "date-fns";
@@ -56,30 +58,30 @@ interface AddNewGoalModalProps {
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
-  name: Yup.string().required("Goal name is required").max(60, "Max 60 characters"),
-  icon: Yup.string().max(4, "Keep it short (1–2 chars)"),
+  name: Yup.string().required("validation.goalNameRequired").max(60, "validation.maxChars|60"),
+  icon: Yup.string().max(4, "validation.keepItShort"),
   color: Yup.string(),
   goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required(),
   targetAmount: Yup.number()
-    .typeError("Target amount must be a number")
+    .typeError("validation.targetAmountNumber")
     .when("goalType", {
       is: "targeted",
-      then: (s) => s.required("Target amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
+      then: (s) => s.required("validation.targetAmountRequired").positive("validation.mustBeGreaterThanZero").max(10_000_000, "validation.amountTooLarge"),
       otherwise: (s) => s.optional().nullable(),
     }),
   targetPeriod: Yup.mixed<TargetPeriod>()
     .oneOf(["monthly", "yearly", "custom"])
     .when("goalType", {
       is: "targeted",
-      then: (s) => s.required("Select a period"),
+      then: (s) => s.required("validation.periodRequired"),
       otherwise: (s) => s.optional().nullable(),
     }),
   deadline: Yup.string().when("targetPeriod", {
     is: "custom",
-    then: (s) => s.required("Deadline is required"),
+    then: (s) => s.required("validation.deadlineRequired"),
     otherwise: (s) => s.optional(),
   }),
-  notes: Yup.string().max(300, "Max 300 characters"),
+  notes: Yup.string().max(300, "validation.maxChars|300"),
   isActive: Yup.boolean(),
 });
 
@@ -100,26 +102,27 @@ function ReviewScreen({
   isSubmitting: boolean;
   formatCurrency: (n: number) => string;
 }) {
+  const { t } = useTranslation();
   const isTargeted = values.goalType === "targeted";
 
   const rows = [
     {
-      label: "Type",
+      label: t("goals.typeLabel"),
       value: isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)",
     },
-    ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
+    ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
     // Show Period row only for InvestmentsPage recurring goals
-    ...(isTargeted && !isGoalsPage ? [{ label: "Period", value: values.targetPeriod === "monthly" ? "Monthly" : "Yearly" }] : []),
+    ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? "Monthly" : "Yearly" }] : []),
     // Show Deadline row only for GoalsPage (custom period)
-    ...(isGoalsPage && isTargeted && values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
-    ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
-    { label: "Status", value: values.isActive ? "Active" : "Paused" },
+    ...(isGoalsPage && isTargeted && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
+    { label: t("goals.statusLabel"), value: values.isActive ? "Active" : "Paused" },
   ];
 
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review before creating.</p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("goals.reviewBeforeCreating")}</p>
         <div
           style={{
             border: `2px solid ${values.color || "#3B82F6"}`,
@@ -175,6 +178,7 @@ function ReviewScreen({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoalType }: AddNewGoalModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<"form" | "review">("form");
   const { format: formatCurrency } = useCurrencyConverter();
 
@@ -227,7 +231,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
         setStep("form");
         onClose();
       } catch (err) {
-        toast.error("Failed to create. Please try again.");
+        toast.error(t("goals.createFailed"));
         console.error("AddNewGoalModal submit error:", err);
       }
     },
@@ -279,7 +283,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
-                <FormFeedback>{formik.errors.name}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               </FormGroup>
 
               {/* ── Type selector — ONLY shown on InvestmentsPage ── */}
@@ -337,7 +341,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                     {/* Target amount — always half width */}
                     <Col xs={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
                         <Input
                           type="number"
                           name="targetAmount"
@@ -349,7 +353,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
                         />
-                        <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
+                        <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
 
@@ -366,7 +370,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.deadline && formik.errors.deadline)}
                           />
-                          <FormFeedback>{formik.errors.deadline}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.deadline, t)}</FormFeedback>
                         </FormGroup>
                       ) : (
                         <FormGroup className="mb-0">
@@ -382,7 +386,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                             <option value="monthly">Monthly</option>
                             <option value="yearly">Yearly</option>
                           </Input>
-                          <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.targetPeriod, t)}</FormFeedback>
                         </FormGroup>
                       )}
                     </Col>
@@ -428,7 +432,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   invalid={!!(formik.touched.icon && formik.errors.icon)}
                   style={{ maxWidth: 260 }}
                 />
-                <FormFeedback>{formik.errors.icon}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.icon, t)}</FormFeedback>
               </FormGroup>
 
               {/* ── Color picker ── */}
@@ -473,7 +477,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.notes && formik.errors.notes)}
                 />
-                <FormFeedback>{formik.errors.notes}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
 

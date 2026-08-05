@@ -20,13 +20,16 @@
 }
 
 /* ── Mobile list ──────────────────────────────────────────────────────────── */
-/* Fill the screen below the header, honouring the on-screen keyboard (dvh) and
-   the home indicator, rather than subtracting a hard-coded pixel value. */
+/* Fill the screen below the header. The subtraction covers only the chrome that
+   actually sits outside this shell — the topbar plus the two nested container
+   paddings and the footer line. The safe-area inset is NOT subtracted here:
+   .page-content already reserves it with padding-bottom, and counting it twice
+   was shrinking the list on notched phones. */
 .mobileShell {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100dvh - 8.5rem - env(safe-area-inset-bottom));
+  height: calc(100dvh - 6.5rem);
 }
 
 .mobileScroll {

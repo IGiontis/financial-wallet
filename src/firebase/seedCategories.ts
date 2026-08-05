@@ -41,14 +41,25 @@ const DEFAULT_CATEGORIES = [
   { name: "Other Income", type: "income", icon: "💰", color: "#94A3B8", isDefault: true, userId: null },
 ];
 
+// Bump this whenever DEFAULT_CATEGORIES changes, so existing installs re-run
+// the check once and pick up the new entries.
+const SEED_VERSION = String(DEFAULT_CATEGORIES.length);
+const SEED_FLAG_KEY = "categories-seeded-version";
+
 /**
  * Safe to call on every app start.
  * Checks each category by name+type — only inserts what's missing.
  * Never touches existing categories.
  * To add more in the future: just add to DEFAULT_CATEGORIES above.
+ *
+ * The localStorage flag keeps this from costing a full collection read on every
+ * single app start — the seed only ever needs to run once per device per list
+ * revision, and the read alone was ~34 documents each time.
  */
 export const seedDefaultCategories = async (): Promise<void> => {
   try {
+    if (localStorage.getItem(SEED_FLAG_KEY) === SEED_VERSION) return;
+
     const snapshot = await getDocs(query(collection(db, "categories"), where("isDefault", "==", true)));
 
     // Build a set of "name|type" keys that already exist in Firestore
@@ -61,16 +72,18 @@ export const seedDefaultCategories = async (): Promise<void> => {
     // Only insert categories that are genuinely missing
     const toInsert = DEFAULT_CATEGORIES.filter((cat) => !existingKeys.has(`${cat.name}|${cat.type}`));
 
-    if (toInsert.length === 0) return; // nothing to do
+    if (toInsert.length > 0) {
+      const batch = writeBatch(db);
+      toInsert.forEach((cat) => {
+        const ref = doc(collection(db, "categories"));
+        batch.set(ref, { ...cat, createdAt: new Date(), updatedAt: new Date() });
+      });
+      await batch.commit();
+    }
 
-    const batch = writeBatch(db);
-    toInsert.forEach((cat) => {
-      const ref = doc(collection(db, "categories"));
-      batch.set(ref, { ...cat, createdAt: new Date(), updatedAt: new Date() });
-    });
-
-    await batch.commit();
-    console.log(`Seeded ${toInsert.length} missing default categories.`);
+    // Only mark done once the check actually completed — a failure above leaves
+    // the flag unset so the next start retries.
+    localStorage.setItem(SEED_FLAG_KEY, SEED_VERSION);
   } catch (err) {
     console.error("Failed to seed categories:", err);
   }

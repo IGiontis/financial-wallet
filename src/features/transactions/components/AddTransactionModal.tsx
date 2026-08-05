@@ -7,6 +7,7 @@ import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { FuelDetailsPanel, getUnitLabel } from "../../categories/FuelDetailsPanel";
 import {
@@ -37,30 +38,30 @@ const today = new Date().toISOString().split("T")[0];
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const validationSchema = Yup.object({
-  amount: Yup.number().typeError("Amount must be a number").required("Amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
+  amount: Yup.number().typeError("validation.amountNumber").required("validation.amountRequired").positive("validation.mustBeGreaterThanZero").max(10_000_000, "validation.amountTooLarge"),
   type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required(),
-  categoryId: Yup.string().required("Category is required"),
-  date: Yup.string().required("Date is required"),
-  description: Yup.string().required("Payee is required").max(30, "Max 30 characters"),
-  notes: Yup.string().max(300, "Max 300 characters"),
+  categoryId: Yup.string().required("validation.categoryRequired"),
+  date: Yup.string().required("validation.dateRequired"),
+  description: Yup.string().required("validation.payeeRequired").max(30, "validation.maxChars|30"),
+  notes: Yup.string().max(300, "validation.maxChars|300"),
   showFuelDetails: Yup.boolean(),
   fuelType: Yup.string().when("showFuelDetails", {
     is: true,
-    then: (s) => s.required("Fuel type is required"),
+    then: (s) => s.required("validation.fuelTypeRequired"),
     otherwise: (s) => s.optional(),
   }),
   pricePerUnit: Yup.number().when("showFuelDetails", {
     is: true,
-    then: (s) => s.typeError("Must be a number").required("Price is required").positive("Must be > 0"),
+    then: (s) => s.typeError("validation.mustBeNumber").required("validation.priceRequired").positive("validation.mustBeGreaterThanZero"),
     otherwise: (s) => s.optional(),
   }),
   quantity: Yup.number().when("showFuelDetails", {
     is: true,
-    then: (s) => s.typeError("Must be a number").required("Quantity is required").positive("Must be > 0"),
+    then: (s) => s.typeError("validation.mustBeNumber").required("validation.quantityRequired").positive("validation.mustBeGreaterThanZero"),
     otherwise: (s) => s.optional(),
   }),
-  odometer: Yup.number().typeError("Must be a number").min(0, "Must be positive").optional(),
-  place: Yup.string().max(20, "Max 20 characters").optional(),
+  odometer: Yup.number().typeError("validation.mustBeNumber").min(0, "validation.mustBePositive").optional(),
+  place: Yup.string().max(20, "validation.maxChars|20").optional(),
 });
 
 // ─── ReviewScreen ─────────────────────────────────────────────────────────────
@@ -84,11 +85,11 @@ function ReviewScreen({
 
   const fuelCells: FuelCell[] = hasFuel
     ? [
-        { label: "Fuel type",    value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—" },
-        { label: `Price / ${unit}`, value: values.pricePerUnit !== "" ? `€${values.pricePerUnit}` : "—" },
-        { label: "Quantity",     value: values.quantity !== "" ? `${values.quantity} ${unit}` : "—" },
-        ...(values.odometer !== "" ? [{ label: "Odometer", value: `${values.odometer} km` }] : []),
-        ...(values.place ? [{ label: "Place", value: values.place }] : []),
+        { label: t("transactions.fuelType"),    value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—" },
+        { label: t("transactions.pricePerUnitLabel", { unit }), value: values.pricePerUnit !== "" ? `€${values.pricePerUnit}` : "—" },
+        { label: t("transactions.quantity"),     value: values.quantity !== "" ? `${values.quantity} ${unit}` : "—" },
+        ...(values.odometer !== "" ? [{ label: t("transactions.odometer"), value: `${values.odometer} km` }] : []),
+        ...(values.place ? [{ label: t("transactions.place"), value: values.place }] : []),
       ]
     : [];
 
@@ -96,7 +97,7 @@ function ReviewScreen({
     <>
       <ModalBody>
         <TransactionReviewBody
-          subtitle="Please review your transaction before saving."
+          subtitle={t("transactions.reviewBeforeSaving")}
           description={values.description}
           categoryIcon={category?.icon ?? ""}
           categoryName={categoryLabel(category?.name, t) || "—"}
@@ -165,13 +166,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         };
 
         await onSubmit(dto);
-        toast.success(`Transaction "${values.description}" added!`);
+        toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
         setStep("form");
         setIsFuelCategory(false);
         onClose();
       } catch {
-        toast.error("Failed to save transaction. Please try again.");
+        toast.error(t("transactions.saveFailed"));
       }
     },
   });
@@ -297,7 +298,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
                     />
-                    <FormFeedback>{formik.errors.amount}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
                 <Col xs={6}>
@@ -308,7 +309,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       onChange={formik.handleChange} onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.date && formik.errors.date)}
                     />
-                    <FormFeedback>{formik.errors.date}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
               </Row>
@@ -323,7 +324,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       value={formik.values.description} onChange={formik.handleChange} onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.description && formik.errors.description)}
                     />
-                    <FormFeedback>{formik.errors.description}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
                 <Col xs={6}>
@@ -339,7 +340,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                         <option key={c.id} value={c.id}>{c.icon} {categoryLabel(c.name, t)}</option>
                       ))}
                     </Input>
-                    <FormFeedback>{formik.errors.categoryId}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
               </Row>
@@ -392,7 +393,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.notes && formik.errors.notes)}
                 />
-                <FormFeedback>{formik.errors.notes}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
             </form>

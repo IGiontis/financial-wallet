@@ -28,34 +28,43 @@ import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentGoalStatus, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
 import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
+import { firestoreToDateOrUndefined } from "../../../shared/utils/dates";
 import i18n from "../../../i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export const toDate = (value: any): Date | undefined => {
-  if (!value) return undefined;
-  if (value instanceof Date) return value;
-  if (value?.seconds) return new Date(value.seconds * 1000);
-  return new Date(value);
-};
+export const toDate = firestoreToDateOrUndefined;
 
 // Not a component, so it reads the app language straight off the shared i18n
 // instance rather than the useTranslation() hook — was hardcoded to en-US
 // before, which is why dates here stayed English regardless of app language.
 export const formatDate = (date?: Date) => (date ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", day: "numeric", year: "numeric" }).format(date) : "—");
 
-export const statusConfig: Record<InvestmentGoalStatus, { label: string; color: string }> = {
-  on_track: { label: "On track", color: "success" },
-  behind: { label: "Behind", color: "danger" },
-  ahead: { label: "Ahead", color: "info" },
-  completed: { label: "Completed", color: "secondary" },
+// Colours are static, labels are not — resolving the label lazily means a
+// language switch is picked up instead of being frozen at module-load time.
+const STATUS_COLOR: Record<InvestmentGoalStatus, string> = {
+  on_track: "success",
+  behind: "danger",
+  ahead: "info",
+  completed: "secondary",
 };
 
+const STATUS_LABEL_KEY: Record<InvestmentGoalStatus, string> = {
+  on_track: "goals.onTrack",
+  behind: "goals.behind",
+  ahead: "goals.ahead",
+  completed: "common.completed",
+};
+
+export function getStatusConfig(status: InvestmentGoalStatus): { label: string; color: string } {
+  return { label: i18n.t(STATUS_LABEL_KEY[status]), color: STATUS_COLOR[status] };
+}
+
 export function getGoalTypeLabel(goal: InvestmentGoalWithStats): string {
-  if (goal.targetPeriod === "monthly") return "Recurring · Monthly";
-  if (goal.targetPeriod === "yearly") return "Recurring · Yearly";
-  if (goal.goalType === "targeted") return "Goal";
-  return "Tracking";
+  if (goal.targetPeriod === "monthly") return i18n.t("investments.recurringMonthly");
+  if (goal.targetPeriod === "yearly") return i18n.t("investments.recurringYearly");
+  if (goal.goalType === "targeted") return i18n.t("categories.goal");
+  return i18n.t("investments.tracking");
 }
 
 // ─── StatCell ─────────────────────────────────────────────────────────────────
@@ -197,7 +206,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   const isYearly = goal.targetPeriod === "yearly";
   const periodLabel = isYearly ? "year" : "month";
 
-  const st = goal.status ? statusConfig[goal.status] : null;
+  const st = goal.status ? getStatusConfig(goal.status) : null;
   const isPaused = !goal.isActive && !goal.isCompleted;
   const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
 
@@ -266,7 +275,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
     if (isCreditCovered) {
       return (
         <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>Covered by carryover</span>
+          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>{i18n.t("goals.coveredByCarryover")}</span>
           {" · "}
           <span style={{ fontWeight: 600, color: "var(--color-income)" }}>{formatCurrency(periodCredit)}</span> credit applied
         </p>
@@ -423,7 +432,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
           {isRecurring && hasDebt && <StatCell label={isYearly ? "Yrs behind" : "Mths behind"} value={missedMonths} variant="red" />}
           {isRecurring && hasDebt && <StatCell label="Still owed" value={formatCurrency(remaining)} variant="red" />}
           {/* Ahead: surplus info only when status is ahead */}
-          {isRecurring && isAhead && <StatCell label="Surplus" value={formatCurrency(periodSurplus)} variant="green-current" />}
+          {isRecurring && isAhead && <StatCell label={i18n.t("goals.surplus")} value={formatCurrency(periodSurplus)} variant="green-current" />}
           {/* Credit: only when month is covered purely by carryover (no deposits yet) */}
           {isRecurring && isCreditCovered && <StatCell label="Credit" value={formatCurrency(periodCredit)} variant="emerald" />}
           {/* Withdrawal debt */}
@@ -453,7 +462,7 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
             </Button>
           )}
           <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 70 }} onClick={() => onViewHistory(goal)}>
-            History
+            {i18n.t("goals.history")}
           </Button>
         </div>
       </CardBody>
@@ -495,7 +504,8 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
 
 type HistoryTab = "all" | "deposits" | "withdrawals";
 
-const HISTORY_TAB_LABELS: Record<HistoryTab, string> = { all: "All", deposits: "Deposits", withdrawals: "Withdrawals" };
+const historyTabLabel = (tab: HistoryTab): string =>
+  i18n.t(tab === "all" ? "investments.historyTabAll" : tab === "deposits" ? "investments.historyTabDeposits" : "investments.historyTabWithdrawals");
 
 function HistorySummaryBar({
   totalDeposited,
@@ -509,9 +519,9 @@ function HistorySummaryBar({
   formatCurrency: (n: number) => string;
 }) {
   const cells = [
-    { label: "Deposited", value: formatCurrency(totalDeposited), color: "var(--color-income)" },
-    { label: "Withdrawn", value: formatCurrency(totalWithdrawn), color: "var(--color-expense)" },
-    { label: "Net saved", value: formatCurrency(totalSaved), color: "var(--color-text-primary)" },
+    { label: i18n.t("goals.deposited"), value: formatCurrency(totalDeposited), color: "var(--color-income)" },
+    { label: i18n.t("goals.withdrawn"), value: formatCurrency(totalWithdrawn), color: "var(--color-expense)" },
+    { label: i18n.t("goals.netSaved"), value: formatCurrency(totalSaved), color: "var(--color-text-primary)" },
   ];
   return (
     <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
@@ -548,7 +558,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
               transition: "color 0.15s",
             }}
           >
-            {HISTORY_TAB_LABELS[tab]}
+            {historyTabLabel(tab)}
             <span style={{ marginLeft: 5, fontSize: 11, color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)" }}>({counts[tab]})</span>
           </button>
         );
@@ -589,7 +599,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
   return (
     <Modal isOpen toggle={onClose} centered size="md">
       <ModalHeader toggle={onClose} style={{ fontSize: 14, fontWeight: 500 }}>
-        {goal.icon} {goal.name} — History
+        {i18n.t("investments.historyTitle", { icon: goal.icon ?? "", name: goal.name })}
       </ModalHeader>
       <ModalBody style={{ padding: 0 }}>
         <HistorySummaryBar totalDeposited={goal.totalDeposited} totalWithdrawn={goal.totalWithdrawn} totalSaved={goal.totalSaved} formatCurrency={formatCurrency} />

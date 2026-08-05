@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiCheck, FiRotateCcw } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
-import { getFrequencyLabel, getFrequencyToken } from "./billsUtils";
+import { expectedAmount, getFrequencyLabel, getFrequencyToken } from "./billsUtils";
 
 interface BillDetailModalProps {
   bill: BillWithStatus;
@@ -17,8 +17,9 @@ interface BillDetailModalProps {
   onEdit: (bill: BillWithStatus) => void;
 }
 
-/** Read-only fact, e.g. "Amount — €25.50". */
-function Fact({ label, value, accent }: { label: string; value: string; accent?: string }) {
+/** Read-only fact, e.g. "Amount — €25.50". `sub` adds a small qualifier below,
+ * e.g. "avg" when a variable bill's amount is a forecast, not a fixed figure. */
+function Fact({ label, value, accent, sub }: { label: string; value: string; accent?: string; sub?: string }) {
   return (
     <div className="p-2" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
       <div className="text-uppercase text-body-secondary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>
@@ -26,6 +27,11 @@ function Fact({ label, value, accent }: { label: string; value: string; accent?:
       </div>
       <div className="fw-semibold" style={{ fontSize: 14, color: accent ?? "var(--color-text-primary)" }}>
         {value}
+        {sub && (
+          <span className="text-body-secondary fw-normal ms-1" style={{ fontSize: 10 }}>
+            {sub}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -56,7 +62,13 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       <ModalBody>
         <Row className="g-2 mb-3">
           <Col xs={6}>
-            <Fact label={t("common.amount")} value={formatCurrency(bill.amount)} />
+            {/* Same figure as the list row — the recent average once a variable
+                bill has real payments, never the stale original estimate. */}
+            <Fact
+              label={t("common.amount")}
+              value={formatCurrency(expectedAmount(bill))}
+              sub={bill.isVariableAmount ? (bill.averagePaidAmount ? t("bills.averageShort") : t("bills.variesLabel")) : undefined}
+            />
           </Col>
           <Col xs={6}>
             {/* Same colour scale as the list, so cadence stays recognisable */}

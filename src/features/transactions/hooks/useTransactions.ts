@@ -19,7 +19,6 @@ export function useTransactions() {
   return useQuery<Transaction[]>({
     queryKey: transactionKeys.all(userId),
     enabled: !!userId,
-    staleTime: 0, // always refetch when navigating to the page
     queryFn: () => getTransactions(userId),
   });
 }

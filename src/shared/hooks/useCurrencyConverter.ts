@@ -1,4 +1,6 @@
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { getUser } from "../../firebase/firestore";
 import { fetchExchangeRates, convertAmount } from "../../firebase/exchangeRate";
@@ -15,6 +17,7 @@ export const exchangeRateKeys = {
 
 export function useCurrencyConverter() {
   const { currentUser } = useAuth();
+  const { i18n } = useTranslation();
   const uid = currentUser?.uid ?? "";
 
   // Exchange rates — cached 1 hour
@@ -25,40 +28,52 @@ export function useCurrencyConverter() {
     retry: 2,
   });
 
-  const convertToBase = (amount: number): number => {
-    if (!rateData) return amount;
-    return convertAmount(amount, displayCurrency, baseCurrency, rates);
-  };
-  // User preferences
+  // Currency + locale change only from the Settings screen, which updates this
+  // cache itself — so there's no reason to keep re-reading the user document.
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: exchangeRateKeys.user(uid),
     queryFn: () => getUser(uid),
     enabled: !!uid,
-    staleTime: 0, // always fetch fresh when component mounts
+    staleTime: 1000 * 60 * 30,
   });
 
   const baseCurrency = (userData?.baseCurrency ?? "EUR") as Currency;
   const displayCurrency = (userData?.currency ?? "EUR") as Currency;
-  const rates = rateData?.rates ?? {};
+  const rates = useMemo(() => rateData?.rates ?? {}, [rateData]);
   const isLoading = ratesLoading || userLoading;
 
   // Convert amount from baseCurrency (or a given currency) to displayCurrency
-  const convert = (amount: number, fromCurrency?: Currency): number => {
-    const from = fromCurrency ?? baseCurrency;
-    if (!rateData) return amount;
-    return convertAmount(amount, from, displayCurrency, rates);
-  };
+  const convert = useCallback(
+    (amount: number, fromCurrency?: Currency): number => {
+      if (!rateData) return amount;
+      return convertAmount(amount, fromCurrency ?? baseCurrency, displayCurrency, rates);
+    },
+    [rateData, baseCurrency, displayCurrency, rates],
+  );
 
-  // Format amount as currency string in displayCurrency
-  const format = (amount: number, fromCurrency?: Currency): string => {
-    const converted = convert(amount, fromCurrency);
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: displayCurrency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(converted);
-  };
+  const convertToBase = useCallback(
+    (amount: number): number => {
+      if (!rateData) return amount;
+      return convertAmount(amount, displayCurrency, baseCurrency, rates);
+    },
+    [rateData, displayCurrency, baseCurrency, rates],
+  );
+
+  // Number formatting follows the user's language, not a fixed locale — Greek
+  // writes 1.234,56 € where English writes €1,234.56. Building the formatter
+  // once per locale/currency pair keeps it off the hot path in long lists.
+  const formatter = useMemo(
+    () =>
+      new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", {
+        style: "currency",
+        currency: displayCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [i18n.resolvedLanguage, displayCurrency],
+  );
+
+  const format = useCallback((amount: number, fromCurrency?: Currency): string => formatter.format(convert(amount, fromCurrency)), [formatter, convert]);
 
   return {
     convert,

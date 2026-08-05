@@ -1,4 +1,5 @@
 import { FormGroup, Label, Input, FormFeedback, Row, Col } from "reactstrap";
+import { useTranslation } from "react-i18next";
 import type { FuelType } from "../../shared/types/IndexTypes";
 
 export const FUEL_TYPES: { value: FuelType; label: string }[] = [
@@ -37,6 +38,7 @@ interface FuelDetailsPanelProps {
 }
 
 export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, place, errors, touched, setFieldValue, setFieldTouched, displayCurrency }: FuelDetailsPanelProps) {
+  const { t } = useTranslation();
   const unit = getUnitLabel(fuelType);
   const totalCost = pricePerUnit !== "" && quantity !== "" ? (Number(pricePerUnit) * Number(quantity)).toFixed(2) : null;
 
@@ -56,7 +58,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
       <Row className="g-3">
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Fuel type *</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.fuelType")} *</Label>
             <Input
               type="select"
               value={fuelType}
@@ -76,7 +78,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         </Col>
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>Place</Label>
+            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.place")}</Label>
             <Input
               type="text"
               placeholder='e.g. "Shell - Thessaloniki"'

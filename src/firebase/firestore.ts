@@ -9,11 +9,6 @@ import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,
   Category,
-  CreateCategoryDTO,
-  UpdateCategoryDTO,
-  Budget,
-  CreateBudgetDTO,
-  UpdateBudgetDTO,
   InvestmentGoal,
   CreateInvestmentGoalDTO,
   UpdateInvestmentGoalDTO,
@@ -91,17 +86,6 @@ export const deleteTransaction = async (transactionId: string) => {
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
 
-export const createCategory = async (userId: string, data: CreateCategoryDTO) => {
-  const ref = await addDoc(collection(db, "categories"), {
-    ...data,
-    userId,
-    isDefault: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-};
-
 // This fixes the duplicate categories issue by deduplicating by name+type
 // instead of just id (which fails when seed runs twice creating same name but different id)
 
@@ -119,46 +103,6 @@ export const getCategories = async (userId: string) => {
 
   // Deduplicate by name+type (prevents duplicates if seed ran multiple times)
   return Array.from(new Map(all.map((c) => [`${c.type}-${c.name}`, c])).values());
-};
-
-export const updateCategory = async (categoryId: string, data: UpdateCategoryDTO) => {
-  await updateDoc(doc(db, "categories", categoryId), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
-};
-
-export const deleteCategory = async (categoryId: string) => {
-  await deleteDoc(doc(db, "categories", categoryId));
-};
-
-// ─── BUDGETS ──────────────────────────────────────────────────────────────────
-
-export const createBudget = async (userId: string, data: CreateBudgetDTO) => {
-  const ref = await addDoc(collection(db, "budgets"), {
-    ...data,
-    userId,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-};
-
-export const getBudgets = async (userId: string, month: string) => {
-  const q = query(collection(db, "budgets"), where("userId", "==", userId), where("month", "==", month));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Budget);
-};
-
-export const updateBudget = async (budgetId: string, data: UpdateBudgetDTO) => {
-  await updateDoc(doc(db, "budgets", budgetId), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
-};
-
-export const deleteBudget = async (budgetId: string) => {
-  await deleteDoc(doc(db, "budgets", budgetId));
 };
 
 // ─── INVESTMENT GOALS ─────────────────────────────────────────────────────────
@@ -194,23 +138,6 @@ export const deleteInvestmentGoal = async (goalId: string) => {
 };
 
 // ─── INVESTMENT CONTRIBUTIONS ─────────────────────────────────────────────────
-
-export const createContribution = async (userId: string, data: CreateInvestmentContributionDTO) => {
-  const cleaned = clean({ ...data, userId });
-
-  const ref = await addDoc(collection(db, "investmentContributions"), {
-    ...cleaned,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-};
-
-export const getContributions = async (goalId: string) => {
-  const q = query(collection(db, "investmentContributions"), where("goalId", "==", goalId));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentContribution);
-};
 
 // Fetches every contribution for a user in a single query, so goal stats can be
 // computed without an N+1 fan-out (one read per goal).

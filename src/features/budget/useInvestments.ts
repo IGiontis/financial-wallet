@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -5,7 +6,6 @@ import {
   createInvestmentGoal,
   updateInvestmentGoal,
   deleteInvestmentGoal,
-  getContributions,
   getAllContributions,
   createContributionWithTransaction,
   deleteContribution,
@@ -15,17 +15,37 @@ import type {
   CreateInvestmentGoalDTO,
   UpdateInvestmentGoalDTO,
   CreateInvestmentContributionDTO,
+  InvestmentGoal,
   InvestmentGoalWithStats,
   InvestmentContribution,
 } from "../../shared/types/IndexTypes";
 import { transactionKeys } from "../transactions/hooks/useTransactions";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
+// Goals and contributions are two separate queries under a shared prefix, so a
+// single invalidate on `all` refreshes both, while each is fetched only once
+// no matter how many components ask for it.
 
 export const investmentKeys = {
   all: (userId: string) => ["investments", userId] as const,
-  contributions: (goalId: string) => ["contributions", goalId] as const,
+  goals: (userId: string) => ["investments", userId, "goals"] as const,
+  contributions: (userId: string) => ["investments", userId, "contributions"] as const,
 };
+
+// ─── useAllContributions ──────────────────────────────────────────────────────
+// Every contribution the user has, in one query. Per-goal views filter this
+// list rather than issuing their own `where goalId ==` read.
+
+export function useAllContributions() {
+  const { currentUser } = useAuth();
+  const userId = currentUser?.uid ?? "";
+
+  return useQuery<InvestmentContribution[]>({
+    queryKey: investmentKeys.contributions(userId),
+    enabled: !!userId,
+    queryFn: () => getAllContributions(userId),
+  });
+}
 
 // ─── useInvestmentGoals ───────────────────────────────────────────────────────
 
@@ -33,38 +53,50 @@ export function useInvestmentGoals() {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid ?? "";
 
-  return useQuery<InvestmentGoalWithStats[]>({
-    queryKey: investmentKeys.all(userId),
+  const goalsQuery = useQuery<InvestmentGoal[]>({
+    queryKey: investmentKeys.goals(userId),
     enabled: !!userId,
-    staleTime: 0,
-    queryFn: async () => {
-      // Two reads total (goals + all contributions) instead of one-per-goal (N+1).
-      const [goals, allContributions] = await Promise.all([getInvestmentGoals(userId), getAllContributions(userId)]);
-
-      const byGoal = new Map<string, InvestmentContribution[]>();
-      for (const c of allContributions) {
-        const arr = byGoal.get(c.goalId);
-        if (arr) arr.push(c);
-        else byGoal.set(c.goalId, [c]);
-      }
-
-      // Pure computation — no side-effect writes inside the query. "Completed" is
-      // derived on read, so refetch-on-focus never fires redundant Firestore writes.
-      const withStats = goals.map((goal) => computeGoalStats(goal, byGoal.get(goal.id) ?? []));
-      return withStats.map((g) => (g.status === "completed" ? { ...g, isCompleted: true } : g));
-    },
+    queryFn: () => getInvestmentGoals(userId),
   });
+
+  const contributionsQuery = useAllContributions();
+
+  const data = useMemo<InvestmentGoalWithStats[]>(() => {
+    const goals = goalsQuery.data;
+    const contributions = contributionsQuery.data;
+    if (!goals || !contributions) return [];
+
+    const byGoal = new Map<string, InvestmentContribution[]>();
+    for (const c of contributions) {
+      const arr = byGoal.get(c.goalId);
+      if (arr) arr.push(c);
+      else byGoal.set(c.goalId, [c]);
+    }
+
+    // Pure computation — no side-effect writes. "Completed" is derived on read,
+    // so a refetch never fires redundant Firestore writes.
+    return goals
+      .map((goal) => computeGoalStats(goal, byGoal.get(goal.id) ?? []))
+      .map((g) => (g.status === "completed" ? { ...g, isCompleted: true } : g));
+  }, [goalsQuery.data, contributionsQuery.data]);
+
+  return {
+    data,
+    isLoading: goalsQuery.isLoading || contributionsQuery.isLoading,
+    isError: goalsQuery.isError || contributionsQuery.isError,
+    isFetching: goalsQuery.isFetching || contributionsQuery.isFetching,
+  };
 }
 
 // ─── useContributions ─────────────────────────────────────────────────────────
+// A single goal's contributions, filtered out of the shared list — no extra read.
 
 export function useContributions(goalId: string | null) {
-  return useQuery<InvestmentContribution[]>({
-    queryKey: investmentKeys.contributions(goalId ?? ""),
-    enabled: !!goalId,
-    staleTime: 0,
-    queryFn: () => getContributions(goalId!),
-  });
+  const { data = [], isLoading, isError } = useAllContributions();
+
+  const filtered = useMemo(() => (goalId ? data.filter((c) => c.goalId === goalId) : []), [data, goalId]);
+
+  return { data: filtered, isLoading, isError };
 }
 
 // ─── useCreateGoal ────────────────────────────────────────────────────────────
@@ -139,10 +171,9 @@ export function useAddContribution() {
         contributionType: data.contributionType,
       });
     },
-    onSuccess: async (_result, variables) => {
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(variables.data.goalId) }),
         queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
       ]);
     },
@@ -151,7 +182,7 @@ export function useAddContribution() {
 
 // ─── useDeleteContribution ────────────────────────────────────────────────────
 
-export function useDeleteContribution(goalId: string) {
+export function useDeleteContribution() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
@@ -159,8 +190,10 @@ export function useDeleteContribution(goalId: string) {
   return useMutation({
     mutationFn: (contributionId: string) => deleteContribution(contributionId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(goalId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) }),
+        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
+      ]);
     },
   });
 }

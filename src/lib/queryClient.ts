@@ -1,25 +1,29 @@
 import { QueryClient } from "@tanstack/react-query";
 
+// Firestore bills per document read, and this app runs on the free tier. The
+// defaults below are tuned to cut reads rather than to keep data maximally
+// fresh: every mutation already invalidates the queries it affects, so the only
+// thing a refetch can pick up is a change made on *another* device.
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // No global staleTime — let each query decide
-      staleTime: 0,
+      // Data stays fresh for 5 minutes. Navigating between pages inside that
+      // window reuses the cache instead of re-reading the whole collection.
+      staleTime: 1000 * 60 * 5,
 
-      // How long inactive data stays in cache (10 minutes)
-      gcTime: 1000 * 60 * 10,
+      // How long inactive data stays in cache (30 minutes)
+      gcTime: 1000 * 60 * 30,
 
-      // Retry failed queries 3 times with exponential backoff
-      retry: 3,
+      // Retrying a genuinely failing query (bad rules, offline) just multiplies
+      // the read count, so keep it to a single retry.
+      retry: 1,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 
-      // Refetch when window regains focus
-      refetchOnWindowFocus: true,
-
-      // Always refetch when component mounts if data is stale
+      // Alt-tabbing used to re-read every collection. Reconnect + mount (when
+      // stale) are enough to keep things current.
+      refetchOnWindowFocus: false,
       refetchOnMount: true,
-
-      // Refetch when network reconnects
       refetchOnReconnect: true,
     },
     mutations: {

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
+import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { format } from "date-fns";
@@ -28,30 +30,30 @@ const toDateInputValue = (value: any): string => {
 };
 
 const validationSchema = Yup.object({
-  name: Yup.string().required("Goal name is required").max(60, "Max 60 characters"),
-  icon: Yup.string().max(4, "Keep it short (1-2 chars)"),
+  name: Yup.string().required("validation.goalNameRequired").max(60, "validation.maxChars|60"),
+  icon: Yup.string().max(4, "validation.keepItShort"),
   color: Yup.string(),
   goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required(),
   targetAmount: Yup.number()
-    .typeError("Target amount must be a number")
+    .typeError("validation.targetAmountNumber")
     .when("goalType", {
       is: "targeted",
-      then: (s) => s.required("Target amount is required").positive("Must be greater than 0").max(10_000_000, "Amount is too large"),
+      then: (s) => s.required("validation.targetAmountRequired").positive("validation.mustBeGreaterThanZero").max(10_000_000, "validation.amountTooLarge"),
       otherwise: (s) => s.optional().nullable(),
     }),
   targetPeriod: Yup.mixed<TargetPeriod>()
     .oneOf(["monthly", "yearly", "custom"])
     .when("goalType", {
       is: "targeted",
-      then: (s) => s.required("Select a period"),
+      then: (s) => s.required("validation.periodRequired"),
       otherwise: (s) => s.optional().nullable(),
     }),
   deadline: Yup.string().when("targetPeriod", {
     is: "custom",
-    then: (s) => s.required("Deadline is required for a custom period"),
+    then: (s) => s.required("validation.deadlineRequiredCustom"),
     otherwise: (s) => s.optional(),
   }),
-  notes: Yup.string().max(300, "Max 300 characters"),
+  notes: Yup.string().max(300, "validation.maxChars|300"),
 });
 
 interface EditGoalModalProps {
@@ -76,21 +78,22 @@ function ReviewScreen({
   isSubmitting: boolean;
   formatCurrency: (n: number) => string;
 }) {
+  const { t } = useTranslation();
   const isTargeted = values.goalType === "targeted";
   const isGoalsPageGoal = goal.targetPeriod === "custom";
 
   const rows = [
-    { label: "Type", value: isTargeted ? "Targeted goal" : "Open-ended" },
-    ...(isTargeted && values.targetAmount ? [{ label: "Target", value: formatCurrency(Number(values.targetAmount)) }] : []),
-    ...(isTargeted && !isGoalsPageGoal ? [{ label: "Period", value: values.targetPeriod }] : []),
-    ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: "Deadline", value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
-    ...(values.notes ? [{ label: "Notes", value: values.notes }] : []),
+    { label: t("goals.typeLabel"), value: isTargeted ? "Targeted goal" : "Open-ended" },
+    ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
+    ...(isTargeted && !isGoalsPageGoal ? [{ label: t("goals.periodLabel"), value: values.targetPeriod }] : []),
+    ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
   ];
 
   return (
     <>
       <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>Please review your changes before saving.</p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("goals.reviewBeforeSaving")}</p>
         <div
           style={{
             border: `2px solid ${values.color || "#3B82F6"}`,
@@ -137,6 +140,7 @@ function ReviewScreen({
 }
 
 export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditGoalModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<"form" | "review">("form");
   const { format: formatCurrency } = useCurrencyConverter();
 
@@ -174,7 +178,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
         setStep("form");
         onClose();
       } catch (err) {
-        toast.error("Failed to update goal. Please try again.");
+        toast.error(t("goals.updateFailed"));
         console.error("EditGoalModal submit error:", err);
       }
     },
@@ -214,7 +218,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
             <form id="edit-goal-form" onSubmit={formik.handleSubmit} noValidate>
               {/* ── Goal name ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Goal name *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.goalNameLabel")} *</Label>
                 <Input
                   type="text"
                   name="name"
@@ -223,7 +227,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
-                <FormFeedback>{formik.errors.name}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               </FormGroup>
 
               {/* ── Goal type — READ ONLY ── */}
@@ -236,7 +240,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                     <Row className="g-3">
                       <Col xs={6}>
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
                           <Input
                             type="number"
                             name="targetAmount"
@@ -248,7 +252,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
                           />
-                          <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
                         </FormGroup>
                       </Col>
                       <Col xs={6}>
@@ -262,7 +266,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.deadline && formik.errors.deadline)}
                           />
-                          <FormFeedback>{formik.errors.deadline}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.deadline, t)}</FormFeedback>
                         </FormGroup>
                       </Col>
                     </Row>
@@ -271,7 +275,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                     <Row className="g-3">
                       <Col xs={6}>
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Target amount *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
                           <Input
                             type="number"
                             name="targetAmount"
@@ -283,7 +287,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
                           />
-                          <FormFeedback>{formik.errors.targetAmount}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
                         </FormGroup>
                       </Col>
                       <Col xs={6}>
@@ -300,7 +304,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                             <option value="monthly">Monthly</option>
                             <option value="yearly">Yearly</option>
                           </Input>
-                          <FormFeedback>{formik.errors.targetPeriod}</FormFeedback>
+                          <FormFeedback>{validationMessage(formik.errors.targetPeriod, t)}</FormFeedback>
                         </FormGroup>
                       </Col>
                     </Row>
@@ -346,7 +350,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   invalid={!!(formik.touched.icon && formik.errors.icon)}
                   style={{ maxWidth: 260 }}
                 />
-                <FormFeedback>{formik.errors.icon}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.icon, t)}</FormFeedback>
               </FormGroup>
 
               {/* ── Color picker ── */}
@@ -391,7 +395,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.notes && formik.errors.notes)}
                 />
-                <FormFeedback>{formik.errors.notes}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
                 <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
               </FormGroup>
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { Container, Row, Col, Card, CardBody, Spinner, Progress, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
@@ -19,11 +19,20 @@ import {
   type TimePeriod,
 } from "../overviewUtils";
 import { MetricCard } from "../components/MetricCard";
-import { CashFlowChart, CashFlowLegend } from "../components/CashFlowChart";
+import { CashFlowLegend } from "../components/CashFlowLegend";
 import { CustomRangeModal } from "../components/CustomRangeModal";
 import GoalDetailModal from "../components/GoalDetailModal";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/OverviewPage.module.css";
+
+// recharts is by far the heaviest thing on this page. Loading it separately lets
+// the metric cards and goal list paint first instead of waiting on the chart.
+const CashFlowChart = lazy(() => import("../components/CashFlowChart"));
+
+/** Same height as the chart, so nothing jumps when it finishes loading. */
+function ChartSkeleton() {
+  return <div style={{ height: 280 }} />;
+}
 
 const PERIODS: { value: TimePeriod; labelKey: string }[] = [
   { value: "current_month", labelKey: "overview.periods.currentMonth" },
@@ -208,7 +217,7 @@ export const OverviewPage = () => {
                   {t("overview.noTransactionsPeriod")}
                 </div>
               ) : (
-                <>
+                <Suspense fallback={<ChartSkeleton />}>
                   {/* Compact axis on phones, full currency labels from sm up */}
                   <div className="d-sm-none">
                     <CashFlowChart data={chartData} formatCurrency={formatCurrency} compact />
@@ -216,7 +225,7 @@ export const OverviewPage = () => {
                   <div className="d-none d-sm-block">
                     <CashFlowChart data={chartData} formatCurrency={formatCurrency} />
                   </div>
-                </>
+                </Suspense>
               )}
             </CardBody>
           </Card>

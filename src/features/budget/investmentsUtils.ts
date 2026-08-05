@@ -1,9 +1,5 @@
 import type { InvestmentGoal, InvestmentContribution, InvestmentGoalWithStats, InvestmentGoalStatus } from "../../shared/types/IndexTypes";
-
-const toDate = (value: any): Date => {
-  if (value?.seconds) return new Date(value.seconds * 1000);
-  return new Date(value);
-};
+import { firestoreToDate as toDate } from "../../shared/utils/dates";
 
 export function computeGoalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
   // ── Totals ────────────────────────────────────────────────────────────────

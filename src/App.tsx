@@ -1,8 +1,7 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getUser } from "./firebase/firestore";
 import { exchangeRateKeys } from "./shared/hooks/useCurrencyConverter";
@@ -13,6 +12,12 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { seedDefaultCategories } from "./firebase/seedCategories";
 import { useOnlineStatus } from "./shared/hooks/useOnlineStatus";
+
+// Devtools are a development-only aid — lazily imported so the bundle Vite ships
+// to users never contains them.
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() => import("@tanstack/react-query-devtools").then((m) => ({ default: m.ReactQueryDevtools })))
+  : null;
 
 // ─── Offline banner ─────────────────────────────────────────────────────────
 // Non-blocking: the app stays usable (cached data, PWA) while we show a slim
@@ -88,7 +93,11 @@ export function App() {
           <RouterProvider router={router} />
           {!isOnline && <OfflineBanner />}
           <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
-          <ReactQueryDevtools initialIsOpen={false} />
+          {ReactQueryDevtools && (
+            <Suspense fallback={null}>
+              <ReactQueryDevtools initialIsOpen={false} />
+            </Suspense>
+          )}
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

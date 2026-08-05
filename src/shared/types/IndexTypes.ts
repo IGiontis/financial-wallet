@@ -191,38 +191,6 @@ export interface UpdateRecurringTransactionDTO {
 }
 
 // ============================================================================
-// BUDGET TYPES
-// ============================================================================
-
-export interface Budget {
-  id: string;
-  userId: string;
-  categoryId: string;
-  amount: number;
-  month: string;
-  type: TransactionType;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateBudgetDTO {
-  categoryId: string;
-  amount: number;
-  month: string;
-  type: TransactionType;
-}
-
-export interface UpdateBudgetDTO {
-  amount?: number;
-}
-
-export interface BudgetWithActual extends Budget {
-  actualAmount: number;
-  percentageUsed: number;
-  remaining: number;
-}
-
-// ============================================================================
 // INVESTMENT TYPES
 // ============================================================================
 
