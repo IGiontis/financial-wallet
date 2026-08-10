@@ -1,0 +1,272 @@
+/* Insights panel — analytics for whatever the filter currently shows.
+   Only what Bootstrap utilities can't express; colours come from the tokens. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* ── Stat tiles ───────────────────────────────────────────────────────────── */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .statGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statSub {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.card {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.cardTitle {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cardHint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.chartRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.625rem;
+}
+
+@media (min-width: 992px) {
+  .chartRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* ── Donut + legend ───────────────────────────────────────────────────────── */
+
+.donutWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.donut {
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+  /* The ring is drawn from 12 o'clock rather than 3 o'clock */
+  transform: rotate(-90deg);
+}
+
+.donutHole {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donutBox {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+}
+
+/* The hole only ever holds a percentage now — the money figure lives in the
+   card header, where it can be any length without being clipped. */
+.donutTotal {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.donutCaption {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Card headline — the big money figure at the top right of a card */
+.headlineAmount {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.legend {
+  flex: 1 1 170px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+}
+
+/* A legend entry doubles as a filter button, so it needs button resets */
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  width: 100%;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legendRow:hover,
+.legendRow:focus-visible {
+  background: var(--color-background-secondary);
+}
+
+.legendRow[disabled] {
+  cursor: default;
+}
+
+.legendRow[disabled]:hover {
+  background: none;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legendName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legendAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.legendPct {
+  width: 34px;
+  text-align: right;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Over-time bars ───────────────────────────────────────────────────────── */
+/* Hand-rolled rather than a chart library: a handful of plain divs render
+   instantly and keep recharts out of this page's bundle entirely. */
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 108px;
+}
+
+.barCol {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.bar {
+  border-radius: 3px 3px 0 0;
+  background: var(--color-expense);
+  transition: height 0.25s ease;
+  min-height: 2px;
+}
+
+.barIncome {
+  background: var(--color-income);
+}
+
+.barLabel {
+  font-size: 9.5px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Payee bars ───────────────────────────────────────────────────────────── */
+
+.payeeTrack {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.payeeFill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--bs-primary);
+  transition: width 0.25s ease;
+}
+
+.payeeName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

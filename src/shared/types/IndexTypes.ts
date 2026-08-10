@@ -17,6 +17,8 @@ export interface User {
   currency: Currency;
   baseCurrency: Currency;
   locale: string;
+  /** Payee list the user maintains for quick pick when adding a transaction. */
+  savedPayees?: string[];
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date;
@@ -34,6 +36,7 @@ export interface CreateUserDTO {
   currency?: Currency;
   baseCurrency?: Currency;
   locale?: string;
+  savedPayees?: string[];
 }
 
 export interface UpdateUserDTO {
@@ -48,6 +51,7 @@ export interface UpdateUserDTO {
   currency?: Currency;
   baseCurrency?: Currency;
   locale?: string;
+  savedPayees?: string[];
 }
 
 // ============================================================================

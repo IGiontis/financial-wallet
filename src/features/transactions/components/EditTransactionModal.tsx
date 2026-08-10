@@ -8,6 +8,8 @@ import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelTyp
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
+import { PayeeInput } from "./PayeeInput";
+import { usePayees } from "../hooks/usePayees";
 import { format } from "date-fns";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
@@ -137,6 +139,7 @@ interface EditTransactionModalProps {
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<"form" | "review">("form");
   const { t } = useTranslation();
+  const { payees } = usePayees();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
@@ -308,10 +311,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
-                    <Input
-                      type="text" name="description" placeholder='"Amazon"'
-                      value={formik.values.description} onChange={formik.handleChange} onBlur={formik.handleBlur}
+                    <PayeeInput
+                      value={formik.values.description}
+                      payees={payees}
+                      placeholder={t("transactions.payeePlaceholder")}
                       invalid={!!(formik.touched.description && formik.errors.description)}
+                      onChange={(v) => formik.setFieldValue("description", v)}
+                      onBlur={() => formik.setFieldTouched("description", true)}
                     />
                     <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
                   </FormGroup>

@@ -15,7 +15,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "reactstrap";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiUsers } from "react-icons/fi";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
@@ -27,6 +27,9 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
+import { TransactionInsights } from "../components/TransactionInsights";
+import ManagePayeesModal from "../components/ManagePayeesModal";
+import { usePayees } from "../hooks/usePayees";
 import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
@@ -394,6 +397,7 @@ export function TransactionsPage() {
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
   const [toDate, setToDate] = useState<Date | null>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPayeesModal, setShowPayeesModal] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -404,6 +408,7 @@ export function TransactionsPage() {
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
   const { data: categories = [], isLoading: catLoading, isError: catError } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
+  const { payees, isReady: payeesReady, add: addPayee, rename: renamePayee, remove: removePayee } = usePayees();
 
   const createMutation = useCreateTransaction();
   const updateMutation = useUpdateTransaction();
@@ -564,7 +569,11 @@ export function TransactionsPage() {
                       size="sm"
                     />
                   </Col>
-                  <Col md={3} className="d-flex justify-content-end">
+                  <Col md={3} className="d-flex justify-content-end gap-2">
+                    <Button color="secondary" outline size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowPayeesModal(true)} disabled={!payeesReady}>
+                      <FiUsers size={14} className="me-1" />
+                      {t("transactions.payees")}
+                    </Button>
                     <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
                       + {t("transactions.addTransactionBtn")}
                     </Button>
@@ -579,6 +588,19 @@ export function TransactionsPage() {
                 )}
               </CardBody>
             </Card>
+
+            {!isLoading && (
+              <TransactionInsights
+                transactions={filteredTransactions}
+                allTransactions={transactions}
+                categories={categories}
+                formatCurrency={formatCurrency}
+                fromDate={fromDate}
+                toDate={toDate}
+                onSelectCategory={setSelectedCategory}
+              />
+            )}
+
             <Card className="border-0 shadow-sm">
               <CardBody className="p-0">
                 {isLoading ? (
@@ -591,12 +613,12 @@ export function TransactionsPage() {
                       <thead>
                         <tr>
                           <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                            DATE
+                            {t("common.date").toUpperCase()}
                           </th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>PAYEE</th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>CATEGORY</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{t("transactions.payee").toUpperCase()}</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{t("common.category").toUpperCase()}</th>
                           <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                            AMOUNT
+                            {t("common.amount").toUpperCase()}
                           </th>
                           <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             ACTIONS
@@ -760,6 +782,18 @@ export function TransactionsPage() {
               size="sm"
             />
           </div>
+          <Button
+            color="secondary"
+            outline
+            size="sm"
+            style={{ flexShrink: 0 }}
+            onClick={() => setShowPayeesModal(true)}
+            disabled={!payeesReady}
+            aria-label={t("transactions.managePayees")}
+            title={t("transactions.managePayees")}
+          >
+            <FiUsers size={14} />
+          </Button>
           <Button color="primary" size="sm" style={{ whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setShowAddModal(true)}>
             +
           </Button>
@@ -774,6 +808,22 @@ export function TransactionsPage() {
 
         <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <CardBody className={`p-0 ${styles.mobileScroll}`}>
+            {/* Inside the scroll area on purpose: the shell is a fixed height,
+                so putting the panel above it would shrink the list instead of
+                scrolling away with it. */}
+            {!isLoading && (
+              <div className="px-2 pt-2">
+                <TransactionInsights
+                  transactions={filteredTransactions}
+                  allTransactions={transactions}
+                  categories={categories}
+                  formatCurrency={formatCurrency}
+                  fromDate={fromDate}
+                  toDate={toDate}
+                  onSelectCategory={setSelectedCategory}
+                />
+              </div>
+            )}
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />
@@ -797,6 +847,10 @@ export function TransactionsPage() {
           <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
         </Card>
       </div>
+
+      {showPayeesModal && (
+        <ManagePayeesModal payees={payees} onClose={() => setShowPayeesModal(false)} onAdd={addPayee} onRename={renamePayee} onRemove={removePayee} />
+      )}
 
       <AddTransactionModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} categories={categories} onSubmit={handleCreate} />
       {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} />}

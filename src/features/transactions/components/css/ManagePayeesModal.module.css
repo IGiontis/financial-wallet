@@ -1,0 +1,33 @@
+/* Saved-payee rows — dense bordered rows rather than cards, since this is a
+   plain editable list. */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+}
+
+.rowDanger {
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* Validation text for an inline rename — takes the full width below the row
+   so it never squeezes the input it belongs to. */
+.rowError {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--color-expense);
+}
