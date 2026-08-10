@@ -557,28 +557,43 @@ export function TransactionsPage() {
             )}
             <Card className="border-0 shadow-sm mb-3">
               <CardBody className="py-2">
-                <Row className="g-2 align-items-center">
-                  <Col md={5}>
+                {/* Flex rather than a 12-column grid: fixed column widths crushed
+                    the two buttons into each other. The actions size to their own
+                    content and never shrink; the fields wrap to a second line when
+                    the row runs out of room. */}
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  <div style={{ flex: "2 1 180px", minWidth: 0 }}>
                     <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchPlaceholder")} size="sm" block />
-                  </Col>
-                  <Col md={4}>
+                  </div>
+                  <div style={{ flex: "1 1 150px", minWidth: 0 }}>
                     <CategorySelect
                       value={selectedCategory}
                       onChange={setSelectedCategory}
                       categories={uniqueCategoriesByName}
                       size="sm"
                     />
-                  </Col>
-                  <Col md={3} className="d-flex justify-content-end gap-2">
-                    <Button color="secondary" outline size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowPayeesModal(true)} disabled={!payeesReady}>
-                      <FiUsers size={14} className="me-1" />
-                      {t("transactions.payees")}
+                  </div>
+                  <div className="d-flex gap-2 ms-auto flex-shrink-0">
+                    <Button
+                      color="secondary"
+                      outline
+                      size="sm"
+                      className="flex-shrink-0"
+                      style={{ whiteSpace: "nowrap" }}
+                      onClick={() => setShowPayeesModal(true)}
+                      disabled={!payeesReady}
+                      title={t("transactions.managePayees")}
+                      aria-label={t("transactions.managePayees")}
+                    >
+                      <FiUsers size={14} />
+                      {/* Label only where there's room for it */}
+                      <span className="d-none d-xl-inline ms-1">{t("transactions.payees")}</span>
                     </Button>
-                    <Button color="primary" size="sm" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
+                    <Button color="primary" size="sm" className="flex-shrink-0" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
                       + {t("transactions.addTransactionBtn")}
                     </Button>
-                  </Col>
-                </Row>
+                  </div>
+                </div>
 
                 {/* Totals for the active filter — e.g. how much on Food this month */}
                 {!isLoading && (
