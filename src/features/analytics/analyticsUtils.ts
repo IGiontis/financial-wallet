@@ -29,9 +29,9 @@ const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), 
 
 // ─── Range ───────────────────────────────────────────────────────────────────
 
-export type AnalyticsRange = "3m" | "6m" | "12m" | "all";
+export type AnalyticsRange = "1m" | "3m" | "6m" | "12m" | "all";
 
-export const ANALYTICS_RANGES: readonly AnalyticsRange[] = ["3m", "6m", "12m", "all"] as const;
+export const ANALYTICS_RANGES: readonly AnalyticsRange[] = ["1m", "3m", "6m", "12m", "all"] as const;
 
 /**
  * Inclusive lower bound for a range, snapped to a month start so charts always
@@ -39,7 +39,7 @@ export const ANALYTICS_RANGES: readonly AnalyticsRange[] = ["3m", "6m", "12m", "
  */
 export function rangeStart(range: AnalyticsRange, now: Date = new Date()): Date | null {
   if (range === "all") return null;
-  const months = range === "3m" ? 3 : range === "6m" ? 6 : 12;
+  const months = range === "1m" ? 1 : range === "3m" ? 3 : range === "6m" ? 6 : 12;
   return startOfMonth(subMonths(now, months - 1));
 }
 
@@ -123,7 +123,7 @@ export function monthlyFlows(transactions: Transaction[], from: Date | null, to:
   return months;
 }
 
-// ─── 1. Cumulative net position ──────────────────────────────────────────────
+// ─── Cumulative net position ──────────────────────────────────────────────
 
 export interface CumulativePoint {
   key: string;
@@ -141,7 +141,7 @@ export function cumulativeNet(flows: MonthlyFlow[]): CumulativePoint[] {
   });
 }
 
-// ─── 2. Savings rate ─────────────────────────────────────────────────────────
+// ─── Savings rate ─────────────────────────────────────────────────────────
 
 export interface SavingsPoint {
   key: string;
@@ -174,7 +174,7 @@ export function averageSavingsRate(flows: MonthlyFlow[]): number | undefined {
   return round2((net / income) * 100);
 }
 
-// ─── 4. Category mix over time ───────────────────────────────────────────────
+// ─── Category mix over time ───────────────────────────────────────────────
 
 export const OTHER_CATEGORY_ID = "__other__";
 
@@ -222,7 +222,7 @@ export function categoryTrend(transactions: Transaction[], flows: MonthlyFlow[],
   return { categoryIds, rows, otherCount: rest.size };
 }
 
-// ─── 5. This month against your own baseline ─────────────────────────────────
+// ─── This month against your own baseline ─────────────────────────────────
 
 export interface CategoryProfileRow {
   categoryId: string;
@@ -261,35 +261,7 @@ export function categoryProfile(transactions: Transaction[], flows: MonthlyFlow[
     .filter((r) => r.current > 0 || r.average > 0);
 }
 
-// ─── 6. Payees ───────────────────────────────────────────────────────────────
-
-export interface PayeeNode {
-  name: string;
-  value: number;
-  count: number;
-}
-
-/** Groups spending by description, case-insensitively, keeping the first spelling seen. */
-export function payeeBreakdown(transactions: Transaction[], limit = 12): PayeeNode[] {
-  const byName = new Map<string, PayeeNode>();
-
-  for (const tx of transactions.filter(isSpending)) {
-    const label = tx.description.trim();
-    if (!label) continue;
-    const key = label.toLowerCase();
-    const entry = byName.get(key) ?? { name: label, value: 0, count: 0 };
-    entry.value += Math.abs(tx.amount);
-    entry.count += 1;
-    byName.set(key, entry);
-  }
-
-  return Array.from(byName.values())
-    .map((p) => ({ ...p, value: round2(p.value) }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, limit);
-}
-
-// ─── 7. Day-by-day heatmap ───────────────────────────────────────────────────
+// ─── Day-by-day heatmap ───────────────────────────────────────────────────
 
 export interface HeatmapCell {
   date: Date;
@@ -357,7 +329,7 @@ export function spendingHeatmap(transactions: Transaction[], from: Date | null, 
   return { weeks, max: round2(max), weekdayTotals: weekdayTotals.map(round2) };
 }
 
-// ─── 8. This month's pace against last month's ───────────────────────────────
+// ─── This month's pace against last month's ───────────────────────────────
 
 export interface PacePoint {
   day: number;
@@ -415,7 +387,7 @@ export function monthPace(transactions: Transaction[], now: Date = new Date()): 
   };
 }
 
-// ─── 9. Transaction size distribution ────────────────────────────────────────
+// ─── Transaction size distribution ────────────────────────────────────────
 
 export interface HistogramBin {
   min: number;
@@ -445,7 +417,7 @@ export function amountHistogram(transactions: Transaction[], edges: readonly num
   return bins;
 }
 
-// ─── 11. Money flow ──────────────────────────────────────────────────────────
+// ─── Money flow ──────────────────────────────────────────────────────────
 
 export const FLOW_HUB_ID = "hub";
 export const FLOW_SAVINGS_ID = "savings";
@@ -553,7 +525,7 @@ export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | u
   return { nodes, links, total: round2(total), otherCount: foldedSpend.length };
 }
 
-// ─── 12. Category → payee hierarchy ──────────────────────────────────────────
+// ─── Category → payee hierarchy ──────────────────────────────────────────
 
 export interface PayeeLeaf {
   name: string;
@@ -609,73 +581,5 @@ export function categoryPayeeTree(transactions: Transaction[], categoryLimit = 6
       }
 
       return { categoryId, value: round2(value), children: head };
-    });
-}
-
-// ─── 13. Spread of payment sizes per category ────────────────────────────────
-
-export interface DistributionRow {
-  categoryId: string;
-  /** Whisker ends — the most extreme values still within 1.5×IQR. */
-  low: number;
-  q1: number;
-  median: number;
-  q3: number;
-  high: number;
-  count: number;
-  /** Everything past the whiskers: the one-off unusually large payments. */
-  outliers: number[];
-}
-
-/** Linear interpolation between order statistics — the same method ECharts uses. */
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const index = (sorted.length - 1) * p;
-  const low = Math.floor(index);
-  const high = Math.ceil(index);
-  return low === high ? sorted[low] : sorted[low] + (sorted[high] - sorted[low]) * (index - low);
-}
-
-/**
- * Tukey five-number summary per category, so a category's *typical* payment can
- * be read separately from its occasional big one — something a bar of totals
- * flattens away completely.
- *
- * Categories with fewer than `minSamples` payments are dropped: quartiles drawn
- * from two or three numbers describe nothing.
- */
-export function categoryDistribution(transactions: Transaction[], limit = 6, minSamples = 5): DistributionRow[] {
-  const byCategory = new Map<string, number[]>();
-
-  for (const tx of transactions.filter(isSpending)) {
-    const amounts = byCategory.get(tx.categoryId) ?? [];
-    amounts.push(Math.abs(tx.amount));
-    byCategory.set(tx.categoryId, amounts);
-  }
-
-  return Array.from(byCategory.entries())
-    .filter(([, amounts]) => amounts.length >= minSamples)
-    .sort((a, b) => b[1].reduce((s, v) => s + v, 0) - a[1].reduce((s, v) => s + v, 0))
-    .slice(0, limit)
-    .map(([categoryId, raw]) => {
-      const sorted = [...raw].sort((a, b) => a - b);
-      const q1 = percentile(sorted, 0.25);
-      const median = percentile(sorted, 0.5);
-      const q3 = percentile(sorted, 0.75);
-      const fence = 1.5 * (q3 - q1);
-
-      const inside = sorted.filter((v) => v >= q1 - fence && v <= q3 + fence);
-      const outliers = sorted.filter((v) => v < q1 - fence || v > q3 + fence);
-
-      return {
-        categoryId,
-        low: round2(inside[0] ?? sorted[0]),
-        q1: round2(q1),
-        median: round2(median),
-        q3: round2(q3),
-        high: round2(inside[inside.length - 1] ?? sorted[sorted.length - 1]),
-        count: sorted.length,
-        outliers: outliers.map(round2),
-      };
     });
 }

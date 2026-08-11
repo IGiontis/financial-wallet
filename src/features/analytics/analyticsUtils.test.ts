@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   amountHistogram,
   averageSavingsRate,
-  categoryDistribution,
   categoryPayeeTree,
   categoryProfile,
   categoryTrend,
@@ -10,7 +9,6 @@ import {
   moneyFlow,
   monthPace,
   monthlyFlows,
-  payeeBreakdown,
   rangeStart,
   savingsRateSeries,
   spendingHeatmap,
@@ -50,6 +48,7 @@ describe("rangeStart", () => {
   const now = new Date(2026, 7, 11); // 11 Aug 2026
 
   it("snaps to a month start and counts the current month as one of them", () => {
+    expect(rangeStart("1m", now)).toEqual(new Date(2026, 7, 1)); // August alone
     expect(rangeStart("3m", now)).toEqual(new Date(2026, 5, 1)); // Jun, Jul, Aug
     expect(rangeStart("6m", now)).toEqual(new Date(2026, 2, 1));
     expect(rangeStart("12m", now)).toEqual(new Date(2025, 8, 1));
@@ -256,31 +255,6 @@ describe("categoryProfile", () => {
 
     const ids = categoryProfile(rows, monthlyFlows(rows, new Date(2026, 0, 1), now)).map((r) => r.categoryId);
     expect(ids).toContain("travel");
-  });
-});
-
-// ─── Payees ──────────────────────────────────────────────────────────────────
-
-describe("payeeBreakdown", () => {
-  it("merges spellings, ranks by amount and skips blanks", () => {
-    const rows = [
-      tx({ amount: 30, description: "Lidl" }),
-      tx({ amount: 20, description: "lidl" }),
-      tx({ amount: 100, description: "Rent" }),
-      tx({ amount: 5, description: "   " }),
-    ];
-
-    const payees = payeeBreakdown(rows);
-
-    expect(payees).toEqual([
-      { name: "Rent", value: 100, count: 1 },
-      { name: "Lidl", value: 50, count: 2 },
-    ]);
-  });
-
-  it("caps the list", () => {
-    const rows = Array.from({ length: 20 }, (_, i) => tx({ amount: i + 1, description: `p${i}` }));
-    expect(payeeBreakdown(rows, 5)).toHaveLength(5);
   });
 });
 
@@ -491,38 +465,5 @@ describe("categoryPayeeTree", () => {
   it("leaves transfers out", () => {
     const rows = [tx({ amount: 10, categoryId: "food" }), deposit(900, new Date(2026, 2, 5))];
     expect(categoryPayeeTree(rows).map((b) => b.categoryId)).toEqual(["food"]);
-  });
-});
-
-// ─── Distribution ────────────────────────────────────────────────────────────
-
-describe("categoryDistribution", () => {
-  it("computes a Tukey five-number summary", () => {
-    const rows = [10, 20, 30, 40, 50].map((a) => tx({ amount: a, categoryId: "food" }));
-    const [food] = categoryDistribution(rows);
-
-    expect(food).toMatchObject({ low: 10, q1: 20, median: 30, q3: 40, high: 50, count: 5, outliers: [] });
-  });
-
-  it("pushes a lone big payment past the whisker instead of stretching it", () => {
-    const rows = [10, 12, 14, 16, 18, 20, 100].map((a) => tx({ amount: a, categoryId: "food" }));
-    const [food] = categoryDistribution(rows);
-
-    expect(food).toMatchObject({ q1: 13, median: 16, q3: 19 });
-    expect(food.high).toBe(20); // whisker stops at the last ordinary payment
-    expect(food.outliers).toEqual([100]);
-  });
-
-  it("drops categories with too few payments to describe", () => {
-    const rows = [...[1, 2, 3, 4, 5].map((a) => tx({ amount: a, categoryId: "food" })), ...[9, 9].map((a) => tx({ amount: a, categoryId: "rare" }))];
-    expect(categoryDistribution(rows).map((r) => r.categoryId)).toEqual(["food"]);
-  });
-
-  it("ranks by total spend and caps the list", () => {
-    const rows = [
-      ...Array.from({ length: 6 }, () => tx({ amount: 100, categoryId: "big" })),
-      ...Array.from({ length: 6 }, () => tx({ amount: 5, categoryId: "small" })),
-    ];
-    expect(categoryDistribution(rows, 1).map((r) => r.categoryId)).toEqual(["big"]);
   });
 });

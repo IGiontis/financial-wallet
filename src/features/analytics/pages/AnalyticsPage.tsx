@@ -10,7 +10,6 @@ import {
   ANALYTICS_RANGES,
   amountHistogram,
   averageSavingsRate,
-  categoryDistribution,
   categoryPayeeTree,
   categoryProfile,
   categoryTrend,
@@ -18,7 +17,6 @@ import {
   moneyFlow,
   monthPace,
   monthlyFlows,
-  payeeBreakdown,
   rangeStart,
   savingsRateSeries,
   spendingHeatmap,
@@ -40,7 +38,6 @@ import SavingsRateChart from "../components/SavingsRateChart";
 import IncomeExpenseChart from "../components/IncomeExpenseChart";
 import CategoryTrendChart, { type TrendRow } from "../components/CategoryTrendChart";
 import CategoryRadarChart from "../components/CategoryRadarChart";
-import PayeeTreemap from "../components/PayeeTreemap";
 import SpendingHeatmap from "../components/SpendingHeatmap";
 import WeekdayChart from "../components/WeekdayChart";
 import MonthPaceChart from "../components/MonthPaceChart";
@@ -51,7 +48,6 @@ import AmountHistogram from "../components/AmountHistogram";
 // viewport, the download happens on the scroll that needs it — never on arrival.
 const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
 const CategorySunburst = lazy(() => import("../components/CategorySunburst"));
-const CategoryBoxplot = lazy(() => import("../components/CategoryBoxplot"));
 
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
@@ -146,15 +142,8 @@ export function AnalyticsPage() {
     [scoped, flows, nameFor],
   );
 
-  const payees = useMemo(() => {
-    const nodes = payeeBreakdown(scoped, 12);
-    const total = nodes.reduce((s, n) => s + n.value, 0);
-    return nodes.map((n, i) => ({ ...n, rank: i, total }));
-  }, [scoped]);
-  const payeeTotal = payees.length > 0 ? payees[0].total : 0;
-
   const tree = useMemo(() => categoryPayeeTree(scoped), [scoped]);
-  const distribution = useMemo(() => categoryDistribution(scoped), [scoped]);
+  const treeTotal = useMemo(() => tree.reduce((s, b) => s + b.value, 0), [tree]);
 
   // ── Habits & pace ──────────────────────────────────────────────────────────
 
@@ -310,6 +299,7 @@ export function AnalyticsPage() {
             </ChartCard>
 
             <ChartCard
+              tall
               title={t("analytics.profile.title")}
               hint={t("analytics.profile.hint")}
               empty={profile.length === 0 ? t("analytics.profile.needsTwoMonths") : undefined}
@@ -326,34 +316,15 @@ export function AnalyticsPage() {
             </ChartCard>
 
             <ChartCard
-              title={t("analytics.payees.title")}
-              hint={t("analytics.payees.hint")}
-              value={formatCurrency(payeeTotal)}
-              valueTone="expense"
-              empty={payees.length === 0 ? noData : undefined}
-            >
-              <PayeeTreemap data={payees} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
               tall
               title={t("analytics.sunburst.title")}
               hint={t("analytics.sunburst.hint")}
+              value={formatCurrency(treeTotal)}
+              valueTone="expense"
               empty={tree.length === 0 ? noData : undefined}
             >
               <Suspense fallback={null}>
                 <CategorySunburst branches={tree} labelFor={nameFor} otherLabel={t("analytics.sunburst.otherPayees")} formatCurrency={formatCurrency} ariaLabel={t("analytics.sunburst.title")} />
-              </Suspense>
-            </ChartCard>
-
-            <ChartCard
-              tall
-              title={t("analytics.boxplot.title")}
-              hint={t("analytics.boxplot.hint")}
-              empty={distribution.length === 0 ? t("analytics.boxplot.needsMore") : undefined}
-            >
-              <Suspense fallback={null}>
-                <CategoryBoxplot rows={distribution} labelFor={nameFor} formatCurrency={formatCurrency} ariaLabel={t("analytics.boxplot.title")} />
               </Suspense>
             </ChartCard>
           </div>
