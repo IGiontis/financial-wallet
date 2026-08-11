@@ -2,9 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   amountHistogram,
   averageSavingsRate,
+  categoryDistribution,
+  categoryPayeeTree,
   categoryProfile,
   categoryTrend,
   cumulativeNet,
+  moneyFlow,
   monthPace,
   monthlyFlows,
   payeeBreakdown,
@@ -12,6 +15,11 @@ import {
   savingsRateSeries,
   spendingHeatmap,
   withinRange,
+  FLOW_DEFICIT_ID,
+  FLOW_HUB_ID,
+  FLOW_LEFTOVER_ID,
+  FLOW_SAVINGS_ID,
+  FLOW_WITHDRAWALS_ID,
   OTHER_CATEGORY_ID,
 } from "./analyticsUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
@@ -376,5 +384,145 @@ describe("amountHistogram", () => {
   it("ignores income and transfers", () => {
     const bins = amountHistogram([tx({ amount: 30, type: "income" }), deposit(30, new Date(2026, 2, 2))]);
     expect(bins.reduce((s, b) => s + b.count, 0)).toBe(0);
+  });
+});
+
+// ─── Money flow ──────────────────────────────────────────────────────────────
+
+describe("moneyFlow", () => {
+  const into = (flow: NonNullable<ReturnType<typeof moneyFlow>>) => flow.links.filter((l) => l.target === FLOW_HUB_ID).reduce((s, l) => s + l.value, 0);
+  const outOf = (flow: NonNullable<ReturnType<typeof moneyFlow>>) => flow.links.filter((l) => l.source === FLOW_HUB_ID).reduce((s, l) => s + l.value, 0);
+
+  it("balances what came in against where it went", () => {
+    const rows = [
+      tx({ amount: 2000, type: "income", categoryId: "salary" }),
+      tx({ amount: 800, categoryId: "rent" }),
+      tx({ amount: 300, categoryId: "food" }),
+      deposit(200, new Date(2026, 2, 5)),
+      deposit(100, new Date(2026, 2, 5), true),
+      withdrawal(50, new Date(2026, 2, 6)),
+    ];
+
+    const flow = moneyFlow(rows)!;
+
+    expect(flow.total).toBe(2050); // 2000 earned + 50 pulled back out
+    expect(into(flow)).toBe(2050);
+    expect(outOf(flow)).toBe(2050);
+    expect(flow.nodes.find((n) => n.id === FLOW_SAVINGS_ID)?.value).toBe(300); // 200 + 100
+    expect(flow.nodes.find((n) => n.id === FLOW_LEFTOVER_ID)?.value).toBe(650);
+    expect(flow.nodes.find((n) => n.id === FLOW_WITHDRAWALS_ID)?.value).toBe(50);
+  });
+
+  it("shows a shortfall as an inflow rather than a negative leftover", () => {
+    const rows = [tx({ amount: 1000, type: "income", categoryId: "salary" }), tx({ amount: 1500, categoryId: "rent" })];
+
+    const flow = moneyFlow(rows)!;
+
+    expect(flow.nodes.find((n) => n.id === FLOW_DEFICIT_ID)?.value).toBe(500);
+    expect(flow.nodes.find((n) => n.id === FLOW_LEFTOVER_ID)).toBeUndefined();
+    expect(into(flow)).toBe(1500);
+    expect(outOf(flow)).toBe(1500);
+  });
+
+  it("keeps a category used on both sides from forming a cycle", () => {
+    const rows = [tx({ amount: 500, type: "income", categoryId: "misc" }), tx({ amount: 200, categoryId: "misc" })];
+
+    const flow = moneyFlow(rows)!;
+    const ids = flow.nodes.map((n) => n.id);
+
+    expect(ids).toContain("in:misc");
+    expect(ids).toContain("out:misc");
+    // Every link runs source → hub or hub → sink; none can point back.
+    expect(flow.links.every((l) => l.source === FLOW_HUB_ID || l.target === FLOW_HUB_ID)).toBe(true);
+    expect(flow.links.some((l) => l.source === l.target)).toBe(false);
+  });
+
+  it("folds spending past the limit into one branch", () => {
+    const rows = [
+      tx({ amount: 1000, type: "income", categoryId: "salary" }),
+      ...["a", "b", "c", "d"].map((c, i) => tx({ amount: 100 - i, categoryId: c })),
+    ];
+
+    const flow = moneyFlow(rows, 2)!;
+
+    expect(flow.otherCount).toBe(2);
+    expect(flow.nodes.find((n) => n.id === `out:${OTHER_CATEGORY_ID}`)?.value).toBe(98 + 97);
+  });
+
+  it("is undefined when there is nothing to draw", () => {
+    expect(moneyFlow([])).toBeUndefined();
+  });
+});
+
+// ─── Category → payee tree ───────────────────────────────────────────────────
+
+describe("categoryPayeeTree", () => {
+  it("nests payees under their category, biggest first", () => {
+    const rows = [
+      tx({ amount: 100, categoryId: "food", description: "Lidl" }),
+      tx({ amount: 40, categoryId: "food", description: "AB" }),
+      tx({ amount: 30, categoryId: "food", description: "lidl" }), // same payee, different case
+      tx({ amount: 500, categoryId: "rent", description: "Landlord" }),
+    ];
+
+    const tree = categoryPayeeTree(rows);
+
+    expect(tree.map((b) => b.categoryId)).toEqual(["rent", "food"]);
+    expect(tree[1].value).toBe(170);
+    expect(tree[1].children).toEqual([
+      { name: "Lidl", value: 130, count: 2 },
+      { name: "AB", value: 40, count: 1 },
+    ]);
+  });
+
+  it("folds the payee tail inside each category", () => {
+    const rows = ["a", "b", "c", "d", "e", "f"].map((p, i) => tx({ amount: 60 - i * 10, categoryId: "food", description: p }));
+    const [food] = categoryPayeeTree(rows, 6, 5);
+
+    expect(food.children).toHaveLength(6);
+    expect(food.children[5]).toEqual({ name: OTHER_CATEGORY_ID, value: 10, count: 1 });
+  });
+
+  it("caps the number of categories", () => {
+    const rows = ["a", "b", "c", "d"].map((c, i) => tx({ amount: 100 - i, categoryId: c }));
+    expect(categoryPayeeTree(rows, 2)).toHaveLength(2);
+  });
+
+  it("leaves transfers out", () => {
+    const rows = [tx({ amount: 10, categoryId: "food" }), deposit(900, new Date(2026, 2, 5))];
+    expect(categoryPayeeTree(rows).map((b) => b.categoryId)).toEqual(["food"]);
+  });
+});
+
+// ─── Distribution ────────────────────────────────────────────────────────────
+
+describe("categoryDistribution", () => {
+  it("computes a Tukey five-number summary", () => {
+    const rows = [10, 20, 30, 40, 50].map((a) => tx({ amount: a, categoryId: "food" }));
+    const [food] = categoryDistribution(rows);
+
+    expect(food).toMatchObject({ low: 10, q1: 20, median: 30, q3: 40, high: 50, count: 5, outliers: [] });
+  });
+
+  it("pushes a lone big payment past the whisker instead of stretching it", () => {
+    const rows = [10, 12, 14, 16, 18, 20, 100].map((a) => tx({ amount: a, categoryId: "food" }));
+    const [food] = categoryDistribution(rows);
+
+    expect(food).toMatchObject({ q1: 13, median: 16, q3: 19 });
+    expect(food.high).toBe(20); // whisker stops at the last ordinary payment
+    expect(food.outliers).toEqual([100]);
+  });
+
+  it("drops categories with too few payments to describe", () => {
+    const rows = [...[1, 2, 3, 4, 5].map((a) => tx({ amount: a, categoryId: "food" })), ...[9, 9].map((a) => tx({ amount: a, categoryId: "rare" }))];
+    expect(categoryDistribution(rows).map((r) => r.categoryId)).toEqual(["food"]);
+  });
+
+  it("ranks by total spend and caps the list", () => {
+    const rows = [
+      ...Array.from({ length: 6 }, () => tx({ amount: 100, categoryId: "big" })),
+      ...Array.from({ length: 6 }, () => tx({ amount: 5, categoryId: "small" })),
+    ];
+    expect(categoryDistribution(rows, 1).map((r) => r.categoryId)).toEqual(["big"]);
   });
 });

@@ -341,7 +341,7 @@
   },
   "analytics": {
     "title": "Analytics",
-    "subtitle": "Ten views of where your money actually goes",
+    "subtitle": "Thirteen views of where your money actually goes",
     "nothingYet": "No transactions yet — add a few and the charts will fill in.",
     "noData": "Not enough data for this chart yet",
     "unknownCategory": "Uncategorised",
@@ -376,6 +376,15 @@
       "expenses": "Expenses",
       "net": "Net"
     },
+    "moneyFlow": {
+      "title": "Where the money went",
+      "hint": "Every euro in, and where it ended up",
+      "hub": "All income",
+      "savings": "Saved & invested",
+      "leftover": "Left over",
+      "deficit": "From reserves",
+      "withdrawals": "Withdrawn"
+    },
     "categoryTrend": {
       "title": "Category mix over time",
       "hint": "How your spending mix shifts from month to month",
@@ -394,6 +403,20 @@
       "title": "Who takes the most",
       "hint": "Tile size is the amount spent",
       "spent": "Spent"
+    },
+    "sunburst": {
+      "title": "Categories and their payees",
+      "hint": "Click a category to zoom in, the middle to come back",
+      "otherPayees": "Others"
+    },
+    "boxplot": {
+      "title": "Spread per category",
+      "hint": "Box = the middle half of your payments, line = the typical one",
+      "median": "Typical",
+      "middleHalf": "Middle half",
+      "usualRange": "Usual range",
+      "outlier": "One-off",
+      "needsMore": "Needs at least 5 payments in a category"
     },
     "heatmap": {
       "title": "Spending calendar",

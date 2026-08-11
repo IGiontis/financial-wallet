@@ -444,3 +444,238 @@ export function amountHistogram(transactions: Transaction[], edges: readonly num
   for (const bin of bins) bin.amount = round2(bin.amount);
   return bins;
 }
+
+// ─── 11. Money flow ──────────────────────────────────────────────────────────
+
+export const FLOW_HUB_ID = "hub";
+export const FLOW_SAVINGS_ID = "savings";
+export const FLOW_LEFTOVER_ID = "leftover";
+export const FLOW_DEFICIT_ID = "deficit";
+export const FLOW_WITHDRAWALS_ID = "withdrawals";
+
+export interface FlowNode {
+  /** Unique across the whole diagram — see the prefixing note below. */
+  id: string;
+  kind: "income" | "hub" | "expense" | "savings" | "leftover";
+  /** Set when the node stands for a real category, for labelling. */
+  categoryId?: string;
+  value: number;
+}
+
+export interface FlowLink {
+  source: string;
+  target: string;
+  value: number;
+}
+
+export interface MoneyFlow {
+  nodes: FlowNode[];
+  links: FlowLink[];
+  /** Everything that came in, including any drawn from reserves. */
+  total: number;
+  otherCount: number;
+}
+
+/**
+ * Every euro that came in, and where it ended up: sources → one hub → spending
+ * categories, savings and whatever was left.
+ *
+ * Node ids are prefixed by side (`in:` / `out:`). A category used for both
+ * income and spending would otherwise appear once, giving the diagram a cycle
+ * — which a Sankey cannot lay out.
+ *
+ * When more went out than came in, the shortfall enters as its own source
+ * rather than a negative "left over": the diagram has to balance, and "this
+ * much came out of reserves" is the honest reading.
+ */
+export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | undefined {
+  const incomeByCategory = new Map<string, number>();
+  const spendByCategory = new Map<string, number>();
+  let withdrawals = 0;
+  let invested = 0;
+  let goals = 0;
+
+  for (const tx of transactions) {
+    const amount = Math.abs(tx.amount);
+    if (isTransfer(tx)) {
+      if (tx.contributionType === "withdrawal") withdrawals += amount;
+      else if (isGoalContribution(tx)) goals += amount;
+      else invested += amount;
+    } else if (tx.type === "income") {
+      incomeByCategory.set(tx.categoryId, (incomeByCategory.get(tx.categoryId) ?? 0) + amount);
+    } else {
+      spendByCategory.set(tx.categoryId, (spendByCategory.get(tx.categoryId) ?? 0) + amount);
+    }
+  }
+
+  const rankedSpend = Array.from(spendByCategory.entries()).sort((a, b) => b[1] - a[1]);
+  const topSpend = rankedSpend.slice(0, limit);
+  const foldedSpend = rankedSpend.slice(limit);
+  const otherSpend = foldedSpend.reduce((s, [, v]) => s + v, 0);
+
+  const totalSpend = rankedSpend.reduce((s, [, v]) => s + v, 0);
+  const savings = invested + goals;
+  const earned = Array.from(incomeByCategory.values()).reduce((s, v) => s + v, 0) + withdrawals;
+  const balance = earned - totalSpend - savings;
+
+  if (earned === 0 && totalSpend === 0 && savings === 0) return undefined;
+
+  const deficit = balance < 0 ? -balance : 0;
+  const leftover = balance > 0 ? balance : 0;
+  const total = earned + deficit;
+
+  const nodes: FlowNode[] = [{ id: FLOW_HUB_ID, kind: "hub", value: round2(total) }];
+  const links: FlowLink[] = [];
+
+  const addSource = (id: string, value: number, categoryId?: string) => {
+    if (value <= 0) return;
+    nodes.push({ id, kind: "income", categoryId, value: round2(value) });
+    links.push({ source: id, target: FLOW_HUB_ID, value: round2(value) });
+  };
+
+  for (const [categoryId, value] of Array.from(incomeByCategory.entries()).sort((a, b) => b[1] - a[1])) {
+    addSource(`in:${categoryId}`, value, categoryId);
+  }
+  addSource(FLOW_WITHDRAWALS_ID, withdrawals);
+  addSource(FLOW_DEFICIT_ID, deficit);
+
+  const addSink = (id: string, kind: FlowNode["kind"], value: number, categoryId?: string) => {
+    if (value <= 0) return;
+    nodes.push({ id, kind, categoryId, value: round2(value) });
+    links.push({ source: FLOW_HUB_ID, target: id, value: round2(value) });
+  };
+
+  for (const [categoryId, value] of topSpend) addSink(`out:${categoryId}`, "expense", value, categoryId);
+  addSink(`out:${OTHER_CATEGORY_ID}`, "expense", otherSpend, OTHER_CATEGORY_ID);
+  addSink(FLOW_SAVINGS_ID, "savings", savings);
+  addSink(FLOW_LEFTOVER_ID, "leftover", leftover);
+
+  return { nodes, links, total: round2(total), otherCount: foldedSpend.length };
+}
+
+// ─── 12. Category → payee hierarchy ──────────────────────────────────────────
+
+export interface PayeeLeaf {
+  name: string;
+  value: number;
+  count: number;
+}
+
+export interface CategoryBranch {
+  categoryId: string;
+  value: number;
+  children: PayeeLeaf[];
+}
+
+/**
+ * Two levels: the biggest spending categories, each broken down into the
+ * payees inside it. Both levels fold their tail into an "other" entry so a
+ * long tail can't shatter the ring into unreadable slivers.
+ */
+export function categoryPayeeTree(transactions: Transaction[], categoryLimit = 6, payeeLimit = 5): CategoryBranch[] {
+  const spending = transactions.filter(isSpending);
+
+  const byCategory = new Map<string, Map<string, PayeeLeaf>>();
+  const categoryTotals = new Map<string, number>();
+
+  for (const tx of spending) {
+    const amount = Math.abs(tx.amount);
+    categoryTotals.set(tx.categoryId, (categoryTotals.get(tx.categoryId) ?? 0) + amount);
+
+    const payees = byCategory.get(tx.categoryId) ?? new Map<string, PayeeLeaf>();
+    const label = tx.description.trim() || "—";
+    const key = label.toLowerCase();
+    const leaf = payees.get(key) ?? { name: label, value: 0, count: 0 };
+    leaf.value += amount;
+    leaf.count += 1;
+    payees.set(key, leaf);
+    byCategory.set(tx.categoryId, payees);
+  }
+
+  return Array.from(categoryTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, categoryLimit)
+    .map(([categoryId, value]) => {
+      const ranked = Array.from(byCategory.get(categoryId)?.values() ?? []).sort((a, b) => b.value - a.value);
+      const head = ranked.slice(0, payeeLimit).map((p) => ({ ...p, value: round2(p.value) }));
+      const tail = ranked.slice(payeeLimit);
+
+      if (tail.length > 0) {
+        head.push({
+          name: OTHER_CATEGORY_ID,
+          value: round2(tail.reduce((s, p) => s + p.value, 0)),
+          count: tail.reduce((s, p) => s + p.count, 0),
+        });
+      }
+
+      return { categoryId, value: round2(value), children: head };
+    });
+}
+
+// ─── 13. Spread of payment sizes per category ────────────────────────────────
+
+export interface DistributionRow {
+  categoryId: string;
+  /** Whisker ends — the most extreme values still within 1.5×IQR. */
+  low: number;
+  q1: number;
+  median: number;
+  q3: number;
+  high: number;
+  count: number;
+  /** Everything past the whiskers: the one-off unusually large payments. */
+  outliers: number[];
+}
+
+/** Linear interpolation between order statistics — the same method ECharts uses. */
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const index = (sorted.length - 1) * p;
+  const low = Math.floor(index);
+  const high = Math.ceil(index);
+  return low === high ? sorted[low] : sorted[low] + (sorted[high] - sorted[low]) * (index - low);
+}
+
+/**
+ * Tukey five-number summary per category, so a category's *typical* payment can
+ * be read separately from its occasional big one — something a bar of totals
+ * flattens away completely.
+ *
+ * Categories with fewer than `minSamples` payments are dropped: quartiles drawn
+ * from two or three numbers describe nothing.
+ */
+export function categoryDistribution(transactions: Transaction[], limit = 6, minSamples = 5): DistributionRow[] {
+  const byCategory = new Map<string, number[]>();
+
+  for (const tx of transactions.filter(isSpending)) {
+    const amounts = byCategory.get(tx.categoryId) ?? [];
+    amounts.push(Math.abs(tx.amount));
+    byCategory.set(tx.categoryId, amounts);
+  }
+
+  return Array.from(byCategory.entries())
+    .filter(([, amounts]) => amounts.length >= minSamples)
+    .sort((a, b) => b[1].reduce((s, v) => s + v, 0) - a[1].reduce((s, v) => s + v, 0))
+    .slice(0, limit)
+    .map(([categoryId, raw]) => {
+      const sorted = [...raw].sort((a, b) => a - b);
+      const q1 = percentile(sorted, 0.25);
+      const median = percentile(sorted, 0.5);
+      const q3 = percentile(sorted, 0.75);
+      const fence = 1.5 * (q3 - q1);
+
+      const inside = sorted.filter((v) => v >= q1 - fence && v <= q3 + fence);
+      const outliers = sorted.filter((v) => v < q1 - fence || v > q3 + fence);
+
+      return {
+        categoryId,
+        low: round2(inside[0] ?? sorted[0]),
+        q1: round2(q1),
+        median: round2(median),
+        q3: round2(q3),
+        high: round2(inside[inside.length - 1] ?? sorted[sorted.length - 1]),
+        count: sorted.length,
+        outliers: outliers.map(round2),
+      };
+    });
+}

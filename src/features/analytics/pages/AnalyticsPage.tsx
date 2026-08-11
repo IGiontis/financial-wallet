@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
 import { Alert, Container, Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
@@ -10,9 +10,12 @@ import {
   ANALYTICS_RANGES,
   amountHistogram,
   averageSavingsRate,
+  categoryDistribution,
+  categoryPayeeTree,
   categoryProfile,
   categoryTrend,
   cumulativeNet,
+  moneyFlow,
   monthPace,
   monthlyFlows,
   payeeBreakdown,
@@ -20,8 +23,14 @@ import {
   savingsRateSeries,
   spendingHeatmap,
   withinRange,
+  FLOW_DEFICIT_ID,
+  FLOW_HUB_ID,
+  FLOW_LEFTOVER_ID,
+  FLOW_SAVINGS_ID,
+  FLOW_WITHDRAWALS_ID,
   OTHER_CATEGORY_ID,
   type AnalyticsRange,
+  type FlowNode,
 } from "../analyticsUtils";
 import { ChartCard } from "../components/ChartCard";
 import { Legend } from "../components/Legend";
@@ -36,6 +45,13 @@ import SpendingHeatmap from "../components/SpendingHeatmap";
 import WeekdayChart from "../components/WeekdayChart";
 import MonthPaceChart from "../components/MonthPaceChart";
 import AmountHistogram from "../components/AmountHistogram";
+
+// ECharts is a second, heavier engine, loaded only for the three charts recharts
+// can't draw. Because ChartCard holds its children back until the card nears the
+// viewport, the download happens on the scroll that needs it — never on arrival.
+const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
+const CategorySunburst = lazy(() => import("../components/CategorySunburst"));
+const CategoryBoxplot = lazy(() => import("../components/CategoryBoxplot"));
 
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
@@ -85,6 +101,30 @@ export function AnalyticsPage() {
   const flowData = useMemo(() => flows.map((f) => ({ label: monthFmt.format(f.start), income: f.income, expenses: f.expenses, net: f.net })), [flows, monthFmt]);
   const totalExpenses = useMemo(() => flows.reduce((s, f) => s + f.expenses, 0), [flows]);
 
+  const sankey = useMemo(() => moneyFlow(scoped), [scoped]);
+
+  const flowLabel = useCallback(
+    (node: FlowNode) => {
+      if (node.categoryId === OTHER_CATEGORY_ID) return t("analytics.categoryTrend.other", { count: sankey?.otherCount ?? 0 });
+      if (node.categoryId) return nameFor(node.categoryId);
+      switch (node.id) {
+        case FLOW_HUB_ID:
+          return t("analytics.moneyFlow.hub");
+        case FLOW_SAVINGS_ID:
+          return t("analytics.moneyFlow.savings");
+        case FLOW_LEFTOVER_ID:
+          return t("analytics.moneyFlow.leftover");
+        case FLOW_DEFICIT_ID:
+          return t("analytics.moneyFlow.deficit");
+        case FLOW_WITHDRAWALS_ID:
+          return t("analytics.moneyFlow.withdrawals");
+        default:
+          return node.id;
+      }
+    },
+    [nameFor, t, sankey?.otherCount],
+  );
+
   // ── Where the money goes ───────────────────────────────────────────────────
 
   const trend = useMemo(() => categoryTrend(scoped, flows), [scoped, flows]);
@@ -112,6 +152,9 @@ export function AnalyticsPage() {
     return nodes.map((n, i) => ({ ...n, rank: i, total }));
   }, [scoped]);
   const payeeTotal = payees.length > 0 ? payees[0].total : 0;
+
+  const tree = useMemo(() => categoryPayeeTree(scoped), [scoped]);
+  const distribution = useMemo(() => categoryDistribution(scoped), [scoped]);
 
   // ── Habits & pace ──────────────────────────────────────────────────────────
 
@@ -224,6 +267,20 @@ export function AnalyticsPage() {
             >
               <IncomeExpenseChart data={flowData} formatCurrency={formatCurrency} />
             </ChartCard>
+
+            <ChartCard
+              wide
+              tall
+              title={t("analytics.moneyFlow.title")}
+              hint={t("analytics.moneyFlow.hint")}
+              value={sankey ? formatCurrency(sankey.total) : undefined}
+              valueTone="income"
+              empty={sankey ? undefined : noData}
+            >
+              <Suspense fallback={null}>
+                <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
+              </Suspense>
+            </ChartCard>
           </div>
 
           {/* ── Where the money goes ── */}
@@ -276,6 +333,28 @@ export function AnalyticsPage() {
               empty={payees.length === 0 ? noData : undefined}
             >
               <PayeeTreemap data={payees} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.sunburst.title")}
+              hint={t("analytics.sunburst.hint")}
+              empty={tree.length === 0 ? noData : undefined}
+            >
+              <Suspense fallback={null}>
+                <CategorySunburst branches={tree} labelFor={nameFor} otherLabel={t("analytics.sunburst.otherPayees")} formatCurrency={formatCurrency} ariaLabel={t("analytics.sunburst.title")} />
+              </Suspense>
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.boxplot.title")}
+              hint={t("analytics.boxplot.hint")}
+              empty={distribution.length === 0 ? t("analytics.boxplot.needsMore") : undefined}
+            >
+              <Suspense fallback={null}>
+                <CategoryBoxplot rows={distribution} labelFor={nameFor} formatCurrency={formatCurrency} ariaLabel={t("analytics.boxplot.title")} />
+              </Suspense>
             </ChartCard>
           </div>
 
