@@ -1,0 +1,261 @@
+/* Analytics page — card grid, chart shells and the CSS-only heatmap.
+   Bootstrap covers the page chrome; everything here is a genuine gap:
+   a two-track grid with full-width spans, and a calendar heatmap. */
+
+/* ── Grid ─────────────────────────────────────────────────────────────────── */
+/* One column on phones, two from tablet up. Two is deliberate rather than
+   three: on a 1440px screen a third-width card leaves a 12-month axis with
+   unreadable ticks, and every chart here is a time series or needs breathing
+   room. Cards marked .wide take the full row. */
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Section heading ──────────────────────────────────────────────────────── */
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.75rem 0 0.75rem;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-tertiary);
+}
+
+.sectionTitle:first-of-type {
+  margin-top: 0.5rem;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* lets the chart shrink instead of forcing the grid wider */
+  padding: 1rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cardHeadText {
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cardHint {
+  margin: 2px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.cardValue {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Chart height lives here rather than on each ResponsiveContainer, so it can
+   shrink on a phone — recharts only takes a fixed number, which a media query
+   can't reach. Every chart is handed height="100%" and fills this box. */
+.chartArea {
+  position: relative;
+  min-width: 0;
+  height: 190px;
+}
+
+.chartArea.tall {
+  height: 210px;
+}
+
+@media (min-width: 768px) {
+  .chartArea {
+    height: 215px;
+  }
+
+  .chartArea.tall {
+    height: 280px;
+  }
+}
+
+.emptyNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 0 1rem;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ── Shared legend (stacked area, pace, combo) ────────────────────────────── */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Heatmap ──────────────────────────────────────────────────────────────── */
+/* A year is 52 columns wide, which no phone can show at a legible cell size —
+   so the grid scrolls sideways inside the card while the weekday labels stay
+   pinned to the left edge. */
+
+.heatWrap {
+  display: flex;
+  /* Neither column may stretch to the card height: the labels have to keep the
+     exact row pitch of the cells or they drift out of line further down. */
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Same track size and gap as .heatColumn below — these two grids must stay in
+   lockstep, otherwise "Sun" ends up pointing at a Wednesday. */
+.heatDays {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  gap: 3px;
+  flex-shrink: 0;
+  padding-top: 19px; /* month row (16px) + the column's own 3px gap */
+}
+
+.heatDayLabel {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.heatScroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.heatColumns {
+  display: flex;
+  gap: 3px;
+  width: max-content;
+}
+
+.heatColumn {
+  display: grid;
+  grid-template-rows: 16px repeat(7, 13px);
+  gap: 3px;
+}
+
+.heatMonth {
+  color: var(--color-text-secondary);
+  font-size: 9.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.heatCell {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--color-background-secondary);
+}
+
+/* Days outside the window keep the column aligned without reading as "quiet". */
+.heatBlank {
+  background: transparent;
+}
+
+.heatLegend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 10.5px;
+}
+
+.heatLegendCell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+
+/* ── Treemap tiles ────────────────────────────────────────────────────────── */
+
+.treemapLabel {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.treemapSub {
+  fill: rgba(255, 255, 255, 0.75);
+  font-size: 10px;
+  pointer-events: none;
+}

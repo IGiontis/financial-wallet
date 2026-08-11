@@ -6,7 +6,7 @@ import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // Route components and lazy page chunks live in their own modules so this file
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
 import { PageLoader, ProtectedRoute, PublicOnlyRoute } from "./routeGuards";
-import { OverviewPage, TransactionsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, PlannerPage, LoginPage, RegisterPage } from "./lazyRoutes";
+import { OverviewPage, TransactionsPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, PlannerPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +51,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <TransactionsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "analytics",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AnalyticsPage />
               </Suspense>
             ),
           },

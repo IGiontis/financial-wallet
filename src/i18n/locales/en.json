@@ -35,6 +35,7 @@
   "nav": {
     "overview": "Overview",
     "transactions": "Transactions",
+    "analytics": "Analytics",
     "investments": "Investments",
     "goals": "Goals",
     "bills": "Bills",
@@ -337,6 +338,90 @@
     "deletePayeeConfirm": "Delete {{name}}?",
     "useTypedPayee": "Use \"{{name}}\"",
     "payees": "Payees"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Ten views of where your money actually goes",
+    "nothingYet": "No transactions yet — add a few and the charts will fill in.",
+    "noData": "Not enough data for this chart yet",
+    "unknownCategory": "Uncategorised",
+    "range": {
+      "3m": "3 months",
+      "6m": "6 months",
+      "12m": "12 months",
+      "all": "All"
+    },
+    "groups": {
+      "flow": "Flow & saving",
+      "where": "Where the money goes",
+      "habits": "Habits & pace"
+    },
+    "netPosition": {
+      "title": "Net position",
+      "hint": "Running total of what you kept, month by month",
+      "running": "Running total",
+      "thatMonth": "That month"
+    },
+    "savingsRate": {
+      "title": "Savings rate",
+      "hint": "Share of income you didn't spend",
+      "rate": "Saved",
+      "kept": "Kept",
+      "average": "Avg {{value}}%"
+    },
+    "flow": {
+      "title": "Income vs expenses",
+      "hint": "Both sides as bars, what survived as a line",
+      "income": "Income",
+      "expenses": "Expenses",
+      "net": "Net"
+    },
+    "categoryTrend": {
+      "title": "Category mix over time",
+      "hint": "How your spending mix shifts from month to month",
+      "other_one": "{{count}} other",
+      "other_other": "{{count}} others"
+    },
+    "profile": {
+      "title": "This month vs your usual",
+      "hint": "Filled shape is this month, dashed is your monthly average",
+      "current": "This month",
+      "average": "Monthly average",
+      "difference": "Difference",
+      "needsTwoMonths": "Needs at least two months to compare against"
+    },
+    "payees": {
+      "title": "Who takes the most",
+      "hint": "Tile size is the amount spent",
+      "spent": "Spent"
+    },
+    "heatmap": {
+      "title": "Spending calendar",
+      "hint": "One square per day — darker is a heavier day",
+      "less": "Less",
+      "more": "More",
+      "nothing": "nothing spent"
+    },
+    "weekday": {
+      "title": "Spending by weekday",
+      "hint": "Which day of the week takes the most",
+      "share": "Share of the week"
+    },
+    "pace": {
+      "title": "This month's pace",
+      "hint": "Running total against the same point last month",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "difference": "Difference",
+      "day": "Day {{day}}"
+    },
+    "histogram": {
+      "title": "Payment sizes",
+      "hint": "How many payments fall into each bracket",
+      "payments": "Payments",
+      "totalling": "Totalling",
+      "shareOfSpend": "Share of spend"
+    }
   },
   "investments": {
     "title": "Investments",
