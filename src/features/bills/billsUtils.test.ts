@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   averagePaidAmount,
+  billMonthStrip,
   billUrgency,
   cashRunway,
   computeBillStatus,
@@ -19,6 +20,7 @@ import {
   monthlyEquivalent,
   paidAmountRange,
   sinkingFund,
+  supportsMonthStrip,
   yearlyBreakdown,
 } from "./billsUtils";
 import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
@@ -752,5 +754,72 @@ describe("daysUntilDeadline", () => {
 
   it("is undefined when there is no deadline", () => {
     expect(daysUntilDeadline(statusOf({ nextDueDate: undefined }), now)).toBeUndefined();
+  });
+});
+
+// ─── Month strip ──────────────────────────────────────────────────────────────
+
+describe("supportsMonthStrip", () => {
+  it("is false only for weekly bills", () => {
+    expect(supportsMonthStrip(makeBill({ frequency: "weekly" }))).toBe(false);
+    expect(supportsMonthStrip(makeBill({ frequency: "monthly" }))).toBe(true);
+    expect(supportsMonthStrip(makeBill({ frequency: "yearly" }))).toBe(true);
+  });
+});
+
+describe("billMonthStrip", () => {
+  const now = new Date("2026-08-15");
+
+  it("draws 6 consecutive months centred just before today", () => {
+    const netflix = makeBill({ dueDay: 5 });
+    const status = computeBillStatus(netflix, [], now);
+    const strip = billMonthStrip(status, now);
+
+    expect(strip.map((c) => c.start.getMonth())).toEqual([4, 5, 6, 7, 8, 9]); // May–Oct
+    expect(strip.every((c) => c.start.getFullYear() === 2026)).toBe(true);
+  });
+
+  it("marks the current unpaid month as due and nothing else", () => {
+    const netflix = makeBill({ dueDay: 20 }); // still ahead this period
+    const status = computeBillStatus(netflix, [], now);
+    const strip = billMonthStrip(status, now);
+
+    const august = strip.find((c) => c.start.getMonth() === 7)!;
+    expect(august.status).toBe("due");
+    expect(strip.filter((c) => c.status === "paid")).toHaveLength(0);
+  });
+
+  it("paints both months of a paid every-2-months period", () => {
+    // Anchored so Jul+Aug share a bucket.
+    const water = makeBill({ dueDay: 10, intervalCount: 2, anchorDate: new Date("2026-01-01") });
+    const paid = [payment("2026-07", new Date("2026-07-08"))];
+    const status = computeBillStatus(water, paid, now);
+    const strip = billMonthStrip(status, now);
+
+    expect(strip.find((c) => c.start.getMonth() === 6)!.status).toBe("paid"); // Jul
+    expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("paid"); // Aug — same bucket
+    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("empty"); // Sep — next bucket, not due yet
+  });
+
+  it("marks a paid current month as paid, not due", () => {
+    const netflix = makeBill({ dueDay: 5 });
+    const status = computeBillStatus(netflix, [payment("2026-08", new Date("2026-08-05"))], now);
+    const strip = billMonthStrip(status, now);
+
+    expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("paid");
+  });
+
+  it("leaves months before the bill existed as plain empty, not flagged", () => {
+    const netflix = makeBill({ dueDay: 5, createdAt: new Date("2026-08-01"), anchorDate: new Date("2026-08-01") });
+    const status = computeBillStatus(netflix, [], now);
+    const strip = billMonthStrip(status, now);
+
+    expect(strip.find((c) => c.start.getMonth() === 4)!.status).toBe("empty"); // May, before it existed
+  });
+
+  it("respects a custom window size", () => {
+    const netflix = makeBill({ dueDay: 5 });
+    const status = computeBillStatus(netflix, [], now);
+    expect(billMonthStrip(status, now, 1, 1)).toHaveLength(3);
   });
 });

@@ -608,3 +608,49 @@ export function getFrequencyLabel(bill: Pick<Bill, "frequency" | "intervalCount"
   const every: Record<BillFrequency, string> = { weekly: "bills.everyNWeeks", monthly: "bills.everyNMonths", yearly: "bills.everyNYears" };
   return { key: every[bill.frequency], count: interval };
 }
+
+// ─── Month strip ────────────────────────────────────────────────────────────
+// A second way to read the list: instead of one figure per bill, a run of
+// calendar months, coloured in where a payment covers them. A bill every 2
+// months paints two months solid per payment — the shape of the cadence
+// becomes something you can see rather than something the subtitle states.
+//
+// Calendar months rather than the bill's own period buckets on purpose: "Ιαν
+// Φεβ Μαρ" reads at a glance, "Ιαν–Φεβ · Μαρ–Απρ" does not. Weekly bills are
+// the one frequency this doesn't fit — several of their periods land inside a
+// single calendar month, so one chip can't stand for one period the way it can
+// for everything monthly or slower.
+
+export type MonthChipStatus = "paid" | "due" | "empty";
+
+export interface MonthChip {
+  key: string;
+  start: Date;
+  status: MonthChipStatus;
+}
+
+/** False for weekly bills — the one frequency a monthly strip can't represent. */
+export const supportsMonthStrip = (bill: Pick<Bill, "frequency">) => bill.frequency !== "weekly";
+
+/**
+ * `before` and `after` count whole calendar months either side of the current
+ * one, which is always included — so the defaults draw 6 chips total.
+ */
+export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), before = 3, after = 2): MonthChip[] {
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const chips: MonthChip[] = [];
+  for (let i = -before; i <= after; i++) {
+    const start = addMonths(currentMonthStart, i);
+    const periodKey = getPeriodKey(bill, start);
+    const isPaid = bill.payments.some((p) => p.periodKey === periodKey);
+    const isCurrent = periodKey === bill.currentPeriodKey;
+
+    chips.push({
+      key: `${start.getFullYear()}-${start.getMonth()}`,
+      start,
+      status: isPaid ? "paid" : isCurrent && !bill.isPaidThisPeriod ? "due" : "empty",
+    });
+  }
+  return chips;
+}

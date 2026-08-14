@@ -140,7 +140,6 @@
     "billsTracked": "πάγια σε παρακολούθηση",
     "noBillsYet": "Δεν υπάρχουν πάγια ακόμη",
     "noBillsHint": "Προσθέστε τις επαναλαμβανόμενες πληρωμές σας για να ξέρετε τι οφείλετε κάθε μήνα.",
-    "markAsPaid": "Σήμανση ως πληρωμένο",
     "undoPayment": "Αναίρεση πληρωμής",
     "paid": "Πληρώθηκε",
     "due": "Λήγει",
@@ -255,7 +254,12 @@
     "runwayBy": "Ώς {{date}}",
     "runwayBillCount_one": "{{count}} λογαριασμός",
     "runwayBillCount_other": "{{count}} λογαριασμοί",
-    "moreActions": "Περισσότερες ενέργειες"
+    "viewList": "Λίστα",
+    "viewTimeline": "Χρονολόγιο",
+    "viewToggleLabel": "Προβολή λογαριασμών",
+    "monthPaid": "Πληρώθηκε",
+    "monthDue": "Λήγει αυτόν τον μήνα",
+    "monthEmpty": "Δεν λήγει"
   },
   "transactions": {
     "title": "Συναλλαγές",

@@ -89,28 +89,34 @@
 }
 
 /* ── Bill rows ────────────────────────────────────────────────────────────── */
+/* No row-level menu anywhere: every action (pay, edit, delete) already lives one
+   tap away in the detail modal, which is a plain centered Modal — not a
+   Popper-positioned popover — so there is nothing left in this list that can
+   render clipped or mispositioned. A trailing chevron is the only affordance,
+   purely decorative; the whole row is the tap target. */
 
-/* Phone: three tight lines inside one row. The name/subtitle column is the only
-   thing allowed to shrink, so every figure on the right stays fully legible and
-   the amounts still line up vertically down the list.
+/* Phone: four roomy lines, generously sized — this is the screen people
+   actually use the list on, so it gets the space, not the desktop table.
 
-       [icon]  Electricity            €122.40
-               Every 2 mo · €80–122   €51/mo
-               [ Paid ]                    ⋮
+       [icon]  Electricity                    ›
+               Every 2 mo · usually €80–122
+               [ due in 3 days ]  pay by 30 Σεπ
+               Last paid €122.40 · 13 Ιουλ   €51/mo
 */
 .billRow {
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "icon main     lastpaid"
-    "icon subtitle permonth"
-    "icon status   menu";
-  column-gap: 0.625rem;
-  row-gap: 0.25rem;
+    "icon main     chevron"
+    "icon subtitle chevron"
+    "icon status   status"
+    "icon lastpaid permonth";
+  column-gap: 0.75rem;
+  row-gap: 0.375rem;
   align-items: center;
   width: 100%;
-  padding: 0.75rem 0.875rem;
+  padding: 1rem;
   text-align: left;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
@@ -130,6 +136,7 @@
 .rowMain {
   grid-area: main;
   min-width: 0;
+  font-size: 16px;
 }
 
 .rowSubtitle {
@@ -138,16 +145,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--color-text-secondary);
 }
 
 .rowLastPaid,
-.rowPerMonth,
-.rowStatus {
+.rowPerMonth {
   min-width: 0;
-  justify-self: end;
-  text-align: right;
 }
 .rowLastPaid {
   grid-area: lastpaid;
@@ -157,40 +161,31 @@
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 3px;
+  justify-self: end;
+  text-align: right;
 }
 .rowStatus {
   grid-area: status;
   justify-self: start;
   text-align: left;
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
   min-width: 0;
 }
-.rowMenu {
-  grid-area: menu;
-  justify-self: end;
-}
-
-/* 44px square hit area — the icon stays 18px, but the tappable region around it
-   matches the same touch-target minimum the dropdown items themselves use (see
-   .dropdown-item in index.css). Sized with width/height rather than negative
-   margins: .billRow clips overflow for the state bar's rounded corner, and
-   anything pushed past that boundary would be both invisible AND untappable.
-   The grid track this sits in simply grows a little to fit it instead. */
-.rowMenuToggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0 !important;
+.rowChevron {
+  grid-area: chevron;
+  align-self: start;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
 }
 
 /* Figures never wrap or shrink — they're the reason the row exists */
 .cellValue {
   display: block;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
   white-space: nowrap;
@@ -200,7 +195,7 @@
 
 .cellSub {
   display: block;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.3;
   white-space: nowrap;
   color: var(--color-text-secondary);
@@ -208,11 +203,10 @@
 
 .statusChip {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
-  line-height: 1.6;
   white-space: nowrap;
 }
 
@@ -272,30 +266,62 @@
   margin-left: 3px;
 }
 
-/* ── Desktop: real columns under a header ─────────────────────────────────── */
+/* ── Desktop: a denser table under a header ───────────────────────────────── */
+/* The phone gets the roomy 4-line layout above; from `md` up there's a header
+   row worth aligning under, so this reverts to real columns at the original,
+   more compact type scale. */
 
 @media (min-width: 768px) {
   .billRow {
     grid-template-columns: auto minmax(0, 1fr) 96px 84px 104px 32px;
     grid-template-areas:
-      "icon main     lastpaid permonth status menu"
-      "icon subtitle lastpaid permonth status menu";
+      "icon main     lastpaid permonth status chevron"
+      "icon subtitle lastpaid permonth status chevron";
     row-gap: 0;
     column-gap: 0.75rem;
     padding: 0.75rem 1rem;
+  }
+
+  .rowMain {
+    font-size: 14px;
+  }
+
+  .rowSubtitle {
+    font-size: 11.5px;
+  }
+
+  .cellValue {
+    font-size: 13px;
+  }
+
+  .cellSub {
+    font-size: 10.5px;
+  }
+
+  .statusChip {
+    padding: 1px 8px;
+    font-size: 10.5px;
+    line-height: 1.6;
   }
 
   .rowIcon,
   .rowLastPaid,
   .rowPerMonth,
   .rowStatus,
-  .rowMenu {
+  .rowChevron {
     align-self: center;
   }
 
+  .rowLastPaid,
   .rowStatus {
     justify-self: end;
     text-align: right;
+  }
+
+  /* Chip on the template's first row, the deadline note dropping onto its
+     second — the same two-line shape the table used before, now carrying an
+     actual date instead of nothing for an unpaid bill. */
+  .rowStatus {
     display: block;
   }
 }
@@ -327,12 +353,6 @@
 .billRow:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
-}
-
-/* Left stripe marks urgency without shouting — overrides the cadence hairline */
-.billRowOverdue .rowCadenceBar {
-  width: 3px;
-  background: var(--color-expense) !important;
 }
 
 /* Category emoji in a rounded tile */
@@ -463,4 +483,66 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Timeline layout — second view, same row shell ───────────────────────── */
+/* A run of calendar months replaces the subtitle/lastpaid/permonth cells;
+   icon, name and status stay exactly what the list view draws, so switching
+   views doesn't relearn the row — only what sits below the name changes.
+   Deliberately unscoped by breakpoint: it overrides both the mobile and the
+   >=768px table shape .billRow defines above, because a table row is the one
+   layout a month strip doesn't fit into at any width. */
+.timelineRow {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon main   chevron"
+    "icon status chevron"
+    "icon strip  strip";
+  row-gap: 0.5rem;
+  align-items: start;
+}
+
+.timelineRow .rowIcon,
+.timelineRow .rowChevron {
+  align-self: center;
+}
+
+.timelineRow .rowStatus {
+  justify-self: start;
+  text-align: left;
+  display: flex;
+}
+
+/* The weekly-bill fallback (BillSubtitle) lands in the same slot the strip
+   would otherwise occupy — weekly is the one frequency a monthly strip can't
+   represent (see supportsMonthStrip). */
+.timelineRow .rowSubtitle {
+  grid-area: strip;
+  white-space: normal;
+}
+
+.monthStrip {
+  grid-area: strip;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.monthChip {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 2px;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.monthChipFilled {
+  color: #fff;
 }

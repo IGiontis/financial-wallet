@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Col, Container, Row, Spinner, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Alert, Badge, Button, Col, Container, Row, Spinner, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiMoreVertical, FiCheck, FiLock } from "react-icons/fi";
+import { FiChevronRight, FiCheck, FiLock } from "react-icons/fi";
 import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
 import {
+  billMonthStrip,
   billUrgency,
   cashRunway,
   computePeriodTotals,
@@ -16,16 +18,18 @@ import {
   groupBills,
   isHardDeadline,
   isInGracePeriod,
+  supportsMonthStrip,
   URGENT_DAYS,
   monthsBetweenPayments,
   urgencyToken,
   yearlyBreakdown,
+  type MonthChip,
 } from "./billsUtils";
-import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import { categoryLabel } from "../../shared/utils/categories";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import MarkPaidModal from "./MarkPaidModal";
+import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/BillsPage.module.css";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
@@ -250,19 +254,22 @@ function BillListHeader() {
       <span className={styles.rowLastPaid}>{t("bills.colLastPaid")}</span>
       <span className={styles.rowPerMonth}>{t("bills.colPerMonth")}</span>
       <span className={styles.rowStatus}>{t("bills.colStatus")}</span>
-      <span className={styles.rowMenu} />
+      <span className={styles.rowChevron} />
     </div>
   );
 }
 
 // ─── Bill row ────────────────────────────────────────────────────────────────
 // Information first: what was paid, when, what it usually costs, and what it
-// works out to per month. The pay action lives in the ⋮ menu and the detail
-// modal, so the row itself never spends space on buttons.
+// works out to per month. Every action — pay, edit, delete — lives one tap away
+// in the detail modal; the row itself is the only affordance, with a trailing
+// chevron as a purely visual hint. No row-level menu of any kind: that was a
+// Popper-positioned popover, and popovers can end up clipped or mispositioned
+// in ways a plain centered Modal simply can't.
 //
-// One markup, two layouts. On a phone the four columns stack into three tight
-// lines with every figure right-aligned, so amounts still read down the page;
-// from `md` up the same cells snap back into real columns under a header.
+// One markup, two layouts. On a phone the columns stack into four generously
+// spaced lines — this is the screen the list is actually read on, so it gets
+// the room; from `md` up the same cells snap into a denser table instead.
 
 /** "Every 2 months · usually €80–122" — the descriptive half of the first cell. */
 function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCurrency: (n: number) => string }) {
@@ -293,22 +300,15 @@ function BillRow({
   category,
   formatCurrency,
   onOpenDetails,
-  onMarkPaid,
-  onEdit,
-  onDelete,
 }: {
   bill: BillWithStatus;
   category: Category | undefined;
   formatCurrency: (n: number) => string;
   onOpenDetails: (b: BillWithStatus) => void;
-  onMarkPaid: (b: BillWithStatus) => void;
-  onEdit: (b: BillWithStatus) => void;
-  onDelete: (b: BillWithStatus) => void;
 }) {
   const { t, i18n } = useTranslation();
   const paid = bill.isPaidThisPeriod;
   const urgency = billUrgency(bill);
-  const overdue = urgency === "late";
   const strict = isHardDeadline(bill);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
@@ -319,7 +319,7 @@ function BillRow({
 
   return (
     <div
-      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""} ${paid ? styles.billRowPaid : ""}`}
+      className={`${styles.billRow} ${paid ? styles.billRowPaid : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -344,17 +344,25 @@ function BillRow({
 
       {/* Name and subtitle are separate grid children: on a phone they occupy
           two different rows, each paired with its own figure on the right. */}
-      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`} style={{ fontSize: 14 }}>
+      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`}>
         {bill.name}
         {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
       </span>
       <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
 
-      {/* What actually left the account last time. The date rides with the
-          status chip on a phone so this column stays exactly one line tall. */}
+      {/* The chip says how urgent; the line under it says the actual date —
+          "when do I need the money" is the question every row now answers,
+          whatever screen it's read on. */}
+      <div className={styles.rowStatus}>
+        <StatusChip bill={bill} />
+        <DeadlineNote bill={bill} />
+      </div>
+
+      {/* What actually left the account last time. On a phone this gets its own
+          full line with the date spelled out, not squeezed under something else. */}
       <div className={styles.rowLastPaid}>
         <span className={styles.cellValue}>{lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}</span>
-        <span className={`${styles.cellSub} d-none d-md-block`}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
+        <span className={styles.cellSub}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
       </div>
 
       <div className={styles.rowPerMonth}>
@@ -368,40 +376,106 @@ function BillRow({
         )}
       </div>
 
-      {/* The chip says how urgent; the line under it says the actual date. Both
-          on every screen size — "when do I need the money" was the question the
-          row used to answer only on desktop, and only once already paid. */}
+      {/* Purely decorative — the whole row is the tap target. No menu of any
+          kind lives here; pay, edit and delete are one tap away in the detail
+          modal, which (unlike a popover) can never render clipped. */}
+      <FiChevronRight size={18} className={styles.rowChevron} aria-hidden />
+
+      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
+    </div>
+  );
+}
+
+// ─── Timeline layout ─────────────────────────────────────────────────────────
+// A second way to read the same list: a run of calendar months per bill, coloured
+// in where a payment covers them. A bill every 2 months paints two months solid
+// per payment, so the cadence is something you see rather than something the
+// subtitle states.
+
+const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-goal)" : undefined);
+
+function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
+  const { t, i18n } = useTranslation();
+  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
+  const chips = useMemo(() => billMonthStrip(bill, now), [bill, now]);
+
+  const labelFor = (status: MonthChip["status"]) => (status === "paid" ? t("bills.monthPaid") : status === "due" ? t("bills.monthDue") : t("bills.monthEmpty"));
+
+  return (
+    <div className={styles.monthStrip} onClick={(e) => e.stopPropagation()}>
+      {chips.map((chip) => (
+        <div
+          key={chip.key}
+          className={`${styles.monthChip} ${chip.status !== "empty" ? styles.monthChipFilled : ""}`}
+          style={{ background: chipTone(chip.status), color: chip.status !== "empty" ? "#fff" : undefined }}
+          title={`${monthFmt.format(chip.start)} — ${labelFor(chip.status)}`}
+        >
+          {monthFmt.format(chip.start)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BillTimelineRow({
+  bill,
+  category,
+  formatCurrency,
+  onOpenDetails,
+  now,
+}: {
+  bill: BillWithStatus;
+  category: Category | undefined;
+  formatCurrency: (n: number) => string;
+  onOpenDetails: (b: BillWithStatus) => void;
+  now: Date;
+}) {
+  const { t } = useTranslation();
+  const paid = bill.isPaidThisPeriod;
+  const urgency = billUrgency(bill);
+  const strict = isHardDeadline(bill);
+  const showStrip = supportsMonthStrip(bill);
+
+  return (
+    <div
+      className={`${styles.billRow} ${styles.timelineRow} ${paid ? styles.billRowPaid : ""}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDetails(bill)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetails(bill);
+        }
+      }}
+      title={t("bills.viewDetails")}
+    >
+      <span className={`${styles.iconTile} ${styles.rowIcon} ${styles.iconWrap}`}>
+        <span aria-hidden>{category?.icon ?? "🧾"}</span>
+        {paid && (
+          <span className={styles.paidTick} title={t("bills.paidRecently")}>
+            <FiCheck size={9} aria-hidden />
+          </span>
+        )}
+      </span>
+
+      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`}>
+        {bill.name}
+        {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
+      </span>
+
       <div className={styles.rowStatus}>
         <StatusChip bill={bill} />
-        <span className="ms-1 ms-md-0">
-          <DeadlineNote bill={bill} />
-        </span>
+        <DeadlineNote bill={bill} />
       </div>
 
-      <UncontrolledDropdown className={styles.rowMenu} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        {/* p-1 alone left a ~26×32px hit area at the row's right edge — well
-            under a comfortable thumb target, and one row's swallowed tap away
-            from opening the details modal underneath it instead. */}
-        <DropdownToggle tag="button" className={`btn btn-link text-body-secondary border-0 ${styles.rowMenuToggle}`} aria-label={t("bills.moreActions")}>
-          <FiMoreVertical size={18} />
-        </DropdownToggle>
-        {/* Portalled to <body>: the row clips its own overflow so the state bar
-            can follow the rounded corners, which would otherwise slice the menu
-            off at the card edge. */}
-        <DropdownMenu end container="body" modifiers={DROPDOWN_MENU_MODIFIERS}>
-          {!paid && (
-            <DropdownItem onClick={() => onMarkPaid(bill)}>
-              <FiCheck size={14} className="me-2" />
-              {t("bills.markAsPaid")}
-            </DropdownItem>
-          )}
-          <DropdownItem onClick={() => onOpenDetails(bill)}>{t("bills.viewDetails")}</DropdownItem>
-          <DropdownItem onClick={() => onEdit(bill)}>{t("common.edit")}</DropdownItem>
-          <DropdownItem className="text-danger" onClick={() => onDelete(bill)}>
-            {t("common.delete")}
-          </DropdownItem>
-        </DropdownMenu>
-      </UncontrolledDropdown>
+      {showStrip ? (
+        <MonthStrip bill={bill} now={now} />
+      ) : (
+        <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
+      )}
+
+      <FiChevronRight size={18} className={styles.rowChevron} aria-hidden />
 
       <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
     </div>
@@ -504,6 +578,10 @@ export default function BillsPage() {
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
   const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
+  const [view, setView] = useLocalStorage<"list" | "timeline">("bills-view", "list");
+  // One clock reading for the whole visit, so every row's month strip lines up
+  // on the same window instead of drifting across renders.
+  const [now] = useState(() => new Date());
 
   const categoryFor = useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c]));
@@ -558,18 +636,12 @@ export default function BillsPage() {
     deleteBill.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
   };
 
-  const renderRow = (bill: BillWithStatus) => (
-    <BillRow
-      key={bill.id}
-      bill={bill}
-      category={categoryFor(bill.categoryId)}
-      formatCurrency={formatCurrency}
-      onOpenDetails={setDetailBill}
-      onMarkPaid={setPayingBill}
-      onEdit={openEdit}
-      onDelete={setDeleteTarget}
-    />
-  );
+  const renderRow = (bill: BillWithStatus) =>
+    view === "list" ? (
+      <BillRow key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
+    ) : (
+      <BillTimelineRow key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+    );
 
   return (
     <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1200 }}>
@@ -611,7 +683,19 @@ export default function BillsPage() {
             ) : (
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
-                <BillListHeader />
+
+                <div className="d-flex justify-content-end mb-2">
+                  <div className={segmented.group} role="group" aria-label={t("bills.viewToggleLabel")}>
+                    <button type="button" className={`${segmented.item} ${view === "list" ? segmented.active : ""}`} onClick={() => setView("list")}>
+                      {t("bills.viewList")}
+                    </button>
+                    <button type="button" className={`${segmented.item} ${view === "timeline" ? segmented.active : ""}`} onClick={() => setView("timeline")}>
+                      {t("bills.viewTimeline")}
+                    </button>
+                  </div>
+                </div>
+
+                {view === "list" && <BillListHeader />}
                 <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
               </>
             )}

@@ -140,7 +140,6 @@
     "billsTracked": "bills tracked",
     "noBillsYet": "No bills yet",
     "noBillsHint": "Add your recurring payments to track what you owe each month.",
-    "markAsPaid": "Mark as paid",
     "undoPayment": "Undo payment",
     "paid": "Paid",
     "due": "Due",
@@ -255,7 +254,12 @@
     "runwayBy": "By {{date}}",
     "runwayBillCount_one": "{{count}} bill",
     "runwayBillCount_other": "{{count}} bills",
-    "moreActions": "More actions"
+    "viewList": "List",
+    "viewTimeline": "Timeline",
+    "viewToggleLabel": "Bills view",
+    "monthPaid": "Paid",
+    "monthDue": "Due this month",
+    "monthEmpty": "Not due"
   },
   "transactions": {
     "title": "Transactions",
