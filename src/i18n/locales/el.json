@@ -240,7 +240,22 @@
     "usuallyOne": "συνήθως {{amount}}",
     "usuallyRange": "συνήθως {{min}}–{{max}}",
     "neverPaid": "καμία πληρωμή",
-    "nextShort": "επόμενη {{date}}"
+    "nextShort": "επόμενη {{date}}",
+    "hasGrace": "Σηκώνει καθυστέρηση",
+    "hasGraceHint": "Οι λογαριασμοί ΔΕΗ/νερού πληρώνονται συνήθως για εβδομάδες μετά την έκδοση. Οι συνδρομές κόβονται την ίδια μέρα.",
+    "graceDays": "Περιθώριο πληρωμής",
+    "graceDaysHint": "Μέρες μετά τη λήξη που μπορείς ακόμα να πληρώσεις με ασφάλεια.",
+    "daysUnit": "μέρες",
+    "strictHint": "Πρέπει να πληρωθεί την ημέρα — χωρίς περιθώριο",
+    "payBy": "έως {{date}}",
+    "graceUntil": "περιθώριο ώς {{date}}",
+    "lateByDays_one": "{{count}} μέρα καθυστέρηση",
+    "lateByDays_other": "{{count}} μέρες καθυστέρηση",
+    "runwayNow": "Τώρα",
+    "runwayBy": "Ώς {{date}}",
+    "runwayBillCount_one": "{{count}} λογαριασμός",
+    "runwayBillCount_other": "{{count}} λογαριασμοί",
+    "moreActions": "Περισσότερες ενέργειες"
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -643,7 +658,9 @@
     "confirmPasswordRequired": "Επιβεβαίωσε τον κωδικό",
     "fuelTypeRequired": "Ο τύπος καυσίμου είναι υποχρεωτικός",
     "priceRequired": "Η τιμή είναι υποχρεωτική",
-    "quantityRequired": "Η ποσότητα είναι υποχρεωτική"
+    "quantityRequired": "Η ποσότητα είναι υποχρεωτική",
+    "graceMin": "Τουλάχιστον 1 μέρα",
+    "graceMax": "Το πολύ 120 μέρες"
   },
   "errors": {
     "invalidCredentials": "Λάθος email ή κωδικός.",

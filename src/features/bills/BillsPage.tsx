@@ -1,12 +1,26 @@
 import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Col, Container, Row, Spinner, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiMoreVertical, FiCheck } from "react-icons/fi";
+import { FiMoreVertical, FiCheck, FiLock } from "react-icons/fi";
 import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
-import { computePeriodTotals, daysUntilDue, expectedAmount, getFrequencyLabel, getFrequencyToken, groupBills, monthsBetweenPayments, yearlyBreakdown } from "./billsUtils";
+import {
+  billUrgency,
+  cashRunway,
+  computePeriodTotals,
+  daysUntilDeadline,
+  expectedAmount,
+  getFrequencyLabel,
+  groupBills,
+  isHardDeadline,
+  isInGracePeriod,
+  URGENT_DAYS,
+  monthsBetweenPayments,
+  urgencyToken,
+  yearlyBreakdown,
+} from "./billsUtils";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
 import { categoryLabel } from "../../shared/utils/categories";
 import AddBillModal from "./AddBillModal";
@@ -17,13 +31,48 @@ import styles from "./css/BillsPage.module.css";
 /** Bars in the yearly panel cycle through the semantic accents. */
 const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
 
-/** Colour scale shared by the due-chip and the countdown ticks: red once
- * late, amber as it approaches, the default accent while there's still time. */
-function dueColor(days: number | undefined): string {
-  if (days === undefined) return "var(--color-text-secondary)";
-  if (days < 0) return "var(--color-expense)";
-  if (days <= 5) return "var(--color-goal)";
-  return "var(--bs-primary)";
+// ─── Cash runway — how much, by when ─────────────────────────────────────────
+
+/**
+ * The three nearest deadlines with a running total, so "what do I need in the
+ * account, and by which day" is a figure you read rather than a sum you do.
+ *
+ * Deadlines, not due dates: an electricity bill three days past its due date
+ * with three weeks of grace does not need the money today, and a subscription
+ * due on the 15th absolutely does.
+ */
+function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
+  const { t, i18n } = useTranslation();
+  const checkpoints = useMemo(() => cashRunway(bills), [bills]);
+
+  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+
+  if (checkpoints.length === 0) return null;
+
+  return (
+    <div className={styles.runway}>
+      {checkpoints.map((checkpoint) => {
+        // Colour tracks time pressure, not strictness — nearly every list has a
+        // strict bill somewhere in it, so keying off that would paint all three
+        // amber and say nothing. The lock icon carries strictness instead.
+        const daysAway = Math.round((checkpoint.date.getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+        const color = checkpoint.overdue ? "var(--color-expense)" : daysAway <= URGENT_DAYS ? "var(--color-goal)" : "var(--color-text-primary)";
+
+        return (
+          <div key={checkpoint.date.toISOString()} className={styles.runwayBox}>
+            <div className={styles.runwayDate}>{checkpoint.overdue ? t("bills.runwayNow") : t("bills.runwayBy", { date: dateFmt.format(checkpoint.date) })}</div>
+            <div className={styles.runwayAmount} style={{ color }}>
+              {formatCurrency(checkpoint.cumulative)}
+            </div>
+            <div className={styles.runwayNote}>
+              {checkpoint.strictCount > 0 && <FiLock size={9} className="me-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} aria-hidden />}
+              {t("bills.runwayBillCount", { count: checkpoint.cumulativeCount })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ─── Period summary — the signature card ─────────────────────────────────────
@@ -94,14 +143,12 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
   const overdueCount = grouped.overdue.length;
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
 
-  // Soonest unpaid bill — the "what's next" answer the screen was missing.
-  const nextBill = grouped.overdue[0] ?? grouped.upcoming.find((b) => b.nextDueDate);
-  const nextDays = nextBill ? daysUntilDue(nextBill) : undefined;
+  // Soonest unpaid bill, measured by when the money is actually needed.
+  const nextBill = grouped.overdue[0] ?? grouped.upcoming.find((b) => b.deadline);
+  const nextDays = nextBill ? daysUntilDeadline(nextBill) : undefined;
 
   const nextValue =
-    nextBill && nextBill.nextDueDate
-      ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextBill.nextDueDate)
-      : "—";
+    nextBill && nextBill.deadline ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextBill.deadline) : "—";
   const nextSub = nextBill ? nextBill.name : t("bills.allSettled");
   const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--color-expense)" : nextDays <= 5 ? "var(--color-goal)" : "var(--color-text-primary)";
 
@@ -141,14 +188,17 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
 
 // ─── Due indicator ───────────────────────────────────────────────────────────
 
-/** One pill that answers "where does this stand?" — paid, due soon, or late. */
+/**
+ * One pill that answers "where does this stand?" — counted against the
+ * deadline, so a bill sitting comfortably inside its grace window doesn't wear
+ * the same red as one that has genuinely lapsed.
+ */
 function StatusChip({ bill }: { bill: BillWithStatus }) {
   const { t } = useTranslation();
-  const days = daysUntilDue(bill);
+  const urgency = billUrgency(bill);
+  const color = `var(${urgencyToken(urgency)})`;
 
-  // Settled for this period: say so plainly. The countdown to the next one is
-  // shown beside it on wide screens, so it doesn't need to shout here.
-  if (bill.isPaidThisPeriod) {
+  if (urgency === "paid") {
     return (
       <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-income) 15%, transparent)", color: "var(--color-income)" }}>
         ✓ {t("bills.paidRecently")}
@@ -156,18 +206,38 @@ function StatusChip({ bill }: { bill: BillWithStatus }) {
     );
   }
 
+  const days = daysUntilDeadline(bill);
   if (days === undefined) {
     return <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>{t("bills.unpaid")}</span>;
   }
 
-  const color = dueColor(days);
-  const label = days < 0 ? t("bills.overdueByDays", { count: Math.abs(days) }) : days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
+  const label = days < 0 ? t("bills.lateByDays", { count: Math.abs(days) }) : days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
 
   return (
     <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
       {label}
     </span>
   );
+}
+
+/**
+ * The line under the chip: for anything unpaid, the actual last day the money
+ * must be there — the question the old row never answered. For a settled bill,
+ * when it comes round again.
+ */
+function DeadlineNote({ bill }: { bill: BillWithStatus }) {
+  const { t, i18n } = useTranslation();
+  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+
+  if (bill.isPaidThisPeriod) {
+    return <span className={styles.cellSub}>{bill.nextDueDate ? t("bills.nextShort", { date: dateFmt.format(bill.nextDueDate) }) : "—"}</span>;
+  }
+  if (!bill.deadline) return <span className={styles.cellSub}>{t("bills.noDueDateSet")}</span>;
+
+  // Inside the grace window the two dates differ, and the later one is the one
+  // that matters — say so explicitly rather than showing a date that has passed.
+  const key = isInGracePeriod(bill) ? "bills.graceUntil" : "bills.payBy";
+  return <span className={styles.cellSub}>{t(key, { date: dateFmt.format(bill.deadline) })}</span>;
 }
 
 /** Column captions — desktop only; on a phone each figure carries its own label. */
@@ -236,10 +306,10 @@ function BillRow({
   onDelete: (b: BillWithStatus) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const freqToken = getFrequencyToken(bill);
   const paid = bill.isPaidThisPeriod;
-  const days = daysUntilDue(bill);
-  const overdue = !paid && (days ?? 0) < 0;
+  const urgency = billUrgency(bill);
+  const overdue = urgency === "late";
+  const strict = isHardDeadline(bill);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
   const lastPaidAmount = bill.payments[0]?.amount;
@@ -249,7 +319,7 @@ function BillRow({
 
   return (
     <div
-      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""}`}
+      className={`${styles.billRow} ${overdue ? styles.billRowOverdue : ""} ${paid ? styles.billRowPaid : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -261,14 +331,22 @@ function BillRow({
       }}
       title={t("bills.viewDetails")}
     >
-      <span className={`${styles.iconTile} ${styles.rowIcon}`} aria-hidden>
-        {category?.icon ?? "🧾"}
+      <span className={`${styles.iconTile} ${styles.rowIcon} ${styles.iconWrap}`}>
+        <span aria-hidden>{category?.icon ?? "🧾"}</span>
+        {/* A tick on the icon as well as the colour bar, so "paid" survives a
+            greyscale screen or a colour-blind reader. */}
+        {paid && (
+          <span className={styles.paidTick} title={t("bills.paidRecently")}>
+            <FiCheck size={9} aria-hidden />
+          </span>
+        )}
       </span>
 
       {/* Name and subtitle are separate grid children: on a phone they occupy
           two different rows, each paired with its own figure on the right. */}
       <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`} style={{ fontSize: 14 }}>
         {bill.name}
+        {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
       </span>
       <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
 
@@ -290,19 +368,27 @@ function BillRow({
         )}
       </div>
 
+      {/* The chip says how urgent; the line under it says the actual date. Both
+          on every screen size — "when do I need the money" was the question the
+          row used to answer only on desktop, and only once already paid. */}
       <div className={styles.rowStatus}>
         <StatusChip bill={bill} />
-        {/* Phone: when it was last paid. Desktop: that lives in its own column,
-            so the space goes to the next due date instead. */}
-        <span className={`${styles.cellSub} d-md-none ms-1`}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
-        {paid && bill.nextDueDate && <span className={`${styles.cellSub} d-none d-md-block`}>{t("bills.nextShort", { date: dateFmt.format(bill.nextDueDate) })}</span>}
+        <span className="ms-1 ms-md-0">
+          <DeadlineNote bill={bill} />
+        </span>
       </div>
 
       <UncontrolledDropdown className={styles.rowMenu} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <DropdownToggle tag="button" className="btn btn-link text-body-secondary p-1 border-0" aria-label={t("bills.viewDetails")}>
+        {/* p-1 alone left a ~26×32px hit area at the row's right edge — well
+            under a comfortable thumb target, and one row's swallowed tap away
+            from opening the details modal underneath it instead. */}
+        <DropdownToggle tag="button" className={`btn btn-link text-body-secondary border-0 ${styles.rowMenuToggle}`} aria-label={t("bills.moreActions")}>
           <FiMoreVertical size={18} />
         </DropdownToggle>
-        <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
+        {/* Portalled to <body>: the row clips its own overflow so the state bar
+            can follow the rounded corners, which would otherwise slice the menu
+            off at the card edge. */}
+        <DropdownMenu end container="body" modifiers={DROPDOWN_MENU_MODIFIERS}>
           {!paid && (
             <DropdownItem onClick={() => onMarkPaid(bill)}>
               <FiCheck size={14} className="me-2" />
@@ -317,9 +403,7 @@ function BillRow({
         </DropdownMenu>
       </UncontrolledDropdown>
 
-      {/* Cadence colour is still worth keeping, but as a hairline on the edge
-          rather than another chip competing for space. */}
-      <span className={styles.rowCadenceBar} style={{ background: `var(${freqToken})` }} aria-hidden />
+      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
     </div>
   );
 }
@@ -426,13 +510,14 @@ export default function BillsPage() {
     return (id: string) => map.get(id);
   }, [categories]);
 
-  // One continuous list ordered by how soon the next payment is due —
-  // overdue bills float to the top (negative days), paid ones keep their
-  // spot in line rather than being tucked away in a separate section.
+  // One continuous list ordered by when the money is actually needed, so the
+  // top of the list is always what to deal with first. Paid bills keep their
+  // place in line — they just recede visually — rather than being filed away
+  // in a section you have to go looking for.
   const sortedBills = useMemo(() => {
     return [...bills].sort((a, b) => {
-      const da = daysUntilDue(a) ?? Number.MAX_SAFE_INTEGER;
-      const db = daysUntilDue(b) ?? Number.MAX_SAFE_INTEGER;
+      const da = daysUntilDeadline(a) ?? Number.MAX_SAFE_INTEGER;
+      const db = daysUntilDeadline(b) ?? Number.MAX_SAFE_INTEGER;
       return da - db;
     });
   }, [bills]);
@@ -525,6 +610,7 @@ export default function BillsPage() {
               </div>
             ) : (
               <>
+                <CashRunway bills={bills} formatCurrency={formatCurrency} />
                 <BillListHeader />
                 <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
               </>
@@ -557,6 +643,11 @@ export default function BillsPage() {
           onEdit={(b) => {
             setDetailBill(null);
             openEdit(b);
+          }}
+          onDelete={(b) => {
+            // Same hand-off as Edit and Mark Paid — never stack two modals.
+            setDetailBill(null);
+            setDeleteTarget(b);
           }}
         />
       )}

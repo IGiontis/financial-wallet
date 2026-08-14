@@ -1,18 +1,25 @@
 import { describe, it, expect } from "vitest";
 import {
-  getPeriodKey,
-  monthlyEquivalent,
-  computeBillStatus,
-  getNextDueDate,
-  getFrequencyLabel,
   averagePaidAmount,
-  daysUntilDue,
-  groupBills,
+  billUrgency,
+  cashRunway,
+  computeBillStatus,
   computePeriodTotals,
-  yearlyBreakdown,
+  daysUntilDeadline,
+  daysUntilDue,
+  getDeadline,
+  getFrequencyLabel,
   getFrequencyToken,
-  sinkingFund,
+  getNextDueDate,
+  getPeriodDueDate,
+  getPeriodKey,
+  groupBills,
+  isHardDeadline,
+  isInGracePeriod,
+  monthlyEquivalent,
   paidAmountRange,
+  sinkingFund,
+  yearlyBreakdown,
 } from "./billsUtils";
 import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
@@ -238,15 +245,20 @@ describe("variable-amount bills", () => {
 // ─── Grouping by urgency ─────────────────────────────────────────────────────
 
 /** Builds a status object without going through Firestore. */
-const statusOf = (overrides: Partial<BillWithStatus>, bill: Partial<Bill> = {}): BillWithStatus =>
-  ({
+const statusOf = (overrides: Partial<BillWithStatus>, bill: Partial<Bill> = {}): BillWithStatus => {
+  const base = {
     ...makeBill(bill),
     currentPeriodKey: "2026-07",
     isPaidThisPeriod: false,
     payments: [],
     monthlyEquivalent: 15,
     ...overrides,
-  }) as BillWithStatus;
+  } as BillWithStatus;
+
+  // computeBillStatus always fills the deadline in alongside the due date, so
+  // a fixture that only sets one would be a shape the app never produces.
+  return { ...base, deadline: base.deadline ?? getDeadline(base, base.nextDueDate) };
+};
 
 describe("daysUntilDue", () => {
   const now = new Date("2026-07-15T10:00:00");
@@ -523,5 +535,222 @@ describe("paidAmountRange", () => {
   it("is exposed on the computed bill status", () => {
     const bill = computeBillStatus(makeBill({ isVariableAmount: true }), [at(122, "2026-02-01"), at(80, "2026-01-01")], new Date("2026-02-15"));
     expect(bill.paidAmountRange).toEqual({ min: 80, max: 122 });
+  });
+});
+
+// ─── Grace periods and deadlines ─────────────────────────────────────────────
+
+describe("getDeadline", () => {
+  it("is the due date itself when nothing can be late", () => {
+    expect(getDeadline({ graceDays: 0 }, new Date("2026-07-15"))).toEqual(new Date("2026-07-15"));
+    expect(getDeadline({}, new Date("2026-07-15"))).toEqual(new Date("2026-07-15"));
+  });
+
+  it("pushes out by the grace days", () => {
+    expect(getDeadline({ graceDays: 25 }, new Date("2026-07-15"))).toEqual(new Date("2026-08-09"));
+  });
+
+  it("is undefined without a due date to work from", () => {
+    expect(getDeadline({ graceDays: 25 }, undefined)).toBeUndefined();
+  });
+});
+
+describe("isHardDeadline", () => {
+  it("treats a missing or zero grace as strict", () => {
+    expect(isHardDeadline({})).toBe(true);
+    expect(isHardDeadline({ graceDays: 0 })).toBe(true);
+    expect(isHardDeadline({ graceDays: 25 })).toBe(false);
+  });
+});
+
+describe("computeBillStatus — grace window", () => {
+  // Bill due on the 5th with 25 days to pay; today is the 12th.
+  const electricity = makeBill({ dueDay: 5, graceDays: 25, isVariableAmount: true });
+  const now = new Date("2026-07-12T10:00:00");
+
+  it("keeps pointing at the payment you can still make", () => {
+    const status = computeBillStatus(electricity, [], now);
+    expect(status.nextDueDate?.getDate()).toBe(5);
+    expect(status.nextDueDate?.getMonth()).toBe(6); // July, not August
+    expect(status.deadline).toEqual(new Date(2026, 6, 30));
+  });
+
+  it("is not late while the window is still open", () => {
+    expect(billUrgency(computeBillStatus(electricity, [], now), now)).toBe("later");
+    expect(isInGracePeriod(computeBillStatus(electricity, [], now), now)).toBe(true);
+  });
+
+  it("rolls forward once the window has closed too", () => {
+    const after = new Date("2026-08-01T10:00:00");
+    const status = computeBillStatus(electricity, [], after);
+    expect(status.nextDueDate?.getMonth()).toBe(7); // August
+  });
+
+  it("keeps a missed strict bill on the payment you actually owe", () => {
+    // Without this a subscription missed on the 5th would advertise itself as
+    // due in three weeks, and nothing on screen would say it was unpaid.
+    const netflix = makeBill({ dueDay: 5 });
+    const status = computeBillStatus(netflix, [], now);
+
+    expect(status.nextDueDate?.getMonth()).toBe(6); // still July
+    expect(status.nextDueDate?.getDate()).toBe(5);
+    expect(billUrgency(status, now)).toBe("late");
+  });
+
+  it("never holds a paid bill open", () => {
+    const status = computeBillStatus(electricity, [payment("2026-07", new Date("2026-07-06"))], now);
+    expect(status.isPaidThisPeriod).toBe(true);
+    expect(status.nextDueDate?.getMonth()).toBe(7);
+  });
+});
+
+describe("billUrgency", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("puts paid above everything else", () => {
+    expect(billUrgency(statusOf({ isPaidThisPeriod: true, nextDueDate: new Date("2026-07-01") }), now)).toBe("paid");
+  });
+
+  it("is late only once the deadline has gone, not the due date", () => {
+    const strict = statusOf({ nextDueDate: new Date("2026-07-10") });
+    const lenient = statusOf({ nextDueDate: new Date("2026-07-10") }, { graceDays: 20 });
+
+    expect(billUrgency(strict, now)).toBe("late");
+    expect(billUrgency(lenient, now)).toBe("later"); // 30 July is still weeks away
+  });
+
+  it("flags the last week before the deadline", () => {
+    expect(billUrgency(statusOf({ nextDueDate: new Date("2026-07-20") }), now)).toBe("soon");
+    expect(billUrgency(statusOf({ nextDueDate: new Date("2026-07-30") }), now)).toBe("later");
+  });
+
+  it("falls back to later without a date", () => {
+    expect(billUrgency(statusOf({ nextDueDate: undefined }), now)).toBe("later");
+  });
+});
+
+describe("isInGracePeriod", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("is true between the due date and the deadline", () => {
+    expect(isInGracePeriod(statusOf({ nextDueDate: new Date("2026-07-10") }, { graceDays: 20 }), now)).toBe(true);
+  });
+
+  it("is false before the due date", () => {
+    expect(isInGracePeriod(statusOf({ nextDueDate: new Date("2026-07-20") }, { graceDays: 20 }), now)).toBe(false);
+  });
+
+  it("is false for a bill that has no window at all", () => {
+    expect(isInGracePeriod(statusOf({ nextDueDate: new Date("2026-07-10") }), now)).toBe(false);
+  });
+
+  it("is false once it has been paid", () => {
+    expect(isInGracePeriod(statusOf({ isPaidThisPeriod: true, nextDueDate: new Date("2026-07-10") }, { graceDays: 20 }), now)).toBe(false);
+  });
+});
+
+// ─── Cash runway ─────────────────────────────────────────────────────────────
+
+describe("cashRunway", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("accumulates by deadline, soonest first", () => {
+    const bills = [
+      statusOf({ id: "netflix", amount: 11, nextDueDate: new Date("2026-07-18") }),
+      statusOf({ id: "gym", amount: 30, nextDueDate: new Date("2026-07-25") }),
+      statusOf({ id: "power", amount: 104, nextDueDate: new Date("2026-07-20") }, { graceDays: 10 }), // deadline 30 July
+    ];
+
+    const runway = cashRunway(bills, now);
+
+    expect(runway.map((c) => c.date.getDate())).toEqual([18, 25, 30]);
+    expect(runway.map((c) => c.cumulative)).toEqual([11, 41, 145]);
+    expect(runway.map((c) => c.cumulativeCount)).toEqual([1, 2, 3]);
+  });
+
+  it("counts only the bills that cannot be paid late as strict", () => {
+    const bills = [
+      statusOf({ id: "netflix", amount: 11, nextDueDate: new Date("2026-07-18") }),
+      statusOf({ id: "power", amount: 104, nextDueDate: new Date("2026-07-20") }, { graceDays: 10 }),
+    ];
+
+    expect(cashRunway(bills, now).map((c) => c.strictCount)).toEqual([1, 1]);
+  });
+
+  it("collapses anything already past its deadline onto today", () => {
+    const bills = [
+      statusOf({ id: "old", amount: 40, nextDueDate: new Date("2026-06-30") }),
+      statusOf({ id: "older", amount: 20, nextDueDate: new Date("2026-06-01") }),
+      statusOf({ id: "next", amount: 11, nextDueDate: new Date("2026-07-20") }),
+    ];
+
+    const runway = cashRunway(bills, now);
+
+    expect(runway[0].date).toEqual(new Date(2026, 6, 15));
+    expect(runway[0].overdue).toBe(true);
+    expect(runway[0].amount).toBe(60);
+    expect(runway[1].overdue).toBe(false);
+  });
+
+  it("leaves out paid, paused and undated bills", () => {
+    const bills = [
+      statusOf({ id: "paid", amount: 50, isPaidThisPeriod: true, nextDueDate: new Date("2026-07-18") }),
+      statusOf({ id: "paused", amount: 50, nextDueDate: new Date("2026-07-18") }, { isActive: false }),
+      statusOf({ id: "undated", amount: 50, nextDueDate: undefined }),
+      statusOf({ id: "real", amount: 11, nextDueDate: new Date("2026-07-18") }),
+    ];
+
+    const runway = cashRunway(bills, now);
+
+    expect(runway).toHaveLength(1);
+    expect(runway[0].cumulative).toBe(11);
+  });
+
+  it("uses the recent average for a variable bill rather than the estimate", () => {
+    const power = statusOf({ id: "power", amount: 60, averagePaidAmount: 104, nextDueDate: new Date("2026-07-18") }, { isVariableAmount: true });
+    expect(cashRunway([power], now)[0].cumulative).toBe(104);
+  });
+
+  it("caps how many checkpoints it returns", () => {
+    const bills = [18, 20, 22, 24].map((day) => statusOf({ id: `b${day}`, amount: 10, nextDueDate: new Date(2026, 6, day) }));
+    expect(cashRunway(bills, now)).toHaveLength(3);
+  });
+
+  it("is empty when nothing is pending", () => {
+    expect(cashRunway([], now)).toEqual([]);
+  });
+});
+
+describe("getPeriodDueDate", () => {
+  it("returns this period's day even after it has gone past", () => {
+    // getNextDueDate would already have rolled to August here.
+    const due = getPeriodDueDate(makeBill({ dueDay: 5 }), new Date("2026-07-25"));
+    expect(due?.getMonth()).toBe(6);
+    expect(due?.getDate()).toBe(5);
+  });
+
+  it("clamps to the last day of a short month", () => {
+    const due = getPeriodDueDate(makeBill({ dueDay: 31 }), new Date("2026-02-10"));
+    expect(due?.getDate()).toBe(28);
+  });
+
+  it("is undefined without a due day", () => {
+    expect(getPeriodDueDate(makeBill())).toBeUndefined();
+  });
+});
+
+describe("daysUntilDeadline", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("counts to the deadline, not the due date", () => {
+    expect(daysUntilDeadline(statusOf({ nextDueDate: new Date("2026-07-10") }, { graceDays: 20 }), now)).toBe(15);
+  });
+
+  it("goes negative once the window has closed", () => {
+    expect(daysUntilDeadline(statusOf({ nextDueDate: new Date("2026-07-01") }, { graceDays: 5 }), now)).toBe(-9);
+  });
+
+  it("is undefined when there is no deadline", () => {
+    expect(daysUntilDeadline(statusOf({ nextDueDate: undefined }), now)).toBeUndefined();
   });
 });

@@ -316,6 +316,14 @@ export interface Bill {
   anchorDate?: Date;
   dueDay?: number; // monthly/yearly: day of month (1–31); weekly: weekday (0=Sun … 6=Sat)
   dueMonth?: number; // yearly only: month (0–11)
+  /**
+   * Days after `dueDay` the bill can still be paid without consequence.
+   *
+   * Electricity is issued and then payable for another ~25 days; a subscription
+   * has none — miss the day and it stops. 0 or undefined means a hard deadline,
+   * which is what makes the two cases plannable rather than identical.
+   */
+  graceDays?: number;
   notes?: string;
   icon?: string;
   color?: string;
@@ -334,6 +342,7 @@ export interface CreateBillDTO {
   anchorDate?: Date;
   dueDay?: number;
   dueMonth?: number;
+  graceDays?: number;
   notes?: string;
   icon?: string;
   color?: string;
@@ -349,6 +358,7 @@ export interface UpdateBillDTO {
   anchorDate?: Date;
   dueDay?: number;
   dueMonth?: number;
+  graceDays?: number;
   notes?: string;
   icon?: string;
   color?: string;
@@ -385,6 +395,8 @@ export interface BillWithStatus extends Bill {
   payments: BillPayment[]; // all payments for this bill, newest first (history)
   lastPaidDate?: Date;
   nextDueDate?: Date;
+  /** Last day the money must actually be there — `nextDueDate` plus any grace. */
+  deadline?: Date;
   monthlyEquivalent: number; // normalized cost per month, for the overview total
 }
 

@@ -172,6 +172,21 @@
   justify-self: end;
 }
 
+/* 44px square hit area — the icon stays 18px, but the tappable region around it
+   matches the same touch-target minimum the dropdown items themselves use (see
+   .dropdown-item in index.css). Sized with width/height rather than negative
+   margins: .billRow clips overflow for the state bar's rounded corner, and
+   anything pushed past that boundary would be both invisible AND untappable.
+   The grid track this sits in simply grows a little to fit it instead. */
+.rowMenuToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0 !important;
+}
+
 /* Figures never wrap or shrink — they're the reason the row exists */
 .cellValue {
   display: block;
@@ -201,14 +216,60 @@
   white-space: nowrap;
 }
 
-/* Cadence colour as a hairline on the leading edge — keeps the "how often"
-   signal without spending a chip on it. */
-.rowCadenceBar {
+/* The leading edge carries STATE, not cadence: paid / late / due soon / later.
+   "How often" already reads in the subtitle, and at a glance down a list the
+   only question that matters is whether a row still wants money. 4px rather
+   than a hairline so the colour registers peripherally. */
+.rowStateBar {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 4px;
+}
+
+/* Settled rows recede instead of disappearing — still scannable if you go
+   looking, never competing with the ones that need action. */
+.billRowPaid {
+  background: var(--color-background-secondary);
+  border-color: transparent;
+}
+
+.billRowPaid .rowMain,
+.billRowPaid .cellValue {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Small ✓ over the category icon: the state is legible even in greyscale, and
+   without relying on the colour bar alone. */
+.paidTick {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-surface);
+  background: var(--color-income);
+  color: #fff;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Marks a bill that cannot be paid a day late. */
+.strictMark {
+  color: var(--color-expense);
+  vertical-align: -1px;
+  margin-left: 3px;
 }
 
 /* ── Desktop: real columns under a header ─────────────────────────────────── */
@@ -337,4 +398,69 @@
   .billRow {
     padding: 0.875rem 1rem;
   }
+}
+
+/* ── Cash runway ──────────────────────────────────────────────────────────── */
+/* Three checkpoints answering "how much do I need, and by when". Sits above the
+   list because it is the question you arrive with; the list is how you act on
+   the answer. */
+
+.runway {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Kept three-across on a phone: stacking would push the list itself ~200px down
+   the screen, which is exactly the scanning problem the strip exists to fix.
+   Only the very narrowest devices fall back to one column. */
+@media (max-width: 339.98px) {
+  .runway {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .runwayBox {
+    padding: 0.5rem 0.5rem;
+  }
+
+  .runwayAmount {
+    font-size: 1rem;
+  }
+}
+
+.runwayBox {
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.runwayDate {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.runwayAmount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.runwayNote {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

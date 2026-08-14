@@ -31,6 +31,8 @@ interface BillFormValues {
   anchorMonth: string; // "YYYY-MM" — start of the first cycle
   dueDay: number | "";
   dueMonth: number | "";
+  hasGrace: boolean;
+  graceDays: number | "";
   notes: string;
 }
 
@@ -62,6 +64,11 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           .max(1_000_000, "validation.amountTooLarge"),
         categoryId: Yup.string().required("validation.categoryRequired"),
         frequency: Yup.mixed<BillFrequency>().oneOf(["weekly", "monthly", "yearly"]).required(),
+        graceDays: Yup.number().when("hasGrace", {
+          is: true,
+          then: (schema) => schema.typeError("validation.amountNumber").min(1, "validation.graceMin").max(120, "validation.graceMax").required("validation.required"),
+          otherwise: (schema) => schema.notRequired(),
+        }),
         intervalCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.intervalMin").max(24, "validation.intervalMax").required("validation.required"),
         notes: Yup.string().max(200, "validation.maxChars"),
       }),
@@ -83,6 +90,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       anchorMonth: toMonthInput(bill?.anchorDate ? firestoreToDate(bill.anchorDate) : bill?.createdAt ? firestoreToDate(bill.createdAt) : new Date()),
       dueDay: bill?.dueDay ?? "",
       dueMonth: bill?.dueMonth ?? "",
+      hasGrace: (bill?.graceDays ?? 0) > 0,
+      graceDays: bill?.graceDays ?? "",
       notes: bill?.notes ?? "",
     },
     validationSchema,
@@ -110,6 +119,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           // bucket maths stays stable if the user later raises the interval.
           anchorDate: new Date(anchorYear, anchorMonthIndex, 1),
           dueDay: values.dueDay === "" ? undefined : Number(values.dueDay),
+          // 0 and "no grace" are the same thing to every consumer, so the flag
+          // never has to be stored alongside the number.
+          graceDays: values.hasGrace && values.graceDays !== "" ? Number(values.graceDays) : 0,
           dueMonth: values.frequency === "yearly" && values.dueMonth !== "" ? Number(values.dueMonth) : undefined,
           notes: values.notes.trim() || undefined,
         };
@@ -319,6 +331,53 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               </>
             )}
           </Row>
+
+          {/* Payment window — the difference between "the bill arrived" and
+              "the money must be there". A subscription stops the day it fails;
+              a utility bill usually gives you weeks. Nothing else on the screen
+              can tell those two apart. */}
+          <FormGroup switch className="mt-3 mb-0 d-flex align-items-start gap-2">
+            <Input
+              type="switch"
+              role="switch"
+              id="bill-has-grace"
+              name="hasGrace"
+              checked={formik.values.hasGrace}
+              onChange={(e) => {
+                formik.setFieldValue("hasGrace", e.target.checked);
+                if (!e.target.checked) formik.setFieldValue("graceDays", "");
+              }}
+            />
+            <div style={{ minWidth: 0 }}>
+              <Label for="bill-has-grace" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
+                {t("bills.hasGrace")}
+              </Label>
+              <FormText className="small d-block">{t("bills.hasGraceHint")}</FormText>
+            </div>
+          </FormGroup>
+
+          {formik.values.hasGrace && (
+            <FormGroup className="mt-2 mb-0">
+              <Label className="small fw-medium">{t("bills.graceDays")}</Label>
+              <div className="input-group">
+                <Input
+                  type="number"
+                  name="graceDays"
+                  min={1}
+                  max={120}
+                  step={1}
+                  placeholder="25"
+                  value={formik.values.graceDays}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalid={!!(formik.touched.graceDays && formik.errors.graceDays)}
+                />
+                <span className="input-group-text">{t("bills.daysUnit")}</span>
+                <FormFeedback>{formik.errors.graceDays && t(formik.errors.graceDays)}</FormFeedback>
+              </div>
+              <FormText className="small">{t("bills.graceDaysHint")}</FormText>
+            </FormGroup>
+          )}
 
           <FormGroup className="mt-3 mb-0">
             <Label className="small fw-medium">{t("common.notes")}</Label>

@@ -240,7 +240,22 @@
     "usuallyOne": "usually {{amount}}",
     "usuallyRange": "usually {{min}}–{{max}}",
     "neverPaid": "never paid",
-    "nextShort": "next {{date}}"
+    "nextShort": "next {{date}}",
+    "hasGrace": "Can be paid late",
+    "hasGraceHint": "Utility bills usually stay payable for weeks after they arrive. Subscriptions stop the day they fail.",
+    "graceDays": "Payment window",
+    "graceDaysHint": "Days after the due date you can still pay safely.",
+    "daysUnit": "days",
+    "strictHint": "Must be paid on the day — no grace period",
+    "payBy": "pay by {{date}}",
+    "graceUntil": "window to {{date}}",
+    "lateByDays_one": "{{count}} day late",
+    "lateByDays_other": "{{count}} days late",
+    "runwayNow": "Now",
+    "runwayBy": "By {{date}}",
+    "runwayBillCount_one": "{{count}} bill",
+    "runwayBillCount_other": "{{count}} bills",
+    "moreActions": "More actions"
   },
   "transactions": {
     "title": "Transactions",
@@ -643,7 +658,9 @@
     "confirmPasswordRequired": "Please confirm your password",
     "fuelTypeRequired": "Fuel type is required",
     "priceRequired": "Price is required",
-    "quantityRequired": "Quantity is required"
+    "quantityRequired": "Quantity is required",
+    "graceMin": "At least 1 day",
+    "graceMax": "At most 120 days"
   },
   "errors": {
     "invalidCredentials": "Invalid email or password.",

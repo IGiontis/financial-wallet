@@ -1,7 +1,7 @@
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Row, Col } from "reactstrap";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { FiCheck, FiRotateCcw } from "react-icons/fi";
+import { FiCheck, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
 import { expectedAmount, getFrequencyLabel, getFrequencyToken, sinkingFund } from "./billsUtils";
@@ -15,6 +15,7 @@ interface BillDetailModalProps {
   onMarkPaid: (bill: BillWithStatus) => void;
   onUndoPayment: (bill: BillWithStatus) => void;
   onEdit: (bill: BillWithStatus) => void;
+  onDelete: (bill: BillWithStatus) => void;
 }
 
 /** Read-only fact, e.g. "Amount — €25.50". `sub` adds a small qualifier below,
@@ -37,7 +38,7 @@ function Fact({ label, value, accent, sub }: { label: string; value: string; acc
   );
 }
 
-export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEdit }: BillDetailModalProps) {
+export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEdit, onDelete }: BillDetailModalProps) {
   const { t, i18n } = useTranslation();
   const freq = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
@@ -170,9 +171,16 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       </ModalBody>
 
       <ModalFooter className="d-flex justify-content-between">
-        <Button color="secondary" outline onClick={() => onEdit(bill)} disabled={isBusy}>
-          {t("common.edit")}
-        </Button>
+        <div className="d-flex gap-2">
+          <Button color="secondary" outline onClick={() => onEdit(bill)} disabled={isBusy}>
+            {t("common.edit")}
+          </Button>
+          {/* Icon-only: this is the destructive, less-common action, so it stays
+              visually quieter than Edit rather than matching its weight. */}
+          <Button color="danger" outline onClick={() => onDelete(bill)} disabled={isBusy} aria-label={t("common.delete")} title={t("common.delete")}>
+            <FiTrash2 size={15} />
+          </Button>
+        </div>
 
         {paid ? (
           <Button color="warning" outline onClick={() => onUndoPayment(bill)} disabled={isBusy}>

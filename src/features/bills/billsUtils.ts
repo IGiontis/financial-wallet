@@ -63,39 +63,69 @@ export function getCurrentPeriodKey(bill: Pick<Bill, "frequency" | "intervalCoun
 // A soft hint for "roughly when I expect it". Undefined when the user left the
 // due day blank.
 
-export function getNextDueDate(bill: Bill, now: Date = new Date(), skipCurrentPeriod = false): Date | undefined {
+/**
+ * Due date of the period `date` falls in, whether or not it has already gone
+ * past. `getNextDueDate` rolls forward once the day is behind us, which is
+ * right for "when is it next due" but hides the payment that is late — or, for
+ * a bill with grace, still perfectly payable.
+ */
+export function getPeriodDueDate(bill: Bill, date: Date = new Date()): Date | undefined {
   const { frequency, dueDay, dueMonth } = bill;
-  const interval = getIntervalCount(bill);
+  if (dueDay == null) return undefined; // weekly: dueDay holds the weekday (0–6)
 
-  if (frequency === "weekly") {
-    if (dueDay == null) return undefined; // dueDay holds the weekday (0–6)
-    // Weekday within the current bucket, rolling to the next bucket once passed.
-    const periodStart = getPeriodStart(bill, now);
-    const candidate = weekdayWithin(periodStart, dueDay);
-    if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
-    return weekdayWithin(addWeeks(periodStart, interval), dueDay);
-  }
+  const periodStart = getPeriodStart(bill, date);
+  if (frequency === "weekly") return weekdayWithin(periodStart, dueDay);
+  if (frequency === "monthly") return clampDayOfMonth(periodStart.getFullYear(), periodStart.getMonth(), dueDay);
 
-  if (frequency === "monthly") {
-    if (dueDay == null) return undefined;
-    const periodStart = getPeriodStart(bill, now);
-    const candidate = clampDayOfMonth(periodStart.getFullYear(), periodStart.getMonth(), dueDay);
-    if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
-    const next = addMonths(periodStart, interval);
-    return clampDayOfMonth(next.getFullYear(), next.getMonth(), dueDay);
-  }
+  if (dueMonth == null) return undefined;
+  return clampDayOfMonth(periodStart.getFullYear(), dueMonth, dueDay);
+}
 
-  // yearly
-  if (dueDay == null || dueMonth == null) return undefined;
-  const periodStart = getPeriodStart(bill, now);
-  const candidate = clampDayOfMonth(periodStart.getFullYear(), dueMonth, dueDay);
+export function getNextDueDate(bill: Bill, now: Date = new Date(), skipCurrentPeriod = false): Date | undefined {
+  const candidate = getPeriodDueDate(bill, now);
+  if (candidate === undefined) return undefined;
   if (!skipCurrentPeriod && candidate >= startOfDay(now)) return candidate;
-  return clampDayOfMonth(periodStart.getFullYear() + interval, dueMonth, dueDay);
+
+  const interval = getIntervalCount(bill);
+  const periodStart = getPeriodStart(bill, now);
+
+  switch (bill.frequency) {
+    case "weekly":
+      return weekdayWithin(addWeeks(periodStart, interval), bill.dueDay!);
+    case "monthly": {
+      const next = addMonths(periodStart, interval);
+      return clampDayOfMonth(next.getFullYear(), next.getMonth(), bill.dueDay!);
+    }
+    case "yearly":
+      return clampDayOfMonth(periodStart.getFullYear() + interval, bill.dueMonth!, bill.dueDay!);
+  }
 }
 
 function startOfDay(d: Date): Date {
   const r = new Date(d);
   r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+// ─── Deadline ───────────────────────────────────────────────────────────────
+// The due date is when a bill *lands*; the deadline is the last day the money
+// has to be there. For most utilities those are weeks apart — electricity is
+// issued and then payable for another few weeks — while a subscription has no
+// gap at all: miss the day and it stops. Planning cash against the due date
+// alone therefore either panics you early or catches you out late.
+
+/** Days of slack after the due date. 0 = the payment cannot be late at all. */
+export const getGraceDays = (bill: Pick<Bill, "graceDays">) => Math.max(0, Math.round(bill.graceDays ?? 0));
+
+/** True when missing the day has immediate consequences (subscriptions). */
+export const isHardDeadline = (bill: Pick<Bill, "graceDays">) => getGraceDays(bill) === 0;
+
+export function getDeadline(bill: Pick<Bill, "graceDays">, nextDueDate: Date | undefined): Date | undefined {
+  if (!nextDueDate) return undefined;
+  const grace = getGraceDays(bill);
+  if (grace === 0) return nextDueDate;
+  const r = new Date(nextDueDate);
+  r.setDate(r.getDate() + grace);
   return r;
 }
 
@@ -157,7 +187,7 @@ export function paidAmountRange(payments: BillPayment[]): { min: number; max: nu
 
 // ─── Status ─────────────────────────────────────────────────────────────────
 
-export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
+function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
   const payments = allPayments
     .filter((p) => p.billId === bill.id)
     .sort((a, b) => firestoreToDate(b.paidDate).getTime() - firestoreToDate(a.paidDate).getTime());
@@ -169,6 +199,7 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
   // the (necessarily rough) stored estimate.
   const average = averagePaidAmount(payments);
   const forecastAmount = bill.isVariableAmount ? (average ?? bill.amount) : bill.amount;
+  const nextDueDate = getNextDueDate(bill, now, !!payment);
 
   return {
     ...bill,
@@ -179,9 +210,36 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
     averagePaidAmount: average,
     paidAmountRange: paidAmountRange(payments),
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
-    nextDueDate: getNextDueDate(bill, now, !!payment),
+    nextDueDate,
+    deadline: getDeadline(bill, nextDueDate),
     monthlyEquivalent: monthlyEquivalent(bill, forecastAmount),
   };
+}
+
+/**
+ * A bill with a grace period is not "next due" the moment its due date passes —
+ * it is still payable, and only rolls to the following period once the grace
+ * has run out too. Recomputing with `skipCurrentPeriod` forced off keeps an
+ * unpaid electricity bill visible for the whole window it can still be paid in.
+ */
+/**
+ * An unpaid bill points at *this* period's payment, even once the day has gone.
+ *
+ * `getNextDueDate` rolls forward the moment the date passes, which is right for
+ * "when does it come round again" but wrong for an outstanding bill: a
+ * subscription missed on the 10th would quietly re-advertise itself as due in
+ * three weeks, so nothing on the screen ever said you owed it. The period
+ * bucket still governs the roll-over — once the month turns, this returns the
+ * new month's date on its own.
+ */
+export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
+  const status = computeStatusInternal(bill, allPayments, now);
+  if (status.isPaidThisPeriod) return status;
+
+  const periodDue = getPeriodDueDate(bill, now);
+  if (!periodDue) return status;
+
+  return { ...status, nextDueDate: periodDue, deadline: getDeadline(bill, periodDue) };
 }
 
 // ─── Grouping by urgency ────────────────────────────────────────────────────
@@ -201,9 +259,60 @@ export function daysUntilDue(bill: BillWithStatus, now: Date = new Date()): numb
 
 export function getBillGroup(bill: BillWithStatus, now: Date = new Date()): BillGroup {
   if (bill.isPaidThisPeriod) return "paid";
-  const days = daysUntilDue(bill, now);
+  const days = daysUntilDeadline(bill, now);
   // No due date set → it can't be late, so treat it as upcoming.
   return days !== undefined && days < 0 ? "overdue" : "upcoming";
+}
+
+// ─── Urgency ────────────────────────────────────────────────────────────────
+
+/** Whole days until the money must actually be there. Negative = truly late. */
+export function daysUntilDeadline(bill: BillWithStatus, now: Date = new Date()): number | undefined {
+  if (!bill.deadline) return undefined;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const end = new Date(bill.deadline.getFullYear(), bill.deadline.getMonth(), bill.deadline.getDate()).getTime();
+  return Math.round((end - today) / 86_400_000);
+}
+
+/** Inside its grace window: the day has passed but it can still be paid. */
+export function isInGracePeriod(bill: BillWithStatus, now: Date = new Date()): boolean {
+  if (bill.isPaidThisPeriod || isHardDeadline(bill)) return false;
+  const toDue = daysUntilDue(bill, now);
+  const toDeadline = daysUntilDeadline(bill, now);
+  return toDue !== undefined && toDeadline !== undefined && toDue < 0 && toDeadline >= 0;
+}
+
+export type BillUrgency = "paid" | "late" | "soon" | "later";
+
+/** Within this many days of the deadline a bill counts as needing attention. */
+export const URGENT_DAYS = 7;
+
+/**
+ * One four-way answer to "where does this stand?", measured against the
+ * deadline rather than the due date — an electricity bill three days past its
+ * due date with three weeks of grace left is not in trouble, and shouldn't be
+ * coloured as if it were.
+ */
+export function billUrgency(bill: BillWithStatus, now: Date = new Date()): BillUrgency {
+  if (bill.isPaidThisPeriod) return "paid";
+  const days = daysUntilDeadline(bill, now);
+  if (days === undefined) return "later";
+  if (days < 0) return "late";
+  return days <= URGENT_DAYS ? "soon" : "later";
+}
+
+/** Colour token per state — the same scale the rows and the runway share. */
+export function urgencyToken(urgency: BillUrgency): string {
+  switch (urgency) {
+    case "paid":
+      return "--color-income";
+    case "late":
+      return "--color-expense";
+    case "soon":
+      return "--color-goal";
+    default:
+      return "--bs-primary";
+  }
 }
 
 // ─── Period progress ────────────────────────────────────────────────────────
@@ -250,8 +359,9 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
     groups[getBillGroup(bill, now)].push(bill);
   }
 
-  // Most overdue first; soonest due first; most recently paid first.
-  const byDays = (a: BillWithStatus, b: BillWithStatus) => (daysUntilDue(a, now) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDue(b, now) ?? Number.MAX_SAFE_INTEGER);
+  // Most overdue first; soonest deadline first; most recently paid first.
+  const byDays = (a: BillWithStatus, b: BillWithStatus) =>
+    (daysUntilDeadline(a, now) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDeadline(b, now) ?? Number.MAX_SAFE_INTEGER);
   groups.overdue.sort(byDays);
   groups.upcoming.sort(byDays);
   groups.paid.sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
@@ -261,6 +371,66 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
 
 /** Amount a bill is expected to cost — the recent average for variable bills. */
 export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
+
+// ─── Cash runway ────────────────────────────────────────────────────────────
+// "How much do I need to have, and by when?" — the question a list of bills
+// can't answer on its own. Each checkpoint is a real deadline date carrying a
+// running total, so the answer is a date and a figure rather than a sum the
+// user has to do in their head.
+
+export interface CashCheckpoint {
+  /** Last day the money has to be in place. */
+  date: Date;
+  bills: BillWithStatus[];
+  /** Falling due on this date alone. */
+  amount: number;
+  /** Everything from today through this date. */
+  cumulative: number;
+  /** How many bills that running total covers. */
+  cumulativeCount: number;
+  /** How many of the cumulative set cannot be paid a day late. */
+  strictCount: number;
+  /** True when this checkpoint carries bills whose deadline has already gone. */
+  overdue: boolean;
+}
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limit = 3): CashCheckpoint[] {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const pending = bills.filter((b) => b.isActive && !b.isPaidThisPeriod && b.deadline);
+
+  const byDate = new Map<string, CashCheckpoint>();
+  for (const bill of pending) {
+    // Anything already past its deadline is needed *now*, not on a date that
+    // has been and gone — so it collapses onto today's checkpoint.
+    const raw = bill.deadline!;
+    const date = raw < today ? today : new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
+
+    const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false };
+    entry.bills.push(bill);
+    entry.amount += expectedAmount(bill);
+    if (raw < today) entry.overdue = true;
+    byDate.set(dayKey(date), entry);
+  }
+
+  const checkpoints = Array.from(byDate.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let running = 0;
+  let count = 0;
+  let strict = 0;
+  for (const checkpoint of checkpoints) {
+    running += checkpoint.amount;
+    count += checkpoint.bills.length;
+    strict += checkpoint.bills.filter(isHardDeadline).length;
+    checkpoint.cumulative = running;
+    checkpoint.cumulativeCount = count;
+    checkpoint.strictCount = strict;
+  }
+
+  return checkpoints.slice(0, limit);
+}
 
 // ─── Sinking fund ───────────────────────────────────────────────────────────
 // A bill that lands every few months is easy to forget until it arrives all at
@@ -288,10 +458,32 @@ export interface SinkingFund {
  * Undefined when the bill recurs too often to be worth saving for, or when
  * there's no due date to work back from.
  */
+/**
+ * The next due date strictly ahead of today.
+ *
+ * `nextDueDate` on an unpaid bill points at the payment you currently owe, which
+ * may already be behind us — right for the list, wrong for a savings target:
+ * you save toward the payment still to come, not the one sitting on your desk.
+ */
+function forwardDueDate(bill: BillWithStatus, now: Date): Date | undefined {
+  const due = bill.nextDueDate;
+  if (!due || due >= startOfDay(now)) return due;
+
+  const interval = getIntervalCount(bill);
+  switch (bill.frequency) {
+    case "weekly":
+      return addWeeks(due, interval);
+    case "monthly":
+      return addMonths(due, interval);
+    case "yearly":
+      return addYears(due, interval);
+  }
+}
+
 export function sinkingFund(bill: BillWithStatus, now: Date = new Date()): SinkingFund | undefined {
   if (monthsBetweenPayments(bill) < SINKING_FUND_MIN_MONTHS) return undefined;
 
-  const progress = periodProgress(bill, bill.nextDueDate, now);
+  const progress = periodProgress(bill, forwardDueDate(bill, now), now);
   if (progress === undefined) return undefined;
 
   const target = expectedAmount(bill);
