@@ -392,7 +392,7 @@ function BillRow({
 // per payment, so the cadence is something you see rather than something the
 // subtitle states.
 
-const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-goal)" : undefined);
+const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-expense)" : undefined);
 
 function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const { t, i18n } = useTranslation();
