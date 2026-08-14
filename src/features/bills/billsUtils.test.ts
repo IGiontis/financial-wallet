@@ -789,8 +789,8 @@ describe("billMonthStrip", () => {
     expect(strip.filter((c) => c.status === "paid")).toHaveLength(0);
   });
 
-  it("paints both months of a paid every-2-months period", () => {
-    // Anchored so Jul+Aug share a bucket.
+  it("paints both months of a paid every-2-months period, then the next bucket as due", () => {
+    // Anchored so Jul+Aug share a bucket, Sep+Oct the next one.
     const water = makeBill({ dueDay: 10, intervalCount: 2, anchorDate: new Date("2026-01-01") });
     const paid = [payment("2026-07", new Date("2026-07-08"))];
     const status = computeBillStatus(water, paid, now);
@@ -798,15 +798,19 @@ describe("billMonthStrip", () => {
 
     expect(strip.find((c) => c.start.getMonth() === 6)!.status).toBe("paid"); // Jul
     expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("paid"); // Aug — same bucket
-    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("empty"); // Sep — next bucket, not due yet
+    // Settled bills roll forward: it's the NEXT bucket that's now waiting to be
+    // paid, and both of its months should read that way, not just one.
+    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("due"); // Sep
+    expect(strip.find((c) => c.start.getMonth() === 9)!.status).toBe("due"); // Oct
   });
 
-  it("marks a paid current month as paid, not due", () => {
+  it("marks a paid current month as paid, and the following one as due", () => {
     const netflix = makeBill({ dueDay: 5 });
     const status = computeBillStatus(netflix, [payment("2026-08", new Date("2026-08-05"))], now);
     const strip = billMonthStrip(status, now);
 
-    expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("paid");
+    expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("paid"); // Aug
+    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("due"); // Sep — what's coming next
   });
 
   it("leaves months before the bill existed as plain empty, not flagged", () => {

@@ -635,21 +635,27 @@ export const supportsMonthStrip = (bill: Pick<Bill, "frequency">) => bill.freque
 /**
  * `before` and `after` count whole calendar months either side of the current
  * one, which is always included — so the defaults draw 6 chips total.
+ *
+ * "Due" tracks `nextDueDate`'s own period rather than "the current calendar
+ * month, if unpaid": once a bill is settled, `nextDueDate` has already rolled
+ * forward to the *following* period, and that's the month this strip needs to
+ * point at — the question is "what's coming", not just "is this month covered".
  */
 export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), before = 3, after = 2): MonthChip[] {
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextDuePeriodKey = bill.nextDueDate ? getPeriodKey(bill, bill.nextDueDate) : undefined;
 
   const chips: MonthChip[] = [];
   for (let i = -before; i <= after; i++) {
     const start = addMonths(currentMonthStart, i);
     const periodKey = getPeriodKey(bill, start);
     const isPaid = bill.payments.some((p) => p.periodKey === periodKey);
-    const isCurrent = periodKey === bill.currentPeriodKey;
+    const isNextDue = nextDuePeriodKey !== undefined && periodKey === nextDuePeriodKey;
 
     chips.push({
       key: `${start.getFullYear()}-${start.getMonth()}`,
       start,
-      status: isPaid ? "paid" : isCurrent && !bill.isPaidThisPeriod ? "due" : "empty",
+      status: isPaid ? "paid" : isNextDue ? "due" : "empty",
     });
   }
   return chips;
