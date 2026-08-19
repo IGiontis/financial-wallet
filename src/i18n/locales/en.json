@@ -609,7 +609,12 @@
     "now": "now",
     "canWaitUntil": "can wait to {{date}} · {{days}} days of grace",
     "dipsOn": "you go {{amount}} under on {{date}}",
-    "dipsOnBill": "you go {{amount}} under on {{date}}, on {{name}}"
+    "dipsOnBill": "you go {{amount}} under on {{date}}, on {{name}}",
+    "note_paid": "paid — nothing due in this range",
+    "note_undated": "no due date set on it",
+    "note_funded": "nothing more wanted this month",
+    "noBillsAtAll": "No bills set up yet.",
+    "noGoalsAtAll": "No active goals."
   },
   "settings": {
     "title": "Settings",

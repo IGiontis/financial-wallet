@@ -19,6 +19,8 @@ import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../..
 // already commitments rather than guesses.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Rounded and negated, without turning a zero row into `-0` and "−0,00 €". */
+const negate = (n: number) => (n === 0 ? 0 : -round2(n));
 const clampDay = (year: number, month: number, day: number) => new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()));
 
 // ─── Salary detection ────────────────────────────────────────────────────────
@@ -256,6 +258,16 @@ export interface PlanRow {
   occurrences?: number;
   /** Signed monthly figure, for rows entered as a rate rather than as dates. */
   perMonth?: number;
+  /**
+   * Why a row costs nothing in this window.
+   *
+   * A bill with no payment due — because this month is already paid, or because
+   * it has no due date to schedule from — used to be dropped from the plan
+   * altogether. That reads as the bill having gone missing rather than as it
+   * having nothing to charge, so every active bill and goal now gets a row and
+   * this says which case it is.
+   */
+  note?: "paid" | "undated" | "funded";
   enabled: boolean;
 }
 
@@ -355,12 +367,21 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
 
   for (const bill of bills.filter((b) => b.isActive)) {
     const occurrences = billOccurrences(bill, today, end);
-    if (occurrences.length === 0) continue;
-
     const amount = round2(bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
     const enabled = isOn(bill.id);
 
-    rows.push({ id: bill.id, source: "bill", label: bill.name, total: enabled ? -round2(amount * occurrences.length) : 0, occurrences: occurrences.length, enabled });
+    rows.push({
+      id: bill.id,
+      source: "bill",
+      label: bill.name,
+      total: enabled ? negate(amount * occurrences.length) : 0,
+      occurrences: occurrences.length,
+      perMonth: negate(amount),
+      // Listed even at zero: a bill that is settled for this month has not
+      // stopped existing, and hiding it makes the plan look like it forgot.
+      note: occurrences.length > 0 ? undefined : getPeriodDueDate(bill, today) ? "paid" : "undated",
+      enabled,
+    });
     if (!enabled) continue;
 
     for (const occurrence of occurrences) {
@@ -392,11 +413,21 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
     const need = goalMonthlyNeed(goal, now);
     const target = goalMonthlyTarget(goal, now);
     const total = need + target * laterMonths.length;
-    if (total <= 0) continue;
 
     const enabled = isOn(goal.id);
-    rows.push({ id: goal.id, source: "goal", label: goal.name, total: enabled ? -round2(total) : 0, occurrences: (need > 0 ? 1 : 0) + (target > 0 ? laterMonths.length : 0), perMonth: target, enabled });
-    if (!enabled) continue;
+    rows.push({
+      id: goal.id,
+      source: "goal",
+      label: goal.name,
+      total: enabled ? negate(total) : 0,
+      occurrences: (need > 0 ? 1 : 0) + (target > 0 ? laterMonths.length : 0),
+      perMonth: negate(target),
+      // Same reasoning as the bills: a goal you are keeping up with reports
+      // zero rather than disappearing.
+      note: total > 0 ? undefined : "funded",
+      enabled,
+    });
+    if (!enabled || total <= 0) continue;
 
     if (need > 0) events.push({ kind: "goal", label: goal.name, amount: -need, date: today });
     if (target > 0) for (const month of laterMonths) events.push({ kind: "goal", label: goal.name, amount: -target, date: month });

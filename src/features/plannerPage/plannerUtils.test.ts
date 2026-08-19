@@ -224,6 +224,31 @@ describe("buildPlan", () => {
     expect(off.events.filter((e) => e.kind === "income")).toHaveLength(0);
   });
 
+  it("still lists a bill that has nothing due in the window", () => {
+    // Dropping it made the plan look as though it had forgotten the bill. It
+    // costs nothing here, and says which of the two reasons that is.
+    const paid = bill({
+      id: "b1",
+      name: "Netflix",
+      dueDay: 22,
+      payments: [{ id: "p", userId: "u1", billId: "b1", periodKey: "2026-08", amount: 50, paidDate: new Date(2026, 7, 3), createdAt: new Date(2026, 7, 3) }],
+    } as Partial<BillWithStatus>);
+
+    const plan = buildPlan({ ...base, horizon: "1m", bills: [paid, bill({ id: "b2", name: "No date" })] });
+
+    expect(plan.rows.filter((r) => r.source === "bill")).toHaveLength(2);
+    expect(plan.rows.find((r) => r.id === "b1")).toMatchObject({ occurrences: 0, total: 0, note: "paid" });
+    expect(plan.rows.find((r) => r.id === "b2")).toMatchObject({ occurrences: 0, total: 0, note: "undated" });
+    expect(plan.billsTotal).toBe(0);
+  });
+
+  it("still lists a goal that is already funded for the month", () => {
+    const funded = goal({ id: "g1", targetPeriod: "monthly", targetAmount: 200, currentPeriodSaved: 200 });
+    const plan = buildPlan({ ...base, horizon: "1m", goals: [funded] });
+
+    expect(plan.rows.find((r) => r.id === "g1")).toMatchObject({ total: 0, note: "funded" });
+  });
+
   it("asks a goal for what is left this month, then the full target after", () => {
     const trip = goal({ id: "g1", name: "Trip", targetPeriod: "monthly", monthlyRequired: 200, currentPeriodSaved: 200 });
     const plan = buildPlan({ ...base, horizon: "3m", goals: [trip] });

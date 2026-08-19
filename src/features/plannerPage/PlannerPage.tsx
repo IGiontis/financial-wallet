@@ -219,8 +219,10 @@ export function PlannerPage() {
     // The salary row has no document behind it, so its label is an internal id
     // rather than something a screen reader should ever read out.
     const title = row.source === "salary" ? t("planner.salaryLabel") : row.label;
-    const hint =
-      row.occurrences !== undefined
+    // A zero row says why it is zero. "×0" would be true and useless.
+    const hint = row.note
+      ? t(`planner.note_${row.note}`)
+      : row.occurrences !== undefined
         ? t("planner.timesCount", { times: row.occurrences })
         : t("planner.perMonthShort", { amount: formatCurrency(Math.abs(row.perMonth ?? 0)) });
 
@@ -560,18 +562,24 @@ export function PlannerPage() {
               {t("planner.moneyOutHint")}
             </p>
 
-            {billRows.length > 0 && (
-              <>
-                {sectionHeader(t("planner.groupBills"), billRows)}
-                {billRows.map((row) => renderRow(row))}
-              </>
+            {/* Both sections are always drawn. An empty one says so; a missing
+                one looks like the plan lost track of them. */}
+            {sectionHeader(t("planner.groupBills"), billRows)}
+            {billRows.length === 0 ? (
+              <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
+                {t("planner.noBillsAtAll")}
+              </p>
+            ) : (
+              billRows.map((row) => renderRow(row))
             )}
 
-            {goalRows.length > 0 && (
-              <>
-                {sectionHeader(t("planner.groupGoals"), goalRows)}
-                {goalRows.map((row) => renderRow(row))}
-              </>
+            {sectionHeader(t("planner.groupGoals"), goalRows)}
+            {goalRows.length === 0 ? (
+              <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
+                {t("planner.noGoalsAtAll")}
+              </p>
+            ) : (
+              goalRows.map((row) => renderRow(row))
             )}
 
             {sectionHeader(t("planner.groupMine"), budgetRows)}
