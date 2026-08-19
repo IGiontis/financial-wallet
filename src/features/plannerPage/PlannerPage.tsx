@@ -1,297 +1,127 @@
-import { useState, useMemo } from "react";
-import { Container, Row, Col, Card, CardBody, Input, InputGroup, InputGroupText, Spinner, Progress } from "reactstrap";
-import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths } from "date-fns";
-import type { Locale } from "date-fns";
+import { useMemo, useState } from "react";
+import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Row, Spinner } from "reactstrap";
+import { useTranslation } from "react-i18next";
+import { FiAlertTriangle, FiCheckCircle, FiChevronDown, FiChevronRight, FiClock, FiLock } from "react-icons/fi";
+
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
+import { useBills } from "../bills/useBills";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useTranslation } from "react-i18next";
-import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
-import type { InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import { firestoreToDate } from "../../shared/utils/dates";
+import { isDiscretionarySpending, isEarning } from "../../shared/utils/moneyModel";
+import { isHardDeadline } from "../bills/billsUtils";
+import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, PLANNER_HORIZONS, type PlannerEvent, type PlannerHorizon } from "./plannerUtils";
+import { BalanceLine } from "./BalanceLine";
+import segmented from "../../shared/css/Segmented.module.css";
+import styles from "./css/PlannerPage.module.css";
 
-function getSalaryKey(date: Date): string {
-  return `planner-salary-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
+const VERDICT_STYLE = {
+  ok: { className: styles.verdictOk, Icon: FiCheckCircle },
+  tight: { className: styles.verdictTight, Icon: FiClock },
+  short: { className: styles.verdictShort, Icon: FiAlertTriangle },
+} as const;
 
-function getDisabledGoalsKey(date: Date): string {
-  return `planner-disabled-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function loadDisabledGoals(date: Date): Set<string> {
-  try {
-    const raw = localStorage.getItem(getDisabledGoalsKey(date));
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDisabledGoals(date: Date, ids: Set<string>) {
-  localStorage.setItem(getDisabledGoalsKey(date), JSON.stringify([...ids]));
-}
-
-const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
-const isSavingsGoal = (g: InvestmentGoalWithStats) => g.goalType === "targeted" && !isRecurring(g);
-const isInvestmentGoal = (g: InvestmentGoalWithStats) => isRecurring(g) || g.goalType === "open_ended";
-
-// Recalculates monthly needed based on the viewed month, not today.
-// monthsLeft=0 means deadline is this month — full remaining is due now.
-function getMonthlyNeededForDate(g: InvestmentGoalWithStats, viewDate: Date): number {
-  if (g.goalType === "open_ended") return 0;
-  if (g.targetPeriod === "monthly") return g.remaining ?? 0;
-  if (g.targetPeriod === "yearly") return (g.yearlyRequired ?? 0) / 12;
-  if (g.deadline) {
-    const deadline = firestoreToDate(g.deadline);
-    const monthsLeft = Math.max(Math.ceil((deadline.getFullYear() - viewDate.getFullYear()) * 12 + (deadline.getMonth() - viewDate.getMonth())), 0);
-    // deadline is this month — full remaining amount is due
-    if (monthsLeft === 0) return g.remaining ?? 0;
-    return (g.remaining ?? 0) / monthsLeft;
-  }
-  return g.monthlyRequired ?? 0;
-}
-
-function Toggle({ enabled, onToggle, size = "md" }: { enabled: boolean; onToggle: () => void; size?: "sm" | "md" }) {
-  const w = size === "sm" ? 28 : 32;
-  const h = size === "sm" ? 16 : 18;
-  const thumb = size === "sm" ? 10 : 12;
-  return (
-    <div
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      style={{
-        width: w,
-        height: h,
-        borderRadius: h / 2,
-        background: enabled ? "var(--color-income)" : "var(--color-border-primary)",
-        cursor: "pointer",
-        position: "relative",
-        transition: "background 0.2s",
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: (h - thumb) / 2,
-          left: enabled ? w - thumb - 2 : 2,
-          width: thumb,
-          height: thumb,
-          borderRadius: "50%",
-          background: "var(--color-surface)",
-          transition: "left 0.2s",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
-        }}
-      />
-    </div>
-  );
-}
-
-// Declared at module level so it isn't rebuilt on every PlannerPage render —
-// a component created during render remounts its whole subtree each time.
-function GoalList({
-  items,
-  emptyText,
-  disabledGoals,
-  currentDate,
-  formatCurrency,
-  onToggleGoal,
-  locale,
-}: {
-  items: InvestmentGoalWithStats[];
-  emptyText: string;
-  disabledGoals: Set<string>;
-  currentDate: Date;
-  formatCurrency: (n: number) => string;
-  onToggleGoal: (id: string) => void;
-  locale: Locale;
-}) {
-  const { t } = useTranslation();
-
-  if (items.length === 0) {
-    return <p style={{ fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", padding: "0.5rem 0", margin: 0 }}>{emptyText}</p>;
-  }
-
-  return (
-    <>
-      {items.map((g) => {
-        const enabled = !disabledGoals.has(g.id);
-        const needed = getMonthlyNeededForDate(g, currentDate);
-        return (
-          <div key={g.id} style={{ padding: "8px 0", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  fontSize: 12,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  flex: 1,
-                  minWidth: 0,
-                  color: enabled ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                  textDecoration: enabled ? "none" : "line-through",
-                }}
-              >
-                {g.icon} {g.name}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, color: !enabled ? "var(--color-text-secondary)" : "var(--color-goal)" }}>
-                {!enabled ? t("planner.off") : formatCurrency(needed)}
-              </span>
-              <Toggle enabled={enabled} onToggle={() => onToggleGoal(g.id)} size="sm" />
-            </div>
-            {enabled && (
-              <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                {g.status && (
-                  <span style={{ fontSize: 10, color: g.status === "behind" ? "var(--color-expense)" : "var(--color-text-secondary)" }}>
-                    {g.status === "behind" ? t("goals.behind") : t("goals.onTrack")}
-                  </span>
-                )}
-                {g.goalType === "targeted" && g.deadline && (
-                  <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>
-                    · {t("planner.deadlineShort", { date: format(firestoreToDate(g.deadline), "dd MMM yyyy", { locale }) })}
-                  </span>
-                )}
-                {g.targetPeriod === "monthly" && (
-                  <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· {t("planner.monthlyTarget", { amount: formatCurrency(g.targetAmount ?? 0) })}</span>
-                )}
-                {g.targetPeriod === "yearly" && (
-                  <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· {t("planner.yearlyTarget", { amount: formatCurrency(g.targetAmount ?? 0) })}</span>
-                )}
-                {g.goalType === "open_ended" && (
-                  <span style={{ fontSize: 10, color: "var(--color-text-secondary)" }}>· {t("planner.savedAmount", { amount: formatCurrency(g.totalSaved) })}</span>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
+/**
+ * "Will the money last?" — one verdict, the day it breaks, and every assumption
+ * behind it laid out so the answer can be argued with rather than trusted.
+ *
+ * Everything is derived from transactions, bills and goals the app already
+ * holds. The only manual input is income the user expects but hasn't received,
+ * which nothing can infer.
+ */
 export function PlannerPage() {
   const { t, i18n } = useTranslation();
-  const locale = dateFnsLocale(i18n.resolvedLanguage);
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [salaryInput, setSalaryInput] = useState<string>(() => localStorage.getItem(getSalaryKey(new Date())) ?? "");
-  const [disabledGoals, setDisabledGoals] = useState<Set<string>>(() => loadDisabledGoals(new Date()));
+  const lang = i18n.resolvedLanguage ?? "en";
 
-  const monthRange = useMemo(() => ({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }), [currentDate]);
-  const monthLabel = format(currentDate, "MMMM yyyy", { locale });
-  const isToday = format(currentDate, "yyyy-MM") === format(new Date(), "yyyy-MM");
-  const salary = parseFloat(salaryInput) || 0;
-
-  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
-  const { format: formatCurrency } = useCurrencyConverter();
+  const { data: bills = [], isLoading: billLoading } = useBills();
+  const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
 
-  const handleMonthChange = (dir: "prev" | "next") => {
-    const next = dir === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1);
-    setCurrentDate(next);
-    setSalaryInput(localStorage.getItem(getSalaryKey(next)) ?? "");
-    setDisabledGoals(loadDisabledGoals(next));
-  };
+  // One clock reading for the visit, so the projection doesn't shift mid-render.
+  const [now] = useState(() => new Date());
 
-  const handleSalaryChange = (v: string) => {
-    setSalaryInput(v);
-    localStorage.setItem(getSalaryKey(currentDate), v);
-  };
+  const [horizon, setHorizon] = useLocalStorage<PlannerHorizon>("planner-horizon", "payday");
+  const [extraInput, setExtraInput] = useLocalStorage<string>(`planner-extra-${now.getFullYear()}-${now.getMonth()}`, "");
+  const [skippedGoals, setSkippedGoals] = useLocalStorage<string[]>(`planner-skip-${now.getFullYear()}-${now.getMonth()}`, []);
+  const [openBreakdown, setOpenBreakdown] = useState<"income" | "spent" | null>(null);
+  const [selectedDay, setSelectedDay] = useState(-1);
 
-  const toggleGoal = (id: string) => {
-    setDisabledGoals((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      saveDisabledGoals(currentDate, next);
-      return next;
-    });
-  };
+  const salary = useMemo(() => detectSalary(transactions, now), [transactions, now]);
+  const skipIds = useMemo(() => new Set(skippedGoals), [skippedGoals]);
 
-  const monthTransactions = useMemo(() => transactions.filter((tx) => isWithinInterval(firestoreToDate(tx.date), monthRange)), [transactions, monthRange]);
-
-  const totalActualExpenses = useMemo(
-    () => monthTransactions.filter((tx) => tx.type === "expense" && !tx.isInvestmentTransaction && !tx.isGoalTransaction).reduce((s, tx) => s + Math.abs(tx.amount), 0),
-    [monthTransactions],
+  const plan = useMemo(
+    () => buildPlan({ transactions, bills, goals, skipGoalIds: skipIds, expectedExtra: parseFloat(extraInput) || 0, salary, horizon, now }),
+    [transactions, bills, goals, skipIds, extraInput, salary, horizon, now],
   );
 
-  const activeGoals = useMemo(() => goals.filter((g) => g.isActive && !g.isCompleted), [goals]);
+  const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
+  // Greek inflects month names: `{ month: "long" }` alone yields the genitive
+  // ("Αυγούστου"), which is right inside a date and wrong as a heading. Adding
+  // the year switches Intl to the standalone nominative, so the month part is
+  // pulled back out of that rather than formatted on its own.
+  const monthNameFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }), [lang]);
+  const monthName = useMemo(
+    () => (date: Date) => monthNameFmt.formatToParts(date).find((part) => part.type === "month")?.value ?? "",
+    [monthNameFmt],
+  );
 
-  const activeInvestmentGoals = useMemo(
+  // Grouped by calendar month, so a multi-month window reads as months rather
+  // than one long undivided list. Each header carries that month's outgoings —
+  // the figure you would otherwise be adding up by eye.
+  const eventMonths = useMemo(() => {
+    const groups: { key: string; label: string; outgoing: number; events: PlannerEvent[] }[] = [];
+
+    for (const event of plan.events) {
+      const key = `${event.date.getFullYear()}-${event.date.getMonth()}`;
+      const label = event.date.getFullYear() === now.getFullYear() ? monthName(event.date) : `${monthName(event.date)} ${event.date.getFullYear()}`;
+      const last = groups[groups.length - 1];
+
+      if (last?.key === key) last.events.push(event);
+      else groups.push({ key, label, outgoing: 0, events: [event] });
+
+      if (event.amount < 0) groups[groups.length - 1].outgoing -= event.amount;
+    }
+
+    return groups;
+  }, [plan.events, monthName, now]);
+
+  // The transactions behind the two headline figures, so neither is a number
+  // the user simply has to believe.
+  const breakdown = useMemo(() => {
+    const inCycle = (d: Date) => d >= plan.cycleStart && d <= now;
+    const rows = (match: (tx: (typeof transactions)[number]) => boolean) =>
+      transactions
+        .filter((tx) => match(tx) && inCycle(firestoreToDate(tx.date)))
+        .map((tx) => ({ id: tx.id, label: tx.description, amount: Math.abs(tx.amount), date: firestoreToDate(tx.date) }))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return { income: rows(isEarning), spent: rows(isDiscretionarySpending) };
+  }, [transactions, plan.cycleStart, now]);
+
+  const paidBills = useMemo(
     () =>
-      goals
-        .filter(
-          (g) =>
-            isInvestmentGoal(g) && (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted) && g.status !== "ahead" && g.status !== "on_track" && g.goalType !== "open_ended",
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [goals],
+      bills
+        .filter((b) => b.isActive && b.isPaidThisPeriod && b.payment && firestoreToDate(b.payment.paidDate) >= plan.cycleStart)
+        .map((b) => ({ id: b.id, label: b.name, amount: b.payment!.amount, date: firestoreToDate(b.payment!.paidDate) })),
+    [bills, plan.cycleStart],
   );
 
-  const activeSavingsGoals = useMemo(
-    () =>
-      activeGoals
-        .filter((g) => {
-          if (!isSavingsGoal(g)) return false;
-          // exclude goals that are currently ahead (based on today's data)
-          if (g.status === "ahead") return false;
-          if (g.deadline) {
-            const deadline = firestoreToDate(g.deadline);
-            // exclude if deadline already passed before selected month starts
-            if (deadline < startOfMonth(currentDate)) return false;
-          }
-          // exclude if nothing is needed this month (would show as "Ahead" incorrectly)
-          const needed = getMonthlyNeededForDate(g, currentDate);
-          if (needed === 0) return false;
-          return true;
-        })
-        .sort((a, b) => {
-          if (a.deadline && !b.deadline) return -1;
-          if (!a.deadline && b.deadline) return 1;
-          return 0;
-        }),
-    [activeGoals, currentDate],
-  );
+  // Every goal that costs money in *some* month of the window, not just this
+  // one. Filtering on what is still owed this cycle would hide a goal already
+  // funded — while the projection kept charging it in later months, with no way
+  // for the user to see or switch it off.
+  const activeGoals = useMemo(() => goals.filter((g) => g.isActive && !g.isCompleted && goalMonthlyTarget(g, now) > 0), [goals, now]);
+  const allGoalsOn = activeGoals.length > 0 && activeGoals.every((g) => !skipIds.has(g.id));
 
-  const allSavingsEnabled = activeSavingsGoals.length > 0 && activeSavingsGoals.every((g) => !disabledGoals.has(g.id));
-  const allInvestmentsEnabled = activeInvestmentGoals.length > 0 && activeInvestmentGoals.every((g) => !disabledGoals.has(g.id));
+  const breaksOnIndex = plan.breaksOn ? plan.points.findIndex((p) => p.date.getTime() === plan.breaksOn!.getTime()) : -1;
+  const selectedPoint = selectedDay >= 0 && selectedDay < plan.points.length ? plan.points[selectedDay] : undefined;
 
-  const toggleAllSavings = () => {
-    setDisabledGoals((prev) => {
-      const next = new Set(prev);
-      if (allSavingsEnabled) activeSavingsGoals.forEach((g) => next.add(g.id));
-      else activeSavingsGoals.forEach((g) => next.delete(g.id));
-      saveDisabledGoals(currentDate, next);
-      return next;
-    });
-  };
+  const toggleGoal = (id: string) => setSkippedGoals((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
+  const toggleAllGoals = () => setSkippedGoals(allGoalsOn ? activeGoals.map((g) => g.id) : []);
 
-  const toggleAllInvestments = () => {
-    setDisabledGoals((prev) => {
-      const next = new Set(prev);
-      if (allInvestmentsEnabled) activeInvestmentGoals.forEach((g) => next.add(g.id));
-      else activeInvestmentGoals.forEach((g) => next.delete(g.id));
-      saveDisabledGoals(currentDate, next);
-      return next;
-    });
-  };
-
-  const totalGoalsNeeded = useMemo(
-    () => activeSavingsGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeededForDate(g, currentDate), 0),
-    [activeSavingsGoals, disabledGoals, currentDate],
-  );
-
-  const totalInvestmentsNeeded = useMemo(
-    () => activeInvestmentGoals.filter((g) => !disabledGoals.has(g.id)).reduce((s, g) => s + getMonthlyNeededForDate(g, currentDate), 0),
-    [activeInvestmentGoals, disabledGoals, currentDate],
-  );
-
-  const freeToSpend = salary - totalActualExpenses - totalGoalsNeeded - totalInvestmentsNeeded;
-  const pct = (v: number) => (salary > 0 ? Math.min(100, Math.round((v / salary) * 100)) : 0);
-
-  const isLoading = txLoading || goalLoading;
-
-  if (isLoading) {
+  if (txLoading || goalLoading || billLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
         <Spinner color="primary" />
@@ -299,215 +129,305 @@ export function PlannerPage() {
     );
   }
 
-  const metricCards = [
-    { label: t("overview.income"), value: formatCurrency(salary), color: "var(--color-income)", toggle: null },
-    { label: t("overview.expenses"), value: formatCurrency(totalActualExpenses), color: "var(--color-expense)", toggle: null },
-    {
-      label: t("planner.goalsNeeded"),
-      value: formatCurrency(totalGoalsNeeded),
-      color: allSavingsEnabled ? "var(--color-goal)" : "var(--color-text-secondary)",
-      toggle: activeSavingsGoals.length > 0 ? { enabled: allSavingsEnabled, onToggle: toggleAllSavings } : null,
-    },
-    {
-      label: t("planner.investmentsNeeded"),
-      value: formatCurrency(totalInvestmentsNeeded),
-      color: allInvestmentsEnabled ? "var(--color-invest)" : "var(--color-text-secondary)",
-      toggle: activeInvestmentGoals.length > 0 ? { enabled: allInvestmentsEnabled, onToggle: toggleAllInvestments } : null,
-    },
-    { label: t("planner.freeToSpend"), value: formatCurrency(Math.max(0, freeToSpend)), color: freeToSpend >= 0 ? "var(--color-income)" : "var(--color-expense)", toggle: null },
-  ];
+  if (isError) {
+    return (
+      <Container fluid className="py-4">
+        <Alert color="danger" className="small">
+          {t("common.failedToLoad")}
+        </Alert>
+      </Container>
+    );
+  }
 
-  const bars = [
-    { label: t("overview.expenses"), value: totalActualExpenses, color: "var(--color-expense)" },
-    { label: t("planner.goalsNeeded"), value: totalGoalsNeeded, color: "var(--color-goal)" },
-    { label: t("planner.investmentsNeeded"), value: totalInvestmentsNeeded, color: "var(--color-invest)" },
-    { label: t("planner.freeToSpend"), value: Math.max(0, freeToSpend), color: "var(--color-income)" },
-  ];
+  const { className: verdictClass, Icon: VerdictIcon } = VERDICT_STYLE[plan.verdict];
+  const headline = plan.verdict === "short" ? t("planner.verdictShort") : plan.verdict === "tight" ? t("planner.verdictTight") : t("planner.verdictOk");
+  const amount = plan.verdict === "short" ? plan.shortfall : plan.surplus;
 
-  const navBtnStyle: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 16,
-    lineHeight: 1,
-    color: "var(--color-text-primary)",
-    padding: "3px 10px",
+  const subline =
+    plan.verdict === "short" && plan.breaksOn
+      ? plan.breakingEvent
+        ? t("planner.breaksOnBill", { date: dateFmt.format(plan.breaksOn), name: plan.breakingEvent.label })
+        : t("planner.breaksOn", { date: dateFmt.format(plan.breaksOn) })
+      : t("planner.untilDate", { date: dateFmt.format(plan.end), days: plan.daysRemaining });
+
+  const eventLabel = (event: PlannerEvent) =>
+    event.kind === "goal" ? t("planner.goalsReserved") : event.kind === "income" ? t("planner.salaryLabel") : event.label;
+
+  const renderEvent = (event: PlannerEvent, index: number) => {
+    const source = event.billId ? bills.find((b) => b.id === event.billId) : undefined;
+    const isBreaking = plan.breakingEvent === event;
+    const tone = isBreaking ? "var(--color-expense)" : event.amount > 0 ? "var(--color-income)" : undefined;
+
+    return (
+      <div key={`${event.kind}-${event.billId ?? event.label}-${index}`} className={styles.eventRow}>
+        <span className={styles.eventDate} style={{ color: tone }}>
+          {event.overdue ? t("planner.now") : dateFmt.format(event.date)}
+        </span>
+        <span className={styles.eventName}>
+          <span className={styles.eventTitle} style={{ color: tone }}>
+            {eventLabel(event)}
+            {source && isHardDeadline(source) && <FiLock size={11} className="ms-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} title={t("bills.strictHint")} />}
+          </span>
+          {/* Only bills with real grace get this line — and it names the actual
+              last day, since "can wait" without a date is not something you can
+              plan around. */}
+          {event.graceDays !== undefined && event.graceDays > 0 && event.deadline && (
+            <span className={styles.eventNote}>{t("planner.canWaitUntil", { date: dateFmt.format(event.deadline), days: event.graceDays })}</span>
+          )}
+        </span>
+        <span className={styles.eventAmount} style={{ color: tone }}>
+          {event.amount > 0 ? "+" : "−"}
+          {formatCurrency(Math.abs(event.amount))}
+        </span>
+      </div>
+    );
   };
 
+  const renderBreakdown = (which: "income" | "spent") => {
+    const rows = which === "income" ? breakdown.income : [...breakdown.spent, ...paidBills].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    if (rows.length === 0) {
+      return (
+        <p className="text-body-secondary mb-0 pb-2" style={{ fontSize: 12 }}>
+          {t("planner.nothingYet")}
+        </p>
+      );
+    }
+
+    return (
+      <div className={styles.breakdown}>
+        {rows.map((row) => (
+          <div key={row.id} className={styles.breakdownRow}>
+            <span className={styles.eventDate}>{dateFmt.format(row.date)}</span>
+            <span className={styles.eventName}>{row.label}</span>
+            <span className={styles.eventAmount}>{formatCurrency(row.amount)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <Container fluid className="py-2">
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div>
+    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1100 }}>
+      <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
+        <div style={{ minWidth: 0 }}>
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
           <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
         </div>
-        <Card className="border-0 shadow-sm" style={{ display: "inline-flex" }}>
-          <CardBody className="py-2 px-2" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button style={navBtnStyle} onClick={() => handleMonthChange("prev")}>
-                &lsaquo;
-              </button>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)", minWidth: 100, textAlign: "center" }}>{monthLabel}</span>
-              <button style={navBtnStyle} onClick={() => handleMonthChange("next")}>
-                &rsaquo;
-              </button>
-            </div>
-            {!isToday && (
-              <button
-                onClick={() => {
-                  setCurrentDate(new Date());
-                  setSalaryInput(localStorage.getItem(getSalaryKey(new Date())) ?? "");
-                  setDisabledGoals(loadDisabledGoals(new Date()));
-                }}
-                style={{
-                  ...navBtnStyle,
-                  fontSize: 11,
-                  padding: "3px 8px",
-                  borderTop: "0.5px solid var(--color-border-tertiary)",
-                  width: "100%",
-                  textAlign: "center",
-                  marginTop: 4,
-                }}
-              >
-                Today
-              </button>
-            )}
-          </CardBody>
-        </Card>
+
+        <div className={segmented.group} role="group" aria-label={t("planner.horizonLabel")}>
+          {PLANNER_HORIZONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`${segmented.item} ${horizon === option ? segmented.active : ""}`}
+              onClick={() => {
+                setHorizon(option);
+                setSelectedDay(-1);
+              }}
+            >
+              {t(`planner.horizon.${option}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Salary input */}
-      <Card className="border-0 shadow-sm mb-3">
-        <CardBody className="py-3 px-3">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <p style={{ fontSize: 13, fontWeight: 500, margin: "0 0 1px", color: "var(--color-text-primary)" }}>{t("planner.expectedIncome")}</p>
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>Salary, bonuses, or any extra income</p>
+      <Row className="g-3">
+        <Col xs={12} lg={7}>
+          {/* ── The answer ── */}
+          <div className={`${styles.verdict} ${verdictClass} mb-3`}>
+            <div className={styles.verdictHeadline}>
+              <VerdictIcon size={18} aria-hidden />
+              {headline}
             </div>
-            <div style={{ width: 160, flexShrink: 0 }}>
-              <InputGroup size="sm">
-                <InputGroupText>€</InputGroupText>
-                <Input type="number" placeholder="e.g. 3200" value={salaryInput} onChange={(e) => handleSalaryChange(e.target.value)} min={0} />
-              </InputGroup>
-            </div>
+            <div className={styles.verdictAmount}>{formatCurrency(amount)}</div>
+            <div className={styles.verdictSub}>{subline}</div>
           </div>
-        </CardBody>
-      </Card>
 
-      {/* Metric cards */}
-      <Row className="g-2 mb-3">
-        {metricCards.map((m) => (
-          <Col xs={6} sm={4} md key={m.label}>
-            <Card className="border-0 shadow-sm h-100">
-              <CardBody className="p-3">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                  <p style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>{m.label}</p>
-                  {m.toggle && <Toggle enabled={m.toggle.enabled} onToggle={m.toggle.onToggle} size="sm" />}
+          {/* ── How it plays out ── */}
+          <div className={`${styles.chartCard} p-3 p-lg-4 mb-3`}>
+            <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2">
+              <span className="fw-semibold" style={{ fontSize: 13.5 }}>
+                {t("planner.balanceTitle")}
+              </span>
+              <span className="text-body-secondary" style={{ fontSize: 11.5 }}>
+                {t("planner.perDay", { amount: formatCurrency(plan.safeDailySpend) })}
+              </span>
+            </div>
+
+            <div className={styles.chartBox}>
+              <BalanceLine points={plan.points} breaksOnIndex={breaksOnIndex} selectedIndex={selectedDay} onSelect={setSelectedDay} ariaLabel={t("planner.balanceTitle")} />
+            </div>
+
+            <div className="d-flex justify-content-between text-body-secondary mt-1" style={{ fontSize: 11 }}>
+              <span>{t("planner.today")}</span>
+              <span>{dateFmt.format(plan.end)}</span>
+            </div>
+
+            {/* Tapping any day explains that day rather than leaving the line to
+                be read by eye. */}
+            {selectedPoint ? (
+              <div className={styles.dayDetail}>
+                <div className="d-flex justify-content-between align-items-baseline gap-2">
+                  <span className="fw-semibold" style={{ fontSize: 12.5 }}>
+                    {dateFmt.format(selectedPoint.date)}
+                  </span>
+                  <span className="fw-semibold" style={{ fontSize: 14, fontVariantNumeric: "tabular-nums", color: selectedPoint.balance < 0 ? "var(--color-expense)" : "var(--color-text-primary)" }}>
+                    {formatCurrency(selectedPoint.balance)}
+                  </span>
                 </div>
-                <p style={{ fontSize: 17, fontWeight: 500, color: m.color, margin: 0 }}>{m.value}</p>
-              </CardBody>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+                {selectedPoint.events.length === 0 ? (
+                  <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
+                    {t("planner.justEveryday", { amount: formatCurrency(plan.burnRate) })}
+                  </p>
+                ) : (
+                  selectedPoint.events.map((event, i) => (
+                    <div key={i} className="d-flex justify-content-between gap-2" style={{ fontSize: 11.5 }}>
+                      <span className="text-truncate">{eventLabel(event)}</span>
+                      <span style={{ color: event.amount > 0 ? "var(--color-income)" : "var(--color-expense)", fontVariantNumeric: "tabular-nums" }}>
+                        {event.amount > 0 ? "+" : "−"}
+                        {formatCurrency(Math.abs(event.amount))}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 11.5 }}>
+                {t("planner.tapHint")}
+              </p>
+            )}
+          </div>
 
-      {/* Bars + Goals + Investments */}
-      <Row className="g-3 align-items-start">
-        <Col lg={8}>
-          <Card className="border-0 shadow-sm">
-            <CardBody className="p-3">
-              <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px", color: "var(--color-text-primary)" }}>{t("planner.allocationBreakdown")}</p>
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 16px" }}>{t("planner.allocationHint")}</p>
+          {/* ── What's still coming ── */}
+          <div className={`${styles.chartCard} p-3 p-lg-4`}>
+            <div className="fw-semibold mb-1" style={{ fontSize: 13.5 }}>
+              {t("planner.stillComing")}
+            </div>
+            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
+              {t("planner.stillComingHint")}
+            </p>
 
-              {salary === 0 ? (
-                <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--color-text-secondary)", fontSize: 13 }}>
-                  Enter your expected income above to see the breakdown.
+            {plan.events.length === 0 ? (
+              <p className="text-body-secondary mb-0" style={{ fontSize: 12.5 }}>
+                {t("planner.noBillsLeft")}
+              </p>
+            ) : (
+              eventMonths.map((month) => (
+                <div key={month.key}>
+                  {/* A single-month window is already one month — a heading over
+                      it would only repeat the horizon picker. */}
+                  {eventMonths.length > 1 && (
+                    <div className={styles.monthHeader}>
+                      <span>{month.label}</span>
+                      <span className={styles.monthTotal}>−{formatCurrency(month.outgoing)}</span>
+                    </div>
+                  )}
+                  {month.events.map(renderEvent)}
                 </div>
-              ) : (
-                <>
-                  {bars.map((item) => (
-                    <div key={item.label} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{item.label}</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-primary)" }}>{formatCurrency(item.value)}</span>
-                          <span style={{ fontSize: 10, color: "var(--color-text-secondary)", minWidth: 28, textAlign: "right" }}>{pct(item.value)}%</span>
-                        </div>
-                      </div>
-                      <Progress
-                        value={pct(item.value)}
-                        style={{ height: 6, borderRadius: 3 }}
-                        color={item.color === "var(--color-expense)" ? "danger" : item.color === "var(--color-income)" ? "success" : item.color === "var(--color-goal)" ? "warning" : "info"}
-                      />
-                    </div>
-                  ))}
-
-                  <div
-                    style={{
-                      marginTop: 16,
-                      padding: "10px 14px",
-                      background: freeToSpend >= 0 ? "rgba(34,197,94,0.07)" : "rgba(239,68,68,0.07)",
-                      border: `0.5px solid ${freeToSpend >= 0 ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
-                      borderRadius: "var(--border-radius-md)",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{freeToSpend >= 0 ? "You can still spend" : "You are over budget by"}</p>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: 20, fontWeight: 500, color: freeToSpend >= 0 ? "var(--color-income)" : "var(--color-expense)", margin: 0 }}>{formatCurrency(Math.abs(freeToSpend))}</p>
-                      {freeToSpend < 0 && <p style={{ fontSize: 11, color: "var(--color-expense)", margin: "2px 0 0" }}>{t("planner.reduceExpensesHint")}</p>}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardBody>
-          </Card>
+              ))
+            )}
+          </div>
         </Col>
 
-        <Col lg={4}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Card className="border-0 shadow-sm">
-              <CardBody className="p-3">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>{t("planner.savingsGoals")}</p>
-                  {activeSavingsGoals.length > 0 && <Toggle enabled={allSavingsEnabled} onToggle={toggleAllSavings} size="sm" />}
-                </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>{t("planner.adjustedMonthlyNeeded")}</p>
-                <GoalList
-                  items={activeSavingsGoals}
-                  emptyText={t("planner.noActiveSavingsGoals")}
-                  disabledGoals={disabledGoals}
-                  currentDate={currentDate}
-                  formatCurrency={formatCurrency}
-                  onToggleGoal={toggleGoal}
-                  locale={locale}
-                />
-              </CardBody>
-            </Card>
+        <Col xs={12} lg={5}>
+          {/* ── The assumptions ── */}
+          <div className={`${styles.chartCard} p-3 p-lg-4 mb-3`}>
+            <div className="fw-semibold mb-1" style={{ fontSize: 13.5 }}>
+              {t("planner.assumptions")}
+            </div>
+            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
+              {t("planner.assumptionsHint")}
+            </p>
 
-            <Card className="border-0 shadow-sm">
-              <CardBody className="p-3">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                  <p style={{ fontWeight: 500, fontSize: 13, margin: 0, color: "var(--color-text-primary)" }}>{t("planner.investments")}</p>
-                  {activeInvestmentGoals.length > 0 && <Toggle enabled={allInvestmentsEnabled} onToggle={toggleAllInvestments} size="sm" />}
-                </div>
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "0 0 10px" }}>{t("planner.adjustedMonthlyNeeded")}</p>
-                <GoalList
-                  items={activeInvestmentGoals}
-                  emptyText={t("planner.noActiveInvestments")}
-                  disabledGoals={disabledGoals}
-                  currentDate={currentDate}
-                  formatCurrency={formatCurrency}
-                  onToggleGoal={toggleGoal}
-                  locale={locale}
-                />
-              </CardBody>
-            </Card>
+            <button type="button" className={styles.assumptionButton} onClick={() => setOpenBreakdown(openBreakdown === "income" ? null : "income")} aria-expanded={openBreakdown === "income"}>
+              <span className={styles.assumptionLabel}>
+                {openBreakdown === "income" ? <FiChevronDown size={13} className="me-1" /> : <FiChevronRight size={13} className="me-1" />}
+                {t("planner.incomeThisCycle")}
+                <span className={styles.assumptionHint}>{salary ? t("planner.salaryDetected", { day: salary.dayOfMonth }) : t("planner.salaryUnknown")}</span>
+              </span>
+              <span className={styles.assumptionValue} style={{ color: "var(--color-income)" }}>
+                {formatCurrency(plan.income)}
+              </span>
+            </button>
+            {openBreakdown === "income" && renderBreakdown("income")}
+
+            <button type="button" className={styles.assumptionButton} onClick={() => setOpenBreakdown(openBreakdown === "spent" ? null : "spent")} aria-expanded={openBreakdown === "spent"}>
+              <span className={styles.assumptionLabel}>
+                {openBreakdown === "spent" ? <FiChevronDown size={13} className="me-1" /> : <FiChevronRight size={13} className="me-1" />}
+                {t("planner.spentSoFar")}
+                <span className={styles.assumptionHint}>{t("planner.sinceDate", { date: dateFmt.format(plan.cycleStart) })}</span>
+              </span>
+              <span className={styles.assumptionValue} style={{ color: "var(--color-expense)" }}>
+                −{formatCurrency(plan.spent)}
+              </span>
+            </button>
+            {openBreakdown === "spent" && renderBreakdown("spent")}
+
+            <div className={styles.assumption}>
+              <span className={styles.assumptionLabel}>
+                {t("planner.burnRate")}
+                <span className={styles.assumptionHint}>{t("planner.burnRateHint")}</span>
+              </span>
+              <span className={styles.assumptionValue}>{t("planner.perDayShort", { amount: formatCurrency(plan.burnRate) })}</span>
+            </div>
+
+            <div className={styles.assumption}>
+              <span className={styles.assumptionLabel}>
+                {t("planner.expectedExtra")}
+                <span className={styles.assumptionHint}>{t("planner.expectedExtraHint")}</span>
+              </span>
+              <div style={{ width: 130, flexShrink: 0 }}>
+                <InputGroup size="sm">
+                  <InputGroupText>{baseCurrency}</InputGroupText>
+                  <Input type="number" min={0} inputMode="decimal" placeholder="0" value={extraInput} onChange={(e) => setExtraInput(e.target.value)} aria-label={t("planner.expectedExtra")} />
+                </InputGroup>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Goals, with one switch for the lot ── */}
+          <div className={`${styles.chartCard} p-3 p-lg-4`}>
+            <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1">
+              <span className="fw-semibold" style={{ fontSize: 13.5 }}>
+                {t("planner.goalsReserved")}
+              </span>
+              <span className="fw-semibold" style={{ fontSize: 14, color: "var(--color-goal)", fontVariantNumeric: "tabular-nums" }}>
+                {formatCurrency(plan.goalsReserved)}
+              </span>
+            </div>
+            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
+              {t("planner.goalsReservedHint")}
+            </p>
+
+            {activeGoals.length === 0 ? (
+              <p className="text-body-secondary mb-0" style={{ fontSize: 12.5 }}>
+                {t("planner.noGoalsNeedMoney")}
+              </p>
+            ) : (
+              <>
+                <Button color="secondary" outline size="sm" className="w-100 mb-1" style={{ fontSize: 12 }} onClick={toggleAllGoals}>
+                  {allGoalsOn ? t("planner.skipAll") : t("planner.includeAll")}
+                </Button>
+
+                {activeGoals.map((goal) => {
+                  const off = skipIds.has(goal.id);
+                  return (
+                    <div key={goal.id} className={styles.goalRow}>
+                      <span className={`${styles.goalName} ${off ? styles.goalOff : ""}`}>
+                        {goal.icon} {goal.name}
+                      </span>
+                      <span className={styles.goalAmount} style={{ color: off ? "var(--color-text-secondary)" : "var(--color-goal)" }}>
+                        {off ? t("planner.off") : formatCurrency(goalMonthlyNeed(goal, now))}
+                      </span>
+                      <Button color="secondary" outline size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => toggleGoal(goal.id)} aria-pressed={!off}>
+                        {off ? t("planner.include") : t("planner.exclude")}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </Col>
       </Row>

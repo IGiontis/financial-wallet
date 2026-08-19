@@ -1,24 +1,15 @@
 import { getDaysInMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { isGoalContribution, isInvestmentContribution, isSpending, isTransfer } from "../../shared/utils/moneyModel";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
 // Everything the Analytics page draws is derived here, from transactions the
 // app has already fetched — the whole page costs zero extra Firestore reads.
 //
-// Money-flow model, identical to the Overview so the two pages can never
-// disagree:
-//   • A DEPOSIT into a goal/investment is money leaving the spendable pool —
-//     it is a transfer, not spending, so it never counts as an expense.
-//   • A WITHDRAWAL is money coming back, so it counts as income.
-//   • Deposit totals are therefore GROSS, never net: netting them *and*
-//     counting withdrawals as income would count the same euro twice.
+// What counts as money in and money out lives in shared/utils/moneyModel, so
+// every screen that reports a total agrees by construction.
 
-const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
-const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
-const isTransfer = (tx: Transaction) => !!tx.isInvestmentTransaction || !!tx.isGoalTransaction;
-
-/** Real spending — what actually left your pocket for good. */
-export const isSpending = (tx: Transaction) => !isTransfer(tx) && tx.type === "expense";
+export { isSpending };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
