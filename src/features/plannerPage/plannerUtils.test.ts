@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, dailyBurnRate, detectSalary, goalMonthlyNeed, goalsStillNeeded, lastSalaryDate, nextSalaryDate } from "./plannerUtils";
+import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, nextSalaryDate, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
 import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 const tx = (overrides: Partial<Transaction> = {}): Transaction =>
@@ -66,12 +66,7 @@ describe("detectSalary", () => {
   });
 
   it("takes the largest income each month, ignoring small extras", () => {
-    const rows = [
-      income(2000, new Date(2026, 6, 5)),
-      income(120, new Date(2026, 6, 20)), // a refund, not the salary
-      income(2000, new Date(2026, 7, 5)),
-      income(80, new Date(2026, 7, 9)),
-    ];
+    const rows = [income(2000, new Date(2026, 6, 5)), income(120, new Date(2026, 6, 20)), income(2000, new Date(2026, 7, 5)), income(80, new Date(2026, 7, 9))];
 
     expect(detectSalary(rows, now)).toMatchObject({ amount: 2000, dayOfMonth: 5 });
   });
@@ -85,8 +80,7 @@ describe("detectSalary", () => {
   });
 
   it("ignores income outside the lookback window", () => {
-    const rows = [income(2000, new Date(2025, 0, 1)), income(2000, new Date(2025, 1, 1))];
-    expect(detectSalary(rows, now)).toBeUndefined();
+    expect(detectSalary([income(2000, new Date(2025, 0, 1)), income(2000, new Date(2025, 1, 1))], now)).toBeUndefined();
   });
 
   it("counts money pulled back out of savings as income", () => {
@@ -98,21 +92,13 @@ describe("detectSalary", () => {
   });
 });
 
-describe("nextSalaryDate / lastSalaryDate", () => {
+describe("nextSalaryDate / salaryDates", () => {
   it("moves to next month once the day has passed", () => {
     expect(nextSalaryDate(5, new Date(2026, 7, 14))).toEqual(new Date(2026, 8, 5));
-    expect(lastSalaryDate(5, new Date(2026, 7, 14))).toEqual(new Date(2026, 7, 5));
   });
 
   it("keeps this month's day when it is still ahead", () => {
     expect(nextSalaryDate(25, new Date(2026, 7, 14))).toEqual(new Date(2026, 7, 25));
-    expect(lastSalaryDate(25, new Date(2026, 7, 14))).toEqual(new Date(2026, 6, 25));
-  });
-
-  it("treats payday itself as the start of the new cycle, not the end of the old one", () => {
-    const payday = new Date(2026, 7, 5);
-    expect(lastSalaryDate(5, payday)).toEqual(payday);
-    expect(nextSalaryDate(5, payday)).toEqual(new Date(2026, 8, 5));
   });
 
   it("clamps to the last day of a short month", () => {
@@ -122,30 +108,12 @@ describe("nextSalaryDate / lastSalaryDate", () => {
   it("falls back to the 1st when the day is unknown", () => {
     expect(nextSalaryDate(undefined, new Date(2026, 7, 14))).toEqual(new Date(2026, 8, 1));
   });
-});
 
-// ─── Burn rate ───────────────────────────────────────────────────────────────
-
-describe("dailyBurnRate", () => {
-  const now = new Date(2026, 7, 14);
-
-  it("averages everyday spending across the window", () => {
-    const rows = [tx({ amount: 300, date: new Date(2026, 7, 10) })];
-    expect(dailyBurnRate(rows, now, 30)).toBe(10);
-  });
-
-  it("leaves out bill payments — the projection charges those on their own dates", () => {
-    const rows = [tx({ amount: 300, date: new Date(2026, 7, 10) }), tx({ amount: 600, date: new Date(2026, 7, 11), billId: "b1" })];
-    expect(dailyBurnRate(rows, now, 30)).toBe(10);
-  });
-
-  it("leaves out transfers into savings", () => {
-    const rows = [tx({ amount: 300, type: "investment", isInvestmentTransaction: true, contributionType: "deposit", date: new Date(2026, 7, 10) })];
-    expect(dailyBurnRate(rows, now, 30)).toBe(0);
-  });
-
-  it("ignores spending older than the window", () => {
-    expect(dailyBurnRate([tx({ amount: 300, date: new Date(2026, 5, 1) })], now, 30)).toBe(0);
+  it("does not let a short month drag every later payday backwards", () => {
+    // Stepping by month index rather than by adding a month to the last date:
+    // 31 Jan → 28 Feb → 31 Mar, not 28 Mar and then 28 for ever after.
+    const dates = salaryDates(31, new Date(2026, 3, 30), new Date(2026, 0, 5));
+    expect(dates).toEqual([new Date(2026, 0, 31), new Date(2026, 1, 28), new Date(2026, 2, 31), new Date(2026, 3, 30)]);
   });
 });
 
@@ -163,9 +131,8 @@ describe("goalMonthlyNeed", () => {
   });
 
   it("reports zero — not nothing — for a recurring goal already funded", () => {
-    // The old planner hid these entirely; a goal you're keeping up with should
-    // still be visible, just at zero.
     expect(goalMonthlyNeed(goal({ targetPeriod: "monthly", monthlyRequired: 120, currentPeriodSaved: 120 }), now)).toBe(0);
+    expect(goalMonthlyTarget(goal({ targetPeriod: "monthly", monthlyRequired: 120, currentPeriodSaved: 120 }), now)).toBe(120);
   });
 
   it("spreads a targeted goal across the months left", () => {
@@ -177,183 +144,151 @@ describe("goalMonthlyNeed", () => {
   });
 });
 
-describe("goalsStillNeeded", () => {
-  const now = new Date(2026, 7, 14);
-
-  it("adds up active goals and skips switched-off ones", () => {
-    const a = goal({ id: "a", targetPeriod: "monthly", monthlyRequired: 100, currentPeriodSaved: 0 });
-    const b = goal({ id: "b", targetPeriod: "monthly", monthlyRequired: 50, currentPeriodSaved: 0 });
-    expect(goalsStillNeeded([a, b], new Set(), now)).toBe(150);
-    expect(goalsStillNeeded([a, b], new Set(["b"]), now)).toBe(100);
-  });
-
-  it("leaves out paused and finished goals", () => {
-    const rows = [goal({ targetPeriod: "monthly", monthlyRequired: 100, isActive: false }), goal({ targetPeriod: "monthly", monthlyRequired: 100, isCompleted: true })];
-    expect(goalsStillNeeded(rows, new Set(), now)).toBe(0);
-  });
-});
-
 // ─── The plan ────────────────────────────────────────────────────────────────
 
 describe("buildPlan", () => {
-  const now = new Date(2026, 7, 14); // 14 Aug, salary on the 1st → 18 days to go
+  const now = new Date(2026, 7, 14); // 14 Aug 2026
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
 
-  const salary = { amount: 2000, dayOfMonth: 1, occurrences: 4 };
-  const base = { transactions: [] as Transaction[], bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
-
-  it("runs the window from the last payday to the next one", () => {
-    const plan = buildPlan(base);
-
-    expect(plan.cycleStart).toEqual(new Date(2026, 7, 1));
-    expect(plan.nextSalary).toEqual(new Date(2026, 8, 1));
-    // Stops the day before payday: the money has to reach 1 Sep, not cover it.
-    expect(plan.end).toEqual(new Date(2026, 7, 31));
-    expect(plan.daysRemaining).toBe(17);
+  it("runs to the end of the last month the horizon asks for", () => {
+    expect(buildPlan({ ...base, horizon: "1m" }).end).toEqual(new Date(2026, 7, 31, 23, 59, 59, 999));
+    expect(buildPlan({ ...base, horizon: "3m" }).end.getMonth()).toBe(9);
+    expect(buildPlan({ ...base, horizon: "12m" }).end.getFullYear()).toBe(2027);
   });
 
-  it("counts income received this cycle and everyday spending against it", () => {
-    const plan = buildPlan({
-      ...base,
-      transactions: [
-        income(2000, new Date(2026, 7, 1)),
-        income(999, new Date(2026, 6, 20)), // previous cycle — must not count
-        tx({ amount: 500, date: new Date(2026, 7, 10) }),
-      ],
-    });
+  it("counts one payday per month in the window", () => {
+    const plan = buildPlan({ ...base, horizon: "3m" });
+    const row = plan.rows.find((r) => r.id === SALARY_ROW_ID);
 
-    expect(plan.income).toBe(2000);
-    expect(plan.spent).toBe(500);
-    expect(plan.startingBalance).toBe(1500);
+    expect(row?.occurrences).toBe(3); // 20 Aug, 20 Sep, 20 Oct
+    expect(plan.incomeTotal).toBe(6000);
   });
 
-  it("adds income the user says is still coming", () => {
-    const plan = buildPlan({ ...base, transactions: [income(2000, new Date(2026, 7, 1))], expectedExtra: 300 });
-    expect(plan.income).toBe(2300);
+  it("charges a monthly bill once per month, not once in total", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", bills: [bill({ name: "Ρεύμα", amount: 100, dueDay: 20 })] });
+
+    expect(plan.rows.find((r) => r.source === "bill")).toMatchObject({ occurrences: 3, total: -300 });
+    expect(plan.billsTotal).toBe(300);
   });
 
-  it("charges a bill already paid this cycle without double counting it", () => {
-    const paid = bill({
-      isPaidThisPeriod: true,
-      amount: 104,
-      payment: { id: "p", userId: "u1", billId: "x", periodKey: "2026-08", amount: 104, paidDate: new Date(2026, 7, 6), createdAt: new Date(2026, 7, 6) },
-    });
-
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(2000, new Date(2026, 7, 1)), tx({ amount: 104, date: new Date(2026, 7, 6), billId: paid.id })],
-      bills: [paid],
-    });
-
-    // Counted once through the bill, never through the mirrored transaction.
-    expect(plan.spent).toBe(104);
-    expect(plan.startingBalance).toBe(1896);
+  it("never looks at what has already been spent", () => {
+    // The whole point of the rebuild: the plan is built from commitments and the
+    // user's own figures, so no history can drag the answer around.
+    const plan = buildPlan({ ...base, horizon: "1m" });
+    expect(plan.outgoingTotal).toBe(0);
+    expect(plan.openingBalance).toBe(0);
   });
 
-  it("says you make it when the money comfortably lasts", () => {
-    const plan = buildPlan({ ...base, transactions: [income(2000, new Date(2026, 7, 1))] });
+  it("pro-rates a monthly budget line over the part of the month that is left", () => {
+    // 18 days left of August out of 31 — charging a whole month of food for
+    // them would answer a question nobody asked.
+    const plan = buildPlan({ ...base, horizon: "1m", lines: [{ id: "l1", label: "Food", amount: 310, kind: "expense" }] });
 
-    expect(plan.verdict).toBe("ok");
-    expect(plan.shortfall).toBe(0);
-    expect(plan.breaksOn).toBeUndefined();
-    expect(plan.surplus).toBe(2000);
+    expect(plan.monthsCovered).toBeCloseTo(18 / 31, 2);
+    expect(plan.rows.find((r) => r.id === "l1")?.total).toBeCloseTo(-180, 0);
   });
 
-  it("names the day and the bill that tips you under", () => {
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(200, new Date(2026, 7, 1))],
-      bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })],
-    });
+  it("charges a monthly line in full for each whole month ahead", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", lines: [{ id: "l1", label: "Food", amount: 200, kind: "expense" }] });
+
+    // 18/31 of August, then all of September and October.
+    expect(plan.monthsCovered).toBeCloseTo(18 / 31 + 2, 2);
+    expect(plan.budgetTotal).toBeCloseTo(200 * (18 / 31 + 2), 1);
+  });
+
+  it("adds a monthly income line to the income side", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", lines: [{ id: "l1", label: "Side work", amount: 300, kind: "income" }] });
+
+    expect(plan.incomeTotal).toBeCloseTo(6000 + 300 * (18 / 31 + 2), 1);
+  });
+
+  it("lets any row be switched off, and frees exactly its money", () => {
+    const electricity = bill({ id: "b1", name: "Ρεύμα", amount: 100, dueDay: 20 });
+    const input = { ...base, horizon: "3m" as const, bills: [electricity] };
+
+    const on = buildPlan(input);
+    const off = buildPlan({ ...input, skipIds: new Set(["b1"]) });
+
+    expect(off.billsTotal).toBe(0);
+    expect(off.rows.find((r) => r.id === "b1")).toMatchObject({ enabled: false, total: 0 });
+    expect(off.endingBalance).toBeCloseTo(on.endingBalance + 300, 2);
+  });
+
+  it("switching the salary off is what shows whether it is carrying the month", () => {
+    const on = buildPlan({ ...base, horizon: "1m" });
+    const off = buildPlan({ ...base, horizon: "1m", skipIds: new Set([SALARY_ROW_ID]) });
+
+    expect(on.incomeTotal).toBe(2000);
+    expect(off.incomeTotal).toBe(0);
+    expect(off.events.filter((e) => e.kind === "income")).toHaveLength(0);
+  });
+
+  it("asks a goal for what is left this month, then the full target after", () => {
+    const trip = goal({ id: "g1", name: "Trip", targetPeriod: "monthly", monthlyRequired: 200, currentPeriodSaved: 200 });
+    const plan = buildPlan({ ...base, horizon: "3m", goals: [trip] });
+
+    // Nothing more wanted in August; September and October want €200 each.
+    expect(plan.goalsTotal).toBe(400);
+    expect(plan.rows.find((r) => r.id === "g1")?.occurrences).toBe(2);
+  });
+
+  it("starts the line wherever the user says their money is", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", openingBalance: 500 });
+    expect(plan.points[0].balance).toBe(500);
+    expect(plan.endingBalance).toBe(2500); // plus the 20 Aug salary
+  });
+
+  it("calls it short when the months themselves do not cover the outgoings", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", salary: undefined, openingBalance: 200, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })] });
 
     expect(plan.verdict).toBe("short");
-    expect(plan.breaksOn).toEqual(new Date(2026, 7, 24));
+    expect(plan.shortfall).toBe(300); // no income at all against €300 of bills
+    expect(plan.dip).toBe(100); // and €200 in hand only covers so much of it
+  });
+
+  it("separates a timing problem from a shortfall, and names the day", () => {
+    // The bill lands before the salary does. Over the month it is covered; on
+    // 20 Aug it is not — and telling the user they "will run short" when the
+    // month adds up would be the wrong answer to the question they asked.
+    const plan = buildPlan({ ...base, horizon: "1m", openingBalance: 0, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 18 })] });
+
+    expect(plan.verdict).toBe("tight");
+    expect(plan.shortfall).toBe(0);
+    expect(plan.surplus).toBe(1700);
+    expect(plan.breaksOn).toEqual(new Date(2026, 7, 18));
     expect(plan.breakingEvent?.label).toBe("Ρεύμα");
-    expect(plan.shortfall).toBe(100);
+    expect(plan.dip).toBe(300);
   });
 
   it("pulls an overdue bill onto today rather than a date that has passed", () => {
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(2000, new Date(2026, 7, 1))],
-      bills: [bill({ name: "Late", amount: 50, dueDay: 9 })],
-    });
+    const plan = buildPlan({ ...base, horizon: "1m", bills: [bill({ name: "Late", amount: 50, dueDay: 9 })] });
 
     const [first] = plan.events.filter((e) => e.kind === "bill");
     expect(first.overdue).toBe(true);
     expect(first.date).toEqual(new Date(2026, 7, 14));
   });
 
-  it("leaves out bills that land after the next payday", () => {
+  it("adds up: opening plus income less outgoings is where the line ends", () => {
     const plan = buildPlan({
       ...base,
-      bills: [bill({ name: "Next cycle", amount: 50, dueDay: 20, frequency: "yearly", dueMonth: 11 })],
+      horizon: "3m",
+      openingBalance: 250,
+      bills: [bill({ name: "Ρεύμα", amount: 100, dueDay: 20 })],
+      goals: [goal({ targetPeriod: "monthly", monthlyRequired: 150, currentPeriodSaved: 0 })],
+      lines: [{ id: "l1", label: "Food", amount: 200, kind: "expense" }],
     });
 
-    expect(plan.events.filter((e) => e.kind === "bill")).toHaveLength(0);
+    // To the cent: the page prints the row totals and the end of the line as one
+    // sum, so a rounding drift between them would read as a mistake.
+    expect(plan.openingBalance + plan.incomeTotal - plan.outgoingTotal).toBeCloseTo(plan.endingBalance, 2);
   });
 
-  it("reserves goal money off the top", () => {
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(1000, new Date(2026, 7, 1))],
-      goals: [goal({ targetPeriod: "monthly", monthlyRequired: 400, currentPeriodSaved: 0 })],
-    });
+  it("returns a usable plan with nothing set up at all", () => {
+    const plan = buildPlan({ bills: [], goals: [], now, horizon: "1m" });
 
-    expect(plan.goalsReserved).toBe(400);
-    expect(plan.points[0].balance).toBe(600);
-  });
-
-  it("lets a switched-off goal free up its money", () => {
-    const g = goal({ id: "g1", targetPeriod: "monthly", monthlyRequired: 400, currentPeriodSaved: 0 });
-    const plan = buildPlan({ ...base, transactions: [income(1000, new Date(2026, 7, 1))], goals: [g], skipGoalIds: new Set(["g1"]) });
-
-    expect(plan.goalsReserved).toBe(0);
-    expect(plan.points[0].balance).toBe(1000);
-  });
-
-  it("drains the balance by the daily average, starting tomorrow", () => {
-    // €300 over the 30-day window → €10/day. Today's spending is already
-    // counted in `spent`, so day one must not be charged again.
-    const plan = buildPlan({ ...base, transactions: [income(1000, new Date(2026, 7, 1)), tx({ amount: 300, date: new Date(2026, 7, 10) })] });
-
-    expect(plan.burnRate).toBe(10);
-    expect(plan.points[0].balance).toBe(700);
-    expect(plan.points[1].balance).toBe(690);
-  });
-
-  it("calls it tight when it survives on fumes", () => {
-    // €750 over the window → €25/day. Starting balance 1250 − 750 = 500, minus
-    // 18 days of burn = 50 left: above zero, but under three days of spending.
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(1240, new Date(2026, 7, 1)), tx({ amount: 750, date: new Date(2026, 7, 2) })],
-    });
-
-    // €750 over the window → €25/day. Starting 1240 − 750 = 490, minus 17 days
-    // of burn = 65 left: above zero, but under three days of spending (75).
-    expect(plan.burnRate).toBe(25);
-    expect(plan.surplus).toBe(65);
-    expect(plan.shortfall).toBe(0);
-    expect(plan.verdict).toBe("tight");
-  });
-
-  it("returns a usable plan with no data at all", () => {
-    const plan = buildPlan(base);
-
-    expect(plan.points.length).toBe(18); // today plus 17 days
+    expect(plan.points).toHaveLength(18); // 14 Aug through 31 Aug
     expect(plan.verdict).toBe("ok");
-    expect(plan.safeDailySpend).toBe(0);
-  });
-
-  it("spreads what's left per day once bills and goals are set aside", () => {
-    const plan = buildPlan({
-      ...base,
-      transactions: [income(1000, new Date(2026, 7, 1))],
-      bills: [bill({ amount: 100, dueDay: 20 })],
-      goals: [goal({ targetPeriod: "monthly", monthlyRequired: 180, currentPeriodSaved: 0 })],
-    });
-
-    // (1000 − 180 goals − 100 bill) spread over the 17 days to payday.
-    expect(plan.safeDailySpend).toBe(42.35);
+    expect(plan.rows).toHaveLength(0);
   });
 });

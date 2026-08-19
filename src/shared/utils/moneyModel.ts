@@ -23,12 +23,3 @@ export const isSpending = (tx: Transaction) => !isTransfer(tx) && tx.type === "e
 
 /** Plain income plus anything pulled back out of a goal or investment. */
 export const isEarning = (tx: Transaction) => (!isTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal");
-
-/**
- * Spending that isn't already accounted for by a recurring bill.
- *
- * Paying a bill writes a mirrored expense transaction, so any forecast that
- * counts upcoming bills separately must exclude those transactions from its
- * day-to-day average — otherwise the same bill is charged twice.
- */
-export const isDiscretionarySpending = (tx: Transaction) => isSpending(tx) && !tx.billId;
