@@ -239,8 +239,9 @@ export function PlannerPage() {
 
         {extra}
 
-        <span className={styles.planAmount} style={{ color: row.enabled ? (row.total > 0 ? "var(--color-income)" : "var(--color-expense)") : undefined }}>
-          {row.enabled ? `${row.total > 0 ? "+" : "−"}${formatCurrency(Math.abs(row.total))}` : t("planner.off")}
+        {/* Zero takes no sign and no colour — "−0,00 €" reads as a cost. */}
+        <span className={styles.planAmount} style={{ color: row.enabled && row.total !== 0 ? (row.total > 0 ? "var(--color-income)" : "var(--color-expense)") : undefined }}>
+          {!row.enabled ? t("planner.off") : `${row.total > 0 ? "+" : row.total < 0 ? "−" : ""}${formatCurrency(Math.abs(row.total))}`}
         </span>
       </div>
     );
