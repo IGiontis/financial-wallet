@@ -9,6 +9,9 @@ import type {
   CreateTransactionDTO,
   UpdateTransactionDTO,
   Category,
+  TransactionType,
+  CreateCategoryDTO,
+  UpdateCategoryDTO,
   InvestmentGoal,
   CreateInvestmentGoalDTO,
   UpdateInvestmentGoalDTO,
@@ -49,6 +52,26 @@ export const getUser = async (uid: string) => {
 export const updateUser = async (uid: string, data: UpdateUserDTO) => {
   await updateDoc(doc(db, "users", uid), {
     ...clean({ ...data }), // add clean() here
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Sets or clears the starting balance.
+ *
+ * Clearing needs `deleteField()` rather than `undefined`: `clean()` drops
+ * undefined keys, so passing one would leave the old figure sitting in the
+ * document while the form showed the box as empty — and the balance would go
+ * on quietly counting from a number the user thought they had removed.
+ *
+ * The two fields always move together. An amount with no date would count every
+ * backfilled record against it, which is the double-subtraction the pairing
+ * exists to prevent.
+ */
+export const setOpeningBalance = async (uid: string, opening: { amount: number; date: Date } | null) => {
+  await updateDoc(doc(db, "users", uid), {
+    openingBalance: opening ? opening.amount : deleteField(),
+    openingBalanceDate: opening ? opening.date : deleteField(),
     updatedAt: serverTimestamp(),
   });
 };
@@ -103,6 +126,86 @@ export const getCategories = async (userId: string) => {
 
   // Deduplicate by name+type (prevents duplicates if seed ran multiple times)
   return Array.from(new Map(all.map((c) => [`${c.type}-${c.name}`, c])).values());
+};
+
+// A user's own category. `isDefault: false` and a real `userId` are what keep
+// it out of everyone else's list — the seeded ones carry `userId: null`.
+export const createCategory = async (userId: string, data: CreateCategoryDTO) => {
+  const ref = await addDoc(collection(db, "categories"), {
+    ...clean({ ...data, userId, isDefault: false }),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+/**
+ * Creates one category per type in a single batch.
+ *
+ * Some things genuinely are both: betting is money out most weeks and money in
+ * occasionally, and so are taxes and side work. The seeded list already handles
+ * that with two documents sharing a name — one per type — because a transaction
+ * form only ever offers the categories matching what it is recording, and a
+ * single "both" document would have to be filtered in by every one of those
+ * screens.
+ *
+ * Batched so the pair cannot half-exist: a second write failing on its own
+ * would leave an "income and expense" category that only works one way, with
+ * nothing on screen to explain why.
+ */
+export const createCategories = async (userId: string, data: Omit<CreateCategoryDTO, "type">, types: TransactionType[]): Promise<Record<string, string>> => {
+  const batch = writeBatch(db);
+  const created: Record<string, string> = {};
+
+  for (const type of types) {
+    const ref = doc(collection(db, "categories"));
+    batch.set(ref, {
+      ...clean({ ...data, type, userId, isDefault: false }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    created[type] = ref.id;
+  }
+
+  await batch.commit();
+  return created;
+};
+
+/** Renames or restyles every document in a "both" pair at once. */
+export const updateCategories = async (categoryIds: string[], data: UpdateCategoryDTO) => {
+  const batch = writeBatch(db);
+  for (const id of categoryIds) {
+    batch.update(doc(db, "categories", id), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
+};
+
+/** Removes a whole pair, so "both" never half-disappears either. */
+export const deleteCategories = async (categoryIds: string[]) => {
+  const batch = writeBatch(db);
+  for (const id of categoryIds) batch.delete(doc(db, "categories", id));
+  await batch.commit();
+};
+
+export const updateCategory = async (categoryId: string, data: UpdateCategoryDTO) => {
+  await updateDoc(doc(db, "categories", categoryId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+};
+
+export const deleteCategory = async (categoryId: string) => {
+  await deleteDoc(doc(db, "categories", categoryId));
+};
+
+/**
+ * How many records point at a category. Deleting one still in use would leave
+ * those rows showing a blank category with no way to find them again, so the
+ * UI blocks on this count rather than cascading the delete.
+ */
+export const countCategoryUsage = async (userId: string, categoryId: string): Promise<number> => {
+  const [txSnap, billSnap] = await Promise.all([
+    getDocs(query(collection(db, "transactions"), where("userId", "==", userId), where("categoryId", "==", categoryId))),
+    getDocs(query(collection(db, "bills"), where("userId", "==", userId), where("categoryId", "==", categoryId))),
+  ]);
+  return txSnap.size + billSnap.size;
 };
 
 // ─── INVESTMENT GOALS ─────────────────────────────────────────────────────────
@@ -259,6 +362,60 @@ export const unmarkBillPaid = async (payment: { id: string; transactionId?: stri
   if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));
   batch.delete(doc(db, "billPayments", payment.id));
   await batch.commit();
+};
+
+// ─── DATA RESET ───────────────────────────────────────────────────────────────
+// Starting over without losing the account. Deliberately narrower than
+// `deleteAllUserData`: the profile and the user's own categories survive, so a
+// fresh start doesn't also mean rebuilding the setup that made the app usable.
+
+export interface ResetScope {
+  transactions?: boolean;
+  /** Bills and their payment history — they only make sense together. */
+  bills?: boolean;
+  /** Goals and the contributions recorded against them. */
+  goals?: boolean;
+  budgets?: boolean;
+  /** The user's own categories. Off by default; the defaults are never touched. */
+  categories?: boolean;
+}
+
+/** Which collections each switch clears. */
+const RESET_COLLECTIONS: Record<keyof ResetScope, string[]> = {
+  transactions: ["transactions"],
+  bills: ["bills", "billPayments"],
+  goals: ["investmentGoals", "investmentContributions"],
+  budgets: ["budgets"],
+  categories: ["categories"],
+};
+
+/**
+ * Deletes the chosen collections for one user and returns how many documents
+ * went. Nothing selected deletes nothing — an empty scope is a no-op rather
+ * than a silent "everything".
+ */
+export const resetUserData = async (userId: string, scope: ResetScope): Promise<number> => {
+  const names = (Object.keys(RESET_COLLECTIONS) as (keyof ResetScope)[]).filter((k) => scope[k]).flatMap((k) => RESET_COLLECTIONS[k]);
+  if (names.length === 0) return 0;
+
+  const refs = (
+    await Promise.all(
+      names.map(async (name) => {
+        const snap = await getDocs(query(collection(db, name), where("userId", "==", userId)));
+        return snap.docs.map((d) => d.ref);
+      }),
+    )
+  ).flat();
+
+  // Firestore allows max 500 writes per batch — commit in chunks
+  const CHUNK = 450;
+  for (let i = 0; i < refs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+
+  return refs.length;
 };
 
 // ─── ACCOUNT DELETION ─────────────────────────────────────────────────────────

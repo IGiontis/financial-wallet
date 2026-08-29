@@ -6,6 +6,9 @@ import { toast } from "react-toastify";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, Alert } from "reactstrap";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
+import CategoryManager from "../../categories/CategoryManager";
+import OpeningBalanceSection from "../components/OpeningBalanceSection";
+import ResetDataSection from "../components/ResetDataSection";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
@@ -557,6 +560,21 @@ export function SettingsPage() {
       )}
 
       {/* ── Danger zone ─────────────────────────────────────────────────────── */}
+      {/* ── Starting balance ────────────────────────────────────────────────── */}
+      <Section title={t("settings.openingBalance")} subtitle={t("settings.openingBalanceSubtitle")}>
+        <OpeningBalanceSection user={userData} onSaved={(patch) => setUserData((u) => (u ? { ...u, ...patch } : u))} />
+      </Section>
+
+      {/* ── Custom categories ───────────────────────────────────────────────── */}
+      <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
+        <CategoryManager />
+      </Section>
+
+      {/* ── Start over ──────────────────────────────────────────────────────── */}
+      <Section title={t("settings.resetTitle")} subtitle={t("settings.resetSubtitle")}>
+        <ResetDataSection />
+      </Section>
+
       <Card style={{ border: "0.5px solid var(--bs-danger)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: "1rem" }}>
         <CardBody style={{ padding: "1.5rem" }}>
           <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>

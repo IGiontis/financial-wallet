@@ -17,6 +17,15 @@ export interface User {
   currency: Currency;
   baseCurrency: Currency;
   locale: string;
+  /**
+   * Money already in the account when tracking began. Paired with
+   * `openingBalanceDate`, which is what keeps it honest: only movements from
+   * that day onward change the balance, so backfilling older payments that
+   * this figure ALREADY reflects does not subtract them a second time.
+   */
+  openingBalance?: number;
+  /** The day `openingBalance` was true. Undefined when no balance is set. */
+  openingBalanceDate?: Date;
   /** Payee list the user maintains for quick pick when adding a transaction. */
   savedPayees?: string[];
   createdAt: Date;

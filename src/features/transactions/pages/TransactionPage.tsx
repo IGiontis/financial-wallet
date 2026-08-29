@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Container,
   Row,
@@ -27,7 +28,6 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
-import { TransactionInsights } from "../components/TransactionInsights";
 import ManagePayeesModal from "../components/ManagePayeesModal";
 import { usePayees } from "../hooks/usePayees";
 import AddTransactionModal from "../components/AddTransactionModal";
@@ -393,7 +393,10 @@ function Pagination({
 export function TransactionsPage() {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  // Seeded from the URL so a category clicked on the Analytics screen arrives
+  // here already applied, rather than dumping the reader into an unfiltered list.
+  const [searchParams] = useSearchParams();
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => searchParams.get("category") ?? "all");
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
   const [toDate, setToDate] = useState<Date | null>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
@@ -604,17 +607,6 @@ export function TransactionsPage() {
               </CardBody>
             </Card>
 
-            {!isLoading && (
-              <TransactionInsights
-                transactions={filteredTransactions}
-                allTransactions={transactions}
-                categories={categories}
-                formatCurrency={formatCurrency}
-                fromDate={fromDate}
-                toDate={toDate}
-                onSelectCategory={setSelectedCategory}
-              />
-            )}
 
             <Card className="border-0 shadow-sm">
               <CardBody className="p-0">
@@ -785,11 +777,14 @@ export function TransactionsPage() {
         ) : (
           <MobileCalendar {...calendarProps} />
         )}
+        {/* Search gets its own line: at 375px it was sharing a row with a
+            select and two buttons, which left every one of them too narrow to
+            read or hit comfortably. */}
+        <div className="mb-2" style={{ flexShrink: 0 }}>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} size="sm" block />
+        </div>
         <div className="d-flex gap-2 align-items-center mb-2" style={{ flexShrink: 0 }}>
-          <div style={{ flex: 1 }}>
-            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} size="sm" block />
-          </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <CategorySelect
               value={selectedCategory}
               onChange={setSelectedCategory}
@@ -823,22 +818,6 @@ export function TransactionsPage() {
 
         <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <CardBody className={`p-0 ${styles.mobileScroll}`}>
-            {/* Inside the scroll area on purpose: the shell is a fixed height,
-                so putting the panel above it would shrink the list instead of
-                scrolling away with it. */}
-            {!isLoading && (
-              <div className="px-2 pt-2">
-                <TransactionInsights
-                  transactions={filteredTransactions}
-                  allTransactions={transactions}
-                  categories={categories}
-                  formatCurrency={formatCurrency}
-                  fromDate={fromDate}
-                  toDate={toDate}
-                  onSelectCategory={setSelectedCategory}
-                />
-              </div>
-            )}
             {isLoading ? (
               <div className="text-center py-5">
                 <Spinner color="primary" />

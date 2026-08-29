@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { Card, CardBody } from "reactstrap";
+import { Card, CardBody, Modal, ModalHeader, ModalBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -429,12 +429,16 @@ export function MobileCalendar(props: {
             </button>
           )}
         </div>
-        {expanded && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
+        {/* A sheet rather than an inline panel: the mobile screen is a fixed-
+            height column, so expanding in place stole the room from the list
+            below until it had none left — opening the calendar hid the very
+            rows it exists to filter. */}
+        <Modal isOpen={expanded} toggle={() => setExpanded(false)} centered scrollable>
+          <ModalHeader toggle={() => setExpanded(false)}>{t("transactions.pickDates")}</ModalHeader>
+          <ModalBody>
             <CalendarGrid {...props} />
-          </div>
-        )}
+          </ModalBody>
+        </Modal>
       </CardBody>
     </Card>
   );

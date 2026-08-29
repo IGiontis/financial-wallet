@@ -3,6 +3,8 @@ import { Alert, Container, Spinner } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
+import { useNavigate } from "react-router-dom";
+import { TransactionInsights } from "../../transactions/components/TransactionInsights";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { categoryLabel } from "../../../shared/utils/categories";
@@ -66,6 +68,7 @@ export function AnalyticsPage() {
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
+  const navigate = useNavigate();
 
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
 
@@ -216,6 +219,19 @@ export function AnalyticsPage() {
         </Alert>
       ) : (
         <div style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+          {/* Moved off the Transactions screen, which had become a table
+              wearing a dashboard. The figures belong with the other charts,
+              and the range picker above already scopes them. */}
+          <TransactionInsights
+            transactions={scoped}
+            allTransactions={transactions}
+            categories={categories}
+            formatCurrency={formatCurrency}
+            fromDate={from}
+            toDate={now}
+            onSelectCategory={(name) => navigate(`/transactions?category=${encodeURIComponent(name)}`)}
+          />
+
           {/* ── Flow & saving ── */}
           <h2 className={styles.sectionTitle}>{t("analytics.groups.flow")}</h2>
 

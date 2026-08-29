@@ -30,7 +30,8 @@
     "failedToLoad": "Failed to load. Please refresh the page.",
     "offline": "You're offline — showing your latest saved data.",
     "prev": "Prev",
-    "next": "Next"
+    "next": "Next",
+    "type": "Type"
   },
   "nav": {
     "overview": "Overview",
@@ -119,7 +120,13 @@
     "goalOpenEndedHint": "Ongoing savings — no fixed target",
     "recentActivity": "Recent activity",
     "noContributionsYet": "No contributions yet.",
-    "manageGoal": "Manage"
+    "manageGoal": "Manage",
+    "currentBalance": "Money you have",
+    "currentBalanceHint": "Starting amount plus everything since {{date}}",
+    "currentBalanceNoOpening": "Everything you have recorded, netted off",
+    "currentBalanceExcluded_one": "{{count}} earlier record is not subtracted — your starting amount already covers it",
+    "currentBalanceExcluded_other": "{{count}} earlier records are not subtracted — your starting amount already covers them",
+    "setStartingBalance": "Set a starting balance"
   },
   "bills": {
     "title": "Bills",
@@ -382,7 +389,8 @@
     "deletePayee": "Delete {{name}}",
     "deletePayeeConfirm": "Delete {{name}}?",
     "useTypedPayee": "Use \"{{name}}\"",
-    "payees": "Payees"
+    "payees": "Payees",
+    "pickDates": "Pick dates"
   },
   "analytics": {
     "title": "Analytics",
@@ -688,7 +696,36 @@
     "deleteConfirmBody": "Are you sure? This will permanently delete your account and all your data. This cannot be undone.",
     "enterPasswordConfirm": "Enter your password to confirm",
     "yourCurrentPassword": "Your current password",
-    "deleteMyAccount": "Delete my account"
+    "deleteMyAccount": "Delete my account",
+    "saved": "Saved",
+    "openingBalance": "Starting balance",
+    "openingBalanceSubtitle": "What you already had when you started using the app",
+    "openingAmount": "Starting amount",
+    "openingAmountHint": "Leave empty to work purely from what you enter.",
+    "openingDate": "As of",
+    "openingDateHint": "The day that amount was true.",
+    "openingExplainer": "Only what you enter from this day onward changes your balance. Anything you add with an earlier date still counts in your charts and averages, but is not subtracted again — the starting amount already accounts for it.",
+    "resetTitle": "Start over",
+    "resetSubtitle": "Clear your data and begin again, keeping your account",
+    "resetBody": "Lost track of what you have entered? Clear it out and start fresh. Your profile, preferences and categories are kept.",
+    "resetAction": "Clear data…",
+    "resetChoose": "Choose what to clear. This cannot be undone.",
+    "resetTransactions": "Transactions",
+    "resetTransactionsHint": "Every income and expense you have recorded",
+    "resetBills": "Bills and payment history",
+    "resetBillsHint": "Your recurring bills and every payment logged against them",
+    "resetGoals": "Goals and investments",
+    "resetGoalsHint": "Savings goals, investment goals and their contributions",
+    "resetBudgets": "Budgets",
+    "resetBudgetsHint": "Your monthly budget limits",
+    "resetCategories": "My own categories",
+    "resetCategoriesHint": "Only the ones you created — the built-in list stays",
+    "resetKeeps": "Your account, profile, preferences and the built-in categories are always kept.",
+    "resetTypeToConfirm": "Type {{word}} to confirm",
+    "resetNothingSelected": "Pick at least one thing to clear.",
+    "resetConfirmAction": "Clear selected",
+    "resetDone_one": "Done — {{count}} record removed.",
+    "resetDone_other": "Done — {{count}} records removed."
   },
   "validation": {
     "required": "This field is required",
@@ -787,6 +824,31 @@
     "gifts": "Gifts",
     "governmentAid": "Government Aid",
     "otherIncome": "Other Income",
-    "goal": "Goal"
+    "goal": "Goal",
+    "new": "New category",
+    "newTitle": "New category",
+    "editTitle": "Edit category",
+    "create": "Create",
+    "icon": "Icon",
+    "namePlaceholder": "e.g. Car instalments",
+    "nameHint": "Whatever you would call it yourself — this is your own list.",
+    "nameRequired": "Give the category a name",
+    "nameTooShort": "A little longer, please",
+    "nameTooLong": "That name is too long",
+    "duplicateWarning": "You already have this one — it is listed as {{name}}.",
+    "manageTitle": "Your categories",
+    "manageSubtitle": "Add your own for anything the built-in list does not cover",
+    "builtInCount": "{{count}} built-in categories",
+    "noneYet": "You have not added any of your own yet.",
+    "deleteTitle": "Delete category",
+    "deleteConfirm": "Delete “{{name}}”? Nothing is using it.",
+    "deleteBlocked_one": "“{{name}}” is used by {{count}} record. Move it to another category first, or that record would be left without one.",
+    "deleteBlocked_other": "“{{name}}” is used by {{count}} records. Move them to another category first, or they would be left without one.",
+    "both": "Both",
+    "usedFor": "Used for",
+    "scopeHint": "Pick Both for something that goes either way — betting, taxes, a loan.",
+    "scopeLocked": "Cannot be changed after the category is created.",
+    "deleteBothNote": "This removes it from both expenses and income.",
+    "iconHint": "Type or paste any emoji, or pick one below."
   }
 }

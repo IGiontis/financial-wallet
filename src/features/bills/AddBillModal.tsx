@@ -6,6 +6,7 @@ import type { Bill, BillFrequency, CreateBillDTO, Category } from "../../shared/
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { firestoreToDate } from "../../shared/utils/dates";
+import NewCategoryButton from "../categories/NewCategoryButton";
 import { categoryLabel } from "../../shared/utils/categories";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
@@ -206,6 +207,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
 
           <FormGroup className="mt-3 mb-0">
             <Label className="small fw-medium">{t("common.category")} *</Label>
+            <div className="d-flex gap-2">
             <Input
               type="select"
               name="categoryId"
@@ -223,7 +225,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   </option>
                 ))}
             </Input>
-            <FormFeedback>{formik.errors.categoryId && t(formik.errors.categoryId)}</FormFeedback>
+            <NewCategoryButton categories={categories} type="expense" onCreated={(id) => formik.setFieldValue("categoryId", id)} />
+            </div>
+            <FormFeedback className="d-block">{formik.errors.categoryId && t(formik.errors.categoryId)}</FormFeedback>
           </FormGroup>
 
           {/* Frequency segmented control */}

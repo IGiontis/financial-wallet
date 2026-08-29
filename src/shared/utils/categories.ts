@@ -6,7 +6,7 @@ import type { TFunction } from "i18next";
 // We never touch the stored name; this only maps it to a translation key for
 // display. A category with no entry here is one the user typed themselves,
 // so it falls back to their own text unchanged.
-const CATEGORY_KEYS: Record<string, string> = {
+export const CATEGORY_KEYS: Record<string, string> = {
   Groceries: "groceries",
   Shopping: "shopping",
   "Dining Out": "diningOut",

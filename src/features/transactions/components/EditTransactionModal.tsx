@@ -13,6 +13,7 @@ import { usePayees } from "../hooks/usePayees";
 import { format } from "date-fns";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
+import NewCategoryButton from "../../categories/NewCategoryButton";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
@@ -325,6 +326,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
+                    <div className="d-flex gap-2">
                     <Input
                       type="select" name="categoryId" value={formik.values.categoryId}
                       onChange={handleCategoryChange} onBlur={formik.handleBlur}
@@ -335,7 +337,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                         <option key={c.id} value={c.id}>{c.icon} {categoryLabel(c.name, t)}</option>
                       ))}
                     </Input>
-                    <FormFeedback>{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
+                    <NewCategoryButton categories={categories} type={formik.values.type} onCreated={(id) => formik.setFieldValue("categoryId", id)} />
+                    </div>
+                    <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
               </Row>

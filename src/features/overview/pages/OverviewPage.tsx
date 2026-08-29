@@ -19,6 +19,7 @@ import {
   type TimePeriod,
 } from "../overviewUtils";
 import { MetricCard } from "../components/MetricCard";
+import CurrentBalanceCard from "../components/CurrentBalanceCard";
 import { CashFlowLegend } from "../components/CashFlowLegend";
 import { CustomRangeModal } from "../components/CustomRangeModal";
 import GoalDetailModal from "../components/GoalDetailModal";
@@ -187,6 +188,8 @@ export const OverviewPage = () => {
           ))}
         </div>
       </div>
+
+      <CurrentBalanceCard transactions={transactions} formatCurrency={formatCurrency} />
 
       {/* Metric cards */}
       <Row className="g-3 mb-4" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
-import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getCategories } from "../../../firebase/firestore";
-import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
+import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getCategories, createCategory, updateCategory, deleteCategory, countCategoryUsage, createCategories, updateCategories, deleteCategories } from "../../../firebase/firestore";
+import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO } from "../../../shared/types/IndexTypes";
+import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -78,6 +79,119 @@ export function useDeleteTransaction() {
     mutationFn: (transactionId: string) => deleteTransaction(transactionId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    },
+  });
+}
+// ─── Category mutations ───────────────────────────────────────────────────────
+// The seeded categories cover the common cases and nothing else — there is no
+// "Δόσεις αυτοκινήτου" in a fixed list, and there never could be. These let the
+// user fill the gaps themselves. Only their own categories are touched; the
+// shared defaults carry `userId: null` and are never editable.
+
+export function useCreateCategory() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: (data: CreateCategoryDTO) => createCategory(userId, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+  });
+}
+
+export function useUpdateCategory() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: ({ categoryId, data }: { categoryId: string; data: UpdateCategoryDTO }) => updateCategory(categoryId, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+  });
+}
+
+/**
+ * Also invalidates transactions and bills: a category rename or removal changes
+ * what every row referencing it displays.
+ */
+export function useDeleteCategory() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: (categoryId: string) => deleteCategory(categoryId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
+        queryClient.invalidateQueries({ queryKey: ["bills", userId] }),
+      ]);
+    },
+  });
+}
+
+/** Counts what still points at a category, so deletion can refuse rather than orphan. */
+export function useCategoryUsage() {
+  const { currentUser } = useAuth();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({ mutationFn: (categoryId: string) => countCategoryUsage(userId, categoryId) });
+}
+/**
+ * Creates a category under one type or both at once, returning the new ids
+ * keyed by type so an inline caller can select the half its form is recording.
+ */
+export function useCreateCategoryScope() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: ({ name, icon, scope }: { name: string; icon?: string; scope: CategoryScope }) => createCategories(userId, { name, icon }, scopeTypes(scope)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+  });
+}
+
+/** Renames or restyles every document behind one listed category. */
+export function useUpdateCategoryGroup() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: ({ categoryIds, data }: { categoryIds: string[]; data: UpdateCategoryDTO }) => updateCategories(categoryIds, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+  });
+}
+
+/** Deletes a whole group — both halves of a "both", never one of them. */
+export function useDeleteCategoryGroup() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: (categoryIds: string[]) => deleteCategories(categoryIds),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
+        queryClient.invalidateQueries({ queryKey: ["bills", userId] }),
+      ]);
+    },
+  });
+}
+
+/** Usage across every document behind a listed category. */
+export function useCategoryGroupUsage() {
+  const { currentUser } = useAuth();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: async (categoryIds: string[]) => {
+      const counts = await Promise.all(categoryIds.map((id) => countCategoryUsage(userId, id)));
+      return counts.reduce((a, b) => a + b, 0);
     },
   });
 }

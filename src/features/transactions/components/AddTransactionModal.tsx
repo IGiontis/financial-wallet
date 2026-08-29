@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import { usePayees } from "../hooks/usePayees";
+import NewCategoryButton from "../../categories/NewCategoryButton";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
@@ -334,6 +335,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
+                    <div className="d-flex gap-2">
                     <Input
                       type="select" name="categoryId" value={formik.values.categoryId}
                       onChange={handleCategoryChange} onBlur={formik.handleBlur}
@@ -344,7 +346,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                         <option key={c.id} value={c.id}>{c.icon} {categoryLabel(c.name, t)}</option>
                       ))}
                     </Input>
-                    <FormFeedback>{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
+                    <NewCategoryButton categories={categories} type={formik.values.type} onCreated={(id) => formik.setFieldValue("categoryId", id)} />
+                    </div>
+                    <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
               </Row>
