@@ -391,6 +391,12 @@ export interface BillWithStatus extends Bill {
   paidAmountRange?: { min: number; max: number };
   currentPeriodKey: string;
   isPaidThisPeriod: boolean;
+  /**
+   * How many *future* periods are already covered, on top of the current one —
+   * the count of consecutive paid periods after this one. 0 for the ordinary
+   * case; 1 when next month was settled early.
+   */
+  paidAheadCount: number;
   payment?: BillPayment; // the payment record for the current period, if paid
   payments: BillPayment[]; // all payments for this bill, newest first (history)
   lastPaidDate?: Date;

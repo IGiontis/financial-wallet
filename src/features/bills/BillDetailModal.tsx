@@ -1,7 +1,7 @@
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Row, Col } from "reactstrap";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { FiCheck, FiRotateCcw, FiTrash2 } from "react-icons/fi";
+import { FiCheck, FiFastForward, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate } from "../../shared/utils/dates";
 import { expectedAmount, getFrequencyLabel, getFrequencyToken, sinkingFund } from "./billsUtils";
@@ -102,6 +102,13 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                 {t("bills.amountPaid", { amount: formatCurrency(bill.payment?.amount ?? bill.amount) })}
                 {bill.nextDueDate && <> · {t("bills.nextDue", { date: dateFmt.format(bill.nextDueDate) })}</>}
               </div>
+              {/* Paid beyond this period — say so, or the next due date looks
+                  like an ordinary one rather than an already-covered gap. */}
+              {bill.paidAheadCount > 0 && (
+                <div className="fw-semibold mt-1" style={{ fontSize: 12, color: "var(--color-income)" }}>
+                  ⏩ {t("bills.paidAheadNote", { count: bill.paidAheadCount })}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -183,10 +190,18 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
         </div>
 
         {paid ? (
-          <Button color="warning" outline onClick={() => onUndoPayment(bill)} disabled={isBusy}>
-            <FiRotateCcw size={15} className="me-1" />
-            {t("bills.undoPayment")}
-          </Button>
+          <div className="d-flex gap-2">
+            <Button color="warning" outline onClick={() => onUndoPayment(bill)} disabled={isBusy}>
+              <FiRotateCcw size={15} className="me-1" />
+              {t("bills.undoPayment")}
+            </Button>
+            {/* Settled for now, but the next one can still be cleared early —
+                without this the modal offers no way back to the payment form. */}
+            <Button color="success" outline onClick={() => onMarkPaid(bill)} disabled={isBusy}>
+              <FiFastForward size={15} className="me-1" />
+              {t("bills.payAhead")}
+            </Button>
+          </div>
         ) : (
           <Button color="success" onClick={() => onMarkPaid(bill)} disabled={isBusy}>
             <FiCheck size={16} className="me-1" />

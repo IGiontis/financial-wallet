@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  arrears,
   averagePaidAmount,
   billMonthStrip,
   billUrgency,
   cashRunway,
   computeBillStatus,
   computePeriodTotals,
+  coveredPeriodCount,
   daysUntilDeadline,
   daysUntilDue,
   getDeadline,
@@ -14,9 +16,11 @@ import {
   getNextDueDate,
   getPeriodDueDate,
   getPeriodKey,
+  getPeriodOptions,
   groupBills,
   isHardDeadline,
   isInGracePeriod,
+  monthForecast,
   monthlyEquivalent,
   paidAmountRange,
   sinkingFund,
@@ -825,5 +829,254 @@ describe("billMonthStrip", () => {
     const netflix = makeBill({ dueDay: 5 });
     const status = computeBillStatus(netflix, [], now);
     expect(billMonthStrip(status, now, 1, 1)).toHaveLength(3);
+  });
+});
+
+// ─── Paying ahead ────────────────────────────────────────────────────────────
+
+describe("getPeriodOptions", () => {
+  const now = new Date("2026-08-15");
+
+  it("offers the current period first, then the ones after it", () => {
+    const options = getPeriodOptions(makeBill({ dueDay: 5 }), [], now, 3);
+    expect(options.map((o) => o.key)).toEqual(["2026-08", "2026-09", "2026-10"]);
+    expect(options.map((o) => o.offset)).toEqual([0, 1, 2]);
+  });
+
+  it("steps a whole interval at a time, not a single month", () => {
+    const water = makeBill({ intervalCount: 2, anchorDate: new Date("2026-07-01") });
+    expect(getPeriodOptions(water, [], now, 3).map((o) => o.key)).toEqual(["2026-07", "2026-09", "2026-11"]);
+  });
+
+  it("flags periods that already have a payment", () => {
+    const options = getPeriodOptions(makeBill(), [payment("2026-09", new Date("2026-08-20"))], now, 3);
+    expect(options.map((o) => o.isPaid)).toEqual([false, true, false]);
+  });
+
+  it("carries each period's own due date", () => {
+    const options = getPeriodOptions(makeBill({ dueDay: 5 }), [], now, 2);
+    expect(options[1].dueDate).toEqual(new Date(2026, 8, 5));
+  });
+
+  it("spans the whole bucket for multi-month intervals", () => {
+    const water = makeBill({ intervalCount: 2, anchorDate: new Date("2026-07-01") });
+    const [first] = getPeriodOptions(water, [], now, 1);
+    expect(first.start).toEqual(new Date(2026, 6, 1));
+    expect(first.end.getMonth()).toBe(7); // August — the second half of the bucket
+  });
+});
+
+describe("coveredPeriodCount", () => {
+  const now = new Date("2026-08-15");
+
+  it("is zero while this period is unpaid, even with a later one settled", () => {
+    expect(coveredPeriodCount(makeBill(), [payment("2026-09", new Date("2026-08-20"))], now)).toBe(0);
+  });
+
+  it("counts the unbroken run of settled periods", () => {
+    const payments = [payment("2026-08", new Date("2026-08-01")), payment("2026-09", new Date("2026-08-02"))];
+    expect(coveredPeriodCount(makeBill(), payments, now)).toBe(2);
+  });
+
+  it("stops at a gap", () => {
+    const payments = [payment("2026-08", new Date("2026-08-01")), payment("2026-10", new Date("2026-08-02"))];
+    expect(coveredPeriodCount(makeBill(), payments, now)).toBe(1);
+  });
+
+  it("ignores payments belonging to another bill", () => {
+    const other = { ...payment("2026-08", new Date("2026-08-01")), billId: "b2" };
+    expect(coveredPeriodCount(makeBill(), [other], now)).toBe(0);
+  });
+});
+
+describe("computeBillStatus — paid ahead", () => {
+  const now = new Date("2026-08-15");
+
+  it("points next due past every period already covered", () => {
+    const payments = [payment("2026-08", new Date("2026-08-01")), payment("2026-09", new Date("2026-08-02"))];
+    const status = computeBillStatus(makeBill({ dueDay: 5 }), payments, now);
+
+    expect(status.paidAheadCount).toBe(1);
+    expect(status.nextDueDate).toEqual(new Date(2026, 9, 5)); // October, not September
+  });
+
+  it("leaves an ordinary paid bill pointing at the very next period", () => {
+    const status = computeBillStatus(makeBill({ dueDay: 5 }), [payment("2026-08", new Date("2026-08-01"))], now);
+    expect(status.paidAheadCount).toBe(0);
+    expect(status.nextDueDate).toEqual(new Date(2026, 8, 5));
+  });
+
+  it("paints every prepaid month on the strip", () => {
+    const payments = [payment("2026-08", new Date("2026-08-01")), payment("2026-09", new Date("2026-08-02"))];
+    const strip = billMonthStrip(computeBillStatus(makeBill({ dueDay: 5 }), payments, now), now);
+
+    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("paid"); // Sep, settled early
+    expect(strip.find((c) => c.start.getMonth() === 9)!.status).toBe("due"); // Oct is what's left
+  });
+});
+
+// ─── Next month's forecast ───────────────────────────────────────────────────
+
+describe("monthForecast", () => {
+  const now = new Date("2026-08-15");
+  const status = (bill: Bill, payments: BillPayment[] = []) => computeBillStatus(bill, payments, now);
+
+  it("splits fixed from variable and totals the two", () => {
+    const rent = status(makeBill({ id: "b1", name: "Rent", amount: 500, dueDay: 1 }));
+    const power = status(makeBill({ id: "b2", name: "Power", amount: 100, dueDay: 20, isVariableAmount: true }));
+
+    const forecast = monthForecast([rent, power], now);
+    expect(forecast.fixed).toBe(500);
+    expect(forecast.variable).toBe(100);
+    expect(forecast.total).toBe(600);
+    expect(forecast.fixedCount).toBe(1);
+    expect(forecast.variableCount).toBe(1);
+  });
+
+  it("looks at next month, not this one", () => {
+    const forecast = monthForecast([status(makeBill({ dueDay: 1 }))], now);
+    expect(forecast.monthStart).toEqual(new Date(2026, 8, 1));
+  });
+
+  it("estimates variable bills from real payments rather than the stored figure", () => {
+    const payments = [{ ...payment("2026-06", new Date("2026-06-20")), billId: "b1", amount: 130 }, { ...payment("2026-07", new Date("2026-07-20")), billId: "b1", amount: 110 }];
+    const power = status(makeBill({ amount: 40, dueDay: 20, isVariableAmount: true }), payments);
+
+    expect(monthForecast([power], now).variable).toBe(120); // the average, not the €40 estimate
+  });
+
+  it("moves a prepaid bill out of the total, counting what was actually paid", () => {
+    const paid = { ...payment("2026-09", new Date("2026-08-14")), amount: 480 };
+    const rent = status(makeBill({ amount: 500, dueDay: 1 }), [paid]);
+    const forecast = monthForecast([rent], now);
+
+    expect(forecast.total).toBe(0);
+    expect(forecast.prepaid).toBe(480); // the receipt, not the €500 estimate
+    expect(forecast.prepaidCount).toBe(1);
+  });
+
+  it("skips a bill whose cycle doesn't land next month", () => {
+    // Every 2 months anchored to July → July, September, November…
+    const water = status(makeBill({ amount: 80, dueDay: 10, intervalCount: 2, anchorDate: new Date("2026-06-01") }));
+    expect(monthForecast([water], now).total).toBe(0); // June/August cycle — nothing in September
+  });
+
+  it("counts a quarterly bill in full in the month it lands", () => {
+    const gym = status(makeBill({ amount: 180, dueDay: 10, intervalCount: 3, anchorDate: new Date("2026-06-01") }));
+    expect(monthForecast([gym], now).fixed).toBe(180); // Jun/Sep/Dec — the whole thing, not a third
+  });
+
+  it("counts every occurrence of a weekly bill", () => {
+    const cleaner = status(makeBill({ amount: 25, frequency: "weekly", dueDay: 3, anchorDate: new Date("2026-08-03") }));
+    const forecast = monthForecast([cleaner], now);
+
+    expect(forecast.fixedCount).toBeGreaterThanOrEqual(4); // September holds 4–5 Wednesdays
+    expect(forecast.fixed).toBe(forecast.fixedCount * 25);
+  });
+
+  it("ignores paused bills", () => {
+    const paused = status(makeBill({ amount: 500, dueDay: 1, isActive: false }));
+    expect(monthForecast([paused], now).total).toBe(0);
+  });
+
+  it("still counts a bill with no due day set", () => {
+    const vague = status(makeBill({ amount: 60, dueDay: undefined }));
+    expect(monthForecast([vague], now).fixed).toBe(60);
+  });
+});
+
+describe("monthForecast — breakdown items", () => {
+  const now = new Date("2026-08-15");
+  const status = (bill: Bill, payments: BillPayment[] = []) => computeBillStatus(bill, payments, now);
+
+  it("lists one item per occurrence, earliest first", () => {
+    const rent = status(makeBill({ id: "b1", name: "Rent", amount: 500, dueDay: 1 }));
+    const power = status(makeBill({ id: "b2", name: "Power", amount: 100, dueDay: 20, isVariableAmount: true }));
+
+    const items = monthForecast([power, rent], now).items;
+    expect(items.map((i) => i.bill.name)).toEqual(["Rent", "Power"]);
+    expect(items[0].date).toEqual(new Date(2026, 8, 1));
+  });
+
+  it("reports what was actually paid for a settled occurrence, not the estimate", () => {
+    const paid = { ...payment("2026-09", new Date("2026-08-14")), amount: 480 };
+    const [item] = monthForecast([status(makeBill({ amount: 500, dueDay: 1 }), [paid])], now).items;
+
+    expect(item.isPaid).toBe(true);
+    expect(item.amount).toBe(480);
+  });
+
+  it("keeps the items consistent with the totals", () => {
+    const rent = status(makeBill({ id: "b1", amount: 500, dueDay: 1 }));
+    const power = status(makeBill({ id: "b2", amount: 100, dueDay: 20, isVariableAmount: true }));
+    const forecast = monthForecast([rent, power], now);
+
+    const summed = forecast.items.filter((i) => !i.isPaid).reduce((s, i) => s + i.amount, 0);
+    expect(summed).toBe(forecast.total);
+    expect(forecast.items).toHaveLength(forecast.fixedCount + forecast.variableCount + forecast.prepaidCount);
+  });
+});
+
+// ─── Arrears ─────────────────────────────────────────────────────────────────
+
+describe("arrears", () => {
+  const now = new Date("2026-08-15");
+  const status = (bill: Bill, payments: BillPayment[] = []) => computeBillStatus(bill, payments, now);
+
+  it("is empty when every past period was paid", () => {
+    const netflix = makeBill({ dueDay: 5, anchorDate: new Date("2026-06-01") });
+    const payments = [payment("2026-06", new Date("2026-06-05")), payment("2026-07", new Date("2026-07-05")), payment("2026-08", new Date("2026-08-05"))];
+    expect(arrears([status(netflix, payments)], now)).toEqual([]);
+  });
+
+  it("lists skipped months oldest first", () => {
+    const netflix = makeBill({ amount: 15, dueDay: 5, anchorDate: new Date("2026-05-01") });
+    const owed = arrears([status(netflix, [payment("2026-07", new Date("2026-07-05"))])], now);
+
+    expect(owed.map((i) => i.periodKey)).toEqual(["2026-05", "2026-06", "2026-08"]);
+    expect(owed.every((i) => !i.isPaid)).toBe(true);
+  });
+
+  it("never reaches back past the bill's own start", () => {
+    const fresh = makeBill({ dueDay: 5, anchorDate: new Date("2026-07-01"), createdAt: new Date("2026-07-01") });
+    expect(arrears([status(fresh)], now).map((i) => i.periodKey)).toEqual(["2026-07", "2026-08"]);
+  });
+
+  it("leaves a bill still inside its grace window alone", () => {
+    // Due on the 5th with 30 days of grace — late in no meaningful sense yet.
+    const power = makeBill({ dueDay: 5, graceDays: 30, anchorDate: new Date("2026-08-01") });
+    expect(arrears([status(power)], now)).toEqual([]);
+  });
+
+  it("counts a hard-deadline bill the moment its day passes", () => {
+    const netflix = makeBill({ dueDay: 5, anchorDate: new Date("2026-08-01") });
+    expect(arrears([status(netflix)], now).map((i) => i.periodKey)).toEqual(["2026-08"]);
+  });
+
+  it("ignores paused bills", () => {
+    const paused = makeBill({ dueDay: 5, isActive: false, anchorDate: new Date("2026-05-01") });
+    expect(arrears([status(paused)], now)).toEqual([]);
+  });
+
+  it("leaves a period alone until its date has actually passed", () => {
+    const payments = [{ ...payment("2026-06", new Date("2026-06-20")), amount: 130 }, { ...payment("2026-07", new Date("2026-07-20")), amount: 110 }];
+    const power = makeBill({ amount: 40, dueDay: 20, isVariableAmount: true, anchorDate: new Date("2026-06-01") });
+
+    // August's 20th is still ahead of the 15th — nothing is late yet.
+    expect(arrears([status(power, payments)], now)).toHaveLength(0);
+  });
+
+  it("owes the recent average for a variable bill, not its stale estimate", () => {
+    const payments = [{ ...payment("2026-06", new Date("2026-06-20")), amount: 130 }, { ...payment("2026-07", new Date("2026-07-20")), amount: 110 }];
+    const power = makeBill({ amount: 40, dueDay: 1, isVariableAmount: true, anchorDate: new Date("2026-06-01") });
+    const owed = arrears([status(power, payments)], now);
+
+    expect(owed.map((i) => i.periodKey)).toEqual(["2026-08"]); // the 1st has passed
+    expect(owed[0].amount).toBe(120); // the average, not €40
+  });
+
+  it("respects the lookback bound", () => {
+    const old = makeBill({ dueDay: 5, anchorDate: new Date("2020-01-01"), createdAt: new Date("2020-01-01") });
+    expect(arrears([status(old)], now, 3)).toHaveLength(4); // the current period plus 3 back
   });
 });

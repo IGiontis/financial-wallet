@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Col, Container, Row, Spinner, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { FiChevronRight, FiCheck, FiLock } from "react-icons/fi";
 import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
 import {
+  arrears,
   billMonthStrip,
   billUrgency,
   cashRunway,
@@ -18,18 +19,19 @@ import {
   groupBills,
   isHardDeadline,
   isInGracePeriod,
+  monthForecast,
   supportsMonthStrip,
   URGENT_DAYS,
-  monthsBetweenPayments,
   urgencyToken,
   yearlyBreakdown,
   type MonthChip,
+  type MonthForecast,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import MarkPaidModal from "./MarkPaidModal";
-import segmented from "../../shared/css/Segmented.module.css";
+import NextMonthModal from "./NextMonthModal";
 import styles from "./css/BillsPage.module.css";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
@@ -138,6 +140,81 @@ function PeriodSummary({ bills, formatCurrency }: { bills: BillWithStatus[]; for
   );
 }
 
+// ─── Next month ──────────────────────────────────────────────────────────────
+
+/**
+ * What next month is going to cost, as a sum you can check rather than a single
+ * opaque figure: the bills whose amount is already known, plus the ones that
+ * have to be estimated, equals roughly the total.
+ *
+ * Keeping the two halves apart is the point — €520 of rent and subscriptions is
+ * a fact, €140 of electricity and water is a forecast, and a single "€660"
+ * would present both with the same false confidence.
+ */
+function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast: MonthForecast; formatCurrency: (n: number) => string; onOpenBreakdown: () => void }) {
+  const { t, i18n } = useTranslation();
+
+  const monthLabel = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long" }).format(forecast.monthStart);
+
+  return (
+    <div
+      className={`${styles.forecastCard} ${styles.forecastCardTappable} p-3 p-lg-4 mb-3`}
+      role="button"
+      tabIndex={0}
+      onClick={onOpenBreakdown}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenBreakdown();
+        }
+      }}
+      title={t("bills.seeBreakdown")}
+    >
+      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <span className="text-uppercase fw-semibold text-body-secondary" style={{ fontSize: 11, letterSpacing: "0.05em" }}>
+          {t("bills.nextMonthTitle")}
+        </span>
+        <Badge color="secondary" pill style={{ fontSize: 10, fontWeight: 500 }}>
+          {monthLabel}
+        </Badge>
+      </div>
+
+      <div className={styles.forecastLine}>
+        <span className={styles.forecastLabel}>
+          {t("bills.fixedTotal")}
+          <span className={styles.forecastCount}>{t("bills.billCount", { count: forecast.fixedCount })}</span>
+        </span>
+        <span className={styles.forecastValue}>{formatCurrency(forecast.fixed)}</span>
+      </div>
+
+      <div className={styles.forecastLine}>
+        <span className={styles.forecastLabel}>
+          <span className={styles.forecastOp} aria-hidden>
+            +
+          </span>
+          {t("bills.variableTotal")}
+          <span className={styles.forecastCount}>{t("bills.billCount", { count: forecast.variableCount })}</span>
+        </span>
+        <span className={styles.forecastValue}>{formatCurrency(forecast.variable)}</span>
+      </div>
+
+      <div className={`${styles.forecastLine} ${styles.forecastTotalLine}`}>
+        <span className={styles.forecastLabel}>{t("bills.approxTotal")}</span>
+        <span className={styles.forecastTotal}>≈ {formatCurrency(forecast.total)}</span>
+      </div>
+
+      {/* Prepaying is what makes this figure move — say what came off it, or
+          next month simply looks unaccountably cheap. */}
+      {forecast.prepaid > 0 && <div className={styles.forecastNote}>⏩ {t("bills.prepaidNote", { amount: formatCurrency(forecast.prepaid), count: forecast.prepaidCount })}</div>}
+
+      <div className={styles.forecastHint}>
+        {t("bills.seeBreakdown")}
+        <FiChevronRight size={13} style={{ verticalAlign: "-2px" }} aria-hidden />
+      </div>
+    </div>
+  );
+}
+
 // ─── Quick stats ─────────────────────────────────────────────────────────────
 
 function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
@@ -225,38 +302,26 @@ function StatusChip({ bill }: { bill: BillWithStatus }) {
 }
 
 /**
- * The line under the chip: for anything unpaid, the actual last day the money
- * must be there — the question the old row never answered. For a settled bill,
- * when it comes round again.
+ * The date cell: for anything unpaid, the actual last day the money must be
+ * there. For a settled bill, when it comes round again. Returned as a
+ * label/value pair so it can sit in the card's figure row rather than trailing
+ * the status chip as an afterthought.
  */
-function DeadlineNote({ bill }: { bill: BillWithStatus }) {
-  const { t, i18n } = useTranslation();
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
-
+function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTimeFormat): { label: string; value: string; color?: string } {
   if (bill.isPaidThisPeriod) {
-    return <span className={styles.cellSub}>{bill.nextDueDate ? t("bills.nextShort", { date: dateFmt.format(bill.nextDueDate) }) : "—"}</span>;
+    return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
   }
-  if (!bill.deadline) return <span className={styles.cellSub}>{t("bills.noDueDateSet")}</span>;
+  if (!bill.deadline) return { label: t("bills.labelPayBy"), value: "—" };
 
   // Inside the grace window the two dates differ, and the later one is the one
   // that matters — say so explicitly rather than showing a date that has passed.
-  const key = isInGracePeriod(bill) ? "bills.graceUntil" : "bills.payBy";
-  return <span className={styles.cellSub}>{t(key, { date: dateFmt.format(bill.deadline) })}</span>;
-}
-
-/** Column captions — desktop only; on a phone each figure carries its own label. */
-function BillListHeader() {
-  const { t } = useTranslation();
-  return (
-    <div className={`${styles.billRow} ${styles.listHeader} d-none d-md-grid`} aria-hidden>
-      <span className={styles.rowIcon} />
-      <span className={styles.rowMain}>{t("bills.colBill")}</span>
-      <span className={styles.rowLastPaid}>{t("bills.colLastPaid")}</span>
-      <span className={styles.rowPerMonth}>{t("bills.colPerMonth")}</span>
-      <span className={styles.rowStatus}>{t("bills.colStatus")}</span>
-      <span className={styles.rowChevron} />
-    </div>
-  );
+  const grace = isInGracePeriod(bill);
+  const days = daysUntilDeadline(bill);
+  return {
+    label: grace ? t("bills.labelGraceUntil") : t("bills.labelPayBy"),
+    value: dateFmt.format(bill.deadline),
+    color: days !== undefined && days < 0 ? "var(--color-expense)" : undefined,
+  };
 }
 
 // ─── Bill row ────────────────────────────────────────────────────────────────
@@ -289,108 +354,16 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
   }
 
   return (
-    <span className={styles.rowSubtitle}>
+    <span className={styles.cardSubtitle}>
       {t(freq.key, { count: freq.count })} · {amountNote}
     </span>
   );
 }
 
-function BillRow({
-  bill,
-  category,
-  formatCurrency,
-  onOpenDetails,
-}: {
-  bill: BillWithStatus;
-  category: Category | undefined;
-  formatCurrency: (n: number) => string;
-  onOpenDetails: (b: BillWithStatus) => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const paid = bill.isPaidThisPeriod;
-  const urgency = billUrgency(bill);
-  const strict = isHardDeadline(bill);
-
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
-  const lastPaidAmount = bill.payments[0]?.amount;
-
-  // "Per month" only says something when the bill isn't already monthly.
-  const showPerMonth = monthsBetweenPayments(bill) !== 1;
-
-  return (
-    <div
-      className={`${styles.billRow} ${paid ? styles.billRowPaid : ""}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpenDetails(bill)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpenDetails(bill);
-        }
-      }}
-      title={t("bills.viewDetails")}
-    >
-      <span className={`${styles.iconTile} ${styles.rowIcon} ${styles.iconWrap}`}>
-        <span aria-hidden>{category?.icon ?? "🧾"}</span>
-        {/* A tick on the icon as well as the colour bar, so "paid" survives a
-            greyscale screen or a colour-blind reader. */}
-        {paid && (
-          <span className={styles.paidTick} title={t("bills.paidRecently")}>
-            <FiCheck size={9} aria-hidden />
-          </span>
-        )}
-      </span>
-
-      {/* Name and subtitle are separate grid children: on a phone they occupy
-          two different rows, each paired with its own figure on the right. */}
-      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`}>
-        {bill.name}
-        {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
-      </span>
-      <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
-
-      {/* The chip says how urgent; the line under it says the actual date —
-          "when do I need the money" is the question every row now answers,
-          whatever screen it's read on. */}
-      <div className={styles.rowStatus}>
-        <StatusChip bill={bill} />
-        <DeadlineNote bill={bill} />
-      </div>
-
-      {/* What actually left the account last time. On a phone this gets its own
-          full line with the date spelled out, not squeezed under something else. */}
-      <div className={styles.rowLastPaid}>
-        <span className={styles.cellValue}>{lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}</span>
-        <span className={styles.cellSub}>{bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}</span>
-      </div>
-
-      <div className={styles.rowPerMonth}>
-        {showPerMonth ? (
-          <>
-            <span className={styles.cellValue}>{formatCurrency(bill.monthlyEquivalent)}</span>
-            <span className={`${styles.cellSub} d-md-none`}>{t("bills.perMonthShort")}</span>
-          </>
-        ) : (
-          <span className={styles.cellSub}>—</span>
-        )}
-      </div>
-
-      {/* Purely decorative — the whole row is the tap target. No menu of any
-          kind lives here; pay, edit and delete are one tap away in the detail
-          modal, which (unlike a popover) can never render clipped. */}
-      <FiChevronRight size={18} className={styles.rowChevron} aria-hidden />
-
-      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
-    </div>
-  );
-}
-
-// ─── Timeline layout ─────────────────────────────────────────────────────────
-// A second way to read the same list: a run of calendar months per bill, coloured
-// in where a payment covers them. A bill every 2 months paints two months solid
-// per payment, so the cadence is something you see rather than something the
-// subtitle states.
+// ─── Month strip ─────────────────────────────────────────────────────────────
+// A run of calendar months per bill, coloured in where a payment covers them. A
+// bill every 2 months paints two months solid per payment, so the cadence is
+// something you see rather than something the subtitle states.
 
 const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-expense)" : undefined);
 
@@ -417,7 +390,35 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   );
 }
 
-function BillTimelineRow({
+// ─── Bill card ───────────────────────────────────────────────────────────────
+// One card per bill carrying everything there is to know about it: what it is,
+// where it stands, the three figures worth comparing, and the cadence strip.
+//
+// It used to be two views behind a toggle — a dense table of figures, or the
+// month strips — which made every visit start with a choice nobody wanted to
+// make, and hid half the information behind the wrong answer. The table was
+// also the source of the cramped phone layout: columns sized for a desktop
+// header, folded onto a 375px screen, put figures wherever they happened to
+// land. Labelled cells in a grid stay legible at any width, so the same card
+// now serves both screens and simply breathes more on the larger one.
+//
+// Every action — pay, edit, delete — still lives one tap away in the detail
+// modal; the card is the only affordance, with a chevron as a visual hint.
+
+/** One labelled figure in the card's stat row. */
+function Metric({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div className={styles.metric}>
+      <span className={styles.metricLabel}>{label}</span>
+      <span className={styles.metricValue} style={color ? { color } : undefined}>
+        {value}
+      </span>
+      <span className={styles.metricSub}>{sub ?? " "}</span>
+    </div>
+  );
+}
+
+function BillCard({
   bill,
   category,
   formatCurrency,
@@ -430,15 +431,18 @@ function BillTimelineRow({
   onOpenDetails: (b: BillWithStatus) => void;
   now: Date;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const paid = bill.isPaidThisPeriod;
   const urgency = billUrgency(bill);
   const strict = isHardDeadline(bill);
-  const showStrip = supportsMonthStrip(bill);
+
+  const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const lastPaidAmount = bill.payments[0]?.amount;
+  const deadline = deadlineFact(bill, t, dateFmt);
 
   return (
     <div
-      className={`${styles.billRow} ${styles.timelineRow} ${paid ? styles.billRowPaid : ""}`}
+      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -450,34 +454,51 @@ function BillTimelineRow({
       }}
       title={t("bills.viewDetails")}
     >
-      <span className={`${styles.iconTile} ${styles.rowIcon} ${styles.iconWrap}`}>
-        <span aria-hidden>{category?.icon ?? "🧾"}</span>
-        {paid && (
-          <span className={styles.paidTick} title={t("bills.paidRecently")}>
-            <FiCheck size={9} aria-hidden />
+      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
+
+      <div className={styles.cardHead}>
+        <span className={`${styles.iconTile} ${styles.iconWrap}`}>
+          <span aria-hidden>{category?.icon ?? "🧾"}</span>
+          {/* A tick on the icon as well as the colour bar, so "paid" survives a
+              greyscale screen or a colour-blind reader. */}
+          {paid && (
+            <span className={styles.paidTick} title={t("bills.paidRecently")}>
+              <FiCheck size={9} aria-hidden />
+            </span>
+          )}
+        </span>
+
+        <div className={styles.cardTitles}>
+          <span className={`${styles.cardName} fw-semibold text-body-emphasis text-truncate`}>
+            {bill.name}
+            {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
           </span>
-        )}
-      </span>
+          <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
+        </div>
 
-      <span className={`${styles.rowMain} fw-semibold text-body-emphasis text-truncate`}>
-        {bill.name}
-        {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
-      </span>
+        <div className={styles.cardAside}>
+          <StatusChip bill={bill} />
+          {/* Paid ahead is the one state the chip can't express: this period is
+              settled AND so is the next, which is not the same as merely paid. */}
+          {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
+        </div>
 
-      <div className={styles.rowStatus}>
-        <StatusChip bill={bill} />
-        <DeadlineNote bill={bill} />
+        <FiChevronRight size={18} className={styles.cardChevron} aria-hidden />
       </div>
 
-      {showStrip ? (
-        <MonthStrip bill={bill} now={now} />
-      ) : (
-        <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
-      )}
+      <div className={styles.cardMetrics}>
+        <Metric
+          label={t("bills.colLastPaid")}
+          value={lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}
+          sub={bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}
+        />
+        <Metric label={t("bills.colPerMonth")} value={formatCurrency(bill.monthlyEquivalent)} sub={t("bills.perMonthShort")} />
+        <Metric label={deadline.label} value={deadline.value} color={deadline.color} sub={bill.deadline || paid ? undefined : t("bills.noDueDateSet")} />
+      </div>
 
-      <FiChevronRight size={18} className={styles.rowChevron} aria-hidden />
-
-      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
+      {/* Weekly is the one cadence a strip of calendar months can't represent —
+          several of its periods land inside a single month. */}
+      {supportsMonthStrip(bill) && <MonthStrip bill={bill} now={now} />}
     </div>
   );
 }
@@ -578,8 +599,8 @@ export default function BillsPage() {
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
   const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
-  const [view, setView] = useLocalStorage<"list" | "timeline">("bills-view", "list");
-  // One clock reading for the whole visit, so every row's month strip lines up
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  // One clock reading for the whole visit, so every card's month strip lines up
   // on the same window instead of drifting across renders.
   const [now] = useState(() => new Date());
 
@@ -587,6 +608,11 @@ export default function BillsPage() {
     const map = new Map(categories.map((c) => [c.id, c]));
     return (id: string) => map.get(id);
   }, [categories]);
+
+  // Computed once for both the card and the breakdown it opens, so the modal
+  // can never disagree with the figure that was tapped to reach it.
+  const forecast = useMemo(() => monthForecast(bills), [bills]);
+  const owed = useMemo(() => arrears(bills), [bills]);
 
   // One continuous list ordered by when the money is actually needed, so the
   // top of the list is always what to deal with first. Paid bills keep their
@@ -604,9 +630,9 @@ export default function BillsPage() {
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
 
-  const handleConfirmPaid = (amountInBase: number, paidDate: Date) => {
+  const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string) => {
     if (!payingBill) return;
-    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase }, { onSuccess: () => setPayingBill(null) });
+    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey }, { onSuccess: () => setPayingBill(null) });
   };
 
   const handleUndoPayment = (bill: BillWithStatus) => {
@@ -636,13 +662,6 @@ export default function BillsPage() {
     deleteBill.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
   };
 
-  const renderRow = (bill: BillWithStatus) =>
-    view === "list" ? (
-      <BillRow key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
-    ) : (
-      <BillTimelineRow key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
-    );
-
   return (
     <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1200 }}>
       {/* Header */}
@@ -669,6 +688,7 @@ export default function BillsPage() {
           {/* Summary + list */}
           <Col xs={12} lg={7} xl={8}>
             <PeriodSummary bills={bills} formatCurrency={formatCurrency} />
+            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setShowBreakdown(true)} />}
             <QuickStats bills={bills} formatCurrency={formatCurrency} />
 
             {bills.length === 0 ? (
@@ -683,20 +703,11 @@ export default function BillsPage() {
             ) : (
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
-
-                <div className="d-flex justify-content-end mb-2">
-                  <div className={segmented.group} role="group" aria-label={t("bills.viewToggleLabel")}>
-                    <button type="button" className={`${segmented.item} ${view === "list" ? segmented.active : ""}`} onClick={() => setView("list")}>
-                      {t("bills.viewList")}
-                    </button>
-                    <button type="button" className={`${segmented.item} ${view === "timeline" ? segmented.active : ""}`} onClick={() => setView("timeline")}>
-                      {t("bills.viewTimeline")}
-                    </button>
-                  </div>
+                <div className="d-flex flex-column gap-2">
+                  {sortedBills.map((bill) => (
+                    <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+                  ))}
                 </div>
-
-                {view === "list" && <BillListHeader />}
-                <div className="d-flex flex-column gap-2">{sortedBills.map(renderRow)}</div>
               </>
             )}
           </Col>
@@ -737,6 +748,8 @@ export default function BillsPage() {
       )}
 
       {payingBill && <MarkPaidModal bill={payingBill} isSaving={markPaid.isPending} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />}
+
+      {showBreakdown && <NextMonthModal forecast={forecast} arrears={owed} categoryFor={categoryFor} formatCurrency={formatCurrency} onClose={() => setShowBreakdown(false)} />}
 
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>

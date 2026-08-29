@@ -217,6 +217,47 @@
   }
 }
 
+/* Bootstrap's dialog widths were drawn for 1024px screens and haven't moved
+   since: a 500px default leaves a form floating in the middle of a 1440px
+   display, with its fields squeezed into two thin columns while most of the
+   screen sits empty. Each size steps up on a large screen so a modal occupies a
+   sensible share of the window, and every one keeps a max-width — a dialog that
+   simply tracked the viewport would stretch its labels metres from their
+   inputs on an ultrawide. */
+@media (min-width: 992px) {
+  .modal-sm {
+    max-width: 420px;
+  }
+
+  .modal-dialog:not(.modal-sm):not(.modal-lg):not(.modal-xl):not(.modal-fullscreen) {
+    max-width: 680px;
+  }
+
+  .modal-lg {
+    max-width: 940px;
+  }
+
+  .modal-xl {
+    max-width: 1240px;
+  }
+
+  /* Taller too — a wider dialog that still scrolls at 500px of body height has
+     only traded one cramped axis for another. */
+  .modal-dialog-scrollable .modal-content {
+    max-height: calc(100vh - 6rem);
+  }
+}
+
+@media (min-width: 1400px) {
+  .modal-dialog:not(.modal-sm):not(.modal-lg):not(.modal-xl):not(.modal-fullscreen) {
+    max-width: 780px;
+  }
+
+  .modal-lg {
+    max-width: 1080px;
+  }
+}
+
 /* ── Form controls ────────────────────────────────────────────────────────── */
 /* Bootstrap's .form-control defaults to --bs-body-bg, which is our grey page
    colour — that made inputs blend into the background. Inputs must sit on the

@@ -79,8 +79,10 @@ export function useMarkBillPaid() {
 
   return useMutation({
     // `paidAmount` carries the real figure for variable bills (electricity, water).
-    mutationFn: ({ bill, paidDate, paidAmount }: { bill: BillWithStatus; paidDate: Date; paidAmount?: number }) =>
-      markBillPaid(userId, { id: bill.id, name: bill.name, amount: bill.amount, categoryId: bill.categoryId }, bill.currentPeriodKey, paidDate, paidAmount),
+    // `periodKey` defaults to the period we're in, but can name a later one when
+    // the user settles a bill ahead of time.
+    mutationFn: ({ bill, paidDate, paidAmount, periodKey }: { bill: BillWithStatus; paidDate: Date; paidAmount?: number; periodKey?: string }) =>
+      markBillPaid(userId, { id: bill.id, name: bill.name, amount: bill.amount, categoryId: bill.categoryId }, periodKey ?? bill.currentPeriodKey, paidDate, paidAmount),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: billKeys.all(userId) }),

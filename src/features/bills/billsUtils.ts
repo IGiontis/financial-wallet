@@ -37,6 +37,19 @@ export function getPeriodStart(bill: Pick<Bill, "frequency" | "intervalCount" | 
   }
 }
 
+/** The bucket start `steps` whole periods after `start` (negative steps go back). */
+export function shiftPeriodStart(bill: Pick<Bill, "frequency" | "intervalCount">, start: Date, steps: number): Date {
+  const distance = getIntervalCount(bill) * steps;
+  switch (bill.frequency) {
+    case "weekly":
+      return addWeeks(start, distance);
+    case "monthly":
+      return addMonths(start, distance);
+    case "yearly":
+      return addYears(start, distance);
+  }
+}
+
 // ─── Period keys ────────────────────────────────────────────────────────────
 // A bill is "paid this period" when a payment exists for the key of the period
 // the given date falls in. Keys are derived from the bucket start, so for
@@ -185,6 +198,60 @@ export function paidAmountRange(payments: BillPayment[]): { min: number; max: nu
   return { min: Math.min(...recent), max: Math.max(...recent) };
 }
 
+// ─── Paying ahead ───────────────────────────────────────────────────────────
+// Sometimes the money is there now and the bill isn't due for weeks — rent
+// settled while you still have the cash, a subscription cleared before a trip.
+// A payment therefore isn't tied to "whatever period today falls in": it names
+// the period it covers, and the user picks that period when they confirm.
+
+/** How far ahead a bill can be settled — enough for a year of monthly ones. */
+export const MAX_PERIODS_AHEAD = 12;
+
+export interface PeriodOption {
+  /** The key a payment for this period is stored under. */
+  key: string;
+  /** First day of the period bucket. */
+  start: Date;
+  /** Last day the bucket covers — differs from `start` when interval > 1. */
+  end: Date;
+  dueDate?: Date;
+  isPaid: boolean;
+  /** 0 = the period we're in now, 1 = the one after it, … */
+  offset: number;
+}
+
+/**
+ * The current period plus the next few, each flagged with whether it has
+ * already been settled — the menu behind "which one am I paying?".
+ */
+export function getPeriodOptions(bill: Bill, payments: BillPayment[], now: Date = new Date(), count = 4): PeriodOption[] {
+  const currentStart = getPeriodStart(bill, now);
+  const paidKeys = new Set(payments.filter((p) => p.billId === bill.id).map((p) => p.periodKey));
+
+  return Array.from({ length: Math.max(1, count) }, (_, offset) => {
+    const start = shiftPeriodStart(bill, currentStart, offset);
+    const nextStart = shiftPeriodStart(bill, start, 1);
+    const end = new Date(nextStart.getTime() - 86_400_000);
+    const key = getPeriodKey(bill, start);
+    return { key, start, end, dueDate: getPeriodDueDate(bill, start), isPaid: paidKeys.has(key), offset };
+  });
+}
+
+/**
+ * Length of the unbroken run of settled periods starting at the current one.
+ * 0 when this period is unpaid, 1 for the ordinary "paid up to date", 2+ once
+ * the user has paid ahead. A gap stops the count: a covered March means
+ * nothing while February is still outstanding.
+ */
+export function coveredPeriodCount(bill: Bill, payments: BillPayment[], now: Date = new Date()): number {
+  const paidKeys = new Set(payments.filter((p) => p.billId === bill.id).map((p) => p.periodKey));
+  const currentStart = getPeriodStart(bill, now);
+
+  let covered = 0;
+  while (covered <= MAX_PERIODS_AHEAD && paidKeys.has(getPeriodKey(bill, shiftPeriodStart(bill, currentStart, covered)))) covered++;
+  return covered;
+}
+
 // ─── Status ─────────────────────────────────────────────────────────────────
 
 function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
@@ -199,12 +266,18 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
   // the (necessarily rough) stored estimate.
   const average = averagePaidAmount(payments);
   const forecastAmount = bill.isVariableAmount ? (average ?? bill.amount) : bill.amount;
-  const nextDueDate = getNextDueDate(bill, now, !!payment);
+
+  // Paying ahead: count the unbroken run of covered periods starting here, so
+  // "next due" points past everything already settled rather than at a month
+  // the user has a receipt for.
+  const covered = coveredPeriodCount(bill, payments, now);
+  const nextDueDate = covered > 1 ? getPeriodDueDate(bill, shiftPeriodStart(bill, getPeriodStart(bill, now), covered)) : getNextDueDate(bill, now, !!payment);
 
   return {
     ...bill,
     currentPeriodKey,
     isPaidThisPeriod: !!payment,
+    paidAheadCount: Math.max(0, covered - 1),
     payment,
     payments,
     averagePaidAmount: average,
@@ -525,6 +598,155 @@ export function computePeriodTotals(bills: BillWithStatus[]): PeriodTotals {
     unpaidCount: active.filter((b) => !b.isPaidThisPeriod).length,
     totalCount: active.length,
   };
+}
+
+// ─── Next month's bill ──────────────────────────────────────────────────────
+// "What is next month going to cost me?" — asked before the month arrives, so
+// there is time to do something about the answer. Split fixed from variable
+// because the two carry different confidence: rent is €500 and will be €500,
+// while electricity is a guess built from what it has been.
+//
+// Real occurrences, not a monthly average: a quarterly bill landing in
+// September belongs in September's figure in full, and doesn't quietly smear
+// a third of itself across the two months either side.
+
+/** Guards the period walk — far more than any real bill needs in one month. */
+const MAX_PERIODS_PER_MONTH = 64;
+
+/** One payment landing in the month — the line behind the total. */
+export interface MonthForecastItem {
+  bill: BillWithStatus;
+  periodKey: string;
+  /** When it lands: its due date, or the period's own start if none is set. */
+  date: Date;
+  amount: number;
+  isPaid: boolean;
+  isVariable: boolean;
+}
+
+export interface MonthForecast {
+  monthStart: Date;
+  /** Bills whose amount is known in advance. */
+  fixed: number;
+  /** Estimated from recent payments — the soft half of the total. */
+  variable: number;
+  /** fixed + variable: what is still to be paid. */
+  total: number;
+  /** Falls in the month but is already settled, so it sits outside `total`. */
+  prepaid: number;
+  fixedCount: number;
+  variableCount: number;
+  prepaidCount: number;
+  /** Every occurrence making up the figures above, earliest first. */
+  items: MonthForecastItem[];
+}
+
+/**
+ * Every payment landing in the calendar month `monthOffset` months from now,
+ * with anything already settled kept separately — pay September's rent in
+ * August and September's figure drops accordingly, which is the entire reason
+ * for paying early.
+ */
+export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), monthOffset = 1): MonthForecast {
+  const monthStart = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0, 23, 59, 59, 999);
+
+  const items: MonthForecastItem[] = [];
+
+  for (const bill of bills) {
+    if (!bill.isActive) continue;
+    // Keyed by amount, not just presence: a settled occurrence should show what
+    // actually left the account, which for a variable bill is the whole point.
+    const paidByKey = new Map(bill.payments.map((p) => [p.periodKey, p.amount]));
+
+    let start = getPeriodStart(bill, now);
+    for (let i = 0; i < MAX_PERIODS_PER_MONTH && start <= monthEnd; i++) {
+      // A bill with no due day still lands somewhere — treat the period's own
+      // start as the date it arrives, rather than dropping it from the total.
+      const date = getPeriodDueDate(bill, start) ?? start;
+      const periodKey = getPeriodKey(bill, start);
+
+      if (date >= monthStart && date <= monthEnd) {
+        const paid = paidByKey.get(periodKey);
+        items.push({
+          bill,
+          periodKey,
+          date,
+          // A settled occurrence is worth what was actually paid; an unpaid one
+          // can only be the expectation.
+          amount: paid ?? expectedAmount(bill),
+          isPaid: paid !== undefined,
+          isVariable: !!bill.isVariableAmount,
+        });
+      }
+
+      start = shiftPeriodStart(bill, start, 1);
+    }
+  }
+
+  items.sort((a, b) => a.date.getTime() - b.date.getTime() || a.bill.name.localeCompare(b.bill.name));
+
+  const forecast: MonthForecast = { monthStart, fixed: 0, variable: 0, total: 0, prepaid: 0, fixedCount: 0, variableCount: 0, prepaidCount: 0, items };
+
+  for (const item of items) {
+    if (item.isPaid) {
+      forecast.prepaid += item.amount;
+      forecast.prepaidCount++;
+    } else if (item.isVariable) {
+      forecast.variable += item.amount;
+      forecast.variableCount++;
+    } else {
+      forecast.fixed += item.amount;
+      forecast.fixedCount++;
+    }
+  }
+
+  forecast.total = forecast.fixed + forecast.variable;
+  return forecast;
+}
+
+// ─── Arrears ────────────────────────────────────────────────────────────────
+// Everything whose deadline has been and gone with no payment against it. The
+// bill list only ever shows the period you are in, so a month you skipped
+// entirely quietly falls off the screen once the next one starts — the debt is
+// still real, and this is what surfaces it.
+
+/** How far back to look for unpaid periods. A year of monthly bills. */
+const MAX_ARREARS_LOOKBACK = 12;
+
+/**
+ * Unpaid periods whose deadline has already passed, oldest first.
+ *
+ * Bounded by the bill's own start as well as the lookback: a bill created last
+ * month cannot be six months in arrears, and walking past its anchor would
+ * invent periods that never existed.
+ */
+export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeriodsBack = MAX_ARREARS_LOOKBACK): MonthForecastItem[] {
+  const today = startOfDay(now);
+  const items: MonthForecastItem[] = [];
+
+  for (const bill of bills) {
+    if (!bill.isActive) continue;
+    const paidKeys = new Set(bill.payments.map((p) => p.periodKey));
+    const born = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
+
+    let start = getPeriodStart(bill, now);
+    for (let i = 0; i <= maxPeriodsBack && start >= born; i++) {
+      const periodKey = getPeriodKey(bill, start);
+      const due = getPeriodDueDate(bill, start) ?? start;
+      // Measured against the deadline, not the due date: a bill inside its
+      // grace window is late in no meaningful sense — it is still payable.
+      const deadline = getDeadline(bill, due) ?? due;
+
+      if (deadline < today && !paidKeys.has(periodKey)) {
+        items.push({ bill, periodKey, date: due, amount: expectedAmount(bill), isPaid: false, isVariable: !!bill.isVariableAmount });
+      }
+
+      start = shiftPeriodStart(bill, start, -1);
+    }
+  }
+
+  return items.sort((a, b) => a.date.getTime() - b.date.getTime() || a.bill.name.localeCompare(b.bill.name));
 }
 
 // ─── Yearly projection ──────────────────────────────────────────────────────
