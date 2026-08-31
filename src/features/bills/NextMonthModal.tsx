@@ -48,7 +48,7 @@ export default function NextMonthModal({ forecast, arrears, categoryFor, formatC
 
     return (
       <div key={`${item.bill.id}-${item.periodKey}`} className={`${styles.breakdownRow} ${kind === "paid" ? styles.breakdownRowPaid : ""}`}>
-        <span className={`${styles.iconTile} ${styles.iconWrap}`} style={{ width: 34, height: 34, fontSize: 16 }}>
+        <span className={`${styles.iconTile} ${styles.iconWrap}`} style={{ width: 26, height: 26, fontSize: 13 }}>
           <span aria-hidden>{category?.icon ?? "🧾"}</span>
           {kind === "paid" && (
             <span className={styles.paidTick} title={t("bills.paidRecently")}>
@@ -85,7 +85,7 @@ export default function NextMonthModal({ forecast, arrears, categoryFor, formatC
     const subtotal = items.reduce((s, i) => s + i.amount, 0);
 
     return (
-      <div className="mb-3">
+      <div className="mb-2">
         <div className={styles.sectionHead}>
           <span className={styles.sectionTitle} style={accent ? { color: accent } : undefined}>
             {title}
@@ -96,7 +96,7 @@ export default function NextMonthModal({ forecast, arrears, categoryFor, formatC
             {formatCurrency(subtotal)}
           </span>
         </div>
-        <div className="d-flex flex-column gap-1">{items.map((i) => renderItem(i, kind))}</div>
+        <div className="d-flex flex-column" style={{ gap: 3 }}>{items.map((i) => renderItem(i, kind))}</div>
       </div>
     );
   };

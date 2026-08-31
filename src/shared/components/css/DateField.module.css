@@ -1,0 +1,33 @@
+/* Date field — the trigger. The calendar itself is themed globally in
+   index.css, because react-datepicker renders it into a portal outside this
+   component's CSS-module scope. */
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Marks this popup as ours for the global theme rules */
+.calendar {
+  font-family: inherit;
+}

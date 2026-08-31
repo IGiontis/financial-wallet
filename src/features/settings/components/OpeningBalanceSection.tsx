@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Button, Col, FormGroup, Input, Label, Row, FormText } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../../shared/components/DateField";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "../../../shared/types/IndexTypes";
 import { setOpeningBalance } from "../../../firebase/firestore";
@@ -80,7 +81,7 @@ export default function OpeningBalanceSection({ user, onSaved }: { user: User | 
         <Col xs={12} sm={6}>
           <FormGroup className="mb-0">
             <Label className="small fw-medium">{t("settings.openingDate")}</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={parsed === null} />
+            <DateField value={date} onChange={setDate} disabled={parsed === null} maxDate={new Date()} />
             <FormText style={{ fontSize: 11 }}>{t("settings.openingDateHint")}</FormText>
           </FormGroup>
         </Col>

@@ -124,7 +124,7 @@ export default function CategoryManager() {
           onClose={() => setEditing(null)}
           onSubmit={(values) =>
             updateCategory.mutate(
-              { categoryIds: editing.members.map((m) => m.id), data: { name: values.name, icon: values.icon } },
+              { categoryIds: editing.members.map((m) => m.id), data: { name: values.name, icon: values.icon, defaultPayee: values.defaultPayee, defaultAmount: values.defaultAmount } },
               { onSuccess: () => setEditing(null) },
             )
           }

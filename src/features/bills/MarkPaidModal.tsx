@@ -3,6 +3,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { getPeriodOptions, type PeriodOption } from "./billsUtils";
@@ -145,7 +146,13 @@ export default function MarkPaidModal({ bill, isSaving, onClose, onConfirm }: Ma
             <Col xs={12} sm={6}>
               <FormGroup className="mb-0">
                 <Label className="small fw-medium">{t("common.date")} *</Label>
-                <Input type="date" name="date" value={formik.values.date} onChange={formik.handleChange} onBlur={formik.handleBlur} invalid={!!(formik.touched.date && formik.errors.date)} />
+                <DateField
+                  name="date"
+                  value={formik.values.date}
+                  onChange={(v) => formik.setFieldValue("date", v)}
+                  onBlur={() => formik.setFieldTouched("date", true)}
+                  invalid={!!(formik.touched.date && formik.errors.date)}
+                />
                 <FormFeedback>{formik.errors.date && t(formik.errors.date)}</FormFeedback>
               </FormGroup>
             </Col>

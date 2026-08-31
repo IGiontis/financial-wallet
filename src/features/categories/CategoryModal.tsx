@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert } from "reactstrap";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
@@ -14,10 +14,10 @@ interface CategoryModalProps {
   /** What the surrounding form is recording, used as the starting choice. */
   scope: CategoryScope;
   /** Present when editing an existing category (or a both-ways pair). */
-  category?: { name: string; icon?: string; scope: CategoryScope };
+  category?: { name: string; icon?: string; scope: CategoryScope; defaultPayee?: string; defaultAmount?: number };
   isSaving: boolean;
   onClose: () => void;
-  onSubmit: (values: { name: string; scope: CategoryScope; icon: string }) => void;
+  onSubmit: (values: { name: string; scope: CategoryScope; icon: string; defaultPayee?: string; defaultAmount?: number }) => void;
 }
 
 /**
@@ -39,6 +39,8 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   const [name, setName] = useState(category?.name ?? "");
   const [scope, setScope] = useState<CategoryScope>(category?.scope ?? initialScope);
   const [icon, setIcon] = useState(category?.icon ?? ICON_CHOICES[0]);
+  const [payee, setPayee] = useState(category?.defaultPayee ?? "");
+  const [amount, setAmount] = useState(category?.defaultAmount != null ? String(category.defaultAmount) : "");
   const [touched, setTouched] = useState(false);
 
   const cleaned = cleanCategoryName(name);
@@ -55,7 +57,14 @@ export default function CategoryModal({ existing, scope: initialScope, category,
     e.preventDefault();
     setTouched(true);
     if (!canSave) return;
-    onSubmit({ name: cleaned, scope, icon });
+    const parsedAmount = amount.trim() === "" ? undefined : Number(amount);
+    onSubmit({
+      name: cleaned,
+      scope,
+      icon,
+      defaultPayee: payee.trim() || undefined,
+      defaultAmount: Number.isFinite(parsedAmount) && parsedAmount! > 0 ? parsedAmount : undefined,
+    });
   };
 
   const SCOPES: { value: CategoryScope; labelKey: string }[] = [
@@ -113,6 +122,28 @@ export default function CategoryModal({ existing, scope: initialScope, category,
             <FormText style={{ fontSize: 11 }}>{category ? t("categories.scopeLocked") : t("categories.scopeHint")}</FormText>
           </FormGroup>
 
+          {/* What this category should fill in for you. The point of the whole
+              feature: once a category knows it means "Netflix, €15.99, expense",
+              recording one is picking it and nothing more. Both fields stay
+              optional — a category that fills in less is still useful. */}
+          <div className="p-2 mb-3" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
+            <Label className="small fw-medium d-block mb-2">{t("categories.autoFillTitle")}</Label>
+            <Row className="g-2">
+              <Col xs={12} sm={7}>
+                <Label className="small" style={{ fontSize: 12 }}>
+                  {t("transactions.payee")}
+                </Label>
+                <Input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder={t("categories.defaultPayeePlaceholder")} maxLength={30} bsSize="sm" />
+              </Col>
+              <Col xs={12} sm={5}>
+                <Label className="small" style={{ fontSize: 12 }}>
+                  {t("common.amount")}
+                </Label>
+                <Input type="number" inputMode="decimal" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="—" bsSize="sm" />
+              </Col>
+            </Row>
+            <FormText style={{ fontSize: 11 }}>{t("categories.autoFillHint")}</FormText>
+          </div>
           <FormGroup className="mb-0">
             <Label className="small fw-medium">{t("categories.icon")}</Label>
 

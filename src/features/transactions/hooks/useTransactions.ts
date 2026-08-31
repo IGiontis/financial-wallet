@@ -148,7 +148,8 @@ export function useCreateCategoryScope() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: ({ name, icon, scope }: { name: string; icon?: string; scope: CategoryScope }) => createCategories(userId, { name, icon }, scopeTypes(scope)),
+    mutationFn: ({ name, icon, scope, defaultPayee, defaultAmount }: { name: string; icon?: string; scope: CategoryScope; defaultPayee?: string; defaultAmount?: number }) =>
+      createCategories(userId, { name, icon, defaultPayee, defaultAmount }, scopeTypes(scope)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
   });
 }

@@ -1,9 +1,10 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardBody, Modal, ModalHeader, ModalBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { DateField, parseISODay, toISODay } from "../../../shared/components/DateField";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../../shared/utils/dates";
-import { isSameDay, midnight, toDateKey, toInputValue, fromInputValue, formatDisplay } from "../transactionDates";
+import { isSameDay, midnight, toDateKey, formatDisplay } from "../transactionDates";
 
 export interface CalendarProps {
   allTransactions: Transaction[];
@@ -14,51 +15,28 @@ export interface CalendarProps {
   onDaySelect: (d: Date) => void;
 }
 
-function DateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: string; max?: string }) {
-  const { t, i18n } = useTranslation();
-  const inputRef = useRef<HTMLInputElement>(null);
+/**
+ * One end of the From/To range, above the grid.
+ *
+ * Wraps the shared field so these two behave like every other date in the app —
+ * same calendar, same Greek months, same theme — instead of falling through to
+ * whatever the OS draws. The range still gets set by clicking the grid below;
+ * this is for jumping somewhere far away without paging there month by month.
+ */
+function RangeDateField({ label, date, onChange, min, max }: { label: string; date: Date | null; onChange: (d: Date | null) => void; min?: Date; max?: Date }) {
+  const { t } = useTranslation();
   return (
-    <div
-      onClick={() => inputRef.current?.showPicker()}
-      style={{ flex: 1, border: "1px solid var(--color-border-primary)", borderRadius: 8, padding: "7px 10px", position: "relative", background: "var(--color-background-secondary)", minWidth: 0, cursor: "pointer" }}
-    >
+    <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 13, color: date ? "var(--color-accent-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>
-        {date ? formatDisplay(date, i18n.resolvedLanguage ?? "en") : t("transactions.selectDate")}
-      </div>
-      <input
-        ref={inputRef}
-        type="date"
-        value={toInputValue(date)}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(fromInputValue(e.target.value))}
-        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+      <DateField
+        small
+        clearable
+        value={date ? toISODay(date) : ""}
+        onChange={(v) => onChange(v ? parseISODay(v) : null)}
+        placeholder={t("transactions.selectDate")}
+        minDate={min}
+        maxDate={max}
       />
-      {date && (
-        <button
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onChange(null);
-          }}
-          style={{
-            position: "absolute",
-            top: "50%",
-            right: 8,
-            transform: "translateY(-50%)",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--color-text-secondary)",
-            fontSize: 16,
-            lineHeight: 1,
-            padding: 0,
-            zIndex: 1,
-          }}
-        >
-          x
-        </button>
-      )}
     </div>
   );
 }
@@ -168,8 +146,8 @@ function CalendarGrid({
   return (
     <>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <DateField label={t("transactions.dateFrom").toUpperCase()} date={fromDate} onChange={onFromChange} max={toInputValue(toDate) || undefined} />
-        <DateField label={t("transactions.dateTo").toUpperCase()} date={toDate} onChange={onToChange} min={toInputValue(fromDate) || undefined} />
+        <RangeDateField label={t("transactions.dateFrom").toUpperCase()} date={fromDate} onChange={onFromChange} max={toDate ?? undefined} />
+        <RangeDateField label={t("transactions.dateTo").toUpperCase()} date={toDate} onChange={onToChange} min={fromDate ?? undefined} />
       </div>
       <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

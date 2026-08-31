@@ -20,6 +20,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../shared/components/DateField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
@@ -362,12 +363,11 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                       {isGoalsPage ? (
                         <FormGroup className="mb-0">
                           <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
-                          <Input
-                            type="date"
+                          <DateField
                             name="deadline"
                             value={formik.values.deadline}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
+                            onChange={(v) => formik.setFieldValue("deadline", v)}
+                            onBlur={() => formik.setFieldTouched("deadline", true)}
                             invalid={!!(formik.touched.deadline && formik.errors.deadline)}
                           />
                           <FormFeedback>{validationMessage(formik.errors.deadline, t)}</FormFeedback>

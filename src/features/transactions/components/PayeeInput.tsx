@@ -17,6 +17,8 @@ interface PayeeInputProps {
   payees: string[];
   invalid?: boolean;
   placeholder?: string;
+  /** Locked because the chosen category already fills this in. */
+  disabled?: boolean;
   onChange: (value: string) => void;
   onBlur?: () => void;
 }
@@ -34,7 +36,7 @@ interface PayeeInputProps {
  * Follows the ARIA combobox pattern — arrow keys move a virtual cursor while
  * focus stays in the input, so typing is never interrupted.
  */
-export function PayeeInput({ value, payees, invalid, placeholder, onChange, onBlur }: PayeeInputProps) {
+export function PayeeInput({ value, payees, invalid, placeholder, disabled, onChange, onBlur }: PayeeInputProps) {
   const { t } = useTranslation();
   const listId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -153,6 +155,7 @@ export function PayeeInput({ value, payees, invalid, placeholder, onChange, onBl
     <div className={styles.wrap} ref={wrapRef}>
       <Input
         innerRef={inputRef}
+        disabled={disabled}
         type="text"
         name="description"
         autoComplete="off"

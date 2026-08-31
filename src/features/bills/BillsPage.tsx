@@ -614,17 +614,27 @@ export default function BillsPage() {
   const forecast = useMemo(() => monthForecast(bills), [bills]);
   const owed = useMemo(() => arrears(bills), [bills]);
 
-  // One continuous list ordered by when the money is actually needed, so the
-  // top of the list is always what to deal with first. Paid bills keep their
-  // place in line — they just recede visually — rather than being filed away
-  // in a section you have to go looking for.
-  const sortedBills = useMemo(() => {
-    return [...bills].sort((a, b) => {
-      const da = daysUntilDeadline(a) ?? Number.MAX_SAFE_INTEGER;
-      const db = daysUntilDeadline(b) ?? Number.MAX_SAFE_INTEGER;
-      return da - db;
-    });
-  }, [bills]);
+  /**
+   * Split into what still wants money and what doesn't, each ordered by when
+   * the money is needed.
+   *
+   * One flat list distinguished paid from unpaid only by a colour bar and a
+   * faded background — enough to notice once you knew to look for it, not
+   * enough to answer "what's left?" at a glance. A heading with a running
+   * total answers it before you read a single row.
+   */
+  const sections = useMemo(() => {
+    const byDeadline = (a: BillWithStatus, b: BillWithStatus) => (daysUntilDeadline(a) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDeadline(b) ?? Number.MAX_SAFE_INTEGER);
+    const outstanding = bills.filter((b) => !b.isPaidThisPeriod).sort(byDeadline);
+    // Most recently settled first — the useful order for a section you scan
+    // only to confirm something went through.
+    const settled = bills.filter((b) => b.isPaidThisPeriod).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
+
+    return [
+      { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstanding.reduce((s, b) => s + expectedAmount(b), 0), tone: "var(--color-expense)" },
+      { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0), tone: "var(--color-income)" },
+    ].filter((section) => section.bills.length > 0);
+  }, [bills, t]);
   const busy = markPaid.isPending || unmarkPaid.isPending;
 
   // Keep an open detail modal in sync after a payment lands or is undone.
@@ -703,11 +713,26 @@ export default function BillsPage() {
             ) : (
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
-                <div className="d-flex flex-column gap-2">
-                  {sortedBills.map((bill) => (
-                    <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
-                  ))}
-                </div>
+
+                {sections.map((section) => (
+                  <div key={section.key} className="mb-3">
+                    <div className={styles.listSection}>
+                      <span className={styles.listSectionTitle} style={{ color: section.tone }}>
+                        {section.title}
+                        <span className={styles.listSectionCount}>{t("bills.billCount", { count: section.bills.length })}</span>
+                      </span>
+                      <span className={styles.listSectionTotal} style={{ color: section.tone }}>
+                        {formatCurrency(section.total)}
+                      </span>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      {section.bills.map((bill) => (
+                        <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </>
             )}
           </Col>

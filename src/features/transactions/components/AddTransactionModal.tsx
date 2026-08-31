@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
@@ -7,10 +7,11 @@ import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import { usePayees } from "../hooks/usePayees";
-import NewCategoryButton from "../../categories/NewCategoryButton";
+import CategoryPicker from "../../categories/CategoryPicker";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
@@ -187,10 +188,49 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formik.values.pricePerUnit, formik.values.quantity, formik.values.showFuelDetails]);
 
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const catId = e.target.value;
-    const isF = categories.find((c) => c.id === catId)?.name === "Fuel";
-    formik.setFieldValue("categoryId", catId);
+  // ── Category-driven autofill ───────────────────────────────────────────────
+  // A category knows what it usually means: Netflix, €15.99, an expense. Once it
+  // does, recording one is picking it — the rest arrives filled in and locked,
+  // so the fields that never vary stop asking to be re-confirmed every time.
+  //
+  // Locked rather than merely prefilled because that is the signal: a disabled
+  // field says "this is handled" in a way a filled one does not, and the escape
+  // hatch is one tap away for the month the amount actually changed.
+
+  const [unlocked, setUnlocked] = useState(false);
+
+  /** Which fields the chosen category filled in — empty when it fills nothing. */
+  const autoFilled = useMemo(() => {
+    const category = categories.find((c) => c.id === formik.values.categoryId);
+    if (!category) return [];
+    const filled: string[] = [];
+    if (category.defaultPayee) filled.push(t("transactions.payee").toLowerCase());
+    if (category.defaultAmount != null) filled.push(t("common.amount").toLowerCase());
+    return filled;
+  }, [categories, formik.values.categoryId, t]);
+
+  const lockPayee = autoFilled.length > 0 && !unlocked && !!categories.find((c) => c.id === formik.values.categoryId)?.defaultPayee;
+  const lockAmount = autoFilled.length > 0 && !unlocked && categories.find((c) => c.id === formik.values.categoryId)?.defaultAmount != null;
+
+  const handleTypeChange = (next: "income" | "expense") => {
+    formik.setFieldValue("type", next);
+    // The chosen category belongs to the old tab, so it cannot survive the switch.
+    formik.setFieldValue("categoryId", "");
+    formik.setFieldValue("showFuelDetails", false);
+    formik.setFieldValue("fuelType", "");
+    formik.setFieldValue("pricePerUnit", "");
+    formik.setFieldValue("quantity", "");
+    formik.setFieldValue("odometer", "");
+    formik.setFieldValue("place", "");
+    setIsFuelCategory(false);
+    setUnlocked(false);
+  };
+
+  const handleCategorySelect = (categoryId: string, category: Category) => {
+    formik.setFieldValue("categoryId", categoryId);
+    // Fuel is the one built-in category that opens extra fields; it predates
+    // the defaults below and still keys off the name.
+    const isF = category.name === "Fuel";
     setIsFuelCategory(isF);
     if (!isF) {
       formik.setFieldValue("showFuelDetails", false);
@@ -200,7 +240,14 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       formik.setFieldValue("odometer", "");
       formik.setFieldValue("place", "");
     }
+
+    // Only ever fills, never clears: switching to a category with no defaults
+    // must not wipe what the user already typed.
+    if (category.defaultPayee) formik.setFieldValue("description", category.defaultPayee);
+    if (category.defaultAmount != null) formik.setFieldValue("amount", category.defaultAmount);
+    setUnlocked(false);
   };
+
 
   const handleClose = () => {
     formik.resetForm();
@@ -218,7 +265,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     }
   };
 
-  const filteredCategories = categories.filter((c) => c.type === formik.values.type);
 
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
@@ -240,53 +286,36 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         <>
           <ModalBody>
             <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Type toggle ── */}
+              {/* ── Category (and, by consequence, the type) ── */}
+              {/* One control, not two. The type used to be its own toggle that
+                  could disagree with the category chosen under it; now the tab
+                  IS the type, and picking a card settles both. */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.type")} *</Label>
-                <Row className="g-2">
-                  {(["expense", "income"] as ("income" | "expense")[]).map((tt) => {
-                    const isSelected = formik.values.type === tt;
-                    const color = tt === "income" ? "var(--color-income)" : "var(--color-expense)";
-                    const bg = tt === "income" ? "color-mix(in srgb, var(--color-income) 12%, transparent)" : "color-mix(in srgb, var(--color-expense) 12%, transparent)";
-                    return (
-                      <Col xs={6} key={tt}>
-                        <div
-                          role="button" tabIndex={0}
-                          onClick={() => {
-                            formik.setFieldValue("type", tt);
-                            formik.setFieldValue("categoryId", "");
-                            formik.setFieldValue("showFuelDetails", false);
-                            formik.setFieldValue("fuelType", "");
-                            formik.setFieldValue("pricePerUnit", "");
-                            formik.setFieldValue("quantity", "");
-                            formik.setFieldValue("odometer", "");
-                            formik.setFieldValue("place", "");
-                            setIsFuelCategory(false);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              formik.setFieldValue("type", tt);
-                              formik.setFieldValue("categoryId", "");
-                              formik.setFieldValue("showFuelDetails", false);
-                              setIsFuelCategory(false);
-                            }
-                          }}
-                          style={{
-                            border: `2px solid ${isSelected ? color : "var(--color-border-tertiary)"}`,
-                            borderRadius: "var(--border-radius-md)", padding: "10px 12px", cursor: "pointer",
-                            background: isSelected ? bg : "var(--color-background-secondary)",
-                            textAlign: "center", transition: "all 0.15s ease",
-                          }}
-                        >
-                          <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: isSelected ? color : "inherit" }}>
-                            {tt === "income" ? t("transactions.income") : t("transactions.expense")}
-                          </p>
-                        </div>
-                      </Col>
-                    );
-                  })}
-                </Row>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
+                <CategoryPicker
+                  categories={categories}
+                  value={formik.values.categoryId}
+                  type={formik.values.type}
+                  onTypeChange={handleTypeChange}
+                  onChange={handleCategorySelect}
+                  invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
+                />
+                <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
               </FormGroup>
+
+              {/* What the category filled in, and the way out of it. Locked by
+                  default so the common entry is amount and nothing else; one
+                  tap reopens them for the day you paid someone different. */}
+              {autoFilled.length > 0 && (
+                <div className="d-flex align-items-center justify-content-between gap-2 mb-2 px-2 py-1" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>
+                    ⚡ {t("transactions.autoFilledNote", { fields: autoFilled.join(", ") })}
+                  </span>
+                  <Button type="button" color="secondary" outline size="sm" onClick={() => setUnlocked(true)} disabled={unlocked} style={{ fontSize: 11.5, flexShrink: 0 }}>
+                    {unlocked ? t("transactions.unlocked") : t("transactions.unlock")}
+                  </Button>
+                </div>
+              )}
 
               {/* ── Amount + Date ── */}
               <Row className="g-3">
@@ -297,6 +326,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
                       value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                       readOnly={formik.values.showFuelDetails}
+                      disabled={lockAmount}
                       style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                       invalid={!!(formik.touched.amount && formik.errors.amount)}
                     />
@@ -306,9 +336,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 <Col xs={6}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.date")} *</Label>
-                    <Input
-                      type="date" name="date" value={formik.values.date}
-                      onChange={formik.handleChange} onBlur={formik.handleBlur}
+                    <DateField
+                      name="date"
+                      value={formik.values.date}
+                      onChange={(v) => formik.setFieldValue("date", v)}
+                      onBlur={() => formik.setFieldTouched("date", true)}
                       invalid={!!(formik.touched.date && formik.errors.date)}
                     />
                     <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
@@ -316,9 +348,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 </Col>
               </Row>
 
-              {/* ── Payee + Category ── */}
+              {/* ── Payee ── */}
               <Row className="g-3 mt-1">
-                <Col xs={6}>
+                <Col xs={12}>
                   <FormGroup className="mb-0">
                     <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
                     <PayeeInput
@@ -328,27 +360,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                       invalid={!!(formik.touched.description && formik.errors.description)}
                       onChange={(v) => formik.setFieldValue("description", v)}
                       onBlur={() => formik.setFieldTouched("description", true)}
+                      disabled={lockPayee}
                     />
                     <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
-                  </FormGroup>
-                </Col>
-                <Col xs={6}>
-                  <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
-                    <div className="d-flex gap-2">
-                    <Input
-                      type="select" name="categoryId" value={formik.values.categoryId}
-                      onChange={handleCategoryChange} onBlur={formik.handleBlur}
-                      invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
-                    >
-                      <option value="">{t("common.none")}</option>
-                      {[...filteredCategories].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {categoryLabel(c.name, t)}</option>
-                      ))}
-                    </Input>
-                    <NewCategoryButton categories={categories} type={formik.values.type} onCreated={(id) => formik.setFieldValue("categoryId", id)} />
-                    </div>
-                    <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
                   </FormGroup>
                 </Col>
               </Row>

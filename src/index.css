@@ -1,3 +1,9 @@
+/* The library sheet loads first so the theme overrides further down win on
+   equal specificity — imported here rather than from the component, where
+   the bundler injected it after this file and the calendar came out white
+   inside the dark theme. */
+@import "react-datepicker/dist/react-datepicker.css";
+
 /* ============================================================================
    MyFiWallet — Design tokens & base styles
    Bootstrap-first: we drive Bootstrap 5.3's native colour modes via
@@ -334,4 +340,165 @@ body {
 /* Sidebar hover effect */
 .hover-bg-secondary:hover {
   background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ── Date picker ───────────────────────────────────────────────────────────── */
+/* react-datepicker ships a fixed light stylesheet: white paper, #216ba5 blue,
+   grey borders. Left alone it is a bright rectangle punched into the dark
+   theme. These rules re-point it at the token layer so it follows light/dark
+   like every other surface, and they live here rather than in a CSS module
+   because the calendar renders into a portal at the end of <body>. */
+
+/* The library wraps the trigger in an inline-block, which is wrong for a form
+   field: inside a grid column it collapsed to its own text width and sat on the
+   same line as its label instead of filling the column like every other input.
+   Both wrapper layers become block-level so the field behaves like a control. */
+.react-datepicker-wrapper,
+.react-datepicker__input-container {
+  display: block;
+  width: 100%;
+}
+
+.react-datepicker {
+  font-family: inherit;
+  font-size: 13px;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  color: var(--color-text-primary);
+}
+
+.react-datepicker__header {
+  background-color: var(--color-background-secondary);
+  border-bottom: 1px solid var(--color-border-tertiary);
+  padding-top: 10px;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker__day-name {
+  color: var(--color-text-primary);
+}
+
+.react-datepicker__day-name {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.react-datepicker__day {
+  color: var(--color-text-primary);
+  border-radius: var(--border-radius-sm);
+}
+
+.react-datepicker__day:hover {
+  background-color: var(--color-background-secondary);
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--color-text-secondary);
+  opacity: 0.45;
+}
+
+.react-datepicker__day--disabled {
+  color: var(--color-text-secondary);
+  opacity: 0.35;
+}
+
+/* Today reads as an outline; the selection is the filled one, so the two never
+   compete for the same visual weight. */
+.react-datepicker__day--today {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--color-border-primary);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--bs-primary);
+  color: #fff;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--keyboard-selected:hover {
+  background-color: var(--bs-primary);
+  filter: brightness(1.08);
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--color-text-secondary);
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--color-text-primary);
+}
+
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+  padding: 2px 4px;
+}
+
+/* Clear button (the From/To range fields). The library draws it as a hard-coded
+   grey pill; this makes it a quiet × that follows the theme and sits clear of
+   the calendar glyph on the right of the trigger. */
+.react-datepicker__close-icon {
+  right: 30px;
+  padding: 0;
+}
+
+.react-datepicker__close-icon::after {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  height: auto;
+  width: auto;
+  padding: 0;
+}
+
+.react-datepicker__close-icon:hover::after {
+  color: var(--color-text-primary);
+}
+
+.react-datepicker__triangle {
+  display: none;
+}
+
+/* The portal has to clear Bootstrap's modal (1055) or the calendar opens behind
+   the dialog that asked for it. */
+.react-datepicker-popper {
+  z-index: 1080;
+}
+
+/* On a phone the popup is centred as a small sheet rather than tethered to a
+   field that may sit near the bottom edge with nowhere to open into. */
+@media (max-width: 575.98px) {
+  .react-datepicker-popper {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    display: flex;
+    justify-content: center;
+    padding: 0 12px 12px;
+  }
+
+  .react-datepicker {
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .react-datepicker__month-container {
+    width: 100%;
+  }
+
+  .react-datepicker__day,
+  .react-datepicker__day-name {
+    width: 12.5%;
+    margin: 2px 0;
+    line-height: 2.1rem;
+  }
 }

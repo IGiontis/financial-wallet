@@ -136,6 +136,13 @@ export interface Category {
   type: TransactionType;
   icon?: string;
   color?: string;
+  /**
+   * Prefilled into a new transaction when this category is picked, so the
+   * common case is amount plus category and nothing else. Both optional: a
+   * category with neither simply fills in less.
+   */
+  defaultPayee?: string;
+  defaultAmount?: number;
   isDefault: boolean;
   userId: string | null;
   createdAt: Date;
@@ -147,12 +154,16 @@ export interface CreateCategoryDTO {
   type: TransactionType;
   icon?: string;
   color?: string;
+  defaultPayee?: string;
+  defaultAmount?: number;
 }
 
 export interface UpdateCategoryDTO {
   name?: string;
   icon?: string;
   color?: string;
+  defaultPayee?: string;
+  defaultAmount?: number;
 }
 
 // ============================================================================

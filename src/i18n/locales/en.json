@@ -292,7 +292,9 @@
     "sectionPaid": "Already paid",
     "breakdownUnpaid": "never paid",
     "arrearsNote_one": "{{amount}} still owed from earlier ({{count}} payment)",
-    "arrearsNote_other": "{{amount}} still owed from earlier ({{count}} payments)"
+    "arrearsNote_other": "{{amount}} still owed from earlier ({{count}} payments)",
+    "sectionOutstanding": "Still to pay",
+    "sectionSettled": "Paid"
   },
   "transactions": {
     "title": "Transactions",
@@ -390,7 +392,11 @@
     "deletePayeeConfirm": "Delete {{name}}?",
     "useTypedPayee": "Use \"{{name}}\"",
     "payees": "Payees",
-    "pickDates": "Pick dates"
+    "pickDates": "Pick dates",
+    "autoFilledNote": "Filled in by the category: {{fields}}",
+    "unlock": "Change",
+    "unlocked": "Unlocked",
+    "typeLockedOnEdit": "Income and expense cannot be swapped. Delete and re-create to change it."
   },
   "analytics": {
     "title": "Analytics",
@@ -849,6 +855,11 @@
     "scopeHint": "Pick Both for something that goes either way — betting, taxes, a loan.",
     "scopeLocked": "Cannot be changed after the category is created.",
     "deleteBothNote": "This removes it from both expenses and income.",
-    "iconHint": "Type or paste any emoji, or pick one below."
+    "iconHint": "Type or paste any emoji, or pick one below.",
+    "autoFillTitle": "Fill in automatically",
+    "autoFillHint": "Picking this category prefills these, so you only enter what actually varies.",
+    "defaultPayeePlaceholder": "e.g. Netflix",
+    "filterPlaceholder": "Filter categories…",
+    "noneMatch": "No category matches."
   }
 }

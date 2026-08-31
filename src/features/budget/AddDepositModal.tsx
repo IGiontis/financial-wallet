@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../shared/components/DateField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col, Alert } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
@@ -143,12 +144,11 @@ export default function AddDepositModal({ goal, isOpen, onClose, onSubmit }: Add
             <Col xs={12} md={6}>
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.dateLabel")} *</Label>
-                <Input
-                  type="date"
+                <DateField
                   name="date"
                   value={formik.values.date}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
+                  onChange={(v) => formik.setFieldValue("date", v)}
+                  onBlur={() => formik.setFieldTouched("date", true)}
                   invalid={!!(formik.touched.date && formik.errors.date)}
                   disabled={isDeadlineGoal && remaining <= 0}
                 />

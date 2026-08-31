@@ -171,12 +171,27 @@ export const createCategories = async (userId: string, data: Omit<CreateCategory
   return created;
 };
 
-/** Renames or restyles every document in a "both" pair at once. */
+/**
+ * Renames or restyles every document in a "both" pair at once.
+ *
+ * The autofill defaults are written with `deleteField()` when blank rather than
+ * dropped by `clean()`: emptying the payee box has to actually remove the
+ * stored value, or the category would go on prefilling a name the user just
+ * cleared, with the form showing the field as empty.
+ */
 export const updateCategories = async (categoryIds: string[], data: UpdateCategoryDTO) => {
+  const { defaultPayee, defaultAmount, ...rest } = data;
   const batch = writeBatch(db);
+
   for (const id of categoryIds) {
-    batch.update(doc(db, "categories", id), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+    batch.update(doc(db, "categories", id), {
+      ...clean({ ...rest }),
+      defaultPayee: defaultPayee ?? deleteField(),
+      defaultAmount: defaultAmount ?? deleteField(),
+      updatedAt: serverTimestamp(),
+    });
   }
+
   await batch.commit();
 };
 

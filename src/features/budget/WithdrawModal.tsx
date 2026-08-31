@@ -5,6 +5,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, I
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
+import { DateField } from "../../shared/components/DateField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 
 // ─── Internal form values ─────────────────────────────────────────────────────
@@ -148,12 +149,11 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
             <Col xs={12} md={6}>
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("investments.dateLabel")} *</Label>
-                <Input
-                  type="date"
+                <DateField
                   name="date"
                   value={formik.values.date}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
+                  onChange={(v) => formik.setFieldValue("date", v)}
+                  onBlur={() => formik.setFieldTouched("date", true)}
                   invalid={!!(formik.touched.date && formik.errors.date)}
                 />
                 <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
