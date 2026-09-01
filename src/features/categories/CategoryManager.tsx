@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter, Spinner } from "reactstrap";
+import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { groupCategories, type CategoryGroup } from "../../shared/utils/categoryNames";
 import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useCategoryGroupUsage } from "../transactions/hooks/useTransactions";
@@ -54,13 +55,7 @@ export default function CategoryManager() {
 
   const inUse = usage !== null && usage > 0;
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-3">
-        <Spinner size="sm" color="primary" />
-      </div>
-    );
-  }
+  if (isLoading) return <SkeletonRows count={4} />;
 
   return (
     <>
@@ -135,9 +130,7 @@ export default function CategoryManager() {
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("categories.deleteTitle")}</ModalHeader>
         <ModalBody>
           {usage === null ? (
-            <div className="text-center py-2">
-              <Spinner size="sm" color="primary" />
-            </div>
+            <Skeleton height={14} count={2} />
           ) : inUse ? (
             /* Refused rather than cascaded: deleting would leave those rows with
                a category that no longer resolves, and no way to find them. */

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
-import { Alert, Container, Spinner } from "reactstrap";
+import { Alert, Container } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
 import { useNavigate } from "react-router-dom";
@@ -178,9 +179,16 @@ export function AnalyticsPage() {
 
   if (isLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-        <Spinner color="primary" />
-      </div>
+      <Container fluid className="py-3 py-lg-4">
+        <SkeletonPageHeader />
+        <div className="row g-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="col-12 col-xl-6">
+              <SkeletonChartCard height={200} />
+            </div>
+          ))}
+        </div>
+      </Container>
     );
   }
 

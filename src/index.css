@@ -502,3 +502,21 @@ body {
     line-height: 2.1rem;
   }
 }
+
+/* ── Loading skeletons ────────────────────────────────────────────────────── */
+/* react-loading-skeleton reads these two custom properties off the element.
+   Pointing them at the design tokens here is the whole of the theming: every
+   skeleton in the app then follows light and dark without passing a colour. */
+
+.react-loading-skeleton {
+  --base-color: var(--color-background-secondary);
+  --highlight-color: var(--color-border-tertiary);
+  line-height: 1;
+}
+
+/* The shimmer is decoration, and a page full of it is a page full of motion. */
+@media (prefers-reduced-motion: reduce) {
+  .react-loading-skeleton::after {
+    animation: none;
+  }
+}

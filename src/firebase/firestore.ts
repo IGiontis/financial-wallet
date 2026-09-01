@@ -372,6 +372,31 @@ export const markBillPaid = async (
 };
 
 // Undoes a payment: removes both the payment record and its expense transaction.
+/**
+ * Corrects an existing payment — the amount, the date, or both.
+ *
+ * The mirrored expense is edited in the same batch rather than replaced. Paying
+ * €95 when the estimate said €110 is one payment recorded wrongly, not a second
+ * payment: writing a new transaction would double the month's spending and
+ * leave the original sitting there as a phantom expense.
+ */
+export const updateBillPayment = async (payment: { id: string; transactionId?: string }, changes: { amount?: number; paidDate?: Date }) => {
+  const batch = writeBatch(db);
+  const fields = clean(changes);
+
+  batch.update(doc(db, "billPayments", payment.id), fields);
+
+  if (payment.transactionId) {
+    batch.update(doc(db, "transactions", payment.transactionId), {
+      // The transaction calls the same day `date`; the payment calls it `paidDate`.
+      ...clean({ amount: changes.amount, date: changes.paidDate }),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  await batch.commit();
+};
+
 export const unmarkBillPaid = async (payment: { id: string; transactionId?: string }) => {
   const batch = writeBatch(db);
   if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));

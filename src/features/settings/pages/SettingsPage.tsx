@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, Alert } from "reactstrap";
+import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from "reactstrap";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
 import CategoryManager from "../../categories/CategoryManager";
+import { SkeletonCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../../shared/components/Skeletons";
 import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
@@ -239,9 +240,19 @@ export function SettingsPage() {
 
   if (loadingUser) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-        <Spinner color="primary" />
-      </div>
+      <Container className="py-3 py-lg-4">
+        <SkeletonPageHeader action={false} />
+        <Row className="g-3">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Col key={i} xs={12} lg={6}>
+              <SkeletonCard>
+                <SkeletonHeading />
+                <SkeletonRows count={3} icon={false} />
+              </SkeletonCard>
+            </Col>
+          ))}
+        </Row>
+      </Container>
     );
   }
 

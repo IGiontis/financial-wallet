@@ -7,10 +7,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
-import { Alert, Badge, Button, Col, Container, Nav, NavItem, NavLink, Row, Spinner } from "reactstrap";
+import { Alert, Badge, Button, Col, Container, Nav, NavItem, NavLink, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
 import AddDepositModal from "./AddDepositModal";
+import { SkeletonCardGrid } from "../../shared/components/Skeletons";
 import WithdrawModal from "./WithdrawModal";
 import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
@@ -263,11 +264,7 @@ export default function InvestmentsPage() {
         </Button>
       </div>
 
-      {isLoading && (
-        <div className="text-center py-5">
-          <Spinner color="primary" />
-        </div>
-      )}
+      {isLoading && <SkeletonCardGrid count={6} />}
       {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
       {!isLoading && !isError && (

@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Col, Container, Row, Spinner, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Alert, Badge, Button, Col, Container, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
 import { FiChevronRight, FiCheck, FiLock } from "react-icons/fi";
-import type { Bill, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
+import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
-import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid } from "./useBills";
+import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
   arrears,
   billMonthStrip,
   billUrgency,
   cashRunway,
-  computePeriodTotals,
   daysUntilDeadline,
   expectedAmount,
   getFrequencyLabel,
@@ -20,6 +20,8 @@ import {
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
+  periodTotals,
+  type MonthCell,
   supportsMonthStrip,
   URGENT_DAYS,
   urgencyToken,
@@ -28,10 +30,11 @@ import {
   type MonthForecast,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
+import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import MarkPaidModal from "./MarkPaidModal";
-import NextMonthModal from "./NextMonthModal";
+import MonthBreakdownModal from "./MonthBreakdownModal";
 import styles from "./css/BillsPage.module.css";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
@@ -83,9 +86,9 @@ function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; format
 
 // ─── Period summary — the signature card ─────────────────────────────────────
 
-function PeriodSummary({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
+function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdown: MonthForecast; formatCurrency: (n: number) => string; onOpenBreakdown: () => void }) {
   const { t, i18n } = useTranslation();
-  const totals = useMemo(() => computePeriodTotals(bills), [bills]);
+  const totals = useMemo(() => periodTotals(breakdown), [breakdown]);
 
   // The calendar month is the frame people think in, even for odd intervals.
   const periodEnd = useMemo(() => {
@@ -97,7 +100,19 @@ function PeriodSummary({ bills, formatCurrency }: { bills: BillWithStatus[]; for
   const settled = totals.due <= 0 && totals.totalCount > 0;
 
   return (
-    <div className={`${styles.periodCard} p-3 p-lg-4 mb-3`}>
+    <div
+      className={`${styles.periodCard} ${styles.forecastCardTappable} p-3 p-lg-4 mb-3`}
+      role="button"
+      tabIndex={0}
+      onClick={onOpenBreakdown}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenBreakdown();
+        }
+      }}
+      title={t("bills.seeBreakdown")}
+    >
       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
         <span className="text-uppercase fw-semibold text-body-secondary" style={{ fontSize: 11, letterSpacing: "0.05em" }}>
           {settled ? t("bills.allSettled") : t("bills.toPayThisPeriod")}
@@ -133,6 +148,11 @@ function PeriodSummary({ bills, formatCurrency }: { bills: BillWithStatus[]; for
           <div className="d-flex justify-content-between mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
             <span>{t("bills.pctCovered", { pct: Math.round(totals.paidPct) })}</span>
             <span>{t("bills.nOfMPending", { pending: totals.unpaidCount, total: totals.totalCount })}</span>
+          </div>
+
+          <div className={styles.forecastHint}>
+            {t("bills.seeBreakdown")}
+            <FiChevronRight size={13} style={{ verticalAlign: "-2px" }} aria-hidden />
           </div>
         </>
       )}
@@ -593,13 +613,17 @@ export default function BillsPage() {
   const deleteBill = useDeleteBill();
   const markPaid = useMarkBillPaid();
   const unmarkPaid = useUnmarkBillPaid();
+  const updatePayment = useUpdateBillPayment();
 
   const [showModal, setShowModal] = useState(false);
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
   const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  // The month chosen from the year grid, if the form was opened that way.
+  const [payingPeriod, setPayingPeriod] = useState<string | undefined>();
+  // Which month's breakdown is open, if any.
+  const [breakdownMonth, setBreakdownMonth] = useState<"current" | "next" | null>(null);
   // One clock reading for the whole visit, so every card's month strip lines up
   // on the same window instead of drifting across renders.
   const [now] = useState(() => new Date());
@@ -612,6 +636,9 @@ export default function BillsPage() {
   // Computed once for both the card and the breakdown it opens, so the modal
   // can never disagree with the figure that was tapped to reach it.
   const forecast = useMemo(() => monthForecast(bills), [bills]);
+  // The single source for both the summary card and the modal it opens, so the
+  // two can never contradict each other.
+  const thisMonth = useMemo(() => monthForecast(bills, now, 0), [bills, now]);
   const owed = useMemo(() => arrears(bills), [bills]);
 
   /**
@@ -635,19 +662,46 @@ export default function BillsPage() {
       { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0), tone: "var(--color-income)" },
     ].filter((section) => section.bills.length > 0);
   }, [bills, t]);
-  const busy = markPaid.isPending || unmarkPaid.isPending;
 
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
 
+  // Both of these close their dialog straight away rather than on the server's
+  // answer. The cache has already been updated optimistically, so the screen is
+  // correct the moment it closes; a write that then fails rolls itself back and
+  // says so, which beats holding the whole page hostage to the network.
   const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string) => {
     if (!payingBill) return;
-    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey }, { onSuccess: () => setPayingBill(null) });
+    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+    setPayingBill(null);
   };
 
   const handleUndoPayment = (bill: BillWithStatus) => {
     if (!bill.payment) return;
-    unmarkPaid.mutate({ paymentId: bill.payment.id, transactionId: bill.payment.transactionId });
+    handleDeletePayment(bill.payment);
+  };
+
+  // Correcting a payment edits the expense it wrote rather than adding another:
+  // paying 95 when the estimate said 110 is one payment recorded wrongly, not a
+  // second payment.
+  const handleEditPayment = (payment: BillPayment, changes: { amount?: number; paidDate?: Date }) => {
+    if (changes.amount === undefined && changes.paidDate === undefined) return;
+    updatePayment.mutate(
+      { paymentId: payment.id, transactionId: payment.transactionId, ...changes },
+      { onError: () => toast.error(t("bills.editPaymentFailed")) },
+    );
+  };
+
+  const handlePayPeriod = (bill: BillWithStatus, cell: MonthCell) => {
+    if (!cell.periodKey) return;
+    // Same hand-off as every other action here: never stack two modals.
+    setDetailBill(null);
+    setPayingPeriod(cell.periodKey);
+    setPayingBill(bill);
+  };
+
+  const handleDeletePayment = (payment: BillPayment) => {
+    unmarkPaid.mutate({ paymentId: payment.id, transactionId: payment.transactionId }, { onError: () => toast.error(t("bills.undoPaymentFailed")) });
   };
 
   const handleSubmit = async (data: CreateBillDTO): Promise<void> => {
@@ -687,9 +741,22 @@ export default function BillsPage() {
       </div>
 
       {isLoading && (
-        <div className="text-center py-5">
-          <Spinner color="primary" />
-        </div>
+        <Row className="g-3 g-lg-4">
+          <Col xs={12} lg={7} xl={8}>
+            <SkeletonCard className="mb-3">
+              <SkeletonHeading width="50%" />
+              <Skeleton height={8} style={{ borderRadius: 4 }} />
+            </SkeletonCard>
+            <SkeletonCard className="mb-3">
+              <SkeletonHeading width="45%" />
+              <SkeletonRows count={2} icon={false} />
+            </SkeletonCard>
+            <SkeletonRows count={5} />
+          </Col>
+          <Col xs={12} lg={5} xl={4}>
+            <SkeletonChartCard height={180} />
+          </Col>
+        </Row>
       )}
       {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
@@ -697,8 +764,8 @@ export default function BillsPage() {
         <Row className="g-3 g-lg-4">
           {/* Summary + list */}
           <Col xs={12} lg={7} xl={8}>
-            <PeriodSummary bills={bills} formatCurrency={formatCurrency} />
-            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setShowBreakdown(true)} />}
+            <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("current")} />
+            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("next")} />}
             <QuickStats bills={bills} formatCurrency={formatCurrency} />
 
             {bills.length === 0 ? (
@@ -752,14 +819,18 @@ export default function BillsPage() {
           bill={liveDetailBill}
           categoryLabel={`${categoryFor(liveDetailBill.categoryId)?.icon ?? ""} ${categoryLabel(categoryFor(liveDetailBill.categoryId)?.name, t) || "—"}`.trim()}
           formatCurrency={formatCurrency}
-          isBusy={busy}
+          isBusy={deleteBill.isPending}
           onClose={() => setDetailBill(null)}
           onMarkPaid={(b) => {
             // Hand off to the confirmation step — never stack the two modals.
             setDetailBill(null);
+            setPayingPeriod(undefined);
             setPayingBill(b);
           }}
           onUndoPayment={handleUndoPayment}
+          onEditPayment={handleEditPayment}
+          onDeletePayment={handleDeletePayment}
+          onPayPeriod={handlePayPeriod}
           onEdit={(b) => {
             setDetailBill(null);
             openEdit(b);
@@ -772,9 +843,26 @@ export default function BillsPage() {
         />
       )}
 
-      {payingBill && <MarkPaidModal bill={payingBill} isSaving={markPaid.isPending} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />}
+      {payingBill && (
+        <MarkPaidModal bill={payingBill} isSaving={false} presetPeriodKey={payingPeriod} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />
+      )}
 
-      {showBreakdown && <NextMonthModal forecast={forecast} arrears={owed} categoryFor={categoryFor} formatCurrency={formatCurrency} onClose={() => setShowBreakdown(false)} />}
+      {breakdownMonth && (
+        <MonthBreakdownModal
+          title={breakdownMonth === "current" ? t("bills.thisMonthTitle") : t("bills.nextMonthTitle")}
+          forecast={breakdownMonth === "current" ? thisMonth : forecast}
+          // Next month only. Debt from months gone by is exactly what "this
+          // month" is not, and listing it here buried the two lines that
+          // answer the question; the page carries its own overdue figure. A
+          // plan for next month, though, is not honest while an earlier one
+          // is still outstanding.
+          arrears={breakdownMonth === "next" ? owed : []}
+          categoryFor={categoryFor}
+          formatCurrency={formatCurrency}
+          emptyText={breakdownMonth === "current" ? t("bills.nothingThisMonth") : t("bills.nothingNextMonth")}
+          onClose={() => setBreakdownMonth(null)}
+        />
+      )}
 
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>

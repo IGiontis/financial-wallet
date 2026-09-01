@@ -25,6 +25,7 @@ import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
+import { Skeleton, SkeletonCard, SkeletonHeading } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
@@ -545,9 +546,10 @@ export function TransactionsPage() {
         <Row className="g-4">
           <Col lg={4}>
             {isLoading ? (
-              <div className="text-center py-5">
-                <Spinner color="primary" />
-              </div>
+              <SkeletonCard>
+                <SkeletonHeading />
+                <Skeleton height={230} style={{ borderRadius: "var(--border-radius-md)" }} />
+              </SkeletonCard>
             ) : (
               <TransactionCalendar {...calendarProps} />
             )}

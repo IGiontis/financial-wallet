@@ -1,4 +1,4 @@
-import { getISOWeek, getISOWeekYear, startOfWeek, differenceInCalendarWeeks, addWeeks, addMonths, addYears } from "date-fns";
+import { addMonths, addWeeks, addYears, differenceInCalendarMonths, differenceInCalendarWeeks, getISOWeek, getISOWeekYear, startOfWeek } from "date-fns";
 import type { Bill, BillFrequency, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../shared/utils/dates";
 
@@ -221,14 +221,22 @@ export interface PeriodOption {
 }
 
 /**
- * The current period plus the next few, each flagged with whether it has
- * already been settled — the menu behind "which one am I paying?".
+ * The periods around now, each flagged with whether it has already been settled
+ * — the menu behind "which one am I paying?".
+ *
+ * `back` opens up the periods *before* this one. Without it the list started at
+ * the current period, so a payment made last year could only be filed against
+ * this one: a yearly bill settled in October 2025 was recorded as covering
+ * 2026, and duly announced its next payment for 2027. Back-filling a payment
+ * you actually made is ordinary bookkeeping, and the menu has to allow it.
  */
-export function getPeriodOptions(bill: Bill, payments: BillPayment[], now: Date = new Date(), count = 4): PeriodOption[] {
+export function getPeriodOptions(bill: Bill, payments: BillPayment[], now: Date = new Date(), count = 4, back = 0): PeriodOption[] {
   const currentStart = getPeriodStart(bill, now);
   const paidKeys = new Set(payments.filter((p) => p.billId === bill.id).map((p) => p.periodKey));
+  const earliest = -Math.max(0, back);
 
-  return Array.from({ length: Math.max(1, count) }, (_, offset) => {
+  return Array.from({ length: Math.max(1, count) + Math.max(0, back) }, (_, i) => {
+    const offset = earliest + i;
     const start = shiftPeriodStart(bill, currentStart, offset);
     const nextStart = shiftPeriodStart(bill, start, 1);
     const end = new Date(nextStart.getTime() - 86_400_000);
@@ -517,14 +525,23 @@ const SINKING_FUND_MIN_MONTHS = 2;
 export interface SinkingFund {
   /** What the next payment is expected to cost. */
   target: number;
-  /** How much should already be set aside, pro-rated across the cycle. */
-  saved: number;
-  /** Still to put aside before the due date. */
-  remaining: number;
-  /** Steady rate that gets you there — the same figure the yearly panel uses. */
+  /** The payment being saved for. */
+  dueDate: Date;
+  /** Whole months from today until then. Zero once it lands this month. */
+  monthsLeft: number;
+  /**
+   * What to set aside each month from now to have the whole of it by the due
+   * date.
+   *
+   * Deliberately not the steady across-the-cycle rate: the app has no idea what
+   * anyone has actually put by, so the only honest question it can answer is
+   * "starting today, how much a month?". The steady rate is still shown, as the
+   * bill's monthly equivalent, where it is a description of the bill rather than
+   * a claim about savings.
+   */
   perMonth: number;
-  /** 0–1, for the progress bar. */
-  progress: number;
+  /** How far through the gap between payments we are, 0–1. Time, not money. */
+  elapsed: number;
 }
 
 /**
@@ -556,18 +573,21 @@ function forwardDueDate(bill: BillWithStatus, now: Date): Date | undefined {
 export function sinkingFund(bill: BillWithStatus, now: Date = new Date()): SinkingFund | undefined {
   if (monthsBetweenPayments(bill) < SINKING_FUND_MIN_MONTHS) return undefined;
 
-  const progress = periodProgress(bill, forwardDueDate(bill, now), now);
-  if (progress === undefined) return undefined;
+  const dueDate = forwardDueDate(bill, now);
+  const elapsed = periodProgress(bill, dueDate, now);
+  if (!dueDate || elapsed === undefined) return undefined;
 
   const target = expectedAmount(bill);
-  const saved = target * progress;
+  // Whole months only: a bill due in eleven days wants the whole amount this
+  // month, not eleven thirtieths of it.
+  const monthsLeft = Math.max(differenceInCalendarMonths(dueDate, now), 0);
 
   return {
     target,
-    saved,
-    remaining: Math.max(target - saved, 0),
-    perMonth: bill.monthlyEquivalent,
-    progress,
+    dueDate,
+    monthsLeft,
+    perMonth: monthsLeft > 0 ? target / monthsLeft : target,
+    elapsed,
   };
 }
 
@@ -582,23 +602,6 @@ export interface PeriodTotals {
   totalCount: number;
 }
 
-export function computePeriodTotals(bills: BillWithStatus[]): PeriodTotals {
-  const active = bills.filter((b) => b.isActive);
-
-  const due = active.filter((b) => !b.isPaidThisPeriod).reduce((s, b) => s + expectedAmount(b), 0);
-  // Use what was actually paid, which can differ from the estimate.
-  const paid = active.filter((b) => b.isPaidThisPeriod).reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0);
-  const total = due + paid;
-
-  return {
-    due,
-    paid,
-    total,
-    paidPct: total > 0 ? (paid / total) * 100 : 0,
-    unpaidCount: active.filter((b) => !b.isPaidThisPeriod).length,
-    totalCount: active.length,
-  };
-}
 
 // ─── Next month's bill ──────────────────────────────────────────────────────
 // "What is next month going to cost me?" — asked before the month arrives, so
@@ -622,6 +625,15 @@ export interface MonthForecastItem {
   amount: number;
   isPaid: boolean;
   isVariable: boolean;
+  /**
+   * When the money actually left, for something already settled.
+   *
+   * Separate from `date` because the two genuinely differ: September's rent
+   * paid on 29 August is September's obligation, discharged in August. A month
+   * is a list of what it owes, so it is filed under September — but saying it
+   * was paid *on* 1 September would be a fabrication.
+   */
+  paidDate?: Date;
 }
 
 export interface MonthForecast {
@@ -657,9 +669,11 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
     if (!bill.isActive) continue;
     // Keyed by amount, not just presence: a settled occurrence should show what
     // actually left the account, which for a variable bill is the whole point.
-    const paidByKey = new Map(bill.payments.map((p) => [p.periodKey, p.amount]));
+    const paidByKey = new Map(bill.payments.map((p) => [p.periodKey, p]));
 
-    let start = getPeriodStart(bill, now);
+    // Anchored on the month being asked about rather than on today: a bucket
+    // that opened last month can still fall due inside this one.
+    let start = getPeriodStart(bill, monthStart);
     for (let i = 0; i < MAX_PERIODS_PER_MONTH && start <= monthEnd; i++) {
       // A bill with no due day still lands somewhere — treat the period's own
       // start as the date it arrives, rather than dropping it from the total.
@@ -674,9 +688,10 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
           date,
           // A settled occurrence is worth what was actually paid; an unpaid one
           // can only be the expectation.
-          amount: paid ?? expectedAmount(bill),
+          amount: paid ? paid.amount : expectedAmount(bill),
           isPaid: paid !== undefined,
           isVariable: !!bill.isVariableAmount,
+          paidDate: paid ? firestoreToDate(paid.paidDate) : undefined,
         });
       }
 
@@ -855,30 +870,172 @@ export interface MonthChip {
 export const supportsMonthStrip = (bill: Pick<Bill, "frequency">) => bill.frequency !== "weekly";
 
 /**
- * `before` and `after` count whole calendar months either side of the current
- * one, which is always included — so the defaults draw 6 chips total.
+ * A short run of months around now, coloured the same way the year calendar
+ * colours them.
  *
- * "Due" tracks `nextDueDate`'s own period rather than "the current calendar
- * month, if unpaid": once a bill is settled, `nextDueDate` has already rolled
- * forward to the *following* period, and that's the month this strip needs to
- * point at — the question is "what's coming", not just "is this month covered".
+ * `before` and `after` count whole calendar months either side of the current
+ * one, which is always included — so the defaults draw 6 chips.
+ *
+ * Green means covered, not "a payment is filed under this month's key". A
+ * yearly subscription paid last October covers every month up to the next
+ * October, and the strip that showed those months blank was answering a
+ * question nobody asked.
  */
 export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), before = 3, after = 2): MonthChip[] {
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const nextDuePeriodKey = bill.nextDueDate ? getPeriodKey(bill, bill.nextDueDate) : undefined;
 
-  const chips: MonthChip[] = [];
-  for (let i = -before; i <= after; i++) {
-    const start = addMonths(currentMonthStart, i);
-    const periodKey = getPeriodKey(bill, start);
-    const isPaid = bill.payments.some((p) => p.periodKey === periodKey);
-    const isNextDue = nextDuePeriodKey !== undefined && periodKey === nextDuePeriodKey;
+  const months = Array.from({ length: before + after + 1 }, (_, i) => {
+    const start = addMonths(currentMonthStart, i - before);
+    return { year: start.getFullYear(), month: start.getMonth() };
+  });
 
-    chips.push({
-      key: `${start.getFullYear()}-${start.getMonth()}`,
-      start,
-      status: isPaid ? "paid" : isNextDue ? "due" : "empty",
-    });
+  return coverageForMonths(bill, months, now).map((cell) => ({
+    key: `${cell.year}-${cell.month}`,
+    start: new Date(cell.year, cell.month, 1),
+    // Three colours to the calendar's five. "Due" stays keyed to the period
+    // `nextDueDate` names rather than to the current month, so the payment
+    // coming up reads as coming up however far off it is — and every month it
+    // covers reads that way with it.
+    status: cell.status === "paid" ? "paid" : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey ? "due" : "empty",
+  }));
+}
+
+// ─── This month ──────────────────────────────────────────────────────────────
+
+/**
+ * The summary-card figures, read off the same breakdown the card opens onto.
+ *
+ * Derived rather than computed separately on purpose: the card and its
+ * breakdown are one tap apart, and two independent sums are two chances to
+ * disagree.
+ */
+export function periodTotals(breakdown: MonthForecast): PeriodTotals {
+  const due = breakdown.total;
+  const paid = breakdown.prepaid;
+  const total = due + paid;
+
+  return {
+    due,
+    paid,
+    total,
+    paidPct: total > 0 ? (paid / total) * 100 : 0,
+    unpaidCount: breakdown.fixedCount + breakdown.variableCount,
+    totalCount: breakdown.items.length,
+  };
+}
+
+// ─── Coverage, month by month ────────────────────────────────────────────────
+// Which months a bill is actually covered for — the question a calendar of
+// squares is really being asked.
+//
+// Not "which month does a payment fall due in": that lights up one square a
+// year for an annual subscription and leaves the eleven months it paid for
+// looking unpaid. A payment buys the stretch from its own due date to the next
+// one, so October 2025 on a yearly bill covers through September 2026, and
+// October 2026 opens the next stretch.
+
+export type MonthCellStatus = "none" | "paid" | "overdue" | "due" | "future";
+
+export interface MonthCell {
+  year: number;
+  /** 0–11. */
+  month: number;
+  /** The period covering this month. */
+  periodKey?: string;
+  /** When that period falls due. */
+  dueDate?: Date;
+  /** The due date lands in this month, so the stretch begins here. */
+  isPeriodStart: boolean;
+  status: MonthCellStatus;
+  payment?: BillPayment;
+  /** What was paid, or what is expected. */
+  amount?: number;
+}
+
+/**
+ * Years to lay out: the bill's own, plus at least a couple behind.
+ *
+ * Never just "since the bill was created": a subscription added this year may
+ * well have been paid last October, and recording that is the whole reason the
+ * calendar reaches backwards. Bounded at the far end so an old bill does not
+ * unroll a decade of squares.
+ */
+export function billCoverageYears(bill: BillWithStatus, now: Date = new Date(), maxBack = 3, minBack = 2): number[] {
+  const born = firestoreToDate(bill.anchorDate ?? bill.createdAt).getFullYear();
+  const first = Math.max(Math.min(born, now.getFullYear() - minBack), now.getFullYear() - maxBack);
+  const last = now.getFullYear() + 1;
+
+  return Array.from({ length: Math.max(last - first + 1, 1) }, (_, i) => first + i);
+}
+
+/**
+ * Every month of `years`, each tagged with the period covering it.
+ *
+ * A month belongs to the most recent period whose due date has arrived by the
+ * end of it. That puts a boundary month — October 2026, when the previous year
+ * runs to the 4th — with the period starting in it rather than the one ending,
+ * which is what "October is the payment month" means.
+ *
+ * Weekly bills get nothing: several periods land in one month, and a square
+ * standing for a month cannot represent them.
+ */
+export function billCoverage(bill: BillWithStatus, years: number[], now: Date = new Date()): MonthCell[] {
+  return coverageForMonths(bill, years.flatMap((year) => Array.from({ length: 12 }, (_, month) => ({ year, month }))), now);
+}
+
+/**
+ * The coverage walk itself, over whatever months are asked for.
+ *
+ * Shared by the year calendar in the bill's own dialog and the short strip on
+ * its card, because the two sit one tap apart and answering the same question
+ * differently is how a screen loses your trust.
+ */
+export function coverageForMonths(bill: BillWithStatus, months: { year: number; month: number }[], now: Date = new Date()): MonthCell[] {
+  const cells: MonthCell[] = months.map(({ year, month }) => ({ year, month, isPeriodStart: false, status: "none" as MonthCellStatus }));
+  if (!supportsMonthStrip(bill) || cells.length === 0) return cells;
+
+  const first = cells.reduce((earliest, c) => (c.year * 12 + c.month < earliest.year * 12 + earliest.month ? c : earliest));
+  const last = cells.reduce((latest, c) => (c.year * 12 + c.month > latest.year * 12 + latest.month ? c : latest));
+
+  const windowStart = new Date(first.year, first.month, 1);
+  const windowEnd = new Date(last.year, last.month + 1, 0, 23, 59, 59, 999);
+  const today = startOfDay(now);
+  const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const paidByKey = new Map(bill.payments.map((p) => [p.periodKey, p]));
+
+  // One period back, so a month at the very start of the window is still
+  // covered by whatever was paid before it.
+  const periods: { key: string; due: Date }[] = [];
+  // Nothing before the bill existed: a subscription started in August was not
+  // quietly unpaid all spring, and colouring those months would invent a debt.
+  const born = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
+  let start = shiftPeriodStart(bill, getPeriodStart(bill, windowStart), -1);
+
+  for (let i = 0; i < 400; i++) {
+    const due = getPeriodDueDate(bill, start) ?? start;
+    if (due > windowEnd) break;
+    if (start >= born) periods.push({ key: getPeriodKey(bill, start), due });
+    start = shiftPeriodStart(bill, start, 1);
   }
-  return chips;
+
+  for (const cell of cells) {
+    const monthEnd = new Date(cell.year, cell.month + 1, 0, 23, 59, 59, 999);
+    const covering = periods.filter((p) => p.due <= monthEnd).pop();
+    if (!covering) continue;
+
+    const payment = paidByKey.get(covering.key);
+    // Measured against the deadline, not the due date: a bill inside its grace
+    // window is late in no meaningful sense.
+    const deadline = getDeadline(bill, covering.due) ?? covering.due;
+
+    cell.periodKey = covering.key;
+    cell.dueDate = covering.due;
+    cell.isPeriodStart = covering.due.getFullYear() === cell.year && covering.due.getMonth() === cell.month;
+    cell.payment = payment;
+    cell.amount = payment ? payment.amount : expectedAmount(bill);
+    cell.status = payment ? "paid" : deadline < today ? "overdue" : covering.due <= endOfThisMonth ? "due" : "future";
+  }
+
+  return cells;
 }

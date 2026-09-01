@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
-import { Container, Row, Col, Card, CardBody, Spinner, Progress, Alert } from "reactstrap";
+import { Container, Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -127,9 +128,21 @@ export const OverviewPage = () => {
 
   if (txLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-        <Spinner color="primary" />
-      </div>
+      <Container fluid className="py-3 py-lg-4">
+        <SkeletonPageHeader />
+        <SkeletonStats />
+        <Row className="g-3">
+          <Col xs={12} lg={8}>
+            <SkeletonChartCard height={260} />
+          </Col>
+          <Col xs={12} lg={4}>
+            <SkeletonCard>
+              <SkeletonHeading />
+              <SkeletonRows count={4} />
+            </SkeletonCard>
+          </Col>
+        </Row>
+      </Container>
     );
   }
 
@@ -243,9 +256,7 @@ export const OverviewPage = () => {
               <p className="small text-body-secondary mb-3">{t("overview.goalsAtAGlance")}</p>
 
               {goalLoading ? (
-                <div className="d-flex justify-content-center align-items-center" style={{ height: 200 }}>
-                  <Spinner size="sm" color="secondary" />
-                </div>
+                <SkeletonRows count={3} icon={false} />
               ) : activeGoals.length === 0 ? (
                 <div className="d-flex flex-column align-items-center justify-content-center text-center text-body-secondary" style={{ height: 200, fontSize: 13 }}>
                   <span>{t("overview.noGoalsYet")}</span>

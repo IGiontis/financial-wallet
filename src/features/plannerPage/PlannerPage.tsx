@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { getDaysInMonth } from "date-fns";
-import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Row, Spinner } from "reactstrap";
+import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiAlertTriangle, FiCheckCircle, FiCheckSquare, FiClock, FiLock, FiPlus, FiSquare, FiX } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
@@ -152,9 +153,32 @@ export function PlannerPage() {
 
   if (txLoading || goalLoading || billLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-        <Spinner color="primary" />
-      </div>
+      <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1100 }}>
+        <SkeletonPageHeader />
+        <Row className="g-3">
+          <Col xs={12} lg={7}>
+            <SkeletonCard className="mb-3">
+              <Skeleton height={14} width="35%" />
+              <Skeleton height={32} width="55%" style={{ marginTop: 6 }} />
+            </SkeletonCard>
+            <SkeletonChartCard height={180} className="mb-3" />
+            <SkeletonCard>
+              <SkeletonHeading width="45%" />
+              <SkeletonRows count={4} icon={false} />
+            </SkeletonCard>
+          </Col>
+          <Col xs={12} lg={5}>
+            <SkeletonCard className="mb-3">
+              <SkeletonHeading width="40%" />
+              <SkeletonRows count={3} icon={false} />
+            </SkeletonCard>
+            <SkeletonCard>
+              <SkeletonHeading width="40%" />
+              <SkeletonRows count={4} icon={false} />
+            </SkeletonCard>
+          </Col>
+        </Row>
+      </Container>
     );
   }
 

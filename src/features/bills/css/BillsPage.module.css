@@ -774,3 +774,230 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Payment history ──────────────────────────────────────────────────────── */
+/* Every payment, each correctable in place. Editing opens inside the row rather
+   than in a second dialog: this list already lives in a modal, and stacking one
+   on another is the pattern the rest of this screen deliberately avoids. */
+
+.paymentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.paymentRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  font-size: 13px;
+}
+
+.paymentRowEditing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+}
+
+/* The date control takes what is left; the amount keeps a fixed, readable
+   width so the two never collapse into each other on a phone. */
+.paymentRowEditing > :first-child {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+
+.paymentAmountField {
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.paymentDate {
+  flex: 1;
+  min-width: 0;
+}
+
+.paymentAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.paymentWarn {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-expense);
+}
+
+/* 34px of hit area around a 14px icon — the row is only 40px tall, so the
+   target has to be built rather than inherited. */
+.paymentAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.paymentAction:hover {
+  background: var(--color-border-tertiary);
+  color: var(--color-text-primary);
+}
+
+.paymentActionDanger:hover {
+  color: var(--color-expense);
+}
+
+/* ── Coverage grid ────────────────────────────────────────────────────────── */
+/* A year to a row, twelve squares each. The colour is coverage: the month a
+   payment starts carries the mark, the months it paid for carry the same tint
+   without one, so one payment reads as one block. */
+
+.yearRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 5px;
+}
+
+.yearLabel {
+  flex: 0 0 34px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+/* Six across on a phone, wrapping to two rows a year: twelve columns leaves a
+   21px target, which is not something you can reliably hit. */
+.yearGrid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+}
+
+@media (min-width: 576px) {
+  .yearGrid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+
+.monthCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-height: 38px;
+  padding: 2px 1px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.monthCellName {
+  line-height: 1.1;
+}
+
+.monthCellMark {
+  display: flex;
+  align-items: center;
+  height: 12px;
+}
+
+/* Before the bill existed. Not a target, so it takes no border and no fill. */
+.monthCellEmpty {
+  border-color: transparent;
+  background: none;
+  opacity: 0.3;
+  cursor: default;
+}
+
+.monthCell_paid {
+  border-color: color-mix(in srgb, var(--color-income) 25%, transparent);
+  background: color-mix(in srgb, var(--color-income) 10%, transparent);
+  color: var(--color-income);
+}
+
+.monthCell_overdue {
+  border-color: color-mix(in srgb, var(--color-expense) 25%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+  color: var(--color-expense);
+}
+
+.monthCell_due {
+  border-color: color-mix(in srgb, var(--color-goal) 30%, transparent);
+  background: color-mix(in srgb, var(--color-goal) 12%, transparent);
+  color: var(--color-goal);
+}
+
+.monthCell_future {
+  border-style: dashed;
+}
+
+/* The month the payment lands in. Solid and heavier, so a stretch reads as
+   beginning somewhere rather than as twelve identical squares. */
+.monthCellStart {
+  border-width: 2px;
+  font-weight: 600;
+  padding: 1px 0;
+}
+
+.monthCell_paid.monthCellStart {
+  border-color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+}
+
+.monthCell_overdue.monthCellStart {
+  border-color: var(--color-expense);
+  background: color-mix(in srgb, var(--color-expense) 22%, transparent);
+}
+
+.monthCell_due.monthCellStart,
+.monthCell_future.monthCellStart {
+  border-style: solid;
+  border-color: var(--color-goal);
+  background: color-mix(in srgb, var(--color-goal) 22%, transparent);
+  color: var(--color-goal);
+}
+
+.monthCell:not(.monthCellEmpty):hover {
+  border-color: var(--bs-primary);
+}
+
+.yearLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+}
+
+/* The row the year grid just sent you to. */
+.paymentRowFocused {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}

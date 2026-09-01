@@ -22,11 +22,11 @@ import {
   ModalHeader,
   Progress,
   Row,
-  Spinner,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
+import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
 import i18n from "../../../i18n";
 import { toDate, formatDate, getStatusConfig, getGoalTypeLabel, getGoalTypeBadgeColor } from "./goalDisplay";
@@ -565,8 +565,8 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
 
         {isLoading ? (
-          <div style={{ textAlign: "center", padding: "2rem" }}>
-            <Spinner size="sm" />
+          <div style={{ padding: "1rem" }}>
+            <SkeletonRows count={4} />
           </div>
         ) : filtered.length === 0 ? (
           <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0", fontSize: 13, margin: 0 }}>

@@ -3,10 +3,11 @@ import {
   arrears,
   averagePaidAmount,
   billMonthStrip,
+  billCoverage,
+  billCoverageYears,
   billUrgency,
   cashRunway,
   computeBillStatus,
-  computePeriodTotals,
   coveredPeriodCount,
   daysUntilDeadline,
   daysUntilDue,
@@ -21,12 +22,14 @@ import {
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
+  periodTotals,
   monthlyEquivalent,
   paidAmountRange,
   sinkingFund,
   supportsMonthStrip,
   yearlyBreakdown,
 } from "./billsUtils";
+import type { MonthCell } from "./billsUtils";
 import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
 const makeBill = (overrides: Partial<Bill> = {}): Bill =>
@@ -332,12 +335,21 @@ describe("groupBills", () => {
 
 // ─── Period totals ───────────────────────────────────────────────────────────
 
-describe("computePeriodTotals", () => {
-  it("splits the period into paid and still-due", () => {
-    const totals = computePeriodTotals([
-      statusOf({ id: "a", isPaidThisPeriod: true, payment: { amount: 100 } as never }, { amount: 100 }),
-      statusOf({ id: "b" }, { amount: 300 }),
+describe("periodTotals", () => {
+  const now = new Date("2026-09-01");
+  const monthOf = (bills: BillWithStatus[]) => monthForecast(bills, now, 0);
+  const totalsFor = (bills: BillWithStatus[]) => periodTotals(monthOf(bills));
+
+  const bill = (overrides: Partial<Bill>, payments: BillPayment[] = []) => computeBillStatus(makeBill({ dueDay: 10, ...overrides }), payments, now);
+  const paidIn = (billId: string, periodKey: string, amount: number, paidDate: Date): BillPayment =>
+    ({ id: Math.random().toString(), userId: "u1", billId, periodKey, amount, paidDate, createdAt: paidDate }) as BillPayment;
+
+  it("splits the month into paid and still-due", () => {
+    const totals = totalsFor([
+      bill({ id: "a", amount: 100 }, [paidIn("a", "2026-09", 100, new Date("2026-09-10"))]),
+      bill({ id: "b", amount: 300 }),
     ]);
+
     expect(totals.paid).toBe(100);
     expect(totals.due).toBe(300);
     expect(totals.total).toBe(400);
@@ -348,21 +360,59 @@ describe("computePeriodTotals", () => {
 
   it("counts the real amount paid, not the estimate", () => {
     // Electricity estimated at 60 but actually cost 95.
-    const totals = computePeriodTotals([statusOf({ id: "a", isPaidThisPeriod: true, payment: { amount: 95 } as never }, { amount: 60, isVariableAmount: true })]);
-    expect(totals.paid).toBe(95);
+    const power = bill({ id: "a", amount: 60, isVariableAmount: true }, [paidIn("a", "2026-09", 95, new Date("2026-09-09"))]);
+    expect(totalsFor([power]).paid).toBe(95);
   });
 
   it("forecasts unpaid variable bills from their average", () => {
-    const totals = computePeriodTotals([statusOf({ id: "a", averagePaidAmount: 110 }, { amount: 60, isVariableAmount: true })]);
-    expect(totals.due).toBe(110);
+    const power = computeBillStatus(makeBill({ id: "a", dueDay: 10, amount: 60, isVariableAmount: true }), [], now);
+    expect(totalsFor([{ ...power, averagePaidAmount: 110 }]).due).toBe(110);
   });
 
   it("ignores paused bills", () => {
-    expect(computePeriodTotals([statusOf({ id: "a" }, { amount: 50, isActive: false })]).total).toBe(0);
+    expect(totalsFor([bill({ id: "a", amount: 50, isActive: false })]).total).toBe(0);
   });
 
   it("reports 0% rather than dividing by zero when there is nothing to pay", () => {
-    expect(computePeriodTotals([]).paidPct).toBe(0);
+    expect(totalsFor([]).paidPct).toBe(0);
+  });
+
+  it("leaves out a yearly bill with no payment falling due this month", () => {
+    // A yearly subscription settled last October used to keep turning up in
+    // every month its period happened to span.
+    const duolingo = bill({ id: "d", amount: 80, frequency: "yearly", dueMonth: 9, dueDay: 5 }, [paidIn("d", "2025", 80, new Date("2025-10-05"))]);
+    const totals = totalsFor([duolingo]);
+
+    expect(totals.totalCount).toBe(0);
+    expect(totals.paid).toBe(0);
+    expect(totals.due).toBe(0);
+  });
+
+  it("counts this month's rent as paid even though the money went last month", () => {
+    // Rent for September, settled on 29 August. September owes it and September
+    // has it covered; filing it under August because that is when the money
+    // moved leaves September looking unpaid.
+    const rent = bill({ id: "r", amount: 500, dueDay: 1 }, [paidIn("r", "2026-09", 500, new Date("2026-08-29"))]);
+    const [item] = monthOf([rent]).items;
+
+    expect(item.isPaid).toBe(true);
+    expect(item.date).toEqual(new Date(2026, 8, 1)); // filed under September's due date
+    expect(item.paidDate).toEqual(new Date("2026-08-29")); // but paid in August
+    expect(totalsFor([rent]).paid).toBe(500);
+    expect(totalsFor([rent]).due).toBe(0);
+  });
+
+  it("does not let last month's own rent leak into this month", () => {
+    // Both payments exist: August's on the 4th, September's on the 29th. Each
+    // month gets exactly one rent line.
+    const rent = bill({ id: "r", amount: 500, dueDay: 1 }, [
+      paidIn("r", "2026-08", 500, new Date("2026-08-04")),
+      paidIn("r", "2026-09", 500, new Date("2026-08-29")),
+    ]);
+
+    expect(monthForecast([rent], now, 0).items).toHaveLength(1);
+    expect(monthForecast([rent], new Date("2026-08-15"), 0).items).toHaveLength(1);
+    expect(periodTotals(monthForecast([rent], new Date("2026-08-15"), 0)).paid).toBe(500);
   });
 });
 
@@ -470,38 +520,44 @@ describe("sinkingFund", () => {
     expect(sinkingFund(noDueDay)).toBeUndefined();
   });
 
-  it("expects the full amount to be ready on the due date itself", () => {
-    const fund = sinkingFund(quarterly(new Date("2026-01-01")), new Date("2026-01-01"));
-    expect(fund!.progress).toBeCloseTo(1);
-    expect(fund!.saved).toBeCloseTo(90);
-    expect(fund!.remaining).toBeCloseTo(0);
+  it("never claims money has been set aside, because nothing records that", () => {
+    // The panel used to read time-elapsed as savings-accrued and announce
+    // "€72.73 / €80.00" to someone who had saved nothing at all.
+    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"))!;
+    expect(fund).not.toHaveProperty("saved");
+    expect(fund).not.toHaveProperty("remaining");
   });
 
-  it("resets to almost nothing the day after a payment cycle rolls over", () => {
-    // 2 Jan sits 1 day into the 1 Jan → 1 Apr cycle.
-    const fund = sinkingFund(quarterly(new Date("2026-01-02")), new Date("2026-01-02"));
-    expect(fund!.progress).toBeLessThan(0.02);
-    expect(fund!.remaining).toBeGreaterThan(88);
+  it("asks for the whole amount spread over the months that are left", () => {
+    // 1 Feb, due 1 Apr: two months to go, so €45 a month.
+    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"))!;
+    expect(fund.monthsLeft).toBe(2);
+    expect(fund.perMonth).toBeCloseTo(45);
+    expect(fund.target).toBe(90);
   });
 
-  it("pro-rates what should be set aside partway through the cycle", () => {
-    // 1 Feb is 31 of the 90 days between 1 Jan and 1 Apr.
-    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"));
-    expect(fund!.progress).toBeGreaterThan(0.3);
-    expect(fund!.progress).toBeLessThan(0.4);
-    expect(fund!.saved).toBeCloseTo(90 * fund!.progress);
-    expect(fund!.saved + fund!.remaining).toBeCloseTo(90);
+  it("wants all of it this month once the due date is inside it", () => {
+    const fund = sinkingFund(quarterly(new Date("2026-04-01")), new Date("2026-04-01"))!;
+    expect(fund.monthsLeft).toBe(0);
+    expect(fund.perMonth).toBeCloseTo(90);
   });
 
-  it("carries the monthly rate that reaches the target", () => {
-    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"));
-    expect(fund!.perMonth).toBeCloseTo(30); // €90 every 3 months
+  it("asks for less per month the further off the payment is", () => {
+    const early = sinkingFund(quarterly(new Date("2026-01-02")), new Date("2026-01-02"))!;
+    const late = sinkingFund(quarterly(new Date("2026-03-01")), new Date("2026-03-01"))!;
+    expect(early.perMonth).toBeLessThan(late.perMonth);
   });
 
-  it("never reports more saved than the target", () => {
-    const fund = sinkingFund(quarterly(new Date("2026-04-01")), new Date("2026-04-01"));
-    expect(fund!.saved).toBeLessThanOrEqual(90);
-    expect(fund!.remaining).toBeGreaterThanOrEqual(0);
+  it("tracks how far through the cycle we are, as time", () => {
+    const fresh = sinkingFund(quarterly(new Date("2026-01-02")), new Date("2026-01-02"))!;
+    const nearly = sinkingFund(quarterly(new Date("2026-04-01")), new Date("2026-04-01"))!;
+    expect(fresh.elapsed).toBeLessThan(0.02);
+    expect(nearly.elapsed).toBeCloseTo(1);
+  });
+
+  it("names the payment it is saving for", () => {
+    const fund = sinkingFund(quarterly(new Date("2026-02-01")), new Date("2026-02-01"))!;
+    expect(fund.dueDate).toEqual(new Date(2026, 3, 1));
   });
 
   it("uses the recent average for a variable bill, not the stale estimate", () => {
@@ -825,6 +881,22 @@ describe("billMonthStrip", () => {
     expect(strip.find((c) => c.start.getMonth() === 4)!.status).toBe("empty"); // May, before it existed
   });
 
+  it("greens every month a single yearly payment covers", () => {
+    // The card used to show these blank: it asked whether a payment was filed
+    // under each month's own period key, which for a yearly bill is one month
+    // in twelve. Paid last October means covered now.
+    const duolingo = computeBillStatus(
+      makeBill({ frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01") }),
+      [payment("2025", new Date("2025-10-05"))],
+      now,
+    );
+
+    const strip = billMonthStrip(duolingo, now); // May – Oct 2026
+    expect(strip.slice(0, 5).map((c) => c.status)).toEqual(["paid", "paid", "paid", "paid", "paid"]);
+    // October opens the next year, which is not paid — the stretch ends there.
+    expect(strip[5].status).toBe("due");
+  });
+
   it("respects a custom window size", () => {
     const netflix = makeBill({ dueDay: 5 });
     const status = computeBillStatus(netflix, [], now);
@@ -864,7 +936,36 @@ describe("getPeriodOptions", () => {
     expect(first.start).toEqual(new Date(2026, 6, 1));
     expect(first.end.getMonth()).toBe(7); // August — the second half of the bucket
   });
+
+  it("offers periods before this one when asked, for recording a past payment", () => {
+    const options = getPeriodOptions(makeBill({ dueDay: 5 }), [], now, 2, 2);
+    expect(options.map((o) => o.key)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(options.map((o) => o.offset)).toEqual([-2, -1, 0, 1]);
+  });
+
+  it("reaches last year for a yearly bill, so October 2025 can be filed as 2025", () => {
+    // The bug this fixes: with no way back, a payment made in October 2025 was
+    // recorded against 2026 and the bill then advertised its next payment for
+    // 2027 — a year later than the truth.
+    const duolingo = makeBill({ frequency: "yearly", dueMonth: 9, dueDay: 5 });
+    const options = getPeriodOptions(duolingo, [], now, 2, 1);
+
+    expect(options.map((o) => o.key)).toEqual(["2025", "2026", "2027"]);
+
+    const [lastYear] = options;
+    const paidDate = new Date("2025-10-05");
+    expect(paidDate >= lastYear.start && paidDate <= lastYear.end).toBe(true);
+
+    // Filed correctly, next year is the one that comes round.
+    const status = computeBillStatus(duolingo, [payment("2025", paidDate)], now);
+    expect(status.nextDueDate?.getFullYear()).toBe(2026);
+  });
+
+  it("keeps `back` at zero by default, so existing callers are unaffected", () => {
+    expect(getPeriodOptions(makeBill({ dueDay: 5 }), [], now, 3).map((o) => o.offset)).toEqual([0, 1, 2]);
+  });
 });
+
 
 describe("coveredPeriodCount", () => {
   const now = new Date("2026-08-15");
@@ -1078,5 +1179,104 @@ describe("arrears", () => {
   it("respects the lookback bound", () => {
     const old = makeBill({ dueDay: 5, anchorDate: new Date("2020-01-01"), createdAt: new Date("2020-01-01") });
     expect(arrears([status(old)], now, 3)).toHaveLength(4); // the current period plus 3 back
+  });
+});
+
+// ─── Coverage ────────────────────────────────────────────────────────────────
+
+describe("billCoverage", () => {
+  const now = new Date("2026-09-01");
+
+  const withPayments = (overrides: Partial<Bill>, payments: BillPayment[] = []) => computeBillStatus(makeBill(overrides), payments, now);
+  const paidIn = (billId: string, periodKey: string, amount: number, paidDate: Date): BillPayment =>
+    ({ id: `p-${periodKey}`, userId: "u1", billId, periodKey, amount, paidDate, createdAt: paidDate }) as BillPayment;
+
+  const at = (cells: MonthCell[], year: number, month: number) => cells.find((c) => c.year === year && c.month === month)!;
+
+  it("paints a yearly payment across the whole year it bought", () => {
+    // The point of the whole thing: paid 5 October 2025, so October 2025 through
+    // September 2026 are covered, and October 2026 opens the next stretch.
+    const duolingo = withPayments({ id: "d", frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01") }, [
+      paidIn("d", "2025", 80, new Date("2025-10-05")),
+    ]);
+    const cells = billCoverage(duolingo, [2025, 2026], now);
+
+    expect(at(cells, 2025, 9).status).toBe("paid"); // October 2025
+    expect(at(cells, 2025, 11).status).toBe("paid"); // December 2025
+    expect(at(cells, 2026, 0).status).toBe("paid"); // January 2026
+    expect(at(cells, 2026, 8).status).toBe("paid"); // September 2026 — still covered
+    expect(at(cells, 2026, 9).status).not.toBe("paid"); // October 2026 — next one
+  });
+
+  it("marks only the month a stretch begins in", () => {
+    const duolingo = withPayments({ id: "d", frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01") }, [
+      paidIn("d", "2025", 80, new Date("2025-10-05")),
+    ]);
+    const cells = billCoverage(duolingo, [2025, 2026], now);
+
+    expect(at(cells, 2025, 9).isPeriodStart).toBe(true);
+    expect(at(cells, 2026, 8).isPeriodStart).toBe(false);
+    expect(at(cells, 2026, 9).isPeriodStart).toBe(true);
+  });
+
+  it("puts a boundary month with the period that opens in it", () => {
+    // October 2026 holds the tail of the 2025 stretch (to the 4th) and the head
+    // of 2026. It belongs to 2026 — it is the month you pay.
+    const duolingo = withPayments({ id: "d", frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01") });
+    expect(at(billCoverage(duolingo, [2026], now), 2026, 9).periodKey).toBe("2026");
+  });
+
+  it("gives a monthly bill one period per month", () => {
+    const netflix = withPayments({ id: "n", dueDay: 22, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }, [paidIn("n", "2026-03", 13, new Date("2026-03-22"))]);
+    const cells = billCoverage(netflix, [2026], now);
+
+    expect(at(cells, 2026, 3).periodKey).toBe("2026-04");
+    expect(at(cells, 2026, 2).status).toBe("paid"); // March, the one settled
+    expect(at(cells, 2026, 3).status).toBe("overdue"); // April, never paid
+    expect(cells.filter((c) => c.year === 2026).every((c) => c.isPeriodStart)).toBe(true);
+  });
+
+  it("spreads a quarterly payment over its three months", () => {
+    const water = withPayments({ id: "w", dueDay: 10, intervalCount: 3, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }, [
+      paidIn("w", "2026-01", 45, new Date("2026-01-10")),
+    ]);
+    const cells = billCoverage(water, [2026], now);
+
+    expect([at(cells, 2026, 0).status, at(cells, 2026, 1).status, at(cells, 2026, 2).status]).toEqual(["paid", "paid", "paid"]);
+    expect(at(cells, 2026, 0).isPeriodStart).toBe(true);
+    expect(at(cells, 2026, 1).isPeriodStart).toBe(false);
+    expect(at(cells, 2026, 3).status).toBe("overdue"); // April opens an unpaid quarter
+  });
+
+  it("holds a bill inside its grace period back from looking late", () => {
+    const power = withPayments({ id: "p", dueDay: 20, graceDays: 25, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") });
+    // 20 August plus 25 days runs to 14 September, so on 1 September it is
+    // still payable rather than overdue.
+    expect(at(billCoverage(power, [2026], now), 2026, 7).status).toBe("due");
+  });
+
+  it("carries the payment behind a covered month, so any square opens it", () => {
+    const duolingo = withPayments({ id: "d", frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2024-01-01"), createdAt: new Date("2024-01-01") }, [
+      paidIn("d", "2025", 80, new Date("2025-10-05")),
+    ]);
+    const march = at(billCoverage(duolingo, [2026], now), 2026, 2);
+
+    expect(march.payment?.paidDate).toEqual(new Date("2025-10-05"));
+    expect(march.amount).toBe(80);
+  });
+
+  it("offers nothing for a weekly bill, which cannot fit one square a month", () => {
+    const weekly = withPayments({ id: "wk", frequency: "weekly", anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") });
+    expect(billCoverage(weekly, [2026], now).every((c) => c.status === "none")).toBe(true);
+  });
+
+  it("lays out the bill's own years, bounded to something scrollable", () => {
+    // A bill added this year still reaches back: it may well have been paid
+    // last October, and filing that is the point of the calendar.
+    const young = withPayments({ id: "y", dueDay: 1, anchorDate: new Date("2026-03-01"), createdAt: new Date("2026-03-01") });
+    expect(billCoverageYears(young, now)).toEqual([2024, 2025, 2026, 2027]);
+
+    const old = withPayments({ id: "o", dueDay: 1, anchorDate: new Date("2010-01-01"), createdAt: new Date("2010-01-01") });
+    expect(billCoverageYears(old, now)).toEqual([2023, 2024, 2025, 2026, 2027]);
   });
 });

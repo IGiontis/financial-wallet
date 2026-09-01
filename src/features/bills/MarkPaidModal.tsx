@@ -6,11 +6,20 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { parseISODay } from "../../shared/utils/dates";
 import { getPeriodOptions, type PeriodOption } from "./billsUtils";
 
 interface MarkPaidModalProps {
   bill: BillWithStatus;
   isSaving: boolean;
+  /**
+   * A period already chosen from the year grid.
+   *
+   * Shown as a fact rather than a dropdown when set: the month was picked
+   * deliberately a moment ago, and re-offering a list of four around today
+   * would not even contain it for a payment being filed years back.
+   */
+  presetPeriodKey?: string;
   onClose: () => void;
   /** Amount is in base currency; `periodKey` names the period being covered. */
   onConfirm: (amountInBase: number, paidDate: Date, periodKey: string) => void;
@@ -20,6 +29,9 @@ const today = () => new Date().toISOString().split("T")[0];
 
 /** How many periods forward the user may settle in one go. */
 const PERIOD_CHOICES = 4;
+
+/** How many periods back can still be filed against — for recording history. */
+const PERIOD_LOOKBACK = 6;
 
 /**
  * "September 2026", "2027", "Week of 14 Sep" — and a range when one period
@@ -56,16 +68,19 @@ function usePeriodLabel(bill: BillWithStatus) {
  * €120 the next, so the stored amount is only an estimate and the real figure
  * is entered here.
  */
-export default function MarkPaidModal({ bill, isSaving, onClose, onConfirm }: MarkPaidModalProps) {
+export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, onClose, onConfirm }: MarkPaidModalProps) {
   const { t } = useTranslation();
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
   const periodLabel = usePeriodLabel(bill);
 
-  const periods = useMemo(() => getPeriodOptions(bill, bill.payments, new Date(), PERIOD_CHOICES), [bill]);
+  const periods = useMemo(() => getPeriodOptions(bill, bill.payments, new Date(), PERIOD_CHOICES, PERIOD_LOOKBACK), [bill]);
   // Land on the first period that still owes something — for a bill already
   // settled this month that is next month, which is the whole point of opening
   // this modal a second time.
-  const defaultPeriodKey = (periods.find((p) => !p.isPaid) ?? periods[0]).key;
+  // Only from the current period on: past ones are offered for back-filling,
+  // never chosen for you, or an unpaid month from March would quietly become
+  // the default in August.
+  const defaultPeriodKey = presetPeriodKey ?? (periods.find((p) => p.offset >= 0 && !p.isPaid) ?? periods.find((p) => p.offset === 0) ?? periods[0]).key;
 
   const isVariable = !!bill.isVariableAmount;
   // Suggest the average of past payments for variable bills — it's a better
@@ -102,6 +117,17 @@ export default function MarkPaidModal({ bill, isSaving, onClose, onConfirm }: Ma
 
   const selectedPeriod = periods.find((p) => p.key === formik.values.periodKey);
   const payingAhead = !!selectedPeriod && selectedPeriod.offset > 0;
+
+  // A preset can name a period years outside the offered window, so its label
+  // is built from the key itself rather than looked up.
+  const presetLabel = presetPeriodKey ? (periods.find((p) => p.key === presetPeriodKey) ? periodLabel(periods.find((p) => p.key === presetPeriodKey)!) : presetPeriodKey) : "";
+
+  // The trap this catches: a date from a past period filed against the current
+  // one. Paying *ahead* also has a date outside its period, which is normal and
+  // must not be flagged — so only a date landing in an earlier period counts.
+  const chosenDate = parseISODay(formik.values.date);
+  const periodForDate = chosenDate ? periods.find((p) => chosenDate >= p.start && chosenDate <= p.end) : undefined;
+  const dateBelongsElsewhere = periodForDate && periodForDate.offset < 0 && periodForDate.key !== formik.values.periodKey ? periodForDate : undefined;
 
   return (
     <Modal isOpen toggle={onClose} centered>
@@ -160,6 +186,11 @@ export default function MarkPaidModal({ bill, isSaving, onClose, onConfirm }: Ma
 
           {/* Which period the money settles — separate from the date it left
               the account, so an early payment lands on the right month. */}
+          {presetPeriodKey ? (
+            <div className="mt-3 p-2" style={{ borderRadius: "var(--border-radius-md)", background: "var(--color-background-secondary)", fontSize: 13 }}>
+              {t("bills.payForPeriod", { period: presetLabel })}
+            </div>
+          ) : (
           <FormGroup className="mb-0 mt-3">
             <Label className="small fw-medium">{t("bills.paymentPeriod")}</Label>
             <Input type="select" name="periodKey" value={formik.values.periodKey} onChange={formik.handleChange} onBlur={formik.handleBlur}>
@@ -167,14 +198,31 @@ export default function MarkPaidModal({ bill, isSaving, onClose, onConfirm }: Ma
                 <option key={option.key} value={option.key} disabled={option.isPaid}>
                   {periodLabel(option)}
                   {option.offset === 0 ? ` — ${t("bills.periodCurrent")}` : ""}
+                  {option.offset < 0 ? ` — ${t("bills.periodPast")}` : ""}
                   {option.isPaid ? ` — ${t("bills.periodAlreadyPaid")}` : ""}
                 </option>
               ))}
             </Input>
             <FormText style={{ fontSize: 11 }}>{t("bills.paymentPeriodHint")}</FormText>
           </FormGroup>
+          )}
 
-          {payingAhead && (
+          {dateBelongsElsewhere && (
+            <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+              <div className="mb-2">{t("bills.periodDateMismatch", { period: periodLabel(dateBelongsElsewhere) })}</div>
+              <Button
+                type="button"
+                color="warning"
+                size="sm"
+                disabled={dateBelongsElsewhere.isPaid}
+                onClick={() => formik.setFieldValue("periodKey", dateBelongsElsewhere.key)}
+              >
+                {dateBelongsElsewhere.isPaid ? t("bills.periodAlreadyPaid") : t("bills.usePeriod", { period: periodLabel(dateBelongsElsewhere) })}
+              </Button>
+            </Alert>
+          )}
+
+          {payingAhead && !dateBelongsElsewhere && (
             <Alert color="info" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
               {t("bills.payingAheadHint", { period: periodLabel(selectedPeriod) })}
             </Alert>
