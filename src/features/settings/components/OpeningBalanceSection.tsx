@@ -5,10 +5,12 @@ import { DateField } from "../../../shared/components/DateField";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "../../../shared/types/IndexTypes";
 import { setOpeningBalance } from "../../../firebase/firestore";
+import { parseISODay, toISODay } from "../../../shared/utils/dates";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { useCurrencyConverter, exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 
-const toInputDate = (d: Date | undefined): string => (d ? new Date(d).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
+/** Firestore hands this back as a Timestamp, whatever the type says. */
+const toInputDate = (d: unknown): string => toISODay(d ?? new Date());
 
 /**
  * Where the user says how much money they already had, and when.
@@ -43,7 +45,7 @@ export default function OpeningBalanceSection({ user, onSaved }: { user: User | 
     try {
       // Clearing the amount clears the anchor with it — a date on its own would
       // silently hide history from a balance that has no starting figure.
-      const opening = parsed === null ? null : { amount: parsed, date: new Date(date) };
+      const opening = parsed === null ? null : { amount: parsed, date: parseISODay(date) ?? new Date() };
       await setOpeningBalance(user.id, opening);
       onSaved({ openingBalance: opening?.amount, openingBalanceDate: opening?.date });
       // The balance card reads the user document, not the form state.

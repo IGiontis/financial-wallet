@@ -89,3 +89,42 @@ describe("excludedByOpeningDate", () => {
     expect(excludedByOpeningDate(rows, opening)).toBe(2);
   });
 });
+
+// ─── Firestore Timestamps ────────────────────────────────────────────────────
+// `Transaction.date` is typed as a Date, but the read casts the raw document
+// straight through, so at runtime it is a Timestamp. Passing one to a bare
+// `getFullYear()` threw and took the whole balance card down with it.
+
+/** Mimics the Firestore Timestamp shape: a wrapper with `toDate()`. */
+const timestamp = (iso: string) => ({ toDate: () => new Date(iso), seconds: Math.floor(new Date(iso).getTime() / 1000) });
+
+describe("balance with Firestore Timestamps", () => {
+  const opening = { amount: 5000, date: new Date("2026-09-01") };
+
+  it("accepts a Timestamp as a transaction date", () => {
+    const row = tx({ amount: 200, date: timestamp("2026-09-10") as unknown as Date });
+    expect(() => currentBalance([row], opening)).not.toThrow();
+    expect(currentBalance([row], opening)).toBe(4800);
+  });
+
+  it("still holds history out of the balance when dates are Timestamps", () => {
+    const row = tx({ amount: 450, date: timestamp("2026-08-01") as unknown as Date });
+    expect(currentBalance([row], opening)).toBe(5000);
+  });
+
+  it("accepts a Timestamp as the opening date", () => {
+    const stamped = { amount: 5000, date: timestamp("2026-09-01") as unknown as Date };
+    const rows = [tx({ amount: 450, date: new Date("2026-08-01") }), tx({ amount: 200, date: new Date("2026-09-10") })];
+    expect(currentBalance(rows, stamped)).toBe(4800);
+  });
+
+  it("accepts the serialized { seconds } form", () => {
+    const row = tx({ amount: 100, date: { seconds: Math.floor(new Date("2026-09-05").getTime() / 1000) } as unknown as Date });
+    expect(currentBalance([row], opening)).toBe(4900);
+  });
+
+  it("counts Timestamps correctly in the excluded tally", () => {
+    const rows = [tx({ date: timestamp("2026-07-01") as unknown as Date }), tx({ date: timestamp("2026-09-10") as unknown as Date })];
+    expect(excludedByOpeningDate(rows, opening)).toBe(1);
+  });
+});

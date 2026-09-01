@@ -1,4 +1,5 @@
 import type { Transaction } from "../types/IndexTypes";
+import { firestoreToDate } from "./dates";
 
 // ─── Current balance ─────────────────────────────────────────────────────────
 // Everything else in the app measures a PERIOD — what came in and went out
@@ -24,10 +25,17 @@ export interface OpeningBalance {
 
 const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-/** True when this transaction is one the balance should count. */
+/**
+ * True when this transaction is one the balance should count.
+ *
+ * `tx.date` is typed as a Date but arrives from Firestore as a Timestamp — the
+ * read casts the raw document straight to `Transaction`, so the type is a
+ * promise the data does not keep. Every other screen normalises it the same
+ * way; skipping that here crashed the balance card outright.
+ */
 export function affectsBalance(tx: Transaction, opening: OpeningBalance | undefined): boolean {
   if (!opening) return true; // no opening figure — every record is all we know
-  return startOfDay(tx.date) >= startOfDay(opening.date);
+  return startOfDay(firestoreToDate(tx.date)) >= startOfDay(firestoreToDate(opening.date));
 }
 
 /**

@@ -32,3 +32,24 @@ export function firestoreToDateOrUndefined(value: unknown): Date | undefined {
 export function dateFnsLocale(language: string | undefined) {
   return language?.startsWith("el") ? el : enUS;
 }
+// ─── ISO day strings ─────────────────────────────────────────────────────────
+// The shape every date field and Formik form in the app holds: "2026-09-14".
+// Both directions go through local calendar fields on purpose. `toISOString()`
+// converts to UTC first, so a date at midnight local time comes back as the
+// PREVIOUS day anywhere west of Greenwich — and `new Date("2026-09-14")` reads
+// the string as UTC and lands a day early for the same reason.
+
+/** Parses "yyyy-MM-dd" as a local date. Null for anything else. */
+export function parseISODay(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Formats a Date (or a Firestore Timestamp) as "yyyy-MM-dd" in local time. */
+export function toISODay(value: unknown): string {
+  const date = firestoreToDate(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
