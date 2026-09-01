@@ -1265,6 +1265,28 @@ describe("billCoverage", () => {
     expect(march.amount).toBe(80);
   });
 
+  it("greens a payment recorded for a period older than the bill itself", () => {
+    // Adding the subscription this year and then filing the October 2025
+    // payment you actually made is the ordinary case, not an edge one: a
+    // "nothing before the bill existed" rule that ignored it left every month
+    // that payment covers looking blank.
+    const duolingo = withPayments(
+      { id: "d", frequency: "yearly", dueMonth: 9, dueDay: 5, anchorDate: new Date("2026-02-01"), createdAt: new Date("2026-02-01") },
+      [paidIn("d", "2025", 80, new Date("2025-10-05"))],
+    );
+    const cells = billCoverage(duolingo, [2025, 2026], now);
+
+    expect(at(cells, 2025, 9).status).toBe("paid"); // October 2025
+    expect(at(cells, 2026, 5).status).toBe("paid"); // June 2026, still covered
+    expect(at(cells, 2026, 8).status).toBe("paid"); // September 2026
+    expect(at(cells, 2026, 9).status).not.toBe("paid"); // October 2026 opens the next
+  });
+
+  it("still invents no debt for unpaid months before the bill existed", () => {
+    const fresh = withPayments({ id: "f", dueDay: 5, anchorDate: new Date("2026-06-01"), createdAt: new Date("2026-06-01") });
+    expect(at(billCoverage(fresh, [2026], now), 2026, 1).status).toBe("none"); // February
+  });
+
   it("offers nothing for a weekly bill, which cannot fit one square a month", () => {
     const weekly = withPayments({ id: "wk", frequency: "weekly", anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") });
     expect(billCoverage(weekly, [2026], now).every((c) => c.status === "none")).toBe(true);

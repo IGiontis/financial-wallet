@@ -1009,13 +1009,19 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
   const periods: { key: string; due: Date }[] = [];
   // Nothing before the bill existed: a subscription started in August was not
   // quietly unpaid all spring, and colouring those months would invent a debt.
+  //
+  // Unless it was paid. Recording a payment you actually made before you got
+  // round to adding the bill is the whole reason the calendar reaches back, and
+  // a period with money against it is a fact whatever its date.
   const born = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
   let start = shiftPeriodStart(bill, getPeriodStart(bill, windowStart), -1);
 
   for (let i = 0; i < 400; i++) {
     const due = getPeriodDueDate(bill, start) ?? start;
     if (due > windowEnd) break;
-    if (start >= born) periods.push({ key: getPeriodKey(bill, start), due });
+
+    const key = getPeriodKey(bill, start);
+    if (start >= born || paidByKey.has(key)) periods.push({ key, due });
     start = shiftPeriodStart(bill, start, 1);
   }
 
