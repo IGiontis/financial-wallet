@@ -344,6 +344,23 @@ export interface Bill {
    * which is what makes the two cases plannable rather than identical.
    */
   graceDays?: number;
+  /**
+   * Split each period's total into this many payments, one a month from the
+   * due date. 1 or undefined means the whole thing at once.
+   *
+   * `amount` stays the total for the period — a gym year is €360 whether or not
+   * it is taken in three — so forecasts and history keep meaning the same
+   * thing, and only what you hand over on the day is divided.
+   */
+  installmentCount?: number;
+  /**
+   * Months between instalments. 1 = monthly, 3 = quarterly, 6 = twice a year.
+   *
+   * Monthly is the common arrangement but far from the only one — insurance is
+   * routinely taken every three or six months — so the spacing is stored rather
+   * than assumed.
+   */
+  installmentIntervalMonths?: number;
   notes?: string;
   icon?: string;
   color?: string;
@@ -366,6 +383,8 @@ export interface CreateBillDTO {
   notes?: string;
   icon?: string;
   color?: string;
+  installmentCount?: number;
+  installmentIntervalMonths?: number;
 }
 
 export interface UpdateBillDTO {
@@ -375,6 +394,8 @@ export interface UpdateBillDTO {
   categoryId?: string;
   frequency?: BillFrequency;
   intervalCount?: number;
+  installmentCount?: number;
+  installmentIntervalMonths?: number;
   anchorDate?: Date;
   dueDay?: number;
   dueMonth?: number;
@@ -390,6 +411,8 @@ export interface BillPayment {
   userId: string;
   billId: string;
   periodKey: string; // "2026-07" (monthly), "2026-W30" (weekly), "2026" (yearly)
+  /** Which instalment of the period this settles, 0-based. Absent means the only one. */
+  installmentIndex?: number;
   amount: number;
   paidDate: Date;
   transactionId?: string; // the mirrored expense transaction
@@ -399,6 +422,7 @@ export interface BillPayment {
 export interface CreateBillPaymentDTO {
   billId: string;
   periodKey: string;
+  installmentIndex?: number;
   amount: number;
   paidDate: Date;
   transactionId?: string;
@@ -419,6 +443,14 @@ export interface BillWithStatus extends Bill {
   paidAheadCount: number;
   payment?: BillPayment; // the payment record for the current period, if paid
   payments: BillPayment[]; // all payments for this bill, newest first (history)
+  /** Instalments the period is split into. 1 for an ordinary bill. */
+  installmentTotal: number;
+  /** How many of them are settled for the current period. */
+  installmentsPaid: number;
+  /** Which one comes next, 0-based. Absent once the period is fully settled. */
+  nextInstallmentIndex?: number;
+  /** Still owed on the current period, across every instalment left in it. */
+  outstandingAmount: number;
   lastPaidDate?: Date;
   nextDueDate?: Date;
   /** Last day the money must actually be there — `nextDueDate` plus any grace. */

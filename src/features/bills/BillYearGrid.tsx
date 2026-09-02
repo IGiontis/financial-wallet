@@ -19,6 +19,7 @@ interface BillYearGridProps {
 /** Only the month a stretch begins in carries a mark; the rest are its tail. */
 const STATUS_ICON: Partial<Record<MonthCellStatus, IconType>> = {
   paid: FiCheck,
+  partial: FiCheck,
   overdue: FiAlertCircle,
   due: FiClock,
 };
@@ -55,21 +56,40 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
       );
     }
 
-    const Icon = cell.isPeriodStart ? STATUS_ICON[cell.status] : undefined;
-    const settled = cell.status === "paid";
-    const when = settled && cell.payment ? dateFmt.format(cell.payment.paidDate) : cell.dueDate ? dateFmt.format(cell.dueDate) : "";
+    // With instalments the mark belongs on the months money changes hands in,
+    // not on the one the period happens to start in.
+    const marked = cell.installment ? true : cell.isPeriodStart;
+    // An instalment month shows "2/3" instead of an icon, so it needs none.
+    const Icon = marked && !cell.installment ? STATUS_ICON[cell.status] : undefined;
+    const settled = cell.installment ? cell.installment.paid : cell.status === "paid";
+    const when = cell.installment
+      ? dateFmt.format(cell.installment.dueDate)
+      : settled && cell.payment
+        ? dateFmt.format(cell.payment.paidDate)
+        : cell.dueDate
+          ? dateFmt.format(cell.dueDate)
+          : "";
+    const money = cell.installment ? cell.installment.amount : (cell.amount ?? 0);
 
     return (
       <button
         key={cell.month}
         type="button"
-        className={`${styles.monthCell} ${styles[`monthCell_${cell.status}`]} ${cell.isPeriodStart ? styles.monthCellStart : ""}`}
+        className={`${styles.monthCell} ${styles[`monthCell_${cell.status}`]} ${marked ? styles.monthCellStart : ""} ${
+          cell.installment ? (cell.installment.paid ? styles.monthCellPartPaid : styles.monthCellPartOwed) : ""
+        }`}
         onClick={() => (settled ? onOpenPayment(cell) : onPay(cell))}
-        title={`${name} ${cell.year} · ${when} · ${formatCurrency(cell.amount ?? 0)}`}
-        aria-label={`${name} ${cell.year} — ${t(`bills.monthState_${cell.status}`)} — ${formatCurrency(cell.amount ?? 0)}`}
+        title={`${name} ${cell.year} · ${when} · ${formatCurrency(money)}`}
+        aria-label={`${name} ${cell.year} — ${cell.installment ? t("bills.installmentOf", { index: cell.installment.index + 1, count: cell.installment.count }) + " — " : ""}${t(`bills.monthState_${cell.status}`)} — ${formatCurrency(money)}`}
       >
         <span className={styles.monthCellName}>{name}</span>
-        <span className={styles.monthCellMark}>{Icon ? <Icon size={12} aria-hidden /> : null}</span>
+        {cell.installment ? (
+          <span className={styles.monthCellPart}>
+            {cell.installment.index + 1}/{cell.installment.count}
+          </span>
+        ) : (
+          <span className={styles.monthCellMark}>{Icon ? <Icon size={12} aria-hidden /> : null}</span>
+        )}
       </button>
     );
   };

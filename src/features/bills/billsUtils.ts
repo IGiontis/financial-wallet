@@ -8,7 +8,81 @@ import { firestoreToDate } from "../../shared/utils/dates";
 // anchorDate (falling back to createdAt) so "every 2 months" always lands on the
 // same pair of months rather than drifting with the calendar.
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export const getIntervalCount = (bill: Pick<Bill, "intervalCount">) => Math.max(1, Math.round(bill.intervalCount ?? 1));
+
+// ─── Instalments ─────────────────────────────────────────────────────────────
+// Some bills are payable in parts: a gym year of €360 taken as three monthly
+// payments of €120. The period is unchanged — it is still one year of gym — so
+// the total, the forecast and the coverage all stay period-shaped, and only the
+// act of handing money over is divided.
+
+export const getInstallmentCount = (bill: Pick<Bill, "installmentCount">) => Math.max(1, Math.round(bill.installmentCount ?? 1));
+
+/** Months between instalments. 1 = monthly, 3 = quarterly, 6 = twice a year. */
+export const getInstallmentInterval = (bill: Pick<Bill, "installmentIntervalMonths">) => Math.max(1, Math.round(bill.installmentIntervalMonths ?? 1));
+
+/** Months in one period of the bill — what the instalments have to fit inside. */
+export function periodMonths(bill: Pick<Bill, "frequency" | "intervalCount">): number {
+  if (bill.frequency === "weekly") return 0;
+  return getIntervalCount(bill) * (bill.frequency === "yearly" ? 12 : 1);
+}
+
+/**
+ * Spacings that fit: `count` instalments every N months must not run past the
+ * period they belong to, or the last one lands in the next period and the two
+ * start fighting over the same month.
+ */
+export function installmentIntervalOptions(bill: Pick<Bill, "frequency" | "intervalCount" | "installmentCount">): number[] {
+  const months = periodMonths(bill);
+  const count = getInstallmentCount(bill);
+  if (months === 0 || count < 2) return [1];
+
+  return [1, 2, 3, 4, 6].filter((interval) => (count - 1) * interval < months);
+}
+
+/** A payment written before instalments existed settles the only one there was. */
+export const paymentInstallment = (payment: Pick<BillPayment, "installmentIndex">) => payment.installmentIndex ?? 0;
+
+/**
+ * What instalment `index` costs out of `total`.
+ *
+ * Split evenly, with the last one carrying whatever the division left over, so
+ * three parts of €100 come to €100 rather than to €99.99.
+ */
+export function installmentAmount(bill: Pick<Bill, "installmentCount">, total: number, index: number): number {
+  const count = getInstallmentCount(bill);
+  if (count === 1) return round2(total);
+
+  const each = round2(total / count);
+  return index >= count - 1 ? round2(total - each * (count - 1)) : each;
+}
+
+/**
+ * When each instalment falls due: the period's own date, then a month later,
+ * and so on.
+ *
+ * Spaced by `installmentIntervalMonths`: monthly by default, since that is the
+ * usual arrangement, but insurance and the like are commonly taken every three
+ * or six months and the plan has to be able to say so.
+ */
+export function installmentDueDates(bill: Pick<Bill, "installmentCount" | "installmentIntervalMonths">, periodDue: Date): Date[] {
+  const step = getInstallmentInterval(bill);
+  return Array.from({ length: getInstallmentCount(bill) }, (_, i) =>
+    i === 0 ? periodDue : clampDayOfMonth(periodDue.getFullYear(), periodDue.getMonth() + i * step, periodDue.getDate()),
+  );
+}
+
+/** Instalment indices settled for `periodKey`. */
+export function paidInstallments(payments: BillPayment[], periodKey: string): Set<number> {
+  return new Set(payments.filter((p) => p.periodKey === periodKey).map(paymentInstallment));
+}
+
+/** True once every instalment of the period has been paid. */
+export function isPeriodSettled(bill: Pick<Bill, "installmentCount">, payments: BillPayment[], periodKey: string): boolean {
+  return paidInstallments(payments, periodKey).size >= getInstallmentCount(bill);
+}
 
 const getAnchor = (bill: Pick<Bill, "anchorDate" | "createdAt">): Date => firestoreToDate(bill.anchorDate ?? bill.createdAt);
 
@@ -252,11 +326,13 @@ export function getPeriodOptions(bill: Bill, payments: BillPayment[], now: Date 
  * nothing while February is still outstanding.
  */
 export function coveredPeriodCount(bill: Bill, payments: BillPayment[], now: Date = new Date()): number {
-  const paidKeys = new Set(payments.filter((p) => p.billId === bill.id).map((p) => p.periodKey));
+  // A period part-paid in instalments is not covered: money is still owed on
+  // it, so the run of settled periods stops there.
+  const mine = payments.filter((p) => p.billId === bill.id);
   const currentStart = getPeriodStart(bill, now);
 
   let covered = 0;
-  while (covered <= MAX_PERIODS_AHEAD && paidKeys.has(getPeriodKey(bill, shiftPeriodStart(bill, currentStart, covered)))) covered++;
+  while (covered <= MAX_PERIODS_AHEAD && isPeriodSettled(bill, mine, getPeriodKey(bill, shiftPeriodStart(bill, currentStart, covered)))) covered++;
   return covered;
 }
 
@@ -268,7 +344,17 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
     .sort((a, b) => firestoreToDate(b.paidDate).getTime() - firestoreToDate(a.paidDate).getTime());
 
   const currentPeriodKey = getCurrentPeriodKey(bill, now);
-  const payment = payments.find((p) => p.periodKey === currentPeriodKey);
+  const periodPayments = payments.filter((p) => p.periodKey === currentPeriodKey);
+  const payment = periodPayments[0];
+
+  // With instalments the period is settled only once every part is in. Anything
+  // short of that leaves the bill owing money, which is what the rest of the
+  // app has to keep being told.
+  const installmentTotal = getInstallmentCount(bill);
+  const settled = paidInstallments(payments, currentPeriodKey);
+  const installmentsPaid = settled.size;
+  const isSettled = installmentsPaid >= installmentTotal;
+  const nextInstallmentIndex = isSettled ? undefined : Array.from({ length: installmentTotal }, (_, i) => i).find((i) => !settled.has(i));
 
   // For variable bills, forecast from what has actually been paid rather than
   // the (necessarily rough) stored estimate.
@@ -279,15 +365,28 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
   // "next due" points past everything already settled rather than at a month
   // the user has a receipt for.
   const covered = coveredPeriodCount(bill, payments, now);
-  const nextDueDate = covered > 1 ? getPeriodDueDate(bill, shiftPeriodStart(bill, getPeriodStart(bill, now), covered)) : getNextDueDate(bill, now, !!payment);
+  const rolled = covered > 1 ? getPeriodDueDate(bill, shiftPeriodStart(bill, getPeriodStart(bill, now), covered)) : getNextDueDate(bill, now, isSettled);
+
+  // Part-paid: the date that matters is the next instalment's, not the next
+  // period's — the money is owed this month, not next year.
+  const periodDue = getPeriodDueDate(bill, now);
+  const nextDueDate =
+    nextInstallmentIndex !== undefined && nextInstallmentIndex > 0 && periodDue ? installmentDueDates(bill, periodDue)[nextInstallmentIndex] : rolled;
+
+  const periodTotal = bill.isVariableAmount ? forecastAmount : bill.amount;
+  const paidSoFar = periodPayments.reduce((sum, p) => sum + p.amount, 0);
 
   return {
     ...bill,
     currentPeriodKey,
-    isPaidThisPeriod: !!payment,
+    isPaidThisPeriod: isSettled,
     paidAheadCount: Math.max(0, covered - 1),
     payment,
     payments,
+    installmentTotal,
+    installmentsPaid,
+    nextInstallmentIndex,
+    outstandingAmount: round2(Math.max(periodTotal - paidSoFar, 0)),
     averagePaidAmount: average,
     paidAmountRange: paidAmountRange(payments),
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
@@ -320,7 +419,11 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
   const periodDue = getPeriodDueDate(bill, now);
   if (!periodDue) return status;
 
-  return { ...status, nextDueDate: periodDue, deadline: getDeadline(bill, periodDue) };
+  // Which instalment of it, though: pinning a part-paid bill back to the first
+  // one would re-advertise a payment already made and hide the one actually owed.
+  const target = installmentDueDates(bill, periodDue)[status.nextInstallmentIndex ?? 0] ?? periodDue;
+
+  return { ...status, nextDueDate: target, deadline: getDeadline(bill, target) };
 }
 
 // ─── Grouping by urgency ────────────────────────────────────────────────────
@@ -935,7 +1038,17 @@ export function periodTotals(breakdown: MonthForecast): PeriodTotals {
 // one, so October 2025 on a yearly bill covers through September 2026, and
 // October 2026 opens the next stretch.
 
-export type MonthCellStatus = "none" | "paid" | "overdue" | "due" | "future";
+export type MonthCellStatus = "none" | "paid" | "partial" | "overdue" | "due" | "future";
+
+/** An instalment of the covering period falling due in this month. */
+export interface MonthInstallment {
+  /** 0-based. */
+  index: number;
+  count: number;
+  dueDate: Date;
+  amount: number;
+  paid: boolean;
+}
 
 export interface MonthCell {
   year: number;
@@ -951,6 +1064,15 @@ export interface MonthCell {
   payment?: BillPayment;
   /** What was paid, or what is expected. */
   amount?: number;
+  /**
+   * Set when one of the covering period's instalments lands in this month.
+   *
+   * Separate from `status`, because the two say different things: the colour is
+   * whether the month is covered, and this is whether money changes hands in
+   * it. A gym year paid in three keeps all twelve months green while only three
+   * of them are ever payment months.
+   */
+  installment?: MonthInstallment;
 }
 
 /**
@@ -1025,11 +1147,32 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
     start = shiftPeriodStart(bill, start, 1);
   }
 
+  // Where each instalment of each period falls, so a month can say both "this
+  // is covered" and "this is when you hand something over".
+  const installmentCount = getInstallmentCount(bill);
+  const total = expectedAmount(bill);
+  const byMonth = new Map<string, MonthInstallment & { periodKey: string }>();
+
+  for (const period of periods) {
+    const settledHere = paidInstallments(bill.payments, period.key);
+    installmentDueDates(bill, period.due).forEach((dueDate, index) => {
+      byMonth.set(`${dueDate.getFullYear()}-${dueDate.getMonth()}`, {
+        periodKey: period.key,
+        index,
+        count: installmentCount,
+        dueDate,
+        amount: installmentAmount(bill, total, index),
+        paid: settledHere.has(index),
+      });
+    });
+  }
+
   for (const cell of cells) {
     const monthEnd = new Date(cell.year, cell.month + 1, 0, 23, 59, 59, 999);
     const covering = periods.filter((p) => p.due <= monthEnd).pop();
     if (!covering) continue;
 
+    const settledHere = paidInstallments(bill.payments, covering.key);
     const payment = paidByKey.get(covering.key);
     // Measured against the deadline, not the due date: a bill inside its grace
     // window is late in no meaningful sense.
@@ -1039,8 +1182,20 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
     cell.dueDate = covering.due;
     cell.isPeriodStart = covering.due.getFullYear() === cell.year && covering.due.getMonth() === cell.month;
     cell.payment = payment;
-    cell.amount = payment ? payment.amount : expectedAmount(bill);
-    cell.status = payment ? "paid" : deadline < today ? "overdue" : covering.due <= endOfThisMonth ? "due" : "future";
+    cell.amount = payment ? payment.amount : total;
+    cell.status =
+      settledHere.size >= installmentCount
+        ? "paid"
+        : settledHere.size > 0
+          ? "partial"
+          : deadline < today
+            ? "overdue"
+            : covering.due <= endOfThisMonth
+              ? "due"
+              : "future";
+
+    const here = byMonth.get(`${cell.year}-${cell.month}`);
+    if (here && here.periodKey === covering.key && installmentCount > 1) cell.installment = here;
   }
 
   return cells;

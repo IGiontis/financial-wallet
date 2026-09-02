@@ -341,6 +341,8 @@ export const markBillPaid = async (
   paidDate: Date,
   /** Actual amount paid — differs from `bill.amount` for variable bills. */
   paidAmount?: number,
+  /** Which instalment of the period this settles. Omitted when there is only one. */
+  installmentIndex?: number,
 ) => {
   const batch = writeBatch(db);
   const amount = paidAmount ?? bill.amount;
@@ -361,7 +363,7 @@ export const markBillPaid = async (
   });
 
   const paymentRef = doc(collection(db, "billPayments"));
-  const payment: CreateBillPaymentDTO = { billId: bill.id, periodKey, amount, paidDate, transactionId: transactionRef.id };
+  const payment: CreateBillPaymentDTO = { billId: bill.id, periodKey, installmentIndex, amount, paidDate, transactionId: transactionRef.id };
   batch.set(paymentRef, {
     ...clean({ ...payment, userId }),
     createdAt: serverTimestamp(),

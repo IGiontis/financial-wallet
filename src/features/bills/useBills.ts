@@ -110,6 +110,8 @@ export interface MarkPaidVars {
   paidDate: Date;
   paidAmount?: number;
   periodKey?: string;
+  /** Which instalment of the period this settles. Defaults to the next one owed. */
+  installmentIndex?: number;
 }
 
 export function useMarkBillPaid() {
@@ -121,10 +123,17 @@ export function useMarkBillPaid() {
     // `paidAmount` carries the real figure for variable bills (electricity, water).
     // `periodKey` defaults to the period we're in, but can name a later one when
     // the user settles a bill ahead of time.
-    mutationFn: ({ bill, paidDate, paidAmount, periodKey }: MarkPaidVars) =>
-      markBillPaid(userId, { id: bill.id, name: bill.name, amount: bill.amount, categoryId: bill.categoryId }, periodKey ?? bill.currentPeriodKey, paidDate, paidAmount),
+    mutationFn: ({ bill, paidDate, paidAmount, periodKey, installmentIndex }: MarkPaidVars) =>
+      markBillPaid(
+        userId,
+        { id: bill.id, name: bill.name, amount: bill.amount, categoryId: bill.categoryId },
+        periodKey ?? bill.currentPeriodKey,
+        paidDate,
+        paidAmount,
+        installmentIndex,
+      ),
 
-    onMutate: async ({ bill, paidDate, paidAmount, periodKey }: MarkPaidVars) => {
+    onMutate: async ({ bill, paidDate, paidAmount, periodKey, installmentIndex }: MarkPaidVars) => {
       // Stop an in-flight refetch from landing on top of the optimistic state
       // and flipping the row back for a moment.
       await queryClient.cancelQueries({ queryKey: billKeys.all(userId) });
@@ -136,6 +145,7 @@ export function useMarkBillPaid() {
         userId,
         billId: bill.id,
         periodKey: periodKey ?? bill.currentPeriodKey,
+        installmentIndex,
         amount: paidAmount ?? bill.amount,
         paidDate,
         createdAt: new Date(),

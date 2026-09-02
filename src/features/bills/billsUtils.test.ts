@@ -5,6 +5,9 @@ import {
   billMonthStrip,
   billCoverage,
   billCoverageYears,
+  installmentAmount,
+  installmentDueDates,
+  installmentIntervalOptions,
   billUrgency,
   cashRunway,
   computeBillStatus,
@@ -30,7 +33,15 @@ import {
   yearlyBreakdown,
 } from "./billsUtils";
 import type { MonthCell } from "./billsUtils";
-import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
+import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, UpdateBillDTO } from "../../shared/types/IndexTypes";
+
+// A field added to the create form but forgotten on the update DTO is dropped
+// in silence: the bill saves, and the setting is simply gone next time it is
+// opened. `installmentCount` did exactly that. This fails to compile rather
+// than at runtime, so the next one cannot ship.
+type MissingFromUpdate = Exclude<keyof CreateBillDTO, keyof UpdateBillDTO>;
+const _everyCreatedFieldIsEditable: MissingFromUpdate extends never ? true : MissingFromUpdate = true;
+void _everyCreatedFieldIsEditable;
 
 const makeBill = (overrides: Partial<Bill> = {}): Bill =>
   ({
@@ -1300,5 +1311,145 @@ describe("billCoverage", () => {
 
     const old = withPayments({ id: "o", dueDay: 1, anchorDate: new Date("2010-01-01"), createdAt: new Date("2010-01-01") });
     expect(billCoverageYears(old, now)).toEqual([2023, 2024, 2025, 2026, 2027]);
+  });
+});
+
+// ─── Instalments ─────────────────────────────────────────────────────────────
+
+describe("instalments", () => {
+  const now = new Date("2026-11-15");
+
+  const gym = (payments: BillPayment[] = []) =>
+    computeBillStatus(
+      makeBill({
+        id: "gym",
+        name: "Γυμναστήριο",
+        amount: 360,
+        frequency: "yearly",
+        dueMonth: 9,
+        dueDay: 5,
+        installmentCount: 3,
+        anchorDate: new Date("2026-01-01"),
+        createdAt: new Date("2026-01-01"),
+      }),
+      payments,
+      now,
+    );
+
+  const paid = (index: number, amount: number, paidDate: Date): BillPayment =>
+    ({ id: `p${index}`, userId: "u1", billId: "gym", periodKey: "2026", installmentIndex: index, amount, paidDate, createdAt: paidDate }) as BillPayment;
+
+  it("splits the total evenly, with the last part carrying the rounding", () => {
+    const odd = { installmentCount: 3 };
+    expect([0, 1, 2].map((i) => installmentAmount(odd, 100, i))).toEqual([33.33, 33.33, 33.34]);
+    expect([0, 1, 2].map((i) => installmentAmount(odd, 360, i))).toEqual([120, 120, 120]);
+  });
+
+  it("charges one a month from the due date", () => {
+    expect(installmentDueDates({ installmentCount: 3 }, new Date(2026, 9, 5))).toEqual([new Date(2026, 9, 5), new Date(2026, 10, 5), new Date(2026, 11, 5)]);
+  });
+
+  it("keeps a single-payment bill exactly as it was", () => {
+    expect(installmentDueDates({}, new Date(2026, 9, 5))).toEqual([new Date(2026, 9, 5)]);
+    expect(installmentAmount({}, 360, 0)).toBe(360);
+  });
+
+  it("is not settled until every part is in", () => {
+    expect(gym().isPaidThisPeriod).toBe(false);
+    expect(gym([paid(0, 120, new Date(2026, 9, 5))]).isPaidThisPeriod).toBe(false);
+    expect(gym([paid(0, 120, new Date(2026, 9, 5)), paid(1, 120, new Date(2026, 10, 5))]).isPaidThisPeriod).toBe(false);
+
+    const all = gym([paid(0, 120, new Date(2026, 9, 5)), paid(1, 120, new Date(2026, 10, 5)), paid(2, 120, new Date(2026, 11, 5))]);
+    expect(all.isPaidThisPeriod).toBe(true);
+    expect(all.nextInstallmentIndex).toBeUndefined();
+  });
+
+  it("points at the next instalment's own date, not next year's", () => {
+    // The trap: after paying the first part the bill still owes money *this*
+    // month. Rolling to the next period would hide a debt due in three weeks.
+    const partly = gym([paid(0, 120, new Date(2026, 9, 5))]);
+
+    expect(partly.nextInstallmentIndex).toBe(1);
+    expect(partly.nextDueDate).toEqual(new Date(2026, 10, 5));
+    expect(partly.installmentsPaid).toBe(1);
+    expect(partly.outstandingAmount).toBe(240);
+  });
+
+  it("counts what is left over after an unusual part payment", () => {
+    expect(gym([paid(0, 150, new Date(2026, 9, 5))]).outstandingAmount).toBe(210);
+  });
+
+  it("does not treat a part-paid year as covered when looking ahead", () => {
+    expect(gym([paid(0, 120, new Date(2026, 9, 5))]).paidAheadCount).toBe(0);
+  });
+
+  it("keeps the year green from the first instalment, and marks the payment months", () => {
+    const cells = billCoverage(gym([paid(0, 120, new Date(2026, 9, 5))]), [2026, 2027], now);
+    const at = (year: number, month: number) => cells.find((c) => c.year === year && c.month === month)!;
+
+    // Covered — you are a member — but still owing, so not plain "paid".
+    expect(at(2026, 9).status).toBe("partial");
+    expect(at(2027, 5).status).toBe("partial");
+
+    expect(at(2026, 9).installment).toMatchObject({ index: 0, count: 3, amount: 120, paid: true });
+    expect(at(2026, 10).installment).toMatchObject({ index: 1, paid: false });
+    expect(at(2026, 11).installment).toMatchObject({ index: 2, paid: false });
+    // The other nine months are covered but nothing changes hands in them.
+    expect(at(2027, 5).installment).toBeUndefined();
+  });
+
+  it("marks no instalments at all on an ordinary bill", () => {
+    const netflix = computeBillStatus(makeBill({ id: "n", dueDay: 22, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }), [], now);
+    expect(billCoverage(netflix, [2026], now).every((c) => c.installment === undefined)).toBe(true);
+  });
+});
+
+describe("instalment spacing", () => {
+  it("spaces them by the months given, not always monthly", () => {
+    const quarterly = { installmentCount: 4, installmentIntervalMonths: 3 };
+    expect(installmentDueDates(quarterly, new Date(2026, 0, 15))).toEqual([
+      new Date(2026, 0, 15),
+      new Date(2026, 3, 15),
+      new Date(2026, 6, 15),
+      new Date(2026, 9, 15),
+    ]);
+  });
+
+  it("still defaults to one a month", () => {
+    expect(installmentDueDates({ installmentCount: 2 }, new Date(2026, 0, 15))).toEqual([new Date(2026, 0, 15), new Date(2026, 1, 15)]);
+  });
+
+  it("offers only spacings the period can hold", () => {
+    // Otherwise the last instalment lands inside the following period, and the
+    // two start fighting over the same month on the calendar.
+    const yearly = { frequency: "yearly" as const, intervalCount: 1 };
+    expect(installmentIntervalOptions({ ...yearly, installmentCount: 4 })).toEqual([1, 2, 3]);
+    // Three every six months would put the last one in the next year, so 6 goes.
+    expect(installmentIntervalOptions({ ...yearly, installmentCount: 3 })).toEqual([1, 2, 3, 4]);
+    expect(installmentIntervalOptions({ ...yearly, installmentCount: 2 })).toEqual([1, 2, 3, 4, 6]);
+    expect(installmentIntervalOptions({ ...yearly, installmentCount: 1 })).toEqual([1]);
+    expect(installmentIntervalOptions({ frequency: "monthly", intervalCount: 6, installmentCount: 3 })).toEqual([1, 2]);
+  });
+
+  it("keeps a quarterly plan inside its own year on the calendar", () => {
+    const insurance = computeBillStatus(
+      makeBill({
+        id: "ins",
+        amount: 400,
+        frequency: "yearly",
+        dueMonth: 0,
+        dueDay: 15,
+        installmentCount: 4,
+        installmentIntervalMonths: 3,
+        anchorDate: new Date("2026-01-01"),
+        createdAt: new Date("2026-01-01"),
+      }),
+      [],
+      new Date("2026-02-01"),
+    );
+
+    const cells = billCoverage(insurance, [2026], new Date("2026-02-01"));
+    expect(cells.filter((c) => c.installment).map((c) => c.month)).toEqual([0, 3, 6, 9]);
+    expect(cells.find((c) => c.month === 0)!.installment).toMatchObject({ index: 0, count: 4, amount: 100 });
   });
 });

@@ -113,3 +113,49 @@ describe("buildPlan across months", () => {
     expect(occurrences.every((e) => e.deadline?.getTime() === e.date.getTime())).toBe(true);
   });
 });
+
+describe("bills paid in instalments", () => {
+  const gym = (payments: BillWithStatus["payments"] = []) =>
+    ({
+      ...bill({
+        id: "gym",
+        name: "Γυμναστήριο",
+        amount: 360,
+        frequency: "yearly",
+        dueMonth: 7,
+        dueDay: 20,
+        installmentCount: 3,
+        anchorDate: new Date(2026, 0, 1),
+      }),
+      payments,
+    }) as BillWithStatus;
+
+  it("charges the parts on their own months, not the total in one hit", () => {
+    // A €360 year taken in three would otherwise blow a hole in August that the
+    // month never actually sees.
+    const events = buildPlan({ ...base, horizon: "6m", bills: [gym()] }).events.filter((e) => e.kind === "bill");
+
+    expect(events.map((e) => [e.date.getMonth(), e.amount])).toEqual([
+      [7, -120],
+      [8, -120],
+      [9, -120],
+    ]);
+  });
+
+  it("counts the whole year once, however it is split", () => {
+    expect(buildPlan({ ...base, horizon: "6m", bills: [gym()] }).billsTotal).toBe(360);
+  });
+
+  it("stops asking for an instalment already paid", () => {
+    const paid = [{ id: "p0", userId: "u1", billId: "gym", periodKey: "2026", installmentIndex: 0, amount: 120, paidDate: new Date(2026, 7, 20), createdAt: new Date(2026, 7, 20) }];
+    const plan = buildPlan({ ...base, horizon: "6m", bills: [gym(paid as BillWithStatus["payments"])] });
+
+    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.date.getMonth())).toEqual([8, 9]);
+    expect(plan.billsTotal).toBe(240);
+  });
+
+  it("leaves an ordinary bill charged in full on its own date", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", bills: [bill({ name: "Netflix", amount: 12.99, dueDay: 22 })] });
+    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.amount)).toEqual([-12.99]);
+  });
+});

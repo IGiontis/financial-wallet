@@ -7,7 +7,7 @@ import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { parseISODay } from "../../shared/utils/dates";
-import { getPeriodOptions, type PeriodOption } from "./billsUtils";
+import { getInstallmentCount, getPeriodOptions, installmentAmount, paidInstallments, type PeriodOption } from "./billsUtils";
 
 interface MarkPaidModalProps {
   bill: BillWithStatus;
@@ -20,9 +20,11 @@ interface MarkPaidModalProps {
    * would not even contain it for a payment being filed years back.
    */
   presetPeriodKey?: string;
+  /** An instalment already chosen from the year grid. Otherwise the next one owed. */
+  presetInstallmentIndex?: number;
   onClose: () => void;
   /** Amount is in base currency; `periodKey` names the period being covered. */
-  onConfirm: (amountInBase: number, paidDate: Date, periodKey: string) => void;
+  onConfirm: (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number) => void;
 }
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -68,7 +70,7 @@ function usePeriodLabel(bill: BillWithStatus) {
  * €120 the next, so the stored amount is only an estimate and the real figure
  * is entered here.
  */
-export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, onClose, onConfirm }: MarkPaidModalProps) {
+export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetInstallmentIndex, onClose, onConfirm }: MarkPaidModalProps) {
   const { t } = useTranslation();
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
   const periodLabel = usePeriodLabel(bill);
@@ -85,7 +87,17 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, onClose
   const isVariable = !!bill.isVariableAmount;
   // Suggest the average of past payments for variable bills — it's a better
   // starting point than a stale estimate.
-  const suggestedBase = isVariable ? (bill.averagePaidAmount ?? bill.amount) : bill.amount;
+  const periodTotal = isVariable ? (bill.averagePaidAmount ?? bill.amount) : bill.amount;
+
+  // Which part of the period this settles. Whatever the grid was pressed on,
+  // or else the first one still owed — never simply "the first", which would
+  // re-file a payment already made.
+  const installmentTotal = getInstallmentCount(bill);
+  const settledForPeriod = paidInstallments(bill.payments, defaultPeriodKey);
+  const installmentIndex =
+    presetInstallmentIndex ?? Array.from({ length: installmentTotal }, (_, i) => i).find((i) => !settledForPeriod.has(i)) ?? installmentTotal - 1;
+
+  const suggestedBase = installmentAmount(bill, periodTotal, installmentIndex);
   const suggestedInDisplay = Number(convert(suggestedBase).toFixed(2));
 
   const validationSchema = useMemo(
@@ -108,7 +120,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, onClose
     onSubmit: (values) => {
       const typed = Number(values.amount);
       const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
-      onConfirm(amountInBase, new Date(values.date), values.periodKey);
+      onConfirm(amountInBase, new Date(values.date), values.periodKey, installmentTotal > 1 ? installmentIndex : undefined);
     },
   });
 
@@ -138,6 +150,17 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, onClose
           <p className="mb-3" style={{ fontSize: 14 }}>
             {t("bills.confirmPaymentBody", { name: bill.name })}
           </p>
+
+          {installmentTotal > 1 && (
+            <Alert color="warning" className="py-2" style={{ fontSize: 12 }}>
+              {t("bills.payingInstallment", {
+                index: installmentIndex + 1,
+                count: installmentTotal,
+                amount: format(installmentAmount(bill, periodTotal, installmentIndex)),
+                total: format(periodTotal),
+              })}
+            </Alert>
+          )}
 
           {isVariable && (
             <Alert color="info" className="py-2" style={{ fontSize: 12 }}>

@@ -953,6 +953,25 @@
   color: var(--color-goal);
 }
 
+/* An instalment month: covered like its neighbours, but money moves here. */
+.monthCellPart {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.monthCell_partial {
+  border-color: color-mix(in srgb, var(--color-income) 25%, transparent);
+  background: color-mix(in srgb, var(--color-income) 10%, transparent);
+  color: var(--color-income);
+}
+
+.monthCell_partial.monthCellStart {
+  border-color: var(--color-goal);
+  background: color-mix(in srgb, var(--color-goal) 20%, transparent);
+  color: var(--color-goal);
+}
+
 .monthCell_future {
   border-style: dashed;
 }
@@ -983,6 +1002,22 @@
   color: var(--color-goal);
 }
 
+/* An instalment square answers for itself, not for the stretch it sits in: one
+   already handed over is settled even while the rest of the year still owes.
+   Last in the cascade, so it outranks the coverage colour it sits on top of. */
+.monthCell.monthCellPartPaid {
+  border-color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+  color: var(--color-income);
+}
+
+.monthCell.monthCellPartOwed {
+  border-style: solid;
+  border-color: var(--color-goal);
+  background: color-mix(in srgb, var(--color-goal) 20%, transparent);
+  color: var(--color-goal);
+}
+
 .monthCell:not(.monthCellEmpty):hover {
   border-color: var(--bs-primary);
 }
@@ -1000,4 +1035,15 @@
 .paymentRowFocused {
   outline: 2px solid var(--bs-primary);
   outline-offset: 1px;
+}
+
+/* ── Instalment note ──────────────────────────────────────────────────────── */
+/* Its own line under the subtitle: a part-paid period owes money now, and that
+   is not something the amount column or the month strip can say. */
+
+.installmentNote {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--color-goal);
 }

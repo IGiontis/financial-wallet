@@ -376,6 +376,18 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
   return (
     <span className={styles.cardSubtitle}>
       {t(freq.key, { count: freq.count })} · {amountNote}
+      {/* A part-paid year owes money now, which nothing else on the row says:
+          the amount column shows one instalment and the strip shows the months
+          as covered. */}
+      {bill.installmentTotal > 1 && bill.installmentsPaid > 0 && !bill.isPaidThisPeriod && (
+        <span className={styles.installmentNote}>
+          {t("bills.installmentProgress", {
+            paid: bill.installmentsPaid,
+            count: bill.installmentTotal,
+            amount: formatCurrency(bill.outstandingAmount),
+          })}
+        </span>
+      )}
     </span>
   );
 }
@@ -622,6 +634,8 @@ export default function BillsPage() {
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
   // The month chosen from the year grid, if the form was opened that way.
   const [payingPeriod, setPayingPeriod] = useState<string | undefined>();
+  // And which instalment of it, for a bill paid in parts.
+  const [payingInstallment, setPayingInstallment] = useState<number | undefined>();
   // Which month's breakdown is open, if any.
   const [breakdownMonth, setBreakdownMonth] = useState<"current" | "next" | null>(null);
   // One clock reading for the whole visit, so every card's month strip lines up
@@ -670,15 +684,18 @@ export default function BillsPage() {
   // answer. The cache has already been updated optimistically, so the screen is
   // correct the moment it closes; a write that then fails rolls itself back and
   // says so, which beats holding the whole page hostage to the network.
-  const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string) => {
+  const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number) => {
     if (!payingBill) return;
-    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex }, { onError: () => toast.error(t("bills.markPaidFailed")) });
     setPayingBill(null);
   };
 
   const handleUndoPayment = (bill: BillWithStatus) => {
-    if (!bill.payment) return;
-    handleDeletePayment(bill.payment);
+    // The most recent instalment, not "the payment": undoing a part-paid year
+    // has to take back the last part rather than an arbitrary one.
+    const latest = bill.payments.filter((p) => p.periodKey === bill.currentPeriodKey)[0] ?? bill.payment;
+    if (!latest) return;
+    handleDeletePayment(latest);
   };
 
   // Correcting a payment edits the expense it wrote rather than adding another:
@@ -697,6 +714,7 @@ export default function BillsPage() {
     // Same hand-off as every other action here: never stack two modals.
     setDetailBill(null);
     setPayingPeriod(cell.periodKey);
+    setPayingInstallment(cell.installment?.index);
     setPayingBill(bill);
   };
 
@@ -825,6 +843,8 @@ export default function BillsPage() {
             // Hand off to the confirmation step — never stack the two modals.
             setDetailBill(null);
             setPayingPeriod(undefined);
+            setPayingPeriod(undefined);
+            setPayingInstallment(undefined);
             setPayingBill(b);
           }}
           onUndoPayment={handleUndoPayment}
@@ -844,7 +864,14 @@ export default function BillsPage() {
       )}
 
       {payingBill && (
-        <MarkPaidModal bill={payingBill} isSaving={false} presetPeriodKey={payingPeriod} onClose={() => setPayingBill(null)} onConfirm={handleConfirmPaid} />
+        <MarkPaidModal
+          bill={payingBill}
+          isSaving={false}
+          presetPeriodKey={payingPeriod}
+          presetInstallmentIndex={payingInstallment}
+          onClose={() => setPayingBill(null)}
+          onConfirm={handleConfirmPaid}
+        />
       )}
 
       {breakdownMonth && (

@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { firestoreToDate } from "../../shared/utils/dates";
 import NewCategoryButton from "../categories/NewCategoryButton";
 import { categoryLabel } from "../../shared/utils/categories";
+import { installmentIntervalOptions } from "./billsUtils";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -29,6 +30,8 @@ interface BillFormValues {
   categoryId: string;
   frequency: BillFrequency;
   intervalCount: number | "";
+  installmentCount: number | "";
+  installmentIntervalMonths: number | "";
   anchorMonth: string; // "YYYY-MM" — start of the first cycle
   dueDay: number | "";
   dueMonth: number | "";
@@ -49,7 +52,7 @@ interface AddBillModalProps {
 
 export default function AddBillModal({ isOpen, onClose, categories, bill, onSubmit }: AddBillModalProps) {
   const { t, i18n } = useTranslation();
-  const { convertToBase, convert, baseCurrency, displayCurrency } = useCurrencyConverter();
+  const { convertToBase, convert, baseCurrency, displayCurrency, format: formatCurrency } = useCurrencyConverter();
   const isEdit = !!bill;
   const { weekdays, months } = useDateNames(i18n.resolvedLanguage ?? "en");
 
@@ -71,6 +74,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           otherwise: (schema) => schema.notRequired(),
         }),
         intervalCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.intervalMin").max(24, "validation.intervalMax").required("validation.required"),
+        installmentCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.installmentMin").max(12, "validation.installmentMax").required("validation.required"),
         notes: Yup.string().max(200, "validation.maxChars"),
       }),
     [],
@@ -88,6 +92,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       categoryId: bill?.categoryId ?? "",
       frequency: bill?.frequency ?? "monthly",
       intervalCount: bill?.intervalCount ?? 1,
+      installmentCount: bill?.installmentCount ?? 1,
+      installmentIntervalMonths: bill?.installmentIntervalMonths ?? 1,
       anchorMonth: toMonthInput(bill?.anchorDate ? firestoreToDate(bill.anchorDate) : bill?.createdAt ? firestoreToDate(bill.createdAt) : new Date()),
       dueDay: bill?.dueDay ?? "",
       dueMonth: bill?.dueMonth ?? "",
@@ -101,6 +107,14 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         const typed = values.amount as number;
         const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
         const interval = Math.max(1, Number(values.intervalCount) || 1);
+        // A plain monthly bill has no room to spread instalments over, so the
+        // field is hidden there and must not leak a stale value into the save.
+        const installments = canSplit ? Math.max(1, Number(values.installmentCount) || 1) : 1;
+        // Clamped to a spacing the period can actually hold: three instalments
+        // every six months would put the last one inside the following year.
+        const spacingChoices = installmentIntervalOptions({ frequency: values.frequency, intervalCount: interval, installmentCount: installments });
+        const rawSpacing = Number(values.installmentIntervalMonths) || 1;
+        const spacing = installments > 1 && spacingChoices.includes(rawSpacing) ? rawSpacing : 1;
 
         // A cleared month input yields NaN, which would become an Invalid Date
         // and be rejected by Firestore — fall back to the current month.
@@ -116,6 +130,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           categoryId: values.categoryId,
           frequency: values.frequency,
           intervalCount: interval,
+          installmentCount: installments,
+          installmentIntervalMonths: spacing,
           // Only meaningful for multi-period cycles, but stored either way so the
           // bucket maths stays stable if the user later raises the interval.
           anchorDate: new Date(anchorYear, anchorMonthIndex, 1),
@@ -142,6 +158,13 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
 
   const { frequency } = formik.values;
   const intervalCount = Math.max(1, Number(formik.values.intervalCount) || 1);
+  // Instalments only make sense when a period is long enough to spread them
+  // across: a yearly bill, or a cycle of several months. Offering them on a
+  // monthly bill would just be a second, worse way of saying "monthly".
+  const canSplit = formik.values.frequency === "yearly" || (formik.values.frequency === "monthly" && intervalCount > 1);
+  const installmentCount = Math.max(1, Number(formik.values.installmentCount) || 1);
+  const spacingOptions = installmentIntervalOptions({ frequency: formik.values.frequency, intervalCount, installmentCount });
+  const spacing = spacingOptions.includes(Number(formik.values.installmentIntervalMonths)) ? Number(formik.values.installmentIntervalMonths) : 1;
   const intervalUnitKey = frequency === "weekly" ? "bills.intervalWeeks" : frequency === "yearly" ? "bills.intervalYears" : "bills.intervalMonths";
 
   return (
@@ -282,6 +305,58 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               </Col>
             )}
           </Row>
+
+          {/* Instalments — a gym year of 360 taken as three monthly payments */}
+          {canSplit && (
+            <Row className="g-3 mt-0">
+              <Col xs={12} sm={installmentCount > 1 && spacingOptions.length > 1 ? 6 : 12}>
+                <FormGroup className="mb-0">
+                  <Label className="small fw-medium">{t("bills.installments")}</Label>
+                  <div className="input-group">
+                    <Input
+                      type="number"
+                      name="installmentCount"
+                      min={1}
+                      max={12}
+                      step={1}
+                      value={formik.values.installmentCount}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      invalid={!!(formik.touched.installmentCount && formik.errors.installmentCount)}
+                    />
+                    <span className="input-group-text">{t("bills.installmentsUnit")}</span>
+                  </div>
+                  <FormText className="small">
+                    {installmentCount > 1 && Number(formik.values.amount) > 0
+                      ? t(spacing > 1 ? "bills.installmentSplitEvery" : "bills.installmentSplit", {
+                          count: installmentCount,
+                          amount: formatCurrency(Number(formik.values.amount) / installmentCount),
+                          months: spacing,
+                        })
+                      : t("bills.installmentsHint")}
+                  </FormText>
+                </FormGroup>
+              </Col>
+
+              {/* Monthly is usual but not universal — insurance is routinely
+                  taken quarterly. Only spacings the period can hold are offered. */}
+              {installmentCount > 1 && spacingOptions.length > 1 && (
+                <Col xs={12} sm={6}>
+                  <FormGroup className="mb-0">
+                    <Label className="small fw-medium">{t("bills.installmentEvery")}</Label>
+                    <Input type="select" name="installmentIntervalMonths" value={spacing} onChange={formik.handleChange}>
+                      {spacingOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {t("bills.installmentEveryOption", { count: option })}
+                        </option>
+                      ))}
+                    </Input>
+                    <FormText className="small">{t("bills.installmentEveryHint")}</FormText>
+                  </FormGroup>
+                </Col>
+              )}
+            </Row>
+          )}
 
           {/* Due-date hint — depends on frequency */}
           <Row className="g-3 mt-0">

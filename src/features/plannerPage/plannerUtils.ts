@@ -1,7 +1,7 @@
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
-import { getDeadline, getGraceDays, getIntervalCount, getPeriodDueDate, getPeriodKey } from "../bills/billsUtils";
+import { getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, paidInstallments } from "../bills/billsUtils";
 import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The planner is a forward budget: what is going to arrive, what is going to
@@ -184,7 +184,7 @@ export function horizonEnd(horizon: PlannerHorizon, now: Date = new Date()): Dat
  * thirds of the electricity. Occurrences step from the bill's own period anchor
  * so custom intervals (every 2 months, quarterly) stay aligned.
  */
-export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { date: Date; deadline: Date }[] {
+export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { date: Date; deadline: Date; amount?: number }[] {
   const interval = getIntervalCount(bill);
   const step = (date: Date, times: number) =>
     bill.frequency === "weekly" ? addWeeks(date, interval * times) : bill.frequency === "yearly" ? addYears(date, interval * times) : addMonths(date, interval * times);
@@ -192,21 +192,33 @@ export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { d
   const anchor = getPeriodDueDate(bill, from);
   if (!anchor) return [];
 
-  const occurrences: { date: Date; deadline: Date }[] = [];
+  const occurrences: { date: Date; deadline: Date; amount?: number }[] = [];
+  const installments = getInstallmentCount(bill);
+  const periodTotal = round2(bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
   // A generous cap: twelve months of a weekly bill is ~52. The loop must not
   // depend on the data being sane.
   for (let i = 0; i < 120; i++) {
     const date = startOfDay(step(anchor, i));
     if (date > to) break;
 
-    const deadline = getDeadline(bill, date) ?? date;
-    const settled = bill.payments.some((p) => p.periodKey === getPeriodKey(bill, date));
+    const periodKey = getPeriodKey(bill, date);
 
     // No lower bound beyond "unpaid": stepping starts at the period `from`
     // falls in, so the earliest occurrence is the one currently owed. Skipping
     // it because its date has passed would quietly drop the bill you are late
     // on — exactly the one the plan must account for.
-    if (!settled) occurrences.push({ date, deadline });
+    if (installments === 1) {
+      if (!bill.payments.some((p) => p.periodKey === periodKey)) occurrences.push({ date, deadline: getDeadline(bill, date) ?? date });
+    } else {
+      // Paid in parts, so the plan has to expect the parts: charging a gym year
+      // as one €360 hit in October would put a hole in a month that only ever
+      // sees €120 leave.
+      const settledHere = paidInstallments(bill.payments, periodKey);
+      installmentDueDates(bill, date).forEach((partDate, index) => {
+        if (settledHere.has(index) || partDate > to) return;
+        occurrences.push({ date: partDate, deadline: getDeadline(bill, partDate) ?? partDate, amount: installmentAmount(bill, periodTotal, index) });
+      });
+    }
   }
 
   return occurrences;
@@ -369,12 +381,14 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
     const occurrences = billOccurrences(bill, today, end);
     const amount = round2(bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
     const enabled = isOn(bill.id);
+    // Instalments carry their own figure; everything else costs the period total.
+    const windowTotal = occurrences.reduce((sum, o) => sum + (o.amount ?? amount), 0);
 
     rows.push({
       id: bill.id,
       source: "bill",
       label: bill.name,
-      total: enabled ? negate(amount * occurrences.length) : 0,
+      total: enabled ? negate(windowTotal) : 0,
       occurrences: occurrences.length,
       perMonth: negate(amount),
       // Listed even at zero: a bill that is settled for this month has not
@@ -389,7 +403,7 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
       events.push({
         kind: "bill",
         label: bill.name,
-        amount: -amount,
+        amount: -(occurrence.amount ?? amount),
         // Scheduled on the due date, not the deadline: that is when the money
         // actually tends to leave, and planning against the last possible day
         // would flatter the answer. Anything already past lands on day one.

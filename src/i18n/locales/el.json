@@ -309,7 +309,20 @@
     "monthState_due": "προς πληρωμή",
     "monthState_future": "δεν έχει λήξει",
     "payForPeriod": "Πληρωμή για {{period}}",
-    "coverageHint": "το έντονο τετράγωνο είναι ο μήνας πληρωμής"
+    "coverageHint": "το έντονο τετράγωνο είναι ο μήνας πληρωμής",
+    "installments": "Πληρωμή με δόσεις",
+    "installmentsUnit": "δόσεις",
+    "installmentsHint": "Άφησέ το στο 1 για να πληρώνεται ολόκληρη η περίοδος μαζί.",
+    "installmentSplit": "{{count}} δόσεις των {{amount}}, μία τον μήνα από την ημερομηνία λήξης",
+    "installmentOf": "δόση {{index}} από {{count}}",
+    "payingInstallment": "Δόση {{index}} από {{count}} — {{amount}} από {{total}}",
+    "monthState_partial": "καλυμμένο, μένουν δόσεις",
+    "installmentProgress": "{{paid}} από {{count}} πληρωμένες · μένουν {{amount}}",
+    "installmentEvery": "Μία κάθε",
+    "installmentEveryOption_one": "{{count}} μήνα",
+    "installmentEveryOption_other": "{{count}} μήνες",
+    "installmentEveryHint": "Στις ασφάλειες συνηθίζονται τρίμηνες και εξάμηνες δόσεις.",
+    "installmentSplitEvery": "{{count}} δόσεις των {{amount}}, μία κάθε {{months}} μήνες"
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -789,7 +802,9 @@
     "priceRequired": "Η τιμή είναι υποχρεωτική",
     "quantityRequired": "Η ποσότητα είναι υποχρεωτική",
     "graceMin": "Τουλάχιστον 1 μέρα",
-    "graceMax": "Το πολύ 120 μέρες"
+    "graceMax": "Το πολύ 120 μέρες",
+    "installmentMin": "Τουλάχιστον 1 δόση",
+    "installmentMax": "Το πολύ 12 δόσεις"
   },
   "errors": {
     "invalidCredentials": "Λάθος email ή κωδικός.",

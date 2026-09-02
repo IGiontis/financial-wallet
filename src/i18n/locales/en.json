@@ -309,7 +309,20 @@
     "monthState_due": "due now",
     "monthState_future": "not yet due",
     "payForPeriod": "Paying for {{period}}",
-    "coverageHint": "a bold square is the month it is paid in"
+    "coverageHint": "a bold square is the month it is paid in",
+    "installments": "Pay in instalments",
+    "installmentsUnit": "payments",
+    "installmentsHint": "Leave at 1 to pay the whole period at once.",
+    "installmentSplit": "{{count}} payments of {{amount}}, one a month from the due date",
+    "installmentOf": "instalment {{index}} of {{count}}",
+    "payingInstallment": "Instalment {{index}} of {{count}} — {{amount}} of {{total}}",
+    "monthState_partial": "covered, instalments left",
+    "installmentProgress": "{{paid}} of {{count}} paid · {{amount}} left",
+    "installmentEvery": "One every",
+    "installmentEveryOption_one": "{{count}} month",
+    "installmentEveryOption_other": "{{count}} months",
+    "installmentEveryHint": "Quarterly and half-yearly plans are common for insurance.",
+    "installmentSplitEvery": "{{count}} payments of {{amount}}, one every {{months}} months"
   },
   "transactions": {
     "title": "Transactions",
@@ -789,7 +802,9 @@
     "priceRequired": "Price is required",
     "quantityRequired": "Quantity is required",
     "graceMin": "At least 1 day",
-    "graceMax": "At most 120 days"
+    "graceMax": "At most 120 days",
+    "installmentMin": "At least 1 payment",
+    "installmentMax": "At most 12 payments"
   },
   "errors": {
     "invalidCredentials": "Invalid email or password.",
