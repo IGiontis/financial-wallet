@@ -322,7 +322,10 @@
     "installmentEveryOption_one": "{{count}} month",
     "installmentEveryOption_other": "{{count}} months",
     "installmentEveryHint": "Quarterly and half-yearly plans are common for insurance.",
-    "installmentSplitEvery": "{{count}} payments of {{amount}}, one every {{months}} months"
+    "installmentSplitEvery": "{{count}} payments of {{amount}}, one every {{months}} months",
+    "billsInCategory_one": "{{count}} bill",
+    "billsInCategory_other": "{{count}} bills",
+    "tapCategoryHint": "Tap a category to see what is in it"
   },
   "transactions": {
     "title": "Transactions",
@@ -479,26 +482,6 @@
       "other_one": "{{count}} other",
       "other_other": "{{count}} others"
     },
-    "profile": {
-      "title": "This month vs your usual",
-      "hint": "Filled shape is this month, dashed is your monthly average",
-      "current": "This month",
-      "average": "Monthly average",
-      "difference": "Difference",
-      "needsTwoMonths": "Needs at least two months to compare against"
-    },
-    "sunburst": {
-      "title": "Categories and their payees",
-      "hint": "Click a category to zoom in, the middle to come back",
-      "otherPayees": "Others"
-    },
-    "heatmap": {
-      "title": "Spending calendar",
-      "hint": "One square per day — darker is a heavier day",
-      "less": "Less",
-      "more": "More",
-      "nothing": "nothing spent"
-    },
     "weekday": {
       "title": "Spending by weekday",
       "hint": "Which day of the week takes the most",
@@ -512,12 +495,31 @@
       "difference": "Difference",
       "day": "Day {{day}}"
     },
-    "histogram": {
-      "title": "Payment sizes",
-      "hint": "How many payments fall into each bracket",
-      "payments": "Payments",
-      "totalling": "Totalling",
-      "shareOfSpend": "Share of spend"
+    "movers": {
+      "title": "What changed",
+      "hint": "Each category against the same stretch before it, biggest movement first",
+      "now": "This window",
+      "before": "Previous",
+      "change": "Change",
+      "needsHistory": "Pick a range shorter than all time to compare against."
+    },
+    "sparklines": {
+      "title": "Each category on its own",
+      "hint": "One line per category over the months shown — scan for the ones going up",
+      "lastMonth": "Latest month: {{amount}}"
+    },
+    "waterfall": {
+      "title": "Where the month went",
+      "hint": "Income, then each big category taken off it, then what survived",
+      "left": "Left after this"
+    },
+    "committed": {
+      "title": "Committed vs free",
+      "hint": "How much was already spoken for by bills and goals before the month began",
+      "committed": "Committed",
+      "free": "Free",
+      "share": "Committed share",
+      "headline": "{{percent}}% already spoken for"
     }
   },
   "investments": {

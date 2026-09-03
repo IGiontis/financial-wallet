@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  amountHistogram,
   averageSavingsRate,
-  categoryPayeeTree,
-  categoryProfile,
   categoryTrend,
   cumulativeNet,
   moneyFlow,
@@ -19,6 +16,10 @@ import {
   FLOW_SAVINGS_ID,
   FLOW_WITHDRAWALS_ID,
   OTHER_CATEGORY_ID,
+  categoryDeltas,
+  categorySeries,
+  spendingWaterfall,
+  committedSplit,
 } from "./analyticsUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -222,42 +223,6 @@ describe("categoryTrend", () => {
   });
 });
 
-// ─── Category profile ────────────────────────────────────────────────────────
-
-describe("categoryProfile", () => {
-  const now = new Date(2026, 2, 20);
-
-  it("compares the latest month against the mean of the earlier ones", () => {
-    const rows = [
-      tx({ amount: 100, categoryId: "food", date: new Date(2026, 0, 5) }),
-      tx({ amount: 200, categoryId: "food", date: new Date(2026, 1, 5) }),
-      tx({ amount: 500, categoryId: "food", date: new Date(2026, 2, 5) }),
-    ];
-
-    const [food] = categoryProfile(rows, monthlyFlows(rows, new Date(2026, 0, 1), now));
-
-    expect(food.current).toBe(500);
-    expect(food.average).toBe(150); // (100 + 200) / 2 earlier months
-  });
-
-  it("returns nothing when there is no baseline to compare against", () => {
-    const rows = [tx({ amount: 100, date: new Date(2026, 2, 5) })];
-    expect(categoryProfile(rows, monthlyFlows(rows, new Date(2026, 2, 1), now))).toEqual([]);
-  });
-
-  it("keeps a category that only spiked this month", () => {
-    const rows = [
-      tx({ amount: 500, categoryId: "rent", date: new Date(2026, 0, 5) }),
-      tx({ amount: 500, categoryId: "rent", date: new Date(2026, 1, 5) }),
-      tx({ amount: 500, categoryId: "rent", date: new Date(2026, 2, 5) }),
-      tx({ amount: 400, categoryId: "travel", date: new Date(2026, 2, 6) }), // first ever
-    ];
-
-    const ids = categoryProfile(rows, monthlyFlows(rows, new Date(2026, 0, 1), now)).map((r) => r.categoryId);
-    expect(ids).toContain("travel");
-  });
-});
-
 // ─── Heatmap ─────────────────────────────────────────────────────────────────
 
 describe("spendingHeatmap", () => {
@@ -335,32 +300,6 @@ describe("monthPace", () => {
   });
 });
 
-// ─── Histogram ───────────────────────────────────────────────────────────────
-
-describe("amountHistogram", () => {
-  it("treats every edge as upper-exclusive", () => {
-    const rows = [tx({ amount: 9.99 }), tx({ amount: 10 }), tx({ amount: 24.99 }), tx({ amount: 25 })];
-    const bins = amountHistogram(rows);
-
-    expect(bins[0]).toMatchObject({ min: 0, max: 10, count: 1 });
-    expect(bins[1]).toMatchObject({ min: 10, max: 25, count: 2 }); // 10 and 24.99
-    expect(bins[2]).toMatchObject({ min: 25, max: 50, count: 1 });
-  });
-
-  it("puts anything above the last edge in the open-ended bin", () => {
-    const bins = amountHistogram([tx({ amount: 500 }), tx({ amount: 4000 })]);
-    const last = bins[bins.length - 1];
-
-    expect(last).toMatchObject({ min: 500, max: null, count: 2 });
-    expect(last.amount).toBe(4500);
-  });
-
-  it("ignores income and transfers", () => {
-    const bins = amountHistogram([tx({ amount: 30, type: "income" }), deposit(30, new Date(2026, 2, 2))]);
-    expect(bins.reduce((s, b) => s + b.count, 0)).toBe(0);
-  });
-});
-
 // ─── Money flow ──────────────────────────────────────────────────────────────
 
 describe("moneyFlow", () => {
@@ -428,42 +367,183 @@ describe("moneyFlow", () => {
   });
 });
 
-// ─── Category → payee tree ───────────────────────────────────────────────────
+// ─── What changed ────────────────────────────────────────────────────────────
 
-describe("categoryPayeeTree", () => {
-  it("nests payees under their category, biggest first", () => {
+describe("categoryDeltas", () => {
+  const now = new Date(2026, 7, 20); // 20 Aug 2026
+
+  it("compares the window against the one of equal length before it", () => {
     const rows = [
-      tx({ amount: 100, categoryId: "food", description: "Lidl" }),
-      tx({ amount: 40, categoryId: "food", description: "AB" }),
-      tx({ amount: 30, categoryId: "food", description: "lidl" }), // same payee, different case
-      tx({ amount: 500, categoryId: "rent", description: "Landlord" }),
+      tx({ amount: 500, categoryId: "bet", date: new Date(2026, 7, 5) }),
+      tx({ amount: 100, categoryId: "bet", date: new Date(2026, 6, 5) }),
+      tx({ amount: 60, categoryId: "food", date: new Date(2026, 7, 6) }),
+      tx({ amount: 200, categoryId: "food", date: new Date(2026, 6, 6) }),
     ];
 
-    const tree = categoryPayeeTree(rows);
+    const deltas = categoryDeltas(rows, new Date(2026, 7, 1), now);
 
-    expect(tree.map((b) => b.categoryId)).toEqual(["rent", "food"]);
-    expect(tree[1].value).toBe(170);
-    expect(tree[1].children).toEqual([
-      { name: "Lidl", value: 130, count: 2 },
-      { name: "AB", value: 40, count: 1 },
-    ]);
+    // Sorted by size of change, so the thing that moved most leads.
+    expect(deltas.map((d) => d.categoryId)).toEqual(["bet", "food"]);
+    expect(deltas[0]).toMatchObject({ current: 500, previous: 100, delta: 400 });
+    expect(deltas[1]).toMatchObject({ current: 60, previous: 200, delta: -140 });
   });
 
-  it("folds the payee tail inside each category", () => {
-    const rows = ["a", "b", "c", "d", "e", "f"].map((p, i) => tx({ amount: 60 - i * 10, categoryId: "food", description: p }));
-    const [food] = categoryPayeeTree(rows, 6, 5);
+  it("ranks by movement, not by size", () => {
+    // Rent is far bigger but did not budge; the small habit that doubled is the
+    // one worth showing first.
+    const rows = [
+      tx({ amount: 900, categoryId: "rent", date: new Date(2026, 7, 1) }),
+      tx({ amount: 900, categoryId: "rent", date: new Date(2026, 6, 1) }),
+      tx({ amount: 80, categoryId: "coffee", date: new Date(2026, 7, 2) }),
+      tx({ amount: 20, categoryId: "coffee", date: new Date(2026, 6, 2) }),
+    ];
 
-    expect(food.children).toHaveLength(6);
-    expect(food.children[5]).toEqual({ name: OTHER_CATEGORY_ID, value: 10, count: 1 });
+    expect(categoryDeltas(rows, new Date(2026, 7, 1), now).map((d) => d.categoryId)).toEqual(["coffee"]);
   });
 
-  it("caps the number of categories", () => {
-    const rows = ["a", "b", "c", "d"].map((c, i) => tx({ amount: 100 - i, categoryId: c }));
-    expect(categoryPayeeTree(rows, 2)).toHaveLength(2);
+  it("reports nothing when the earlier window was empty", () => {
+    // Otherwise a first month on the app announces every category as a rise,
+    // which is the most misleading thing the page could say.
+    const rows = [tx({ amount: 500, categoryId: "rent", date: new Date(2026, 7, 1) })];
+    expect(categoryDeltas(rows, new Date(2026, 7, 1), now)).toEqual([]);
   });
 
-  it("leaves transfers out", () => {
-    const rows = [tx({ amount: 10, categoryId: "food" }), deposit(900, new Date(2026, 2, 5))];
-    expect(categoryPayeeTree(rows).map((b) => b.categoryId)).toEqual(["food"]);
+  it("has nothing to compare against over all time", () => {
+    expect(categoryDeltas([tx({ amount: 10 })], null, now)).toEqual([]);
+  });
+
+  it("counts a category that only appeared this time", () => {
+    const rows = [tx({ amount: 75, categoryId: "gym", date: new Date(2026, 7, 3) }), tx({ amount: 10, categoryId: "food", date: new Date(2026, 6, 3) })];
+    expect(categoryDeltas(rows, new Date(2026, 7, 1), now)[0]).toMatchObject({ current: 75, previous: 0, delta: 75 });
+  });
+});
+
+// ─── Small multiples ─────────────────────────────────────────────────────────
+
+describe("categorySeries", () => {
+  const now = new Date(2026, 7, 20);
+
+  it("gives every category a dense series across the months shown", () => {
+    const rows = [
+      tx({ amount: 100, categoryId: "food", date: new Date(2026, 5, 4) }),
+      tx({ amount: 150, categoryId: "food", date: new Date(2026, 7, 4) }),
+      tx({ amount: 40, categoryId: "fuel", date: new Date(2026, 6, 4) }),
+    ];
+    const flows = monthlyFlows(rows, new Date(2026, 5, 1), now);
+    const series = categorySeries(rows, flows);
+
+    expect(flows).toHaveLength(3);
+    // July has no food spending, and must read as zero rather than be skipped.
+    expect(series.find((s) => s.categoryId === "food")!.points).toEqual([100, 0, 150]);
+    expect(series.find((s) => s.categoryId === "fuel")!.points).toEqual([0, 40, 0]);
+  });
+
+  it("sorts by total and keeps only the busiest", () => {
+    const rows = [
+      tx({ amount: 10, categoryId: "a", date: new Date(2026, 7, 1) }),
+      tx({ amount: 90, categoryId: "b", date: new Date(2026, 7, 1) }),
+      tx({ amount: 50, categoryId: "c", date: new Date(2026, 7, 1) }),
+    ];
+    const flows = monthlyFlows(rows, new Date(2026, 7, 1), now);
+
+    expect(categorySeries(rows, flows, 2).map((s) => s.categoryId)).toEqual(["b", "c"]);
+  });
+
+  it("reads the last complete month against the average of the ones before", () => {
+    const rows = [
+      tx({ amount: 100, categoryId: "bet", date: new Date(2026, 4, 1) }),
+      tx({ amount: 100, categoryId: "bet", date: new Date(2026, 5, 1) }),
+      tx({ amount: 200, categoryId: "bet", date: new Date(2026, 6, 1) }),
+    ];
+    const flows = monthlyFlows(rows, new Date(2026, 4, 1), now);
+
+    expect(categorySeries(rows, flows, 12, now)[0].trend).toBe(1); // double the usual
+  });
+
+  it("does not read a collapse off the month still in progress", () => {
+    // On the 20th only part of August has happened. Judged against whole
+    // months every category looks as though it has stopped dead.
+    const rows = [
+      tx({ amount: 300, categoryId: "food", date: new Date(2026, 5, 4) }),
+      tx({ amount: 300, categoryId: "food", date: new Date(2026, 6, 4) }),
+      tx({ amount: 60, categoryId: "food", date: new Date(2026, 7, 4) }),
+    ];
+    const flows = monthlyFlows(rows, new Date(2026, 5, 1), now);
+    const [food] = categorySeries(rows, flows, 12, now);
+
+    expect(food.points).toEqual([300, 300, 60]); // the line still draws it
+    expect(food.trend).toBe(0); // but July matched June, so nothing to report
+  });
+});
+
+// ─── Waterfall ───────────────────────────────────────────────────────────────
+
+describe("spendingWaterfall", () => {
+  it("walks income down through the big categories to what is left", () => {
+    const rows = [
+      tx({ amount: 2000, type: "income", categoryId: "salary" }),
+      tx({ amount: 600, categoryId: "rent" }),
+      tx({ amount: 300, categoryId: "food" }),
+    ];
+    const steps = spendingWaterfall(rows);
+
+    expect(steps.map((s) => s.id)).toEqual(["income", "rent", "food", "leftover"]);
+    expect(steps.map((s) => s.balance)).toEqual([2000, 1400, 1100, 1100]);
+    expect(steps[steps.length - 1].kind).toBe("result");
+  });
+
+  it("gathers everything past the limit into one step", () => {
+    const rows = [
+      tx({ amount: 1000, type: "income", categoryId: "salary" }),
+      ...["a", "b", "c"].map((c) => tx({ amount: 100, categoryId: c })),
+      tx({ amount: 30, categoryId: "d" }),
+      tx({ amount: 20, categoryId: "e" }),
+    ];
+    const steps = spendingWaterfall(rows, 3);
+
+    expect(steps.map((s) => s.id)).toEqual(["income", "a", "b", "c", OTHER_CATEGORY_ID, "leftover"]);
+    expect(steps.find((s) => s.id === OTHER_CATEGORY_ID)!.amount).toBe(-50);
+    expect(steps[steps.length - 1].balance).toBe(650);
+  });
+
+  it("ends below zero when the month did", () => {
+    const rows = [tx({ amount: 100, type: "income", categoryId: "salary" }), tx({ amount: 250, categoryId: "rent" })];
+    expect(spendingWaterfall(rows)[2].balance).toBe(-150);
+  });
+});
+
+// ─── Committed against free ──────────────────────────────────────────────────
+
+describe("committedSplit", () => {
+  const now = new Date(2026, 7, 20);
+
+  it("counts bills and goal deposits as already spoken for", () => {
+    const rows = [
+      tx({ amount: 400, categoryId: "rent", billId: "b1", date: new Date(2026, 7, 2) }),
+      tx({ amount: 150, categoryId: "food", date: new Date(2026, 7, 3) }),
+      tx({ amount: 200, type: "investment", isGoalTransaction: true, contributionType: "deposit", date: new Date(2026, 7, 4) }),
+    ];
+    const [august] = committedSplit(rows, monthlyFlows(rows, new Date(2026, 7, 1), now));
+
+    expect(august).toMatchObject({ committed: 600, free: 150 });
+    expect(august.share).toBe(0.8);
+  });
+
+  it("does not count money pulled back out of a goal as committed", () => {
+    const rows = [
+      tx({ amount: 300, type: "investment", isGoalTransaction: true, contributionType: "withdrawal", date: new Date(2026, 7, 4) }),
+      tx({ amount: 100, categoryId: "food", date: new Date(2026, 7, 5) }),
+    ];
+    const [august] = committedSplit(rows, monthlyFlows(rows, new Date(2026, 7, 1), now));
+
+    expect(august).toMatchObject({ committed: 0, free: 100 });
+  });
+
+  it("reports a quiet month as zero rather than dropping it", () => {
+    const rows = [tx({ amount: 100, categoryId: "food", date: new Date(2026, 5, 5) })];
+    const months = committedSplit(rows, monthlyFlows(rows, new Date(2026, 5, 1), now));
+
+    expect(months).toHaveLength(3);
+    expect(months[1]).toMatchObject({ committed: 0, free: 0, share: 0 });
   });
 });

@@ -33,6 +33,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
+import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
 import styles from "./css/BillsPage.module.css";
@@ -537,7 +538,17 @@ function BillCard({
 
 // ─── Yearly projection ───────────────────────────────────────────────────────
 
-function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillWithStatus[]; categoryFor: (id: string) => Category | undefined; formatCurrency: (n: number) => string }) {
+function YearlyProjection({
+  bills,
+  categoryFor,
+  formatCurrency,
+  onOpenCategory,
+}: {
+  bills: BillWithStatus[];
+  categoryFor: (id: string) => Category | undefined;
+  formatCurrency: (n: number) => string;
+  onOpenCategory: (categoryId: string, label: string) => void;
+}) {
   const { t } = useTranslation();
 
   const { total, categories } = useMemo(
@@ -584,10 +595,13 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
           <div className="text-uppercase mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", opacity: 0.6 }}>
             {t("bills.byCategory")}
           </div>
+          <div className="mb-2" style={{ fontSize: 10.5, opacity: 0.6 }}>
+            {t("bills.tapCategoryHint")}
+          </div>
 
           <div className="d-flex flex-column gap-2">
             {categories.map((c, i) => (
-              <div key={c.categoryId}>
+              <button key={c.categoryId} type="button" className={styles.yearlyCategory} onClick={() => onOpenCategory(c.categoryId, c.label)}>
                 <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12 }}>
                   <span className="text-truncate d-flex align-items-center gap-1">
                     <span aria-hidden>{categoryFor(c.categoryId)?.icon ?? "•"}</span>
@@ -603,7 +617,7 @@ function YearlyProjection({ bills, categoryFor, formatCurrency }: { bills: BillW
                 <div className={styles.yearlyTrack}>
                   <div className={styles.yearlyFill} style={{ width: `${c.percentage}%`, background: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </>
@@ -631,6 +645,7 @@ export default function BillsPage() {
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
   const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
+  const [openCategory, setOpenCategory] = useState<{ id: string; label: string } | null>(null);
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
   // The month chosen from the year grid, if the form was opened that way.
   const [payingPeriod, setPayingPeriod] = useState<string | undefined>();
@@ -679,6 +694,10 @@ export default function BillsPage() {
 
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
+  const categoryBills = useMemo(
+    () => (openCategory ? bills.filter((b) => b.isActive && b.categoryId === openCategory.id).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent) : []),
+    [bills, openCategory],
+  );
 
   // Both of these close their dialog straight away rather than on the server's
   // answer. The cache has already been updated optimistically, so the screen is
@@ -824,13 +843,28 @@ export default function BillsPage() {
 
           {/* Yearly projection — beside the list on desktop, below it on mobile */}
           <Col xs={12} lg={5} xl={4}>
-            <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} />
+            <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
           </Col>
         </Row>
       )}
 
       {/* ── Modals (unchanged) ── */}
       <AddBillModal isOpen={showModal} onClose={() => setShowModal(false)} categories={categories} bill={editBill} onSubmit={handleSubmit} />
+
+      {/* One category of the yearly projection, opened out. Handing a bill
+          straight to the detail modal means the two never stack up. */}
+      <CategoryBillsModal
+        label={openCategory?.label ?? null}
+        icon={openCategory ? categoryFor(openCategory.id)?.icon : undefined}
+        bills={categoryBills}
+        yearlyAmount={categoryBills.reduce((sum, b) => sum + b.monthlyEquivalent * 12, 0)}
+        formatCurrency={formatCurrency}
+        onClose={() => setOpenCategory(null)}
+        onOpenBill={(bill) => {
+          setOpenCategory(null);
+          setDetailBill(bill);
+        }}
+      />
 
       {liveDetailBill && (
         <BillDetailModal

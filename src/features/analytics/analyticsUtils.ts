@@ -17,6 +17,11 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const addMonth = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+/** Same day-of-month `n` months away, clamped so the 31st never rolls over. */
+const shiftMonths = (d: Date, n: number) => {
+  const target = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  return new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), getDaysInMonth(target)), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+};
 
 // ─── Range ───────────────────────────────────────────────────────────────────
 
@@ -213,45 +218,6 @@ export function categoryTrend(transactions: Transaction[], flows: MonthlyFlow[],
   return { categoryIds, rows, otherCount: rest.size };
 }
 
-// ─── This month against your own baseline ─────────────────────────────────
-
-export interface CategoryProfileRow {
-  categoryId: string;
-  /** Spend in the most recent month of the window. */
-  current: number;
-  /** Mean monthly spend across every *earlier* month in the window. */
-  average: number;
-}
-
-/**
- * Needs at least one completed month to compare against — with a single month
- * of data there is no baseline and the chart would just restate itself.
- */
-export function categoryProfile(transactions: Transaction[], flows: MonthlyFlow[], limit = 6): CategoryProfileRow[] {
-  if (flows.length < 2) return [];
-
-  const currentKey = flows[flows.length - 1].key;
-  const priorMonths = flows.length - 1;
-  const spending = transactions.filter(isSpending);
-
-  const totals = new Map<string, { current: number; prior: number }>();
-  for (const tx of spending) {
-    const key = monthKey(firestoreToDate(tx.date));
-    const entry = totals.get(tx.categoryId) ?? { current: 0, prior: 0 };
-    if (key === currentKey) entry.current += Math.abs(tx.amount);
-    else entry.prior += Math.abs(tx.amount);
-    totals.set(tx.categoryId, entry);
-  }
-
-  return Array.from(totals.entries())
-    .map(([categoryId, v]) => ({ categoryId, current: round2(v.current), average: round2(v.prior / priorMonths) }))
-    // Ranked by the bigger of the two, so a category that spiked this month
-    // makes the cut even if its baseline is small — that's the interesting case.
-    .sort((a, b) => Math.max(b.current, b.average) - Math.max(a.current, a.average))
-    .slice(0, limit)
-    .filter((r) => r.current > 0 || r.average > 0);
-}
-
 // ─── Day-by-day heatmap ───────────────────────────────────────────────────
 
 export interface HeatmapCell {
@@ -378,36 +344,6 @@ export function monthPace(transactions: Transaction[], now: Date = new Date()): 
   };
 }
 
-// ─── Transaction size distribution ────────────────────────────────────────
-
-export interface HistogramBin {
-  min: number;
-  /** `null` on the final open-ended bin. */
-  max: number | null;
-  count: number;
-  amount: number;
-}
-
-/** Default edges chosen for everyday euro amounts — a coffee through to rent. */
-export const HISTOGRAM_EDGES = [10, 25, 50, 100, 250, 500] as const;
-
-export function amountHistogram(transactions: Transaction[], edges: readonly number[] = HISTOGRAM_EDGES): HistogramBin[] {
-  const bins: HistogramBin[] = edges.map((max, i) => ({ min: i === 0 ? 0 : edges[i - 1], max, count: 0, amount: 0 }));
-  bins.push({ min: edges[edges.length - 1], max: null, count: 0, amount: 0 });
-
-  for (const tx of transactions.filter(isSpending)) {
-    const amount = Math.abs(tx.amount);
-    // Edges are upper-exclusive, so €25.00 lands in "25–50", not "10–25".
-    const index = edges.findIndex((edge) => amount < edge);
-    const bin = bins[index === -1 ? bins.length - 1 : index];
-    bin.count += 1;
-    bin.amount += amount;
-  }
-
-  for (const bin of bins) bin.amount = round2(bin.amount);
-  return bins;
-}
-
 // ─── Money flow ──────────────────────────────────────────────────────────
 
 export const FLOW_HUB_ID = "hub";
@@ -516,61 +452,206 @@ export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | u
   return { nodes, links, total: round2(total), otherCount: foldedSpend.length };
 }
 
-// ─── Category → payee hierarchy ──────────────────────────────────────────
+// ─── What changed ────────────────────────────────────────────────────────────
+// The one question a spending chart is usually being asked. Everything else on
+// the page describes a state; this names a cause, which is what makes it worth
+// looking at twice.
 
-export interface PayeeLeaf {
-  name: string;
-  value: number;
-  count: number;
-}
-
-export interface CategoryBranch {
+export interface CategoryDelta {
   categoryId: string;
-  value: number;
-  children: PayeeLeaf[];
+  current: number;
+  previous: number;
+  /** current − previous. Positive means you spent more this time. */
+  delta: number;
 }
 
 /**
- * Two levels: the biggest spending categories, each broken down into the
- * payees inside it. Both levels fold their tail into an "other" entry so a
- * long tail can't shatter the ring into unreadable slivers.
+ * Every category's spend in `[from, to]` against the window of equal length
+ * immediately before it.
+ *
+ * Comparing like-for-like windows rather than fixed months is what lets the one
+ * function serve every range: three months against the previous three answers
+ * the same question as this month against last.
+ *
+ * Sorted by the size of the change, not by the size of the category — a €40
+ * habit that doubled is more worth knowing about than rent staying rent.
  */
-export function categoryPayeeTree(transactions: Transaction[], categoryLimit = 6, payeeLimit = 5): CategoryBranch[] {
-  const spending = transactions.filter(isSpending);
+export function categoryDeltas(transactions: Transaction[], from: Date | null, to: Date = new Date()): CategoryDelta[] {
+  // "All time" has nothing before it to compare against.
+  if (!from) return [];
 
-  const byCategory = new Map<string, Map<string, PayeeLeaf>>();
-  const categoryTotals = new Map<string, number>();
+  // Shifted by whole months, not by elapsed milliseconds: a range is a number
+  // of months, and sliding it back by its own duration in days would leave the
+  // earlier window straddling month boundaries and silently drop days.
+  //
+  // Both ends move, so a window that stops today is compared against the same
+  // stretch of the earlier months. Measuring twenty days against a full one
+  // would report every category as falling.
+  const months = (to.getFullYear() * 12 + to.getMonth()) - (from.getFullYear() * 12 + from.getMonth()) + 1;
+  const previousFrom = shiftMonths(from, -months);
+  const previousTo = shiftMonths(to, -months);
 
-  for (const tx of spending) {
-    const amount = Math.abs(tx.amount);
-    categoryTotals.set(tx.categoryId, (categoryTotals.get(tx.categoryId) ?? 0) + amount);
+  const sum = (rows: Transaction[]) => {
+    const totals = new Map<string, number>();
+    for (const tx of rows.filter(isSpending)) totals.set(tx.categoryId, round2((totals.get(tx.categoryId) ?? 0) + Math.abs(tx.amount)));
+    return totals;
+  };
 
-    const payees = byCategory.get(tx.categoryId) ?? new Map<string, PayeeLeaf>();
-    const label = tx.description.trim() || "—";
-    const key = label.toLowerCase();
-    const leaf = payees.get(key) ?? { name: label, value: 0, count: 0 };
-    leaf.value += amount;
-    leaf.count += 1;
-    payees.set(key, leaf);
-    byCategory.set(tx.categoryId, payees);
+  const current = sum(withinRange(transactions, from, to));
+  const previous = sum(withinRange(transactions, previousFrom, previousTo));
+
+  const rows = Array.from(new Set([...current.keys(), ...previous.keys()]))
+    .map((categoryId) => {
+      const now = current.get(categoryId) ?? 0;
+      const before = previous.get(categoryId) ?? 0;
+      return { categoryId, current: now, previous: before, delta: round2(now - before) };
+    })
+    .filter((row) => row.delta !== 0)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+  // Nothing at all in the earlier window is not "everything went up" — it is
+  // no comparison, and reporting each category's whole total as a rise would
+  // be the most misleading thing on the page.
+  return rows.every((row) => row.previous === 0) ? [] : rows;
+}
+
+// ─── Small multiples ─────────────────────────────────────────────────────────
+
+export interface CategorySeries {
+  categoryId: string;
+  total: number;
+  /** One figure per month of `flows`, in the same order. */
+  points: number[];
+  /** Last month against the mean of the ones before it, as a share. */
+  trend: number;
+}
+
+/**
+ * A short series per category, for drawing side by side.
+ *
+ * A dozen tiny charts sharing an axis are read far faster than one chart with a
+ * dozen overlapping lines, and far more honestly than a radar — which asks the
+ * eye to compare the areas of irregular polygons, something it cannot do.
+ */
+export function categorySeries(transactions: Transaction[], flows: MonthlyFlow[], limit = 12, now: Date = new Date()): CategorySeries[] {
+  const index = new Map(flows.map((flow, i) => [flow.key, i]));
+  const byCategory = new Map<string, number[]>();
+
+  for (const tx of transactions.filter(isSpending)) {
+    const at = index.get(monthKey(firestoreToDate(tx.date)));
+    if (at === undefined) continue;
+
+    const points = byCategory.get(tx.categoryId) ?? Array.from({ length: flows.length }, () => 0);
+    points[at] = round2(points[at] + Math.abs(tx.amount));
+    byCategory.set(tx.categoryId, points);
   }
 
-  return Array.from(categoryTotals.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, categoryLimit)
-    .map(([categoryId, value]) => {
-      const ranked = Array.from(byCategory.get(categoryId)?.values() ?? []).sort((a, b) => b.value - a.value);
-      const head = ranked.slice(0, payeeLimit).map((p) => ({ ...p, value: round2(p.value) }));
-      const tail = ranked.slice(payeeLimit);
+  // The month in progress is only part spent, so comparing it against whole
+  // ones reports every category as collapsing. The line still draws it — the
+  // shape is honest — but the percentage is read off the last month that
+  // actually finished.
+  const currentKey = monthKey(now);
+  const complete = flows.length > 0 && flows[flows.length - 1].key === currentKey ? flows.length - 1 : flows.length;
 
-      if (tail.length > 0) {
-        head.push({
-          name: OTHER_CATEGORY_ID,
-          value: round2(tail.reduce((s, p) => s + p.value, 0)),
-          count: tail.reduce((s, p) => s + p.count, 0),
-        });
-      }
+  return Array.from(byCategory, ([categoryId, points]) => {
+    const total = round2(points.reduce((sum, n) => sum + n, 0));
+    const settled = points.slice(0, complete);
+    const last = settled[settled.length - 1] ?? 0;
+    const earlier = settled.slice(0, -1);
+    const baseline = earlier.length > 0 ? earlier.reduce((sum, n) => sum + n, 0) / earlier.length : 0;
 
-      return { categoryId, value: round2(value), children: head };
-    });
+    return { categoryId, total, points, trend: baseline > 0 ? round2((last - baseline) / baseline) : 0 };
+  })
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+// ─── Waterfall ───────────────────────────────────────────────────────────────
+
+export interface WaterfallStep {
+  id: string;
+  /** Signed: income is positive, each cost negative. */
+  amount: number;
+  /** Running total after this step. */
+  balance: number;
+  kind: "income" | "expense" | "result";
+}
+
+/**
+ * Income, then each large category taken off it in turn, then what survived.
+ *
+ * The same figures the Sankey carries, but on a shared baseline — so "which of
+ * these is bigger" is answered by comparing two heights rather than the widths
+ * of two curved ribbons.
+ */
+export function spendingWaterfall(transactions: Transaction[], limit = 6): WaterfallStep[] {
+  const income = round2(transactions.filter((tx) => !isTransfer(tx) && tx.type === "income").reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
+
+  const totals = new Map<string, number>();
+  for (const tx of transactions.filter(isSpending)) totals.set(tx.categoryId, round2((totals.get(tx.categoryId) ?? 0) + Math.abs(tx.amount)));
+
+  const ranked = Array.from(totals, ([categoryId, amount]) => ({ categoryId, amount })).sort((a, b) => b.amount - a.amount);
+  const top = ranked.slice(0, limit);
+  const rest = round2(ranked.slice(limit).reduce((sum, row) => sum + row.amount, 0));
+
+  const steps: WaterfallStep[] = [];
+  let balance = income;
+  steps.push({ id: "income", amount: income, balance, kind: "income" });
+
+  for (const row of top) {
+    balance = round2(balance - row.amount);
+    steps.push({ id: row.categoryId, amount: -row.amount, balance, kind: "expense" });
+  }
+  if (rest > 0) {
+    balance = round2(balance - rest);
+    steps.push({ id: OTHER_CATEGORY_ID, amount: -rest, balance, kind: "expense" });
+  }
+
+  steps.push({ id: "leftover", amount: balance, balance, kind: "result" });
+  return steps;
+}
+
+// ─── Committed against free ──────────────────────────────────────────────────
+
+export interface CommittedMonth {
+  key: string;
+  start: Date;
+  /** Bills and money put into goals — decided before the month began. */
+  committed: number;
+  /** Everything else you spent. */
+  free: number;
+  /** Share of the month's outgoings that was already spoken for. */
+  share: number;
+}
+
+/**
+ * How much of each month was already spoken for before it started.
+ *
+ * A total tells you what you spent; this tells you how much of it you could
+ * have done anything about — which is the figure that decides whether the
+ * answer to overspending is "cut back" or "renegotiate something".
+ */
+export function committedSplit(transactions: Transaction[], flows: MonthlyFlow[]): CommittedMonth[] {
+  const index = new Map(flows.map((flow, i) => [flow.key, i]));
+  const rows = flows.map((flow) => ({ key: flow.key, start: flow.start, committed: 0, free: 0, share: 0 }));
+
+  for (const tx of transactions) {
+    const at = index.get(monthKey(firestoreToDate(tx.date)));
+    if (at === undefined) continue;
+
+    // Bills are committed by contract, goal deposits by intention. Both are
+    // decided ahead of the month rather than inside it.
+    if (isGoalContribution(tx) && tx.contributionType !== "withdrawal") rows[at].committed += Math.abs(tx.amount);
+    else if (isSpending(tx)) {
+      if (tx.billId) rows[at].committed += Math.abs(tx.amount);
+      else rows[at].free += Math.abs(tx.amount);
+    }
+  }
+
+  return rows.map((row) => {
+    const committed = round2(row.committed);
+    const free = round2(row.free);
+    const total = committed + free;
+    return { ...row, committed, free, share: total > 0 ? round2(committed / total) : 0 };
+  });
 }

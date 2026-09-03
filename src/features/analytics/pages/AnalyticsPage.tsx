@@ -11,10 +11,11 @@ import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { categoryLabel } from "../../../shared/utils/categories";
 import {
   ANALYTICS_RANGES,
-  amountHistogram,
+  categoryDeltas,
+  categorySeries,
+  spendingWaterfall,
+  committedSplit,
   averageSavingsRate,
-  categoryPayeeTree,
-  categoryProfile,
   categoryTrend,
   cumulativeNet,
   moneyFlow,
@@ -40,17 +41,17 @@ import NetPositionChart from "../components/NetPositionChart";
 import SavingsRateChart from "../components/SavingsRateChart";
 import IncomeExpenseChart from "../components/IncomeExpenseChart";
 import CategoryTrendChart, { type TrendRow } from "../components/CategoryTrendChart";
-import CategoryRadarChart from "../components/CategoryRadarChart";
-import SpendingHeatmap from "../components/SpendingHeatmap";
 import WeekdayChart from "../components/WeekdayChart";
 import MonthPaceChart from "../components/MonthPaceChart";
-import AmountHistogram from "../components/AmountHistogram";
+import TopMoversChart from "../components/TopMoversChart";
+import CategorySparklines from "../components/CategorySparklines";
+import MonthWaterfall from "../components/MonthWaterfall";
+import CommittedSplitChart from "../components/CommittedSplitChart";
 
 // ECharts is a second, heavier engine, loaded only for the three charts recharts
 // can't draw. Because ChartCard holds its children back until the card nears the
 // viewport, the download happens on the scroll that needs it — never on arrival.
 const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
-const CategorySunburst = lazy(() => import("../components/CategorySunburst"));
 
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
@@ -141,13 +142,24 @@ export function AnalyticsPage() {
 
   const trendData = useMemo<TrendRow[]>(() => trend.rows.map((r) => ({ label: monthFmt.format(r.start), ...r.totals })), [trend, monthFmt]);
 
-  const profile = useMemo(
-    () => categoryProfile(scoped, flows).map((r) => ({ name: nameFor(r.categoryId), current: r.current, average: r.average })),
-    [scoped, flows, nameFor],
-  );
 
-  const tree = useMemo(() => categoryPayeeTree(scoped), [scoped]);
-  const treeTotal = useMemo(() => tree.reduce((s, b) => s + b.value, 0), [tree]);
+  const movers = useMemo(() => categoryDeltas(transactions, from, now), [transactions, from, now]);
+  const series = useMemo(() => categorySeries(scoped, flows, 12, now), [scoped, flows, now]);
+  const waterfall = useMemo(() => spendingWaterfall(scoped), [scoped]);
+  const committed = useMemo(() => committedSplit(scoped, flows), [scoped, flows]);
+
+  // The charts are only half the answer to "so what do I do": each of these
+  // says the conclusion in words, above the picture that backs it up.
+  const moversHeadline = useMemo(() => {
+    const top = movers[0];
+    if (!top) return undefined;
+    return `${top.delta > 0 ? "+" : "−"}${formatCurrency(Math.abs(top.delta))} ${nameFor(top.categoryId)}`;
+  }, [movers, formatCurrency, nameFor]);
+
+  const committedHeadline = useMemo(() => {
+    const last = committed[committed.length - 1];
+    return last && last.share > 0 ? t("analytics.committed.headline", { percent: Math.round(last.share * 100) }) : undefined;
+  }, [committed, t]);
 
   // ── Habits & pace ──────────────────────────────────────────────────────────
 
@@ -163,17 +175,6 @@ export function AnalyticsPage() {
   const pace = useMemo(() => monthPace(transactions, now), [transactions, now]);
   const paceGap = pace.currentTotal - pace.previousToDate;
 
-  const histogram = useMemo(() => {
-    const bins = amountHistogram(scoped);
-    const total = bins.reduce((s, b) => s + b.amount, 0);
-    return bins.map((b, i) => ({
-      label: b.max === null ? `${b.min}+` : i === 0 ? `<${b.max}` : `${b.min}–${b.max}`,
-      count: b.count,
-      amount: b.amount,
-      share: total > 0 ? (b.amount / total) * 100 : 0,
-    }));
-  }, [scoped]);
-  const paymentCount = useMemo(() => histogram.reduce((s, b) => s + b.count, 0), [histogram]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -324,32 +325,33 @@ export function AnalyticsPage() {
 
             <ChartCard
               tall
-              title={t("analytics.profile.title")}
-              hint={t("analytics.profile.hint")}
-              empty={profile.length === 0 ? t("analytics.profile.needsTwoMonths") : undefined}
-              footer={
-                <Legend
-                  items={[
-                    { color: "var(--bs-primary)", label: t("analytics.profile.current") },
-                    { color: "var(--color-text-secondary)", label: t("analytics.profile.average") },
-                  ]}
-                />
-              }
+              title={t("analytics.movers.title")}
+              hint={t("analytics.movers.hint")}
+              value={moversHeadline}
+              valueTone={movers[0] && movers[0].delta > 0 ? "expense" : "income"}
+              empty={movers.length === 0 ? t("analytics.movers.needsHistory") : undefined}
             >
-              <CategoryRadarChart data={profile} formatCurrency={formatCurrency} />
+              <TopMoversChart rows={movers} nameFor={nameFor} formatCurrency={formatCurrency} />
             </ChartCard>
 
             <ChartCard
               tall
-              title={t("analytics.sunburst.title")}
-              hint={t("analytics.sunburst.hint")}
-              value={formatCurrency(treeTotal)}
-              valueTone="expense"
-              empty={tree.length === 0 ? noData : undefined}
+              title={t("analytics.sparklines.title")}
+              hint={t("analytics.sparklines.hint")}
+              empty={series.length === 0 ? noData : undefined}
             >
-              <Suspense fallback={null}>
-                <CategorySunburst branches={tree} labelFor={nameFor} otherLabel={t("analytics.sunburst.otherPayees")} formatCurrency={formatCurrency} ariaLabel={t("analytics.sunburst.title")} />
-              </Suspense>
+              <CategorySparklines rows={series} nameFor={nameFor} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.waterfall.title")}
+              hint={t("analytics.waterfall.hint")}
+              value={formatCurrency(waterfall.length > 0 ? waterfall[waterfall.length - 1].balance : 0)}
+              valueTone={waterfall.length > 0 && waterfall[waterfall.length - 1].balance < 0 ? "expense" : "income"}
+              empty={waterfall.length <= 2 ? noData : undefined}
+            >
+              <MonthWaterfall steps={waterfall} nameFor={nameFor} formatCurrency={formatCurrency} />
             </ChartCard>
           </div>
 
@@ -357,10 +359,6 @@ export function AnalyticsPage() {
           <h2 className={styles.sectionTitle}>{t("analytics.groups.habits")}</h2>
 
           <div className={styles.grid}>
-            <ChartCard title={t("analytics.heatmap.title")} hint={t("analytics.heatmap.hint")}>
-              <SpendingHeatmap heatmap={heat} formatCurrency={formatCurrency} locale={lang} />
-            </ChartCard>
-
             <ChartCard title={t("analytics.weekday.title")} hint={t("analytics.weekday.hint")} value={busiestWeekday ?? "—"} empty={busiestWeekday ? undefined : noData}>
               <WeekdayChart totals={heat.weekdayTotals} formatCurrency={formatCurrency} locale={lang} />
             </ChartCard>
@@ -385,12 +383,20 @@ export function AnalyticsPage() {
             </ChartCard>
 
             <ChartCard
-              title={t("analytics.histogram.title")}
-              hint={t("analytics.histogram.hint")}
-              value={String(paymentCount)}
-              empty={paymentCount === 0 ? noData : undefined}
+              title={t("analytics.committed.title")}
+              hint={t("analytics.committed.hint")}
+              value={committedHeadline}
+              empty={committed.length === 0 ? noData : undefined}
+              footer={
+                <Legend
+                  items={[
+                    { color: "var(--color-goal)", label: t("analytics.committed.committed") },
+                    { color: "var(--color-expense)", label: t("analytics.committed.free") },
+                  ]}
+                />
+              }
             >
-              <AmountHistogram data={histogram} formatCurrency={formatCurrency} />
+              <CommittedSplitChart rows={committed} formatCurrency={formatCurrency} monthLabel={(d) => monthFmt.format(d)} />
             </ChartCard>
           </div>
         </div>
