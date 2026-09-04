@@ -1453,3 +1453,37 @@ describe("instalment spacing", () => {
     expect(cells.find((c) => c.month === 0)!.installment).toMatchObject({ index: 0, count: 4, amount: 100 });
   });
 });
+
+describe("billMonthStrip future chips", () => {
+  const now = new Date("2026-09-04");
+
+  it("tells a month still to come apart from one before the bill existed", () => {
+    // Both used to be "empty" and looked identical, so the strip said nothing
+    // about what was coming.
+    const power = computeBillStatus(
+      makeBill({ id: "p", dueDay: 4, anchorDate: new Date("2026-08-01"), createdAt: new Date("2026-08-01") }),
+      [{ id: "x", userId: "u1", billId: "p", periodKey: "2026-08", amount: 16.5, paidDate: new Date(2026, 7, 4), createdAt: new Date(2026, 7, 4) } as BillPayment],
+      now,
+    );
+
+    const chips = billMonthStrip(power, now);
+    const at = (month: number) => chips.find((c) => c.start.getMonth() === month)!.status;
+
+    expect(at(5)).toBe("empty"); // June — before the bill was created
+    expect(at(7)).toBe("paid"); // August — settled
+    expect(at(8)).toBe("due"); // September — owed now
+    expect(at(9)).toBe("future"); // October — coming
+    expect(at(10)).toBe("future"); // November
+  });
+
+  it("keeps every month a coming payment covers as future, not just its own", () => {
+    const water = computeBillStatus(
+      makeBill({ id: "w", dueDay: 10, intervalCount: 2, anchorDate: new Date("2026-01-01"), createdAt: new Date("2026-01-01") }),
+      [],
+      now,
+    );
+
+    // Whatever is not owed right now and has not been paid is still ahead.
+    expect(billMonthStrip(water, now).filter((c) => c.status === "future").length).toBeGreaterThan(0);
+  });
+});

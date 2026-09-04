@@ -1,10 +1,9 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
-import { Alert, Container } from "reactstrap";
+import { Alert, Container, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
-import { useNavigate } from "react-router-dom";
 import { TransactionInsights } from "../../transactions/components/TransactionInsights";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
@@ -14,6 +13,8 @@ import {
   categoryDeltas,
   categorySeries,
   spendingWaterfall,
+  WATERFALL_INCOME_ID,
+  WATERFALL_LEFTOVER_ID,
   committedSplit,
   averageSavingsRate,
   categoryTrend,
@@ -36,7 +37,7 @@ import {
 } from "../analyticsUtils";
 import { ChartCard } from "../components/ChartCard";
 import { Legend } from "../components/Legend";
-import { seriesColor, weekdayNames } from "../components/chartTheme";
+import { seriesColor, seriesDash, weekdayNames } from "../components/chartTheme";
 import NetPositionChart from "../components/NetPositionChart";
 import SavingsRateChart from "../components/SavingsRateChart";
 import IncomeExpenseChart from "../components/IncomeExpenseChart";
@@ -66,11 +67,11 @@ export function AnalyticsPage() {
   // One clock reading for the whole visit. A fresh `new Date()` each render
   // would be a new value every time and invalidate every memo below.
   const [now] = useState(() => new Date());
+  const [flowOpen, setFlowOpen] = useState(false);
 
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
-  const navigate = useNavigate();
 
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
 
@@ -128,7 +129,7 @@ export function AnalyticsPage() {
 
   // ── Where the money goes ───────────────────────────────────────────────────
 
-  const trend = useMemo(() => categoryTrend(scoped, flows), [scoped, flows]);
+  const trend = useMemo(() => categoryTrend(scoped, flows, Number.MAX_SAFE_INTEGER), [scoped, flows]);
 
   const trendSeries = useMemo(
     () =>
@@ -136,6 +137,7 @@ export function AnalyticsPage() {
         id,
         name: id === OTHER_CATEGORY_ID ? t("analytics.categoryTrend.other", { count: trend.otherCount }) : nameFor(id),
         color: seriesColor(i),
+        dash: seriesDash(i),
       })),
     [trend, nameFor, t],
   );
@@ -146,6 +148,23 @@ export function AnalyticsPage() {
   const movers = useMemo(() => categoryDeltas(transactions, from, now), [transactions, from, now]);
   const series = useMemo(() => categorySeries(scoped, flows, 12, now), [scoped, flows, now]);
   const waterfall = useMemo(() => spendingWaterfall(scoped), [scoped]);
+
+  // The waterfall's steps are not all categories: two of them are the income it
+  // starts from and the money left at the end. Running those through the
+  // category lookup got each of them called "Uncategorised", alongside the one
+  // step that genuinely was.
+  const waterfallLabel = useCallback(
+    (id: string) => {
+      if (id === WATERFALL_INCOME_ID) return t("analytics.flow.income");
+      // "Left over" is the wrong word for a negative remainder: nothing was
+      // left, the month ran past what came in.
+      if (id === WATERFALL_LEFTOVER_ID) return t(waterfall[waterfall.length - 1]?.balance < 0 ? "analytics.waterfall.shortBy" : "analytics.waterfall.leftover");
+      if (id === OTHER_CATEGORY_ID) return t("analytics.waterfall.otherCategories");
+      return nameFor(id);
+    },
+    [nameFor, t, waterfall],
+  );
+
   const committed = useMemo(() => committedSplit(scoped, flows), [scoped, flows]);
 
   // The charts are only half the answer to "so what do I do": each of these
@@ -238,91 +257,12 @@ export function AnalyticsPage() {
             formatCurrency={formatCurrency}
             fromDate={from}
             toDate={now}
-            onSelectCategory={(name) => navigate(`/transactions?category=${encodeURIComponent(name)}`)}
           />
-
-          {/* ── Flow & saving ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.groups.flow")}</h2>
-
-          <div className={styles.grid}>
-            <ChartCard
-              wide
-              tall
-              title={t("analytics.netPosition.title")}
-              hint={t("analytics.netPosition.hint")}
-              value={formatCurrency(netTotal)}
-              valueTone={netTotal >= 0 ? "income" : "expense"}
-            >
-              <NetPositionChart data={netData} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
-              title={t("analytics.savingsRate.title")}
-              hint={t("analytics.savingsRate.hint")}
-              value={avgRate === undefined ? "—" : `${Math.round(avgRate)}%`}
-              valueTone={avgRate !== undefined && avgRate < 0 ? "expense" : "income"}
-              empty={avgRate === undefined ? noData : undefined}
-            >
-              <SavingsRateChart data={savingsData} average={avgRate} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
-              title={t("analytics.flow.title")}
-              hint={t("analytics.flow.hint")}
-              footer={
-                <Legend
-                  items={[
-                    { color: "var(--color-income)", label: t("analytics.flow.income") },
-                    { color: "var(--color-expense)", label: t("analytics.flow.expenses") },
-                    { color: "var(--color-text-primary)", label: t("analytics.flow.net") },
-                  ]}
-                />
-              }
-            >
-              <IncomeExpenseChart data={flowData} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
-              wide
-              tall
-              title={t("analytics.moneyFlow.title")}
-              hint={t("analytics.moneyFlow.hint")}
-              value={sankey ? formatCurrency(sankey.total) : undefined}
-              valueTone="income"
-              empty={sankey ? undefined : noData}
-            >
-              <Suspense fallback={null}>
-                <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
-              </Suspense>
-            </ChartCard>
-          </div>
 
           {/* ── Where the money goes ── */}
           <h2 className={styles.sectionTitle}>{t("analytics.groups.where")}</h2>
 
           <div className={styles.grid}>
-            <ChartCard
-              wide
-              tall
-              title={t("analytics.categoryTrend.title")}
-              hint={t("analytics.categoryTrend.hint")}
-              value={formatCurrency(totalExpenses)}
-              valueTone="expense"
-              empty={trendSeries.length === 0 ? noData : undefined}
-              footer={
-                <div className={styles.legend}>
-                  {trendSeries.map((s) => (
-                    <span key={s.id} className={styles.legendItem}>
-                      <span className={styles.swatch} style={{ background: s.color }} />
-                      <span className="text-truncate">{s.name}</span>
-                    </span>
-                  ))}
-                </div>
-              }
-            >
-              <CategoryTrendChart data={trendData} series={trendSeries} formatCurrency={formatCurrency} totalLabel={t("common.total")} />
-            </ChartCard>
-
             <ChartCard
               tall
               title={t("analytics.movers.title")}
@@ -344,14 +284,14 @@ export function AnalyticsPage() {
             </ChartCard>
 
             <ChartCard
-              tall
+              auto
               title={t("analytics.waterfall.title")}
               hint={t("analytics.waterfall.hint")}
               value={formatCurrency(waterfall.length > 0 ? waterfall[waterfall.length - 1].balance : 0)}
               valueTone={waterfall.length > 0 && waterfall[waterfall.length - 1].balance < 0 ? "expense" : "income"}
               empty={waterfall.length <= 2 ? noData : undefined}
             >
-              <MonthWaterfall steps={waterfall} nameFor={nameFor} formatCurrency={formatCurrency} />
+              <MonthWaterfall steps={waterfall} nameFor={waterfallLabel} formatCurrency={formatCurrency} />
             </ChartCard>
           </div>
 
@@ -397,6 +337,105 @@ export function AnalyticsPage() {
               }
             >
               <CommittedSplitChart rows={committed} formatCurrency={formatCurrency} monthLabel={(d) => monthFmt.format(d)} />
+            </ChartCard>
+          </div>
+
+          {/* ── Flow & saving ── */}
+          <h2 className={styles.sectionTitle}>{t("analytics.groups.flow")}</h2>
+
+          <div className={styles.grid}>
+            <ChartCard
+              wide
+              tall
+              title={t("analytics.netPosition.title")}
+              hint={t("analytics.netPosition.hint")}
+              value={formatCurrency(netTotal)}
+              valueTone={netTotal >= 0 ? "income" : "expense"}
+            >
+              <NetPositionChart data={netData} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              title={t("analytics.savingsRate.title")}
+              hint={t("analytics.savingsRate.hint")}
+              value={avgRate === undefined ? "—" : `${Math.round(avgRate)}%`}
+              valueTone={avgRate !== undefined && avgRate < 0 ? "expense" : "income"}
+              empty={avgRate === undefined ? noData : undefined}
+            >
+              <SavingsRateChart data={savingsData} average={avgRate} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              title={t("analytics.flow.title")}
+              hint={t("analytics.flow.hint")}
+              footer={
+                <Legend
+                  items={[
+                    { color: "var(--color-income)", label: t("analytics.flow.income") },
+                    { color: "var(--color-expense)", label: t("analytics.flow.expenses") },
+                    { color: "var(--color-text-primary)", label: t("analytics.flow.net") },
+                  ]}
+                />
+              }
+            >
+              <IncomeExpenseChart data={flowData} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            {/* The ribbons crowd as categories pile up, and on a phone the card is
+                far too small to follow one through. Tapping opens the same
+                drawing at the size it needs. */}
+            <ChartCard
+              wide
+              tall
+              title={t("analytics.moneyFlow.title")}
+              hint={t("analytics.moneyFlow.hint")}
+              value={sankey ? formatCurrency(sankey.total) : undefined}
+              valueTone="income"
+              empty={sankey ? undefined : noData}
+              onExpand={sankey ? () => setFlowOpen(true) : undefined}
+              expandLabel={t("analytics.moneyFlow.expand")}
+            >
+              <Suspense fallback={null}>
+                <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
+              </Suspense>
+            </ChartCard>
+          </div>
+
+          <Modal isOpen={flowOpen} toggle={() => setFlowOpen(false)} fullscreen scrollable>
+            <ModalHeader toggle={() => setFlowOpen(false)}>{t("analytics.moneyFlow.title")}</ModalHeader>
+            <ModalBody className="d-flex flex-column">
+              <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
+                {t("analytics.moneyFlow.hint")}
+              </p>
+              <div className="flex-fill" style={{ minHeight: 420 }}>
+                <Suspense fallback={null}>
+                  <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
+                </Suspense>
+              </div>
+            </ModalBody>
+          </Modal>
+
+          <div className={styles.grid}>
+            <ChartCard
+              wide
+              tall
+              title={t("analytics.categoryTrend.title")}
+              hint={t("analytics.categoryTrend.hint")}
+              value={formatCurrency(totalExpenses)}
+              valueTone="expense"
+              empty={trendSeries.length === 0 ? noData : undefined}
+              footer={
+                <div className={styles.legend}>
+                  {trendSeries.map((s) => (
+                    <span key={s.id} className={styles.legendItem}>
+                      <span className={styles.swatch} style={{ background: s.color }} />
+                      <span className="text-truncate">{s.name}</span>
+                    </span>
+                  ))}
+                </div>
+              }
+            >
+              <CategoryTrendChart data={trendData} series={trendSeries} formatCurrency={formatCurrency} totalLabel={t("common.total")} />
             </ChartCard>
           </div>
         </div>

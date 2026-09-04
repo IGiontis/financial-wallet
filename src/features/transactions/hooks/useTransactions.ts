@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
+import { firestoreToDate } from "../../../shared/utils/dates";
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getCategories, createCategory, updateCategory, deleteCategory, countCategoryUsage, createCategories, updateCategories, deleteCategories } from "../../../firebase/firestore";
 import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO } from "../../../shared/types/IndexTypes";
 import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
@@ -38,47 +39,113 @@ export function useCategories() {
   });
 }
 
-// ─── useCreateTransaction ─────────────────────────────────────────────────────
+// ─── Writing ──────────────────────────────────────────────────────────────────
+// Every one of these used to `await queryClient.invalidateQueries(...)` inside
+// `onSuccess`, which keeps the mutation pending until the *entire* transaction
+// list has been fetched back from Firestore. The modal waits on that promise,
+// so saving a transaction took as long as re-downloading everything — seconds
+// on a slow connection, and on a stalled one it never visibly finished at all
+// even though the write had long since landed.
+//
+// Now the cache is corrected immediately and the refetch happens behind it: the
+// row is on screen before the network has finished, and reconciles when the
+// server's own copy arrives.
+
+const byNewestFirst = (rows: Transaction[]) => [...rows].sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
+
+/** Rolls the list back to what it was if the write turns out to have failed. */
+interface Rollback {
+  previous?: Transaction[];
+}
 
 export function useCreateTransaction() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const key = transactionKeys.all(userId);
 
-  return useMutation({
+  return useMutation<string, Error, CreateTransactionDTO, Rollback>({
     mutationFn: (data: CreateTransactionDTO) => createTransaction(userId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+
+    onMutate: async (data) => {
+      // An in-flight fetch would otherwise land on top of the optimistic row
+      // and blink it away again.
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Transaction[]>(key);
+
+      // A stand-in id until the real document comes back; nothing keys off it.
+      const optimistic = { ...data, id: `temp-${Date.now()}`, userId, createdAt: new Date(), updatedAt: new Date() } as Transaction;
+      queryClient.setQueryData<Transaction[]>(key, (rows) => byNewestFirst([...(rows ?? []), optimistic]));
+
+      return { previous };
+    },
+
+    onError: (_err, _data, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+
+    // Deliberately not awaited: the caller is finished, and the refetch is a
+    // correction rather than something to wait on.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }
-
-// ─── useUpdateTransaction ─────────────────────────────────────────────────────
 
 export function useUpdateTransaction() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const key = transactionKeys.all(userId);
 
-  return useMutation({
-    mutationFn: ({ transactionId, data }: { transactionId: string; data: UpdateTransactionDTO }) => updateTransaction(transactionId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+  return useMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, Rollback>({
+    mutationFn: ({ transactionId, data }) => updateTransaction(transactionId, data),
+
+    onMutate: async ({ transactionId, data }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Transaction[]>(key);
+
+      queryClient.setQueryData<Transaction[]>(key, (rows) =>
+        byNewestFirst((rows ?? []).map((row) => (row.id === transactionId ? ({ ...row, ...data, updatedAt: new Date() } as Transaction) : row))),
+      );
+
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }
-
-// ─── useDeleteTransaction ─────────────────────────────────────────────────────
 
 export function useDeleteTransaction() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const key = transactionKeys.all(userId);
 
-  return useMutation({
+  return useMutation<void, Error, string, Rollback>({
     mutationFn: (transactionId: string) => deleteTransaction(transactionId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+
+    onMutate: async (transactionId) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Transaction[]>(key);
+
+      queryClient.setQueryData<Transaction[]>(key, (rows) => (rows ?? []).filter((row) => row.id !== transactionId));
+
+      return { previous };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }

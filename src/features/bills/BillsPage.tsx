@@ -398,6 +398,8 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
 // bill every 2 months paints two months solid per payment, so the cadence is
 // something you see rather than something the subtitle states.
 
+/* Solid fills for what has happened or is happening; the coming months are
+   hatched instead, so "will owe" never reads as a washed-out "owes now". */
 const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-expense)" : undefined);
 
 function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
@@ -405,15 +407,16 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
   const chips = useMemo(() => billMonthStrip(bill, now), [bill, now]);
 
-  const labelFor = (status: MonthChip["status"]) => (status === "paid" ? t("bills.monthPaid") : status === "due" ? t("bills.monthDue") : t("bills.monthEmpty"));
+  const labelFor = (status: MonthChip["status"]) =>
+    status === "paid" ? t("bills.monthPaid") : status === "due" ? t("bills.monthDue") : status === "future" ? t("bills.monthFuture") : t("bills.monthEmpty");
 
   return (
     <div className={styles.monthStrip} onClick={(e) => e.stopPropagation()}>
       {chips.map((chip) => (
         <div
           key={chip.key}
-          className={`${styles.monthChip} ${chip.status !== "empty" ? styles.monthChipFilled : ""}`}
-          style={{ background: chipTone(chip.status), color: chip.status !== "empty" ? "#fff" : undefined }}
+          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""}`}
+          style={{ background: chipTone(chip.status), color: chip.status === "paid" || chip.status === "due" ? "#fff" : undefined }}
           title={`${monthFmt.format(chip.start)} — ${labelFor(chip.status)}`}
         >
           {monthFmt.format(chip.start)}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { getDaysInMonth } from "date-fns";
-import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Row } from "reactstrap";
+import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiAlertTriangle, FiCheckCircle, FiCheckSquare, FiClock, FiLock, FiPlus, FiSquare, FiX } from "react-icons/fi";
@@ -8,6 +8,8 @@ import { FiAlertTriangle, FiCheckCircle, FiCheckSquare, FiClock, FiLock, FiPlus,
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
+import { useDebts } from "../debts/useDebts";
+import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { isHardDeadline } from "../bills/billsUtils";
@@ -40,6 +42,7 @@ export function PlannerPage() {
   const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { data: bills = [], isLoading: billLoading } = useBills();
+  const { data: allDebts = [] } = useDebts();
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
 
   // One clock reading for the visit, so the projection doesn't shift mid-render.
@@ -66,6 +69,7 @@ export function PlannerPage() {
   const skipped = useMemo(() => (Array.isArray(storedSkipped) ? storedSkipped.filter((s): s is string => typeof s === "string") : []), [storedSkipped]);
   const [selectedDay, setSelectedDay] = useState(-1);
   const [draft, setDraft] = useState<{ kind: "income" | "expense"; label: string; amount: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BudgetLine | null>(null);
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
@@ -85,9 +89,13 @@ export function PlannerPage() {
 
   const salaryIsManual = salaryInput.amount.trim() !== "" || salaryInput.day.trim() !== "";
 
+  // Only what is owed: money owed *to* you is not income until it turns up, and
+  // a plan that spent it in advance would be promising an unmade sale.
+  const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
+
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, salary, openingBalance: parseFloat(openingInput) || 0, skipIds, horizon, now }),
-    [bills, goals, lines, salary, openingInput, skipIds, horizon, now],
+    () => buildPlan({ bills, goals, lines, debts, salary, openingBalance: parseFloat(openingInput) || 0, skipIds, horizon, now }),
+    [bills, goals, lines, debts, salary, openingInput, skipIds, horizon, now],
   );
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
@@ -122,11 +130,15 @@ export function PlannerPage() {
   // "nothing happens here" days still have a figure to show.
   const monthlyLineNet = lines.filter((l) => !skipIds.has(l.id)).reduce((sum, l) => sum + (l.kind === "income" ? l.amount : -l.amount), 0);
 
+  // Two decimals would read as noise; one says "not quite a whole month".
+  const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(plan.monthsCovered);
+
   const rowsOf = (match: (row: PlanRow) => boolean) => plan.rows.filter(match);
   const incomeRows = rowsOf((r) => r.source === "salary" || (r.source === "line" && (r.perMonth ?? 0) > 0));
   const billRows = rowsOf((r) => r.source === "bill");
   const goalRows = rowsOf((r) => r.source === "goal");
   const budgetRows = rowsOf((r) => r.source === "line" && (r.perMonth ?? 0) < 0);
+  const debtRows = rowsOf((r) => r.source === "debt");
 
   // Written from the sanitised copies rather than through a functional update,
   // so a malformed stored value is replaced by a clean one instead of being
@@ -138,7 +150,10 @@ export function PlannerPage() {
   };
 
   const editLine = (id: string, patch: Partial<BudgetLine>) => setLines(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-  const removeLine = (id: string) => setLines(lines.filter((l) => l.id !== id));
+  const removeLine = (id: string) => {
+    setLines(lines.filter((l) => l.id !== id));
+    setDeleteTarget(null);
+  };
 
   const commitDraft = () => {
     if (!draft) return;
@@ -244,11 +259,15 @@ export function PlannerPage() {
     // rather than something a screen reader should ever read out.
     const title = row.source === "salary" ? t("planner.salaryLabel") : row.label;
     // A zero row says why it is zero. "×0" would be true and useless.
+    // A monthly figure is charged pro rata, so €400 a month lands as €360 with
+    // twenty-seven days of the month left. Printing the rate alone made that
+    // look like a mistake; the multiplier is what makes the row add up.
+    const monthly = t("planner.perMonthShort", { amount: formatCurrency(Math.abs(row.perMonth ?? 0)) });
     const hint = row.note
       ? t(`planner.note_${row.note}`)
       : row.occurrences !== undefined
         ? t("planner.timesCount", { times: row.occurrences })
-        : t("planner.perMonthShort", { amount: formatCurrency(Math.abs(row.perMonth ?? 0)) });
+        : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
 
     return (
       <div key={row.id} className={`${styles.planRow} ${row.enabled ? "" : styles.planRowOff}`}>
@@ -297,7 +316,7 @@ export function PlannerPage() {
             />
             <InputGroupText>{t("planner.perMonthSuffix")}</InputGroupText>
           </InputGroup>
-          <button type="button" className={styles.lineRemove} onClick={() => removeLine(line.id)} aria-label={t("common.delete")}>
+          <button type="button" className={styles.lineRemove} onClick={() => setDeleteTarget(line)} aria-label={t("common.delete")}>
             <FiX size={14} />
           </button>
         </div>
@@ -607,6 +626,13 @@ export function PlannerPage() {
               goalRows.map((row) => renderRow(row))
             )}
 
+            {debtRows.length > 0 && (
+              <>
+                {sectionHeader(t("debts.plannerGroup"), debtRows)}
+                {debtRows.map((row) => renderRow(row))}
+              </>
+            )}
+
             {sectionHeader(t("planner.groupMine"), budgetRows)}
             {budgetRows.length === 0 && draft?.kind !== "expense" && (
               <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
@@ -618,6 +644,22 @@ export function PlannerPage() {
           </div>
         </Col>
       </Row>
+      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
+        <ModalHeader toggle={() => setDeleteTarget(null)}>{t("planner.deleteLine")}</ModalHeader>
+        <ModalBody>
+          <p className="mb-0" style={{ fontSize: 14 }}>
+            {t("planner.deleteLineConfirm", { name: deleteTarget?.label ?? "" })}
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" outline onClick={() => setDeleteTarget(null)}>
+            {t("common.cancel")}
+          </Button>
+          <Button color="danger" onClick={() => deleteTarget && removeLine(deleteTarget.id)}>
+            {t("common.delete")}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </Container>
   );
 }

@@ -1,11 +1,14 @@
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AXIS_TICK, GRID_STROKE, compactNumber } from "./chartTheme";
+import { useMemo } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AXIS_TICK, GRID_STROKE, amountTicks, compactNumber } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 export interface TrendSeries {
   id: string;
   name: string;
   color: string;
+  /** Set once the palette wraps, so a repeated colour is still one line apart. */
+  dash?: string;
 }
 
 /** One row per month: `label` plus a numeric total under each series id. */
@@ -36,13 +39,8 @@ function TrendTooltip({
   if (!active || !payload?.length) return null;
 
   const rows = payload
-    .map((entry) => ({
-      meta: series.find((s) => s.id === entry.dataKey),
-      value: entry.value ?? 0,
-    }))
+    .map((entry) => ({ meta: series.find((s) => s.id === entry.dataKey), value: entry.value ?? 0 }))
     .filter((r) => r.meta && r.value > 0)
-    // Biggest first — the stack draws bottom-up, which is the opposite of how
-    // the list should read.
     .sort((a, b) => b.value - a.value);
 
   if (rows.length === 0) return null;
@@ -61,11 +59,14 @@ function TrendTooltip({
 }
 
 /**
- * Stacked bands, one per category, so the total height is the month's spend and
- * each band's thickness is that category's share of it.
+ * One coloured line per category against a shared amount axis — a league table
+ * rather than a stack.
  *
- * Series order is fixed for the whole window (see `categoryTrend`) — a stack
- * that re-sorted itself every month would be impossible to follow.
+ * Stacked bands showed the month's total honestly but hid every category's own
+ * path inside it: a band sitting on top of a growing one rises on the screen
+ * while its own figure falls, so "is this going up or down" was unanswerable
+ * for all but the bottom series. Given a common baseline each line is read on
+ * its own, and crossings say which category overtook which.
  */
 export default function CategoryTrendChart({
   data,
@@ -78,17 +79,39 @@ export default function CategoryTrendChart({
   formatCurrency: (n: number) => string;
   totalLabel: string;
 }) {
+  // Scaled to the biggest single figure on the chart, not to the month's total:
+  // these are separate lines now, so nothing stacks and the tallest point is
+  // the tallest one line reaches.
+  const ticks = useMemo(() => {
+    const peak = data.reduce((max, row) => series.reduce((m, s) => Math.max(m, Number(row[s.id]) || 0), max), 0);
+    return amountTicks(peak);
+  }, [data, series]);
+
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
-      <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} ticks={ticks} domain={[0, ticks[ticks.length - 1]]} />
         <Tooltip content={<TrendTooltip series={series} formatCurrency={formatCurrency} totalLabel={totalLabel} />} cursor={{ stroke: GRID_STROKE }} />
         {series.map((s) => (
-          <Area key={s.id} type="monotone" dataKey={s.id} name={s.name} stackId="spend" stroke={s.color} strokeWidth={1} fill={s.color} fillOpacity={0.55} />
+          <Line
+            key={s.id}
+            type="monotone"
+            dataKey={s.id}
+            name={s.name}
+            stroke={s.color}
+            strokeDasharray={s.dash}
+            strokeWidth={2}
+            // A dot per month makes a three-point line legible; recharts hides
+            // them again once the window is long enough for them to merge.
+            dot={{ r: 2.5, strokeWidth: 0 }}
+            activeDot={{ r: 4 }}
+            isAnimationActive={false}
+            connectNulls
+          />
         ))}
-      </AreaChart>
+      </LineChart>
     </ResponsiveContainer>
   );
 }

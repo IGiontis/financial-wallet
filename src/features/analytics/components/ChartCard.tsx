@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { FiMaximize2 } from "react-icons/fi";
 import styles from "./css/Analytics.module.css";
 
 interface ChartCardProps {
@@ -11,8 +12,13 @@ interface ChartCardProps {
   wide?: boolean;
   /** Taller chart box — for the two long time series that need the vertical room. */
   tall?: boolean;
+  /** Let the content set its own height, for cards that draw rows not plots. */
+  auto?: boolean;
   /** Shown instead of the chart when there isn't enough data to plot. */
   empty?: string;
+  /** Offers a bigger view of the same drawing, for charts a card cannot hold. */
+  onExpand?: () => void;
+  expandLabel?: string;
   /** Sits below the chart box — legends, scales. Outside the fixed height. */
   footer?: ReactNode;
   children: ReactNode;
@@ -26,7 +32,7 @@ interface ChartCardProps {
  * phone, and most of them are below the fold anyway — the reserved height means
  * scrolling stays stable either way.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, empty, footer, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, auto, empty, onExpand, expandLabel, footer, children }: ChartCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
   // defer against, so start visible rather than never rendering the chart.
@@ -64,9 +70,17 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
             {value}
           </div>
         )}
+        {/* A button rather than making the whole card clickable: several cards
+            already answer taps inside the plot, and a card that swallowed them
+            would take the tap meant for a bar. */}
+        {onExpand && !empty && (
+          <button type="button" className={styles.expand} onClick={onExpand} aria-label={expandLabel} title={expandLabel}>
+            <FiMaximize2 size={14} aria-hidden />
+          </button>
+        )}
       </div>
 
-      <div className={`${styles.chartArea} ${tall ? styles.tall : ""}`}>
+      <div className={`${styles.chartArea} ${tall ? styles.tall : ""} ${auto ? styles.auto : ""}`}>
         {empty ? <p className={styles.emptyNote}>{empty}</p> : visible ? children : null}
       </div>
 

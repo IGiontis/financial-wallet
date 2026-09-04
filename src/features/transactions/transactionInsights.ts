@@ -19,6 +19,11 @@ export type InsightMode = "expense" | "income";
 
 const matcher = (mode: InsightMode) => (mode === "expense" ? isSpending : isEarning);
 
+/** Transfers are one slice whatever category they carry. */
+const sliceKey = (tx: Transaction) => (tx.isInvestmentTransaction || tx.isGoalTransaction ? INVESTMENT_SLICE_ID : tx.categoryId);
+
+export const INVESTMENT_SLICE_ID = "__investment__";
+
 // ─── Headline stats ─────────────────────────────────────────────────────────
 
 export interface InsightStats {
@@ -76,7 +81,7 @@ export function categorySplit(transactions: Transaction[], mode: InsightMode, li
 
   const byCategory = new Map<string, { amount: number; count: number }>();
   for (const tx of rows) {
-    const key = tx.isInvestmentTransaction || tx.isGoalTransaction ? "__investment__" : tx.categoryId;
+    const key = sliceKey(tx);
     const entry = byCategory.get(key) ?? { amount: 0, count: 0 };
     entry.amount += Math.abs(tx.amount);
     entry.count += 1;
@@ -221,4 +226,21 @@ export function spanInDays(from: Date | null, to: Date | null, transactions: Tra
 
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
   return Math.max(days, 1);
+}
+
+
+/**
+ * The rows behind one slice of the ring.
+ *
+ * "Other" is not a category — it is whatever did not make the top five — so it
+ * can only be resolved against the slices actually drawn. Passing them in keeps
+ * this honest even when the limit changes.
+ */
+export function sliceTransactions(transactions: Transaction[], mode: InsightMode, slices: CategorySlice[], categoryId: string): Transaction[] {
+  const named = new Set(slices.map((s) => s.categoryId).filter((id) => id !== OTHER_CATEGORY_ID));
+
+  return transactions
+    .filter(matcher(mode))
+    .filter((tx) => (categoryId === OTHER_CATEGORY_ID ? !named.has(sliceKey(tx)) : sliceKey(tx) === categoryId))
+    .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
 }

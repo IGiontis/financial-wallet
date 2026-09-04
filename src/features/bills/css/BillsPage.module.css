@@ -633,6 +633,22 @@
   text-overflow: ellipsis;
 }
 
+/* Months a payment is still coming for. Hatched faint red rather than a paler
+   solid one: a washed-out fill reads as a weaker version of "owes now", while
+   stripes read as "not yet". Kept clearly below the solid red of the month
+   actually due. */
+.monthChipFuture {
+  color: color-mix(in srgb, var(--color-expense) 80%, var(--color-text-secondary));
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-expense) 22%, transparent) 0 3px,
+      transparent 3px 7px
+    ),
+    var(--color-background-secondary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-expense) 30%, transparent);
+}
+
 .monthChipFilled {
   color: #fff;
 }
@@ -972,8 +988,20 @@
   color: var(--color-goal);
 }
 
+/* Still to come. Faint red says "this is money you will owe" without competing
+   with the solid red of something actually late, and the hatching carries the
+   "not yet real" part that a lighter tint alone would leave to guesswork —
+   a pale colour otherwise just reads as a washed-out version of overdue. */
 .monthCell_future {
   border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-expense) 30%, transparent);
+  color: color-mix(in srgb, var(--color-expense) 75%, var(--color-text-secondary));
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-expense) 13%, transparent) 0 3px,
+      transparent 3px 7px
+    );
 }
 
 /* The month the payment lands in. Solid and heavier, so a stretch reads as
@@ -994,12 +1022,26 @@
   background: color-mix(in srgb, var(--color-expense) 22%, transparent);
 }
 
-.monthCell_due.monthCellStart,
-.monthCell_future.monthCellStart {
+.monthCell_due.monthCellStart {
   border-style: solid;
   border-color: var(--color-goal);
   background: color-mix(in srgb, var(--color-goal) 22%, transparent);
   color: var(--color-goal);
+}
+
+/* The month a future payment actually lands in: same hatching, drawn firmly, so
+   it reads as the one to put money aside for rather than as another covered
+   month. */
+.monthCell_future.monthCellStart {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-expense) 55%, transparent);
+  color: var(--color-expense);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-expense) 24%, transparent) 0 3px,
+      transparent 3px 7px
+    );
 }
 
 /* An instalment square answers for itself, not for the stretch it sits in: one

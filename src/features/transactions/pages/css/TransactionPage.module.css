@@ -2,10 +2,14 @@
 
 /* ── Desktop table ────────────────────────────────────────────────────────── */
 /* Grow with the viewport instead of a fixed 60vh: never shorter than ~5 rows,
-   never taller than the space left below the filters. */
+   never taller than the space left below the filters.
+   The subtraction is the chrome that genuinely sits outside the table — the
+   topbar, the filter card above it and the footer line, about 250px together.
+   It was 20rem, which over-reserved by a good sixty pixels and left the table
+   scrolling while empty space sat under it. */
 .tableScroll {
   overflow: auto;
-  max-height: clamp(260px, calc(100dvh - 20rem), 70dvh);
+  max-height: clamp(260px, calc(100dvh - 16rem), 78dvh);
   overscroll-behavior: contain;
 }
 

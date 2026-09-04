@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths } from "./plannerUtils";
-import type { BillWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
 const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
@@ -157,5 +157,63 @@ describe("bills paid in instalments", () => {
   it("leaves an ordinary bill charged in full on its own date", () => {
     const plan = buildPlan({ ...base, horizon: "1m", bills: [bill({ name: "Netflix", amount: 12.99, dueDay: 22 })] });
     expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.amount)).toEqual([-12.99]);
+  });
+});
+
+describe("debts in the plan", () => {
+  const owed = (over: Partial<DebtWithStatus> = {}): DebtWithStatus =>
+    ({
+      id: "d1",
+      userId: "u1",
+      person: "Αδερφός",
+      direction: "owed_by_me",
+      amount: 200,
+      date: new Date(2026, 2, 4),
+      createdAt: new Date(2026, 2, 4),
+      updatedAt: new Date(2026, 2, 4),
+      payments: [],
+      paid: 0,
+      remaining: 200,
+      isSettled: false,
+      ...over,
+    }) as DebtWithStatus;
+
+  it("charges what is left, not what was borrowed", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", debts: [owed({ amount: 200, paid: 120, remaining: 80 })] });
+
+    expect(plan.debtsTotal).toBe(80);
+    expect(plan.rows.find((r) => r.source === "debt")).toMatchObject({ total: -80, label: "Αδερφός" });
+  });
+
+  it("charges an undated debt straight away", () => {
+    // It is owed now. Waiting for a date it may never get would keep it out of
+    // every window, which is the one thing a debt must not do.
+    const plan = buildPlan({ ...base, horizon: "1m", debts: [owed()] });
+    expect(plan.events.find((e) => e.amount === -200)?.date).toEqual(new Date(2026, 7, 14));
+  });
+
+  it("charges a dated one on its day", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", debts: [owed({ dueDate: new Date(2026, 8, 20) })] });
+    expect(plan.events.find((e) => e.amount === -200)?.date).toEqual(new Date(2026, 8, 20));
+  });
+
+  it("pulls an overdue debt onto today rather than a date that has gone", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", debts: [owed({ dueDate: new Date(2026, 5, 1) })] });
+    expect(plan.events.find((e) => e.amount === -200)?.date).toEqual(new Date(2026, 7, 14));
+  });
+
+  it("leaves one falling outside the window alone", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", debts: [owed({ dueDate: new Date(2027, 5, 1) })] });
+    expect(plan.debtsTotal).toBe(0);
+    expect(plan.rows.some((r) => r.source === "debt")).toBe(false);
+  });
+
+  it("frees its money when switched off, like every other row", () => {
+    const input = { ...base, horizon: "1m" as const, debts: [owed()] };
+    const on = buildPlan(input);
+    const off = buildPlan({ ...input, skipIds: new Set(["d1"]) });
+
+    expect(off.debtsTotal).toBe(0);
+    expect(off.endingBalance).toBeCloseTo(on.endingBalance + 200, 2);
   });
 });

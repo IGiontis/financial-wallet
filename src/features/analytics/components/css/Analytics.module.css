@@ -121,6 +121,12 @@
   }
 }
 
+/* Some cards draw a list rather than a plot: their height is however many rows
+   there are, and a fixed box would either clip them or leave a gap. */
+.chartArea.auto {
+  height: auto;
+}
+
 .emptyNote {
   display: flex;
   align-items: center;
@@ -258,4 +264,26 @@
   fill: rgba(255, 255, 255, 0.75);
   font-size: 10px;
   pointer-events: none;
+}
+
+/* Opens a bigger copy of a chart the card is too small to hold. Sits with the
+   headline figure rather than over the plot, which is a tap target itself. */
+.expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px 4px;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.expand:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
 }

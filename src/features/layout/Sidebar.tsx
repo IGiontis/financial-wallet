@@ -3,7 +3,7 @@ import { Nav, NavItem, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -31,6 +31,7 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
     { path: "/goals", label: t("nav.goals"), icon: FiTarget },
     { path: "/bills", label: t("nav.bills"), icon: FiRepeat },
     { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
+    { path: "/debts", label: t("nav.debts"), icon: FiUsers },
     { path: "/settings", label: t("nav.settings"), icon: FiSettings },
   ];
 

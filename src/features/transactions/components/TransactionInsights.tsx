@@ -14,9 +14,11 @@ import {
   spanInDays,
   topPayees,
   OTHER_CATEGORY_ID,
+  sliceTransactions,
   type Bucket,
   type InsightMode,
 } from "../transactionInsights";
+import SliceTransactionsModal from "./SliceTransactionsModal";
 import styles from "./css/TransactionInsights.module.css";
 
 /** Slice colours reuse the semantic accents so the panel matches the app. */
@@ -33,11 +35,9 @@ interface InsightsProps {
   formatCurrency: (n: number) => string;
   fromDate: Date | null;
   toDate: Date | null;
-  /** Jump the table to one category when its slice is clicked. */
-  onSelectCategory: (categoryName: string) => void;
 }
 
-export function TransactionInsights({ transactions, allTransactions, categories, formatCurrency, fromDate, toDate, onSelectCategory }: InsightsProps) {
+export function TransactionInsights({ transactions, allTransactions, categories, formatCurrency, fromDate, toDate }: InsightsProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useLocalStorage("transactions-insights-open", true);
   const [mode, setMode] = useState<InsightMode>("expense");
@@ -73,6 +73,14 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   // Aim for at most ~8 visible captions regardless of how many bars there are.
   const labelEvery = Math.max(1, Math.ceil(buckets.length / 8));
   const maxPayee = payees[0]?.amount ?? 0;
+
+  // Which bar the reader has tapped, if any.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [pickedSlice, setPickedSlice] = useState<string | null>(null);
+
+  const sliceRows = useMemo(() => (pickedSlice ? sliceTransactions(transactions, mode, slices, pickedSlice) : []), [pickedSlice, transactions, mode, slices]);
+  const sliceTotal = useMemo(() => sliceRows.reduce((sum, tx) => sum + Math.abs(tx.amount), 0), [sliceRows]);
+  const pickedBucket = buckets.find((b) => b.key === picked);
   const dateFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
 
   return (
@@ -157,7 +165,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                 <div className="d-flex justify-content-between align-items-start gap-2">
                   <div style={{ minWidth: 0 }}>
                     <div className={styles.cardTitle}>{mode === "expense" ? t("transactions.whereItWent") : t("transactions.whereItCameFrom")}</div>
-                    <div className={styles.cardHint}>{t("transactions.tapSliceToFilter")}</div>
+                    <div className={styles.cardHint}>{t("transactions.tapSliceToOpen")}</div>
                   </div>
                   {/* Headline sits here rather than inside the ring — a five- or
                       six-figure total simply doesn't fit in the hole. */}
@@ -203,16 +211,13 @@ export function TransactionInsights({ transactions, allTransactions, categories,
 
                   <div className={styles.legend}>
                     {slices.map((slice, i) => {
-                      const category = categories.find((c) => c.id === slice.categoryId);
-                      const clickable = !!category;
                       return (
                         <button
                           key={slice.categoryId}
                           type="button"
                           className={styles.legendRow}
-                          disabled={!clickable}
-                          onClick={() => category && onSelectCategory(category.name)}
-                          title={clickable ? t("transactions.filterByCategory", { name: categoryLabel(category.name, t) }) : undefined}
+                          onClick={() => setPickedSlice(slice.categoryId)}
+                          title={t("transactions.showSliceRows", { name: nameFor(slice.categoryId) })}
                         >
                           <span className={styles.swatch} style={{ background: SLICE_COLORS[i % SLICE_COLORS.length] }} />
                           <span className={styles.legendName}>{nameFor(slice.categoryId)}</span>
@@ -230,14 +235,38 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                 <div className={styles.cardTitle}>{t("transactions.overTime")}</div>
                 <div className={`${styles.cardHint} mb-3`}>{t(bucket === "day" ? "transactions.byDay" : bucket === "week" ? "transactions.byWeek" : "transactions.byMonth")}</div>
 
+                {/* A title attribute is a desktop hover, which on a phone leaves
+                    the bars carrying no information at all. Tapping one names it
+                    instead, and the reading sits above the chart rather than
+                    under the finger. */}
+                <div className={styles.barReadout} aria-live="polite">
+                  {pickedBucket ? (
+                    <>
+                      <span className={styles.barReadoutLabel}>{pickedBucket.label}</span>
+                      <span className={styles.barReadoutAmount} style={{ color: mode === "expense" ? "var(--color-expense)" : "var(--color-income)" }}>
+                        {formatCurrency(pickedBucket.amount)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className={styles.barReadoutHint}>{t("transactions.tapBarHint")}</span>
+                  )}
+                </div>
+
                 <div className={styles.bars}>
                   {buckets.map((b, i) => (
-                    <div key={b.key} className={styles.barCol} title={`${b.label} · ${formatCurrency(b.amount)}`}>
+                    <button
+                      key={b.key}
+                      type="button"
+                      className={`${styles.barCol} ${picked === b.key ? styles.barColActive : ""}`}
+                      aria-pressed={picked === b.key}
+                      aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
+                      onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
+                    >
                       <div className={`${styles.bar} ${mode === "income" ? styles.barIncome : ""}`} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
-                      {/* A month of daily bars would collide, so only every
-                          nth label is drawn — the rest keep their tooltip. */}
+                      {/* A month of daily bars would collide, so only every nth
+                          label is drawn — the rest are reachable by tap. */}
                       <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -270,6 +299,14 @@ export function TransactionInsights({ transactions, allTransactions, categories,
           </div>
         )}
       </Collapse>
+      <SliceTransactionsModal
+        title={pickedSlice ? nameFor(pickedSlice) : null}
+        transactions={sliceRows}
+        total={sliceTotal}
+        formatCurrency={formatCurrency}
+        locale={lang}
+        onClose={() => setPickedSlice(null)}
+      />
     </div>
   );
 }

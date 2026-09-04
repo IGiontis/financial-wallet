@@ -1,0 +1,178 @@
+/* Debts — the list of people and one person's record.
+   Bootstrap covers the chrome; everything here is a genuine gap. */
+
+/* ── Headline pair ────────────────────────────────────────────────────────── */
+/* Deliberately two figures, never netted: owing 150 while being owed 80 is two
+   facts about two people, not one 70 fact about nobody. */
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.total {
+  border-radius: var(--border-radius-lg);
+  padding: 0.875rem 1rem;
+}
+
+.totalOut {
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-expense) 28%, transparent);
+  color: var(--color-expense);
+}
+
+.totalIn {
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-income) 28%, transparent);
+  color: var(--color-income);
+}
+
+.totalLabel {
+  font-size: 11.5px;
+}
+
+.totalAmount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* ── People ───────────────────────────────────────────────────────────────── */
+
+.card {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 56px;
+  padding: 0.625rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.person:first-of-type {
+  border-top: 0;
+}
+
+.personName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.personCount {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* The direction is spelled out. A bare signed number is unreadable months
+   later — "-100" could as easily be "I repaid it" as "I owe it". */
+.personBalance {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.settled {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* ── One loan inside a person ─────────────────────────────────────────────── */
+
+.loan {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.loan:first-of-type {
+  border-top: 0;
+}
+
+.loanHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 13px;
+}
+
+.loanMeta {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.track {
+  height: 5px;
+  margin: 0.375rem 0;
+  border-radius: 3px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--color-income);
+}
+
+.repayment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.repaymentRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -6px;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.loanAction {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 34px;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--bs-primary);
+  cursor: pointer;
+}
+
+.settledTag {
+  font-size: 11px;
+  color: var(--color-income);
+}

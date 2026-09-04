@@ -53,3 +53,88 @@
   margin-top: 0.25rem;
   padding-top: 0.375rem;
 }
+
+/* ── Sheet (small screens) ────────────────────────────────────────────────── */
+/* Owns the screen rather than hanging off the field. Above the keyboard there
+   is room for a dozen names instead of the two an anchored menu could show. */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+.sheetClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.sheetTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sheetSearch {
+  flex-shrink: 0;
+  padding: 0.625rem 0.75rem;
+}
+
+/* The only part that scrolls, so the search box stays put while the list moves. */
+.sheetList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.sheetOption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.5rem 0.25rem;
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sheetOption:first-of-type {
+  border-top: 0;
+}
+
+.sheetCreate {
+  color: var(--bs-primary);
+}
+
+.sheetEmpty {
+  margin: 1rem 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}

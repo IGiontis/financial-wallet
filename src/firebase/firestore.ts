@@ -2,6 +2,11 @@ import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, ge
 import { db } from "./config";
 
 import type {
+  Debt,
+  DebtPayment,
+  CreateDebtDTO,
+  UpdateDebtDTO,
+  CreateDebtPaymentDTO,
   User,
   CreateUserDTO,
   UpdateUserDTO,
@@ -404,6 +409,56 @@ export const unmarkBillPaid = async (payment: { id: string; transactionId?: stri
   if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));
   batch.delete(doc(db, "billPayments", payment.id));
   await batch.commit();
+};
+
+// ─── DEBTS ────────────────────────────────────────────────────────────────────
+// Deliberately their own collection rather than transactions with a flag:
+// borrowed money is not income, and everything that reads transactions would
+// otherwise have to learn to exclude it.
+
+export const getDebts = async (userId: string) => {
+  const q = query(collection(db, "debts"), where("userId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Debt);
+};
+
+export const getDebtPayments = async (userId: string) => {
+  const q = query(collection(db, "debtPayments"), where("userId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DebtPayment);
+};
+
+export const createDebt = async (userId: string, data: CreateDebtDTO) => {
+  const ref = await addDoc(collection(db, "debts"), {
+    ...clean({ ...data, userId }),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
+  await updateDoc(doc(db, "debts", debtId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+};
+
+/** Deleting a loan takes its repayments with it — they mean nothing alone. */
+export const deleteDebt = async (debtId: string, paymentIds: string[]) => {
+  const batch = writeBatch(db);
+  for (const id of paymentIds) batch.delete(doc(db, "debtPayments", id));
+  batch.delete(doc(db, "debts", debtId));
+  await batch.commit();
+};
+
+export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO) => {
+  const ref = await addDoc(collection(db, "debtPayments"), {
+    ...clean({ ...data, userId }),
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const deleteDebtPayment = async (paymentId: string) => {
+  await deleteDoc(doc(db, "debtPayments", paymentId));
 };
 
 // ─── DATA RESET ───────────────────────────────────────────────────────────────

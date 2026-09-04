@@ -47,7 +47,8 @@
     "collapseSidebar": "Σύμπτυξη μενού",
     "signOut": "Αποσύνδεση",
     "lightMode": "Φωτεινό θέμα",
-    "darkMode": "Σκοτεινό θέμα"
+    "darkMode": "Σκοτεινό θέμα",
+    "debts": "Χρέη"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθατε ξανά",
@@ -323,7 +324,8 @@
     "installmentSplitEvery": "{{count}} δόσεις των {{amount}}, μία κάθε {{months}} μήνες",
     "billsInCategory_one": "{{count}} πάγιο",
     "billsInCategory_other": "{{count}} πάγια",
-    "tapCategoryHint": "Πάτα μια κατηγορία για να δεις τι περιέχει"
+    "tapCategoryHint": "Πάτα μια κατηγορία για να δεις τι περιέχει",
+    "monthFuture": "έρχεται"
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -396,9 +398,7 @@
     "lessThanBefore": "{{amount}} λιγότερα",
     "whereItWent": "Πού πήγαν",
     "whereItCameFrom": "Από πού ήρθαν",
-    "tapSliceToFilter": "Πάτα μια κατηγορία για φιλτράρισμα",
     "categorySplit": "Κατανομή ανά κατηγορία",
-    "filterByCategory": "Δείξε μόνο {{name}}",
     "otherCategories": "Λοιπά · {{count}} ακόμα",
     "overTime": "Στον χρόνο",
     "byDay": "Ανά ημέρα",
@@ -425,7 +425,11 @@
     "autoFilledNote": "Συμπληρώθηκαν από την κατηγορία: {{fields}}",
     "unlock": "Αλλαγή",
     "unlocked": "Ξεκλείδωτο",
-    "typeLockedOnEdit": "Το έσοδο και το έξοδο δεν εναλλάσσονται. Διάγραψε και ξαναδημιούργησε για να αλλάξει."
+    "typeLockedOnEdit": "Το έσοδο και το έξοδο δεν εναλλάσσονται. Διάγραψε και ξαναδημιούργησε για να αλλάξει.",
+    "tapBarHint": "Πάτα μια μπάρα για να δεις περίοδο και σύνολο",
+    "showSliceRows": "Δες τι περιέχει «{{name}}»",
+    "tapSliceToOpen": "Πάτα μια κατηγορία για να δεις τι περιέχει",
+    "noPayeeMatches": "Κανένας αποθηκευμένος δικαιούχος δεν ταιριάζει. Γράψε ένα όνομα για μία φορά."
   },
   "analytics": {
     "title": "Στατιστικά",
@@ -472,11 +476,12 @@
       "savings": "Αποταμίευση & επενδύσεις",
       "leftover": "Περίσσεψαν",
       "deficit": "Από το αποθεματικό",
-      "withdrawals": "Αναλήψεις"
+      "withdrawals": "Αναλήψεις",
+      "expand": "Δες το μεγαλύτερο"
     },
     "categoryTrend": {
-      "title": "Κατηγορίες διαχρονικά",
-      "hint": "Πώς αλλάζει το μείγμα των εξόδων σου από μήνα σε μήνα",
+      "title": "Οι κατηγορίες μεταξύ τους",
+      "hint": "Μία γραμμή η καθεμία στην ίδια κλίμακα — ποια ανεβαίνει και ποια ξεπέρασε ποια",
       "other_one": "{{count}} ακόμα",
       "other_other": "{{count}} ακόμα"
     },
@@ -509,7 +514,11 @@
     "waterfall": {
       "title": "Πού πήγε ο μήνας",
       "hint": "Έσοδα, μετά κάθε μεγάλη κατηγορία από πάνω τους, και τι έμεινε",
-      "left": "Μένουν μετά"
+      "left": "Μένουν μετά",
+      "leftShort": "μένουν {{amount}}",
+      "leftover": "Έμειναν",
+      "otherCategories": "Όλα τα υπόλοιπα",
+      "shortBy": "Λείπουν"
     },
     "committed": {
       "title": "Δεσμευμένα vs ελεύθερα",
@@ -682,7 +691,10 @@
     "note_undated": "δεν έχει οριστεί ημερομηνία πληρωμής",
     "note_funded": "δεν χρειάζεται τίποτα άλλο αυτόν τον μήνα",
     "noBillsAtAll": "Δεν έχεις πάγια ακόμα.",
-    "noGoalsAtAll": "Δεν υπάρχουν ενεργοί στόχοι."
+    "noGoalsAtAll": "Δεν υπάρχουν ενεργοί στόχοι.",
+    "deleteLine": "Διαγραφή γραμμής",
+    "deleteLineConfirm": "Να διαγραφεί το «{{name}}» από τον προϋπολογισμό σου;",
+    "timesMonths": "× {{months}} μήνες σε αυτό το διάστημα"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -891,5 +903,44 @@
     "defaultPayeePlaceholder": "π.χ. Netflix",
     "filterPlaceholder": "Φιλτράρισμα κατηγοριών…",
     "noneMatch": "Καμία κατηγορία δεν ταιριάζει."
+  },
+  "debts": {
+    "title": "Χρέη",
+    "subtitle": "Τι χρωστάς και τι σου χρωστούν",
+    "add": "Καταχώριση δανείου",
+    "direction": "Προς ποια κατεύθυνση",
+    "iBorrowed": "Μου δάνεισαν",
+    "iLent": "Δάνεισα",
+    "person": "Με ποιον",
+    "personPlaceholder": "π.χ. ο αδερφός μου",
+    "what": "Για τι",
+    "whatPlaceholder": "π.χ. ενοίκιο",
+    "when": "Πότε",
+    "dueDate": "Επιστροφή ώς",
+    "dueDateHint": "Προαιρετικό. Αν μπει, ο planner το χρεώνει εκείνη τη μέρα.",
+    "youOwe": "Χρωστάς",
+    "owedToYou": "Σου χρωστούν",
+    "youOweAmount": "Χρωστάς {{amount}}",
+    "owesYouAmount": "Σου χρωστά {{amount}}",
+    "bothWays": "Χρωστάς {{out}} · σου χρωστά {{in}}",
+    "settledUp": "Πατσί",
+    "loanCount_one": "{{count}} ανοιχτό",
+    "loanCount_other": "{{count}} ανοιχτά",
+    "empty": "Δεν υπάρχει τίποτα. Καταχώρισε ένα δάνειο και θα κρατάει λογαριασμό.",
+    "remaining": "μένουν {{amount}}",
+    "settled": "Εξοφλημένο",
+    "tookAmount": "πήρες {{amount}}",
+    "gaveAmount": "έδωσες {{amount}}",
+    "dueBy": "επιστροφή ώς {{date}}",
+    "paidBack": "έδωσες πίσω",
+    "gotBack": "πήρες πίσω",
+    "recordPayback": "Καταχώριση εξόφλησης",
+    "recordReceipt": "Καταχώριση είσπραξης",
+    "of": "από {{amount}}",
+    "deleteLoan": "Διαγραφή δανείου",
+    "deleteLoanConfirm": "Να διαγραφεί το δάνειο και όλες οι εξοφλήσεις του; Δεν αναιρείται.",
+    "plannerGroup": "Χρέη",
+    "plannerHint": "Όσα χρωστάς. Τα «σου χρωστούν» δεν μετράνε — δεν είναι έσοδο μέχρι να έρθουν.",
+    "loadFailed": "Δεν φόρτωσαν τα χρέη. Αν μόλις προστέθηκε το tab, οι συλλογές debts και debtPayments θέλουν ακόμα κανόνες ασφαλείας στο Firebase console."
   }
 }

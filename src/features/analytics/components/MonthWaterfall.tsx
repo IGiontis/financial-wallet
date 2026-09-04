@@ -1,72 +1,63 @@
 import { useMemo } from "react";
-import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, CURSOR_FILL } from "./chartTheme";
-import { TooltipRow, TooltipShell } from "./TooltipShell";
+import styles from "./css/Waterfall.module.css";
 import type { WaterfallStep } from "../analyticsUtils";
-
-interface Point extends WaterfallStep {
-  name: string;
-  /** Invisible pedestal that floats the visible bar at the right height. */
-  base: number;
-  size: number;
-}
-
-function StepTooltip({ active, payload, formatCurrency }: { active?: boolean; payload?: { payload?: Point }[]; formatCurrency: (n: number) => string }) {
-  const { t } = useTranslation();
-  const point = payload?.[0]?.payload;
-  if (!active || !point) return null;
-
-  return (
-    <TooltipShell title={point.name}>
-      <TooltipRow
-        color={point.kind === "expense" ? "var(--color-expense)" : "var(--color-income)"}
-        label={point.kind === "expense" ? t("analytics.flow.expenses") : t("analytics.flow.income")}
-        value={formatCurrency(Math.abs(point.amount))}
-      />
-      {point.kind === "expense" && <TooltipRow label={t("analytics.waterfall.left")} value={formatCurrency(point.balance)} />}
-    </TooltipShell>
-  );
-}
 
 /**
  * Income, then each big category taken off it, then what survived.
  *
- * Floating bars on one baseline: every step is measured against the same axis,
- * so "which of these took the most" is a comparison of two heights. The Sankey
- * beside it shows the same money as ribbons, which is better at showing that
- * everything connects and worse at saying which is bigger.
+ * Drawn as rows rather than columns, and as plain elements rather than a chart:
+ * category names on a shared horizontal axis collide the moment there are more
+ * than four or five of them, and the wider the card the worse it gets, because
+ * the labels grow with the text while the slots grow with the container. Given
+ * a column of its own, a name has room whatever it is called and however many
+ * there are.
+ *
+ * Every step is measured against the same scale, so the bar offsets show the
+ * running total falling — the thing a waterfall exists to show — while the
+ * figures stay readable as a list.
  */
 export default function MonthWaterfall({ steps, nameFor, formatCurrency }: { steps: WaterfallStep[]; nameFor: (id: string) => string; formatCurrency: (n: number) => string }) {
-  const data = useMemo<Point[]>(
-    () =>
-      steps.map((step) => ({
-        ...step,
-        name: nameFor(step.id),
-        // A cost hangs from where the running total was down to where it now
-        // is; income and the remainder stand on the floor.
-        base: step.kind === "expense" ? step.balance : 0,
-        size: Math.abs(step.amount),
-      })),
-    [steps, nameFor],
-  );
+  const { t } = useTranslation();
+
+  const rows = useMemo(() => {
+    // Scaled to the largest figure on show, so income sets the full width and
+    // everything else is read against it.
+    const peak = Math.max(...steps.map((s) => Math.max(Math.abs(s.amount), Math.abs(s.balance))), 1);
+    const pct = (n: number) => `${Math.max((Math.abs(n) / peak) * 100, 0.8)}%`;
+
+    return steps.map((step) => ({
+      ...step,
+      name: nameFor(step.id),
+      width: pct(step.amount),
+      // A cost hangs from where the running total was down to where it lands;
+      // income and the remainder start at the floor.
+      offset: step.kind === "expense" ? pct(step.balance) : "0%",
+    }));
+  }, [steps, nameFor]);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }} barCategoryGap="18%">
-        <XAxis dataKey="name" tick={AXIS_TICK} axisLine={false} tickLine={false} interval={0} height={30} />
-        <ReferenceLine y={0} stroke="var(--color-border-primary)" />
-        <Tooltip content={<StepTooltip formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
-        <Bar dataKey="base" stackId="w" fill="transparent" isAnimationActive={false} />
-        <Bar dataKey="size" stackId="w" radius={[3, 3, 0, 0]} isAnimationActive={false}>
-          {data.map((step) => (
-            <Cell
-              key={step.id}
-              fill={step.kind === "income" ? "var(--color-income)" : step.kind === "result" ? "var(--bs-primary)" : "var(--color-expense)"}
+    <div className={styles.rows}>
+      {rows.map((row) => (
+        <div key={row.id} className={styles.row}>
+          <span className={styles.name} title={row.name}>
+            {row.name}
+          </span>
+          <span className={styles.track}>
+            <span
+              className={`${styles.bar} ${row.kind === "income" ? styles.barIncome : row.kind === "result" ? styles.barResult : styles.barExpense}`}
+              style={{ left: row.offset, width: row.width }}
             />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+          </span>
+          <span className={`${styles.amount} ${row.kind === "income" ? styles.amountIncome : row.kind === "result" ? styles.amountResult : ""}`}>
+            {row.kind === "expense" ? "−" : row.amount < 0 ? "−" : "+"}
+            {formatCurrency(Math.abs(row.amount))}
+          </span>
+          {row.kind === "expense" && (
+            <span className={styles.left}>{t("analytics.waterfall.leftShort", { amount: formatCurrency(row.balance) })}</span>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

@@ -47,7 +47,8 @@
     "collapseSidebar": "Collapse sidebar",
     "signOut": "Sign Out",
     "lightMode": "Light mode",
-    "darkMode": "Dark mode"
+    "darkMode": "Dark mode",
+    "debts": "Debts"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -323,7 +324,8 @@
     "installmentSplitEvery": "{{count}} payments of {{amount}}, one every {{months}} months",
     "billsInCategory_one": "{{count}} bill",
     "billsInCategory_other": "{{count}} bills",
-    "tapCategoryHint": "Tap a category to see what is in it"
+    "tapCategoryHint": "Tap a category to see what is in it",
+    "monthFuture": "still to come"
   },
   "transactions": {
     "title": "Transactions",
@@ -396,9 +398,7 @@
     "lessThanBefore": "{{amount}} less",
     "whereItWent": "Where it went",
     "whereItCameFrom": "Where it came from",
-    "tapSliceToFilter": "Tap a category to filter the list",
     "categorySplit": "Split by category",
-    "filterByCategory": "Show only {{name}}",
     "otherCategories": "Other · {{count}} more",
     "overTime": "Over time",
     "byDay": "By day",
@@ -425,7 +425,11 @@
     "autoFilledNote": "Filled in by the category: {{fields}}",
     "unlock": "Change",
     "unlocked": "Unlocked",
-    "typeLockedOnEdit": "Income and expense cannot be swapped. Delete and re-create to change it."
+    "typeLockedOnEdit": "Income and expense cannot be swapped. Delete and re-create to change it.",
+    "tapBarHint": "Tap a bar to see the period and the total",
+    "showSliceRows": "Show what is in {{name}}",
+    "tapSliceToOpen": "Tap a category to see what is in it",
+    "noPayeeMatches": "No saved payee matches. Type a name to use it once."
   },
   "analytics": {
     "title": "Analytics",
@@ -472,11 +476,12 @@
       "savings": "Saved & invested",
       "leftover": "Left over",
       "deficit": "From reserves",
-      "withdrawals": "Withdrawn"
+      "withdrawals": "Withdrawn",
+      "expand": "See it bigger"
     },
     "categoryTrend": {
-      "title": "Category mix over time",
-      "hint": "How your spending mix shifts from month to month",
+      "title": "Categories against each other",
+      "hint": "One line each on a shared scale — who is climbing, and who overtook whom",
       "other_one": "{{count}} other",
       "other_other": "{{count}} others"
     },
@@ -509,7 +514,11 @@
     "waterfall": {
       "title": "Where the month went",
       "hint": "Income, then each big category taken off it, then what survived",
-      "left": "Left after this"
+      "left": "Left after this",
+      "leftShort": "{{amount}} left",
+      "leftover": "Left over",
+      "otherCategories": "Everything else",
+      "shortBy": "Short by"
     },
     "committed": {
       "title": "Committed vs free",
@@ -682,7 +691,10 @@
     "note_undated": "no due date set on it",
     "note_funded": "nothing more wanted this month",
     "noBillsAtAll": "No bills set up yet.",
-    "noGoalsAtAll": "No active goals."
+    "noGoalsAtAll": "No active goals.",
+    "deleteLine": "Delete line",
+    "deleteLineConfirm": "Delete «{{name}}» from your budget?",
+    "timesMonths": "× {{months}} months in this range"
   },
   "settings": {
     "title": "Settings",
@@ -891,5 +903,44 @@
     "defaultPayeePlaceholder": "e.g. Netflix",
     "filterPlaceholder": "Filter categories…",
     "noneMatch": "No category matches."
+  },
+  "debts": {
+    "title": "Debts",
+    "subtitle": "What you owe, and what is owed to you",
+    "add": "Record a loan",
+    "direction": "Which way",
+    "iBorrowed": "They lent me",
+    "iLent": "I lent them",
+    "person": "Who with",
+    "personPlaceholder": "e.g. my brother",
+    "what": "What for",
+    "whatPlaceholder": "e.g. rent",
+    "when": "When",
+    "dueDate": "Back by",
+    "dueDateHint": "Optional. When set, the planner charges it on that day.",
+    "youOwe": "You owe",
+    "owedToYou": "Owed to you",
+    "youOweAmount": "You owe {{amount}}",
+    "owesYouAmount": "Owes you {{amount}}",
+    "bothWays": "You owe {{out}} · owed {{in}}",
+    "settledUp": "Settled up",
+    "loanCount_one": "{{count}} open",
+    "loanCount_other": "{{count}} open",
+    "empty": "Nothing on record. Add a loan and it will keep count for you.",
+    "remaining": "{{amount}} left",
+    "settled": "Settled",
+    "tookAmount": "you took {{amount}}",
+    "gaveAmount": "you gave {{amount}}",
+    "dueBy": "back by {{date}}",
+    "paidBack": "you paid back",
+    "gotBack": "you got back",
+    "recordPayback": "Record a payment",
+    "recordReceipt": "Record money back",
+    "of": "of {{amount}}",
+    "deleteLoan": "Delete loan",
+    "deleteLoanConfirm": "Delete this loan and every repayment against it? This cannot be undone.",
+    "plannerGroup": "Debts",
+    "plannerHint": "What you owe. Money owed to you is not counted — it is not income until it arrives.",
+    "loadFailed": "Could not load your debts. If you have just added this tab, the debts and debtPayments collections still need security rules in the Firebase console."
   }
 }

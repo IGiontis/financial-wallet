@@ -17,6 +17,19 @@ export const SERIES_COLORS = [
 
 export const seriesColor = (index: number) => SERIES_COLORS[index % SERIES_COLORS.length];
 
+/**
+ * Dash pattern for a series, so more lines than colours stay distinguishable.
+ *
+ * The palette is six semantic tokens and the app deliberately has no others; a
+ * seventh line simply reusing the first colour is two indistinguishable lines
+ * on the same axis. Cycling the stroke instead gives eighteen combinations out
+ * of the same six colours, and reads in greyscale besides.
+ */
+export const seriesDash = (index: number): string | undefined => {
+  const cycle = Math.floor(index / SERIES_COLORS.length);
+  return cycle === 0 ? undefined : cycle === 1 ? "5 3" : "1 3";
+};
+
 export const AXIS_TICK = { fontSize: 11, fill: "var(--color-text-secondary)" } as const;
 export const GRID_STROKE = "var(--color-border-tertiary)";
 export const CURSOR_FILL = { fill: "rgba(128,128,128,0.08)", radius: 4 } as const;
@@ -37,4 +50,23 @@ export function compactNumber(value: number): string {
   if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `${(value / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
   return String(Math.round(value));
+}
+
+
+/**
+ * Gridline values for an amount axis, chosen so the steps suit the numbers.
+ *
+ * Left to itself a chart picks round hundreds, which is useless in a month
+ * whose whole spend is forty euros — every line sits squashed against the
+ * bottom of the first band. Stepping by whatever "round" means at this scale
+ * keeps the same chart readable at €40 and at €4,000.
+ */
+export function amountTicks(max: number, target = 5): number[] {
+  if (!Number.isFinite(max) || max <= 0) return [0];
+
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000];
+  const step = steps.find((candidate) => max / candidate <= target) ?? steps[steps.length - 1];
+  const top = Math.ceil(max / step) * step;
+
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
 }

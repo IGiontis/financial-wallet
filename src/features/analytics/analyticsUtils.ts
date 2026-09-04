@@ -568,6 +568,16 @@ export function categorySeries(transactions: Transaction[], flows: MonthlyFlow[]
 
 // ─── Waterfall ───────────────────────────────────────────────────────────────
 
+/**
+ * The two steps that are not categories.
+ *
+ * Exported because the page has to label them, and a bare "income" written on
+ * both sides is exactly how they ended up being fed to the category lookup and
+ * coming back as "Uncategorised".
+ */
+export const WATERFALL_INCOME_ID = "income";
+export const WATERFALL_LEFTOVER_ID = "leftover";
+
 export interface WaterfallStep {
   id: string;
   /** Signed: income is positive, each cost negative. */
@@ -596,7 +606,7 @@ export function spendingWaterfall(transactions: Transaction[], limit = 6): Water
 
   const steps: WaterfallStep[] = [];
   let balance = income;
-  steps.push({ id: "income", amount: income, balance, kind: "income" });
+  steps.push({ id: WATERFALL_INCOME_ID, amount: income, balance, kind: "income" });
 
   for (const row of top) {
     balance = round2(balance - row.amount);
@@ -607,7 +617,7 @@ export function spendingWaterfall(transactions: Transaction[], limit = 6): Water
     steps.push({ id: OTHER_CATEGORY_ID, amount: -rest, balance, kind: "expense" });
   }
 
-  steps.push({ id: "leftover", amount: balance, balance, kind: "result" });
+  steps.push({ id: WATERFALL_LEFTOVER_ID, amount: balance, balance, kind: "result" });
   return steps;
 }
 

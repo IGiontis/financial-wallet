@@ -549,3 +549,91 @@ export interface InvestmentSummary {
   goalsBehind: number;
   period: DateRange;
 }
+
+
+// ── Debts ────────────────────────────────────────────────────────────────────
+// Money lent and borrowed between people, kept apart from transactions on
+// purpose: borrowed money is not income and repaying it is not spending, and
+// letting either into the totals would wreck every average on the Analytics
+// screen. The Planner reads what you owe, because that genuinely has to be
+// found from somewhere.
+
+/** Which way the money went. Never inferred from a sign — see `debtsUtils`. */
+export type DebtDirection = "owed_by_me" | "owed_to_me";
+
+export interface Debt {
+  id: string;
+  userId: string;
+  /** Who it is with. Also the grouping key on the list. */
+  person: string;
+  direction: DebtDirection;
+  /** "Δανεικά για ενοίκιο" — optional, since most loans are just money. */
+  label?: string;
+  /** What was originally handed over, in base currency. */
+  amount: number;
+  /** When it happened. */
+  date: Date;
+  /** When it is meant to come back. Most loans between friends have none. */
+  dueDate?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** One movement against a debt — a repayment, whole or partial. */
+export interface DebtPayment {
+  id: string;
+  userId: string;
+  debtId: string;
+  amount: number;
+  date: Date;
+  createdAt: Date;
+}
+
+export interface CreateDebtDTO {
+  person: string;
+  direction: DebtDirection;
+  label?: string;
+  amount: number;
+  date: Date;
+  dueDate?: Date;
+  notes?: string;
+}
+
+export interface UpdateDebtDTO {
+  person?: string;
+  direction?: DebtDirection;
+  label?: string;
+  amount?: number;
+  date?: Date;
+  dueDate?: Date;
+  notes?: string;
+}
+
+export interface CreateDebtPaymentDTO {
+  debtId: string;
+  amount: number;
+  date: Date;
+}
+
+export interface DebtWithStatus extends Debt {
+  /** Every repayment against it, newest first. */
+  payments: DebtPayment[];
+  /** Total repaid so far. */
+  paid: number;
+  /** What is still open. Never negative — an overpayment settles, it does not reverse. */
+  remaining: number;
+  isSettled: boolean;
+}
+
+/** One person's whole position, which is what the list actually shows. */
+export interface DebtPerson {
+  person: string;
+  /** Still open, in each direction. */
+  owedByMe: number;
+  owedToMe: number;
+  /** owedToMe − owedByMe. Positive means you are up with this person. */
+  net: number;
+  openCount: number;
+  debts: DebtWithStatus[];
+}

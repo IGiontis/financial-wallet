@@ -1,0 +1,75 @@
+/* Rows, not columns: a name gets its own cell and never has to share width with
+   the bar it labels. */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(72px, 96px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: 12px;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.track {
+  position: relative;
+  height: 15px;
+  border-radius: 3px;
+  background: var(--color-background-secondary);
+}
+
+.bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.barIncome {
+  background: var(--color-income);
+}
+
+.barExpense {
+  background: var(--color-expense);
+}
+
+.barResult {
+  background: var(--bs-primary);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.amountIncome {
+  color: var(--color-income);
+}
+
+.amountResult {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+/* The running total after the step, tucked under its own amount so the grid
+   keeps three columns rather than four. */
+.left {
+  grid-column: 3;
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}

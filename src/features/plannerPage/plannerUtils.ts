@@ -2,7 +2,7 @@ import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOf
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
 import { getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, paidInstallments } from "../bills/billsUtils";
-import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The planner is a forward budget: what is going to arrive, what is going to
 // leave, over the next one to twelve months.
@@ -257,7 +257,7 @@ export interface PlannerEvent {
   overdue?: boolean;
 }
 
-export type PlanRowSource = "salary" | "bill" | "goal" | "line";
+export type PlanRowSource = "salary" | "bill" | "goal" | "line" | "debt";
 
 /** One line of the plan as the page lists it: what it is, and what it costs over the window. */
 export interface PlanRow {
@@ -309,6 +309,7 @@ export interface PlannerPlan {
   billsTotal: number;
   goalsTotal: number;
   budgetTotal: number;
+  debtsTotal: number;
   outgoingTotal: number;
   /** Income less outgoings across the window, before the opening balance. */
   net: number;
@@ -333,6 +334,8 @@ export interface PlanInput {
   bills: BillWithStatus[];
   goals: InvestmentGoalWithStats[];
   lines?: BudgetLine[];
+  /** Only what the user owes — see `plannableDebts`. */
+  debts?: DebtWithStatus[];
   salary?: SalaryPattern;
   openingBalance?: number;
   skipIds?: ReadonlySet<string>;
@@ -343,7 +346,7 @@ export interface PlanInput {
 /** Row id for the salary, which has no document of its own to be keyed by. */
 export const SALARY_ROW_ID = "__salary__";
 
-export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0, skipIds = new Set(), horizon = "1m", now = new Date() }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = "1m", now = new Date() }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
   const end = horizonEnd(horizon, now);
   const days = Math.max(differenceInCalendarDays(end, today), 0);
@@ -447,6 +450,22 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
     if (target > 0) for (const month of laterMonths) events.push({ kind: "goal", label: goal.name, amount: -target, date: month });
   }
 
+  // ── Debts owed ────────────────────────────────────────────────────────────
+  // Money borrowed has to come back out, so the plan has to know. Charged on
+  // the agreed date when there is one and on day one when there is not: an
+  // undated debt is owed now, and pretending otherwise would leave it out of
+  // every window until the day it was finally given a date.
+
+  for (const debt of debts) {
+    const enabled = isOn(debt.id);
+    const dueDate = debt.dueDate ? startOfDay(firestoreToDate(debt.dueDate)) : today;
+    const date = dueDate < today ? today : dueDate;
+    if (date > end) continue;
+
+    rows.push({ id: debt.id, source: "debt", label: debt.person, total: enabled ? negate(debt.remaining) : 0, occurrences: 1, enabled });
+    if (enabled) events.push({ kind: "goal", label: debt.label || debt.person, amount: -debt.remaining, date });
+  }
+
   // ── The user's own budget lines ───────────────────────────────────────────
   // Accrued by the day rather than dropped on a date: "€200 of food a month" is
   // a rate, not an appointment, and spreading it keeps the line readable and
@@ -504,7 +523,8 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
   const billsTotal = sumOf((r) => r.source === "bill");
   const goalsTotal = sumOf((r) => r.source === "goal");
   const budgetTotal = sumOf((r) => r.source === "line" && r.total < 0);
-  const outgoingTotal = round2(billsTotal + goalsTotal + budgetTotal);
+  const debtsTotal = sumOf((r) => r.source === "debt");
+  const outgoingTotal = round2(billsTotal + goalsTotal + budgetTotal + debtsTotal);
 
   const endingBalance = points.length > 0 ? points[points.length - 1].balance : round2(openingBalance);
   const net = round2(incomeTotal - outgoingTotal);
@@ -535,6 +555,7 @@ export function buildPlan({ bills, goals, lines = [], salary, openingBalance = 0
     billsTotal,
     goalsTotal,
     budgetTotal,
+    debtsTotal,
     outgoingTotal,
     net,
     endingBalance,

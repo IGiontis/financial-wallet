@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { amountTicks } from "./components/chartTheme";
 import {
   averageSavingsRate,
   categoryTrend,
@@ -19,6 +20,8 @@ import {
   categoryDeltas,
   categorySeries,
   spendingWaterfall,
+  WATERFALL_INCOME_ID,
+  WATERFALL_LEFTOVER_ID,
   committedSplit,
 } from "./analyticsUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
@@ -487,7 +490,10 @@ describe("spendingWaterfall", () => {
     ];
     const steps = spendingWaterfall(rows);
 
-    expect(steps.map((s) => s.id)).toEqual(["income", "rent", "food", "leftover"]);
+    // Neither end is a category, and both must stay addressable by name — the
+    // page labels them separately, and bare strings on both sides is how they
+    // came to be run through the category lookup and printed "Uncategorised".
+    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "rent", "food", WATERFALL_LEFTOVER_ID]);
     expect(steps.map((s) => s.balance)).toEqual([2000, 1400, 1100, 1100]);
     expect(steps[steps.length - 1].kind).toBe("result");
   });
@@ -501,7 +507,7 @@ describe("spendingWaterfall", () => {
     ];
     const steps = spendingWaterfall(rows, 3);
 
-    expect(steps.map((s) => s.id)).toEqual(["income", "a", "b", "c", OTHER_CATEGORY_ID, "leftover"]);
+    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "a", "b", "c", OTHER_CATEGORY_ID, WATERFALL_LEFTOVER_ID]);
     expect(steps.find((s) => s.id === OTHER_CATEGORY_ID)!.amount).toBe(-50);
     expect(steps[steps.length - 1].balance).toBe(650);
   });
@@ -545,5 +551,32 @@ describe("committedSplit", () => {
 
     expect(months).toHaveLength(3);
     expect(months[1]).toMatchObject({ committed: 0, free: 0, share: 0 });
+  });
+});
+
+describe("amountTicks", () => {
+  it("steps by tens when the month is small", () => {
+    // The point of the whole thing: round hundreds squash a €40 month into the
+    // bottom of the first band.
+    expect(amountTicks(40)).toEqual([0, 10, 20, 30, 40]);
+    expect(amountTicks(43)).toEqual([0, 10, 20, 30, 40, 50]);
+  });
+
+  it("steps by hundreds when the month is large", () => {
+    expect(amountTicks(2400)).toEqual([0, 500, 1000, 1500, 2000, 2500]);
+  });
+
+  it("keeps the count near the target at any scale", () => {
+    for (const max of [3, 17, 90, 640, 5200, 48000]) {
+      const ticks = amountTicks(max);
+      expect(ticks.length).toBeLessThanOrEqual(7);
+      expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(max);
+      expect(ticks[0]).toBe(0);
+    }
+  });
+
+  it("survives an empty chart", () => {
+    expect(amountTicks(0)).toEqual([0]);
+    expect(amountTicks(Number.NaN)).toEqual([0]);
   });
 });

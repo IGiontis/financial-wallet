@@ -961,7 +961,7 @@ export function getFrequencyLabel(bill: Pick<Bill, "frequency" | "intervalCount"
 // single calendar month, so one chip can't stand for one period the way it can
 // for everything monthly or slower.
 
-export type MonthChipStatus = "paid" | "due" | "empty";
+export type MonthChipStatus = "paid" | "due" | "future" | "empty";
 
 export interface MonthChip {
   key: string;
@@ -996,11 +996,22 @@ export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), bef
   return coverageForMonths(bill, months, now).map((cell) => ({
     key: `${cell.year}-${cell.month}`,
     start: new Date(cell.year, cell.month, 1),
-    // Three colours to the calendar's five. "Due" stays keyed to the period
+    // Four states to the calendar's five. "Due" stays keyed to the period
     // `nextDueDate` names rather than to the current month, so the payment
     // coming up reads as coming up however far off it is — and every month it
     // covers reads that way with it.
-    status: cell.status === "paid" ? "paid" : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey ? "due" : "empty",
+    //
+    // "Future" is the one after that: money you will owe, but not yet. It has
+    // to be told apart from "empty", which is a month before the bill existed
+    // and costs nothing at all.
+    status:
+      cell.status === "paid"
+        ? "paid"
+        : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey
+          ? "due"
+          : cell.status === "future"
+            ? "future"
+            : "empty",
   }));
 }
 

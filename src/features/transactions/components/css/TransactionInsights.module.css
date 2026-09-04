@@ -226,6 +226,50 @@
   flex-direction: column;
   justify-content: flex-end;
   gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The tapped column keeps its own bar at full strength and dims the rest, so
+   which one is being read is obvious without a tooltip. */
+.bars:has(.barColActive) .barCol:not(.barColActive) .bar {
+  opacity: 0.35;
+}
+
+.barColActive .barLabel {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ── Bar readout ──────────────────────────────────────────────────────────── */
+/* Above the chart, not under the finger: on a phone the thing you are pressing
+   is the thing you cannot see. */
+
+.barReadout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 20px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.barReadoutLabel {
+  color: var(--color-text-secondary);
+}
+
+.barReadoutAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.barReadoutHint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
 }
 
 .bar {
@@ -269,4 +313,76 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Slice contents ───────────────────────────────────────────────────────── */
+/* The transactions behind one slice of the ring, each expanding in place. */
+
+.sliceRow {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.sliceRow:first-of-type {
+  border-top: 0;
+}
+
+.sliceRowHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.375rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sliceRowName {
+  flex: 1;
+  min-width: 0;
+}
+
+.sliceRowTitle {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sliceRowDate {
+  display: block;
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+}
+
+.sliceRowAmount {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sliceDetail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.125rem 0.75rem;
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  font-size: 12px;
+}
+
+.sliceDetail dt {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.sliceDetail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }

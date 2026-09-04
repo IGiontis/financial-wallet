@@ -2,11 +2,13 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import { Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiPlus } from "react-icons/fi";
+import { FiCheck, FiPlus, FiX } from "react-icons/fi";
 import { filterPayees, isUnsavedPayee, payeeKey } from "../payeeStore";
 import styles from "./css/PayeeInput.module.css";
 
 const MENU_MAX_HEIGHT = 232;
+/** Below this the anchored menu gives way to a full-height sheet. */
+const SHEET_QUERY = "(max-width: 575.98px)";
 const VIEWPORT_MARGIN = 8;
 /** Gap between the field and the menu, applied on whichever side it opens. */
 const ANCHOR_GAP = 2;
@@ -44,6 +46,32 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [open, setOpen] = useState(false);
+
+  // A menu anchored to the field is the wrong shape on a phone: the keyboard
+  // takes most of the screen, leaving the list a couple of rows squeezed into
+  // whatever is left, inside a modal that is already scrolling. On a narrow
+  // screen the same options open as a sheet that owns the screen instead.
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia(SHEET_QUERY).matches);
+
+  useEffect(() => {
+    const query = window.matchMedia(SHEET_QUERY);
+    const sync = () => setNarrow(query.matches);
+
+    // Read once on mount as well as on change: the width can differ from what
+    // the initial render saw — a rotation, a resized window, or simply a
+    // remount — and a listener alone would keep the stale answer until the
+    // next resize.
+    sync();
+    query.addEventListener("change", sync);
+    // Rotation is the case that matters, and not every engine fires the media
+    // query listener for it — resize always arrives.
+    window.addEventListener("resize", sync);
+
+    return () => {
+      query.removeEventListener("change", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
   const [storedIndex, setActiveIndex] = useState(-1);
   const [rect, setRect] = useState<{ top: number; left: number; width: number; dropUp: boolean } | null>(null);
 
@@ -73,11 +101,11 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
 
   // Measure before paint so the menu never flashes at the wrong spot.
   useLayoutEffect(() => {
-    if (open) measure();
-  }, [open, optionCount, measure]);
+    if (open && !narrow) measure();
+  }, [open, narrow, optionCount, measure]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || narrow) return;
 
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -95,7 +123,7 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
       window.removeEventListener("resize", measure);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open, measure]);
+  }, [open, narrow, measure]);
 
   const commit = (name: string) => {
     onChange(name);
@@ -178,6 +206,52 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
       />
 
       {open &&
+        narrow &&
+        createPortal(
+          <div className={styles.sheet} role="dialog" aria-modal="true" aria-label={t("transactions.payee")}>
+            <div className={styles.sheetHead}>
+              <button type="button" className={styles.sheetClose} onClick={() => setOpen(false)} aria-label={t("common.close")}>
+                <FiX size={18} />
+              </button>
+              <span className={styles.sheetTitle}>{t("transactions.payee")}</span>
+            </div>
+
+            <div className={styles.sheetSearch}>
+              <Input
+                autoFocus
+                type="text"
+                autoComplete="off"
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), setOpen(false))}
+                aria-label={t("transactions.payee")}
+              />
+            </div>
+
+            <div className={styles.sheetList} id={listId} role="listbox">
+              {matches.map((name) => (
+                <button key={payeeKey(name)} type="button" className={styles.sheetOption} onClick={() => commit(name)}>
+                  <span className={styles.optionName}>{name}</span>
+                  {payeeKey(name) === payeeKey(value) && <FiCheck size={16} style={{ color: "var(--bs-primary)" }} aria-hidden />}
+                </button>
+              ))}
+
+              {showUseTyped && (
+                <button type="button" className={`${styles.sheetOption} ${styles.sheetCreate}`} onClick={() => commit(value.trim())}>
+                  <FiPlus size={14} aria-hidden />
+                  <span className={styles.optionName}>{t("transactions.useTypedPayee", { name: value.trim() })}</span>
+                </button>
+              )}
+
+              {optionCount === 0 && <p className={styles.sheetEmpty}>{t("transactions.noPayeeMatches")}</p>}
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {open &&
+        !narrow &&
         optionCount > 0 &&
         rect &&
         createPortal(

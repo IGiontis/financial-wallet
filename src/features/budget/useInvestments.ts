@@ -108,8 +108,8 @@ export function useCreateGoal() {
 
   return useMutation({
     mutationFn: ({ data, isActive }: { data: CreateInvestmentGoalDTO; isActive: boolean }) => createInvestmentGoal(userId, data, isActive),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -123,8 +123,8 @@ export function useUpdateGoal() {
 
   return useMutation({
     mutationFn: ({ goalId, data }: { goalId: string; data: UpdateInvestmentGoalDTO }) => updateInvestmentGoal(goalId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -138,8 +138,8 @@ export function useDeleteGoal() {
 
   return useMutation({
     mutationFn: (goalId: string) => deleteInvestmentGoal(goalId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
     },
   });
 }
@@ -171,11 +171,9 @@ export function useAddContribution() {
         contributionType: data.contributionType,
       });
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
-      ]);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
@@ -189,11 +187,9 @@ export function useDeleteContribution() {
 
   return useMutation({
     mutationFn: (contributionId: string) => deleteContribution(contributionId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
-      ]);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
 }
