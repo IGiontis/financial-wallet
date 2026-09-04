@@ -322,9 +322,13 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             </Button>
           </div>
         ) : (
+          // Naming a figure here would be a promise the next screen breaks: the
+          // form lets you change it, a variable bill only has an estimate, and
+          // an instalment plan owes a fraction of it. The amount is already
+          // among the facts above; the button only has to say where it goes.
           <Button color="success" onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
             <FiCheck size={16} className="me-1" />
-            {t("bills.payNow", { amount: formatCurrency(bill.amount) })}
+            {t("bills.payNow")}
           </Button>
         )}
       </ModalFooter>
