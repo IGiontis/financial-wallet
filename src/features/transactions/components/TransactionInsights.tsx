@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button, Collapse } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
+import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import {
   bucketOverTime,
   categorySplit,
@@ -69,19 +70,132 @@ export function TransactionInsights({ transactions, allTransactions, categories,
     return category ? `${category.icon ?? ""} ${categoryLabel(category.name, t)}`.trim() : "—";
   };
 
+  /** A single row's own category, so a slice with no name of its own can still say what is in it. */
+  const categoryFor = useCallback(
+    (tx: Transaction) => {
+      if (tx.isInvestmentTransaction || tx.isGoalTransaction) return { icon: "\u{1F4C8}", name: categoryLabel("Investments", t) };
+      const category = categories.find((c) => c.id === tx.categoryId);
+      return { icon: category?.icon ?? "\u{1F9FE}", name: category ? categoryLabel(category.name, t) : t("analytics.unknownCategory") };
+    },
+    [categories, t],
+  );
+
   const maxBucket = Math.max(...buckets.map((b) => b.amount), 0);
-  // Aim for at most ~8 visible captions regardless of how many bars there are.
-  const labelEvery = Math.max(1, Math.ceil(buckets.length / 8));
   const maxPayee = payees[0]?.amount ?? 0;
 
   // Which bar the reader has tapped, if any.
   const [picked, setPicked] = useState<string | null>(null);
   const [pickedSlice, setPickedSlice] = useState<string | null>(null);
+  // Which of the two charts is open full-screen, if either.
+  const [zoom, setZoom] = useState<"split" | "time" | null>(null);
 
   const sliceRows = useMemo(() => (pickedSlice ? sliceTransactions(transactions, mode, slices, pickedSlice) : []), [pickedSlice, transactions, mode, slices]);
   const sliceTotal = useMemo(() => sliceRows.reduce((sum, tx) => sum + Math.abs(tx.amount), 0), [sliceRows]);
   const pickedBucket = buckets.find((b) => b.key === picked);
   const dateFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
+
+  const splitTitle = mode === "expense" ? t("transactions.whereItWent") : t("transactions.whereItCameFrom");
+  const timeHint = t(bucket === "day" ? "transactions.byDay" : bucket === "week" ? "transactions.byWeek" : "transactions.byMonth");
+
+  // Both charts are drawn by the same code in the card and in the sheet, with a
+  // single flag deciding the sizes. A second copy would be two things to keep
+  // in step, and they would drift the first time either was touched.
+  const renderSplit = (zoomed: boolean) => (
+    <div className={`${styles.donutWrap} ${zoomed ? styles.zoomed : "mt-3"}`}>
+      <div className={styles.donutBox}>
+        <svg viewBox="0 0 42 42" className={styles.donut} role="img" aria-label={t("transactions.categorySplit")}>
+          <circle cx="21" cy="21" r={DONUT_RADIUS} fill="none" stroke="var(--color-background-secondary)" strokeWidth="6" />
+          {slices.reduce<{ nodes: React.ReactNode[]; offset: number }>(
+            (acc, slice, i) => {
+              acc.nodes.push(
+                <circle
+                  key={slice.categoryId}
+                  cx="21"
+                  cy="21"
+                  r={DONUT_RADIUS}
+                  fill="none"
+                  stroke={SLICE_COLORS[i % SLICE_COLORS.length]}
+                  strokeWidth="6"
+                  strokeDasharray={`${slice.percentage} ${100 - slice.percentage}`}
+                  strokeDashoffset={-acc.offset}
+                />,
+              );
+              return { nodes: acc.nodes, offset: acc.offset + slice.percentage };
+            },
+            { nodes: [], offset: 0 },
+          ).nodes}
+        </svg>
+        {slices.length > 0 && (
+          <div className={styles.donutHole}>
+            <span className={styles.donutTotal}>{Math.round(slices[0].percentage)}%</span>
+            <span className={styles.donutCaption}>{t("transactions.topShare")}</span>
+          </div>
+        )}
+      </div>
+
+      <div className={styles.legend}>
+        {slices.map((slice, i) => (
+          <button
+            key={slice.categoryId}
+            type="button"
+            className={styles.legendRow}
+            onClick={() => setPickedSlice(slice.categoryId)}
+            title={t("transactions.showSliceRows", { name: nameFor(slice.categoryId) })}
+          >
+            <span className={styles.swatch} style={{ background: SLICE_COLORS[i % SLICE_COLORS.length] }} />
+            <span className={styles.legendName}>{nameFor(slice.categoryId)}</span>
+            <span className={styles.legendAmount}>{formatCurrency(slice.amount)}</span>
+            <span className={styles.legendPct}>{Math.round(slice.percentage)}%</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderTime = (zoomed: boolean) => {
+    // Aim for at most ~8 visible captions in a card. The sheet has room for far
+    // more, which is half the reason for opening it.
+    const labelEvery = Math.max(1, Math.ceil(buckets.length / (zoomed ? 20 : 8)));
+
+    return (
+      <div className={zoomed ? styles.zoomed : undefined}>
+        {/* A title attribute is a desktop hover, which on a phone leaves
+            the bars carrying no information at all. Tapping one names it
+            instead, and the reading sits above the chart rather than
+            under the finger. */}
+        <div className={styles.barReadout} aria-live="polite">
+          {pickedBucket ? (
+            <>
+              <span className={styles.barReadoutLabel}>{pickedBucket.label}</span>
+              <span className={styles.barReadoutAmount} style={{ color: mode === "expense" ? "var(--color-expense)" : "var(--color-income)" }}>
+                {formatCurrency(pickedBucket.amount)}
+              </span>
+            </>
+          ) : (
+            <span className={styles.barReadoutHint}>{t("transactions.tapBarHint")}</span>
+          )}
+        </div>
+
+        <div className={styles.bars}>
+          {buckets.map((b, i) => (
+            <button
+              key={b.key}
+              type="button"
+              className={`${styles.barCol} ${picked === b.key ? styles.barColActive : ""}`}
+              aria-pressed={picked === b.key}
+              aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
+              onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
+            >
+              <div className={`${styles.bar} ${mode === "income" ? styles.barIncome : ""}`} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
+              {/* A month of daily bars would collide, so only every nth
+                  label is drawn — the rest are reachable by tap. */}
+              <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="mb-3">
@@ -164,7 +278,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
               <div className={styles.card}>
                 <div className="d-flex justify-content-between align-items-start gap-2">
                   <div style={{ minWidth: 0 }}>
-                    <div className={styles.cardTitle}>{mode === "expense" ? t("transactions.whereItWent") : t("transactions.whereItCameFrom")}</div>
+                    <div className={styles.cardTitle}>{splitTitle}</div>
                     <div className={styles.cardHint}>{t("transactions.tapSliceToOpen")}</div>
                   </div>
                   {/* Headline sits here rather than inside the ring — a five- or
@@ -175,100 +289,23 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                     </div>
                     <div className={styles.statSub}>{t("transactions.transactionCount", { count: stats.count })}</div>
                   </div>
+                  <ZoomButton onClick={() => setZoom("split")} />
                 </div>
 
-                <div className={`${styles.donutWrap} mt-3`}>
-                  <div className={styles.donutBox}>
-                    <svg viewBox="0 0 42 42" className={styles.donut} role="img" aria-label={t("transactions.categorySplit")}>
-                      <circle cx="21" cy="21" r={DONUT_RADIUS} fill="none" stroke="var(--color-background-secondary)" strokeWidth="6" />
-                      {slices.reduce<{ nodes: React.ReactNode[]; offset: number }>(
-                        (acc, slice, i) => {
-                          acc.nodes.push(
-                            <circle
-                              key={slice.categoryId}
-                              cx="21"
-                              cy="21"
-                              r={DONUT_RADIUS}
-                              fill="none"
-                              stroke={SLICE_COLORS[i % SLICE_COLORS.length]}
-                              strokeWidth="6"
-                              strokeDasharray={`${slice.percentage} ${100 - slice.percentage}`}
-                              strokeDashoffset={-acc.offset}
-                            />,
-                          );
-                          return { nodes: acc.nodes, offset: acc.offset + slice.percentage };
-                        },
-                        { nodes: [], offset: 0 },
-                      ).nodes}
-                    </svg>
-                    {slices.length > 0 && (
-                      <div className={styles.donutHole}>
-                        <span className={styles.donutTotal}>{Math.round(slices[0].percentage)}%</span>
-                        <span className={styles.donutCaption}>{t("transactions.topShare")}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={styles.legend}>
-                    {slices.map((slice, i) => {
-                      return (
-                        <button
-                          key={slice.categoryId}
-                          type="button"
-                          className={styles.legendRow}
-                          onClick={() => setPickedSlice(slice.categoryId)}
-                          title={t("transactions.showSliceRows", { name: nameFor(slice.categoryId) })}
-                        >
-                          <span className={styles.swatch} style={{ background: SLICE_COLORS[i % SLICE_COLORS.length] }} />
-                          <span className={styles.legendName}>{nameFor(slice.categoryId)}</span>
-                          <span className={styles.legendAmount}>{formatCurrency(slice.amount)}</span>
-                          <span className={styles.legendPct}>{Math.round(slice.percentage)}%</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                {renderSplit(false)}
               </div>
 
               {/* ── Over time ── */}
               <div className={styles.card}>
-                <div className={styles.cardTitle}>{t("transactions.overTime")}</div>
-                <div className={`${styles.cardHint} mb-3`}>{t(bucket === "day" ? "transactions.byDay" : bucket === "week" ? "transactions.byWeek" : "transactions.byMonth")}</div>
-
-                {/* A title attribute is a desktop hover, which on a phone leaves
-                    the bars carrying no information at all. Tapping one names it
-                    instead, and the reading sits above the chart rather than
-                    under the finger. */}
-                <div className={styles.barReadout} aria-live="polite">
-                  {pickedBucket ? (
-                    <>
-                      <span className={styles.barReadoutLabel}>{pickedBucket.label}</span>
-                      <span className={styles.barReadoutAmount} style={{ color: mode === "expense" ? "var(--color-expense)" : "var(--color-income)" }}>
-                        {formatCurrency(pickedBucket.amount)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className={styles.barReadoutHint}>{t("transactions.tapBarHint")}</span>
-                  )}
+                <div className="d-flex justify-content-between align-items-start gap-2">
+                  <div style={{ minWidth: 0 }}>
+                    <div className={styles.cardTitle}>{t("transactions.overTime")}</div>
+                    <div className={`${styles.cardHint} mb-3`}>{timeHint}</div>
+                  </div>
+                  <ZoomButton onClick={() => setZoom("time")} />
                 </div>
 
-                <div className={styles.bars}>
-                  {buckets.map((b, i) => (
-                    <button
-                      key={b.key}
-                      type="button"
-                      className={`${styles.barCol} ${picked === b.key ? styles.barColActive : ""}`}
-                      aria-pressed={picked === b.key}
-                      aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
-                      onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
-                    >
-                      <div className={`${styles.bar} ${mode === "income" ? styles.barIncome : ""}`} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
-                      {/* A month of daily bars would collide, so only every nth
-                          label is drawn — the rest are reachable by tap. */}
-                      <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
-                    </button>
-                  ))}
-                </div>
+                {renderTime(false)}
               </div>
             </div>
 
@@ -299,10 +336,23 @@ export function TransactionInsights({ transactions, allTransactions, categories,
           </div>
         )}
       </Collapse>
+
+      {zoom === "split" && (
+        <ZoomModal open onClose={() => setZoom(null)} title={splitTitle} hint={t("transactions.tapSliceToOpen")}>
+          {renderSplit(true)}
+        </ZoomModal>
+      )}
+      {zoom === "time" && (
+        <ZoomModal open onClose={() => setZoom(null)} title={t("transactions.overTime")} hint={timeHint}>
+          {renderTime(true)}
+        </ZoomModal>
+      )}
+
       <SliceTransactionsModal
         title={pickedSlice ? nameFor(pickedSlice) : null}
         transactions={sliceRows}
         total={sliceTotal}
+        categoryFor={categoryFor}
         formatCurrency={formatCurrency}
         locale={lang}
         onClose={() => setPickedSlice(null)}

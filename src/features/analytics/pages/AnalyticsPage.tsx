@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
-import { Alert, Container, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Alert, Container } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
@@ -67,7 +67,6 @@ export function AnalyticsPage() {
   // One clock reading for the whole visit. A fresh `new Date()` each render
   // would be a new value every time and invalidate every memo below.
   const [now] = useState(() => new Date());
-  const [flowOpen, setFlowOpen] = useState(false);
 
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
@@ -382,8 +381,8 @@ export function AnalyticsPage() {
             </ChartCard>
 
             {/* The ribbons crowd as categories pile up, and on a phone the card is
-                far too small to follow one through. Tapping opens the same
-                drawing at the size it needs. */}
+                far too small to follow one through — the card's own magnify
+                button opens the same drawing at the size it needs. */}
             <ChartCard
               wide
               tall
@@ -392,28 +391,12 @@ export function AnalyticsPage() {
               value={sankey ? formatCurrency(sankey.total) : undefined}
               valueTone="income"
               empty={sankey ? undefined : noData}
-              onExpand={sankey ? () => setFlowOpen(true) : undefined}
-              expandLabel={t("analytics.moneyFlow.expand")}
             >
               <Suspense fallback={null}>
                 <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
               </Suspense>
             </ChartCard>
           </div>
-
-          <Modal isOpen={flowOpen} toggle={() => setFlowOpen(false)} fullscreen scrollable>
-            <ModalHeader toggle={() => setFlowOpen(false)}>{t("analytics.moneyFlow.title")}</ModalHeader>
-            <ModalBody className="d-flex flex-column">
-              <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
-                {t("analytics.moneyFlow.hint")}
-              </p>
-              <div className="flex-fill" style={{ minHeight: 420 }}>
-                <Suspense fallback={null}>
-                  <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
-                </Suspense>
-              </div>
-            </ModalBody>
-          </Modal>
 
           <div className={styles.grid}>
             <ChartCard

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths } from "./plannerUtils";
+import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, type BudgetLine } from "./plannerUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
@@ -215,5 +215,26 @@ describe("debts in the plan", () => {
 
     expect(off.debtsTotal).toBe(0);
     expect(off.endingBalance).toBeCloseTo(on.endingBalance + 200, 2);
+  });
+});
+
+describe("the user's own budget lines", () => {
+  const food = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "l1", label: "Φαγητό", amount: 200, kind: "expense", ...over });
+
+  it("keeps a row for a line whose amount is momentarily zero", () => {
+    // The state every line passes through while its figure is being retyped.
+    // The page groups by `kind`, so the row has to keep saying which side it is
+    // on even when the sign of its total says nothing — grouping by sign made
+    // it vanish from both lists mid-keystroke and read as deleted.
+    const row = buildPlan({ ...base, horizon: "1m", lines: [food({ amount: 0 })] }).rows.find((r) => r.source === "line");
+
+    expect(row).toMatchObject({ id: "l1", kind: "expense", total: 0 });
+  });
+
+  it("names the side for both kinds, switched on or off", () => {
+    const lines = [food(), food({ id: "l2", label: "Ενοίκιο σπιτιού", amount: 300, kind: "income" })];
+    const plan = buildPlan({ ...base, horizon: "1m", lines, skipIds: new Set(["l2"]) });
+
+    expect(plan.rows.filter((r) => r.source === "line").map((r) => r.kind)).toEqual(["expense", "income"]);
   });
 });

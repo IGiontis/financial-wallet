@@ -429,7 +429,20 @@
     "tapBarHint": "Tap a bar to see the period and the total",
     "showSliceRows": "Show what is in {{name}}",
     "tapSliceToOpen": "Tap a category to see what is in it",
-    "noPayeeMatches": "No saved payee matches. Type a name to use it once."
+    "noPayeeMatches": "No saved payee matches. Type a name to use it once.",
+    "insideOther": "What is inside",
+    "wizard": {
+      "type": "Type",
+      "category": "Category",
+      "details": "Details",
+      "review": "Review",
+      "stepOf": "Step {{current}} of {{total}}",
+      "pickType": "What kind of transaction is this?",
+      "expenseHint": "Money going out",
+      "incomeHint": "Money coming in",
+      "pickCategory": "Which category does it belong to?",
+      "fillDetails": "Amount, date, and who it was with"
+    }
   },
   "analytics": {
     "title": "Analytics",
@@ -476,8 +489,7 @@
       "savings": "Saved & invested",
       "leftover": "Left over",
       "deficit": "From reserves",
-      "withdrawals": "Withdrawn",
-      "expand": "See it bigger"
+      "withdrawals": "Withdrawn"
     },
     "categoryTrend": {
       "title": "Categories against each other",
@@ -527,7 +539,8 @@
       "free": "Free",
       "share": "Committed share",
       "headline": "{{percent}}% already spoken for"
-    }
+    },
+    "expandChart": "See it bigger"
   },
   "investments": {
     "title": "Investments",
@@ -941,6 +954,10 @@
     "deleteLoanConfirm": "Delete this loan and every repayment against it? This cannot be undone.",
     "plannerGroup": "Debts",
     "plannerHint": "What you owe. Money owed to you is not counted — it is not income until it arrives.",
-    "loadFailed": "Could not load your debts. If you have just added this tab, the debts and debtPayments collections still need security rules in the Firebase console."
+    "loadFailed": "Could not load your debts. If you have just added this tab, the debts and debtPayments collections still need security rules in the Firebase console.",
+    "net": "Net",
+    "netAhead": "in your favour",
+    "netBehind": "against you",
+    "netEven": "all square"
   }
 }

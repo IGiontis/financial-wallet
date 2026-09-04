@@ -70,6 +70,10 @@ export function PlannerPage() {
   const [selectedDay, setSelectedDay] = useState(-1);
   const [draft, setDraft] = useState<{ kind: "income" | "expense"; label: string; amount: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BudgetLine | null>(null);
+  // What is in the amount box while it is being typed in. The stored figure is
+  // a number, so an empty box would immediately read back as "0" and every
+  // further digit would land after it.
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
@@ -133,11 +137,15 @@ export function PlannerPage() {
   // Two decimals would read as noise; one says "not quite a whole month".
   const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(plan.monthsCovered);
 
+  // Which section a budget line belongs to is its kind, not the sign of its
+  // figure. Reading the sign meant a line sitting at zero matched neither
+  // list — so clearing the box to type a new number made the whole row
+  // disappear mid-keystroke, exactly as if it had been deleted.
   const rowsOf = (match: (row: PlanRow) => boolean) => plan.rows.filter(match);
-  const incomeRows = rowsOf((r) => r.source === "salary" || (r.source === "line" && (r.perMonth ?? 0) > 0));
+  const incomeRows = rowsOf((r) => r.source === "salary" || (r.source === "line" && r.kind === "income"));
   const billRows = rowsOf((r) => r.source === "bill");
   const goalRows = rowsOf((r) => r.source === "goal");
-  const budgetRows = rowsOf((r) => r.source === "line" && (r.perMonth ?? 0) < 0);
+  const budgetRows = rowsOf((r) => r.source === "line" && r.kind === "expense");
   const debtRows = rowsOf((r) => r.source === "debt");
 
   // Written from the sanitised copies rather than through a functional update,
@@ -310,8 +318,19 @@ export function PlannerPage() {
               type="number"
               min={0}
               inputMode="decimal"
-              value={String(line.amount)}
-              onChange={(e) => editLine(line.id, { amount: parseFloat(e.target.value) || 0 })}
+              value={amountDrafts[line.id] ?? String(line.amount)}
+              onChange={(e) => {
+                const text = e.target.value;
+                setAmountDrafts((d) => ({ ...d, [line.id]: text }));
+                editLine(line.id, { amount: parseFloat(text) || 0 });
+              }}
+              onBlur={() =>
+                setAmountDrafts((d) => {
+                  const next = { ...d };
+                  delete next[line.id];
+                  return next;
+                })
+              }
               aria-label={t("planner.lineAmount")}
             />
             <InputGroupText>{t("planner.perMonthSuffix")}</InputGroupText>

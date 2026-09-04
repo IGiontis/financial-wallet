@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
+import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -17,6 +18,7 @@ import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
 import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
+import styles from "./css/TransactionWizard.module.css";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -36,6 +38,43 @@ interface TransactionFormValues {
 }
 
 const today = new Date().toISOString().split("T")[0];
+
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+// One question per screen. The old single-page form asked all of them at once,
+// which on a phone meant a scroll with the category grid in the middle of it —
+// and the type, the one answer that silently poisons every chart if it is
+// wrong, was a consequence of a tab somewhere in the middle rather than a
+// decision anyone made.
+const STEPS = ["type", "category", "details", "review"] as const;
+type Step = (typeof STEPS)[number];
+
+function StepBar({ current, onGo }: { current: Step; onGo: (step: Step) => void }) {
+  const { t } = useTranslation();
+  const index = STEPS.indexOf(current);
+
+  return (
+    <div className={styles.steps} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: STEPS.length })}>
+      {STEPS.map((step, i) => (
+        <Fragment key={step}>
+          {i > 0 && <span className={`${styles.stepBar} ${i <= index ? styles.stepBarDone : ""}`} aria-hidden />}
+          {/* A finished step is a link back to it; an unreached one is inert
+              rather than hidden, so the length of the path stays visible. */}
+          <button
+            type="button"
+            className={`${styles.step} ${i === index ? styles.stepCurrent : ""} ${i < index ? styles.stepDone : ""}`}
+            disabled={i >= index}
+            aria-current={i === index ? "step" : undefined}
+            onClick={() => onGo(step)}
+          >
+            <span className={styles.stepDot}>{i + 1}</span>
+            <span className={styles.stepLabel}>{t(`transactions.wizard.${step}`)}</span>
+          </button>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -66,18 +105,9 @@ const validationSchema = Yup.object({
   place: Yup.string().max(20, "validation.maxChars|20").optional(),
 });
 
-// ─── ReviewScreen ─────────────────────────────────────────────────────────────
+// ─── Review ───────────────────────────────────────────────────────────────────
 
-function ReviewScreen({
-  values, categories, onBack, onConfirm, isSubmitting, formatAmount,
-}: {
-  values: TransactionFormValues;
-  categories: Category[];
-  onBack: () => void;
-  onConfirm: () => void;
-  isSubmitting: boolean;
-  formatAmount: (n: number) => string;
-}) {
+function ReviewStep({ values, categories, formatAmount }: { values: TransactionFormValues; categories: Category[]; formatAmount: (n: number) => string }) {
   const { t } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
@@ -96,29 +126,19 @@ function ReviewScreen({
     : [];
 
   return (
-    <>
-      <ModalBody>
-        <TransactionReviewBody
-          subtitle={t("transactions.reviewBeforeSaving")}
-          description={values.description}
-          categoryIcon={category?.icon ?? ""}
-          categoryName={categoryLabel(category?.name, t) || "—"}
-          primaryBadge={isIncome ? t("transactions.income") : t("transactions.expense")}
-          colors={colors}
-          amount={Number(values.amount)}
-          formatAmount={formatAmount}
-          dateFormatted={format(new Date(values.date), "dd/MM/yyyy")}
-          notes={values.notes || undefined}
-          fuelCells={fuelCells}
-        />
-      </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={onBack} disabled={isSubmitting}>{t("common.back")}</Button>
-        <Button color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
-        </Button>
-      </ModalFooter>
-    </>
+    <TransactionReviewBody
+      subtitle={t("transactions.reviewBeforeSaving")}
+      description={values.description}
+      categoryIcon={category?.icon ?? ""}
+      categoryName={categoryLabel(category?.name, t) || "—"}
+      primaryBadge={isIncome ? t("transactions.income") : t("transactions.expense")}
+      colors={colors}
+      amount={Number(values.amount)}
+      formatAmount={formatAmount}
+      dateFormatted={format(new Date(values.date), "dd/MM/yyyy")}
+      notes={values.notes || undefined}
+      fuelCells={fuelCells}
+    />
   );
 }
 
@@ -134,7 +154,7 @@ interface AddTransactionModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
-  const [step, setStep] = useState<"form" | "review">("form");
+  const [step, setStep] = useState<Step>("type");
   const [isFuelCategory, setIsFuelCategory] = useState(false);
   const { t } = useTranslation();
   const { payees } = usePayees();
@@ -171,7 +191,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         await onSubmit(dto);
         toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
-        setStep("form");
+        setStep("type");
         setIsFuelCategory(false);
         onClose();
       } catch {
@@ -248,13 +268,27 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     setUnlocked(false);
   };
 
+  // Choosing is also moving on: on both of the first two steps the answer is a
+  // single tap, and asking for a second one on Next would double the taps for
+  // no decision. Back is one tap away, and the step bar goes back further.
+  const chooseType = (next: "income" | "expense") => {
+    if (next !== formik.values.type) handleTypeChange(next);
+    setStep("category");
+  };
+
+  const chooseCategory = (categoryId: string, category: Category) => {
+    handleCategorySelect(categoryId, category);
+    setStep("details");
+  };
 
   const handleClose = () => {
     formik.resetForm();
-    setStep("form");
+    setStep("type");
     setIsFuelCategory(false);
     onClose();
   };
+
+  const goBack = () => setStep(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]);
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
@@ -265,167 +299,202 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     }
   };
 
-
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
-      <ModalHeader toggle={handleClose}>{step === "form" ? t("transactions.addTransaction") : t("transactions.reviewTransaction")}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{t("transactions.addTransaction")}</ModalHeader>
 
-      {step === "review" ? (
-        <ReviewScreen
-          values={formik.values}
-          categories={categories}
-          onBack={() => setStep("form")}
-          onConfirm={() => formik.submitForm()}
-          isSubmitting={formik.isSubmitting}
-          formatAmount={formatAmount}
-        />
-      ) : (
-        <>
-          <ModalBody>
-            <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Category (and, by consequence, the type) ── */}
-              {/* One control, not two. The type used to be its own toggle that
-                  could disagree with the category chosen under it; now the tab
-                  IS the type, and picking a card settles both. */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.category")} *</Label>
-                <CategoryPicker
-                  categories={categories}
-                  value={formik.values.categoryId}
-                  type={formik.values.type}
-                  onTypeChange={handleTypeChange}
-                  onChange={handleCategorySelect}
-                  invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
-                />
-                <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
-              </FormGroup>
+      <ModalBody>
+        <StepBar current={step} onGo={setStep} />
 
-              {/* What the category filled in, and the way out of it. Locked by
-                  default so the common entry is amount and nothing else; one
-                  tap reopens them for the day you paid someone different. */}
-              {autoFilled.length > 0 && (
-                <div className="d-flex align-items-center justify-content-between gap-2 mb-2 px-2 py-1" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
-                  <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>
-                    ⚡ {t("transactions.autoFilledNote", { fields: autoFilled.join(", ") })}
-                  </span>
-                  <Button type="button" color="secondary" outline size="sm" onClick={() => setUnlocked(true)} disabled={unlocked} style={{ fontSize: 11.5, flexShrink: 0 }}>
-                    {unlocked ? t("transactions.unlocked") : t("transactions.unlock")}
-                  </Button>
-                </div>
-              )}
-
-              {/* ── Amount + Date ── */}
-              <Row className="g-3">
-                <Col xs={6}>
-                  <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.amount")} ({displayCurrency}) *</Label>
-                    <Input
-                      type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
-                      value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
-                      readOnly={formik.values.showFuelDetails}
-                      disabled={lockAmount}
-                      style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
-                      invalid={!!(formik.touched.amount && formik.errors.amount)}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
-                  </FormGroup>
-                </Col>
-                <Col xs={6}>
-                  <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.date")} *</Label>
-                    <DateField
-                      name="date"
-                      value={formik.values.date}
-                      onChange={(v) => formik.setFieldValue("date", v)}
-                      onBlur={() => formik.setFieldTouched("date", true)}
-                      invalid={!!(formik.touched.date && formik.errors.date)}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
-                  </FormGroup>
-                </Col>
-              </Row>
-
-              {/* ── Payee ── */}
-              <Row className="g-3 mt-1">
-                <Col xs={12}>
-                  <FormGroup className="mb-0">
-                    <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
-                    <PayeeInput
-                      value={formik.values.description}
-                      payees={payees}
-                      placeholder={t("transactions.payeePlaceholder")}
-                      invalid={!!(formik.touched.description && formik.errors.description)}
-                      onChange={(v) => formik.setFieldValue("description", v)}
-                      onBlur={() => formik.setFieldTouched("description", true)}
-                      disabled={lockPayee}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
-                  </FormGroup>
-                </Col>
-              </Row>
-
-              {/* ── Fuel toggle ── */}
-              {isFuelCategory && (
-                <div
-                  style={{ marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--bs-primary) 6%, var(--color-surface))", borderRadius: "var(--border-radius-md)", border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
-                  onClick={() => {
-                    const next = !formik.values.showFuelDetails;
-                    formik.setFieldValue("showFuelDetails", next);
-                    if (!next) {
-                      formik.setFieldValue("fuelType", "");
-                      formik.setFieldValue("pricePerUnit", "");
-                      formik.setFieldValue("quantity", "");
-                      formik.setFieldValue("odometer", "");
-                      formik.setFieldValue("place", "");
-                      formik.setFieldValue("amount", "");
-                    }
-                  }}
+        {/* ── 1. Money in or money out ── */}
+        {step === "type" && (
+          <>
+            <p className={styles.prompt}>{t("transactions.wizard.pickType")}</p>
+            <div className={styles.typeGrid}>
+              {(["expense", "income"] as const).map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className={`${styles.typeCard} ${kind === "expense" ? styles.typeExpense : styles.typeIncome} ${formik.values.type === kind && formik.values.categoryId ? styles.typeSelected : ""}`}
+                  onClick={() => chooseType(kind)}
                 >
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.addFuelDetails")}</p>
-                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
-                    </p>
-                  </div>
-                  <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "var(--bs-primary)" : "var(--color-border-primary)", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                    <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "var(--color-surface)", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                  </div>
+                  <span className={styles.typeIcon} aria-hidden>
+                    {kind === "expense" ? <FiArrowUpRight size={26} /> : <FiArrowDownLeft size={26} />}
+                  </span>
+                  <span className={styles.typeName}>{t(kind === "expense" ? "transactions.expense" : "transactions.income")}</span>
+                  <span className={styles.typeHint}>{t(kind === "expense" ? "transactions.wizard.expenseHint" : "transactions.wizard.incomeHint")}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── 2. Which category ── */}
+        {step === "category" && (
+          <>
+            <p className={styles.prompt}>{t("transactions.wizard.pickCategory")}</p>
+            {/* The type is settled by now, so the picker's tabs are a reminder
+                of the answer rather than a second place to change it. */}
+            <CategoryPicker
+              categories={categories}
+              value={formik.values.categoryId}
+              type={formik.values.type}
+              onTypeChange={handleTypeChange}
+              onChange={chooseCategory}
+              lockType
+              invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
+            />
+            <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
+          </>
+        )}
+
+        {/* ── 3. The figures ── */}
+        {step === "details" && (
+          <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
+            <p className={styles.prompt}>{t("transactions.wizard.fillDetails")}</p>
+
+            {/* What the category filled in, and the way out of it. Locked by
+                default so the common entry is amount and nothing else; one
+                tap reopens them for the day you paid someone different. */}
+            {autoFilled.length > 0 && (
+              <div className="d-flex align-items-center justify-content-between gap-2 mb-2 px-2 py-1" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
+                <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>
+                  ⚡ {t("transactions.autoFilledNote", { fields: autoFilled.join(", ") })}
+                </span>
+                <Button type="button" color="secondary" outline size="sm" onClick={() => setUnlocked(true)} disabled={unlocked} style={{ fontSize: 11.5, flexShrink: 0 }}>
+                  {unlocked ? t("transactions.unlocked") : t("transactions.unlock")}
+                </Button>
+              </div>
+            )}
+
+            {/* ── Amount + Date ── */}
+            <Row className="g-3">
+              <Col xs={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.amount")} ({displayCurrency}) *</Label>
+                  <Input
+                    type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
+                    value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
+                    readOnly={formik.values.showFuelDetails}
+                    disabled={lockAmount}
+                    style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
+                    invalid={!!(formik.touched.amount && formik.errors.amount)}
+                  />
+                  <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
+                </FormGroup>
+              </Col>
+              <Col xs={6}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.date")} *</Label>
+                  <DateField
+                    name="date"
+                    value={formik.values.date}
+                    onChange={(v) => formik.setFieldValue("date", v)}
+                    onBlur={() => formik.setFieldTouched("date", true)}
+                    invalid={!!(formik.touched.date && formik.errors.date)}
+                  />
+                  <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
+                </FormGroup>
+              </Col>
+            </Row>
+
+            {/* ── Payee ── */}
+            <Row className="g-3 mt-1">
+              <Col xs={12}>
+                <FormGroup className="mb-0">
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
+                  <PayeeInput
+                    value={formik.values.description}
+                    payees={payees}
+                    placeholder={t("transactions.payeePlaceholder")}
+                    invalid={!!(formik.touched.description && formik.errors.description)}
+                    onChange={(v) => formik.setFieldValue("description", v)}
+                    onBlur={() => formik.setFieldTouched("description", true)}
+                    disabled={lockPayee}
+                  />
+                  <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
+                </FormGroup>
+              </Col>
+            </Row>
+
+            {/* ── Fuel toggle ── */}
+            {isFuelCategory && (
+              <div
+                style={{ marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--bs-primary) 6%, var(--color-surface))", borderRadius: "var(--border-radius-md)", border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
+                onClick={() => {
+                  const next = !formik.values.showFuelDetails;
+                  formik.setFieldValue("showFuelDetails", next);
+                  if (!next) {
+                    formik.setFieldValue("fuelType", "");
+                    formik.setFieldValue("pricePerUnit", "");
+                    formik.setFieldValue("quantity", "");
+                    formik.setFieldValue("odometer", "");
+                    formik.setFieldValue("place", "");
+                    formik.setFieldValue("amount", "");
+                  }
+                }}
+              >
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.addFuelDetails")}</p>
+                  <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
+                    {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
+                  </p>
                 </div>
-              )}
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "var(--bs-primary)" : "var(--color-border-primary)", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                  <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "var(--color-surface)", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                </div>
+              </div>
+            )}
 
-              {/* ── Fuel details panel ── */}
-              {isFuelCategory && formik.values.showFuelDetails && (
-                <FuelDetailsPanel
-                  fuelType={formik.values.fuelType} pricePerUnit={formik.values.pricePerUnit}
-                  quantity={formik.values.quantity} odometer={formik.values.odometer} place={formik.values.place}
-                  errors={{ fuelType: formik.errors.fuelType, pricePerUnit: formik.errors.pricePerUnit as string | undefined, quantity: formik.errors.quantity as string | undefined, odometer: formik.errors.odometer as string | undefined, place: formik.errors.place }}
-                  touched={{ fuelType: formik.touched.fuelType, pricePerUnit: formik.touched.pricePerUnit, quantity: formik.touched.quantity, odometer: formik.touched.odometer, place: formik.touched.place }}
-                  setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched} displayCurrency={displayCurrency}
-                />
-              )}
+            {/* ── Fuel details panel ── */}
+            {isFuelCategory && formik.values.showFuelDetails && (
+              <FuelDetailsPanel
+                fuelType={formik.values.fuelType} pricePerUnit={formik.values.pricePerUnit}
+                quantity={formik.values.quantity} odometer={formik.values.odometer} place={formik.values.place}
+                errors={{ fuelType: formik.errors.fuelType, pricePerUnit: formik.errors.pricePerUnit as string | undefined, quantity: formik.errors.quantity as string | undefined, odometer: formik.errors.odometer as string | undefined, place: formik.errors.place }}
+                touched={{ fuelType: formik.touched.fuelType, pricePerUnit: formik.touched.pricePerUnit, quantity: formik.touched.quantity, odometer: formik.touched.odometer, place: formik.touched.place }}
+                setFieldValue={formik.setFieldValue} setFieldTouched={formik.setFieldTouched} displayCurrency={displayCurrency}
+              />
+            )}
 
-              {/* ── Notes ── */}
-              <FormGroup className="mb-0 mt-3">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
-                <Input
-                  type="textarea" name="notes" rows={3} placeholder={t("common.optionalNote")}
-                  value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.notes && formik.errors.notes)}
-                />
-                <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
-                <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
-              </FormGroup>
-            </form>
-          </ModalBody>
-          <ModalFooter>
-            <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
-            <Button color="primary" disabled={!formik.dirty} onClick={handleReview}>{t("transactions.reviewBtn")}</Button>
-          </ModalFooter>
-        </>
-      )}
+            {/* ── Notes ── */}
+            <FormGroup className="mb-0 mt-3">
+              <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
+              <Input
+                type="textarea" name="notes" rows={3} placeholder={t("common.optionalNote")}
+                value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur}
+                invalid={!!(formik.touched.notes && formik.errors.notes)}
+              />
+              <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
+              <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
+            </FormGroup>
+          </form>
+        )}
+
+        {/* ── 4. Read it back before it is written ── */}
+        {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} />}
+      </ModalBody>
+
+      <ModalFooter>
+        {step === "type" ? (
+          <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
+        ) : (
+          <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>{t("common.back")}</Button>
+        )}
+
+        {step === "category" && (
+          <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep("details")}>{t("common.next")}</Button>
+        )}
+        {step === "details" && <Button color="primary" onClick={handleReview}>{t("transactions.reviewBtn")}</Button>}
+        {step === "review" && (
+          <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting}>
+            {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
+          </Button>
+        )}
+      </ModalFooter>
     </Modal>
   );
 }

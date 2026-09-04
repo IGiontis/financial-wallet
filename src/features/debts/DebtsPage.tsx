@@ -30,6 +30,7 @@ export function DebtsPage() {
   const people = useMemo(() => debtsByPerson(debts), [debts]);
   const totals = useMemo(() => debtTotals(people), [people]);
   const person = people.find((p) => p.person === openPerson);
+  const netTone = totals.net > 0 ? "var(--color-income)" : totals.net < 0 ? "var(--color-expense)" : undefined;
 
   if (isLoading) {
     return (
@@ -79,6 +80,20 @@ export function DebtsPage() {
         <div className={`${styles.total} ${styles.totalIn}`}>
           <div className={styles.totalLabel}>{t("debts.owedToYou")}</div>
           <div className={styles.totalAmount}>{formatCurrency(totals.owedToMe)}</div>
+        </div>
+
+        {/* Signed, because the sign is the answer: whether the pair above nets
+            out for you or against you is the one thing the two tiles make you
+            work out yourself. Zero takes no sign and no colour — "+€0.00" reads
+            as a tiny win rather than as nothing owed either way. */}
+        <div className={styles.net}>
+          <span className={styles.netLabel}>{t("debts.net")}</span>
+          <span className="d-flex align-items-baseline gap-2">
+            <span className={styles.netAmount} style={{ color: netTone }}>
+              {totals.net === 0 ? formatCurrency(0) : `${totals.net > 0 ? "+" : "−"}${formatCurrency(Math.abs(totals.net))}`}
+            </span>
+            <span className={styles.netNote}>{t(totals.net > 0 ? "debts.netAhead" : totals.net < 0 ? "debts.netBehind" : "debts.netEven")}</span>
+          </span>
         </div>
       </div>
 

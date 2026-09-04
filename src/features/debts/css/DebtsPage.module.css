@@ -1,9 +1,12 @@
 /* Debts — the list of people and one person's record.
    Bootstrap covers the chrome; everything here is a genuine gap. */
 
-/* ── Headline pair ────────────────────────────────────────────────────────── */
-/* Deliberately two figures, never netted: owing 150 while being owed 80 is two
-   facts about two people, not one 70 fact about nobody. */
+/* ── Headline pair, and the net under it ──────────────────────────────────── */
+/* The two directions stay separate on top: owing 150 while being owed 80 is two
+   facts about two people, not one 70 fact about nobody. The net sits below
+   them, spelled out, because doing that subtraction in your head every visit is
+   its own small tax — and it is a summary of the pair, not a replacement, which
+   is why it reads as a strip rather than a third equal tile. */
 
 .totals {
   display: grid;
@@ -38,6 +41,36 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
+}
+
+/* Full width beneath the pair. Three tiles abreast would put a five-figure
+   amount into about a hundred pixels on a phone. */
+.net {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+}
+
+.netLabel {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.netAmount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.netNote {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
 }
 
 /* ── People ───────────────────────────────────────────────────────────────── */

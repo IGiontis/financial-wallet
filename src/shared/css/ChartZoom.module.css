@@ -1,0 +1,33 @@
+/* The magnify affordance every chart card carries, and the sheet it opens.
+   Bootstrap has no equivalent of either: the button is a 32px hit target that
+   has to sit flush in a card header without pushing the title around, and the
+   sheet needs a flex column so a ResponsiveContainer inside it has a height to
+   measure. */
+
+.expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px 4px;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.expand:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+/* The whole point of opening it is room, so the drawing gets the screen. The
+   minimum keeps a row-based chart from collapsing on a short phone in
+   landscape, where 60vh is barely 200px. */
+.zoomBody {
+  flex: 1 1 auto;
+  min-height: max(60vh, 320px);
+}

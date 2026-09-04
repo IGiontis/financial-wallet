@@ -359,6 +359,50 @@
   color: var(--color-text-secondary);
 }
 
+/* ── What is in a slice ───────────────────────────────────────────────────── */
+/* "Other" is the one slice whose name says nothing, and it is the one people
+   open. The strip names the categories folded into it before the rows start,
+   and every row carries its own category besides — a list of payees with no
+   categories is only half an answer to "what is this". */
+
+.sliceBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.sliceBreakdownTitle {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+
+.sliceBreakdownRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 12px;
+}
+
+.sliceBreakdownName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sliceBreakdownAmount {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .sliceRowAmount {
   flex-shrink: 0;
   font-size: 13px;
@@ -385,4 +429,36 @@
 .sliceDetail dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* ── Full-screen ─────────────────────────────────────────────────────────── */
+/* Both panels are drawn by the same markup in the card and in the sheet, so the
+   only difference between them is here: the fixed pixel sizes that suit a grid
+   cell give way to a share of the screen that was the reason for opening it. */
+
+.zoomed .donutBox,
+.zoomed .donut {
+  width: min(240px, 55vw);
+  height: min(240px, 55vw);
+}
+
+.zoomed .donutTotal {
+  font-size: 34px;
+}
+
+.zoomed .donutCaption {
+  font-size: 12px;
+}
+
+.zoomed .legendRow {
+  font-size: 13.5px;
+  min-height: 34px;
+}
+
+.zoomed .bars {
+  height: min(52vh, 420px);
+}
+
+.zoomed .barLabel {
+  font-size: 11px;
 }

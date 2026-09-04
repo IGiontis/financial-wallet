@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { FiMaximize2 } from "react-icons/fi";
+import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import styles from "./css/Analytics.module.css";
 
 interface ChartCardProps {
@@ -16,9 +16,8 @@ interface ChartCardProps {
   auto?: boolean;
   /** Shown instead of the chart when there isn't enough data to plot. */
   empty?: string;
-  /** Offers a bigger view of the same drawing, for charts a card cannot hold. */
-  onExpand?: () => void;
-  expandLabel?: string;
+  /** Opt out of the magnify button, for anything a bigger box would not help. */
+  zoomable?: boolean;
   /** Sits below the chart box — legends, scales. Outside the fixed height. */
   footer?: ReactNode;
   children: ReactNode;
@@ -31,12 +30,19 @@ interface ChartCardProps {
  * recharts instances laying themselves out at once is a visible stall on a
  * phone, and most of them are below the fold anyway — the reserved height means
  * scrolling stays stable either way.
+ *
+ * Every card also opens full-screen. That started as one exception for the
+ * Sankey and became the rule: a grid cell is the wrong size for all of these on
+ * a phone, and the same drawing given the whole screen is the cheapest fix
+ * there is. The modal renders the very same `children`, so a card never has to
+ * describe itself twice.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, auto, empty, onExpand, expandLabel, footer, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, auto, empty, zoomable = true, footer, children }: ChartCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
   // defer against, so start visible rather than never rendering the chart.
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
+  const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
@@ -55,6 +61,7 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
   }, [visible]);
 
   const toneColor = valueTone === "income" ? "var(--color-income)" : valueTone === "expense" ? "var(--color-expense)" : "var(--color-text-primary)";
+  const canZoom = zoomable && !empty;
 
   return (
     <section ref={ref} className={`${styles.card} ${wide ? styles.wide : ""}`}>
@@ -73,11 +80,7 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
         {/* A button rather than making the whole card clickable: several cards
             already answer taps inside the plot, and a card that swallowed them
             would take the tap meant for a bar. */}
-        {onExpand && !empty && (
-          <button type="button" className={styles.expand} onClick={onExpand} aria-label={expandLabel} title={expandLabel}>
-            <FiMaximize2 size={14} aria-hidden />
-          </button>
-        )}
+        {canZoom && <ZoomButton onClick={() => setZoomed(true)} />}
       </div>
 
       <div className={`${styles.chartArea} ${tall ? styles.tall : ""} ${auto ? styles.auto : ""}`}>
@@ -85,6 +88,14 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
       </div>
 
       {footer && !empty && footer}
+
+      {/* Mounted only while open, so the page never carries two copies of a
+          chart it isn't showing. */}
+      {canZoom && zoomed && (
+        <ZoomModal open onClose={() => setZoomed(false)} title={title} hint={hint} footer={footer}>
+          {children}
+        </ZoomModal>
+      )}
     </section>
   );
 }

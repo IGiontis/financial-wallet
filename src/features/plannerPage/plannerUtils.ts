@@ -271,6 +271,16 @@ export interface PlanRow {
   /** Signed monthly figure, for rows entered as a rate rather than as dates. */
   perMonth?: number;
   /**
+   * Which side a budget line was entered on.
+   *
+   * Carried explicitly because the sign of `perMonth` cannot answer it: a line
+   * sitting at zero — the state every line passes through while its amount is
+   * being retyped — is neither positive nor negative, and a page grouping by
+   * sign made that row vanish from both lists mid-keystroke, indistinguishable
+   * from having been deleted.
+   */
+  kind?: BudgetLine["kind"];
+  /**
    * Why a row costs nothing in this window.
    *
    * A bill with no payment due — because this month is already paid, or because
@@ -477,8 +487,11 @@ export function buildPlan({ bills, goals, lines = [], debts = [], salary, openin
   for (const line of lines) {
     const enabled = isOn(line.id);
     const sign = line.kind === "income" ? 1 : -1;
+    // Through `negate` rather than a bare `* -1`, so a line sitting at zero
+    // stays at zero instead of becoming -0 and printing as "−0,00 €".
+    const window = enabled ? (line.kind === "income" ? round2(line.amount * monthsCovered) : negate(line.amount * monthsCovered)) : 0;
 
-    rows.push({ id: line.id, source: "line", label: line.label, total: enabled ? round2(line.amount * monthsCovered) * sign : 0, perMonth: line.amount * sign, enabled });
+    rows.push({ id: line.id, source: "line", label: line.label, total: window, perMonth: line.amount * sign, kind: line.kind, enabled });
     if (!enabled) continue;
 
     if (line.kind === "income") dailyIn += line.amount;
