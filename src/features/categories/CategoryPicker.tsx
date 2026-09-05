@@ -13,29 +13,28 @@ interface CategoryPickerProps {
   categories: Category[];
   /** Currently selected category id, or "" for none. */
   value: string;
-  /** The tab that is open. Selecting a card also settles this. */
+  /** Which side to list. Settled by the caller before the picker is shown. */
   type: PickerType;
   onChange: (categoryId: string, category: Category) => void;
-  onTypeChange: (type: PickerType) => void;
-  /** Editing an existing record: the other tab is not a legal move. */
-  lockType?: boolean;
   invalid?: boolean;
 }
 
 /**
- * Picking a category, and with it whether the transaction is money in or out.
+ * Picking a category from the side the caller has already settled.
  *
  * This replaced a `<select>` holding thirty-odd options. On a phone that opened
- * a full-screen native list you scrolled blind — no icons, no grouping, and the
- * expense/income toggle sat somewhere else entirely, so choosing a category
- * could silently contradict it. Cards in a tabbed grid show the icon (which is
- * how people actually recognise these), keep the two sets apart, and make the
- * type a consequence of the choice rather than a second thing to get right.
+ * a full-screen native list you scrolled blind — no icons, no grouping. Cards
+ * show the icon, which is how people actually recognise these.
+ *
+ * It used to carry an expense/income tab strip too. Both callers ended up
+ * fixing the type before the picker was reached — the add wizard asks it on a
+ * screen of its own, and editing cannot swap it at all — so the strip was a
+ * control nobody could operate, in two places, and it is gone.
  *
  * The filter box earns its place past a couple of dozen categories: scanning a
  * grid is fast until it isn't, and typing two letters beats scrolling.
  */
-export default function CategoryPicker({ categories, value, type, onChange, onTypeChange, lockType, invalid }: CategoryPickerProps) {
+export default function CategoryPicker({ categories, value, type, onChange, invalid }: CategoryPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
@@ -47,31 +46,9 @@ export default function CategoryPicker({ categories, value, type, onChange, onTy
       .sort((a, b) => categoryLabel(a.name, t).localeCompare(categoryLabel(b.name, t)));
   }, [categories, type, query, t]);
 
-  const switchType = (next: PickerType) => {
-    if (lockType) return;
-    setQuery("");
-    onTypeChange(next);
-  };
-
   return (
     <div className={invalid ? styles.wrapInvalid : undefined}>
-      <div className={styles.tabs} role="tablist">
-        {(["expense", "income"] as PickerType[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={type === tab}
-            className={`${styles.tab} ${type === tab ? styles.tabActive : ""} ${type === tab ? styles[tab] : ""}`}
-            disabled={lockType && type !== tab}
-            onClick={() => switchType(tab)}
-          >
-            {t(tab === "income" ? "transactions.income" : "transactions.expense")}
-          </button>
-        ))}
-      </div>
-
-      <div className="d-flex gap-2 my-2">
+      <div className="d-flex gap-2 mb-2">
         <Input
           bsSize="sm"
           value={query}

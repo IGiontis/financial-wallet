@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
@@ -18,6 +18,7 @@ import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
 import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
+import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
@@ -46,35 +47,11 @@ const today = new Date().toISOString().split("T")[0];
 // and the type, the one answer that silently poisons every chart if it is
 // wrong, was a consequence of a tab somewhere in the middle rather than a
 // decision anyone made.
+//
+// Editing runs the same three that follow, minus this first one: an expense
+// cannot become an income by editing.
 const STEPS = ["type", "category", "details", "review"] as const;
 type Step = (typeof STEPS)[number];
-
-function StepBar({ current, onGo }: { current: Step; onGo: (step: Step) => void }) {
-  const { t } = useTranslation();
-  const index = STEPS.indexOf(current);
-
-  return (
-    <div className={styles.steps} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: STEPS.length })}>
-      {STEPS.map((step, i) => (
-        <Fragment key={step}>
-          {i > 0 && <span className={`${styles.stepBar} ${i <= index ? styles.stepBarDone : ""}`} aria-hidden />}
-          {/* A finished step is a link back to it; an unreached one is inert
-              rather than hidden, so the length of the path stays visible. */}
-          <button
-            type="button"
-            className={`${styles.step} ${i === index ? styles.stepCurrent : ""} ${i < index ? styles.stepDone : ""}`}
-            disabled={i >= index}
-            aria-current={i === index ? "step" : undefined}
-            onClick={() => onGo(step)}
-          >
-            <span className={styles.stepDot}>{i + 1}</span>
-            <span className={styles.stepLabel}>{t(`transactions.wizard.${step}`)}</span>
-          </button>
-        </Fragment>
-      ))}
-    </div>
-  );
-}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -307,7 +284,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       <ModalHeader toggle={handleClose}>{t("transactions.addTransaction")}</ModalHeader>
 
       <ModalBody>
-        <StepBar current={step} onGo={setStep} />
+        <WizardSteps steps={STEPS} current={step} onGo={setStep} />
 
         {/* ── 1. Money in or money out ── */}
         {step === "type" && (
@@ -335,26 +312,34 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         {/* ── 2. Which category ── */}
         {step === "category" && (
           <>
-            <p className={styles.prompt}>{t("transactions.wizard.pickCategory")}</p>
-            {/* The type is settled by now, so the picker's tabs are a reminder
-                of the answer rather than a second place to change it. */}
+            {/* Step 1 settled the type and step 1 is where it gets changed, so
+                from here on the badge carries it rather than a control. */}
+            <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
+              {t("transactions.wizard.pickCategory")}
+              <TypeBadge type={formik.values.type} />
+            </p>
             <CategoryPicker
               categories={categories}
               value={formik.values.categoryId}
               type={formik.values.type}
-              onTypeChange={handleTypeChange}
               onChange={chooseCategory}
-              lockType
               invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
             />
-            <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
+            {/* Gated on `touched` like the picker's own invalid state. Ungated,
+                clearing the category — which is exactly what going back a step
+                and switching type does — printed the error before the reader
+                had done anything wrong. */}
+            {formik.touched.categoryId && formik.errors.categoryId && <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>}
           </>
         )}
 
         {/* ── 3. The figures ── */}
         {step === "details" && (
           <form id="add-transaction-form" onSubmit={formik.handleSubmit} noValidate>
-            <p className={styles.prompt}>{t("transactions.wizard.fillDetails")}</p>
+            <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
+              {t("transactions.wizard.fillDetails")}
+              <TypeBadge type={formik.values.type} />
+            </p>
 
             {/* What the category filled in, and the way out of it. Locked by
                 default so the common entry is amount and nothing else; one

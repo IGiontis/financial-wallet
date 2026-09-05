@@ -1,45 +1,7 @@
-/* Category picker — tabs over a grid of cards.
+/* Category picker — a filter box over a grid of cards.
    Sized so the grid never pushes the rest of a modal form off the screen: it
    scrolls inside itself instead, which is the whole reason it can afford to
    show icons at all. */
-
-.tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 3px;
-  border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
-}
-
-.tab {
-  padding: 7px 8px;
-  border: none;
-  border-radius: calc(var(--border-radius-md) - 2px);
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.tabActive {
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
-
-/* The active tab carries the semantic colour, so which way the money goes is
-   readable before you even look at the cards. */
-.tabActive.expense {
-  color: var(--color-expense);
-}
-
-.tabActive.income {
-  color: var(--color-income);
-}
 
 .grid {
   display: grid;
