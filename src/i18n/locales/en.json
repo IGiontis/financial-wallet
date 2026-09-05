@@ -49,7 +49,8 @@
     "lightMode": "Light mode",
     "darkMode": "Dark mode",
     "debts": "Debts",
-    "menu": "Menu"
+    "menu": "Menu",
+    "allocation": "Allocation"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -678,7 +679,7 @@
     "timesCount": "×{{times}}",
     "perMonthShort": "{{amount}} a month",
     "perMonthSuffix": "/mo",
-    "addIncomeLine": "Add income",
+    "addIncomeLine": "Add monthly income",
     "addExpenseLine": "Add a monthly cost",
     "lineName": "Name",
     "lineNamePlaceholder": "e.g. Food",
@@ -713,7 +714,15 @@
     "noGoalsAtAll": "No active goals.",
     "deleteLine": "Delete line",
     "deleteLineConfirm": "Delete «{{name}}» from your budget?",
-    "timesMonths": "× {{months}} months in this range"
+    "timesMonths": "× {{months}} months in this range",
+    "oneOffNamePlaceholder": "e.g. 14th salary",
+    "oneOffFallbackName": "Extra pay",
+    "oneOffAmount": "One-off amount",
+    "oneOffOutOfRange": "not in range",
+    "oneOffPast": "passed",
+    "addOneOff": "Add extra pay on a date",
+    "oneOffOutOfRangeHint": "Falls outside the months shown. Widen the horizon to count it.",
+    "oneOffPastHint": "The day has gone, so the plan no longer counts it."
   },
   "settings": {
     "title": "Settings",
@@ -984,5 +993,49 @@
     "incomeByCategory": "Income by category",
     "byMonth": "Month by month",
     "empty": "Nothing was recorded in this period."
+  },
+  "allocation": {
+    "title": "Allocation",
+    "subtitle": "What to do with what is left",
+    "equation": "{{income}} pay − {{bills}} bills − {{goals}} goals − {{debts}} debts",
+    "freeAmount": "{{amount}} free",
+    "dividesThis": "You divide this, not your salary",
+    "noSalary": "Set your monthly pay on the Planner first — without it there is nothing to divide.",
+    "nothingFree": "Your commitments already claim everything that comes in. There is nothing left to allocate.",
+    "barLabel": "How the free money is divided",
+    "remainderOpen": "{{amount}} still has no job",
+    "remainderOver": "{{amount}} more than you have",
+    "remainderDone": "Every euro has a job",
+    "giveTo": "Give it to {{name}}",
+    "startFrom": "Start from one of these, then drag every row:",
+    "presetsNote": "Starting points, not advice. Each divides what is free, so none can suggest a month you cannot afford.",
+    "startOver": "Start again from:",
+    "addBucket": "Add a bucket",
+    "newBucket": "New bucket",
+    "bucketName": "Bucket name",
+    "bucketAmount": "Amount per month",
+    "bucketShare": "{{name}} share",
+    "perDay": "{{amount}} a day",
+    "sharedWithPlanner": "This screen reads your pay, bills, goals and debts. It changes nothing else — the planner keeps whatever you set there.",
+    "presets": {
+      "balanced": "Balanced",
+      "payYourselfFirst": "Pay yourself first",
+      "tight": "Tight month"
+    },
+    "buckets": {
+      "food": "Food",
+      "life": "Life",
+      "shopping": "Shopping",
+      "investing": "Investing",
+      "buffer": "Buffer"
+    },
+    "extraThisMonth": "Just this month",
+    "extraPlaceholder": "e.g. extra saving",
+    "extraWhatFor": "What the one-off is for",
+    "extraAmount": "One-off amount",
+    "extraFallback": "One-off",
+    "extraNote": "Comes off the top, this month only. It clears itself when the month turns.",
+    "lessExtra": "− {{amount}} {{label}}",
+    "clearExtra": "Clear the one-off"
   }
 }

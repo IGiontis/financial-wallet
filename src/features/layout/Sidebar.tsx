@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -35,6 +35,7 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
     { path: "/goals", label: t("nav.goals"), icon: FiTarget },
     { path: "/bills", label: t("nav.bills"), icon: FiRepeat, badge: billsDue },
     { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
+    { path: "/allocation", label: t("nav.allocation"), icon: FiSliders },
     { path: "/debts", label: t("nav.debts"), icon: FiUsers },
     { path: "/settings", label: t("nav.settings"), icon: FiSettings },
   ];

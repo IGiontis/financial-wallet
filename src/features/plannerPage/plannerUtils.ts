@@ -235,6 +235,42 @@ export interface BudgetLine {
   kind: "income" | "expense";
 }
 
+/**
+ * Money arriving once, on a day you already know.
+ *
+ * Income only, and deliberately so: this exists for the pay you get beyond the
+ * twelve — a fourteenth salary split across three known dates — rather than as
+ * a general "something happens on a day" record. Costs that land on a date are
+ * bills, and bills already have a screen that does far more for them than this
+ * could.
+ *
+ * The budget lines are rates — "€200 of food a month" — which is the right
+ * shape for what recurs and the wrong shape for this. €1,400 on 20 December is
+ * not €117 a month; it is a date, and a plan that flattened it would show a
+ * comfortable year and a surprise every December.
+ *
+ * The date is kept as a plain "YYYY-MM-DD" string, because that is what a date
+ * field hands over and what localStorage can hold without a revival step.
+ */
+export interface OneOff {
+  id: string;
+  label: string;
+  /** Always positive: it is money in. */
+  amount: number;
+  /** "YYYY-MM-DD" */
+  date: string;
+}
+
+/** Parses a stored one-off date at local midnight, or undefined if it is rubbish. */
+export function oneOffDate(value: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return undefined;
+  const [, y, m, d] = match;
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  // `new Date(2026, 1, 31)` silently becomes 3 March; reject rather than move it.
+  return date.getMonth() === Number(m) - 1 && date.getDate() === Number(d) ? date : undefined;
+}
+
 export type PlannerEventKind = "income" | "bill" | "goal";
 
 export interface PlannerEvent {
@@ -257,7 +293,7 @@ export interface PlannerEvent {
   overdue?: boolean;
 }
 
-export type PlanRowSource = "salary" | "bill" | "goal" | "line" | "debt";
+export type PlanRowSource = "salary" | "bill" | "goal" | "line" | "debt" | "oneoff";
 
 /** One line of the plan as the page lists it: what it is, and what it costs over the window. */
 export interface PlanRow {
@@ -344,6 +380,8 @@ export interface PlanInput {
   bills: BillWithStatus[];
   goals: InvestmentGoalWithStats[];
   lines?: BudgetLine[];
+  /** Dated, single occurrences — a fourteenth salary, a known one-off cost. */
+  oneOffs?: OneOff[];
   /** Only what the user owes — see `plannableDebts`. */
   debts?: DebtWithStatus[];
   salary?: SalaryPattern;
@@ -356,7 +394,7 @@ export interface PlanInput {
 /** Row id for the salary, which has no document of its own to be keyed by. */
 export const SALARY_ROW_ID = "__salary__";
 
-export function buildPlan({ bills, goals, lines = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = "1m", now = new Date() }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = "1m", now = new Date() }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
   const end = horizonEnd(horizon, now);
   const days = Math.max(differenceInCalendarDays(end, today), 0);
@@ -474,6 +512,21 @@ export function buildPlan({ bills, goals, lines = [], debts = [], salary, openin
 
     rows.push({ id: debt.id, source: "debt", label: debt.person, total: enabled ? negate(debt.remaining) : 0, occurrences: 1, enabled });
     if (enabled) events.push({ kind: "goal", label: debt.label || debt.person, amount: -debt.remaining, date });
+  }
+
+  // ── Dated one-offs ────────────────────────────────────────────────────────
+  // Landed on their own day rather than spread, which is the whole reason they
+  // are entered separately from the monthly lines.
+
+  for (const oneOff of oneOffs) {
+    const date = oneOffDate(oneOff.date);
+    if (!date || date < today || date > end) continue;
+
+    const enabled = isOn(oneOff.id);
+    const amount = round2(oneOff.amount);
+
+    rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? amount : 0, occurrences: 1, kind: "income", enabled });
+    if (enabled) events.push({ kind: "income", label: oneOff.label, amount, date });
   }
 
   // ── The user's own budget lines ───────────────────────────────────────────

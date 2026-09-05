@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, type BudgetLine } from "./plannerUtils";
+import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff } from "./plannerUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
@@ -25,6 +25,7 @@ const bill = (overrides: Partial<BillWithStatus> = {}): BillWithStatus =>
   }) as BillWithStatus;
 
 const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+const round = (n: number) => Math.round(n * 100) / 100;
 
 describe("horizonEnd", () => {
   it("covers whole calendar months, the current one included", () => {
@@ -236,5 +237,72 @@ describe("the user's own budget lines", () => {
     const plan = buildPlan({ ...base, horizon: "1m", lines, skipIds: new Set(["l2"]) });
 
     expect(plan.rows.filter((r) => r.source === "line").map((r) => r.kind)).toEqual(["expense", "income"]);
+  });
+});
+
+describe("dated one-offs", () => {
+  const extra = (over: Partial<OneOff> = {}): OneOff => ({ id: "o1", label: "14ος μισθός", amount: 700, date: "2026-09-20", ...over });
+
+  it("reads a stored date at local midnight", () => {
+    expect(oneOffDate("2026-04-20")).toEqual(new Date(2026, 3, 20));
+  });
+
+  it("rejects a date that does not exist rather than rolling it forward", () => {
+    // `new Date(2026, 1, 31)` quietly becomes 3 March, which would put a
+    // fourteenth salary in the wrong month without a word.
+    expect(oneOffDate("2026-02-31")).toBeUndefined();
+    expect(oneOffDate("nonsense")).toBeUndefined();
+    expect(oneOffDate("")).toBeUndefined();
+  });
+
+  it("lands on its own day rather than being spread over the months", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", oneOffs: [extra()] });
+    const event = plan.events.find((e) => e.label === "14ος μισθός");
+
+    expect(event?.date).toEqual(new Date(2026, 8, 20));
+    expect(event?.amount).toBe(700);
+  });
+
+  it("counts one-off income in the income total", () => {
+    const withIt = buildPlan({ ...base, horizon: "3m", oneOffs: [extra()] });
+    const without = buildPlan({ ...base, horizon: "3m" });
+
+    expect(round(withIt.incomeTotal - without.incomeTotal)).toBe(700);
+  });
+
+  it("leaves the outgoings alone — it is income, and only income", () => {
+    const withIt = buildPlan({ ...base, horizon: "3m", oneOffs: [extra()] });
+    const without = buildPlan({ ...base, horizon: "3m" });
+
+    expect(withIt.outgoingTotal).toBe(without.outgoingTotal);
+    expect(withIt.net).toBe(round(without.net + 700));
+  });
+
+  it("leaves one outside the window alone", () => {
+    const plan = buildPlan({ ...base, horizon: "1m", oneOffs: [extra({ date: "2027-04-20" })] });
+    expect(plan.rows.some((r) => r.source === "oneoff")).toBe(false);
+  });
+
+  it("ignores one whose day has already gone", () => {
+    // Unlike a bill, there is nothing left to pay or collect: it either
+    // happened or it did not, and the plan is about what is still ahead.
+    const plan = buildPlan({ ...base, horizon: "1m", oneOffs: [extra({ date: "2026-08-01" })] });
+    expect(plan.rows.some((r) => r.source === "oneoff")).toBe(false);
+  });
+
+  it("frees its money when switched off, like every other row", () => {
+    const input = { ...base, horizon: "3m" as const, oneOffs: [extra()] };
+    const off = buildPlan({ ...input, skipIds: new Set(["o1"]) });
+
+    expect(off.rows.find((r) => r.source === "oneoff")?.total).toBe(0);
+    expect(off.incomeTotal).toBe(buildPlan({ ...base, horizon: "3m" }).incomeTotal);
+  });
+
+  it("sits with the income rows, which is where the page lists it", () => {
+    const plan = buildPlan({ ...base, horizon: "3m", oneOffs: [extra(), extra({ id: "o2", amount: 1400, date: "2026-09-25" })] });
+    const rows = plan.rows.filter((r) => r.source === "oneoff");
+
+    expect(rows.map((r) => r.kind)).toEqual(["income", "income"]);
+    expect(rows.every((r) => r.total > 0)).toBe(true);
   });
 });

@@ -13,8 +13,9 @@ import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { isHardDeadline } from "../bills/billsUtils";
-import { asHorizon, buildPlan, detectSalary, PLANNER_HORIZONS, type BudgetLine, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
+import { asHorizon, buildPlan, detectSalary, oneOffDate, PLANNER_HORIZONS, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
 import { BalanceLine } from "./BalanceLine";
+import { DateField } from "../../shared/components/DateField";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/PlannerPage.module.css";
 
@@ -56,6 +57,7 @@ export function PlannerPage() {
   const [openingInput, setOpeningInput] = useLocalStorage("planner-opening", "");
   const [storedSalary, setSalaryInput] = useLocalStorage("planner-salary", { amount: "", day: "" });
   const [storedLines, setLines] = useLocalStorage<BudgetLine[]>("planner-lines", []);
+  const [storedOneOffs, setOneOffs] = useLocalStorage<OneOff[]>("planner-oneoffs", []);
   const [storedSkipped, setSkipped] = useLocalStorage<string[]>("planner-skip", []);
 
   const horizon = asHorizon(storedHorizon);
@@ -65,6 +67,15 @@ export function PlannerPage() {
   const lines = useMemo(
     () => (Array.isArray(storedLines) ? storedLines.filter((l): l is BudgetLine => !!l && typeof l.id === "string" && Number.isFinite(l.amount)) : []),
     [storedLines],
+  );
+  // Sanitised like everything else read back from storage: a bad date here
+  // reached `addMonths` as NaN once and took the whole page down with it.
+  const oneOffs = useMemo(
+    () =>
+      Array.isArray(storedOneOffs)
+        ? storedOneOffs.filter((o): o is OneOff => !!o && typeof o.id === "string" && typeof o.date === "string" && Number.isFinite(o.amount) && o.amount > 0 && !!oneOffDate(o.date))
+        : [],
+    [storedOneOffs],
   );
   const skipped = useMemo(() => (Array.isArray(storedSkipped) ? storedSkipped.filter((s): s is string => typeof s === "string") : []), [storedSkipped]);
   const [selectedDay, setSelectedDay] = useState(-1);
@@ -98,8 +109,8 @@ export function PlannerPage() {
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
 
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, debts, salary, openingBalance: parseFloat(openingInput) || 0, skipIds, horizon, now }),
-    [bills, goals, lines, debts, salary, openingInput, skipIds, horizon, now],
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: parseFloat(openingInput) || 0, skipIds, horizon, now }),
+    [bills, goals, lines, oneOffs, debts, salary, openingInput, skipIds, horizon, now],
   );
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
@@ -147,6 +158,12 @@ export function PlannerPage() {
   const goalRows = rowsOf((r) => r.source === "goal");
   const budgetRows = rowsOf((r) => r.source === "line" && r.kind === "expense");
   const debtRows = rowsOf((r) => r.source === "debt");
+  const oneOffRows = rowsOf((r) => r.source === "oneoff");
+  // Soonest first, so the next thing to happen is the first thing read.
+  const oneOffsByDate = useMemo(() => [...oneOffs].sort((a, b) => a.date.localeCompare(b.date)), [oneOffs]);
+  const startOfToday = useMemo(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
+  // A one-off can sit in another year, so the short "20 Sep" is not enough.
+  const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
 
   // Written from the sanitised copies rather than through a functional update,
   // so a malformed stored value is replaced by a clean one instead of being
@@ -163,11 +180,30 @@ export function PlannerPage() {
     setDeleteTarget(null);
   };
 
+  // Valid means there is a real figure to save. The button reads off this
+  // rather than the click doing nothing: a Save that silently declines is
+  // indistinguishable from a Save that is broken.
+  const draftAmount = draft ? parseFloat(draft.amount) : NaN;
+  const draftValid = Number.isFinite(draftAmount) && draftAmount > 0;
+
+  // ── One-offs ──────────────────────────────────────────────────────────────
+
+  const [oneOffDraft, setOneOffDraft] = useState<{ label: string; amount: string; date: string } | null>(null);
+
+  const oneOffAmount = oneOffDraft ? parseFloat(oneOffDraft.amount) : NaN;
+  const oneOffValid = !!oneOffDraft && Number.isFinite(oneOffAmount) && oneOffAmount > 0 && !!oneOffDate(oneOffDraft.date);
+
+  const commitOneOff = () => {
+    if (!oneOffDraft || !oneOffValid) return;
+    setOneOffs([...oneOffs, { id: newId(), label: oneOffDraft.label.trim() || t("planner.oneOffFallbackName"), amount: oneOffAmount, date: oneOffDraft.date }]);
+    setOneOffDraft(null);
+  };
+
+  const removeOneOff = (id: string) => setOneOffs(oneOffs.filter((o) => o.id !== id));
+
   const commitDraft = () => {
-    if (!draft) return;
-    const amount = parseFloat(draft.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    setLines([...lines, { id: newId(), label: draft.label.trim() || t("planner.lineFallbackName"), amount, kind: draft.kind }]);
+    if (!draft || !draftValid) return;
+    setLines([...lines, { id: newId(), label: draft.label.trim() || t("planner.lineFallbackName"), amount: draftAmount, kind: draft.kind }]);
     setDraft(null);
   };
 
@@ -345,7 +381,10 @@ export function PlannerPage() {
 
   const renderDraft = (kind: "income" | "expense") =>
     draft?.kind === kind ? (
-      <div className={styles.lineEdit}>
+      // Escape and a visible × both back out. Opening this row used to be a
+      // one-way door: the only exits were to invent a figure and save it, or
+      // to save and then delete what you had just made.
+      <div className={styles.lineEdit} onKeyDown={(e) => e.key === "Escape" && setDraft(null)}>
         <Input bsSize="sm" autoFocus value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={t("planner.lineNamePlaceholder")} aria-label={t("planner.lineName")} />
         <InputGroup size="sm" style={{ width: 118, flexShrink: 0 }}>
           <Input
@@ -360,9 +399,12 @@ export function PlannerPage() {
           />
           <InputGroupText>{t("planner.perMonthSuffix")}</InputGroupText>
         </InputGroup>
-        <Button color="primary" size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={commitDraft}>
+        <Button color="primary" size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={commitDraft} disabled={!draftValid}>
           {t("common.save")}
         </Button>
+        <button type="button" className={styles.lineRemove} onClick={() => setDraft(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
+          <FiX size={14} />
+        </button>
       </div>
     ) : (
       <button type="button" className={styles.addLine} onClick={() => setDraft({ kind, label: "", amount: "" })}>
@@ -609,6 +651,94 @@ export function PlannerPage() {
             )}
 
             {renderDraft("income")}
+
+            {/* Extra pay lives with the pay, not in a section of its own: it is
+                the same question — what arrives — asked about a date rather
+                than about every month. */}
+            {/* Listed from what is stored, not from what the window caught.
+                Entering "€1,400 on 20 December" while the horizon is one month
+                used to save it and show nothing at all, which is
+                indistinguishable from the app having refused it. It is shown
+                greyed instead, saying which horizon would reach it. */}
+            {oneOffsByDate.map((source) => {
+              const row = oneOffRows.find((r) => r.id === source.id);
+              const date = oneOffDate(source.date)!;
+              const past = date < startOfToday;
+
+              return (
+                <div key={source.id}>
+                  {row ? (
+                    renderRow(row)
+                  ) : (
+                    <div className={styles.planRow}>
+                      {/* No tick: there is nothing in this window to include or
+                          skip, and a checkbox that changes no figure is furniture. */}
+                      <span className={styles.planToggle} aria-hidden />
+                      <span className={styles.planName}>
+                        <span className={styles.planTitle} style={{ color: "var(--color-text-secondary)" }}>
+                          {source.label}
+                        </span>
+                      </span>
+                      <span className={styles.planAmount} style={{ color: "var(--color-text-secondary)" }}>
+                        +{formatCurrency(source.amount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className={styles.oneOffMeta}>
+                    <span>{longDateFmt.format(date)}</span>
+                    {/* A tag, not a sentence: the full explanation wrapped onto
+                        a second line and left the delete button hanging off the
+                        end of it. The reason lives in the tooltip. */}
+                    {!row && (
+                      <span className={styles.oneOffTag} title={t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint")}>
+                        {t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange")}
+                      </span>
+                    )}
+                    <button type="button" className={styles.lineRemove} onClick={() => removeOneOff(source.id)} aria-label={t("common.delete")} title={t("common.delete")}>
+                      <FiX size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {oneOffDraft ? (
+              <div className={styles.lineEdit} onKeyDown={(e) => e.key === "Escape" && setOneOffDraft(null)}>
+                <Input
+                  bsSize="sm"
+                  autoFocus
+                  value={oneOffDraft.label}
+                  onChange={(e) => setOneOffDraft({ ...oneOffDraft, label: e.target.value })}
+                  placeholder={t("planner.oneOffNamePlaceholder")}
+                  aria-label={t("planner.lineName")}
+                />
+                <Input
+                  bsSize="sm"
+                  type="number"
+                  min={0}
+                  inputMode="decimal"
+                  style={{ width: 92, flexShrink: 0 }}
+                  value={oneOffDraft.amount}
+                  onChange={(e) => setOneOffDraft({ ...oneOffDraft, amount: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && commitOneOff()}
+                  placeholder="0"
+                  aria-label={t("planner.oneOffAmount")}
+                />
+                <div style={{ width: 148, flexShrink: 0 }}>
+                  <DateField small name="oneOffDate" value={oneOffDraft.date} onChange={(v) => setOneOffDraft({ ...oneOffDraft, date: v })} placeholder={t("common.date")} />
+                </div>
+                <Button color="primary" size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={commitOneOff} disabled={!oneOffValid}>
+                  {t("common.save")}
+                </Button>
+                <button type="button" className={styles.lineRemove} onClick={() => setOneOffDraft(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
+                  <FiX size={14} />
+                </button>
+              </div>
+            ) : (
+              <button type="button" className={styles.addLine} onClick={() => setOneOffDraft({ label: "", amount: "", date: "" })}>
+                <FiPlus size={13} /> {t("planner.addOneOff")}
+              </button>
+            )}
           </div>
 
           {/* ── Money out ── */}
