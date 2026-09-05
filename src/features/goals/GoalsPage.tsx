@@ -22,6 +22,7 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { SearchInput } from "../../shared/components/SearchInput";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,21 +123,19 @@ export default function GoalsPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  // Each dialog closes on its optimistic row rather than on the server's
+  // answer — see `saveWithoutWaiting`. A rejection arrives as a toast instead.
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
-    new Promise((resolve, reject) =>
-      addContribution.mutate({ data, goalName: depositGoal?.name ?? "", isGoalTransaction: true }, { onSuccess: () => resolve(), onError: (err) => reject(err) }),
-    );
+    saveWithoutWaiting(addContribution, { data, goalName: depositGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.depositFailed")));
 
   const handleWithdraw = (data: CreateInvestmentContributionDTO): Promise<void> =>
-    new Promise((resolve, reject) =>
-      addContribution.mutate({ data, goalName: withdrawGoal?.name ?? "", isGoalTransaction: true }, { onSuccess: () => resolve(), onError: (err) => reject(err) }),
-    );
+    saveWithoutWaiting(addContribution, { data, goalName: withdrawGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.withdrawFailed")));
 
   const handleCreateGoal = (data: CreateInvestmentGoalDTO, isActive: boolean): Promise<void> =>
-    new Promise((resolve, reject) => createGoalMutation.mutate({ data, isActive }, { onSuccess: () => resolve(), onError: (err) => reject(err) }));
+    saveWithoutWaiting(createGoalMutation, { data, isActive }, () => toast.error(t("goals.createFailed")));
 
   const handleEditGoal = (goalId: string, data: UpdateInvestmentGoalDTO): Promise<void> =>
-    new Promise((resolve, reject) => updateGoalMutation.mutate({ goalId, data }, { onSuccess: () => resolve(), onError: (err) => reject(err) }));
+    saveWithoutWaiting(updateGoalMutation, { goalId, data }, () => toast.error(t("goals.updateFailed")));
 
   const handleDeleteGoal = () => {
     if (!deleteGoal) return;

@@ -35,6 +35,7 @@ import AddTransactionModal from "../components/AddTransactionModal";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
+import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 
 const PAGE_SIZE = 15;
 
@@ -418,15 +419,13 @@ export function TransactionsPage() {
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
 
+  // The dialog closes on the optimistic row, not on the server's answer — see
+  // `saveWithoutWaiting`. A rejection arrives as a toast instead.
   const handleCreate = (data: CreateTransactionDTO): Promise<void> =>
-    new Promise((resolve, reject) => {
-      createMutation.mutate(data, { onSuccess: () => resolve(), onError: (err) => reject(err) });
-    });
+    saveWithoutWaiting(createMutation, data, () => toast.error(t("transactions.saveFailed")));
 
   const handleUpdate = (transactionId: string, data: UpdateTransactionDTO): Promise<void> =>
-    new Promise((resolve, reject) => {
-      updateMutation.mutate({ transactionId, data }, { onSuccess: () => resolve(), onError: (err) => reject(err) });
-    });
+    saveWithoutWaiting(updateMutation, { transactionId, data }, () => toast.error(t("transactions.updateFailed")));
 
   const handleDelete = () => {
     if (!deleteTransaction) return;

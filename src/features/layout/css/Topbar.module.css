@@ -17,6 +17,30 @@
   margin-left: auto;
 }
 
+/* ── Menu button ──────────────────────────────────────────────────────────── */
+/* On a phone the navigation is behind this button, so the badge on the Bills
+   item is invisible until the drawer is opened — which is exactly when the
+   reader has already decided what they came to do. A dot on the button itself
+   is the part that has to be seen without opening anything. No number: the
+   count belongs on the item it counts, and this only has to say "in here". */
+
+.menuButton {
+  position: relative;
+}
+
+.menuDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-expense);
+  /* Against the button's own colour, so it reads as a dot rather than as part
+     of the icon whatever the theme is doing. */
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
 /* ── Theme toggle ─────────────────────────────────────────────────────────── */
 
 .themeToggle {

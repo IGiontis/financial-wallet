@@ -48,7 +48,8 @@
     "signOut": "Sign Out",
     "lightMode": "Light mode",
     "darkMode": "Dark mode",
-    "debts": "Debts"
+    "debts": "Debts",
+    "menu": "Menu"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -325,7 +326,10 @@
     "billsInCategory_one": "{{count}} bill",
     "billsInCategory_other": "{{count}} bills",
     "tapCategoryHint": "Tap a category to see what is in it",
-    "monthFuture": "still to come"
+    "monthFuture": "still to come",
+    "saveFailed": "Could not save the bill. Check your connection and try again.",
+    "dueCount_one": "{{count}} bill needs paying",
+    "dueCount_other": "{{count}} bills need paying"
   },
   "transactions": {
     "title": "Transactions",
@@ -640,7 +644,9 @@
     "statusLabel": "Status",
     "deposited": "Deposited",
     "withdrawn": "Withdrawn",
-    "netSaved": "Net saved"
+    "netSaved": "Net saved",
+    "depositFailed": "Could not record the deposit. Check your connection and try again.",
+    "withdrawFailed": "Could not record the withdrawal. Check your connection and try again."
   },
   "planner": {
     "title": "Will I make it?",
@@ -959,5 +965,24 @@
     "netAhead": "in your favour",
     "netBehind": "against you",
     "netEven": "all square"
+  },
+  "statement": {
+    "title": "Statement",
+    "sectionTitle": "Printable statement",
+    "sectionSubtitle": "A period's figures, laid out for printing or saving as a PDF",
+    "open": "Open statement",
+    "notABackup": "A statement is a document to read or hand over — it cannot be loaded back in, so it is not a backup.",
+    "print": "Print / Save as PDF",
+    "period": "Period",
+    "wholeYear": "Whole year",
+    "generated": "Generated {{date}}",
+    "net": "Net",
+    "entries": "Entries",
+    "share": "Share",
+    "month": "Month",
+    "expensesByCategory": "Expenses by category",
+    "incomeByCategory": "Income by category",
+    "byMonth": "Month by month",
+    "empty": "Nothing was recorded in this period."
   }
 }

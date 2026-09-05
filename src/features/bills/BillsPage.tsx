@@ -37,6 +37,7 @@ import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
 import styles from "./css/BillsPage.module.css";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
 const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
@@ -744,12 +745,11 @@ export default function BillsPage() {
     unmarkPaid.mutate({ paymentId: payment.id, transactionId: payment.transactionId }, { onError: () => toast.error(t("bills.undoPaymentFailed")) });
   };
 
-  const handleSubmit = async (data: CreateBillDTO): Promise<void> => {
-    if (editBill) {
-      await new Promise<void>((resolve, reject) => updateBill.mutate({ billId: editBill.id, data }, { onSuccess: () => resolve(), onError: reject }));
-    } else {
-      await new Promise<void>((resolve, reject) => createBill.mutate(data, { onSuccess: () => resolve(), onError: reject }));
-    }
+  // Closes on the optimistic row rather than the server's answer, like every
+  // other save here — see `saveWithoutWaiting`.
+  const handleSubmit = (data: CreateBillDTO): Promise<void> => {
+    const failed = () => toast.error(t("bills.saveFailed"));
+    return editBill ? saveWithoutWaiting(updateBill, { billId: editBill.id, data }, failed) : saveWithoutWaiting(createBill, data, failed);
   };
 
   const openNew = () => {

@@ -11,6 +11,7 @@ import { getUser } from "../../firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
 import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
+import { useBillsNeedingAttention } from "../bills/useBills";
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -21,6 +22,7 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
   const { currentUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation();
+  const billsDue = useBillsNeedingAttention();
 
   // Use same query key as useCurrencyConverter so cache is shared
   // When Settings saves and invalidates — Topbar updates instantly
@@ -79,8 +81,14 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
   return (
     <Navbar className={`border-bottom shadow-sm ${styles.topbar}`}>
       <Container fluid className={`${styles.topbarContainer} d-flex align-items-center justify-content-between`}>
-        <Button color="light" className="d-lg-none me-2" onClick={toggleSidebar}>
+        <Button
+          color="light"
+          className={`d-lg-none me-2 ${styles.menuButton}`}
+          onClick={toggleSidebar}
+          aria-label={billsDue ? `${t("nav.menu")} — ${t("bills.dueCount", { count: billsDue })}` : t("nav.menu")}
+        >
           <FiMenu size={24} />
+          {!!billsDue && <span className={styles.menuDot} aria-hidden />}
         </Button>
 
         <div className={styles.rightContent}>

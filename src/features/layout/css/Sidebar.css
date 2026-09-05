@@ -100,6 +100,59 @@
   font-size: 1.25rem;
 }
 
+/* ─── Attention badge ─── */
+/* How many bills are late or due this week. Absent the rest of the time, which
+   is the only reason it gets looked at when it turns up. */
+
+.nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  /* Deliberately not `--color-expense`, which is the one thing that would look
+     like the right answer here. That token lightens in dark mode so it can hold
+     its own against a light background — but this sidebar is dark in *both*
+     themes, so the badge would go pale exactly where nothing around it did, and
+     white on it dropped to 2.8:1. Pinned to the darker red instead, which keeps
+     the number at 4.8:1 whichever theme is on. */
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Expanded: pushed to the end of the row, past the label. */
+.sidebar-nav .nav-link .nav-badge {
+  margin-left: auto;
+}
+
+/* Collapsed: nothing but icons, so it rides the icon's top-right corner. The
+   link is the positioning context, and the count would not fit in 20px beside
+   a centred icon anyway. */
+.sidebar.collapsed .sidebar-nav .nav-link {
+  position: relative;
+}
+
+/* Smaller here than in the expanded row: at full size it covered two thirds of
+   the icon it was meant to annotate, which loses the one thing that says which
+   item this is. Sized and placed to start where the icon ends. */
+.sidebar.collapsed .sidebar-nav .nav-link .nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 16px;
+  margin-left: 0;
+}
+
 /* ─── Mobile overlay ─── */
 .sidebar-overlay {
   position: fixed;

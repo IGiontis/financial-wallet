@@ -10,6 +10,7 @@ import CategoryManager from "../../categories/CategoryManager";
 import { SkeletonCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../../shared/components/Skeletons";
 import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
+import StatementSection from "../components/StatementSection";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
@@ -579,6 +580,14 @@ export function SettingsPage() {
       {/* ── Custom categories ───────────────────────────────────────────────── */}
       <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
         <CategoryManager />
+      </Section>
+
+      {/* ── Statement ───────────────────────────────────────────────────────── */}
+      {/* Deliberately just above "start over": the last thing anyone should
+          meet before a button that clears their records is the one that gets a
+          copy of them out first. */}
+      <Section title={t("statement.sectionTitle")} subtitle={t("statement.sectionSubtitle")}>
+        <StatementSection />
       </Section>
 
       {/* ── Start over ──────────────────────────────────────────────────────── */}

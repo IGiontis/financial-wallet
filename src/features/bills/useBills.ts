@@ -1,7 +1,8 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, unmarkBillPaid, updateBillPayment } from "../../firebase/firestore";
-import { computeBillStatus } from "./billsUtils";
+import { billsNeedingAttention, computeBillStatus } from "./billsUtils";
 import { transactionKeys } from "../transactions/hooks/useTransactions";
 import type { BillPayment, BillWithStatus, CreateBillDTO, UpdateBillDTO } from "../../shared/types/IndexTypes";
 
@@ -47,6 +48,20 @@ function patchBills(queryClient: QueryClient, userId: string, edit: (payments: B
 }
 
 // ─── useBills ─────────────────────────────────────────────────────────────────
+
+/**
+ * How many bills are asking to be paid, for the badge in the navigation.
+ *
+ * Reads the same query as the Bills screen, so a reader who has been there
+ * this session pays nothing for it, and the count corrects itself the moment a
+ * payment is marked rather than waiting for a visit. It does mean the bills are
+ * fetched on arrival anywhere in the app — one query, and with the on-disk
+ * cache usually answered from there.
+ */
+export function useBillsNeedingAttention(): number {
+  const { data: bills } = useBills();
+  return useMemo(() => billsNeedingAttention(bills ?? []), [bills]);
+}
 
 export function useBills() {
   const { currentUser } = useAuth();

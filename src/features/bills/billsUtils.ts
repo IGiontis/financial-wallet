@@ -485,6 +485,26 @@ export function billUrgency(bill: BillWithStatus, now: Date = new Date()): BillU
   return days <= URGENT_DAYS ? "soon" : "later";
 }
 
+/**
+ * How many bills are actually asking to be paid — the figure on the nav badge.
+ *
+ * Late and due-within-the-week only. A badge that counted every unpaid bill
+ * would show a number permanently, and a number that is always there is
+ * furniture: it stops being read within a week. This one is absent most of the
+ * time, which is what makes it worth looking at when it appears.
+ *
+ * Measured off `billUrgency`, so it agrees with the colours on the Bills page
+ * rather than inventing a second idea of "urgent" that could disagree with what
+ * the reader sees when they arrive.
+ */
+export function billsNeedingAttention(bills: BillWithStatus[], now: Date = new Date()): number {
+  return bills.filter((bill) => {
+    if (!bill.isActive) return false;
+    const urgency = billUrgency(bill, now);
+    return urgency === "late" || urgency === "soon";
+  }).length;
+}
+
 /** Colour token per state — the same scale the rows and the runway share. */
 export function urgencyToken(urgency: BillUrgency): string {
   switch (urgency) {

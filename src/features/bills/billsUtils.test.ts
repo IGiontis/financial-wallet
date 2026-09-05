@@ -9,6 +9,7 @@ import {
   installmentDueDates,
   installmentIntervalOptions,
   billUrgency,
+  billsNeedingAttention,
   cashRunway,
   computeBillStatus,
   coveredPeriodCount,
@@ -1485,5 +1486,52 @@ describe("billMonthStrip future chips", () => {
 
     // Whatever is not owed right now and has not been paid is still ahead.
     expect(billMonthStrip(water, now).filter((c) => c.status === "future").length).toBeGreaterThan(0);
+  });
+});
+
+describe("billsNeedingAttention", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("counts the late and the imminent, and nothing else", () => {
+    const count = billsNeedingAttention(
+      [
+        statusOf({ nextDueDate: new Date("2026-07-10") }),          // three days late
+        statusOf({ nextDueDate: new Date("2026-07-18") }),          // due in three
+        statusOf({ nextDueDate: new Date("2026-08-30") }),          // weeks away
+        statusOf({ isPaidThisPeriod: true, nextDueDate: new Date("2026-07-16") }),
+      ],
+      now,
+    );
+
+    expect(count).toBe(2);
+  });
+
+  it("stays inside the urgent window rather than counting the whole month", () => {
+    // A badge that lit up a fortnight early would be lit permanently, and a
+    // number that is always there stops being read.
+    const justOutside = statusOf({ nextDueDate: new Date("2026-07-23") }); // 8 days
+    const justInside = statusOf({ nextDueDate: new Date("2026-07-22") }); // 7 days
+
+    expect(billsNeedingAttention([justOutside], now)).toBe(0);
+    expect(billsNeedingAttention([justInside], now)).toBe(1);
+  });
+
+  it("measures grace from the deadline, not the due date", () => {
+    // Electricity a week past its due date with three weeks of grace is not in
+    // trouble, and must not put a red number in the navigation.
+    const withGrace = statusOf({ nextDueDate: new Date("2026-07-08") }, { graceDays: 30 });
+    expect(billsNeedingAttention([withGrace], now)).toBe(0);
+  });
+
+  it("ignores bills switched off", () => {
+    expect(billsNeedingAttention([statusOf({ isActive: false, nextDueDate: new Date("2026-07-10") })], now)).toBe(0);
+  });
+
+  it("ignores a bill with no due date at all", () => {
+    expect(billsNeedingAttention([statusOf({ nextDueDate: undefined })], now)).toBe(0);
+  });
+
+  it("is zero for an empty list, so the badge is simply absent", () => {
+    expect(billsNeedingAttention([], now)).toBe(0);
   });
 });
