@@ -20,6 +20,7 @@ import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, u
 import { useTranslation } from "react-i18next";
 import { SearchInput } from "../../shared/components/SearchInput";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { toast } from "react-toastify";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
