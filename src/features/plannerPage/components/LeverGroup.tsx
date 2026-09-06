@@ -35,7 +35,7 @@ interface LeverGroupProps {
  */
 export function LeverGroup({ title, count, total, formatCurrency, open, onToggle, sweepLabel, onSweep, onAdd, addLabel, children }: LeverGroupProps) {
   const { t } = useTranslation();
-  const tone = total > 0 ? "var(--color-income)" : total < 0 ? "var(--color-expense)" : undefined;
+  const tone = total > 0 ? "var(--color-income-text)" : total < 0 ? "var(--color-expense-text)" : undefined;
 
   return (
     <div className={styles.group}>

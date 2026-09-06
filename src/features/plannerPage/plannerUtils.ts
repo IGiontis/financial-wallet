@@ -173,24 +173,40 @@ export function goalMonthsAhead(goal: InvestmentGoalWithStats, months: Date[]): 
 
 // ─── Horizon ─────────────────────────────────────────────────────────────────
 
-export type PlannerHorizon = "1m" | "3m" | "6m" | "12m";
+/**
+ * How far ahead to look, in months.
+ *
+ * A plain count rather than a fixed set of names. It began as "1m" | "3m" |
+ * "6m" | "12m", which meant the question "what do the next three years look
+ * like?" had no way of being asked — and the answer was never a different kind
+ * of calculation, only a different number.
+ */
+export type PlannerHorizon = number;
 
-export const PLANNER_HORIZONS: readonly PlannerHorizon[] = ["1m", "3m", "6m", "12m"] as const;
+/** The offered ones. Anything else is typed in and equally valid. */
+export const PLANNER_HORIZONS: readonly number[] = [1, 3, 6, 12, 24, 36] as const;
 
-const HORIZON_MONTHS: Record<PlannerHorizon, number> = { "1m": 1, "3m": 3, "6m": 6, "12m": 12 };
+export const MIN_HORIZON_MONTHS = 1;
+/** Ten years. Past this the daily walk below is tens of thousands of points for a line nobody can read. */
+export const MAX_HORIZON_MONTHS = 120;
 
 /**
- * Anything that is not one of the current horizons, read back as the shortest.
+ * Anything unusable, read back as the shortest.
  *
- * The horizon is persisted, so a browser can hand back a name from an older set
- * ("payday", "month") long after it stopped meaning anything. Left unchecked
- * that reaches `addMonths` as NaN and the whole page dies on an invalid date, so
- * the value is narrowed on the way in rather than trusted because its type says
- * so.
+ * The horizon is persisted, so a browser can hand back a value from an older
+ * version long after it stopped meaning anything — including the old "1m"
+ * names, which are still understood here, and "payday", which never was. Left
+ * unchecked those reach `addMonths` as NaN and the whole page dies on an
+ * invalid date, so the value is narrowed on the way in rather than trusted
+ * because its type says so.
  */
-export const asHorizon = (value: unknown): PlannerHorizon => ((PLANNER_HORIZONS as readonly unknown[]).includes(value) ? (value as PlannerHorizon) : "1m");
+export function asHorizon(value: unknown): PlannerHorizon {
+  const raw = typeof value === "string" ? Number(/^(\d+)m?$/.exec(value.trim())?.[1] ?? NaN) : value;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return MIN_HORIZON_MONTHS;
+  return Math.min(Math.max(Math.round(raw), MIN_HORIZON_MONTHS), MAX_HORIZON_MONTHS);
+}
 
-export const horizonMonths = (horizon: PlannerHorizon): number => HORIZON_MONTHS[asHorizon(horizon)];
+export const horizonMonths = (horizon: PlannerHorizon): number => asHorizon(horizon);
 
 /** Last day covered: the end of the month `months - 1` ahead, inclusive. */
 export function horizonEnd(horizon: PlannerHorizon, now: Date = new Date()): Date {
@@ -352,6 +368,30 @@ export interface PlanRow {
   enabled: boolean;
 }
 
+/**
+ * How finely the balance line is sampled.
+ *
+ * A three-year window has about 1,100 days in it. Drawn one point per day that
+ * is 1,100 nodes of SVG for a line nobody can read anyway — the shape of a
+ * three-year plan is monthly, and the daily wobble is noise at that width. The
+ * walk underneath stays daily either way, so the figures do not change; only
+ * how many of them are kept.
+ */
+export type PointStep = "day" | "week" | "month";
+
+export function pointStepFor(days: number): PointStep {
+  if (days <= 92) return "day";
+  if (days <= 550) return "week";
+  return "month";
+}
+
+/** Last day of a week or a month — the balance at the end of the period. */
+function isPointBoundary(step: PointStep, date: Date, offset: number): boolean {
+  if (step === "day") return true;
+  if (step === "week") return offset % 7 === 6;
+  return date.getDate() === getDaysInMonth(date);
+}
+
 export interface ProjectionPoint {
   date: Date;
   balance: number;
@@ -384,6 +424,8 @@ export interface PlannerPlan {
   net: number;
   endingBalance: number;
   points: ProjectionPoint[];
+  /** How far apart those points are — the page labels them accordingly. */
+  pointStep: PointStep;
   lowestBalance: number;
   breaksOn?: Date;
   /** The outgoing that tipped it under, when one thing did it. */
@@ -417,7 +459,7 @@ export interface PlanInput {
 /** Row id for the salary, which has no document of its own to be keyed by. */
 export const SALARY_ROW_ID = "__salary__";
 
-export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = "1m", now = new Date() }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date() }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
   const end = horizonEnd(horizon, now);
   const days = Math.max(differenceInCalendarDays(end, today), 0);
@@ -425,8 +467,17 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // How much of a month's budget the window really holds. The current month is
   // already part spent, so charging a full €200 of food for the eleven days
   // left in it would answer a question nobody asked.
+  //
+  // Counted a month at a time rather than a day at a time: the day loop was
+  // 1,100 `addDays` allocations for a three-year window, and each of them only
+  // to ask which month it landed in.
   let monthsCovered = 0;
-  for (let offset = 0; offset <= days; offset++) monthsCovered += 1 / getDaysInMonth(addDays(today, offset));
+  for (let cursor = startOfMonth(today); cursor <= end; cursor = addMonths(cursor, 1)) {
+    const inMonth = getDaysInMonth(cursor);
+    const first = Math.max(differenceInCalendarDays(cursor, today), 0);
+    const last = Math.min(differenceInCalendarDays(addDays(cursor, inMonth - 1), today), days);
+    if (last >= first) monthsCovered += (last - first + 1) / inMonth;
+  }
 
   const rows: PlanRow[] = [];
   const events: PlannerEvent[] = [];
@@ -589,21 +640,53 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   let breaksOn: Date | undefined;
   let breakingEvent: PlannerEvent | undefined;
 
-  for (let offset = 0; offset <= days; offset++) {
-    const date = addDays(today, offset);
-    balance += (dailyIn - dailyOut) / getDaysInMonth(date);
+  // Events bucketed by day once, rather than scanned for every day of the
+  // window. The filter inside the loop was O(days x events): three years of a
+  // busy plan is about 1,100 days against 200 events, which is 220,000 date
+  // comparisons before a single pixel is drawn — and it was the freeze.
+  const byDay = new Map<number, PlannerEvent[]>();
+  for (const event of events) {
+    const key = differenceInCalendarDays(event.date, today);
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(event);
+    else byDay.set(key, [event]);
+  }
 
-    const dayEvents = events.filter((e) => differenceInCalendarDays(e.date, date) === 0);
+  const step = pointStepFor(days);
+  // Events since the last point was emitted, so a coarse point still knows
+  // everything that happened inside it.
+  let pending: PlannerEvent[] = [];
+
+  // One mutable cursor rather than a fresh Date per day, and the month length
+  // recomputed only when the month turns. A Date object is allocated only for
+  // the points actually kept.
+  const cursor = new Date(today);
+  let daysInMonth = getDaysInMonth(cursor);
+
+  for (let offset = 0; offset <= days; offset++) {
+    if (offset > 0) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (cursor.getDate() === 1) daysInMonth = getDaysInMonth(cursor);
+    }
+    balance += (dailyIn - dailyOut) / daysInMonth;
+
+    const dayEvents = byDay.get(offset) ?? [];
     for (const event of dayEvents) balance += event.amount;
+    if (dayEvents.length > 0) pending = pending.concat(dayEvents);
 
     if (balance < lowestBalance) lowestBalance = balance;
     if (balance < 0 && !breaksOn) {
-      breaksOn = date;
+      breaksOn = new Date(cursor);
       const outgoings = dayEvents.filter((e) => e.amount < 0);
       breakingEvent = outgoings.length > 0 ? outgoings.reduce((big, e) => (e.amount < big.amount ? e : big)) : undefined;
     }
 
-    points.push({ date, balance: round2(balance), events: dayEvents });
+    // The balance is still walked one day at a time — it has to be, or a bill
+    // landing mid-period would be lost — but only the boundaries are kept.
+    if (offset === days || isPointBoundary(step, cursor, offset)) {
+      points.push({ date: new Date(cursor), balance: round2(balance), events: pending });
+      pending = [];
+    }
   }
 
   // ── Totals ────────────────────────────────────────────────────────────────
@@ -651,6 +734,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     net,
     endingBalance,
     points,
+    pointStep: pointStepFor(days),
     lowestBalance: round2(lowestBalance),
     breaksOn,
     breakingEvent,

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Container,
@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
 import { useTranslation } from "react-i18next";
+import { useDebounce } from "../../../shared/hooks/useDebounce";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
@@ -139,16 +140,6 @@ function resolveCategory(tx: Transaction, categories: Category[]): Category | un
   }
   if (tx.isInvestmentTransaction) return categories.find((c) => c.name === "Investments");
   return categories.find((c) => c.id === tx.categoryId);
-}
-
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState<T>(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
 }
 
 

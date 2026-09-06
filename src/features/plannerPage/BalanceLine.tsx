@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { ProjectionPoint } from "./plannerUtils";
 import styles from "./css/PlannerPage.module.css";
 
@@ -17,7 +17,7 @@ const VIEW = { width: 320, height: 120 };
  * fills a short box on a phone and a taller one on a desktop. The hit targets
  * scale with it, which is why they are drawn rather than measured.
  */
-export function BalanceLine({
+function BalanceLineBase({
   points,
   breaksOnIndex,
   selectedIndex,
@@ -175,3 +175,12 @@ export function BalanceLine({
     </svg>
   );
 }
+
+/**
+ * Skipped while nothing it draws has changed.
+ *
+ * Typing in the opening balance re-renders the page on every character, and
+ * this is the most expensive thing on it — a few hundred SVG nodes that are
+ * identical until the projection itself moves.
+ */
+export const BalanceLine = memo(BalanceLineBase);

@@ -657,12 +657,6 @@
     "verdictShort": "Δεν βγαίνουν οι μήνες",
     "untilDate": "ώς {{date}} · {{months}} μήνες",
     "horizonLabel": "Πόσο μπροστά",
-    "horizon": {
-      "1m": "1 μήνας",
-      "3m": "3 μήνες",
-      "6m": "6 μήνες",
-      "12m": "12 μήνες"
-    },
     "openingBalance": "Τι έχεις τώρα",
     "openingBalanceHint": "Το σημείο εκκίνησης. Άφησέ το μηδέν για να δεις μόνο τους μήνες.",
     "moneyIn": "Μπαίνουν",
@@ -728,7 +722,14 @@
     "editEntry": "Επεξεργασία",
     "perMonthHint": "Τον μήνα. Μοιράζεται στις μέρες, δεν χρεώνεται σε μία.",
     "addTo": "Προσθήκη σε {{group}}",
-    "offRow": "εκτός πλάνου"
+    "offRow": "εκτός πλάνου",
+    "horizonMonths_one": "{{count}}μ",
+    "horizonMonths_other": "{{count}}μ",
+    "horizonYears_one": "{{count}}χρ",
+    "horizonYears_other": "{{count}}χρ",
+    "horizonCustom": "Πόσο μπροστά;",
+    "horizonMonthsLabel": "Μήνες",
+    "horizonHint": "Έως {{max}} μήνες — {{years}} χρόνια."
   },
   "settings": {
     "title": "Ρυθμίσεις",

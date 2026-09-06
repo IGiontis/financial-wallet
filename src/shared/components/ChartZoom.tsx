@@ -40,7 +40,11 @@ interface ZoomModalProps {
 
 export function ZoomModal({ open, onClose, title, hint, footer, children }: ZoomModalProps) {
   return (
-    <Modal isOpen={open} toggle={onClose} fullscreen scrollable>
+    // A dialog over the page rather than a screen instead of it. Full-screen
+    // read as having navigated somewhere: nothing of the page was left to say
+    // you were still on it, and closing felt like going back rather than
+    // putting something down.
+    <Modal isOpen={open} toggle={onClose} size="xl" centered scrollable>
       <ModalHeader toggle={onClose}>
         <span style={{ fontSize: 15 }}>{title}</span>
       </ModalHeader>

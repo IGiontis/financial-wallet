@@ -156,13 +156,13 @@ describe("buildPlan", () => {
   const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
 
   it("runs to the end of the last month the horizon asks for", () => {
-    expect(buildPlan({ ...base, horizon: "1m" }).end).toEqual(new Date(2026, 7, 31, 23, 59, 59, 999));
-    expect(buildPlan({ ...base, horizon: "3m" }).end.getMonth()).toBe(9);
-    expect(buildPlan({ ...base, horizon: "12m" }).end.getFullYear()).toBe(2027);
+    expect(buildPlan({ ...base, horizon: 1 }).end).toEqual(new Date(2026, 7, 31, 23, 59, 59, 999));
+    expect(buildPlan({ ...base, horizon: 3 }).end.getMonth()).toBe(9);
+    expect(buildPlan({ ...base, horizon: 12 }).end.getFullYear()).toBe(2027);
   });
 
   it("counts one payday per month in the window", () => {
-    const plan = buildPlan({ ...base, horizon: "3m" });
+    const plan = buildPlan({ ...base, horizon: 3 });
     const row = plan.rows.find((r) => r.id === SALARY_ROW_ID);
 
     expect(row?.occurrences).toBe(3); // 20 Aug, 20 Sep, 20 Oct
@@ -170,7 +170,7 @@ describe("buildPlan", () => {
   });
 
   it("charges a monthly bill once per month, not once in total", () => {
-    const plan = buildPlan({ ...base, horizon: "3m", bills: [bill({ name: "Ρεύμα", amount: 100, dueDay: 20 })] });
+    const plan = buildPlan({ ...base, horizon: 3, bills: [bill({ name: "Ρεύμα", amount: 100, dueDay: 20 })] });
 
     expect(plan.rows.find((r) => r.source === "bill")).toMatchObject({ occurrences: 3, total: -300 });
     expect(plan.billsTotal).toBe(300);
@@ -179,7 +179,7 @@ describe("buildPlan", () => {
   it("never looks at what has already been spent", () => {
     // The whole point of the rebuild: the plan is built from commitments and the
     // user's own figures, so no history can drag the answer around.
-    const plan = buildPlan({ ...base, horizon: "1m" });
+    const plan = buildPlan({ ...base, horizon: 1 });
     expect(plan.outgoingTotal).toBe(0);
     expect(plan.openingBalance).toBe(0);
   });
@@ -187,14 +187,14 @@ describe("buildPlan", () => {
   it("pro-rates a monthly budget line over the part of the month that is left", () => {
     // 18 days left of August out of 31 — charging a whole month of food for
     // them would answer a question nobody asked.
-    const plan = buildPlan({ ...base, horizon: "1m", lines: [{ id: "l1", label: "Food", amount: 310, kind: "expense" }] });
+    const plan = buildPlan({ ...base, horizon: 1, lines: [{ id: "l1", label: "Food", amount: 310, kind: "expense" }] });
 
     expect(plan.monthsCovered).toBeCloseTo(18 / 31, 2);
     expect(plan.rows.find((r) => r.id === "l1")?.total).toBeCloseTo(-180, 0);
   });
 
   it("charges a monthly line in full for each whole month ahead", () => {
-    const plan = buildPlan({ ...base, horizon: "3m", lines: [{ id: "l1", label: "Food", amount: 200, kind: "expense" }] });
+    const plan = buildPlan({ ...base, horizon: 3, lines: [{ id: "l1", label: "Food", amount: 200, kind: "expense" }] });
 
     // 18/31 of August, then all of September and October.
     expect(plan.monthsCovered).toBeCloseTo(18 / 31 + 2, 2);
@@ -202,14 +202,14 @@ describe("buildPlan", () => {
   });
 
   it("adds a monthly income line to the income side", () => {
-    const plan = buildPlan({ ...base, horizon: "3m", lines: [{ id: "l1", label: "Side work", amount: 300, kind: "income" }] });
+    const plan = buildPlan({ ...base, horizon: 3, lines: [{ id: "l1", label: "Side work", amount: 300, kind: "income" }] });
 
     expect(plan.incomeTotal).toBeCloseTo(6000 + 300 * (18 / 31 + 2), 1);
   });
 
   it("lets any row be switched off, and frees exactly its money", () => {
     const electricity = bill({ id: "b1", name: "Ρεύμα", amount: 100, dueDay: 20 });
-    const input = { ...base, horizon: "3m" as const, bills: [electricity] };
+    const input = { ...base, horizon: 3 as const, bills: [electricity] };
 
     const on = buildPlan(input);
     const off = buildPlan({ ...input, skipIds: new Set(["b1"]) });
@@ -220,8 +220,8 @@ describe("buildPlan", () => {
   });
 
   it("switching the salary off is what shows whether it is carrying the month", () => {
-    const on = buildPlan({ ...base, horizon: "1m" });
-    const off = buildPlan({ ...base, horizon: "1m", skipIds: new Set([SALARY_ROW_ID]) });
+    const on = buildPlan({ ...base, horizon: 1 });
+    const off = buildPlan({ ...base, horizon: 1, skipIds: new Set([SALARY_ROW_ID]) });
 
     expect(on.incomeTotal).toBe(2000);
     expect(off.incomeTotal).toBe(0);
@@ -238,7 +238,7 @@ describe("buildPlan", () => {
       payments: [{ id: "p", userId: "u1", billId: "b1", periodKey: "2026-08", amount: 50, paidDate: new Date(2026, 7, 3), createdAt: new Date(2026, 7, 3) }],
     } as Partial<BillWithStatus>);
 
-    const plan = buildPlan({ ...base, horizon: "1m", bills: [paid, bill({ id: "b2", name: "No date" })] });
+    const plan = buildPlan({ ...base, horizon: 1, bills: [paid, bill({ id: "b2", name: "No date" })] });
 
     expect(plan.rows.filter((r) => r.source === "bill")).toHaveLength(2);
     expect(plan.rows.find((r) => r.id === "b1")).toMatchObject({ occurrences: 0, total: 0, note: "paid" });
@@ -248,14 +248,14 @@ describe("buildPlan", () => {
 
   it("still lists a goal that is already funded for the month", () => {
     const funded = goal({ id: "g1", targetPeriod: "monthly", targetAmount: 200, currentPeriodSaved: 200 });
-    const plan = buildPlan({ ...base, horizon: "1m", goals: [funded] });
+    const plan = buildPlan({ ...base, horizon: 1, goals: [funded] });
 
     expect(plan.rows.find((r) => r.id === "g1")).toMatchObject({ total: 0, note: "funded" });
   });
 
   it("asks a goal for what is left this month, then the full target after", () => {
     const trip = goal({ id: "g1", name: "Trip", targetPeriod: "monthly", monthlyRequired: 200, currentPeriodSaved: 200 });
-    const plan = buildPlan({ ...base, horizon: "3m", goals: [trip] });
+    const plan = buildPlan({ ...base, horizon: 3, goals: [trip] });
 
     // Nothing more wanted in August; September and October want €200 each.
     expect(plan.goalsTotal).toBe(400);
@@ -263,13 +263,13 @@ describe("buildPlan", () => {
   });
 
   it("starts the line wherever the user says their money is", () => {
-    const plan = buildPlan({ ...base, horizon: "1m", openingBalance: 500 });
+    const plan = buildPlan({ ...base, horizon: 1, openingBalance: 500 });
     expect(plan.points[0].balance).toBe(500);
     expect(plan.endingBalance).toBe(2500); // plus the 20 Aug salary
   });
 
   it("calls it short when the months themselves do not cover the outgoings", () => {
-    const plan = buildPlan({ ...base, horizon: "1m", salary: undefined, openingBalance: 200, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })] });
+    const plan = buildPlan({ ...base, horizon: 1, salary: undefined, openingBalance: 200, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })] });
 
     expect(plan.verdict).toBe("short");
     expect(plan.shortfall).toBe(300); // no income at all against €300 of bills
@@ -280,7 +280,7 @@ describe("buildPlan", () => {
     // The bill lands before the salary does. Over the month it is covered; on
     // 20 Aug it is not — and telling the user they "will run short" when the
     // month adds up would be the wrong answer to the question they asked.
-    const plan = buildPlan({ ...base, horizon: "1m", openingBalance: 0, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 18 })] });
+    const plan = buildPlan({ ...base, horizon: 1, openingBalance: 0, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 18 })] });
 
     expect(plan.verdict).toBe("tight");
     expect(plan.shortfall).toBe(0);
@@ -291,7 +291,7 @@ describe("buildPlan", () => {
   });
 
   it("pulls an overdue bill onto today rather than a date that has passed", () => {
-    const plan = buildPlan({ ...base, horizon: "1m", bills: [bill({ name: "Late", amount: 50, dueDay: 9 })] });
+    const plan = buildPlan({ ...base, horizon: 1, bills: [bill({ name: "Late", amount: 50, dueDay: 9 })] });
 
     const [first] = plan.events.filter((e) => e.kind === "bill");
     expect(first.overdue).toBe(true);
@@ -301,7 +301,7 @@ describe("buildPlan", () => {
   it("adds up: opening plus income less outgoings is where the line ends", () => {
     const plan = buildPlan({
       ...base,
-      horizon: "3m",
+      horizon: 3,
       openingBalance: 250,
       bills: [bill({ name: "Ρεύμα", amount: 100, dueDay: 20 })],
       goals: [goal({ targetPeriod: "monthly", monthlyRequired: 150, currentPeriodSaved: 0 })],
@@ -314,7 +314,7 @@ describe("buildPlan", () => {
   });
 
   it("returns a usable plan with nothing set up at all", () => {
-    const plan = buildPlan({ bills: [], goals: [], now, horizon: "1m" });
+    const plan = buildPlan({ bills: [], goals: [], now, horizon: 1 });
 
     expect(plan.points).toHaveLength(18); // 14 Aug through 31 Aug
     expect(plan.verdict).toBe("ok");
@@ -333,7 +333,7 @@ describe("a goal stops at its deadline", () => {
   it("charges the months up to the deadline and not one more", () => {
     // The bug: `laterMonths` was every month of the horizon, so on a twelve
     // month view this went on taking its slice through the following August.
-    const plan = buildPlan({ ...base, horizon: "12m", goals: [october()] });
+    const plan = buildPlan({ ...base, horizon: 12, goals: [october()] });
     const row = plan.rows.find((r) => r.source === "goal");
 
     expect(row?.occurrences).toBe(3); // Aug, Sep, Oct
@@ -341,7 +341,7 @@ describe("a goal stops at its deadline", () => {
   });
 
   it("does not put a goal event in any month past the deadline", () => {
-    const plan = buildPlan({ ...base, horizon: "12m", goals: [october()] });
+    const plan = buildPlan({ ...base, horizon: 12, goals: [october()] });
     const dates = plan.events.filter((e) => e.kind === "goal").map((e) => e.date);
 
     expect(dates.every((d) => d <= new Date(2026, 9, 31))).toBe(true);
@@ -349,7 +349,7 @@ describe("a goal stops at its deadline", () => {
 
   it("still runs to the end of the window when there is no deadline", () => {
     const endless = goal({ targetPeriod: "monthly", monthlyRequired: 100, currentPeriodSaved: 0, deadline: undefined });
-    const row = buildPlan({ ...base, horizon: "6m", goals: [endless] }).rows.find((r) => r.source === "goal");
+    const row = buildPlan({ ...base, horizon: 6, goals: [endless] }).rows.find((r) => r.source === "goal");
 
     expect(row?.occurrences).toBe(6);
   });

@@ -1,10 +1,14 @@
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FiLock } from "react-icons/fi";
+import { FiChevronDown, FiChevronRight, FiLock } from "react-icons/fi";
 
 import { isHardDeadline } from "../../bills/billsUtils";
 import type { PlannerEvent } from "../plannerUtils";
 import type { BillWithStatus } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
+
+/** Months open on arrival. Two is the near future; the rest is reference. */
+const DEFAULT_OPEN_MONTHS = 2;
 
 export interface EventMonth {
   key: string;
@@ -29,8 +33,10 @@ interface PlannerTimelineProps {
  * "how much" — the hero already said that — but "in what order", which is the
  * difference between a month that adds up and a month that adds up too late.
  */
-export function PlannerTimeline({ months, bills, breakingEvent, formatCurrency, dateFmt }: PlannerTimelineProps) {
+function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dateFmt }: PlannerTimelineProps) {
   const { t } = useTranslation();
+  // Which months have been unrolled by hand, on top of the ones open by default.
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
 
   const renderEvent = (event: PlannerEvent, index: number) => {
     const source = event.billId ? bills.find((b) => b.id === event.billId) : undefined;
@@ -39,10 +45,10 @@ export function PlannerTimeline({ months, bills, breakingEvent, formatCurrency, 
     // money out the same way. Full strength is kept for the one event that
     // tipped the balance under — that is the row worth shouting about.
     const tone = isBreaking
-      ? "var(--color-expense)"
+      ? "var(--color-expense-text)"
       : event.amount > 0
-        ? "color-mix(in srgb, var(--color-income) 55%, var(--color-text-primary))"
-        : "color-mix(in srgb, var(--color-expense) 55%, var(--color-text-primary))";
+        ? "color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary))"
+        : "color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary))";
 
     return (
       <div key={`${event.kind}-${event.billId ?? event.label}-${index}`} className={styles.eventRow}>
@@ -79,22 +85,40 @@ export function PlannerTimeline({ months, bills, breakingEvent, formatCurrency, 
           {t("planner.noBillsLeft")}
         </p>
       ) : (
-        months.map((month) => (
-          <div key={month.key}>
-            {/* A single-month window is already one month — a heading over it
-                would only repeat the horizon picker. */}
-            {months.length > 1 && (
-              <div className={styles.monthHeader}>
-                <span>{month.label}</span>
+        months.map((month, i) => {
+          // A single-month window is already one month — a heading over it
+          // would only repeat the horizon picker.
+          if (months.length === 1) return <div key={month.key}>{month.events.map(renderEvent)}</div>;
+
+          // The months near enough to act on start open; the rest are a
+          // heading until asked for. Three years of a busy plan is over three
+          // hundred rows, and a list that long is not read, it is scrolled
+          // past — while still costing the browser every node of it.
+          const open = opened[month.key] ?? i < DEFAULT_OPEN_MONTHS;
+
+          return (
+            <div key={month.key}>
+              <button
+                type="button"
+                className={styles.monthHeader}
+                aria-expanded={open}
+                onClick={() => setOpened((state) => ({ ...state, [month.key]: !open }))}
+              >
+                {open ? <FiChevronDown size={13} aria-hidden /> : <FiChevronRight size={13} aria-hidden />}
+                <span className={styles.monthLabel}>{month.label}</span>
+                <span className={styles.monthCount}>{t("planner.groupCount", { count: month.events.length })}</span>
                 <span className={styles.monthTotal}>−{formatCurrency(month.outgoing)}</span>
-              </div>
-            )}
-            {month.events.map(renderEvent)}
-          </div>
-        ))
+              </button>
+              {open && month.events.map(renderEvent)}
+            </div>
+          );
+        })
       )}
     </div>
   );
 }
+
+/** Skipped while the plan behind it is unchanged — see BalanceLine. */
+export const PlannerTimeline = memo(PlannerTimelineBase);
 
 export default PlannerTimeline;

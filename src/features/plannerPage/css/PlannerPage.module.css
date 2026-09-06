@@ -253,14 +253,20 @@
 /* Only drawn when the window spans more than one month. The heavier top rule
    makes the break read as a section rather than as one more row. */
 
+/* A button now: past the first couple of months it is a heading that unrolls,
+   not a heading over rows that are always there. */
 .monthHeader {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 0.5rem;
+  width: 100%;
   margin-top: 0.75rem;
   padding: 0.5rem 0 0.25rem;
+  border: 0;
   border-top: 2px solid var(--color-border-primary);
+  background: none;
+  text-align: left;
+  cursor: pointer;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -277,6 +283,18 @@
 /* The first row after a heading already has the heading's rule above it. */
 .monthHeader + .eventRow {
   border-top: 0;
+}
+
+.monthLabel {
+  white-space: nowrap;
+}
+
+.monthCount {
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ── One-off meta line ────────────────────────────────────────────────────── */
@@ -309,21 +327,24 @@
 }
 
 .heroOk {
+  --hero-accent: var(--color-income);
   background: color-mix(in srgb, var(--color-income) 9%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-income) 26%, transparent);
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .heroTight {
+  --hero-accent: var(--color-goal);
   background: color-mix(in srgb, var(--color-goal) 9%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-goal) 26%, transparent);
-  color: var(--color-goal);
+  color: var(--color-goal-text);
 }
 
 .heroShort {
+  --hero-accent: var(--color-expense);
   background: color-mix(in srgb, var(--color-expense) 9%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-expense) 26%, transparent);
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 /* Pills rather than the segmented control: it sits inside a tinted card now,
@@ -349,9 +370,14 @@
   color: var(--color-text-primary);
 }
 
+/* The selected one is carried by the chip, not by the lettering. Tinting both
+   the text and its background from the same hue put them 3.69:1 apart — the
+   chip was legible as a shape and the label inside it was not. The accent
+   comes from a variable rather than `currentColor`, which would resolve to the
+   text colour set on this very rule. */
 .horizonOn {
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  color: inherit;
+  background: color-mix(in srgb, var(--hero-accent, var(--bs-primary)) 22%, transparent);
+  color: var(--color-text-primary);
 }
 
 .heroVerdict {
@@ -396,7 +422,7 @@
 .heroLedger {
   margin-top: 0.875rem;
   padding-top: 0.625rem;
-  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--hero-accent, var(--color-border-primary)) 22%, transparent);
 }
 
 .ledgerRow {
@@ -551,11 +577,11 @@
    reading the sign. Mixed most of the way back to the body colour, it survives
    a glance and disappears into the page when you are reading names. */
 .rowIncome {
-  color: color-mix(in srgb, var(--color-income) 55%, var(--color-text-primary));
+  color: color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary));
 }
 
 .rowExpense {
-  color: color-mix(in srgb, var(--color-expense) 55%, var(--color-text-primary));
+  color: color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary));
 }
 
 .rowAmount {

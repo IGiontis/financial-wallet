@@ -42,6 +42,15 @@
   --color-expense: #dc2626;
   --color-invest: #6366f1;
   --color-goal: #d97706;
+
+  /* The same meanings, dark enough to be *text* on a light surface.
+     The accents above are picked to read as fills, chips and chart strokes,
+     where a shape carries the colour. As lettering on white they fall short:
+     the green measures 3.3:1 and the amber 2.98:1, against the 4.5:1 that body
+     text needs. Anything that spells a figure out uses these instead. */
+  --color-income-text: #15803d;
+  --color-expense-text: #b91c1c;
+  --color-goal-text: #b45309;
   --color-tooltip-bg: #1e293b;
   --color-tooltip-text: #ffffff;
 
@@ -78,6 +87,12 @@
   --color-expense: #f87171;
   --color-invest: #a5b4fc;
   --color-goal: #fbbf24;
+
+  /* On dark these already clear 4.5:1 as text, so the text variants are the
+     accents themselves rather than a second set to keep in step. */
+  --color-income-text: #4ade80;
+  --color-expense-text: #f87171;
+  --color-goal-text: #fbbf24;
   --color-tooltip-bg: #263141;
   --color-tooltip-text: #f1f5f9;
 

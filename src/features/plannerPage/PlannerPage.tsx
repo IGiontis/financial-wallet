@@ -11,6 +11,7 @@ import { useDebts } from "../debts/useDebts";
 import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import { useDebounce } from "../../shared/hooks/useDebounce";
 import { asHorizon, buildPlan, detectSalary, oneOffDate, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
 import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
@@ -53,7 +54,7 @@ export function PlannerPage() {
   // older version of this page can still be sitting. None of these are trusted
   // on their type alone — one stale horizon name was enough to take the whole
   // page down with an invalid date.
-  const [storedHorizon, setHorizon] = useLocalStorage<PlannerHorizon>("planner-horizon", "1m");
+  const [storedHorizon, setHorizon] = useLocalStorage<PlannerHorizon>("planner-horizon", 1);
   const [openingInput, setOpeningInput] = useLocalStorage("planner-opening", "");
   const [storedSalary, setSalaryInput] = useLocalStorage("planner-salary", { amount: "", day: "" });
   const [storedLines, setLines] = useLocalStorage<BudgetLine[]>("planner-lines", []);
@@ -108,9 +109,17 @@ export function PlannerPage() {
   // a plan that spent it in advance would be promising an unmade sale.
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
 
+  // The two things that are *typed* are held back a moment before the
+  // projection is rebuilt. Every other input — a switch, a horizon pill — is a
+  // single discrete change, but a text box fires per character, and rebuilding
+  // three years of plan on each one cost about 150ms a keystroke. The fields
+  // themselves stay immediate; only the answer waits for you to finish.
+  const plannedOpening = useDebounce(openingInput, 250);
+  const plannedSalary = useDebounce(salary, 250);
+
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: parseFloat(openingInput) || 0, skipIds, horizon, now }),
-    [bills, goals, lines, oneOffs, debts, salary, openingInput, skipIds, horizon, now],
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, openingBalance: parseFloat(plannedOpening) || 0, skipIds, horizon, now }),
+    [bills, goals, lines, oneOffs, debts, plannedSalary, plannedOpening, skipIds, horizon, now],
   );
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
