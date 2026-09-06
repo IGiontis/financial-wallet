@@ -131,9 +131,13 @@ export function goalMonthlyNeed(goal: InvestmentGoalWithStats, now: Date = new D
 
   if (goal.deadline) {
     const deadline = firestoreToDate(goal.deadline);
-    const monthsLeft = Math.max((deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()), 0);
+    const monthsAhead = Math.max((deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()), 0);
+    // Divided by the number of contributions, which is one more than the number
+    // of months *ahead*: the plan charges this month as well as each later one.
+    // Dividing by the gap alone made the slices too big by exactly one payment,
+    // so a €900 goal three months out was planned as €1,350.
     // Deadline lands this month: the whole remainder is due now, not a slice.
-    return round2(monthsLeft === 0 ? (goal.remaining ?? 0) : (goal.remaining ?? 0) / monthsLeft);
+    return round2((goal.remaining ?? 0) / (monthsAhead + 1));
   }
 
   return round2(goal.monthlyRequired ?? 0);
@@ -147,6 +151,25 @@ export function goalMonthlyTarget(goal: InvestmentGoalWithStats, now: Date = new
 }
 
 export const plannableGoals = (goals: InvestmentGoalWithStats[]) => goals.filter((g) => g.isActive && !g.isCompleted);
+
+/**
+ * Of the months ahead, the ones this goal is still asking for money in.
+ *
+ * A deadline ends a goal. Without this the plan charged every goal in every
+ * month of the window regardless — a target due on 4 October went on taking
+ * its slice through the following August on a twelve-month view, which is both
+ * wrong and the most alarming kind of wrong, since it makes a perfectly
+ * affordable year look unaffordable.
+ *
+ * Compared by month rather than by day: a deadline on the 4th still wants that
+ * whole month's contribution, and a goal is funded in monthly slices, not on
+ * the deadline itself.
+ */
+export function goalMonthsAhead(goal: InvestmentGoalWithStats, months: Date[]): Date[] {
+  if (!goal.deadline) return months;
+  const last = startOfMonth(firestoreToDate(goal.deadline));
+  return months.filter((month) => month <= last);
+}
 
 // ─── Horizon ─────────────────────────────────────────────────────────────────
 
@@ -477,7 +500,9 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     // target again, since nothing has been paid into them yet.
     const need = goalMonthlyNeed(goal, now);
     const target = goalMonthlyTarget(goal, now);
-    const total = need + target * laterMonths.length;
+    // Only the months the goal actually reaches — see `goalMonthsAhead`.
+    const months = goalMonthsAhead(goal, laterMonths);
+    const total = need + target * months.length;
 
     const enabled = isOn(goal.id);
     rows.push({
@@ -485,7 +510,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       source: "goal",
       label: goal.name,
       total: enabled ? negate(total) : 0,
-      occurrences: (need > 0 ? 1 : 0) + (target > 0 ? laterMonths.length : 0),
+      occurrences: (need > 0 ? 1 : 0) + (target > 0 ? months.length : 0),
       perMonth: negate(target),
       // Same reasoning as the bills: a goal you are keeping up with reports
       // zero rather than disappearing.
@@ -495,7 +520,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     if (!enabled || total <= 0) continue;
 
     if (need > 0) events.push({ kind: "goal", label: goal.name, amount: -need, date: today });
-    if (target > 0) for (const month of laterMonths) events.push({ kind: "goal", label: goal.name, amount: -target, date: month });
+    if (target > 0) for (const month of months) events.push({ kind: "goal", label: goal.name, amount: -target, date: month });
   }
 
   // ── Debts owed ────────────────────────────────────────────────────────────

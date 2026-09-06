@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, nextSalaryDate, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
+import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, goalMonthsAhead, nextSalaryDate, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
 import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 const tx = (overrides: Partial<Transaction> = {}): Transaction =>
@@ -135,8 +135,12 @@ describe("goalMonthlyNeed", () => {
     expect(goalMonthlyTarget(goal({ targetPeriod: "monthly", monthlyRequired: 120, currentPeriodSaved: 120 }), now)).toBe(120);
   });
 
-  it("spreads a targeted goal across the months left", () => {
-    expect(goalMonthlyNeed(goal({ remaining: 900, deadline: new Date(2026, 10, 14) }), now)).toBe(300);
+  it("spreads a targeted goal across the contributions left, this month included", () => {
+    // This expected 300 — the remainder over the *gap* of three months. But the
+    // plan charges this month too, so it made four payments of 300 for a goal
+    // of 900. Divided by the payments actually scheduled, the slices add up to
+    // the goal instead of to a third more than it.
+    expect(goalMonthlyNeed(goal({ remaining: 900, deadline: new Date(2026, 10, 14) }), now)).toBe(225);
   });
 
   it("asks for the whole remainder when the deadline is this month", () => {
@@ -315,5 +319,53 @@ describe("buildPlan", () => {
     expect(plan.points).toHaveLength(18); // 14 Aug through 31 Aug
     expect(plan.verdict).toBe("ok");
     expect(plan.rows).toHaveLength(0);
+  });
+});
+
+describe("a goal stops at its deadline", () => {
+  const now = new Date(2026, 7, 14); // 14 Aug 2026
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  // €900 left, due 4 October: August is this month, then September and October.
+  const october = () => goal({ name: "Ταξίδι", remaining: 900, deadline: new Date(2026, 9, 4) });
+
+  it("charges the months up to the deadline and not one more", () => {
+    // The bug: `laterMonths` was every month of the horizon, so on a twelve
+    // month view this went on taking its slice through the following August.
+    const plan = buildPlan({ ...base, horizon: "12m", goals: [october()] });
+    const row = plan.rows.find((r) => r.source === "goal");
+
+    expect(row?.occurrences).toBe(3); // Aug, Sep, Oct
+    expect(row?.total).toBe(-900);
+  });
+
+  it("does not put a goal event in any month past the deadline", () => {
+    const plan = buildPlan({ ...base, horizon: "12m", goals: [october()] });
+    const dates = plan.events.filter((e) => e.kind === "goal").map((e) => e.date);
+
+    expect(dates.every((d) => d <= new Date(2026, 9, 31))).toBe(true);
+  });
+
+  it("still runs to the end of the window when there is no deadline", () => {
+    const endless = goal({ targetPeriod: "monthly", monthlyRequired: 100, currentPeriodSaved: 0, deadline: undefined });
+    const row = buildPlan({ ...base, horizon: "6m", goals: [endless] }).rows.find((r) => r.source === "goal");
+
+    expect(row?.occurrences).toBe(6);
+  });
+
+  it("keeps the deadline month whole, whatever day of it the deadline falls on", () => {
+    const months = [new Date(2026, 8, 1), new Date(2026, 9, 1), new Date(2026, 10, 1)];
+
+    // A goal due on the 4th still wants that month's contribution.
+    expect(goalMonthsAhead(goal({ deadline: new Date(2026, 9, 4) }), months)).toEqual(months.slice(0, 2));
+    expect(goalMonthsAhead(goal({ deadline: new Date(2026, 9, 31) }), months)).toEqual(months.slice(0, 2));
+  });
+
+  it("asks for nothing in the months after a deadline that has already gone", () => {
+    const past = goal({ remaining: 500, deadline: new Date(2026, 6, 1) });
+    const months = [new Date(2026, 8, 1), new Date(2026, 9, 1)];
+
+    expect(goalMonthsAhead(past, months)).toEqual([]);
   });
 });

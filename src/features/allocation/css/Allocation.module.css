@@ -233,3 +233,151 @@
   border-color: var(--bs-primary);
   color: var(--bs-primary);
 }
+
+/* ── Plan against actual ──────────────────────────────────────────────────── */
+/* The line that turns a wish list into a budget. It sits under each bucket's
+   slider, because the question it answers — "how is this one going?" — is about
+   that bucket and nothing else. */
+
+.track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  /* Not `--color-background-secondary`: on the dark card that token is all but
+     the card itself, so a bucket with nothing spent yet showed no track at all
+     and its row looked broken next to the others. */
+  background: color-mix(in srgb, var(--color-text-secondary) 20%, transparent);
+  overflow: hidden;
+  margin: 2px 0 4px;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-income);
+  transition: width 0.2s;
+}
+
+/* Amber before the line, red past it: running close to a budget is not the
+   same event as breaking it, and one colour for both teaches nothing. */
+.fillClose {
+  background: var(--color-goal);
+}
+
+.fillOver {
+  background: var(--color-expense);
+}
+
+.actual {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.actualOver {
+  color: var(--color-expense);
+  font-weight: 600;
+}
+
+.carried {
+  color: var(--color-income);
+}
+
+/* ── Category link ────────────────────────────────────────────────────────── */
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px dashed var(--color-border-primary);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+.linked {
+  border-style: solid;
+  color: var(--color-text-primary);
+}
+
+/* ── Category picker rows ─────────────────────────────────────────────────── */
+
+.pickRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.375rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pickRow:first-of-type {
+  border-top: 0;
+}
+
+.pickName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickTaken {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Emergency fund ───────────────────────────────────────────────────────── */
+
+.cushionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.cushionAmount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Extra pay ────────────────────────────────────────────────────────────── */
+
+.payMode {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
+}

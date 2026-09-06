@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { Alert, Button, Container, Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiPlus, FiX } from "react-icons/fi";
+import { FiPlus, FiTag, FiX } from "react-icons/fi";
 
 import { SkeletonCard, SkeletonPageHeader } from "../../shared/components/Skeletons";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -9,23 +10,47 @@ import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
 import { useInvestmentGoals } from "../budget/useInvestments";
+import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
 import { seriesColor } from "../analytics/components/chartTheme";
-import type { BudgetLine } from "../plannerPage/plannerUtils";
-import { allocate, applyPreset, assignRemainder, bucketCeiling, committedMonthly, extraFor, monthKey, PRESETS, setBucketAmount, type ExtraThisMonth } from "./allocationUtils";
+import { categoryLabel } from "../../shared/utils/categories";
+import type { OneOff } from "../plannerPage/plannerUtils";
+import {
+  allocate,
+  assignRemainder,
+  bucketActual,
+  bucketCeiling,
+  committedMonthly,
+  EMERGENCY_MONTHS,
+  emergencyTarget,
+  extraFor,
+  extraPayForMonth,
+  monthKey,
+  nextRollover,
+  seedFromHistory,
+  setBucketAmount,
+  spentByCategory,
+  type Bucket,
+  type ExtraPayMode,
+  type ExtraThisMonth,
+  type RolloverState,
+} from "./allocationUtils";
+import CategoryLinkModal from "./CategoryLinkModal";
 import styles from "./css/Allocation.module.css";
 
 const newId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /**
- * What to do with what is left.
+ * What to do with what is left — and whether last month's answer held.
  *
- * The planner answers "do I get through the month?" — a projection, with a
- * verdict. This answers a different question: of the money that is genuinely
- * free once the unavoidable is paid, how should it be divided? The two share
- * their inputs and, deliberately, their storage: the buckets here *are* the
- * planner's budget lines. Decide it on this screen, see it projected on that
- * one. Two screens with two ideas of the food budget would be worse than
- * having neither.
+ * The planner answers "do I get through the month?": a projection, with a
+ * verdict. This answers a different question. Of the money genuinely free once
+ * the unavoidable is paid, how should it be divided — and, the part that makes
+ * it a budget rather than a wish list, how is that division actually going?
+ *
+ * Every bucket names the categories it pays for, so the page can put the plan
+ * and the ledger side by side. Without that link the two were connected by
+ * nothing but a label, and a plan that is never compared with what happened is
+ * one you rewrite from scratch every month.
  */
 export function AllocationPage() {
   const { t } = useTranslation();
@@ -34,32 +59,71 @@ export function AllocationPage() {
   const { data: bills = [], isLoading: billsLoading } = useBills();
   const { data: goals = [], isLoading: goalsLoading } = useInvestmentGoals();
   const { data: debts = [] } = useDebts();
+  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: categories = [] } = useCategories();
 
-  // Reads the planner's pay figure; writes nothing the planner reads. This
-  // screen used to share the planner's budget lines outright, on the reasoning
-  // that two screens should not hold two ideas of the food budget. That was
-  // wrong about what the two screens are for: the planner holds what you have
-  // decided is fixed, and this one is an exercise in dividing what is left.
-  // Dragging a slider here to see how a month could go should not quietly
-  // rewrite the plan you rely on there.
+  // Reads the planner's pay figures; writes nothing the planner reads. Dragging
+  // a slider here to see how a month could go should not quietly rewrite the
+  // plan relied on there.
   const [storedSalary] = useLocalStorage("planner-salary", { amount: "", day: "" });
-  const [storedLines, setLines] = useLocalStorage<BudgetLine[]>("allocation-buckets", []);
+  const [storedOneOffs] = useLocalStorage<OneOff[]>("planner-oneoffs", []);
+  const [storedLines, setLines] = useLocalStorage<Bucket[]>("allocation-buckets", []);
   const [storedExtra, setExtra] = useLocalStorage<ExtraThisMonth | null>("allocation-extra", null);
+  const [payMode, setPayMode] = useLocalStorage<ExtraPayMode>("allocation-pay-mode", "when");
+  const [storedRollover, setRollover] = useLocalStorage<RolloverState | null>("allocation-rollover", null);
 
   const [now] = useState(() => new Date());
+  const [linking, setLinking] = useState<string | null>(null);
 
   const lines = useMemo(
-    () => (Array.isArray(storedLines) ? storedLines.filter((l): l is BudgetLine => !!l && typeof l.id === "string" && Number.isFinite(l.amount)) : []),
+    () => (Array.isArray(storedLines) ? storedLines.filter((l): l is Bucket => !!l && typeof l.id === "string" && Number.isFinite(l.amount)) : []),
     [storedLines],
   );
+  const oneOffs = useMemo(() => (Array.isArray(storedOneOffs) ? storedOneOffs.filter((o) => !!o && typeof o.date === "string" && Number.isFinite(o.amount)) : []), [storedOneOffs]);
 
-  const income = parseFloat(String(storedSalary?.amount ?? "")) || 0;
+  const salary = parseFloat(String(storedSalary?.amount ?? "")) || 0;
+  const extraPay = useMemo(() => extraPayForMonth(oneOffs, payMode === "spread" ? "spread" : "when", now), [oneOffs, payMode, now]);
+  const income = salary + extraPay;
+
   const committed = useMemo(() => committedMonthly(bills, goals, debts, now), [bills, goals, debts, now]);
   const extra = useMemo(() => extraFor(storedExtra, now), [storedExtra, now]);
   const plan = useMemo(() => allocate(income, committed, lines, extra), [income, committed, lines, extra]);
 
-  // Kept while a figure is being typed, so clearing the box does not read back
-  // as "0" and put every further digit after it.
+  // ── This month against the plan ───────────────────────────────────────────
+
+  const spent = useMemo(() => spentByCategory(transactions, startOfMonth(now), endOfMonth(now)), [transactions, now]);
+  const thisMonth = monthKey(now);
+  const carried = storedRollover?.month === thisMonth ? (storedRollover.byBucket ?? {}) : {};
+
+  // Rolled once, on the first visit of a new month. Only from the month
+  // immediately before: after a gap there is no chain to continue, and
+  // reconstructing one from a ledger that may have changed since would be
+  // inventing a balance rather than remembering it.
+  useEffect(() => {
+    if (txLoading || lines.length === 0) return;
+    if (storedRollover?.month === thisMonth) return;
+
+    const previous = monthKey(subMonths(now, 1));
+    const carriedIn = storedRollover?.month === previous ? (storedRollover.byBucket ?? {}) : {};
+    const lastMonth = spentByCategory(transactions, startOfMonth(subMonths(now, 1)), endOfMonth(subMonths(now, 1)));
+
+    setRollover({ month: thisMonth, byBucket: storedRollover ? nextRollover(lines, carriedIn, lastMonth) : {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txLoading, thisMonth, storedRollover?.month, lines.length]);
+
+  // ── Cushion ───────────────────────────────────────────────────────────────
+
+  const cushion = useMemo(() => {
+    const target = emergencyTarget(committed);
+    // Whatever is being saved into counts toward it. Naming one goal "the"
+    // emergency fund would need a field the goal model does not have, and
+    // guessing from its name would be worse than adding the figures up.
+    const saved = goals.filter((g) => g.isActive && !g.isCompleted).reduce((sum, g) => sum + (g.totalSaved ?? 0), 0);
+    return { target, saved, share: target > 0 ? Math.min(saved / target, 1) : 0 };
+  }, [committed, goals]);
+
+  // ── Editing ───────────────────────────────────────────────────────────────
+
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [extraDraft, setExtraDraft] = useState<string | null>(null);
   const clearDraft = (id: string) =>
@@ -72,23 +136,23 @@ export function AllocationPage() {
   const setAmount = (id: string, amount: number) => setLines(setBucketAmount(lines, id, amount, plan.free));
   const rename = (id: string, label: string) => setLines(lines.map((l) => (l.id === id ? { ...l, label } : l)));
   const remove = (id: string) => setLines(lines.filter((l) => l.id !== id));
-  const setExtraAmount = (amount: number) => setExtra({ month: monthKey(now), label: storedExtra?.label ?? "", amount });
-  const setExtraLabel = (label: string) => setExtra({ month: monthKey(now), label, amount: storedExtra?.amount ?? 0 });
-
+  const linkCategories = (id: string, categoryIds: string[]) => setLines(lines.map((l) => (l.id === id ? { ...l, categoryIds } : l)));
+  const setExtraAmount = (amount: number) => setExtra({ month: thisMonth, label: storedExtra?.label ?? "", amount });
+  const setExtraLabel = (label: string) => setExtra({ month: thisMonth, label, amount: storedExtra?.amount ?? 0 });
   const addBucket = () => setLines([...lines, { id: newId(), label: t("allocation.newBucket"), amount: 0, kind: "expense" }]);
-
-  const choosePreset = (presetId: string) => {
-    const preset = PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
-    // Income lines are money arriving, not buckets — a preset replaces the
-    // division of the pot, never what the pot is made of.
-    const kept = lines.filter((l) => l.kind === "income");
-    setLines([...kept, ...applyPreset(preset, plan.free, (key) => t(`allocation.buckets.${key}`), newId)]);
-  };
-
   const giveRemainderTo = (id: string) => setLines(assignRemainder(lines, id, plan.unallocated));
 
-  if (billsLoading || goalsLoading) {
+  const seed = () => {
+    const kept = lines.filter((l) => l.kind === "income");
+    setLines([...kept, ...seedFromHistory(transactions, categories, newId, now)]);
+  };
+
+  const nameFor = (id: string) => {
+    const category = categories.find((c) => c.id === id);
+    return category ? categoryLabel(category.name, t) : t("analytics.unknownCategory");
+  };
+
+  if (billsLoading || goalsLoading || txLoading) {
     return (
       <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 820 }}>
         <SkeletonPageHeader />
@@ -98,6 +162,8 @@ export function AllocationPage() {
   }
 
   const remainderTone = plan.unallocated > 0.005 ? styles.remainderOpen : plan.unallocated < -0.005 ? styles.remainderOver : styles.remainderDone;
+  const linkingBucket = lines.find((l) => l.id === linking);
+  const canSeed = transactions.length > 0;
 
   return (
     <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 820 }}>
@@ -106,7 +172,7 @@ export function AllocationPage() {
         <p className="small text-body-secondary mb-0">{t("allocation.subtitle")}</p>
       </div>
 
-      {income <= 0 ? (
+      {salary <= 0 ? (
         <Alert color="secondary" className="small mb-0">
           {t("allocation.noSalary")}
         </Alert>
@@ -127,10 +193,21 @@ export function AllocationPage() {
                 {t("allocation.lessExtra", { label: storedExtra?.label || t("allocation.extraFallback"), amount: formatCurrency(extra) })}
               </div>
             )}
-            <div className={`${styles.free} ${plan.free < 0 ? styles.freeNegative : ""}`}>{t("allocation.freeAmount", { amount: formatCurrency(plan.free) })}</div>
+            <div className={`${styles.free} ${plan.free < 0 ? styles.freeNegative : ""}`}>{t("allocation.availableAmount", { amount: formatCurrency(plan.free) })}</div>
             <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
               {t("allocation.dividesThis")}
             </p>
+
+            {/* Pay beyond the twelve. Left out entirely before, which understated
+                a Greek year by two salaries. */}
+            {oneOffs.length > 0 && (
+              <div className={styles.payMode}>
+                <span>{t("allocation.extraPay", { amount: formatCurrency(extraPay) })}</span>
+                <Button color="secondary" outline size="sm" style={{ fontSize: 11.5 }} onClick={() => setPayMode(payMode === "spread" ? "when" : "spread")}>
+                  {t(payMode === "spread" ? "allocation.paySpread" : "allocation.payWhen")}
+                </Button>
+              </div>
+            )}
 
             {/* A month that is not like the others, without rewriting the plan
                 and then having to remember to put it back. */}
@@ -144,8 +221,6 @@ export function AllocationPage() {
                 aria-label={t("allocation.extraWhatFor")}
                 style={{ flex: 1, minWidth: 120 }}
               />
-              {/* Grouped so the clear button wraps with the figure it clears,
-                  rather than dropping onto a line of its own. */}
               <span className="d-flex align-items-center gap-1">
                 <Input
                   bsSize="sm"
@@ -182,8 +257,6 @@ export function AllocationPage() {
                 <div className={styles.bar} role="img" aria-label={t("allocation.barLabel")}>
                   {plan.buckets.map((bucket, i) => {
                     const width = Math.max(0, bucket.share) * 100;
-                    // A label in a sliver is a smear. The rows below carry the
-                    // names, tied back by the colour of the dot.
                     return (
                       <div key={bucket.id} className={styles.slice} style={{ width: `${width}%`, background: seriesColor(i), color: "#fff" }}>
                         {width >= 14 ? bucket.label : ""}
@@ -217,22 +290,33 @@ export function AllocationPage() {
               {plan.buckets.length === 0 ? (
                 <>
                   <p className="mb-2" style={{ fontSize: 13 }}>
-                    {t("allocation.startFrom")}
+                    {canSeed ? t("allocation.seedPrompt") : t("allocation.seedNoHistory")}
                   </p>
                   <div className="d-flex flex-wrap gap-2">
-                    {PRESETS.map((preset) => (
-                      <Button key={preset.id} color="secondary" outline size="sm" onClick={() => choosePreset(preset.id)}>
-                        {t(`allocation.presets.${preset.id}`)}
+                    {canSeed && (
+                      <Button color="primary" size="sm" onClick={seed}>
+                        {t("allocation.seedAction")}
                       </Button>
-                    ))}
+                    )}
+                    <Button color="secondary" outline size="sm" onClick={addBucket}>
+                      {t("allocation.addBucket")}
+                    </Button>
                   </div>
                   <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 11.5 }}>
-                    {t("allocation.presetsNote")}
+                    {t("allocation.seedNote")}
                   </p>
                 </>
               ) : (
                 <>
                   {plan.buckets.map((bucket, i) => {
+                    const source = lines.find((l) => l.id === bucket.id) ?? bucket;
+                    const rollover = carried[bucket.id] ?? 0;
+                    const actual = bucketActual(source, spent, rollover);
+                    const budget = bucket.amount + rollover;
+                    const pct = Math.min(actual.used, 1) * 100;
+                    const tone = actual.left < 0 ? styles.fillOver : actual.used >= 0.85 ? styles.fillClose : "";
+                    const links = source.categoryIds ?? [];
+
                     return (
                       <div key={bucket.id} className={styles.row}>
                         <div className={styles.rowHead}>
@@ -249,9 +333,6 @@ export function AllocationPage() {
                             onChange={(e) => {
                               const typed = parseFloat(e.target.value) || 0;
                               const ceiling = bucketCeiling(lines, bucket.id, plan.free);
-                              // Snap the box to the ceiling as it is hit. Letting it
-                              // read 5000 while 420 was stored is the app agreeing
-                              // to money that is not there.
                               setDrafts((d) => ({ ...d, [bucket.id]: typed > ceiling ? String(ceiling) : e.target.value }));
                               setAmount(bucket.id, typed);
                             }}
@@ -276,7 +357,29 @@ export function AllocationPage() {
                             onChange={(e) => setAmount(bucket.id, Number(e.target.value))}
                             aria-label={t("allocation.bucketShare", { name: bucket.label })}
                           />
-                          <span className={styles.perDay}>{t("allocation.perDay", { amount: formatCurrency(bucket.perDay) })}</span>
+                        </div>
+
+                        {/* The plan, and what the month actually did with it. */}
+                        <div className={styles.track} aria-hidden>
+                          <div className={`${styles.fill} ${tone}`} style={{ width: `${actual.unmeasured ? 0 : pct}%` }} />
+                        </div>
+
+                        <div className={styles.actual}>
+                          <span className={actual.left < 0 ? styles.actualOver : undefined}>
+                            {actual.unmeasured
+                              ? t("allocation.unmeasured")
+                              : actual.left < 0
+                                ? t("allocation.spentOver", { spent: formatCurrency(actual.spent), budget: formatCurrency(budget), over: formatCurrency(Math.abs(actual.left)) })
+                                : t("allocation.spentOf", { spent: formatCurrency(actual.spent), budget: formatCurrency(budget), left: formatCurrency(actual.left) })}
+                          </span>
+                          {rollover > 0 && <span className={styles.carried}>{t("allocation.carried", { amount: formatCurrency(rollover) })}</span>}
+                        </div>
+
+                        <div className={styles.links}>
+                          <button type="button" className={`${styles.linkBtn} ${links.length > 0 ? styles.linked : ""}`} onClick={() => setLinking(bucket.id)}>
+                            <FiTag size={12} aria-hidden />
+                            {links.length === 0 ? t("allocation.linkNone") : links.map(nameFor).join(", ")}
+                          </button>
                         </div>
                       </div>
                     );
@@ -286,18 +389,34 @@ export function AllocationPage() {
                     <FiPlus size={14} /> {t("allocation.addBucket")}
                   </button>
 
-                  <div className="d-flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "0.5px solid var(--color-border-tertiary)" }}>
-                    <span className="text-body-secondary align-self-center" style={{ fontSize: 11.5 }}>
-                      {t("allocation.startOver")}
-                    </span>
-                    {PRESETS.map((preset) => (
-                      <Button key={preset.id} color="secondary" outline size="sm" style={{ fontSize: 11.5 }} onClick={() => choosePreset(preset.id)}>
-                        {t(`allocation.presets.${preset.id}`)}
+                  {canSeed && (
+                    <div className="d-flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "0.5px solid var(--color-border-tertiary)" }}>
+                      <span className="text-body-secondary align-self-center" style={{ fontSize: 11.5 }}>
+                        {t("allocation.startOver")}
+                      </span>
+                      <Button color="secondary" outline size="sm" style={{ fontSize: 11.5 }} onClick={seed}>
+                        {t("allocation.seedAction")}
                       </Button>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* ── Cushion ── */}
+          {committed.total > 0 && (
+            <div className={styles.card}>
+              <div className={styles.cushionHead}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t("allocation.cushion")}</span>
+                <span className={styles.cushionAmount}>{t("allocation.cushionOf", { saved: formatCurrency(cushion.saved), target: formatCurrency(cushion.target) })}</span>
+              </div>
+              <div className={styles.track} aria-hidden>
+                <div className={styles.fill} style={{ width: `${cushion.share * 100}%` }} />
+              </div>
+              <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
+                {t("allocation.cushionNote", { months: EMERGENCY_MONTHS, amount: formatCurrency(committed.total) })}
+              </p>
             </div>
           )}
 
@@ -305,6 +424,16 @@ export function AllocationPage() {
             {t("allocation.sharedWithPlanner")}
           </p>
         </>
+      )}
+
+      {linkingBucket && (
+        <CategoryLinkModal
+          bucket={linkingBucket}
+          categories={categories}
+          others={lines.filter((l) => l.id !== linkingBucket.id)}
+          onChange={(ids) => linkCategories(linkingBucket.id, ids)}
+          onClose={() => setLinking(null)}
+        />
       )}
     </Container>
   );

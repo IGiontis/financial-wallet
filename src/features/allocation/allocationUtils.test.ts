@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { allocate, applyPreset, assignRemainder, bucketCeiling, committedMonthly, extraFor, monthKey, PRESETS, setBucketAmount } from "./allocationUtils";
+import { allocate, assignRemainder, bucketActual, bucketCeiling, committedMonthly, debtMonthlyShare, emergencyTarget, extraFor, extraPayForMonth, monthKey, nextRollover, seedFromHistory, setBucketAmount, spentByCategory, type Bucket } from "./allocationUtils";
 import type { BudgetLine } from "../plannerPage/plannerUtils";
-import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 8, 5);
 
@@ -62,44 +62,24 @@ describe("allocate", () => {
     expect(a.free).toBe(-100);
   });
 
-  it("gives no share when there is nothing to take a share of", () => {
+  it("still draws a bucket that has no pot behind it", () => {
+    // This used to expect a share of 0, on the reading that an empty pot means
+    // no shares. That drew an empty bar with a €100 bucket listed under it,
+    // which looks like the bucket was ignored. It is the whole of what has
+    // been allocated, so it is the whole bar — and `unallocated` carries the
+    // actual complaint.
     const a = allocate(0, noCommitment, [line("food", 100)]);
-    expect(a.buckets[0].share).toBe(0);
+
+    expect(a.buckets[0].share).toBe(1);
+    expect(a.unallocated).toBe(-100);
+  });
+
+  it("gives no share when there is neither a pot nor a bucket", () => {
+    expect(allocate(0, noCommitment, [line("food", 0)]).buckets[0].share).toBe(0);
   });
 
   it("spreads a bucket across an average month", () => {
     expect(allocate(1000, noCommitment, [line("food", 420)]).buckets[0].perDay).toBeCloseTo(13.8, 1);
-  });
-});
-
-describe("applyPreset", () => {
-  const labelFor = (key: string) => key;
-  let n = 0;
-  const newId = () => `b${n++}`;
-
-  it("lands exactly on the pot, with the rounding on the last row", () => {
-    for (const preset of PRESETS) {
-      const lines = applyPreset(preset, 1050, labelFor, newId);
-      const total = lines.reduce((sum, l) => sum + l.amount, 0);
-      // A page that opens saying three cents are unaccounted for is a page
-      // that taught the reader to ignore the figure.
-      expect(Math.round(total * 100) / 100).toBe(1050);
-    }
-  });
-
-  it("handles an awkward pot without drift", () => {
-    const lines = applyPreset(PRESETS[0], 1033.33, labelFor, newId);
-    expect(Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100).toBe(1033.33);
-  });
-
-  it("puts saving first when that is the point of the preset", () => {
-    const payFirst = PRESETS.find((p) => p.id === "payYourselfFirst")!;
-    expect(payFirst.buckets[0].labelKey).toBe("investing");
-  });
-
-  it("returns nothing when there is nothing to divide", () => {
-    expect(applyPreset(PRESETS[0], 0, labelFor, newId)).toEqual([]);
-    expect(applyPreset(PRESETS[0], -50, labelFor, newId)).toEqual([]);
   });
 });
 
@@ -223,5 +203,234 @@ describe("assignRemainder", () => {
   it("does nothing when the pot is already spoken for", () => {
     const lines = [line("food", 400)];
     expect(assignRemainder(lines, "food", 0)).toEqual(lines);
+  });
+});
+
+describe("debtMonthlyShare", () => {
+  it("spreads a dated debt over the months until it is due", () => {
+    // The bug this replaced: the whole balance came out of *this* month, so a
+    // loan due next June made a solvent September look nearly broke.
+    expect(debtMonthlyShare(debt(600, { dueDate: new Date(2026, 10, 1) }), now)).toBe(200);
+  });
+
+  it("asks for all of it in the month it is due", () => {
+    expect(debtMonthlyShare(debt(600, { dueDate: new Date(2026, 8, 30) }), now)).toBe(600);
+  });
+
+  it("asks for all of it once the date has gone", () => {
+    expect(debtMonthlyShare(debt(600, { dueDate: new Date(2026, 5, 1) }), now)).toBe(600);
+  });
+
+  it("treats a debt with no agreed date as owed now", () => {
+    // There is nothing to spread it across, and "some day" is not a plan.
+    expect(debtMonthlyShare(debt(600), now)).toBe(600);
+  });
+
+  it("is what committedMonthly counts, rather than the whole balance", () => {
+    const far = debt(655, { dueDate: new Date(2027, 5, 1) });
+    expect(committedMonthly([], [], [far], now).debts).toBe(debtMonthlyShare(far, now));
+    expect(committedMonthly([], [], [far], now).debts).toBeLessThan(655);
+  });
+});
+
+describe("shares stay a fraction of the bar", () => {
+  const shrunk = { bills: 0, goals: 0, debts: 0, total: 900 };
+
+  it("never sums past 100%, even when the pot shrank under the buckets", () => {
+    // 1,000 income against 900 of commitments leaves 100, but the buckets were
+    // set when there was 300 to divide. Against `free` these read 89% / 24% /
+    // 48% and the slices ran off the end of the bar.
+    const lines = [line("a", 150), line("b", 90), line("c", 60)];
+    const plan = allocate(1000, shrunk, lines);
+
+    const total = plan.buckets.reduce((sum, b) => sum + b.share, 0);
+    expect(total).toBeCloseTo(1, 5);
+    expect(plan.buckets.every((b) => b.share <= 1)).toBe(true);
+  });
+
+  it("still reports the overspend, which is where the reader should hear about it", () => {
+    const plan = allocate(1000, shrunk, [line("a", 150), line("b", 90), line("c", 60)]);
+
+    expect(plan.free).toBe(100);
+    expect(plan.allocated).toBe(300);
+    expect(plan.unallocated).toBe(-200);
+  });
+
+  it("keeps shares against the pot while there is room to spare", () => {
+    const plan = allocate(1000, noCommitment, [line("a", 250), line("b", 250)]);
+
+    expect(plan.buckets.map((b) => b.share)).toEqual([0.25, 0.25]);
+    expect(plan.unallocated).toBe(500);
+  });
+});
+
+// ─── Buckets measured against what actually happened ────────────────────────
+
+const tx = (categoryId: string, amount: number, day: number, month = 8, over: Partial<Transaction> = {}): Transaction =>
+  ({ id: `t${Math.random()}`, userId: "u1", amount, type: "expense", categoryId, date: new Date(2026, month, day), description: "x", createdAt: new Date(2026, month, day), ...over }) as Transaction;
+
+const category = (id: string, name: string): Category => ({ id, userId: "u1", name, type: "expense", createdAt: new Date() }) as Category;
+
+const bucket = (id: string, amount: number, categoryIds?: string[]): Bucket => ({ id, label: id, amount, kind: "expense", categoryIds });
+
+describe("spentByCategory", () => {
+  it("adds up real spending per category inside the window", () => {
+    const spent = spentByCategory([tx("food", 30, 3), tx("food", 20, 9), tx("fuel", 45, 12)], new Date(2026, 8, 1), new Date(2026, 8, 30));
+
+    expect(spent.get("food")).toBe(50);
+    expect(spent.get("fuel")).toBe(45);
+  });
+
+  it("leaves out anything dated outside it", () => {
+    const spent = spentByCategory([tx("food", 30, 3, 7), tx("food", 20, 9)], new Date(2026, 8, 1), new Date(2026, 8, 30));
+    expect(spent.get("food")).toBe(20);
+  });
+
+  it("does not count a goal deposit as spending", () => {
+    // The whole reason it goes through categorySplit: moving money into a goal
+    // is a transfer, and a bucket must not report it as having been spent.
+    const transfer = tx("food", 200, 5, 8, { isGoalTransaction: true, contributionType: "deposit" });
+    expect(spentByCategory([tx("food", 30, 3), transfer], new Date(2026, 8, 1), new Date(2026, 8, 30)).get("food")).toBe(30);
+  });
+});
+
+describe("bucketActual", () => {
+  const spent = new Map([
+    ["food", 187],
+    ["bet", 240],
+  ]);
+
+  it("reports what is left of a bucket", () => {
+    expect(bucketActual(bucket("b", 250, ["food"]), spent)).toMatchObject({ spent: 187, left: 63, unmeasured: false });
+  });
+
+  it("goes negative when the bucket has been overspent", () => {
+    const over = bucketActual(bucket("b", 50, ["bet"]), spent);
+
+    expect(over.left).toBe(-190);
+    expect(over.used).toBeCloseTo(4.8, 5);
+  });
+
+  it("adds several categories into one bucket", () => {
+    expect(bucketActual(bucket("b", 500, ["food", "bet"]), spent).spent).toBe(427);
+  });
+
+  it("counts money carried in as part of the budget", () => {
+    expect(bucketActual(bucket("b", 250, ["food"]), spent, 40)).toMatchObject({ left: 103 });
+  });
+
+  it("says a bucket with no categories is unmeasured rather than unspent", () => {
+    // "Spent 0" would be a claim the app cannot support.
+    expect(bucketActual(bucket("b", 100), spent)).toMatchObject({ unmeasured: true, spent: 0, left: 100 });
+  });
+});
+
+describe("nextRollover", () => {
+  const spent = new Map([
+    ["food", 187],
+    ["bet", 240],
+  ]);
+
+  it("carries what was not spent into the next month", () => {
+    expect(nextRollover([bucket("a", 250, ["food"])], {}, spent)).toEqual({ a: 63 });
+  });
+
+  it("carries nothing forward from a bucket that was overspent", () => {
+    // Real, and reported where it happened — but a hole that compounds month
+    // after month is a number nobody can act on.
+    expect(nextRollover([bucket("a", 50, ["bet"])], {}, spent)).toEqual({});
+  });
+
+  it("compounds an unspent balance that was already carried", () => {
+    expect(nextRollover([bucket("a", 250, ["food"])], { a: 40 }, spent)).toEqual({ a: 103 });
+  });
+
+  it("carries nothing from an unmeasured bucket", () => {
+    // Carrying its full amount would assert that nothing was spent.
+    expect(nextRollover([bucket("a", 100)], {}, spent)).toEqual({});
+  });
+});
+
+describe("extraPayForMonth", () => {
+  const now = new Date(2026, 8, 5); // 5 Sep 2026
+  const pay = [
+    { id: "o1", label: "Christmas", amount: 1400, date: "2026-12-20" },
+    { id: "o2", label: "Easter", amount: 700, date: "2027-04-20" },
+    { id: "o3", label: "Holiday", amount: 700, date: "2027-07-30" },
+  ];
+
+  it("counts nothing in a month nothing lands in", () => {
+    expect(extraPayForMonth(pay, "when", now)).toBe(0);
+  });
+
+  it("counts the whole lump in the month it lands", () => {
+    expect(extraPayForMonth(pay, "when", new Date(2026, 11, 1))).toBe(1400);
+  });
+
+  it("spreads a year of extra pay evenly", () => {
+    // 2,800 over twelve months, which is the point: December can afford
+    // anything and January cannot, unless the two are levelled.
+    expect(extraPayForMonth(pay, "spread", now)).toBe(Math.round((2800 / 12) * 100) / 100);
+  });
+
+  it("ignores a date it cannot read", () => {
+    expect(extraPayForMonth([{ id: "x", label: "bad", amount: 500, date: "not-a-date" }], "spread", now)).toBe(0);
+  });
+});
+
+describe("emergencyTarget", () => {
+  it("is months of committed costs, not of income", () => {
+    // What a bad month has to cover is the rent, not the salary that did not
+    // arrive.
+    expect(emergencyTarget({ bills: 600, goals: 100, debts: 50, total: 750 }, 3)).toBe(2250);
+  });
+
+  it("never asks for less than one month", () => {
+    expect(emergencyTarget({ bills: 0, goals: 0, debts: 0, total: 750 }, 0)).toBe(750);
+  });
+});
+
+describe("seedFromHistory", () => {
+  const now = new Date(2026, 8, 15); // mid-September
+  const categories = [category("food", "Food"), category("fuel", "Fuel"), category("odd", "Odd")];
+  let n = 0;
+  const ids = () => `b${n++}`;
+
+  const threeMonths = [
+    tx("food", 300, 5, 5), tx("food", 300, 5, 6), tx("food", 300, 5, 7),
+    tx("fuel", 60, 8, 5), tx("fuel", 60, 8, 6), tx("fuel", 60, 8, 7),
+    tx("odd", 1.5, 8, 6),
+  ];
+
+  it("averages each category over the complete months behind it", () => {
+    n = 0;
+    const seeded = seedFromHistory(threeMonths, categories, ids, now, 3);
+
+    expect(seeded.map((b) => [b.label, b.amount])).toEqual([
+      ["Food", 300],
+      ["Fuel", 60],
+    ]);
+  });
+
+  it("links each bucket to the category it came from", () => {
+    n = 0;
+    expect(seedFromHistory(threeMonths, categories, ids, now, 3)[0].categoryIds).toEqual(["food"]);
+  });
+
+  it("leaves out the month in progress", () => {
+    // Counting a half-finished September would halve every figure on the 15th.
+    n = 0;
+    const withThisMonth = [...threeMonths, tx("food", 900, 14, 8)];
+    expect(seedFromHistory(withThisMonth, categories, ids, now, 3)[0].amount).toBe(300);
+  });
+
+  it("drops a category too small to be worth a row", () => {
+    n = 0;
+    expect(seedFromHistory(threeMonths, categories, ids, now, 3).some((b) => b.label === "Odd")).toBe(false);
+  });
+
+  it("gives nothing back when there is no history to read", () => {
+    n = 0;
+    expect(seedFromHistory([], categories, ids, now, 3)).toEqual([]);
   });
 });
