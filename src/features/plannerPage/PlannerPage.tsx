@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { getDaysInMonth } from "date-fns";
-import { Alert, Button, Col, Container, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
+import { Alert, Col, Container, Input, InputGroup, InputGroupText, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
-import { FiAlertTriangle, FiCheckCircle, FiCheckSquare, FiClock, FiLock, FiPlus, FiSquare, FiX } from "react-icons/fi";
+import { FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
@@ -12,20 +11,17 @@ import { useDebts } from "../debts/useDebts";
 import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
-import { isHardDeadline } from "../bills/billsUtils";
-import { asHorizon, buildPlan, detectSalary, oneOffDate, PLANNER_HORIZONS, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
-import { BalanceLine } from "./BalanceLine";
-import { DateField } from "../../shared/components/DateField";
-import segmented from "../../shared/css/Segmented.module.css";
+import { asHorizon, buildPlan, detectSalary, oneOffDate, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
+import PlannerHero from "./components/PlannerHero";
+import PlannerTimeline from "./components/PlannerTimeline";
+import LeverGroup from "./components/LeverGroup";
+import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import styles from "./css/PlannerPage.module.css";
 
-const VERDICT_STYLE = {
-  ok: { className: styles.verdictOk, Icon: FiCheckCircle },
-  tight: { className: styles.verdictTight, Icon: FiClock },
-  short: { className: styles.verdictShort, Icon: FiAlertTriangle },
-} as const;
-
 const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** Which groups start unrolled. Income holds the salary, which is the one thing most visits come to change. */
+const DEFAULT_OPEN: Record<string, boolean> = { income: true };
 
 /**
  * A forward budget: what arrives, what leaves, over the next one to twelve
@@ -35,6 +31,10 @@ const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).sli
  * come from the app because they are commitments already made; everything else
  * is the user's own estimate of the months ahead, and every row can be switched
  * off to ask "and if I dropped this?".
+ *
+ * The page is arranged around that question rather than around the data behind
+ * it: the answer, then the order things happen in, then the levers — folded, so
+ * a phone is not handed forty rows before it is handed the one chart.
  */
 export function PlannerPage() {
   const { t, i18n } = useTranslation();
@@ -59,6 +59,7 @@ export function PlannerPage() {
   const [storedLines, setLines] = useLocalStorage<BudgetLine[]>("planner-lines", []);
   const [storedOneOffs, setOneOffs] = useLocalStorage<OneOff[]>("planner-oneoffs", []);
   const [storedSkipped, setSkipped] = useLocalStorage<string[]>("planner-skip", []);
+  const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
 
   const horizon = asHorizon(storedHorizon);
   // Memoised because it feeds the plan: a fresh object each render would
@@ -78,13 +79,12 @@ export function PlannerPage() {
     [storedOneOffs],
   );
   const skipped = useMemo(() => (Array.isArray(storedSkipped) ? storedSkipped.filter((s): s is string => typeof s === "string") : []), [storedSkipped]);
+  const open = useMemo(() => (storedOpen && typeof storedOpen === "object" ? storedOpen : DEFAULT_OPEN), [storedOpen]);
+
   const [selectedDay, setSelectedDay] = useState(-1);
-  const [draft, setDraft] = useState<{ kind: "income" | "expense"; label: string; amount: string } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BudgetLine | null>(null);
-  // What is in the amount box while it is being typed in. The stored figure is
-  // a number, so an empty box would immediately read back as "0" and every
-  // further digit would land after it.
-  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+  // One dialog for every figure the user owns, rather than an inline editor
+  // permanently unrolled under each row.
+  const [editor, setEditor] = useState<{ mode: "line" | "oneoff"; kind?: "income" | "expense"; draft: EntryDraft } | null>(null);
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
@@ -165,6 +165,8 @@ export function PlannerPage() {
   // A one-off can sit in another year, so the short "20 Sep" is not enough.
   const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
 
+  const sumOf = (rows: PlanRow[]) => rows.reduce((sum, r) => sum + r.total, 0);
+
   // Written from the sanitised copies rather than through a functional update,
   // so a malformed stored value is replaced by a clean one instead of being
   // spread back into the next write.
@@ -173,42 +175,39 @@ export function PlannerPage() {
     const ids = rows.map((r) => r.id);
     setSkipped(on ? skipped.filter((s) => !ids.includes(s)) : Array.from(new Set([...skipped, ...ids])));
   };
+  const toggleGroup = (key: string) => setOpen({ ...open, [key]: !open[key] });
 
-  const editLine = (id: string, patch: Partial<BudgetLine>) => setLines(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
-  const removeLine = (id: string) => {
-    setLines(lines.filter((l) => l.id !== id));
-    setDeleteTarget(null);
+  type Editor = { mode: "line" | "oneoff"; kind?: "income" | "expense"; draft: EntryDraft };
+
+  /** Opens the editor for a row the user owns; undefined for rows the app keeps. */
+  const editHandler = (row: PlanRow) => {
+    if (row.source !== "line") return undefined;
+    const line = lines.find((l) => l.id === row.id);
+    return line ? () => setEditor({ mode: "line", kind: line.kind, draft: { id: line.id, label: line.label, amount: String(line.amount) } }) : undefined;
   };
 
-  // Valid means there is a real figure to save. The button reads off this
-  // rather than the click doing nothing: a Save that silently declines is
-  // indistinguishable from a Save that is broken.
-  const draftAmount = draft ? parseFloat(draft.amount) : NaN;
-  const draftValid = Number.isFinite(draftAmount) && draftAmount > 0;
+  const saveEntry = (editor: Editor, draft: EntryDraft) => {
+    const amount = parseFloat(draft.amount);
 
-  // ── One-offs ──────────────────────────────────────────────────────────────
-
-  const [oneOffDraft, setOneOffDraft] = useState<{ label: string; amount: string; date: string } | null>(null);
-
-  const oneOffAmount = oneOffDraft ? parseFloat(oneOffDraft.amount) : NaN;
-  const oneOffValid = !!oneOffDraft && Number.isFinite(oneOffAmount) && oneOffAmount > 0 && !!oneOffDate(oneOffDraft.date);
-
-  const commitOneOff = () => {
-    if (!oneOffDraft || !oneOffValid) return;
-    setOneOffs([...oneOffs, { id: newId(), label: oneOffDraft.label.trim() || t("planner.oneOffFallbackName"), amount: oneOffAmount, date: oneOffDraft.date }]);
-    setOneOffDraft(null);
+    if (editor.mode === "oneoff") {
+      const label = draft.label || t("planner.oneOffFallbackName");
+      const entry: OneOff = { id: draft.id ?? newId(), label, amount, date: draft.date ?? "" };
+      setOneOffs(draft.id ? oneOffs.map((o) => (o.id === draft.id ? entry : o)) : [...oneOffs, entry]);
+    } else {
+      const label = draft.label || t("planner.lineFallbackName");
+      const entry: BudgetLine = { id: draft.id ?? newId(), label, amount, kind: editor.kind ?? "expense" };
+      setLines(draft.id ? lines.map((l) => (l.id === draft.id ? entry : l)) : [...lines, entry]);
+    }
+    setEditor(null);
   };
 
-  const removeOneOff = (id: string) => setOneOffs(oneOffs.filter((o) => o.id !== id));
-
-  const commitDraft = () => {
-    if (!draft || !draftValid) return;
-    setLines([...lines, { id: newId(), label: draft.label.trim() || t("planner.lineFallbackName"), amount: draftAmount, kind: draft.kind }]);
-    setDraft(null);
+  const deleteEntry = (editor: Editor) => {
+    const id = editor.draft.id;
+    if (!id) return;
+    if (editor.mode === "oneoff") setOneOffs(oneOffs.filter((o) => o.id !== id));
+    else setLines(lines.filter((l) => l.id !== id));
+    setEditor(null);
   };
-
-  const breaksOnIndex = plan.breaksOn ? plan.points.findIndex((p) => p.date.getTime() === plan.breaksOn!.getTime()) : -1;
-  const selectedPoint = selectedDay >= 0 && selectedDay < plan.points.length ? plan.points[selectedDay] : undefined;
 
   if (txLoading || goalLoading || billLoading) {
     return (
@@ -218,23 +217,16 @@ export function PlannerPage() {
           <Col xs={12} lg={7}>
             <SkeletonCard className="mb-3">
               <Skeleton height={14} width="35%" />
-              <Skeleton height={32} width="55%" style={{ marginTop: 6 }} />
+              <Skeleton height={36} width="55%" style={{ marginTop: 6 }} />
+              <Skeleton height={120} style={{ marginTop: 12 }} />
             </SkeletonCard>
-            <SkeletonChartCard height={180} className="mb-3" />
             <SkeletonCard>
               <SkeletonHeading width="45%" />
               <SkeletonRows count={4} icon={false} />
             </SkeletonCard>
           </Col>
           <Col xs={12} lg={5}>
-            <SkeletonCard className="mb-3">
-              <SkeletonHeading width="40%" />
-              <SkeletonRows count={3} icon={false} />
-            </SkeletonCard>
-            <SkeletonCard>
-              <SkeletonHeading width="40%" />
-              <SkeletonRows count={4} icon={false} />
-            </SkeletonCard>
+            <SkeletonChartCard height={260} />
           </Col>
         </Row>
       </Container>
@@ -251,54 +243,14 @@ export function PlannerPage() {
     );
   }
 
-  const { className: verdictClass, Icon: VerdictIcon } = VERDICT_STYLE[plan.verdict];
-  const headline = plan.verdict === "short" ? t("planner.verdictShort") : plan.verdict === "tight" ? t("planner.verdictTight") : t("planner.verdictOk");
-  const amount = plan.verdict === "short" ? plan.shortfall : plan.surplus;
-
-  // "Tight" means the months add up but the running total dips below zero on the
-  // way, so the subline has to name the day and how deep — that is the whole
-  // difference between it and a straight yes.
-  const subline =
-    plan.verdict === "tight" && plan.breaksOn
-      ? plan.breakingEvent
-        ? t("planner.dipsOnBill", { date: dateFmt.format(plan.breaksOn), name: plan.breakingEvent.label, amount: formatCurrency(plan.dip) })
-        : t("planner.dipsOn", { date: dateFmt.format(plan.breaksOn), amount: formatCurrency(plan.dip) })
-      : t("planner.untilDate", { date: dateFmt.format(plan.end), months: plan.months });
-
-  const eventLabel = (event: PlannerEvent) => (event.kind === "income" ? t("planner.salaryLabel") : event.label);
-
-  const renderEvent = (event: PlannerEvent, index: number) => {
-    const source = event.billId ? bills.find((b) => b.id === event.billId) : undefined;
-    const isBreaking = plan.breakingEvent === event;
-    const tone = isBreaking ? "var(--color-expense)" : event.amount > 0 ? "var(--color-income)" : undefined;
-
-    return (
-      <div key={`${event.kind}-${event.billId ?? event.label}-${index}`} className={styles.eventRow}>
-        <span className={styles.eventDate} style={{ color: tone }}>
-          {event.overdue ? t("planner.now") : dateFmt.format(event.date)}
-        </span>
-        <span className={styles.eventName}>
-          <span className={styles.eventTitle} style={{ color: tone }}>
-            {eventLabel(event)}
-            {source && isHardDeadline(source) && <FiLock size={11} className="ms-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} title={t("bills.strictHint")} />}
-          </span>
-          {/* Only bills with real grace get this line — and it names the actual
-              last day, since "can wait" without a date is not something you can
-              plan around. */}
-          {event.graceDays !== undefined && event.graceDays > 0 && event.deadline && (
-            <span className={styles.eventNote}>{t("planner.canWaitUntil", { date: dateFmt.format(event.deadline), days: event.graceDays })}</span>
-          )}
-        </span>
-        <span className={styles.eventAmount} style={{ color: tone }}>
-          {event.amount > 0 ? "+" : "−"}
-          {formatCurrency(Math.abs(event.amount))}
-        </span>
-      </div>
-    );
-  };
-
-  /** A row of the plan with its switch. `extra` is the editable half, if any. */
-  const renderRow = (row: PlanRow, extra?: React.ReactNode) => {
+  /**
+   * One row: what it is, what it costs, and whether it is in the plan.
+   *
+   * The switch sits at the right and the amount is plain. A tick down the left
+   * edge made the column read as a form, and colouring every amount in a list
+   * of costs said nothing the heading had not already said.
+   */
+  const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string) => {
     // The salary row has no document behind it, so its label is an internal id
     // rather than something a screen reader should ever read out.
     const title = row.source === "salary" ? t("planner.salaryLabel") : row.label;
@@ -307,508 +259,267 @@ export function PlannerPage() {
     // twenty-seven days of the month left. Printing the rate alone made that
     // look like a mistake; the multiplier is what makes the row add up.
     const monthly = t("planner.perMonthShort", { amount: formatCurrency(Math.abs(row.perMonth ?? 0)) });
-    const hint = row.note
-      ? t(`planner.note_${row.note}`)
-      : row.occurrences !== undefined
-        ? t("planner.timesCount", { times: row.occurrences })
-        : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
+    const hint = hintOverride
+      ? hintOverride
+      : !row.enabled
+      ? t("planner.offRow")
+      : row.note
+        ? t(`planner.note_${row.note}`)
+        : row.occurrences !== undefined
+          ? t("planner.timesCount", { times: row.occurrences })
+          : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
 
-    return (
-      <div key={row.id} className={`${styles.planRow} ${row.enabled ? "" : styles.planRowOff}`}>
-        <button type="button" className={styles.planToggle} onClick={() => toggleRow(row.id)} aria-pressed={row.enabled} aria-label={title}>
-          {row.enabled ? <FiCheckSquare size={14} style={{ color: "var(--bs-primary)" }} /> : <FiSquare size={14} />}
-        </button>
-
-        <span className={styles.planName}>
-          <span className={styles.planTitle}>{title}</span>
-          <span className={styles.planHint}>{hint}</span>
-        </span>
-
-        {extra}
-
-        {/* Zero takes no sign and no colour — "−0,00 €" reads as a cost. */}
-        <span className={styles.planAmount} style={{ color: row.enabled && row.total !== 0 ? (row.total > 0 ? "var(--color-income)" : "var(--color-expense)") : undefined }}>
-          {!row.enabled ? t("planner.off") : `${row.total > 0 ? "+" : row.total < 0 ? "−" : ""}${formatCurrency(Math.abs(row.total))}`}
-        </span>
-      </div>
+    const name = (
+      <>
+        <span className={styles.rowTitle}>{title}</span>
+        <span className={styles.rowHint}>{hint}</span>
+      </>
     );
-  };
 
-  const renderLineRow = (row: PlanRow) => {
-    const line = lines.find((l) => l.id === row.id);
-    if (!line) return null;
+    // Off rows keep the muted treatment instead: a struck-through row tinted
+    // green would be saying two things at once.
+    const tone = !row.enabled ? "" : row.total > 0 ? styles.rowIncome : row.total < 0 ? styles.rowExpense : "";
 
     return (
-      <div key={row.id}>
-        {renderRow(row)}
-        <div className={styles.lineEdit}>
-          <Input
-            bsSize="sm"
-            value={line.label}
-            onChange={(e) => editLine(line.id, { label: e.target.value })}
-            aria-label={t("planner.lineName")}
-            placeholder={t("planner.lineNamePlaceholder")}
-          />
-          <InputGroup size="sm" style={{ width: 118, flexShrink: 0 }}>
-            <Input
-              type="number"
-              min={0}
-              inputMode="decimal"
-              value={amountDrafts[line.id] ?? String(line.amount)}
-              onChange={(e) => {
-                const text = e.target.value;
-                setAmountDrafts((d) => ({ ...d, [line.id]: text }));
-                editLine(line.id, { amount: parseFloat(text) || 0 });
-              }}
-              onBlur={() =>
-                setAmountDrafts((d) => {
-                  const next = { ...d };
-                  delete next[line.id];
-                  return next;
-                })
-              }
-              aria-label={t("planner.lineAmount")}
-            />
-            <InputGroupText>{t("planner.perMonthSuffix")}</InputGroupText>
-          </InputGroup>
-          <button type="button" className={styles.lineRemove} onClick={() => setDeleteTarget(line)} aria-label={t("common.delete")}>
-            <FiX size={14} />
+      <div key={row.id} className={`${styles.rowLine} ${tone} ${row.enabled ? "" : styles.rowOff}`}>
+        {onEdit ? (
+          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={onEdit} aria-label={t("planner.editEntry")}>
+            {name}
           </button>
+        ) : (
+          <span className={styles.rowName}>{name}</span>
+        )}
+
+        {/* An off row shows a dash rather than €0.00: nothing is being spent,
+            and a zero looks like an amount somebody chose. */}
+        <span className={styles.rowAmount}>
+          {!row.enabled ? "—" : `${row.total > 0 ? "+" : row.total < 0 ? "−" : ""}${formatCurrency(Math.abs(row.total))}`}
+        </span>
+
+        <div className={`form-check form-switch ${styles.rowSwitch}`}>
+          <input className="form-check-input" type="checkbox" role="switch" checked={row.enabled} onChange={() => toggleRow(row.id)} aria-label={title} />
         </div>
       </div>
     );
   };
 
-  const renderDraft = (kind: "income" | "expense") =>
-    draft?.kind === kind ? (
-      // Escape and a visible × both back out. Opening this row used to be a
-      // one-way door: the only exits were to invent a figure and save it, or
-      // to save and then delete what you had just made.
-      <div className={styles.lineEdit} onKeyDown={(e) => e.key === "Escape" && setDraft(null)}>
-        <Input bsSize="sm" autoFocus value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={t("planner.lineNamePlaceholder")} aria-label={t("planner.lineName")} />
-        <InputGroup size="sm" style={{ width: 118, flexShrink: 0 }}>
-          <Input
-            type="number"
-            min={0}
-            inputMode="decimal"
-            value={draft.amount}
-            onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && commitDraft()}
-            placeholder="0"
-            aria-label={t("planner.lineAmount")}
-          />
-          <InputGroupText>{t("planner.perMonthSuffix")}</InputGroupText>
-        </InputGroup>
-        <Button color="primary" size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={commitDraft} disabled={!draftValid}>
-          {t("common.save")}
-        </Button>
-        <button type="button" className={styles.lineRemove} onClick={() => setDraft(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
-          <FiX size={14} />
-        </button>
-      </div>
-    ) : (
-      <button type="button" className={styles.addLine} onClick={() => setDraft({ kind, label: "", amount: "" })}>
-        <FiPlus size={13} /> {kind === "income" ? t("planner.addIncomeLine") : t("planner.addExpenseLine")}
-      </button>
-    );
-
-  const sectionHeader = (label: string, rows: PlanRow[]) => (
-    <div className={styles.sectionHead}>
-      <span>{label}</span>
-      {rows.length > 1 && (
-        <button type="button" className={styles.sectionToggle} onClick={() => setAll(rows, !rows.every((r) => r.enabled))}>
-          {rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll")}
-        </button>
-      )}
-    </div>
-  );
+  const sweep = (rows: PlanRow[]) =>
+    rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
 
   return (
     <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1100 }}>
-      <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
-        </div>
-
-        <div className={segmented.group} role="group" aria-label={t("planner.horizonLabel")}>
-          {PLANNER_HORIZONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`${segmented.item} ${horizon === option ? segmented.active : ""}`}
-              onClick={() => {
-                setHorizon(option);
-                setSelectedDay(-1);
-              }}
-            >
-              {t(`planner.horizon.${option}`)}
-            </button>
-          ))}
-        </div>
+      <div className="mb-3">
+        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
+        <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
       </div>
 
       <Row className="g-3">
         <Col xs={12} lg={7}>
-          {/* ── The answer ── */}
-          <div className={`${styles.verdict} ${verdictClass} mb-3`}>
-            <div className={styles.verdictHeadline}>
-              <VerdictIcon size={18} aria-hidden />
-              {headline}
-            </div>
-            <div className={styles.verdictAmount}>{formatCurrency(amount)}</div>
-            <div className={styles.verdictSub}>{subline}</div>
-          </div>
+          <PlannerHero
+            plan={plan}
+            horizon={horizon}
+            onHorizon={setHorizon}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            monthlyLineNet={monthlyLineNet}
+            openingInput={openingInput}
+            onOpening={setOpeningInput}
+            baseCurrency={baseCurrency}
+            formatCurrency={formatCurrency}
+            dateFmt={dateFmt}
+          />
 
-          {/* ── The sum, in one line ── */}
-          <div className={`${styles.chartCard} p-3 p-lg-4 mb-3`}>
-            <div className={styles.ledgerSum}>
-              <span>{t("planner.openingBalance")}</span>
-              <div style={{ width: 132, flexShrink: 0 }}>
-                <InputGroup size="sm">
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                  <Input type="number" inputMode="decimal" placeholder="0" value={openingInput} onChange={(e) => setOpeningInput(e.target.value)} aria-label={t("planner.openingBalance")} />
-                </InputGroup>
-              </div>
-            </div>
-            <p className="text-body-secondary mb-2" style={{ fontSize: 11 }}>
-              {t("planner.openingBalanceHint")}
-            </p>
-
-            <div className={styles.assumption}>
-              <span className={styles.assumptionLabel}>{t("planner.moneyIn")}</span>
-              <span className={styles.assumptionValue} style={{ color: "var(--color-income)" }}>
-                +{formatCurrency(plan.incomeTotal)}
-              </span>
-            </div>
-            <div className={styles.assumption}>
-              <span className={styles.assumptionLabel}>{t("planner.moneyOut")}</span>
-              <span className={styles.assumptionValue} style={{ color: "var(--color-expense)" }}>
-                −{formatCurrency(plan.outgoingTotal)}
-              </span>
-            </div>
-            <div className={styles.ledgerSum}>
-              <span>{t("planner.endWith")}</span>
-              <span className={styles.assumptionValue} style={{ color: plan.endingBalance < 0 ? "var(--color-expense)" : "var(--color-income)" }}>
-                {formatCurrency(plan.endingBalance)}
-              </span>
-            </div>
-          </div>
-
-          {/* ── How it plays out ── */}
-          <div className={`${styles.chartCard} p-3 p-lg-4 mb-3`}>
-            <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2">
-              <span className="fw-semibold" style={{ fontSize: 13.5 }}>
-                {t("planner.balanceTitle")}
-              </span>
-              <span className="text-body-secondary" style={{ fontSize: 11.5 }}>
-                {t("planner.perDay", { amount: formatCurrency(plan.safeDailySpend) })}
-              </span>
-            </div>
-
-            <div className={styles.chartBox}>
-              <BalanceLine points={plan.points} breaksOnIndex={breaksOnIndex} selectedIndex={selectedDay} onSelect={setSelectedDay} ariaLabel={t("planner.balanceTitle")} />
-            </div>
-
-            <div className="d-flex justify-content-between text-body-secondary mt-1 gap-2" style={{ fontSize: 11 }}>
-              <span>{t("planner.today")}</span>
-              <span className="text-end">{dateFmt.format(plan.end)}</span>
-            </div>
-
-            {/* Tapping any day explains that day rather than leaving the line to
-                be read by eye. */}
-            {selectedPoint ? (
-              <div className={styles.dayDetail}>
-                <div className="d-flex justify-content-between align-items-baseline gap-2">
-                  <span className="fw-semibold" style={{ fontSize: 12.5 }}>
-                    {dateFmt.format(selectedPoint.date)}
-                  </span>
-                  <span
-                    className="fw-semibold"
-                    style={{ fontSize: 14, fontVariantNumeric: "tabular-nums", color: selectedPoint.balance < 0 ? "var(--color-expense)" : "var(--color-text-primary)" }}
-                  >
-                    {formatCurrency(selectedPoint.balance)}
-                  </span>
-                </div>
-                {selectedPoint.events.length === 0 ? (
-                  <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
-                    {t("planner.justBudget", { amount: formatCurrency(Math.abs(monthlyLineNet) / getDaysInMonth(selectedPoint.date)) })}
-                  </p>
-                ) : (
-                  selectedPoint.events.map((event, i) => (
-                    <div key={i} className="d-flex justify-content-between gap-2" style={{ fontSize: 11.5 }}>
-                      <span className="text-truncate">{eventLabel(event)}</span>
-                      <span style={{ color: event.amount > 0 ? "var(--color-income)" : "var(--color-expense)", fontVariantNumeric: "tabular-nums" }}>
-                        {event.amount > 0 ? "+" : "−"}
-                        {formatCurrency(Math.abs(event.amount))}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : (
-              <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 11.5 }}>
-                {t("planner.tapHint")}
-              </p>
-            )}
-          </div>
-
-          {/* ── What's dated ── */}
-          <div className={`${styles.chartCard} p-3 p-lg-4`}>
-            <div className="fw-semibold mb-1" style={{ fontSize: 13.5 }}>
-              {t("planner.stillComing")}
-            </div>
-            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
-              {t("planner.stillComingHint")}
-            </p>
-
-            {plan.events.length === 0 ? (
-              <p className="text-body-secondary mb-0" style={{ fontSize: 12.5 }}>
-                {t("planner.noBillsLeft")}
-              </p>
-            ) : (
-              eventMonths.map((month) => (
-                <div key={month.key}>
-                  {/* A single-month window is already one month — a heading over
-                      it would only repeat the horizon picker. */}
-                  {eventMonths.length > 1 && (
-                    <div className={styles.monthHeader}>
-                      <span>{month.label}</span>
-                      <span className={styles.monthTotal}>−{formatCurrency(month.outgoing)}</span>
-                    </div>
-                  )}
-                  {month.events.map(renderEvent)}
-                </div>
-              ))
-            )}
-          </div>
+          <PlannerTimeline months={eventMonths} bills={bills} breakingEvent={plan.breakingEvent} formatCurrency={formatCurrency} dateFmt={dateFmt} />
         </Col>
 
         <Col xs={12} lg={5}>
-          {/* ── Money in ── */}
-          <div className={`${styles.chartCard} p-3 p-lg-4 mb-3`}>
-            <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1">
-              <span className="fw-semibold" style={{ fontSize: 13.5 }}>
-                {t("planner.moneyIn")}
-              </span>
-              <span className="fw-semibold" style={{ fontSize: 14, color: "var(--color-income)", fontVariantNumeric: "tabular-nums" }}>
-                +{formatCurrency(plan.incomeTotal)}
-              </span>
-            </div>
-            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
-              {t("planner.moneyInHint")}
-            </p>
-
-            {/* Salary is the one row the app can only guess at, so it stays
-                editable rather than merely switchable. */}
-            <div className={styles.salaryRow}>
-              <span className={styles.assumptionLabel}>
-                {t("planner.salaryLabel")}
-                <span className={styles.assumptionHint}>
-                  {salaryIsManual ? t("planner.salaryHintSet") : detectedSalary ? t("planner.salaryHintDetected") : t("planner.salaryHintNone")}
+          {/* Every lever, folded. Each group says what it costs before it says
+              what it is made of. */}
+          <div className={`${styles.chartCard} px-3 px-lg-4`}>
+            <LeverGroup
+              title={t("planner.moneyIn")}
+              total={plan.incomeTotal}
+              formatCurrency={formatCurrency}
+              open={!!open.income}
+              onToggle={() => toggleGroup("income")}
+              onAdd={() => setEditor({ mode: "line", kind: "income", draft: { label: "", amount: "" } })}
+              addLabel={t("planner.addIncomeLine")}
+              {...sweep(incomeRows)}
+            >
+              {/* Salary is the one row the app can only guess at, so it stays
+                  editable rather than merely switchable. */}
+              <div className={styles.salaryRow}>
+                <span className={styles.assumptionLabel}>
+                  {t("planner.salaryLabel")}
+                  <span className={styles.assumptionHint}>
+                    {salaryIsManual ? t("planner.salaryHintSet") : detectedSalary ? t("planner.salaryHintDetected") : t("planner.salaryHintNone")}
+                  </span>
                 </span>
-              </span>
-              <div className={styles.salaryFields}>
-                <InputGroup size="sm">
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                  <Input
-                    type="number"
-                    min={0}
-                    inputMode="decimal"
-                    placeholder={detectedSalary ? String(detectedSalary.amount) : "0"}
-                    value={salaryInput.amount}
-                    onChange={(e) => setSalaryInput({ ...salaryInput, amount: e.target.value })}
-                    aria-label={t("planner.salaryAmount")}
-                  />
-                </InputGroup>
-                <InputGroup size="sm">
-                  <InputGroupText>{t("planner.salaryDayPrefix")}</InputGroupText>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={31}
-                    inputMode="numeric"
-                    placeholder={detectedSalary ? String(detectedSalary.dayOfMonth) : "1"}
-                    value={salaryInput.day}
-                    onChange={(e) => setSalaryInput({ ...salaryInput, day: e.target.value })}
-                    aria-label={t("planner.salaryDay")}
-                  />
-                </InputGroup>
+                <div className={styles.salaryFields}>
+                  <InputGroup size="sm">
+                    <InputGroupText>{baseCurrency}</InputGroupText>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="decimal"
+                      placeholder={detectedSalary ? String(detectedSalary.amount) : "0"}
+                      value={salaryInput.amount}
+                      onChange={(e) => setSalaryInput({ ...salaryInput, amount: e.target.value })}
+                      aria-label={t("planner.salaryAmount")}
+                    />
+                  </InputGroup>
+                  <InputGroup size="sm">
+                    <InputGroupText>{t("planner.salaryDayPrefix")}</InputGroupText>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      inputMode="numeric"
+                      placeholder={detectedSalary ? String(detectedSalary.dayOfMonth) : "1"}
+                      value={salaryInput.day}
+                      onChange={(e) => setSalaryInput({ ...salaryInput, day: e.target.value })}
+                      aria-label={t("planner.salaryDay")}
+                    />
+                  </InputGroup>
+                </div>
               </div>
-            </div>
-            {salaryIsManual && detectedSalary && (
-              <button type="button" className={styles.salaryReset} onClick={() => setSalaryInput({ amount: "", day: "" })}>
-                {t("planner.salaryReset", { amount: formatCurrency(detectedSalary.amount), day: detectedSalary.dayOfMonth })}
-              </button>
-            )}
+              {salaryIsManual && detectedSalary && (
+                <button type="button" className={styles.salaryReset} onClick={() => setSalaryInput({ amount: "", day: "" })}>
+                  {t("planner.salaryReset", { amount: formatCurrency(detectedSalary.amount), day: detectedSalary.dayOfMonth })}
+                </button>
+              )}
 
-            {incomeRows.length === 0 ? (
-              <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
-                {t("planner.noSalaryYet")}
-              </p>
-            ) : (
-              incomeRows.map((row) => (row.source === "line" ? renderLineRow(row) : renderRow(row)))
-            )}
+              {incomeRows.length === 0 ? (
+                <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
+                  {t("planner.noSalaryYet")}
+                </p>
+              ) : (
+                incomeRows.map((row) => renderRow(row, editHandler(row)))
+              )}
 
-            {renderDraft("income")}
+              {/* Extra pay lives with the pay, not in a section of its own: it
+                  is the same question — what arrives — asked about a date
+                  rather than about every month.
+                  Listed from what is stored, not from what the window caught:
+                  entering "€1,400 on 20 December" while the horizon is one
+                  month used to save it and show nothing at all, which is
+                  indistinguishable from the app having refused it. */}
+              {oneOffsByDate.map((source) => {
+                const row = oneOffRows.find((r) => r.id === source.id);
+                const date = oneOffDate(source.date)!;
+                const past = date < startOfToday;
+                const edit = () => setEditor({ mode: "oneoff", draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date } });
 
-            {/* Extra pay lives with the pay, not in a section of its own: it is
-                the same question — what arrives — asked about a date rather
-                than about every month. */}
-            {/* Listed from what is stored, not from what the window caught.
-                Entering "€1,400 on 20 December" while the horizon is one month
-                used to save it and show nothing at all, which is
-                indistinguishable from the app having refused it. It is shown
-                greyed instead, saying which horizon would reach it. */}
-            {oneOffsByDate.map((source) => {
-              const row = oneOffRows.find((r) => r.id === source.id);
-              const date = oneOffDate(source.date)!;
-              const past = date < startOfToday;
+                if (row) return <div key={source.id}>{renderRow(row, edit, `${longDateFmt.format(date)}`)}</div>;
 
-              return (
-                <div key={source.id}>
-                  {row ? (
-                    renderRow(row)
-                  ) : (
-                    <div className={styles.planRow}>
-                      {/* No tick: there is nothing in this window to include or
-                          skip, and a checkbox that changes no figure is furniture. */}
-                      <span className={styles.planToggle} aria-hidden />
-                      <span className={styles.planName}>
-                        <span className={styles.planTitle} style={{ color: "var(--color-text-secondary)" }}>
-                          {source.label}
+                // Nothing in this window to include or skip, so no switch: a
+                // control that changes no figure is furniture.
+                return (
+                  <div key={source.id} className={`${styles.rowLine} ${styles.rowMuted}`}>
+                    <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={edit} aria-label={t("planner.editEntry")}>
+                      <span className={styles.rowTitle}>{source.label}</span>
+                      <span className={styles.rowHint}>
+                        {longDateFmt.format(date)}{" "}
+                        <span className={styles.oneOffTag} title={t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint")}>
+                          {t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange")}
                         </span>
                       </span>
-                      <span className={styles.planAmount} style={{ color: "var(--color-text-secondary)" }}>
-                        +{formatCurrency(source.amount)}
-                      </span>
-                    </div>
-                  )}
-                  <div className={styles.oneOffMeta}>
-                    <span>{longDateFmt.format(date)}</span>
-                    {/* A tag, not a sentence: the full explanation wrapped onto
-                        a second line and left the delete button hanging off the
-                        end of it. The reason lives in the tooltip. */}
-                    {!row && (
-                      <span className={styles.oneOffTag} title={t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint")}>
-                        {t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange")}
-                      </span>
-                    )}
-                    <button type="button" className={styles.lineRemove} onClick={() => removeOneOff(source.id)} aria-label={t("common.delete")} title={t("common.delete")}>
-                      <FiX size={14} />
                     </button>
+                    <span className={styles.rowAmount}>+{formatCurrency(source.amount)}</span>
+                    <span className={styles.rowSwitch} aria-hidden />
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {oneOffDraft ? (
-              <div className={styles.lineEdit} onKeyDown={(e) => e.key === "Escape" && setOneOffDraft(null)}>
-                <Input
-                  bsSize="sm"
-                  autoFocus
-                  value={oneOffDraft.label}
-                  onChange={(e) => setOneOffDraft({ ...oneOffDraft, label: e.target.value })}
-                  placeholder={t("planner.oneOffNamePlaceholder")}
-                  aria-label={t("planner.lineName")}
-                />
-                <Input
-                  bsSize="sm"
-                  type="number"
-                  min={0}
-                  inputMode="decimal"
-                  style={{ width: 92, flexShrink: 0 }}
-                  value={oneOffDraft.amount}
-                  onChange={(e) => setOneOffDraft({ ...oneOffDraft, amount: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && commitOneOff()}
-                  placeholder="0"
-                  aria-label={t("planner.oneOffAmount")}
-                />
-                <div style={{ width: 148, flexShrink: 0 }}>
-                  <DateField small name="oneOffDate" value={oneOffDraft.date} onChange={(v) => setOneOffDraft({ ...oneOffDraft, date: v })} placeholder={t("common.date")} />
-                </div>
-                <Button color="primary" size="sm" style={{ fontSize: 11, padding: "2px 8px" }} onClick={commitOneOff} disabled={!oneOffValid}>
-                  {t("common.save")}
-                </Button>
-                <button type="button" className={styles.lineRemove} onClick={() => setOneOffDraft(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
-                  <FiX size={14} />
-                </button>
-              </div>
-            ) : (
-              <button type="button" className={styles.addLine} onClick={() => setOneOffDraft({ label: "", amount: "", date: "" })}>
+              <button type="button" className={styles.addLine} onClick={() => setEditor({ mode: "oneoff", draft: { label: "", amount: "", date: "" } })}>
                 <FiPlus size={13} /> {t("planner.addOneOff")}
               </button>
-            )}
-          </div>
+            </LeverGroup>
 
-          {/* ── Money out ── */}
-          <div className={`${styles.chartCard} p-3 p-lg-4`}>
-            <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1">
-              <span className="fw-semibold" style={{ fontSize: 13.5 }}>
-                {t("planner.moneyOut")}
-              </span>
-              <span className="fw-semibold" style={{ fontSize: 14, color: "var(--color-expense)", fontVariantNumeric: "tabular-nums" }}>
-                −{formatCurrency(plan.outgoingTotal)}
-              </span>
-            </div>
-            <p className="text-body-secondary mb-2" style={{ fontSize: 11.5 }}>
-              {t("planner.moneyOutHint")}
-            </p>
+            <LeverGroup
+              title={t("planner.groupBills")}
+              count={billRows.length}
+              total={sumOf(billRows)}
+              formatCurrency={formatCurrency}
+              open={!!open.bills}
+              onToggle={() => toggleGroup("bills")}
+              {...sweep(billRows)}
+            >
+              {billRows.length === 0 ? (
+                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
+                  {t("planner.noBillsAtAll")}
+                </p>
+              ) : (
+                billRows.map((row) => renderRow(row))
+              )}
+            </LeverGroup>
 
-            {/* Both sections are always drawn. An empty one says so; a missing
-                one looks like the plan lost track of them. */}
-            {sectionHeader(t("planner.groupBills"), billRows)}
-            {billRows.length === 0 ? (
-              <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                {t("planner.noBillsAtAll")}
-              </p>
-            ) : (
-              billRows.map((row) => renderRow(row))
-            )}
-
-            {sectionHeader(t("planner.groupGoals"), goalRows)}
-            {goalRows.length === 0 ? (
-              <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                {t("planner.noGoalsAtAll")}
-              </p>
-            ) : (
-              goalRows.map((row) => renderRow(row))
-            )}
+            <LeverGroup
+              title={t("planner.groupGoals")}
+              count={goalRows.length}
+              total={sumOf(goalRows)}
+              formatCurrency={formatCurrency}
+              open={!!open.goals}
+              onToggle={() => toggleGroup("goals")}
+              {...sweep(goalRows)}
+            >
+              {goalRows.length === 0 ? (
+                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
+                  {t("planner.noGoalsAtAll")}
+                </p>
+              ) : (
+                goalRows.map((row) => renderRow(row))
+              )}
+            </LeverGroup>
 
             {debtRows.length > 0 && (
-              <>
-                {sectionHeader(t("debts.plannerGroup"), debtRows)}
+              <LeverGroup
+                title={t("debts.plannerGroup")}
+                count={debtRows.length}
+                total={sumOf(debtRows)}
+                formatCurrency={formatCurrency}
+                open={!!open.debts}
+                onToggle={() => toggleGroup("debts")}
+                {...sweep(debtRows)}
+              >
                 {debtRows.map((row) => renderRow(row))}
-              </>
+              </LeverGroup>
             )}
 
-            {sectionHeader(t("planner.groupMine"), budgetRows)}
-            {budgetRows.length === 0 && draft?.kind !== "expense" && (
-              <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                {t("planner.noLinesYet")}
-              </p>
-            )}
-            {budgetRows.map(renderLineRow)}
-            {renderDraft("expense")}
+            <LeverGroup
+              title={t("planner.groupMine")}
+              count={budgetRows.length}
+              total={sumOf(budgetRows)}
+              formatCurrency={formatCurrency}
+              open={!!open.mine}
+              onToggle={() => toggleGroup("mine")}
+              onAdd={() => setEditor({ mode: "line", kind: "expense", draft: { label: "", amount: "" } })}
+              addLabel={t("planner.addExpenseLine")}
+              {...sweep(budgetRows)}
+            >
+              {budgetRows.length === 0 ? (
+                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
+                  {t("planner.noLinesYet")}
+                </p>
+              ) : (
+                budgetRows.map((row) => renderRow(row, editHandler(row)))
+              )}
+            </LeverGroup>
           </div>
         </Col>
       </Row>
-      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
-        <ModalHeader toggle={() => setDeleteTarget(null)}>{t("planner.deleteLine")}</ModalHeader>
-        <ModalBody>
-          <p className="mb-0" style={{ fontSize: 14 }}>
-            {t("planner.deleteLineConfirm", { name: deleteTarget?.label ?? "" })}
-          </p>
-        </ModalBody>
-        <ModalFooter>
-          <Button color="secondary" outline onClick={() => setDeleteTarget(null)}>
-            {t("common.cancel")}
-          </Button>
-          <Button color="danger" onClick={() => deleteTarget && removeLine(deleteTarget.id)}>
-            {t("common.delete")}
-          </Button>
-        </ModalFooter>
-      </Modal>
+
+      {editor && (
+        <EntryEditor
+          mode={editor.mode}
+          draft={editor.draft}
+          onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
+          onSave={(draft) => saveEntry(editor, draft)}
+          onClose={() => setEditor(null)}
+        />
+      )}
     </Container>
   );
 }
+
+export default PlannerPage;

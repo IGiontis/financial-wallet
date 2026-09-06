@@ -6,52 +6,6 @@
    deliver it. Tinted with color-mix off the semantic token so it stays right in
    both themes without a second palette. */
 
-.verdict {
-  border-radius: var(--border-radius-lg);
-  padding: 1.125rem 1.25rem;
-  border: 1px solid transparent;
-}
-
-.verdictOk {
-  background: color-mix(in srgb, var(--color-income) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-income) 28%, transparent);
-  color: var(--color-income);
-}
-
-.verdictTight {
-  background: color-mix(in srgb, var(--color-goal) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-goal) 28%, transparent);
-  color: var(--color-goal);
-}
-
-.verdictShort {
-  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-expense) 28%, transparent);
-  color: var(--color-expense);
-}
-
-.verdictHeadline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.verdictAmount {
-  font-size: 2rem;
-  line-height: 1.15;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-  margin-top: 0.125rem;
-}
-
-.verdictSub {
-  font-size: 12.5px;
-  margin-top: 0.125rem;
-}
-
 /* ── Balance line ─────────────────────────────────────────────────────────── */
 
 .chartCard {
@@ -128,15 +82,6 @@
 /* Every figure the verdict rests on is listed and adjustable, so the answer is
    never a number the user can't interrogate. */
 
-.assumption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 0;
-  border-top: 1px solid var(--color-border-tertiary);
-}
-
 .assumptionLabel {
   font-size: 13px;
   min-width: 0;
@@ -148,78 +93,13 @@
   color: var(--color-text-secondary);
 }
 
-.assumptionValue {
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 /* ── Plan rows ────────────────────────────────────────────────────────────── */
 /* One line of the budget: a switch, what it is, and what it costs over the whole
    window. Every row is switchable, because the question the page exists to
    answer is usually "and if I dropped this?". */
 
-.planRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 38px;
-  padding: 0.25rem 0;
-  border-top: 1px solid var(--color-border-tertiary);
-  font-size: 13px;
-}
-
 /* Wider and taller than the tick it holds, and pulled back by its own padding
    so the extra size is hit area rather than indent. */
-.planToggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 38px;
-  height: 40px;
-  margin: 0 -6px 0 -10px;
-  border: 0;
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.planName {
-  flex: 1;
-  min-width: 0;
-}
-
-.planTitle {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.planHint {
-  display: block;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
-.planAmount {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.planRowOff .planTitle {
-  color: var(--color-text-secondary);
-  text-decoration: line-through;
-}
-
-.planRowOff .planAmount {
-  color: var(--color-text-secondary);
-  font-weight: 400;
-}
-
 /* ── Section headings inside a card ───────────────────────────────────────── */
 
 .sectionHead {
@@ -250,27 +130,6 @@
 /* Sits under its own row rather than beside it: a name field, an amount and a
    delete do not fit one line beside a total on a phone. */
 
-.lineEdit {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0 0 0.5rem 1.375rem;
-}
-
-.lineRemove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  margin-right: -6px;
-  border: 0;
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
 .addLine {
   display: flex;
   align-items: center;
@@ -288,17 +147,6 @@
 /* ── Ledger ───────────────────────────────────────────────────────────────── */
 /* The sum closes its group, so it takes a rule above rather than the hairline
    the ordinary rows use. */
-
-.ledgerSum {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0 0.125rem;
-  border-top: 2px solid var(--color-border-primary);
-  font-size: 13px;
-  font-weight: 600;
-}
 
 /* ── Salary ───────────────────────────────────────────────────────────────── */
 /* Always the first row in the panel, so it carries no rule of its own. Wraps
@@ -435,22 +283,356 @@
 /* Sits tight under its row and indented to the label above it, so the date
    reads as belonging to that row rather than as a row of its own. */
 
-.oneOffMeta {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin: -4px 0 4px 22px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
-.oneOffMeta .lineRemove {
-  margin-left: auto;
-}
-
 .oneOffTag {
+  /* It used to sit in a flex row with a gap; inline after the date it needs its
+     own space, or the two run together as "Dec 20, 2026not in range". */
+  margin-left: 0.375rem;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--color-background-secondary);
   white-space: nowrap;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+/* The verdict, the figure, the line and the arithmetic, as one block.
+   Previously three cards of equal weight to the editors below them, which left
+   nothing on the page looking more important than anything else. The tint is
+   the only colour on the screen that carries meaning at this size, so the rest
+   of the page stays plain and this reads first. */
+
+.hero {
+  border-radius: var(--border-radius-lg);
+  border: 1px solid transparent;
+  padding: 1rem 1.125rem 0.875rem;
+  margin-bottom: 0.75rem;
+  background: var(--color-surface);
+}
+
+.heroOk {
+  background: color-mix(in srgb, var(--color-income) 9%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-income) 26%, transparent);
+  color: var(--color-income);
+}
+
+.heroTight {
+  background: color-mix(in srgb, var(--color-goal) 9%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-goal) 26%, transparent);
+  color: var(--color-goal);
+}
+
+.heroShort {
+  background: color-mix(in srgb, var(--color-expense) 9%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-expense) 26%, transparent);
+  color: var(--color-expense);
+}
+
+/* Pills rather than the segmented control: it sits inside a tinted card now,
+   and the segmented group's own surface fought the tint. */
+.horizonRow {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.horizonPill {
+  padding: 3px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.horizonPill:hover {
+  color: var(--color-text-primary);
+}
+
+.horizonOn {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  color: inherit;
+}
+
+.heroVerdict {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.heroAmount {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  margin-top: 0.125rem;
+}
+
+.heroSub {
+  font-size: 12.5px;
+  margin-bottom: 0.625rem;
+}
+
+.heroAxis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.tapHint {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  margin: 0.5rem 0 0;
+}
+
+/* ── The arithmetic under the headline ────────────────────────────────────── */
+
+.heroLedger {
+  margin-top: 0.875rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.ledgerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 30px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ledgerEnd {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ── Folded groups ────────────────────────────────────────────────────────── */
+/* A group says what it is, how many, and what it costs, without unrolling
+   every row of it first. */
+
+.group {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.group:first-of-type {
+  border-top: 0;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.groupCount {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.groupTotal {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.groupBody {
+  padding-bottom: 0.625rem;
+}
+
+/* ── Card headings, shared ────────────────────────────────────────────────── */
+
+.cardTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.cardHint {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.5rem;
+}
+
+/* ── Rows, second pass ────────────────────────────────────────────────────── */
+/* The switch moved to the right and the tick went away. A checkbox says "pick
+   from a list"; this is "in or out of the plan", which is a switch. With the
+   control off the left edge the column reads as a list of names, which is what
+   the eye is actually scanning for. */
+
+.rowLine {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 46px;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 13.5px;
+}
+
+.rowLine:first-of-type {
+  border-top: 0;
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: inherit;
+}
+
+/* Only the rows the user owns are editable, and only those get the affordance. */
+.rowEditable {
+  cursor: pointer;
+}
+
+.rowEditable:hover .rowTitle {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rowTitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowHint {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* Tinted, not painted. Full-strength red on every row of a list of bills is a
+   texture rather than a signal — but no colour at all costs the one thing
+   colour is good at here, which is telling money in from money out without
+   reading the sign. Mixed most of the way back to the body colour, it survives
+   a glance and disappears into the page when you are reading names. */
+.rowIncome {
+  color: color-mix(in srgb, var(--color-income) 55%, var(--color-text-primary));
+}
+
+.rowExpense {
+  color: color-mix(in srgb, var(--color-expense) 55%, var(--color-text-primary));
+}
+
+.rowAmount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowOff .rowTitle {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
+.rowOff .rowAmount {
+  color: var(--color-text-secondary);
+}
+
+/* Bootstrap's own switch, so it inherits the theme rather than being a second
+   opinion about what a control looks like — but not its layout. `.form-check`
+   is built for a control with a label beside it: it pads 1.5em on the left and
+   pulls the input back into that padding with a negative margin, which here
+   put the switch on top of the amount and clipped it to "+€5,40". Doubling the
+   class beats Bootstrap's two-class selector without an `!important`. */
+.rowSwitch {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.rowSwitch.rowSwitch :global(.form-check-input) {
+  float: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Outside the window, not switched off. Struck through it read as something
+   the reader had excluded, which is a different fact about a different row. */
+.rowMuted .rowTitle,
+.rowMuted .rowAmount {
+  color: var(--color-text-secondary);
+}
+
+/* ── Adding ───────────────────────────────────────────────────────────────── */
+/* A round + in the group header, where the group it adds to is named — rather
+   than a blue text link at the bottom of a list that may be folded shut. */
+
+.groupAdd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.groupAdd:hover {
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+/* ── Dialog fields ────────────────────────────────────────────────────────── */
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin: 0.25rem 0 0;
 }

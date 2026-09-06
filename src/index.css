@@ -433,6 +433,19 @@ body {
   border-color: var(--color-text-primary);
 }
 
+/* Every field in the app shows the month and year as dropdowns, so the header's
+   own "December 2026" label is the same fact printed twice directly above them. */
+.react-datepicker__current-month {
+  display: none;
+}
+
+.react-datepicker__header__dropdown {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
 .react-datepicker__month-select,
 .react-datepicker__year-select {
   background-color: var(--color-surface);

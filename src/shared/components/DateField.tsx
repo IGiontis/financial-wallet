@@ -82,6 +82,16 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
       disabled={disabled}
       isClearable={clearable}
       showPopperArrow={false}
+      // Month and year as dropdowns. Without them the only way to a date is the
+      // arrows, one month per press — so "20 December 2027" from today is
+      // fifteen presses, and a birth year is a hundred and eighty. The header
+      // is the one place a date picker can be genuinely faster than typing.
+      showMonthDropdown
+      showYearDropdown
+      // Native selects: on a phone that is the OS wheel, and on a desktop a
+      // list you can type into. `yearDropdownItemNumber` and
+      // `scrollableYearDropdown` belong to the scroll mode and do nothing here.
+      dropdownMode="select"
       // Portalled so the calendar is never clipped by a modal body's overflow,
       // which is where most of these fields live.
       portalId="datepicker-portal"

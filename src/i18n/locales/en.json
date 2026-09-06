@@ -722,7 +722,13 @@
     "oneOffPast": "passed",
     "addOneOff": "Add extra pay on a date",
     "oneOffOutOfRangeHint": "Falls outside the months shown. Widen the horizon to count it.",
-    "oneOffPastHint": "The day has gone, so the plan no longer counts it."
+    "oneOffPastHint": "The day has gone, so the plan no longer counts it.",
+    "groupCount": "{{count}}",
+    "addEntry": "New monthly figure",
+    "editEntry": "Edit",
+    "perMonthHint": "Per month. It is spread across the days, not charged on one.",
+    "addTo": "Add to {{group}}",
+    "offRow": "not in the plan"
   },
   "settings": {
     "title": "Settings",
