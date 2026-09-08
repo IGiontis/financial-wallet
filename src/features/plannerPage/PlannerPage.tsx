@@ -16,7 +16,7 @@ import {
   asHorizon,
   buildPlan,
   detectSalary,
-  lineDays,
+  lineRanges,
   monthStart,
   nextOneOffDate,
   oneOffDate,
@@ -192,11 +192,14 @@ export function PlannerPage() {
     [oneOffs, startOfToday],
   );
   const seasonFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+  // The month a repeat stops in carries its year: "every year until Apr" says
+  // nothing on its own.
+  const seasonYearFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }), [lang]);
 
   // Only the lines running *today*: a ski budget that starts in December has
   // nothing to say about what a day in September costs.
   const monthlyLineNet = lines
-    .filter((l) => !skipIds.has(l.id) && !!lineDays(l, startOfToday, 0))
+    .filter((l) => !skipIds.has(l.id) && lineRanges(l, startOfToday, 0).length > 0)
     .reduce((sum, l) => sum + (l.kind === "income" ? l.amount : -l.amount), 0);
   // A one-off can sit in another year, so the short "20 Sep" is not enough.
   const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
@@ -220,7 +223,12 @@ export function PlannerPage() {
     if (row.source !== "line") return undefined;
     const line = lines.find((l) => l.id === row.id);
     return line
-      ? () => setEditor({ mode: "line", kind: line.kind, draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to } })
+      ? () =>
+          setEditor({
+            mode: "line",
+            kind: line.kind,
+            draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until },
+          })
       : undefined;
   };
 
@@ -251,6 +259,10 @@ export function PlannerPage() {
         kind: editor.kind ?? "expense",
         ...(draft.from ? { from: draft.from } : {}),
         ...(draft.to ? { to: draft.to } : {}),
+        // A repeat needs a month to repeat from, and an end with nothing
+        // repeating is a figure that applies to nothing.
+        ...(draft.from && draft.yearly ? { yearly: true } : {}),
+        ...(draft.from && draft.yearly && draft.until ? { until: draft.until } : {}),
       };
       setLines(draft.id ? lines.map((l) => (l.id === draft.id ? entry : l)) : [...lines, entry]);
     }
@@ -306,13 +318,20 @@ export function PlannerPage() {
    * edge made the column read as a form, and colouring every amount in a list
    * of costs said nothing the heading had not already said.
    */
-  /** "Dec — Apr", for a line that only runs part of the year. */
+  /** "Dec — Apr · every year", for a line that only runs part of the year. */
   const seasonLabel = (line: BudgetLine | undefined) => {
     if (!line?.from && !line?.to) return undefined;
     const name = (key: string | undefined) => (monthStart(key) ? seasonFmt.format(monthStart(key)!) : undefined);
     const from = name(line?.from);
     const to = name(line?.to);
-    return from && to ? `${from} — ${to}` : from ? t("planner.seasonFromOnly", { month: from }) : t("planner.seasonToOnly", { month: to });
+    // A yearly season with no closing month is a single month — one trip in
+    // August — so it reads as that month rather than as "from August on".
+    const span = from && to ? `${from} — ${to}` : from ? (line?.yearly ? from : t("planner.seasonFromOnly", { month: from })) : t("planner.seasonToOnly", { month: to });
+    if (!line?.yearly) return span;
+
+    const stop = monthStart(line.until);
+    const yearly = `${span} · ${t("planner.seasonYearlyTag")}`;
+    return stop ? `${yearly} ${t("planner.seasonToOnly", { month: seasonYearFmt.format(stop) })}` : yearly;
   };
 
   const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string) => {

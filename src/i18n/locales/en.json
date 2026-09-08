@@ -749,6 +749,9 @@
     "seasonToLabel": "To month",
     "seasonHint": "Leave both empty and it runs the whole time.",
     "seasonBackwards": "The last month is before the first.",
+    "seasonOnce": "This time only",
+    "seasonYearlyTag": "every year",
+    "seasonNeedsStart": "Pick the month it starts first.",
     "note_outofseason": "outside this window",
     "seasonFromOnly": "from {{month}}",
     "seasonToOnly": "until {{month}}"

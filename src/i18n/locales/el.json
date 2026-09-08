@@ -749,6 +749,9 @@
     "seasonToLabel": "Έως μήνα",
     "seasonHint": "Άφησέ τα κενά και τρέχει συνέχεια.",
     "seasonBackwards": "Ο τελευταίος μήνας είναι πριν τον πρώτο.",
+    "seasonOnce": "Μόνο αυτή τη φορά",
+    "seasonYearlyTag": "κάθε χρόνο",
+    "seasonNeedsStart": "Διάλεξε πρώτα μήνα έναρξης.",
     "note_outofseason": "εκτός περιόδου",
     "seasonFromOnly": "από {{month}}",
     "seasonToOnly": "έως {{month}}"

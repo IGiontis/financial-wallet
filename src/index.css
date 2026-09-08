@@ -245,6 +245,21 @@
   --bs-btn-disabled-border-color: var(--color-border-tertiary);
 }
 
+/* Bootstrap's outline-secondary keeps its fixed #6c757d in dark mode, which is
+   2.92:1 on a raised surface — the Cancel button of every dialog sitting just
+   under the readable line. The token grey is 7:1, and the border is mixed down
+   from it so it stays a boundary rather than becoming a second focus ring. */
+[data-bs-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color: var(--color-text-secondary);
+  --bs-btn-border-color: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+  --bs-btn-hover-bg: var(--color-background-secondary);
+  --bs-btn-hover-color: var(--color-text-primary);
+  --bs-btn-hover-border-color: var(--color-text-secondary);
+  --bs-btn-active-bg: var(--color-background-secondary);
+  --bs-btn-active-color: var(--color-text-primary);
+  --bs-btn-disabled-color: var(--color-text-tertiary, var(--color-text-secondary));
+}
+
 [data-bs-theme="dark"] .badge.bg-light,
 [data-bs-theme="dark"] .badge.text-bg-light {
   background-color: var(--color-background-secondary) !important;
@@ -431,6 +446,11 @@ body {
   background-color: var(--color-background-secondary);
   border-bottom: 1px solid var(--color-border-tertiary);
   padding-top: 10px;
+  /* The colour matters on the header itself, not only on the title inside it:
+     in month mode the year is a text node of this element rather than a
+     `__current-month` child, so it kept the library's own black — 1.34:1 on the
+     dark header, and invisible. */
+  color: var(--color-text-primary);
 }
 
 .react-datepicker__current-month,
@@ -500,6 +520,12 @@ body {
   background-color: var(--color-background-secondary);
 }
 
+/* The month grid names its states on the cell, not on the month: a selected
+   cell is `__month-text--selected`, and the `__month--selected` these rules
+   used to name matches nothing here. The cell kept the library's own #216ba5
+   and the theme's text colour on top of it — 2.9:1 in light mode, and never
+   the app's blue in either. */
+.react-datepicker__month-text--disabled,
 .react-datepicker__month--disabled {
   color: var(--color-text-secondary);
   opacity: 0.35;
@@ -510,14 +536,16 @@ body {
   box-shadow: inset 0 0 0 1px var(--color-border-primary);
 }
 
-.react-datepicker__month--selected,
-.react-datepicker__month-text--keyboard-selected {
+.react-datepicker__month-text--selected,
+.react-datepicker__month-text--keyboard-selected,
+.react-datepicker__month--selected {
   background-color: var(--bs-primary);
   color: #fff;
 }
 
-.react-datepicker__month--selected:hover,
-.react-datepicker__month-text--keyboard-selected:hover {
+.react-datepicker__month-text--selected:hover,
+.react-datepicker__month-text--keyboard-selected:hover,
+.react-datepicker__month--selected:hover {
   background-color: var(--bs-primary);
   filter: brightness(1.08);
 }

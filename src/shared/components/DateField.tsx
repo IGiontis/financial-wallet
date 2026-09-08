@@ -88,6 +88,11 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
       minDate={minDate}
       maxDate={maxDate}
       name={name}
+      // On the picker rather than only on the button underneath: react-datepicker
+      // clones the custom input and overwrites its `id` with its own, so an id
+      // set on the button alone disappeared and every `htmlFor` pointing at one
+      // of these fields dangled.
+      id={id}
       disabled={disabled}
       isClearable={clearable}
       showPopperArrow={false}

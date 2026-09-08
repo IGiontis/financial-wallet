@@ -7,6 +7,7 @@ import {
   horizonMonths,
   nextOneOffDate,
   oneOffDate,
+  lineRanges,
   oneOffDates,
   type BudgetLine,
   type OneOff,
@@ -599,5 +600,73 @@ describe("naming an income event", () => {
     expect(income.some((e) => e.label === SALARY_ROW_ID)).toBe(true);
     expect(income.some((e) => e.label === "Δώρο Χριστουγέννων")).toBe(true);
     expect(income.filter((e) => e.label === SALARY_ROW_ID).length).toBeLessThan(income.length);
+  });
+});
+
+describe("a season that comes back every year", () => {
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  // Skiing: 200 a month, December to April, every year. Today is 14 Aug 2026.
+  const ski = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "ski", label: "Ski", amount: 200, kind: "expense", from: "2026-12", to: "2027-04", yearly: true, ...over });
+
+  it("charges the same months again in every year the window reaches", () => {
+    // Three winters inside three years: 15 months at 200.
+    const plan = buildPlan({ ...base, horizon: 36, lines: [ski()] });
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-3000);
+  });
+
+  it("stops in the month it is told to", () => {
+    const plan = buildPlan({ ...base, horizon: 36, lines: [ski({ until: "2028-04" })] });
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-2000);
+  });
+
+  it("cuts the last winter short when the end lands inside it", () => {
+    // Dec 26 to Apr 27, then Dec 27 to Feb 28: five months and three.
+    const plan = buildPlan({ ...base, horizon: 36, lines: [ski({ until: "2028-02" })] });
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-1600);
+  });
+
+  it("treats a yearly season with no closing month as that one month", () => {
+    // The trip case: one in September, every year, rather than September onwards.
+    const trip = ski({ id: "trip", label: "Trip", amount: 1500, from: "2026-09", to: undefined });
+    const plan = buildPlan({ ...base, horizon: 36, lines: [trip] });
+
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-4500);
+  });
+
+  it("comes back this year even when it was written down years ago", () => {
+    // Entered in 2020 and never touched: the season is old, the winter is not.
+    const plan = buildPlan({ ...base, horizon: 12, lines: [ski({ from: "2020-12", to: "2021-04" })] });
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-1000);
+  });
+
+  it("leaves the balance alone between two winters", () => {
+    const withSki = buildPlan({ ...base, horizon: 36, lines: [ski()] });
+    const without = buildPlan({ ...base, horizon: 36 });
+    const november = (plan: typeof withSki) => plan.points.filter((p) => p.date.getMonth() === 10 && p.date.getFullYear() === 2027).pop()!;
+
+    // One winter has been paid for by then, and only one.
+    expect(round(without.endingBalance - withSki.endingBalance)).toBe(3000);
+    expect(round(november(without).balance - november(withSki).balance)).toBe(1000);
+  });
+
+  it("keeps a plain season running once, as it always did", () => {
+    const once = buildPlan({ ...base, horizon: 36, lines: [ski({ yearly: false })] });
+    expect(once.rows.find((r) => r.source === "line")?.total).toBe(-1000);
+  });
+
+  it("ignores the repeat when there is no month to repeat from", () => {
+    // Nothing to add a year to, so the line keeps its plain behaviour rather
+    // than quietly costing nothing.
+    const openEnded = buildPlan({ ...base, horizon: 12, lines: [ski({ from: undefined, to: "2026-10" })] });
+    expect(openEnded.rows.find((r) => r.source === "line")?.total).toBeLessThan(0);
+  });
+
+  it("returns one stretch per winter, and none once it has stopped", () => {
+    const days = 365 * 3;
+    expect(lineRanges(ski(), now, days)).toHaveLength(3);
+    expect(lineRanges(ski({ until: "2027-04" }), now, days)).toHaveLength(1);
+    expect(lineRanges(ski({ from: "2020-12", to: "2021-04", until: "2021-04" }), now, days)).toEqual([]);
   });
 });

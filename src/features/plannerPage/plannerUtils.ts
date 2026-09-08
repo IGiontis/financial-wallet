@@ -276,6 +276,16 @@ export interface BudgetLine {
   from?: string;
   /** Last month it runs, inclusive. Absent means it never stops. */
   to?: string;
+  /**
+   * The season comes back on the same months every year.
+   *
+   * Ski from December to April is not one winter, and three trips a year are
+   * not three trips: without this they had to be written out again for every
+   * year the plan looked at, which is exactly the work a planner is for.
+   */
+  yearly?: boolean;
+  /** "YYYY-MM" — the last month a yearly season runs. Absent means it never stops. */
+  until?: string;
 }
 
 // ─── Seasons ────────────────────────────────────────────────────────────────
@@ -306,23 +316,66 @@ export function monthStart(value: string | undefined): Date | undefined {
 /** "YYYY-MM" for a date, which is what the month inputs hand back. */
 export const toMonthKey = (date: Date): MonthKey => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-/**
- * The day offsets a line is actually charged on, clamped to the window.
- *
- * Returns undefined when the season falls entirely outside the horizon — the
- * caller then charges nothing rather than charging a clamped remnant.
- */
-export function lineDays(line: BudgetLine, today: Date, days: number): { from: number; to: number } | undefined {
-  const seasonStart = monthStart(line.from);
-  const seasonEnd = monthStart(line.to);
+/** A stretch of the window a line is charged over, as day offsets from today. */
+export interface LineRange {
+  from: number;
+  to: number;
+}
 
-  const from = seasonStart ? differenceInCalendarDays(seasonStart, today) : 0;
-  // Inclusive of the whole closing month: a season "to April" runs to 30 April.
-  const to = seasonEnd ? differenceInCalendarDays(endOfMonth(seasonEnd), today) : days;
-
+/** Trims a stretch to the window, or drops it when none of it is inside. */
+function clampRange(from: number, to: number, days: number): LineRange | undefined {
   const start = Math.max(from, 0);
   const end = Math.min(to, days);
   return end >= start ? { from: start, to: end } : undefined;
+}
+
+/**
+ * Every stretch of the window a line is actually charged over.
+ *
+ * One stretch for a plain line — the whole window — or for a season that
+ * happens once. A yearly season returns one stretch per year it comes back in,
+ * which is what lets "December to April, every year" cost the same in the
+ * third winter as in the first without being written out three times.
+ *
+ * Empty means the line costs nothing here: the caller says so with a note
+ * rather than dropping the row, so a ski budget entered in September is still
+ * visible in a one-month window.
+ */
+export function lineRanges(line: BudgetLine, today: Date, days: number): LineRange[] {
+  const seasonStart = monthStart(line.from);
+  const seasonEnd = monthStart(line.to);
+  if (!seasonStart && !seasonEnd) return [{ from: 0, to: days }];
+
+  // Inclusive of the whole closing month: a season "to April" runs to 30 April.
+  const endOfSeason = (month: Date) => differenceInCalendarDays(endOfMonth(month), today);
+
+  // A repeat needs a month to repeat from. Without one there is nothing to add
+  // a year to, so the line keeps its plain behaviour rather than guessing.
+  if (!line.yearly || !seasonStart) {
+    const once = clampRange(seasonStart ? differenceInCalendarDays(seasonStart, today) : 0, seasonEnd ? endOfSeason(seasonEnd) : days, days);
+    return once ? [once] : [];
+  }
+
+  // A season with no end is a single month — one trip in August, rather than
+  // August onwards forever, which is what a line with no season already means.
+  const closes = seasonEnd && seasonEnd >= seasonStart ? seasonEnd : seasonStart;
+  const stop = monthStart(line.until);
+  const lastDay = stop ? Math.min(endOfSeason(stop), days) : days;
+
+  // Started from the year the season last opened rather than from the year it
+  // was first written: a winter budget entered in 2020 should not walk five
+  // years of dead seasons to reach this one.
+  const firstYear = Math.max(today.getFullYear() - seasonStart.getFullYear() - 1, 0);
+
+  const ranges: LineRange[] = [];
+  for (let year = firstYear; year < firstYear + 15; year++) {
+    const from = differenceInCalendarDays(addYears(seasonStart, year), today);
+    if (from > lastDay) break;
+
+    const range = clampRange(from, Math.min(endOfSeason(addYears(closes, year)), lastDay), days);
+    if (range) ranges.push(range);
+  }
+  return ranges;
 }
 
 /**
@@ -782,17 +835,19 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
 
   // A difference array rather than one running total: a seasonal line is only
   // charged between its two months, so the rate changes as the walk crosses a
-  // season's edges. Two entries per line, then a running sum during the walk —
-  // rather than re-testing every line on every day.
+  // season's edges. Two entries per stretch, then a running sum during the
+  // walk — rather than re-testing every line on every day, which is what keeps
+  // a yearly season as cheap to draw as a flat one.
   const rateDelta = new Float64Array(days + 2);
 
   for (const line of lines) {
     const enabled = isOn(line.id);
     const sign = line.kind === "income" ? 1 : -1;
-    const season = lineDays(line, today, days);
+    // One stretch, or one per winter for a season that comes back every year.
+    const seasons = lineRanges(line, today, days);
     // A season entirely outside the horizon costs nothing here, and says so
     // with a note rather than vanishing from the list.
-    const months = season ? monthsBetween(today, season.from, season.to) : 0;
+    const months = seasons.reduce((sum, season) => sum + monthsBetween(today, season.from, season.to), 0);
 
     const total = enabled ? (line.kind === "income" ? round2(line.amount * months) : negate(line.amount * months)) : 0;
 
@@ -803,13 +858,15 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       total,
       perMonth: line.amount * sign,
       kind: line.kind,
-      note: season ? undefined : "outofseason",
+      note: seasons.length ? undefined : "outofseason",
       enabled,
     });
-    if (!enabled || !season) continue;
+    if (!enabled) continue;
 
-    rateDelta[season.from] += sign * line.amount;
-    rateDelta[season.to + 1] -= sign * line.amount;
+    for (const season of seasons) {
+      rateDelta[season.from] += sign * line.amount;
+      rateDelta[season.to + 1] -= sign * line.amount;
+    }
   }
 
   events.sort((a, b) => a.date.getTime() - b.date.getTime());
