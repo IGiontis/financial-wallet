@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, Form, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { PayeeInput } from "../transactions/components/PayeeInput";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCreateDebt } from "./useDebts";
 import segmented from "../../shared/css/Segmented.module.css";
@@ -67,13 +68,19 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
 
           <FormGroup>
             <Label className="small fw-medium">{t("debts.person")} *</Label>
-            <Input list="debt-people" value={person} onChange={(e) => setPerson(e.target.value)} invalid={personInvalid} placeholder={t("debts.personPlaceholder")} />
-            {/* Offers names already on record without ever blocking a new one. */}
-            <datalist id="debt-people">
-              {knownPeople.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+            {/* The same picker the payee field uses. It was a native
+                `datalist`, which most phone keyboards ignore outright — so on
+                the screen where it mattered there were no suggestions at all,
+                and a name spelled a shade differently started a second person
+                with the same debts split between them. */}
+            <PayeeInput
+              value={person}
+              payees={knownPeople}
+              onChange={setPerson}
+              invalid={personInvalid}
+              placeholder={t("debts.personPlaceholder")}
+              wording={{ field: "debts.person", useTyped: "debts.useTypedPerson", empty: "debts.noPersonMatches" }}
+            />
           </FormGroup>
 
           <FormGroup>

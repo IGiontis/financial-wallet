@@ -3,7 +3,8 @@ import DatePicker, { registerLocale } from "react-datepicker";
 import { useTranslation } from "react-i18next";
 import { el, enUS } from "date-fns/locale";
 import { FiCalendar } from "react-icons/fi";
-import { parseISODay, toISODay } from "../utils/dates";
+import { parseISODay, parseISOMonth, toISODay, toISOMonth } from "../utils/dates";
+import { useNarrowScreen } from "../hooks/useNarrowScreen";
 import styles from "./css/DateField.module.css";
 
 // Registered once at module load — react-datepicker resolves locales by name.
@@ -26,6 +27,13 @@ interface DateFieldProps {
   small?: boolean;
   /** Lets the field be cleared back to "". Off by default: most are required. */
   clearable?: boolean;
+  /**
+   * Pick a month rather than a day, storing "yyyy-MM".
+   *
+   * For the things budgeted by the month — a season that runs December to
+   * April — where asking for a day would invite a precision nobody has.
+   */
+  month?: boolean;
 }
 
 /**
@@ -65,29 +73,33 @@ DateButton.displayName = "DateButton";
  * the Formik forms that already store dates that way — no conversion at every
  * call site, and no timezone drift from round-tripping through `Date`.
  */
-export function DateField({ value, onChange, onBlur, invalid, disabled, placeholder, minDate, maxDate, name, id, small, clearable }: DateFieldProps) {
+export function DateField({ value, onChange, onBlur, invalid, disabled, placeholder, minDate, maxDate, name, id, small, clearable, month }: DateFieldProps) {
   const { i18n } = useTranslation();
   const locale = i18n.resolvedLanguage?.startsWith("el") ? "el" : "en";
+  const narrow = useNarrowScreen();
 
   return (
     <DatePicker
-      selected={parseISODay(value)}
-      onChange={(date: Date | null) => onChange(date ? toISODay(date) : "")}
+      selected={month ? parseISOMonth(value) : parseISODay(value)}
+      onChange={(date: Date | null) => onChange(date ? (month ? toISOMonth(date) : toISODay(date)) : "")}
       onBlur={onBlur}
       locale={locale}
-      dateFormat="dd MMM yyyy"
+      dateFormat={month ? "MMM yyyy" : "dd MMM yyyy"}
       minDate={minDate}
       maxDate={maxDate}
       name={name}
       disabled={disabled}
       isClearable={clearable}
       showPopperArrow={false}
+      // In month mode the grid *is* the twelve months, so the dropdowns would
+      // duplicate it.
+      showMonthYearPicker={month}
       // Month and year as dropdowns. Without them the only way to a date is the
       // arrows, one month per press — so "20 December 2027" from today is
       // fifteen presses, and a birth year is a hundred and eighty. The header
       // is the one place a date picker can be genuinely faster than typing.
-      showMonthDropdown
-      showYearDropdown
+      showMonthDropdown={!month}
+      showYearDropdown={!month}
       // Native selects: on a phone that is the OS wheel, and on a desktop a
       // list you can type into. `yearDropdownItemNumber` and
       // `scrollableYearDropdown` belong to the scroll mode and do nothing here.
@@ -95,6 +107,12 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
       // Portalled so the calendar is never clipped by a modal body's overflow,
       // which is where most of these fields live.
       portalId="datepicker-portal"
+      // On a phone a calendar anchored to its field has nowhere to go: there is
+      // no room beside it and rarely enough below, so it was ending up at the
+      // bottom of the page, a long way from the field that opened it. Below the
+      // `sm` breakpoint it becomes a centred sheet instead — which is what
+      // `withPortal` is for.
+      withPortal={narrow}
       popperPlacement="bottom-start"
       customInput={<DateButton placeholder={placeholder} invalid={invalid} small={small} id={id} />}
       calendarClassName={styles.calendar}

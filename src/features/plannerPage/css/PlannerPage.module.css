@@ -678,3 +678,11 @@
   color: var(--color-text-secondary);
   margin: 0.25rem 0 0;
 }
+
+/* Same place and size as the hint it replaces, so the dialog does not jump a
+   line taller the moment something is wrong. */
+.fieldError {
+  font-size: 11.5px;
+  margin: 0.25rem 0 0;
+  color: var(--color-expense-text);
+}

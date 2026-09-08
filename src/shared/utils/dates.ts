@@ -53,3 +53,19 @@ export function toISODay(value: unknown): string {
   const date = firestoreToDate(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+/** Parses "yyyy-MM" as the first day of that month, local. Null for anything else. */
+export function parseISOMonth(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const month = Number(match[2]) - 1;
+  if (month < 0 || month > 11) return null;
+  const date = new Date(Number(match[1]), month, 1);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Formats a Date as "yyyy-MM" in local time. */
+export function toISOMonth(value: unknown): string {
+  const date = firestoreToDate(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}

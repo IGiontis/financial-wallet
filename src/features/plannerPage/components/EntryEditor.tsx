@@ -13,6 +13,9 @@ export interface EntryDraft {
   amount: string;
   /** "YYYY-MM-DD". Present only for dated extra pay. */
   date?: string;
+  /** "YYYY-MM". A rate that only runs for part of the year. */
+  from?: string;
+  to?: string;
 }
 
 interface EntryEditorProps {
@@ -46,7 +49,10 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
   const dated = mode === "oneoff";
   // A Save that silently declines is indistinguishable from a Save that is
   // broken, so the button reads off this rather than the click doing nothing.
-  const valid = Number.isFinite(amount) && amount > 0 && (!dated || !!oneOffDate(value.date ?? ""));
+  // A season that ends before it starts charges nothing at all, which looks
+  // like the app losing the entry rather than refusing it.
+  const seasonBackwards = !!value.from && !!value.to && value.to < value.from;
+  const valid = Number.isFinite(amount) && amount > 0 && (!dated || !!oneOffDate(value.date ?? "")) && !seasonBackwards;
 
   const save = () => valid && onSave({ ...value, label: value.label.trim() });
 
@@ -91,6 +97,26 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
             </label>
             <DateField name="entry-date" value={value.date ?? ""} onChange={(v) => setValue({ ...value, date: v })} placeholder={t("common.date")} />
           </>
+        )}
+
+        {/* A rate that stops. "€200 a month for skiing, December to April" is
+            not a bill and not a one-off — it is this line, with two ends. Left
+            empty it runs for the whole window, which is what every line did
+            before there was anywhere to put the ends. */}
+        {!dated && (
+          <div className="mt-3">
+            <label className={styles.fieldLabel}>{t("planner.seasonLabel")}</label>
+            {/* The app's own calendar, in month mode — not `input type="month"`,
+                which is the native control DateField exists to replace. */}
+            <div className="d-flex align-items-center gap-2">
+              <DateField month clearable name="season-from" value={value.from ?? ""} onChange={(v) => setValue({ ...value, from: v })} placeholder={t("planner.seasonFrom")} />
+              <span className={styles.fieldHint} style={{ margin: 0 }}>
+                {t("planner.seasonTo")}
+              </span>
+              <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => setValue({ ...value, to: v })} placeholder={t("planner.seasonToLabel")} />
+            </div>
+            {seasonBackwards ? <p className={styles.fieldError}>{t("planner.seasonBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.seasonHint")}</p>}
+          </div>
         )}
       </ModalBody>
 

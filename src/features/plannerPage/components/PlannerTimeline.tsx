@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronRight, FiLock } from "react-icons/fi";
 
 import { isHardDeadline } from "../../bills/billsUtils";
-import type { PlannerEvent } from "../plannerUtils";
+import { SALARY_ROW_ID, type PlannerEvent } from "../plannerUtils";
 import type { BillWithStatus } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
 
@@ -57,7 +57,7 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
         </span>
         <span className={styles.eventName}>
           <span className={styles.eventTitle} style={{ color: tone }}>
-            {event.kind === "income" ? t("planner.salaryLabel") : event.label}
+            {event.label === SALARY_ROW_ID ? t("planner.salaryLabel") : event.label}
             {source && isHardDeadline(source) && <FiLock size={11} className="ms-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} title={t("bills.strictHint")} />}
           </span>
           {/* Only bills with real grace get this line — and it names the actual

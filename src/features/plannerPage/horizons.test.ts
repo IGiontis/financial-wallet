@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff, pointStepFor, planPeriods } from "./plannerUtils";
+import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff, pointStepFor, planPeriods, SALARY_ROW_ID } from "./plannerUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
@@ -439,5 +439,84 @@ describe("planPeriods", () => {
     const periods = planPeriods(plan);
 
     expect(periods.every((p) => p.balance === 400)).toBe(true);
+  });
+});
+
+describe("a budget line that runs for part of the year", () => {
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  // €200 a month for skiing, December to April. Today is 14 Aug 2026.
+  const ski = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "ski", label: "Σκι", amount: 200, kind: "expense", from: "2026-12", to: "2027-04", ...over });
+
+  it("charges only the months of the season", () => {
+    // Dec, Jan, Feb, Mar, Apr — five months at 200.
+    const plan = buildPlan({ ...base, horizon: 12, lines: [ski()] });
+    const row = plan.rows.find((r) => r.source === "line");
+
+    expect(row?.total).toBe(-1000);
+  });
+
+  it("charges nothing at all when the window ends before the season starts", () => {
+    // A flat monthly line would have taken €200 out of September for a lift
+    // pass, and made the whole year look worse than it is.
+    const plan = buildPlan({ ...base, horizon: 3, lines: [ski()] });
+    const row = plan.rows.find((r) => r.source === "line");
+
+    expect(row?.total).toBe(0);
+    expect(row?.note).toBe("outofseason");
+  });
+
+  it("charges the part of the season the window reaches", () => {
+    // Through January: Dec and Jan only.
+    const plan = buildPlan({ ...base, horizon: 6, lines: [ski()] });
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-400);
+  });
+
+  it("keeps a line with no season running the whole window", () => {
+    const flat = buildPlan({ ...base, horizon: 3, lines: [ski({ from: undefined, to: undefined })] });
+    const seasonal = buildPlan({ ...base, horizon: 3, lines: [ski()] });
+
+    expect(flat.rows.find((r) => r.source === "line")!.total).toBeLessThan(0);
+    expect(seasonal.rows.find((r) => r.source === "line")!.total).toBe(0);
+  });
+
+  it("runs to the end of the closing month, not to its first day", () => {
+    // "to April" means all of April, which is how anyone reads it.
+    const toApril = buildPlan({ ...base, horizon: 12, lines: [ski({ from: "2027-04", to: "2027-04" })] });
+    expect(toApril.rows.find((r) => r.source === "line")?.total).toBe(-200);
+  });
+
+  it("only bends the balance while the season is running", () => {
+    const withSki = buildPlan({ ...base, horizon: 12, lines: [ski()] });
+    const without = buildPlan({ ...base, horizon: 12 });
+
+    // The whole season comes off the closing balance...
+    expect(round(without.endingBalance - withSki.endingBalance)).toBe(1000);
+
+    // ...but a November day is untouched, because nothing is charged yet.
+    const november = (plan: typeof withSki) => plan.points.find((p) => p.date.getMonth() === 10)!;
+    expect(round(november(withSki).balance)).toBe(round(november(without).balance));
+  });
+
+  it("takes the whole season off the outgoings, once", () => {
+    const plan = buildPlan({ ...base, horizon: 12, lines: [ski()] });
+    expect(plan.budgetTotal).toBe(1000);
+  });
+});
+
+describe("naming an income event", () => {
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  it("marks the salary by its row id, leaving every other income its own name", () => {
+    // Matching on `kind === "income"` relabelled a fourteenth salary, a room
+    // rent and every other named line as "Salary" on the chart and timeline.
+    const plan = buildPlan({ ...base, horizon: 12, oneOffs: [{ id: "o1", label: "Δώρο Χριστουγέννων", amount: 1400, date: "2026-12-20" }] });
+    const income = plan.events.filter((e) => e.kind === "income");
+
+    expect(income.some((e) => e.label === SALARY_ROW_ID)).toBe(true);
+    expect(income.some((e) => e.label === "Δώρο Χριστουγέννων")).toBe(true);
+    expect(income.filter((e) => e.label === SALARY_ROW_ID).length).toBeLessThan(income.length);
   });
 });

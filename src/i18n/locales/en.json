@@ -731,7 +731,16 @@
     "horizonMonthsLabel": "Months",
     "horizonHint": "Up to {{max}} months — {{years}} years.",
     "flowTitle": "Where the balance comes from",
-    "flowHint": "What arrives above the line, what leaves below it, and the balance running across."
+    "flowHint": "What arrives above the line, what leaves below it, and the balance running across.",
+    "seasonLabel": "Only for part of the year",
+    "seasonFrom": "From month",
+    "seasonTo": "to",
+    "seasonToLabel": "To month",
+    "seasonHint": "Leave both empty and it runs the whole time.",
+    "seasonBackwards": "The last month is before the first.",
+    "note_outofseason": "outside this window",
+    "seasonFromOnly": "from {{month}}",
+    "seasonToOnly": "until {{month}}"
   },
   "settings": {
     "title": "Settings",
@@ -982,7 +991,9 @@
     "net": "Net",
     "netAhead": "in your favour",
     "netBehind": "against you",
-    "netEven": "all square"
+    "netEven": "all square",
+    "useTypedPerson": "Use \"{{name}}\"",
+    "noPersonMatches": "Nobody on record matches. Type a name to add them."
   },
   "statement": {
     "title": "Statement",

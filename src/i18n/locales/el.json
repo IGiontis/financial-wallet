@@ -731,7 +731,16 @@
     "horizonMonthsLabel": "Μήνες",
     "horizonHint": "Έως {{max}} μήνες — {{years}} χρόνια.",
     "flowTitle": "Από πού βγαίνει το υπόλοιπο",
-    "flowHint": "Πάνω από τη γραμμή τι μπαίνει, κάτω τι βγαίνει, και το υπόλοιπο να τα διασχίζει."
+    "flowHint": "Πάνω από τη γραμμή τι μπαίνει, κάτω τι βγαίνει, και το υπόλοιπο να τα διασχίζει.",
+    "seasonLabel": "Μόνο για ένα διάστημα",
+    "seasonFrom": "Από μήνα",
+    "seasonTo": "έως",
+    "seasonToLabel": "Έως μήνα",
+    "seasonHint": "Άφησέ τα κενά και τρέχει συνέχεια.",
+    "seasonBackwards": "Ο τελευταίος μήνας είναι πριν τον πρώτο.",
+    "note_outofseason": "εκτός περιόδου",
+    "seasonFromOnly": "από {{month}}",
+    "seasonToOnly": "έως {{month}}"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -982,7 +991,9 @@
     "net": "Καθαρό σύνολο",
     "netAhead": "υπέρ σου",
     "netBehind": "εις βάρος σου",
-    "netEven": "πατσί"
+    "netEven": "πατσί",
+    "useTypedPerson": "Χρήση «{{name}}»",
+    "noPersonMatches": "Κανείς καταχωρημένος δεν ταιριάζει. Γράψε όνομα για να προστεθεί."
   },
   "statement": {
     "title": "Κατάσταση",

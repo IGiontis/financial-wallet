@@ -12,7 +12,7 @@ import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useDebounce } from "../../shared/hooks/useDebounce";
-import { asHorizon, buildPlan, detectSalary, oneOffDate, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
+import { asHorizon, buildPlan, detectSalary, lineDays, monthStart, oneOffDate, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
 import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
 import LeverGroup from "./components/LeverGroup";
@@ -152,7 +152,6 @@ export function PlannerPage() {
 
   // The budget lines accrue by the day rather than landing on a date, so the
   // "nothing happens here" days still have a figure to show.
-  const monthlyLineNet = lines.filter((l) => !skipIds.has(l.id)).reduce((sum, l) => sum + (l.kind === "income" ? l.amount : -l.amount), 0);
 
   // Two decimals would read as noise; one says "not quite a whole month".
   const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(plan.monthsCovered);
@@ -171,6 +170,13 @@ export function PlannerPage() {
   // Soonest first, so the next thing to happen is the first thing read.
   const oneOffsByDate = useMemo(() => [...oneOffs].sort((a, b) => a.date.localeCompare(b.date)), [oneOffs]);
   const startOfToday = useMemo(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
+  const seasonFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+
+  // Only the lines running *today*: a ski budget that starts in December has
+  // nothing to say about what a day in September costs.
+  const monthlyLineNet = lines
+    .filter((l) => !skipIds.has(l.id) && !!lineDays(l, startOfToday, 0))
+    .reduce((sum, l) => sum + (l.kind === "income" ? l.amount : -l.amount), 0);
   // A one-off can sit in another year, so the short "20 Sep" is not enough.
   const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
 
@@ -192,7 +198,9 @@ export function PlannerPage() {
   const editHandler = (row: PlanRow) => {
     if (row.source !== "line") return undefined;
     const line = lines.find((l) => l.id === row.id);
-    return line ? () => setEditor({ mode: "line", kind: line.kind, draft: { id: line.id, label: line.label, amount: String(line.amount) } }) : undefined;
+    return line
+      ? () => setEditor({ mode: "line", kind: line.kind, draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to } })
+      : undefined;
   };
 
   const saveEntry = (editor: Editor, draft: EntryDraft) => {
@@ -204,7 +212,16 @@ export function PlannerPage() {
       setOneOffs(draft.id ? oneOffs.map((o) => (o.id === draft.id ? entry : o)) : [...oneOffs, entry]);
     } else {
       const label = draft.label || t("planner.lineFallbackName");
-      const entry: BudgetLine = { id: draft.id ?? newId(), label, amount, kind: editor.kind ?? "expense" };
+      // Undefined rather than "" for an unset end, so a line with no season
+      // stores nothing at all and reads back as "runs the whole time".
+      const entry: BudgetLine = {
+        id: draft.id ?? newId(),
+        label,
+        amount,
+        kind: editor.kind ?? "expense",
+        ...(draft.from ? { from: draft.from } : {}),
+        ...(draft.to ? { to: draft.to } : {}),
+      };
       setLines(draft.id ? lines.map((l) => (l.id === draft.id ? entry : l)) : [...lines, entry]);
     }
     setEditor(null);
@@ -259,7 +276,17 @@ export function PlannerPage() {
    * edge made the column read as a form, and colouring every amount in a list
    * of costs said nothing the heading had not already said.
    */
+  /** "Dec — Apr", for a line that only runs part of the year. */
+  const seasonLabel = (line: BudgetLine | undefined) => {
+    if (!line?.from && !line?.to) return undefined;
+    const name = (key: string | undefined) => (monthStart(key) ? seasonFmt.format(monthStart(key)!) : undefined);
+    const from = name(line?.from);
+    const to = name(line?.to);
+    return from && to ? `${from} — ${to}` : from ? t("planner.seasonFromOnly", { month: from }) : t("planner.seasonToOnly", { month: to });
+  };
+
   const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string) => {
+    const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     // The salary row has no document behind it, so its label is an internal id
     // rather than something a screen reader should ever read out.
     const title = row.source === "salary" ? t("planner.salaryLabel") : row.label;
@@ -276,7 +303,9 @@ export function PlannerPage() {
         ? t(`planner.note_${row.note}`)
         : row.occurrences !== undefined
           ? t("planner.timesCount", { times: row.occurrences })
-          : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
+          : season
+            ? `${monthly} · ${season}`
+            : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
 
     const name = (
       <>

@@ -4,7 +4,7 @@ import { Input, InputGroup, InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiClock } from "react-icons/fi";
 
-import { planPeriods, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import { planPeriods, SALARY_ROW_ID, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
 import PlanFlowChart from "./PlanFlowChart";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
@@ -84,7 +84,7 @@ export function PlannerHero({
   // month that contains it.
   const breaksOnIndex = plan.breaksOn ? plan.points.findIndex((p) => p.date.getTime() >= plan.breaksOn!.getTime()) : -1;
   const selectedPoint = selectedDay >= 0 && selectedDay < plan.points.length ? plan.points[selectedDay] : undefined;
-  const eventLabel = (label: string, isIncome: boolean) => (isIncome ? t("planner.salaryLabel") : label);
+  const eventLabel = (label: string) => (label === SALARY_ROW_ID ? t("planner.salaryLabel") : label);
 
   // A point that stands for a whole month is named by the month. Printing "30
   // Nov" over a list of everything that happened in November would be a date
@@ -149,7 +149,7 @@ export function PlannerHero({
           ) : (
             selectedPoint.events.map((event, i) => (
               <div key={i} className="d-flex justify-content-between gap-2" style={{ fontSize: 11.5 }}>
-                <span className="text-truncate">{eventLabel(event.label, event.kind === "income")}</span>
+                <span className="text-truncate">{eventLabel(event.label)}</span>
                 <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums" }}>
                   {event.amount > 0 ? "+" : "−"}
                   {formatCurrency(Math.abs(event.amount))}

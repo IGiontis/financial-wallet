@@ -272,6 +272,80 @@ export interface BudgetLine {
   /** Per month, always positive — `kind` carries the direction. */
   amount: number;
   kind: "income" | "expense";
+  /** First month it runs, "YYYY-MM". Absent means it has always been running. */
+  from?: string;
+  /** Last month it runs, inclusive. Absent means it never stops. */
+  to?: string;
+}
+
+// ─── Seasons ────────────────────────────────────────────────────────────────
+
+/**
+ * A budget line that only runs for part of the year.
+ *
+ * "€200 a month for skiing, December to April" is neither a bill nor a
+ * one-off: it is a rate, like every other budget line, but one that starts and
+ * stops. Without the two ends it had to be entered as a flat monthly cost,
+ * which quietly charged the summer for a lift pass — and made the whole year
+ * look worse than it is.
+ *
+ * Months rather than days, because that is the shape of the thing: nobody
+ * budgets a season to the 14th.
+ */
+export type MonthKey = string;
+
+/** Parses "YYYY-MM" to the first day of that month, or undefined if unusable. */
+export function monthStart(value: string | undefined): Date | undefined {
+  const match = /^(\d{4})-(\d{2})$/.exec(value ?? "");
+  if (!match) return undefined;
+  const month = Number(match[2]) - 1;
+  if (month < 0 || month > 11) return undefined;
+  return new Date(Number(match[1]), month, 1);
+}
+
+/** "YYYY-MM" for a date, which is what the month inputs hand back. */
+export const toMonthKey = (date: Date): MonthKey => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+/**
+ * The day offsets a line is actually charged on, clamped to the window.
+ *
+ * Returns undefined when the season falls entirely outside the horizon — the
+ * caller then charges nothing rather than charging a clamped remnant.
+ */
+export function lineDays(line: BudgetLine, today: Date, days: number): { from: number; to: number } | undefined {
+  const seasonStart = monthStart(line.from);
+  const seasonEnd = monthStart(line.to);
+
+  const from = seasonStart ? differenceInCalendarDays(seasonStart, today) : 0;
+  // Inclusive of the whole closing month: a season "to April" runs to 30 April.
+  const to = seasonEnd ? differenceInCalendarDays(endOfMonth(seasonEnd), today) : days;
+
+  const start = Math.max(from, 0);
+  const end = Math.min(to, days);
+  return end >= start ? { from: start, to: end } : undefined;
+}
+
+/**
+ * Months of budget between two day offsets.
+ *
+ * The same reckoning as the window's own `monthsCovered` — a part month is the
+ * fraction of its days that fall inside — but for one line's season rather than
+ * for the whole horizon.
+ */
+export function monthsBetween(today: Date, from: number, to: number): number {
+  if (to < from) return 0;
+  let months = 0;
+  let cursor = startOfMonth(addDays(today, from));
+  const last = addDays(today, to);
+
+  while (cursor <= last) {
+    const inMonth = getDaysInMonth(cursor);
+    const first = Math.max(differenceInCalendarDays(cursor, today), from);
+    const stop = Math.min(differenceInCalendarDays(addDays(cursor, inMonth - 1), today), to);
+    if (stop >= first) months += (stop - first + 1) / inMonth;
+    cursor = addMonths(cursor, 1);
+  }
+  return months;
 }
 
 /**
@@ -364,7 +438,7 @@ export interface PlanRow {
    * having nothing to charge, so every active bill and goal now gets a row and
    * this says which case it is.
    */
-  note?: "paid" | "undated" | "funded";
+  note?: "paid" | "undated" | "funded" | "outofseason";
   enabled: boolean;
 }
 
@@ -491,13 +565,18 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     rows.push({
       id: SALARY_ROW_ID,
       source: "salary",
-      label: "salary",
+      label: SALARY_ROW_ID,
       total: enabled ? round2(salary.amount * paydays.length) : 0,
       occurrences: paydays.length,
       perMonth: salary.amount,
       enabled,
     });
-    if (enabled) for (const date of paydays) events.push({ kind: "income", label: "salary", amount: salary.amount, date });
+    // Labelled with the row id rather than a word: the page translates this one
+    // and prints every other income event's own name. Marking it by `kind`
+    // instead meant a fourteenth salary, a room rent and every other line the
+    // user had named were all relabelled "Salary" on the chart and the
+    // timeline.
+    if (enabled) for (const date of paydays) events.push({ kind: "income", label: SALARY_ROW_ID, amount: salary.amount, date });
   }
 
   // ── Bills ─────────────────────────────────────────────────────────────────
@@ -610,21 +689,36 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // a rate, not an appointment, and spreading it keeps the line readable and
   // the current month honestly pro-rated.
 
-  let dailyIn = 0;
-  let dailyOut = 0;
+  // A difference array rather than one running total: a seasonal line is only
+  // charged between its two months, so the rate changes as the walk crosses a
+  // season's edges. Two entries per line, then a running sum during the walk —
+  // rather than re-testing every line on every day.
+  const rateDelta = new Float64Array(days + 2);
 
   for (const line of lines) {
     const enabled = isOn(line.id);
     const sign = line.kind === "income" ? 1 : -1;
-    // Through `negate` rather than a bare `* -1`, so a line sitting at zero
-    // stays at zero instead of becoming -0 and printing as "−0,00 €".
-    const window = enabled ? (line.kind === "income" ? round2(line.amount * monthsCovered) : negate(line.amount * monthsCovered)) : 0;
+    const season = lineDays(line, today, days);
+    // A season entirely outside the horizon costs nothing here, and says so
+    // with a note rather than vanishing from the list.
+    const months = season ? monthsBetween(today, season.from, season.to) : 0;
 
-    rows.push({ id: line.id, source: "line", label: line.label, total: window, perMonth: line.amount * sign, kind: line.kind, enabled });
-    if (!enabled) continue;
+    const total = enabled ? (line.kind === "income" ? round2(line.amount * months) : negate(line.amount * months)) : 0;
 
-    if (line.kind === "income") dailyIn += line.amount;
-    else dailyOut += line.amount;
+    rows.push({
+      id: line.id,
+      source: "line",
+      label: line.label,
+      total,
+      perMonth: line.amount * sign,
+      kind: line.kind,
+      note: season ? undefined : "outofseason",
+      enabled,
+    });
+    if (!enabled || !season) continue;
+
+    rateDelta[season.from] += sign * line.amount;
+    rateDelta[season.to + 1] -= sign * line.amount;
   }
 
   events.sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -662,13 +756,16 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // the points actually kept.
   const cursor = new Date(today);
   let daysInMonth = getDaysInMonth(cursor);
+  // Net of every budget line running on the day being walked.
+  let monthlyRate = 0;
 
   for (let offset = 0; offset <= days; offset++) {
     if (offset > 0) {
       cursor.setDate(cursor.getDate() + 1);
       if (cursor.getDate() === 1) daysInMonth = getDaysInMonth(cursor);
     }
-    balance += (dailyIn - dailyOut) / daysInMonth;
+    monthlyRate += rateDelta[offset];
+    balance += monthlyRate / daysInMonth;
 
     const dayEvents = byDay.get(offset) ?? [];
     for (const event of dayEvents) balance += event.amount;

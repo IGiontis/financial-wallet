@@ -483,6 +483,52 @@ body {
   filter: brightness(1.08);
 }
 
+/* ── Month grid ───────────────────────────────────────────────────────────── */
+/* The month picker is a different grid from the day one and shares none of its
+   class names, so without this it rendered in react-datepicker's own default
+   look — white cells and blue highlights — in the middle of a themed calendar.
+   Mirrors the day cells above, at the width twelve months need. */
+
+.react-datepicker__month-text {
+  width: 5.5rem;
+  padding: 0.4rem 0;
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+}
+
+.react-datepicker__month-text:hover {
+  background-color: var(--color-background-secondary);
+}
+
+.react-datepicker__month--disabled {
+  color: var(--color-text-secondary);
+  opacity: 0.35;
+}
+
+.react-datepicker__month-text--today {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--color-border-primary);
+}
+
+.react-datepicker__month--selected,
+.react-datepicker__month-text--keyboard-selected {
+  background-color: var(--bs-primary);
+  color: #fff;
+}
+
+.react-datepicker__month--selected:hover,
+.react-datepicker__month-text--keyboard-selected:hover {
+  background-color: var(--bs-primary);
+  filter: brightness(1.08);
+}
+
+/* In month mode the header's own "2026" is the only thing naming the year, so
+   unlike the day view it has to stay. */
+.react-datepicker__year-wrapper .react-datepicker__current-month,
+.react-datepicker--monthYear .react-datepicker__current-month {
+  display: block;
+}
+
 .react-datepicker__navigation-icon::before {
   border-color: var(--color-text-secondary);
 }
