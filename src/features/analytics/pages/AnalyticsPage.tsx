@@ -273,8 +273,13 @@ export function AnalyticsPage() {
               <TopMoversChart rows={movers} nameFor={nameFor} formatCurrency={formatCurrency} />
             </ChartCard>
 
+            {/* `auto`, not `tall`: this one draws a row per category rather
+                than a plot that stretches, so its height is however many
+                categories there are. Held to a fixed box it scrolled inside
+                itself — a list you have to scroll to see is a list you do not
+                read. */}
             <ChartCard
-              tall
+              auto
               title={t("analytics.sparklines.title")}
               hint={t("analytics.sparklines.hint")}
               empty={series.length === 0 ? noData : undefined}

@@ -105,6 +105,15 @@
   position: relative;
   min-width: 0;
   height: 190px;
+  /* Nothing escapes a card. The height here is a promise the grid relies on,
+     but the content is not always a plot that stretches to fill it — a list of
+     twelve categories is however tall twelve rows are, and with no rule here
+     it simply drew straight out of the bottom of the card and over whatever
+     was beneath. Clipped horizontally so a stray label cannot widen the grid;
+     recharts keeps its tooltips inside the plot, so nothing useful is cut. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .chartArea.tall {
@@ -125,6 +134,9 @@
    there are, and a fixed box would either clip them or leave a gap. */
 .chartArea.auto {
   height: auto;
+  /* It is already the size of its content, so there is nothing to clip — and
+     clipping would only cut a shadow or a focus ring. */
+  overflow: visible;
 }
 
 .emptyNote {

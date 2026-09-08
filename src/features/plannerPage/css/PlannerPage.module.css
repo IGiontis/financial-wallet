@@ -632,8 +632,11 @@
 
 /* Outside the window, not switched off. Struck through it read as something
    the reader had excluded, which is a different fact about a different row. */
-.rowMuted .rowTitle,
-.rowMuted .rowAmount {
+/* Only the name steps back. The figure stays in the body colour like every
+   other figure on the page: the "not in range" tag beside the date already
+   says it is not counted, and greying the amount as well made an entry the
+   user had deliberately typed look like something the app had lost. */
+.rowMuted .rowTitle {
   color: var(--color-text-secondary);
 }
 
