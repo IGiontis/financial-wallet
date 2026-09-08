@@ -729,7 +729,9 @@
     "horizonYears_other": "{{count}}χρ",
     "horizonCustom": "Πόσο μπροστά;",
     "horizonMonthsLabel": "Μήνες",
-    "horizonHint": "Έως {{max}} μήνες — {{years}} χρόνια."
+    "horizonHint": "Έως {{max}} μήνες — {{years}} χρόνια.",
+    "flowTitle": "Από πού βγαίνει το υπόλοιπο",
+    "flowHint": "Πάνω από τη γραμμή τι μπαίνει, κάτω τι βγαίνει, και το υπόλοιπο να τα διασχίζει."
   },
   "settings": {
     "title": "Ρυθμίσεις",

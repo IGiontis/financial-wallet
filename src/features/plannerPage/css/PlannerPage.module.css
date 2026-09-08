@@ -1,5 +1,9 @@
 /* Planner — the verdict card, the balance line, and what's still coming.
-   Bootstrap covers the page chrome; everything here is a genuine gap. */
+   Bootstrap covers the page chrome; everything here is a genuine gap.
+
+   Nothing here is smaller than 11.5px. Nine rules sat at 10.5 and 11, which is
+   where a hint stops being quiet and starts being unread — and no amount of
+   contrast fixes a size problem. */
 
 /* ── Verdict ──────────────────────────────────────────────────────────────── */
 /* The answer comes first and in one colour, because the whole page exists to
@@ -9,14 +13,23 @@
 /* ── Balance line ─────────────────────────────────────────────────────────── */
 
 .chartCard {
-  border: 1px solid var(--color-border-tertiary);
+  /* Primary, not tertiary: this is the edge of a card against the page, which
+     at 1.29:1 was a boundary you had to know was there to see. */
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--border-radius-lg);
   background: var(--color-surface);
 }
 
 /* Fixed height in CSS rather than on the SVG, so the phone gets a shorter plot
    without the component having to know the breakpoint. */
+/* The plot sits on the plain surface rather than on the hero's wash. The dots
+   are drawn with a halo of `--color-surface` to lift them off the area fill,
+   and on a tinted ground that halo measured 1.10:1 — a white ring on cream,
+   which is no ring at all. Giving the chart its own ground also means the grid
+   lines have one known colour to be legible against. */
 .chartBox {
+  background: var(--color-surface);
+  border-radius: var(--border-radius-md);
   height: 150px;
 }
 
@@ -67,7 +80,7 @@
 
 .eventNote {
   display: block;
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.3;
   color: var(--color-text-secondary);
 }
@@ -89,7 +102,7 @@
 
 .assumptionHint {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
 }
 
@@ -109,7 +122,7 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-bottom: 0.125rem;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -122,7 +135,7 @@
   background: none;
   font: inherit;
   letter-spacing: 0;
-  color: var(--bs-primary);
+  color: var(--color-link);
   cursor: pointer;
 }
 
@@ -140,7 +153,7 @@
   border: 0;
   background: none;
   font-size: 12px;
-  color: var(--bs-primary);
+  color: var(--color-link);
   cursor: pointer;
 }
 
@@ -180,7 +193,7 @@
   border: 0;
   padding: 0 0 0.625rem;
   background: none;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
   text-decoration: underline;
   cursor: pointer;
@@ -234,7 +247,7 @@
 /* The 30-day total sits behind the per-day figure: the per-day one is what the
    projection actually multiplies, so it gets the emphasis. */
 .catShare {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -267,7 +280,7 @@
   background: none;
   text-align: left;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -328,22 +341,22 @@
 
 .heroOk {
   --hero-accent: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 9%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-income) 26%, transparent);
+  background: color-mix(in srgb, var(--color-income) var(--tint-strength), var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-income-text) var(--tint-border), transparent);
   color: var(--color-income-text);
 }
 
 .heroTight {
   --hero-accent: var(--color-goal);
-  background: color-mix(in srgb, var(--color-goal) 9%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-goal) 26%, transparent);
+  background: color-mix(in srgb, var(--color-goal) var(--tint-strength), var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-goal-text) var(--tint-border), transparent);
   color: var(--color-goal-text);
 }
 
 .heroShort {
   --hero-accent: var(--color-expense);
-  background: color-mix(in srgb, var(--color-expense) 9%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-expense) 26%, transparent);
+  background: color-mix(in srgb, var(--color-expense) var(--tint-strength), var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-expense-text) var(--tint-border), transparent);
   color: var(--color-expense-text);
 }
 
@@ -407,7 +420,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   margin-top: 0.25rem;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
 }
 
@@ -567,7 +580,7 @@
 
 .rowHint {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
 }
 
@@ -577,11 +590,11 @@
    reading the sign. Mixed most of the way back to the body colour, it survives
    a glance and disappears into the page when you are reading names. */
 .rowIncome {
-  color: color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary));
+  color: var(--figure-income);
 }
 
 .rowExpense {
-  color: color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary));
+  color: var(--figure-expense);
 }
 
 .rowAmount {
@@ -658,7 +671,7 @@
 }
 
 .fieldHint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
   margin: 0.25rem 0 0;
 }

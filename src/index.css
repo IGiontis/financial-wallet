@@ -22,11 +22,15 @@
 
   /* Text */
   --color-text-primary: #16202e;
-  --color-text-secondary: #52627a;
+  /* Darker than it looks like it needs to be. At #52627a it measured 5.23:1 —
+     past the 4.5 AA floor and still washed out, because it carries 42 of the
+     95 pieces of text on the planner at sizes down to 10.5px. Small text is
+     where AA is least generous and AAA's 7:1 earns its keep. */
+  --color-text-secondary: #3f4c60;
 
   /* Borders */
-  --color-border-primary: #c2ccd9;
-  --color-border-tertiary: #dde3ea;
+  --color-border-primary: #9fabbd;
+  --color-border-tertiary: #ccd5e1;
 
   /* Elevation */
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -43,14 +47,42 @@
   --color-invest: #6366f1;
   --color-goal: #d97706;
 
+  /* How strongly a semantic tint colours a surface, and how strong its edge is.
+     Not one number for both themes, and the two are in tension: on white, a
+     wash deep enough to be seen as a block darkens the ground under its own
+     lettering — pushed to 15% it took the hero's text from 4.54:1 to 4.28:1.
+     So on light the wash stays faint and the *border* does the separating,
+     which is what marks a block out anyway; luminance alone never could, since
+     a cream tint and a blue-grey page can sit at the same lightness.
+
+     The edge is mixed from the *-text variant rather than the accent: even at
+     full strength the accent amber reaches only 2.98:1 on white, under the 3:1
+     a boundary needs to count as visible. */
+  --tint-strength: 10%;
+  --tint-border: 85%;
+
   /* The same meanings, dark enough to be *text* on a light surface.
      The accents above are picked to read as fills, chips and chart strokes,
      where a shape carries the colour. As lettering on white they fall short:
      the green measures 3.3:1 and the amber 2.98:1, against the 4.5:1 that body
      text needs. Anything that spells a figure out uses these instead. */
-  --color-income-text: #15803d;
-  --color-expense-text: #b91c1c;
-  --color-goal-text: #b45309;
+  /* Blue as *lettering*. `--bs-primary` is a fill colour: on a dark card it
+     measures 3.39:1, which is why "All off" and "Add a line" were the one
+     thing hard to read in the theme that is otherwise the good one. */
+  --color-link: #0a4fb5;
+
+  /* The colour an ordinary row's figure takes.
+     On dark, a faint green or red on each line reads as a quiet signal. On
+     white the same tint reads as washed-out ink — so in daylight a row is
+     simply black, and the red is kept for the one line that means something
+     went wrong: the payment the balance breaks on. Colour that appears on
+     every row cannot also mark the row that matters. */
+  --figure-income: var(--color-text-primary);
+  --figure-expense: var(--color-text-primary);
+
+  --color-income-text: #166534;
+  --color-expense-text: #991b1b;
+  --color-goal-text: #92400e;
   --color-tooltip-bg: #1e293b;
   --color-tooltip-text: #ffffff;
 
@@ -88,8 +120,19 @@
   --color-invest: #a5b4fc;
   --color-goal: #fbbf24;
 
+  /* A dark surface takes colour far more readily, so the same wash needs less
+     of it before it starts to glow. */
+  --tint-strength: 9%;
+  --tint-border: 26%;
+
   /* On dark these already clear 4.5:1 as text, so the text variants are the
      accents themselves rather than a second set to keep in step. */
+  --color-link: #6ea8fe;
+
+  /* Dark keeps the tinted rows — see the note on the light values. */
+  --figure-income: color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary));
+  --figure-expense: color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary));
+
   --color-income-text: #4ade80;
   --color-expense-text: #f87171;
   --color-goal-text: #fbbf24;

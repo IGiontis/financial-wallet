@@ -47,8 +47,8 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
     const tone = isBreaking
       ? "var(--color-expense-text)"
       : event.amount > 0
-        ? "color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary))"
-        : "color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary))";
+        ? "var(--figure-income)"
+        : "var(--figure-expense)";
 
     return (
       <div key={`${event.kind}-${event.billId ?? event.label}-${index}`} className={styles.eventRow}>

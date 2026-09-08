@@ -4,7 +4,8 @@ import { Input, InputGroup, InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiClock } from "react-icons/fi";
 
-import { type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import { planPeriods, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import PlanFlowChart from "./PlanFlowChart";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
 import { BalanceLine } from "../BalanceLine";
@@ -59,6 +60,7 @@ export function PlannerHero({
   const { t, i18n } = useTranslation();
   const { className: tone, Icon } = VERDICT[plan.verdict];
   const [zoomed, setZoomed] = useState(false);
+  const periods = useMemo(() => planPeriods(plan), [plan]);
   const periodFmt = useMemo(
     () => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", plan.pointStep === "month" ? { month: "long", year: "numeric" } : { day: "numeric", month: "short" }),
     [i18n.resolvedLanguage, plan.pointStep],
@@ -148,7 +150,7 @@ export function PlannerHero({
             selectedPoint.events.map((event, i) => (
               <div key={i} className="d-flex justify-content-between gap-2" style={{ fontSize: 11.5 }}>
                 <span className="text-truncate">{eventLabel(event.label, event.kind === "income")}</span>
-                <span style={{ color: event.amount > 0 ? "var(--color-income-text)" : "var(--color-expense-text)", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums" }}>
                   {event.amount > 0 ? "+" : "−"}
                   {formatCurrency(Math.abs(event.amount))}
                 </span>
@@ -192,9 +194,12 @@ export function PlannerHero({
         </div>
       </div>
 
+      {/* Not the same drawing enlarged. The card's line answers "do I stay above
+          zero"; with the room of the whole dialog the question worth answering
+          is why a period is tight, which needs the two sides drawn apart. */}
       {zoomed && (
-        <ZoomModal open onClose={() => setZoomed(false)} title={t("planner.balanceTitle")} hint={t("planner.tapHint")}>
-          {line}
+        <ZoomModal open onClose={() => setZoomed(false)} title={t("planner.flowTitle")} hint={t("planner.flowHint")}>
+          <PlanFlowChart periods={periods} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
         </ZoomModal>
       )}
     </section>

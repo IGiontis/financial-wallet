@@ -745,3 +745,86 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     safeDailySpend: days > 0 ? round2(Math.max(round2(openingBalance) + incomeTotal - outgoingTotal, 0) / (days + 1)) : 0,
   };
 }
+
+// ─── The plan, period by period ─────────────────────────────────────────────
+
+/**
+ * One bar-pair of the expanded chart: what arrived, what left, where it ended.
+ *
+ * The line in the card answers "do I stay above zero". Given the room of the
+ * full view it can answer the more useful question — *why* a month is tight —
+ * and that needs the two sides apart rather than netted. A January where the
+ * same salary met twice the outgoings looks identical to a January with no
+ * salary once you have subtracted one from the other.
+ */
+export interface PlanPeriod {
+  /** "2026-09", or "2026-Q4" when bucketed. */
+  key: string;
+  start: Date;
+  income: number;
+  /** Positive: what left, drawn downward. */
+  outgoing: number;
+  /** Running balance at the end of the period. */
+  balance: number;
+}
+
+/**
+ * Months, or quarters once there are too many months to draw.
+ *
+ * Three years is seventy-two bars; on a phone that is five pixels each, which
+ * is a texture and not a chart. The same reasoning as the line's own day/week/
+ * month step, and the same honesty: the figures are summed, never sampled.
+ */
+export const QUARTER_ABOVE_MONTHS = 18;
+
+const quarterOf = (date: Date) => Math.floor(date.getMonth() / 3);
+
+export function planPeriods(plan: Pick<PlannerPlan, "events" | "points" | "months" | "openingBalance">): PlanPeriod[] {
+  const byQuarter = plan.months > QUARTER_ABOVE_MONTHS;
+
+  const keyOf = (date: Date) => (byQuarter ? `${date.getFullYear()}-Q${quarterOf(date) + 1}` : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  const startOf = (date: Date) => (byQuarter ? new Date(date.getFullYear(), quarterOf(date) * 3, 1) : new Date(date.getFullYear(), date.getMonth(), 1));
+
+  const periods = new Map<string, PlanPeriod>();
+  const at = (date: Date) => {
+    const key = keyOf(date);
+    let period = periods.get(key);
+    if (!period) {
+      period = { key, start: startOf(date), income: 0, outgoing: 0, balance: 0 };
+      periods.set(key, period);
+    }
+    return period;
+  };
+
+  for (const event of plan.events) {
+    const period = at(event.date);
+    if (event.amount > 0) period.income = round2(period.income + event.amount);
+    else period.outgoing = round2(period.outgoing - event.amount);
+  }
+
+  // The closing balance of a period is the last point falling inside it. The
+  // budget lines accrue daily and never appear as events, so adding the two
+  // bars would miss them — the line has to come from the walk.
+  //
+  // Tracked separately from the figure itself: a period whose balance is
+  // genuinely zero is not the same as one the walk never reached, and testing
+  // `balance === 0` would confuse them.
+  const measured = new Set<string>();
+  for (const point of plan.points) {
+    const period = at(point.date);
+    period.balance = point.balance;
+    measured.add(period.key);
+  }
+
+  const ordered = Array.from(periods.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  // A period the walk did not reach carries the previous one forward, so the
+  // line stays flat through a quiet stretch rather than dropping to zero.
+  let running = plan.openingBalance;
+  for (const period of ordered) {
+    if (!measured.has(period.key)) period.balance = running;
+    running = period.balance;
+  }
+
+  return ordered;
+}

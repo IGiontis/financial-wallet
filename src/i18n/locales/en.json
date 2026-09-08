@@ -729,7 +729,9 @@
     "horizonYears_other": "{{count}}y",
     "horizonCustom": "How far ahead?",
     "horizonMonthsLabel": "Months",
-    "horizonHint": "Up to {{max}} months — {{years}} years."
+    "horizonHint": "Up to {{max}} months — {{years}} years.",
+    "flowTitle": "Where the balance comes from",
+    "flowHint": "What arrives above the line, what leaves below it, and the balance running across."
   },
   "settings": {
     "title": "Settings",

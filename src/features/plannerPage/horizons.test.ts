@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff, pointStepFor } from "./plannerUtils";
+import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff, pointStepFor, planPeriods } from "./plannerUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
@@ -378,5 +378,66 @@ describe("how finely the line is sampled", () => {
 
     expect(plan.breaksOn).toBeDefined();
     expect(plan.dip).toBeGreaterThan(0);
+  });
+});
+
+describe("planPeriods", () => {
+  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  it("splits each month into what arrived and what left", () => {
+    // Netted into one line, a month where the same pay met twice the outgoings
+    // looks exactly like a month with no pay — which is the whole reason the
+    // expanded chart draws the two sides apart.
+    const plan = buildPlan({ ...base, horizon: 3, bills: [bill({ name: "Rent", amount: 500, dueDay: 5 })] });
+    const periods = planPeriods(plan);
+
+    expect(periods).toHaveLength(3);
+    expect(periods[1]).toMatchObject({ income: 2000, outgoing: 500 });
+  });
+
+  it("adds up to the same totals the plan reports", () => {
+    const plan = buildPlan({ ...base, horizon: 6, bills: [bill({ name: "Rent", amount: 500, dueDay: 5 }), bill({ name: "Power", amount: 90, dueDay: 12 })] });
+    const periods = planPeriods(plan);
+
+    const income = periods.reduce((sum, p) => sum + p.income, 0);
+    const outgoing = periods.reduce((sum, p) => sum + p.outgoing, 0);
+
+    expect(round(income)).toBe(plan.incomeTotal);
+    // Budget lines accrue by the day and never land on a date, so the bars are
+    // the dated part of the outgoings — here, all of it.
+    expect(round(outgoing)).toBe(plan.outgoingTotal);
+  });
+
+  it("ends each period on the balance the walk reached", () => {
+    const plan = buildPlan({ ...base, horizon: 3, openingBalance: 100, bills: [bill({ name: "Rent", amount: 500, dueDay: 5 })] });
+    const periods = planPeriods(plan);
+
+    expect(periods[periods.length - 1].balance).toBe(plan.endingBalance);
+  });
+
+  it("buckets into quarters once there are too many months to draw", () => {
+    // Three years is seventy-two bars; on a phone that is five pixels each.
+    const plan = buildPlan({ ...base, horizon: 36, bills: [bill({ name: "Rent", amount: 500, dueDay: 5 })] });
+    const periods = planPeriods(plan);
+
+    expect(periods.length).toBeLessThanOrEqual(13);
+    expect(periods[0].key).toMatch(/-Q[1-4]$/);
+  });
+
+  it("keeps months while the window is short enough to show them", () => {
+    const periods = planPeriods(buildPlan({ ...base, horizon: 12 }));
+
+    expect(periods).toHaveLength(12);
+    expect(periods[0].key).toMatch(/^\d{4}-\d{2}$/);
+  });
+
+  it("carries the balance through a period nothing happens in", () => {
+    // Without this the line drops to zero in a quiet stretch, which reads as
+    // the money having gone.
+    const plan = buildPlan({ ...base, horizon: 3, salary: undefined, openingBalance: 400 });
+    const periods = planPeriods(plan);
+
+    expect(periods.every((p) => p.balance === 400)).toBe(true);
   });
 });

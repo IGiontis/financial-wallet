@@ -26,8 +26,15 @@
 
 /* The whole point of opening it is room, so the drawing gets the screen. The
    minimum keeps a row-based chart from collapsing on a short phone in
-   landscape, where 60vh is barely 200px. */
+   landscape, where 60vh is barely 200px.
+
+   `height` as well as `min-height`, and not only for tidiness: a recharts
+   ResponsiveContainer asks for `height: 100%`, which resolves against the
+   parent's *definite* height. Inside a scrollable dialog `min-height` alone is
+   not definite, the container measured itself at zero, and the chart rendered
+   as an empty box. */
 .zoomBody {
   flex: 1 1 auto;
+  height: max(60vh, 320px);
   min-height: max(60vh, 320px);
 }
