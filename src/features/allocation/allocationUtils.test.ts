@@ -3,6 +3,8 @@ import { allocate, assignRemainder, bucketActual, bucketCeiling, committedMonthl
 import type { BudgetLine } from "../plannerPage/plannerUtils";
 import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 const now = new Date(2026, 8, 5);
 
 const bill = (monthlyEquivalent: number, isActive = true): BillWithStatus => ({ isActive, monthlyEquivalent }) as BillWithStatus;
@@ -449,5 +451,189 @@ describe("seedFromHistory", () => {
   it("gives nothing back when there is no history to read", () => {
     n = 0;
     expect(seedFromHistory([], categories, ids, now, 3)).toEqual([]);
+  });
+});
+
+// ─── The same figure, reached another way ────────────────────────────────────
+// The allocation page shows a pot, a set of envelopes and a leftover, and every
+// one of them is derived from the others. These recompute each without going
+// through the code that produced it.
+
+describe("allocation figures that must agree with each other", () => {
+  const committed = { bills: 900, goals: 250, debts: 120, total: 1270 };
+  const buckets = (): Bucket[] => [
+    { id: "food", label: "Food", amount: 400, kind: "expense", categoryIds: ["groceries", "dining"] },
+    { id: "fun", label: "Fun", amount: 150, kind: "expense", categoryIds: ["leisure"] },
+    { id: "misc", label: "Misc", amount: 50, kind: "expense" },
+    { id: "rent-in", label: "Room rent", amount: 300, kind: "income" },
+  ];
+
+  it("derives the pot, the sum and the leftover from the same three numbers", () => {
+    for (const income of [0, 500, 1270, 2000, 5000]) {
+      for (const extra of [0, 200]) {
+        const result = allocate(income, committed, buckets(), extra);
+
+        const extraIncome = 300; // the income line
+        const expected = round2(income + extraIncome - committed.total - extra);
+        const spentOnBuckets = round2(400 + 150 + 50);
+
+        expect(result.free, `income ${income}`).toBe(expected);
+        expect(result.allocated).toBe(spentOnBuckets);
+        expect(result.unallocated).toBe(round2(result.free - result.allocated));
+        expect(result.income).toBe(round2(income + extraIncome));
+      }
+    }
+  });
+
+  it("never draws a bar wider than the bar", () => {
+    // Shares are what the page draws. Above 100% the slices hang off the end of
+    // it, which is how this was found the first time.
+    for (const income of [0, 300, 1270, 1500, 4000]) {
+      const result = allocate(income, committed, buckets());
+      const total = result.buckets.reduce((sum, b) => sum + b.share, 0);
+
+      expect(total, `income ${income}`).toBeLessThanOrEqual(1.0001);
+      for (const bucket of result.buckets) {
+        expect(bucket.share).toBeGreaterThanOrEqual(0);
+        expect(bucket.share).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("keeps the envelopes inside the pot however they are filled", () => {
+    // Setting them one after another, each to more than the pot holds: the
+    // total must still never pass it.
+    const free = 800;
+    let lines = buckets();
+
+    for (const [id, amount] of [
+      ["food", 5000],
+      ["fun", 5000],
+      ["misc", 5000],
+      ["food", 300],
+      ["fun", 5000],
+    ] as const) {
+      lines = setBucketAmount(lines, id, amount, free);
+      const spent = lines.filter((l) => l.kind === "expense").reduce((sum, l) => sum + l.amount, 0);
+
+      expect(round2(spent), `after ${id}`).toBeLessThanOrEqual(free);
+      expect(lines.every((l) => l.amount >= 0)).toBe(true);
+    }
+  });
+
+  it("agrees with itself about how much room a bucket has", () => {
+    const free = 800;
+    const lines = buckets();
+
+    for (const id of ["food", "fun", "misc"]) {
+      const ceiling = bucketCeiling(lines, id, free);
+      const filled = setBucketAmount(lines, id, 99999, free);
+
+      expect(filled.find((l) => l.id === id)!.amount, id).toBe(ceiling);
+    }
+  });
+
+  it("lands the leftover exactly on zero", () => {
+    const income = 2000;
+    const before = allocate(income, committed, buckets());
+    const after = allocate(income, committed, assignRemainder(buckets(), "food", before.unallocated));
+
+    expect(after.unallocated).toBe(0);
+  });
+});
+
+describe("an envelope and what actually left it", () => {
+  const bucket: Bucket = { id: "food", label: "Food", amount: 400, kind: "expense", categoryIds: ["groceries", "dining"] };
+  const spentMap = (groceries: number, dining = 0) =>
+    new Map([
+      ["groceries", groceries],
+      ["dining", dining],
+    ]);
+
+  it("splits the envelope into what went and what is left, with nothing missing", () => {
+    for (const [groceries, dining, rollover] of [
+      [0, 0, 0],
+      [120, 60, 0],
+      [500, 0, 0],
+      [120, 60, 75],
+      [900, 100, 50],
+    ]) {
+      const actual = bucketActual(bucket, spentMap(groceries, dining), rollover);
+
+      // Whatever happened, the envelope still adds up.
+      expect(round2(actual.spent + actual.left)).toBe(round2(bucket.amount + rollover));
+      expect(actual.spent).toBe(round2(groceries + dining));
+      expect(actual.used).toBeCloseTo((groceries + dining) / (bucket.amount + rollover), 6);
+    }
+  });
+
+  it("says nothing rather than zero when it has no categories", () => {
+    const actual = bucketActual({ ...bucket, categoryIds: [] }, spentMap(300), 50);
+
+    expect(actual.unmeasured).toBe(true);
+    expect(actual.spent).toBe(0);
+    expect(actual.left).toBe(450); // the whole envelope, unmeasured
+  });
+
+  it("carries the unspent forward and the overspend not at all, month after month", () => {
+    // Three months in a row, checked against a running total kept alongside.
+    const budget = 400;
+    const months = [250, 100, 700, 1000]; // spent each month
+    let carried: Record<string, number> = {};
+    let handKept = 0;
+
+    for (const spentThisMonth of months) {
+      carried = nextRollover([bucket], carried, spentMap(spentThisMonth));
+
+      // The other route: the envelope plus what it carried in, less what left,
+      // and never below zero.
+      handKept = Math.max(0, round2(budget + handKept - spentThisMonth));
+      expect(carried.food ?? 0).toBe(handKept);
+    }
+
+    // 400-250 leaves 150; 400+150-100 leaves 450; 400+450-700 leaves 150; then
+    // 1,000 against 550 clears it out — and starts the next month at zero
+    // rather than 450 in the hole.
+    expect(carried.food).toBeUndefined();
+    expect(handKept).toBe(0);
+  });
+
+  it("never carries more than a month's envelope plus what it already held", () => {
+    const carried = nextRollover([bucket], { food: 1000 }, spentMap(0));
+    expect(carried.food).toBe(1400);
+    expect(carried.food).toBe(bucket.amount + 1000);
+  });
+});
+
+describe("emergencyTarget", () => {
+  it("is the committed cost times the months, and never less than one month", () => {
+    const committed = { bills: 900, goals: 250, debts: 120, total: 1270 };
+
+    expect(emergencyTarget(committed, 3)).toBe(3810);
+    expect(emergencyTarget(committed, 6)).toBe(7620);
+    expect(emergencyTarget(committed, 0)).toBe(1270);
+    expect(emergencyTarget(committed, -2)).toBe(1270);
+  });
+});
+
+describe("an envelope with nothing in it", () => {
+  const empty: Bucket = { id: "none", label: "Nothing budgeted", amount: 0, kind: "expense", categoryIds: ["taxi"] };
+
+  it("reports spending against a zero envelope as off the scale, not as nothing", () => {
+    // Dividing by a zero budget has no honest fraction to report, and 0% would
+    // read as "nothing spent" on the one row where everything was.
+    const actual = bucketActual(empty, new Map([["taxi", 40]]));
+
+    expect(actual.spent).toBe(40);
+    expect(actual.left).toBe(-40);
+    expect(actual.used).toBe(Infinity);
+  });
+
+  it("reports an untouched zero envelope as untouched", () => {
+    const actual = bucketActual(empty, new Map());
+
+    expect(actual.used).toBe(0);
+    expect(actual.left).toBe(0);
+    expect(actual.unmeasured).toBe(false);
   });
 });

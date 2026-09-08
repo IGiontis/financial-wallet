@@ -92,7 +92,10 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: totalDue > 0 ? Math.min((currentPeriodNet / totalDue) * 100, 100) : status !== "behind" ? 100 : 0,
+      // Clamped at both ends. A month with more taken out than put in gives a
+      // negative share, and two of the three progress bars hand it straight to a
+      // width: -78% read as an empty bar on one screen and a full one on another.
+      percentageReached: totalDue > 0 ? Math.min(Math.max((currentPeriodNet / totalDue) * 100, 0), 100) : status !== "behind" ? 100 : 0,
       remaining,
       monthlyRequired: targetAmount,
       currentPeriodSaved,
@@ -153,7 +156,10 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
       totalDeposited,
       totalWithdrawn,
       totalSaved,
-      percentageReached: totalDue > 0 ? Math.min((currentPeriodNet / totalDue) * 100, 100) : status !== "behind" ? 100 : 0,
+      // Clamped at both ends. A month with more taken out than put in gives a
+      // negative share, and two of the three progress bars hand it straight to a
+      // width: -78% read as an empty bar on one screen and a full one on another.
+      percentageReached: totalDue > 0 ? Math.min(Math.max((currentPeriodNet / totalDue) * 100, 0), 100) : status !== "behind" ? 100 : 0,
       remaining,
       yearlyRequired: targetAmount,
       currentPeriodSaved,
@@ -169,7 +175,8 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   }
 
   // ── One-time targeted goal ────────────────────────────────────────────────
-  const percentageReached = targetAmount > 0 ? (totalSaved / targetAmount) * 100 : 0;
+  // Same clamp: a goal can be drawn down below what went into it.
+  const percentageReached = targetAmount > 0 ? Math.min(Math.max((totalSaved / targetAmount) * 100, 0), 100) : 0;
   const remaining = Math.max(targetAmount - totalSaved, 0);
 
   let monthsLeft: number | undefined;

@@ -26,6 +26,8 @@ import {
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
+  urgencyToken,
+  periodProgress,
   periodTotals,
   monthlyEquivalent,
   paidAmountRange,
@@ -1533,5 +1535,76 @@ describe("billsNeedingAttention", () => {
 
   it("is zero for an empty list, so the badge is simply absent", () => {
     expect(billsNeedingAttention([], now)).toBe(0);
+  });
+});
+
+describe("saving up for a bill that comes round once a year", () => {
+  // Insurance of 1,200, due 20 June, anchored so the cycle runs June to June.
+  const yearly = (now: Date): BillWithStatus =>
+    computeBillStatus(makeBill({ amount: 1200, frequency: "yearly", dueDay: 20, dueMonth: 5, anchorDate: new Date("2026-06-20"), createdAt: new Date("2026-06-20") }), [], now);
+
+  it("spreads a yearly bill over the months left before it lands", () => {
+    const fund = sinkingFund(yearly(new Date("2026-09-08")), new Date("2026-09-08"))!;
+
+    expect(fund.target).toBe(1200);
+    expect(fund.monthsLeft).toBe(9);
+    expect(fund.perMonth).toBeCloseTo(1200 / 9, 6);
+  });
+
+  it("measures how far through the year it is, not how much is saved", () => {
+    const early = sinkingFund(yearly(new Date("2026-07-01")), new Date("2026-07-01"))!;
+    const late = sinkingFund(yearly(new Date("2027-05-01")), new Date("2027-05-01"))!;
+
+    expect(early.elapsed).toBeGreaterThan(0);
+    expect(early.elapsed).toBeLessThan(0.2);
+    expect(late.elapsed).toBeGreaterThan(0.8);
+    expect(late.elapsed).toBeLessThanOrEqual(1);
+  });
+
+  it("saves toward next year's payment once this year's has gone by", () => {
+    // The due date on an unpaid bill is the one you owe now, which may already
+    // be behind you — you save for the one still ahead.
+    const afterDue = sinkingFund(yearly(new Date("2027-07-05")), new Date("2027-07-05"))!;
+
+    expect(afterDue.dueDate.getFullYear()).toBe(2028);
+    expect(afterDue.monthsLeft).toBeGreaterThan(6);
+  });
+});
+
+describe("periodProgress — how far through the cycle we are", () => {
+  it("measures a weekly cycle in days", () => {
+    // Due next Monday, so the cycle started last Monday: by Thursday it is
+    // three sevenths gone.
+    const weekly = { frequency: "weekly" as const, intervalCount: 1 };
+
+    expect(periodProgress(weekly, new Date(2026, 8, 14), new Date(2026, 8, 10))).toBeCloseTo(3 / 7, 2);
+    expect(periodProgress(weekly, new Date(2026, 8, 14), new Date(2026, 8, 7))).toBe(0);
+  });
+
+  it("measures a fortnightly cycle against fourteen days, not seven", () => {
+    const fortnightly = { frequency: "weekly" as const, intervalCount: 2 };
+
+    expect(periodProgress(fortnightly, new Date(2026, 8, 21), new Date(2026, 8, 14))).toBeCloseTo(0.5, 2);
+  });
+
+  it("has nothing to measure without a due date", () => {
+    expect(periodProgress({ frequency: "monthly", intervalCount: 1 }, undefined, new Date(2026, 8, 10))).toBeUndefined();
+  });
+});
+
+describe("urgencyToken", () => {
+  it("gives each state the colour the rest of the app uses for it", () => {
+    // The rows, the runway and the badges all read from this one mapping, which
+    // is the only reason they agree with each other.
+    expect(urgencyToken("paid")).toBe("--color-income");
+    expect(urgencyToken("late")).toBe("--color-expense");
+    expect(urgencyToken("soon")).toBe("--color-goal");
+    expect(urgencyToken("upcoming")).toBe("--bs-primary");
+  });
+
+  it("names a token rather than a colour, so both themes follow", () => {
+    for (const urgency of ["paid", "late", "soon", "upcoming"] as const) {
+      expect(urgencyToken(urgency)).toMatch(/^--/);
+    }
   });
 });

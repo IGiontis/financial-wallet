@@ -119,3 +119,31 @@ describe("plannableDebts", () => {
     expect(plannableDebts(rows).map((d) => d.id)).toEqual(["a"]);
   });
 });
+
+describe("debtsByPerson — the order the list is read in", () => {
+  it("puts anyone still owing above anyone settled up", () => {
+    // A settled person is history, and history belongs at the bottom however
+    // large the sums involved were.
+    const settled = computeDebtStatus(debt({ id: "s1", person: "Παλιός", amount: 5000 }), [repay("s1", 5000, new Date(2026, 3, 1))]);
+    const open = computeDebtStatus(debt({ id: "o1", person: "Νέος", amount: 50 }), []);
+
+    expect(debtsByPerson([settled, open]).map((p) => p.person)).toEqual(["Νέος", "Παλιός"]);
+  });
+
+  it("puts the largest position first among those still open", () => {
+    const small = computeDebtStatus(debt({ id: "a", person: "Μικρός", amount: 100 }), []);
+    const big = computeDebtStatus(debt({ id: "b", person: "Μεγάλος", amount: 900 }), []);
+
+    expect(debtsByPerson([small, big]).map((p) => p.person)).toEqual(["Μεγάλος", "Μικρός"]);
+  });
+
+  it("falls back to the name when two positions are the same size", () => {
+    // Without a last tie-break the order depends on the order they arrived in,
+    // and the list reshuffles itself for no reason the reader can see.
+    const anna = computeDebtStatus(debt({ id: "a", person: "Άννα", amount: 200 }), []);
+    const basil = computeDebtStatus(debt({ id: "b", person: "Βασίλης", amount: 200 }), []);
+
+    expect(debtsByPerson([basil, anna]).map((p) => p.person)).toEqual(["Άννα", "Βασίλης"]);
+    expect(debtsByPerson([anna, basil]).map((p) => p.person)).toEqual(["Άννα", "Βασίλης"]);
+  });
+});

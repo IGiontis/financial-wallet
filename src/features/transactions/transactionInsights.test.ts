@@ -7,7 +7,9 @@ import {
   topPayees,
   compareWithPrevious,
   spanInDays,
+  sliceTransactions,
   OTHER_CATEGORY_ID,
+  INVESTMENT_SLICE_ID,
 } from "./transactionInsights";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -192,5 +194,71 @@ describe("spanInDays", () => {
   it("never returns less than a day", () => {
     expect(spanInDays(new Date("2026-03-01"), new Date("2026-03-01"), [])).toBe(1);
     expect(spanInDays(null, null, [])).toBe(1);
+  });
+});
+
+describe("sliceTransactions — opening up a slice of the pie", () => {
+  const rows = [
+    tx({ amount: 40, categoryId: "food", description: "Σούπερ" }),
+    tx({ amount: 25, categoryId: "food", description: "Φούρνος" }),
+    tx({ amount: 60, categoryId: "fuel" }),
+    tx({ amount: 10, categoryId: "pet" }),
+    tx({ amount: 5, categoryId: "games" }),
+    tx({ amount: 900, type: "income", categoryId: "salary" }),
+  ];
+
+  it("gives back the rows behind one named slice", () => {
+    const slices = categorySplit(rows, "expense", 2);
+    const food = sliceTransactions(rows, "expense", slices, "food");
+
+    expect(food).toHaveLength(2);
+    expect(food.every((t) => t.categoryId === "food")).toBe(true);
+  });
+
+  it("gives back everything the Other slice swept up, and nothing else", () => {
+    // The whole point of the slice: it is the only one whose contents the pie
+    // does not name, so opening it has to answer what is in there.
+    const slices = categorySplit(rows, "expense", 2);
+    const named = slices.map((s) => s.categoryId).filter((id) => id !== OTHER_CATEGORY_ID);
+    const other = sliceTransactions(rows, "expense", slices, OTHER_CATEGORY_ID);
+
+    expect(other.length).toBeGreaterThan(0);
+    expect(other.every((t) => !named.includes(t.categoryId))).toBe(true);
+    expect(other.every((t) => t.type === "expense")).toBe(true);
+  });
+
+  it("leaves the other side of the ledger out of it", () => {
+    const slices = categorySplit(rows, "income", 5);
+
+    expect(sliceTransactions(rows, "income", slices, "salary").every((t) => t.type === "income")).toBe(true);
+    expect(sliceTransactions(rows, "expense", categorySplit(rows, "expense", 5), "salary")).toEqual([]);
+  });
+
+  it("puts the newest first, so the list reads like the ledger", () => {
+    const dated = [tx({ amount: 10, categoryId: "food", date: new Date(2026, 2, 1) }), tx({ amount: 10, categoryId: "food", date: new Date(2026, 2, 20) })];
+    const opened = sliceTransactions(dated, "expense", categorySplit(dated, "expense", 5), "food");
+
+    expect(opened.map((t) => t.date)).toEqual([new Date(2026, 2, 20), new Date(2026, 2, 1)]);
+  });
+});
+
+describe("money coming back out of savings is its own slice", () => {
+  // A withdrawal is income, but it is not a salary and not a gift: it is the
+  // savings account handing money back, and lumping it in with the rest would
+  // flatter the month it lands in.
+  const withdrawal = tx({ amount: 400, type: "investment", isInvestmentTransaction: true, isGoalTransaction: true, contributionType: "withdrawal", categoryId: "" });
+  const rows = [withdrawal, tx({ amount: 900, type: "income", categoryId: "salary" })];
+
+  it("keeps it apart from the plain income in the split", () => {
+    const slices = categorySplit(rows, "income", 5);
+
+    expect(slices.map((s) => s.categoryId)).toContain(INVESTMENT_SLICE_ID);
+    expect(slices.find((s) => s.categoryId === INVESTMENT_SLICE_ID)?.amount).toBe(400);
+  });
+
+  it("opens up to the withdrawals behind it", () => {
+    const opened = sliceTransactions(rows, "income", categorySplit(rows, "income", 5), INVESTMENT_SLICE_ID);
+
+    expect(opened).toEqual([withdrawal]);
   });
 });

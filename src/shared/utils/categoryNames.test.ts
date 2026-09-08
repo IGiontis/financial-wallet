@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { cleanCategoryName, findDuplicateCategory, findScopeDuplicates, firstGrapheme, groupCategories, normalizeCategoryName, scopeTypes } from "./categoryNames";
 import type { Category } from "../types/IndexTypes";
 
@@ -170,5 +170,44 @@ describe("firstGrapheme", () => {
 
   it("returns empty for an empty field", () => {
     expect(firstGrapheme("   ")).toBe("");
+  });
+});
+
+describe("firstGrapheme", () => {
+  it("takes the first character of a name for its badge", () => {
+    expect(firstGrapheme("Ενοίκιο")).toBe("Ε");
+    expect(firstGrapheme("food")).toBe("f");
+  });
+
+  it("gives an empty badge rather than crashing on an empty name", () => {
+    // A category being renamed passes through empty on the way.
+    expect(firstGrapheme("")).toBe("");
+    expect(firstGrapheme("   ")).toBe("");
+  });
+});
+
+describe("firstGrapheme on a browser without Intl.Segmenter", () => {
+  // Older Safari has no Segmenter, and the PWA runs there. The fallback splits
+  // by code point instead, which is right for every alphabet the app is used
+  // in even though it would break a family emoji.
+  const realIntl = globalThis.Intl;
+
+  afterEach(() => {
+    vi.stubGlobal("Intl", realIntl);
+    vi.unstubAllGlobals();
+  });
+
+  it("still finds the first letter", () => {
+    const withoutSegmenter = Object.create(null) as typeof Intl;
+    for (const key of Object.getOwnPropertyNames(realIntl)) {
+      if (key === "Segmenter") continue;
+      (withoutSegmenter as Record<string, unknown>)[key] = (realIntl as unknown as Record<string, unknown>)[key];
+    }
+    vi.stubGlobal("Intl", withoutSegmenter);
+
+    expect("Segmenter" in Intl).toBe(false);
+    expect(firstGrapheme("Ενοίκιο")).toBe("Ε");
+    expect(firstGrapheme("  taxi")).toBe("t");
+    expect(firstGrapheme("")).toBe("");
   });
 });

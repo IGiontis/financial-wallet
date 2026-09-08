@@ -580,3 +580,55 @@ describe("amountTicks", () => {
     expect(amountTicks(Number.NaN)).toEqual([0]);
   });
 });
+
+describe("spendingHeatmap — where the window starts", () => {
+  const spend = (amount: number, date: Date) => tx({ amount, type: "expense", date });
+
+  it("starts at the first spending there is when no start is given", () => {
+    const map = spendingHeatmap([spend(30, new Date(2026, 7, 20)), spend(50, new Date(2026, 8, 2))], null, new Date(2026, 8, 8));
+    const days = map.weeks.flatMap((w) => w.days).filter((d): d is NonNullable<typeof d> => !!d);
+
+    // Both days are inside, and nothing before the first one is drawn.
+    expect(days.reduce((sum, d) => sum + d.amount, 0)).toBe(80);
+    expect(days[0].date.getTime()).toBeGreaterThanOrEqual(new Date(2026, 7, 20).getTime());
+    expect(map.max).toBe(50);
+  });
+
+  it("draws a single day rather than nothing when there is no spending at all", () => {
+    const map = spendingHeatmap([], null, new Date(2026, 8, 8));
+
+    expect(map.max).toBe(0);
+    expect(map.weeks.length).toBeGreaterThan(0);
+    expect(map.weekdayTotals).toHaveLength(7);
+  });
+
+  it("refuses to run backwards when the start is after the end", () => {
+    const map = spendingHeatmap([spend(30, new Date(2026, 8, 2))], new Date(2026, 9, 1), new Date(2026, 8, 8));
+
+    expect(map.weeks.length).toBeGreaterThan(0);
+    expect(map.max).toBe(0);
+  });
+});
+
+describe("months the series was never asked about", () => {
+  // The series is built from the months the flows cover. A transaction outside
+  // them has no column to land in, and must be left out rather than folded
+  // into the nearest one.
+  const now = new Date(2026, 2, 31);
+  const inside = [tx({ amount: 120, categoryId: "food", date: new Date(2026, 2, 5) }), tx({ amount: 80, categoryId: "fuel", date: new Date(2026, 2, 20) })];
+  const outside = tx({ amount: 5000, categoryId: "food", date: new Date(2025, 0, 15) });
+
+  it("leaves an out-of-range month out of the category series", () => {
+    const flows = monthlyFlows(inside, new Date(2026, 2, 1), now);
+    const withStray = categorySeries([...inside, outside], flows, 12, now);
+    const without = categorySeries(inside, flows, 12, now);
+
+    expect(withStray).toEqual(without);
+  });
+
+  it("leaves it out of the committed split too", () => {
+    const flows = monthlyFlows(inside, new Date(2026, 2, 1), now);
+
+    expect(committedSplit([...inside, outside], flows)).toEqual(committedSplit(inside, flows));
+  });
+});

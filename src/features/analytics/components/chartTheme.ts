@@ -47,8 +47,17 @@ export function weekdayNames(locale: string): string[] {
 /** 1200 → "1.2k". Keeps a Y axis narrow enough to survive a phone. */
 export function compactNumber(value: number): string {
   const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${(value / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  const millions = (n: number) => `${(n / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000_000) return millions(value);
+
+  if (abs >= 1_000) {
+    const digits = abs >= 10_000 ? 0 : 1;
+    const thousands = Number((value / 1_000).toFixed(digits));
+    // 999,999 rounds to "1000k" at whole thousands, which is a millions figure
+    // wearing a thousands suffix.
+    return Math.abs(thousands) >= 1000 ? millions(value) : `${thousands.toFixed(digits)}k`;
+  }
+
   return String(Math.round(value));
 }
 

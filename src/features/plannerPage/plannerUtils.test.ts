@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, goalMonthsAhead, nextSalaryDate, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
+import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, goalMonthsAhead, nextSalaryDate, repeatLabel, REPEAT_CHOICES, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
+import en from "../../i18n/locales/en.json";
+import el from "../../i18n/locales/el.json";
 import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 const tx = (overrides: Partial<Transaction> = {}): Transaction =>
@@ -367,5 +369,44 @@ describe("a goal stops at its deadline", () => {
     const months = [new Date(2026, 8, 1), new Date(2026, 9, 1)];
 
     expect(goalMonthsAhead(past, months)).toEqual([]);
+  });
+});
+
+describe("goalMonthlyNeed — a goal with no deadline and no period", () => {
+  it("asks for whatever the goal itself says it needs each month", () => {
+    expect(goalMonthlyNeed(goal({ monthlyRequired: 175.5 }), new Date(2026, 8, 8))).toBe(175.5);
+  });
+
+  it("asks for nothing when the goal has never said", () => {
+    // Better than inventing a figure: an open target with no rate attached is
+    // a wish, and the plan does not spend money on wishes.
+    expect(goalMonthlyNeed(goal({}), new Date(2026, 8, 8))).toBe(0);
+  });
+});
+
+describe("repeatLabel", () => {
+  it("names a cadence the way a person would say it", () => {
+    expect(repeatLabel(1)).toEqual({ key: "planner.repeatEveryMonth", count: 1 });
+    expect(repeatLabel(2)).toEqual({ key: "planner.repeatEveryNMonths", count: 2 });
+    expect(repeatLabel(3)).toEqual({ key: "planner.repeatEveryNMonths", count: 3 });
+    expect(repeatLabel(6)).toEqual({ key: "planner.repeatEveryNMonths", count: 6 });
+  });
+
+  it("counts a year as a year rather than as twelve months", () => {
+    expect(repeatLabel(12)).toEqual({ key: "planner.repeatEveryYear", count: 1 });
+    expect(repeatLabel(24)).toEqual({ key: "planner.repeatEveryNYears", count: 2 });
+  });
+
+  it("has a real translation behind every cadence the editor offers", () => {
+    // The one failure mode of this helper is a key nobody wrote, which reaches
+    // the screen as "planner.repeatEveryNMonths".
+    for (const months of REPEAT_CHOICES) {
+      const { key } = repeatLabel(months);
+      const [section, name] = key.split(".");
+
+      expect(section).toBe("planner");
+      expect((en.planner as Record<string, string>)[name], key).toBeTruthy();
+      expect((el.planner as Record<string, string>)[name], key).toBeTruthy();
+    }
   });
 });

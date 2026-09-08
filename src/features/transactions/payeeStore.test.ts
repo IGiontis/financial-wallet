@@ -128,3 +128,26 @@ describe("isUnsavedPayee", () => {
     expect(isUnsavedPayee(["Shell"], "   ")).toBe(false);
   });
 });
+
+describe("filterPayees — the order the suggestions come in", () => {
+  it("offers what starts with what was typed before what merely contains it", () => {
+    const payees = ["Michelin Shell", "Shell Rhodes", "Λαϊκή"];
+
+    expect(filterPayees(payees, "shell")).toEqual(["Shell Rhodes", "Michelin Shell"]);
+  });
+
+  it("keeps the saved order among equally good matches", () => {
+    expect(filterPayees(["Shell B", "Shell A"], "shell")).toEqual(["Shell B", "Shell A"]);
+  });
+
+  it("finds a match in the middle of a name", () => {
+    expect(filterPayees(["Super Market ΑΒ", "Bakery"], "market")).toEqual(["Super Market ΑΒ"]);
+  });
+});
+
+describe("filterPayees — two matches that are equally buried", () => {
+  it("keeps the saved order when neither starts with what was typed", () => {
+    expect(filterPayees(["Super Market", "Mini Market"], "market")).toEqual(["Super Market", "Mini Market"]);
+    expect(filterPayees(["Mini Market", "Super Market"], "market")).toEqual(["Mini Market", "Super Market"]);
+  });
+});
