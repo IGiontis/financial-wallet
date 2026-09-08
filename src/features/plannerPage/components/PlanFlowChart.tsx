@@ -8,6 +8,8 @@ import type { PlanPeriod } from "../plannerUtils";
 
 interface Row {
   label: string;
+  /** What the bar actually covers — one month, or the three of a quarter. */
+  span: string;
   income: number;
   /** Negative, so it draws below the axis. */
   outgoing: number;
@@ -20,7 +22,10 @@ function FlowTooltip({ active, payload, formatCurrency }: { active?: boolean; pa
   if (!active || !row) return null;
 
   return (
-    <TooltipShell title={row.label}>
+    // The span, not the axis label: above eighteen months the bars are quarters,
+    // and a bar holding three paydays read as a single month that had somehow
+    // been given extra money.
+    <TooltipShell title={row.span}>
       <TooltipRow color="var(--color-income)" label={t("planner.moneyIn")} value={`+${formatCurrency(row.income)}`} />
       <TooltipRow color="var(--color-expense)" label={t("planner.moneyOut")} value={`−${formatCurrency(Math.abs(row.outgoing))}`} />
       <TooltipRow color="var(--color-text-primary)" label={t("planner.endWith")} value={formatCurrency(row.balance)} />
@@ -54,6 +59,7 @@ export function PlanFlowChart({ periods, formatCurrency, locale }: PlanFlowChart
 
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short" }), [locale]);
   const yearFmt = useMemo(() => new Intl.DateTimeFormat(locale, { year: "2-digit" }), [locale]);
+  const longFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }), [locale]);
 
   const data = useMemo<Row[]>(
     () =>
@@ -65,11 +71,12 @@ export function PlanFlowChart({ periods, formatCurrency, locale }: PlanFlowChart
           : period.start.getMonth() === 0
             ? `${monthFmt.format(period.start)} ${yearFmt.format(period.start)}`
             : monthFmt.format(period.start),
+        span: period.key.includes("Q") ? `${monthFmt.format(period.start)} — ${longFmt.format(new Date(period.start.getFullYear(), period.start.getMonth() + 2, 1))}` : longFmt.format(period.start),
         income: period.income,
         outgoing: -period.outgoing,
         balance: period.balance,
       })),
-    [periods, monthFmt, yearFmt],
+    [periods, monthFmt, yearFmt, longFmt],
   );
 
   return (

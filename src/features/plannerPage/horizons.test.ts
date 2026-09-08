@@ -670,3 +670,64 @@ describe("a season that comes back every year", () => {
     expect(lineRanges(ski({ from: "2020-12", to: "2021-04", until: "2021-04" }), now, days)).toEqual([]);
   });
 });
+
+describe("the same date reads the same however far ahead you look", () => {
+  // Bills early in the month, pay late in it: the shape that makes a month dip
+  // under and recover, which is the case a monthly sample hides.
+  const salary = { amount: 1800, dayOfMonth: 25, occurrences: 4 };
+  const tight = [bill({ name: "Rent", amount: 700, dueDay: 5 }), bill({ name: "Power", amount: 180, dueDay: 8 }), bill({ name: "Card", amount: 400, dueDay: 10 })];
+  const lines: BudgetLine[] = [{ id: "food", label: "Food", amount: 450, kind: "expense" }];
+  const input = { bills: tight, goals: [] as InvestmentGoalWithStats[], lines, salary, openingBalance: 900, now };
+
+  it("gives a date the same balance at every horizon", () => {
+    // A day can only be affected by what happened before it, so looking
+    // further ahead must not change it. Each horizon's own ending balance is
+    // computed with no knowledge of later months; the long plan must agree.
+    const long = buildPlan({ ...input, horizon: 36 });
+    const byDate = new Map(long.points.map((p) => [p.date.toDateString(), p.balance]));
+
+    for (let months = 1; months <= 24; months++) {
+      const short = buildPlan({ ...input, horizon: months });
+      const seen = byDate.get(short.end.toDateString());
+      if (seen !== undefined) expect(round(seen)).toBe(round(short.endingBalance));
+    }
+  });
+
+  it("keeps a month's dip on the line even when sampling by month", () => {
+    // The dip is the whole reason the page exists. Sampling kept the last day
+    // of each month, which with pay on the 25th is the best day of it — so a
+    // March that spent a fortnight under zero drew as a comfortable line as
+    // soon as the horizon passed eighteen months.
+    const march = (horizon: number) => buildPlan({ ...input, horizon }).points.filter((p) => p.date.getMonth() === 2 && p.date.getFullYear() === 2027);
+
+    expect(march(12).some((p) => p.balance < 0)).toBe(true);
+    expect(march(24).some((p) => p.balance < 0)).toBe(true);
+    expect(march(36).some((p) => p.balance < 0)).toBe(true);
+  });
+
+  it("closes a month on its last day, not on whichever sample came last", () => {
+    // At weekly sampling the closing balance was read off the last Sunday —
+    // up to six days early, and on the wrong side of payday. The same February
+    // then read as overdrawn on a one-year view and healthy on a two-year one.
+    const weekly = buildPlan({ ...input, horizon: 12 });
+    const monthly = buildPlan({ ...input, horizon: 24 });
+    const february = (plan: typeof weekly) => planPeriods(plan).find((p) => p.key === "2027-02");
+
+    expect(weekly.pointStep).toBe("week");
+    expect(monthly.pointStep).toBe("month");
+    expect(february(weekly)?.balance).toBeGreaterThan(0);
+    // The monthly plan buckets by quarter above eighteen months, so February
+    // is inside 2027-Q1 there; what matters is the point itself agreeing.
+    const lastDay = (plan: typeof weekly) => plan.points.filter((p) => p.date.getMonth() === 1 && p.date.getFullYear() === 2027).pop()!;
+    expect(lastDay(weekly).date.getDate()).toBe(28);
+    expect(round(lastDay(weekly).balance)).toBe(round(lastDay(monthly).balance));
+  });
+
+  it("does not double the drawn points on a plan that never dips", () => {
+    // The extra point is only worth its cost when there is a dip to show.
+    const calm = { ...input, bills: [] as BillWithStatus[], lines: [] as BudgetLine[], openingBalance: 5000 };
+    const plan = buildPlan({ ...calm, horizon: 36 });
+
+    expect(plan.points.length).toBeLessThanOrEqual(38);
+  });
+});

@@ -603,8 +603,14 @@ export function pointStepFor(days: number): PointStep {
 /** Last day of a week or a month — the balance at the end of the period. */
 function isPointBoundary(step: PointStep, date: Date, offset: number): boolean {
   if (step === "day") return true;
-  if (step === "week") return offset % 7 === 6;
-  return date.getDate() === getDaysInMonth(date);
+  // The last day of a month is a point whatever the step. The page reads a
+  // month's closing balance off the last point inside it, and at weekly
+  // sampling that was whichever Sunday came last — up to six days early, and
+  // on the wrong side of a payday. The same February then read as -279 on a
+  // one-year view and as a healthy month on a two-year one, purely because the
+  // horizon had changed how often the line was sampled.
+  if (date.getDate() === getDaysInMonth(date)) return true;
+  return step === "week" && offset % 7 === 6;
 }
 
 export interface ProjectionPoint {
@@ -899,6 +905,21 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // everything that happened inside it.
   let pending: PlannerEvent[] = [];
 
+  // The deepest day since the last point was kept.
+  //
+  // Sampling by month keeps the last day of each month, and with pay landing
+  // late in the month that is the best day of it: a plan that spent three weeks
+  // under zero and recovered on payday drew as a comfortable line, and the dip
+  // the whole page exists to warn about disappeared as soon as the horizon
+  // passed eighteen months. Keeping the low of each stretch as well makes the
+  // line an envelope of what actually happens rather than a monthly snapshot.
+  let lowBalance = Number.POSITIVE_INFINITY;
+  let lowOffset = -1;
+  // How much of `pending` had already happened by that day, so the two points
+  // split the events between them instead of both claiming all of them.
+  let lowPending = 0;
+  let lastKept = openingBalance;
+
   // One mutable cursor rather than a fresh Date per day, and the month length
   // recomputed only when the month turns. A Date object is allocated only for
   // the points actually kept.
@@ -920,6 +941,11 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     if (dayEvents.length > 0) pending = pending.concat(dayEvents);
 
     if (balance < lowestBalance) lowestBalance = balance;
+    if (balance < lowBalance) {
+      lowBalance = balance;
+      lowOffset = offset;
+      lowPending = pending.length;
+    }
     if (balance < 0 && !breaksOn) {
       breaksOn = new Date(cursor);
       const outgoings = dayEvents.filter((e) => e.amount < 0);
@@ -929,8 +955,24 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     // The balance is still walked one day at a time — it has to be, or a bill
     // landing mid-period would be lost — but only the boundaries are kept.
     if (offset === days || isPointBoundary(step, cursor, offset)) {
+      // Only a dip that goes under earns a point of its own. Drawing the low of
+      // every stretch was accurate and unreadable — a saw-tooth across three
+      // years of a plan that never actually runs out — while the one thing the
+      // line must never hide is the month that ends in the red. A low that is
+      // merely where the stretch began, or the boundary day itself, says
+      // nothing either.
+      const dips = lowOffset >= 0 && lowOffset < offset && round2(lowBalance) < 0 && round2(lowBalance) < Math.min(round2(lastKept), round2(balance));
+      if (dips) {
+        points.push({ date: addDays(today, lowOffset), balance: round2(lowBalance), events: pending.slice(0, lowPending) });
+        pending = pending.slice(lowPending);
+      }
+
       points.push({ date: new Date(cursor), balance: round2(balance), events: pending });
       pending = [];
+      lastKept = balance;
+      lowBalance = Number.POSITIVE_INFINITY;
+      lowOffset = -1;
+      lowPending = 0;
     }
   }
 
