@@ -1,5 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { asHorizon, billOccurrences, buildPlan, horizonEnd, horizonMonths, oneOffDate, type BudgetLine, type OneOff, pointStepFor, planPeriods, SALARY_ROW_ID } from "./plannerUtils";
+import {
+  asHorizon,
+  billOccurrences,
+  buildPlan,
+  horizonEnd,
+  horizonMonths,
+  nextOneOffDate,
+  oneOffDate,
+  oneOffDates,
+  type BudgetLine,
+  type OneOff,
+  pointStepFor,
+  planPeriods,
+  SALARY_ROW_ID,
+} from "./plannerUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
@@ -318,6 +332,73 @@ describe("dated one-offs", () => {
 
     expect(rows.map((r) => r.kind)).toEqual(["income", "income"]);
     expect(rows.every((r) => r.total > 0)).toBe(true);
+  });
+});
+
+describe("extra pay that keeps coming back", () => {
+  const coupon = (over: Partial<OneOff> = {}): OneOff => ({ id: "c1", label: "Coupon", amount: 250, date: "2026-09-15", every: 3, ...over });
+
+  it("lands on every date its cadence reaches inside the window", () => {
+    const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon()] });
+    const dates = plan.events.filter((e) => e.label === "Coupon").map((e) => e.date);
+
+    // 15 Sep, 15 Dec, 15 Mar, 15 Jun — twelve months from August closes on 31 July 2027.
+    expect(dates).toEqual([new Date(2026, 8, 15), new Date(2026, 11, 15), new Date(2027, 2, 15), new Date(2027, 5, 15)]);
+    // The row totals what the window holds, not one payment of it.
+    expect(plan.rows.find((r) => r.source === "oneoff")).toMatchObject({ occurrences: 4, total: 1000 });
+  });
+
+  it("stops on the day it is told to", () => {
+    const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon({ until: "2027-03-15" })] });
+    expect(plan.rows.find((r) => r.source === "oneoff")?.occurrences).toBe(3);
+  });
+
+  it("counts what is still to come from a repeat entered long ago", () => {
+    // Written down in February and never touched since: the entry is old, the
+    // money is not, and the plan is about what is still ahead.
+    const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon({ date: "2026-02-15" })] });
+    const dates = plan.events.filter((e) => e.label === "Coupon").map((e) => e.date);
+
+    expect(dates).toEqual([new Date(2026, 7, 15), new Date(2026, 10, 15), new Date(2027, 1, 15), new Date(2027, 4, 15)]);
+  });
+
+  it("keeps the day of the month instead of drifting back off the 31st", () => {
+    // Stepping a month at a time from the last date would pin it to the 28th
+    // the first time it crossed February and leave it there for good.
+    const monthly: OneOff = { id: "m", label: "m", amount: 10, date: "2026-12-31", every: 1 };
+    const dates = oneOffDates(monthly, new Date(2026, 11, 1), new Date(2027, 3, 30));
+
+    expect(dates.map((d) => d.getDate())).toEqual([31, 31, 28, 31, 30]);
+  });
+
+  it("treats an interval it cannot use as no repeat at all", () => {
+    for (const every of [0, -3, 99, NaN]) {
+      const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon({ every })] });
+      expect(plan.rows.find((r) => r.source === "oneoff")?.occurrences).toBe(1);
+    }
+  });
+
+  it("leaves an entry with no cadence landing exactly once", () => {
+    const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon({ every: undefined })] });
+    expect(plan.rows.find((r) => r.source === "oneoff")?.occurrences).toBe(1);
+  });
+
+  it("knows when the next one is due, and when there will not be another", () => {
+    const today = new Date(2026, 7, 14);
+
+    expect(nextOneOffDate(coupon({ date: "2026-02-15" }), today)).toEqual(new Date(2026, 7, 15));
+    // Finished: the list says "passed" rather than "not in this window".
+    expect(nextOneOffDate(coupon({ date: "2026-02-15", until: "2026-06-30" }), today)).toBeUndefined();
+    // Not a repeat, and its day has gone.
+    expect(nextOneOffDate(coupon({ date: "2026-02-15", every: undefined }), today)).toBeUndefined();
+  });
+
+  it("frees every occurrence when the row is switched off", () => {
+    const input = { ...base, horizon: 12, oneOffs: [coupon()] };
+    const off = buildPlan({ ...input, skipIds: new Set(["c1"]) });
+
+    expect(off.rows.find((r) => r.source === "oneoff")?.total).toBe(0);
+    expect(off.incomeTotal).toBe(buildPlan({ ...base, horizon: 12 }).incomeTotal);
   });
 });
 

@@ -349,7 +349,7 @@ export function monthsBetween(today: Date, from: number, to: number): number {
 }
 
 /**
- * Money arriving once, on a day you already know.
+ * Money arriving on a day you already know — once, or on a cadence.
  *
  * Income only, and deliberately so: this exists for the pay you get beyond the
  * twelve — a fourteenth salary split across three known dates — rather than as
@@ -370,8 +370,38 @@ export interface OneOff {
   label: string;
   /** Always positive: it is money in. */
   amount: number;
-  /** "YYYY-MM-DD" */
+  /** "YYYY-MM-DD" — the first day it lands, or the only one. */
   date: string;
+  /**
+   * Months between repeats. Absent means it happens once.
+   *
+   * A bond coupon every three months is the same amount on the same day of the
+   * quarter, forever; entering it as four separate dates a year meant writing
+   * it out again every January, and a plan looking three years ahead needed
+   * twelve of them.
+   */
+  every?: number;
+  /** "YYYY-MM-DD" — the last day it may land. Absent means it keeps coming. */
+  until?: string;
+}
+
+/** The longest gap offered, matching what a bill's own interval allows. */
+export const MAX_REPEAT_MONTHS = 24;
+
+/** The cadences the editor offers: monthly, alternate months, quarterly, half-yearly, yearly. */
+export const REPEAT_CHOICES: readonly number[] = [1, 2, 3, 6, 12] as const;
+
+/** A stored interval, or undefined when it is absent, nonsense, or out of range. */
+export function repeatMonths(every: unknown): number | undefined {
+  const months = typeof every === "number" ? Math.round(every) : NaN;
+  return Number.isFinite(months) && months >= 1 && months <= MAX_REPEAT_MONTHS ? months : undefined;
+}
+
+/** i18n key and count for a cadence, so "every 12 months" reads as "every year". */
+export function repeatLabel(months: number): { key: string; count: number } {
+  if (months === 1) return { key: "planner.repeatEveryMonth", count: 1 };
+  if (months % 12 === 0) return { key: months === 12 ? "planner.repeatEveryYear" : "planner.repeatEveryNYears", count: months / 12 };
+  return { key: "planner.repeatEveryNMonths", count: months };
 }
 
 /** Parses a stored one-off date at local midnight, or undefined if it is rubbish. */
@@ -382,6 +412,64 @@ export function oneOffDate(value: string): Date | undefined {
   const date = new Date(Number(y), Number(m) - 1, Number(d));
   // `new Date(2026, 1, 31)` silently becomes 3 March; reject rather than move it.
   return date.getMonth() === Number(m) - 1 && date.getDate() === Number(d) ? date : undefined;
+}
+
+/**
+ * Every day this entry lands inside a window.
+ *
+ * Stepped from the first date's month index rather than by adding a month to
+ * the one before, so a coupon paid on the 31st does not walk itself back to the
+ * 28th the first time it crosses February and stay there.
+ */
+export function oneOffDates(oneOff: OneOff, from: Date, to: Date): Date[] {
+  const first = oneOffDate(oneOff.date);
+  if (!first) return [];
+
+  const every = repeatMonths(oneOff.every);
+  if (!every) return first >= from && first <= to ? [first] : [];
+
+  const until = oneOffDate(oneOff.until ?? "");
+  const last = until && until < to ? until : to;
+
+  const dates: Date[] = [];
+  // The window is at most ten years, so a monthly repeat lands 120 times; the
+  // ceiling is only here so a corrupt interval cannot spin forever.
+  for (let i = 0; i < 600; i++) {
+    const date = clampDay(first.getFullYear(), first.getMonth() + i * every, first.getDate());
+    if (date > last) break;
+    if (date >= from) dates.push(date);
+  }
+  return dates;
+}
+
+/**
+ * The next time this entry lands on or after `from`, ignoring the horizon.
+ *
+ * The list needs this to tell "not in the months you are looking at" from
+ * "finished", and a repeat that has not finished always has a next date even
+ * when the current window is too short to hold one.
+ */
+export function nextOneOffDate(oneOff: OneOff, from: Date): Date | undefined {
+  const first = oneOffDate(oneOff.date);
+  if (!first) return undefined;
+  if (first >= from) return first;
+
+  const every = repeatMonths(oneOff.every);
+  if (!every) return undefined;
+  const until = oneOffDate(oneOff.until ?? "");
+
+  // Jump to the cycle that reaches `from` rather than walking every one of the
+  // hundreds a monthly repeat entered years ago would have.
+  const monthsGap = (from.getFullYear() - first.getFullYear()) * 12 + (from.getMonth() - first.getMonth());
+  let cycle = Math.max(Math.floor(monthsGap / every), 0);
+
+  // The floor can land just short — a day-of-month later in the month than
+  // today's — so step on until it clears, which takes at most a cycle or two.
+  for (let guard = 0; guard < 4; guard++, cycle++) {
+    const date = clampDay(first.getFullYear(), first.getMonth() + cycle * every, first.getDate());
+    if (date >= from) return until && date > until ? undefined : date;
+  }
+  return undefined;
 }
 
 export type PlannerEventKind = "income" | "bill" | "goal";
@@ -519,7 +607,7 @@ export interface PlanInput {
   bills: BillWithStatus[];
   goals: InvestmentGoalWithStats[];
   lines?: BudgetLine[];
-  /** Dated, single occurrences — a fourteenth salary, a known one-off cost. */
+  /** Dated arrivals — a fourteenth salary, a coupon every three months. */
   oneOffs?: OneOff[];
   /** Only what the user owes — see `plannableDebts`. */
   debts?: DebtWithStatus[];
@@ -674,14 +762,17 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // are entered separately from the monthly lines.
 
   for (const oneOff of oneOffs) {
-    const date = oneOffDate(oneOff.date);
-    if (!date || date < today || date > end) continue;
+    // One date or many: a repeat is the same entry landing on every date its
+    // cadence reaches inside the window, so the row totals what the window
+    // actually holds rather than one payment of it.
+    const dates = oneOffDates(oneOff, today, end);
+    if (!dates.length) continue;
 
     const enabled = isOn(oneOff.id);
     const amount = round2(oneOff.amount);
 
-    rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? amount : 0, occurrences: 1, kind: "income", enabled });
-    if (enabled) events.push({ kind: "income", label: oneOff.label, amount, date });
+    rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? round2(amount * dates.length) : 0, occurrences: dates.length, kind: "income", enabled });
+    if (enabled) for (const date of dates) events.push({ kind: "income", label: oneOff.label, amount, date });
   }
 
   // ── The user's own budget lines ───────────────────────────────────────────

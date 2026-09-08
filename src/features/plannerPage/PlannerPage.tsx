@@ -12,7 +12,22 @@ import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useDebounce } from "../../shared/hooks/useDebounce";
-import { asHorizon, buildPlan, detectSalary, lineDays, monthStart, oneOffDate, type BudgetLine, type OneOff, type PlannerEvent, type PlannerHorizon, type PlanRow } from "./plannerUtils";
+import {
+  asHorizon,
+  buildPlan,
+  detectSalary,
+  lineDays,
+  monthStart,
+  nextOneOffDate,
+  oneOffDate,
+  repeatLabel,
+  repeatMonths,
+  type BudgetLine,
+  type OneOff,
+  type PlannerEvent,
+  type PlannerHorizon,
+  type PlanRow,
+} from "./plannerUtils";
 import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
 import LeverGroup from "./components/LeverGroup";
@@ -168,8 +183,14 @@ export function PlannerPage() {
   const debtRows = rowsOf((r) => r.source === "debt");
   const oneOffRows = rowsOf((r) => r.source === "oneoff");
   // Soonest first, so the next thing to happen is the first thing read.
-  const oneOffsByDate = useMemo(() => [...oneOffs].sort((a, b) => a.date.localeCompare(b.date)), [oneOffs]);
   const startOfToday = useMemo(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
+  // Ordered by the day each one next lands on rather than by the day it was
+  // first entered: a coupon that started paying two years ago belongs beside
+  // the other pay still to come, not above everything as the oldest date.
+  const oneOffsByDate = useMemo(
+    () => [...oneOffs].sort((a, b) => ((nextOneOffDate(a, startOfToday) ?? oneOffDate(a.date))?.getTime() ?? 0) - ((nextOneOffDate(b, startOfToday) ?? oneOffDate(b.date))?.getTime() ?? 0)),
+    [oneOffs, startOfToday],
+  );
   const seasonFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
 
   // Only the lines running *today*: a ski budget that starts in December has
@@ -208,7 +229,16 @@ export function PlannerPage() {
 
     if (editor.mode === "oneoff") {
       const label = draft.label || t("planner.oneOffFallbackName");
-      const entry: OneOff = { id: draft.id ?? newId(), label, amount, date: draft.date ?? "" };
+      // Undefined rather than 0 or "" for an entry that happens once, so what
+      // is stored says "no repeat" instead of "a repeat of nothing".
+      const entry: OneOff = {
+        id: draft.id ?? newId(),
+        label,
+        amount,
+        date: draft.date ?? "",
+        ...(draft.every ? { every: draft.every } : {}),
+        ...(draft.every && draft.until ? { until: draft.until } : {}),
+      };
       setOneOffs(draft.id ? oneOffs.map((o) => (o.id === draft.id ? entry : o)) : [...oneOffs, entry]);
     } else {
       const label = draft.label || t("planner.lineFallbackName");
@@ -444,11 +474,30 @@ export function PlannerPage() {
                   indistinguishable from the app having refused it. */}
               {oneOffsByDate.map((source) => {
                 const row = oneOffRows.find((r) => r.id === source.id);
-                const date = oneOffDate(source.date)!;
-                const past = date < startOfToday;
-                const edit = () => setEditor({ mode: "oneoff", draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date } });
+                // The next one still to come — which for a repeat is not the
+                // date it was entered on, and is what says whether it has
+                // finished or is merely outside the months on screen.
+                const next = nextOneOffDate(source, startOfToday);
+                // Nothing to come: the day it stopped, or failing that the day it started.
+                const date = next ?? oneOffDate(source.until ?? "") ?? oneOffDate(source.date)!;
+                const past = !next;
+                const cadence = repeatMonths(source.every);
+                const cadenceText = cadence ? t(repeatLabel(cadence).key, { count: repeatLabel(cadence).count }) : undefined;
+                const edit = () =>
+                  setEditor({
+                    mode: "oneoff",
+                    draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date, every: cadence, until: source.until },
+                  });
 
-                if (row) return <div key={source.id}>{renderRow(row, edit, `${longDateFmt.format(date)}`)}</div>;
+                // A repeat says its cadence and how many times the window
+                // catches it, because the amount beside it is the total of
+                // those rather than one payment.
+                if (row)
+                  return (
+                    <div key={source.id}>
+                      {renderRow(row, edit, cadenceText ? `${cadenceText} · ${t("planner.timesCount", { times: row.occurrences })}` : longDateFmt.format(date))}
+                    </div>
+                  );
 
                 // Nothing in this window to include or skip, so no switch: a
                 // control that changes no figure is furniture.
@@ -457,7 +506,7 @@ export function PlannerPage() {
                     <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={edit} aria-label={t("planner.editEntry")}>
                       <span className={styles.rowTitle}>{source.label}</span>
                       <span className={styles.rowHint}>
-                        {longDateFmt.format(date)}{" "}
+                        {cadenceText ? `${cadenceText} · ${longDateFmt.format(date)}` : longDateFmt.format(date)}{" "}
                         <span className={styles.oneOffTag} title={t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint")}>
                           {t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange")}
                         </span>

@@ -1,6 +1,6 @@
-import { endOfMonth, startOfMonth, subMonths } from "date-fns";
+import { addDays, endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { goalMonthlyTarget, oneOffDate, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
+import { goalMonthlyTarget, oneOffDates, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import { categorySplit } from "../transactions/transactionInsights";
 import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
@@ -300,19 +300,17 @@ export function nextRollover(buckets: Bucket[], carriedIn: Record<string, number
 export type ExtraPayMode = "when" | "spread";
 
 export function extraPayForMonth(oneOffs: OneOff[], mode: ExtraPayMode, now: Date = new Date()): number {
-  const dated = oneOffs
-    .map((o) => ({ amount: o.amount, date: oneOffDate(o.date) }))
-    .filter((o): o is { amount: number; date: Date } => !!o.date && Number.isFinite(o.amount));
+  // Every time each entry lands in the window, not just the day it was entered
+  // on: a coupon every three months is four arrivals a year, and counting one
+  // of them understates the year by three quarters of it.
+  const landing = (from: Date, to: Date) =>
+    round2(oneOffs.filter((o) => Number.isFinite(o.amount)).reduce((sum, o) => sum + oneOffDates(o, from, to).length * o.amount, 0));
 
-  if (mode === "when") {
-    const from = startOfMonth(now);
-    const to = endOfMonth(now);
-    return round2(dated.filter((o) => o.date >= from && o.date <= to).reduce((sum, o) => sum + o.amount, 0));
-  }
+  if (mode === "when") return landing(startOfMonth(now), endOfMonth(now));
 
   // A year ahead of today, so the figure does not lurch on 1 January.
   const horizon = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-  return round2(dated.filter((o) => o.date >= startOfMonth(now) && o.date < horizon).reduce((sum, o) => sum + o.amount, 0) / 12);
+  return round2(landing(startOfMonth(now), addDays(horizon, -1)) / 12);
 }
 
 // ─── Emergency fund ─────────────────────────────────────────────────────────

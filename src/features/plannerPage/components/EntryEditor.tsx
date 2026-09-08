@@ -3,7 +3,7 @@ import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader } from "react
 import { useTranslation } from "react-i18next";
 
 import { DateField } from "../../../shared/components/DateField";
-import { oneOffDate } from "../plannerUtils";
+import { oneOffDate, REPEAT_CHOICES, repeatLabel } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
 
 export interface EntryDraft {
@@ -13,6 +13,10 @@ export interface EntryDraft {
   amount: string;
   /** "YYYY-MM-DD". Present only for dated extra pay. */
   date?: string;
+  /** Months between repeats of dated extra pay. Absent means it happens once. */
+  every?: number;
+  /** "YYYY-MM-DD". The last day a repeat may land. */
+  until?: string;
   /** "YYYY-MM". A rate that only runs for part of the year. */
   from?: string;
   to?: string;
@@ -52,7 +56,9 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
   // A season that ends before it starts charges nothing at all, which looks
   // like the app losing the entry rather than refusing it.
   const seasonBackwards = !!value.from && !!value.to && value.to < value.from;
-  const valid = Number.isFinite(amount) && amount > 0 && (!dated || !!oneOffDate(value.date ?? "")) && !seasonBackwards;
+  const repeats = !!value.every;
+  const repeatBackwards = repeats && !!value.until && !!value.date && value.until < value.date;
+  const valid = Number.isFinite(amount) && amount > 0 && (!dated || !!oneOffDate(value.date ?? "")) && !seasonBackwards && !repeatBackwards;
 
   const save = () => valid && onSave({ ...value, label: value.label.trim() });
 
@@ -93,9 +99,47 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
         {dated && (
           <>
             <label className={styles.fieldLabel} htmlFor="entry-date">
-              {t("common.date")}
+              {repeats ? t("planner.repeatFirstDate") : t("common.date")}
             </label>
             <DateField name="entry-date" value={value.date ?? ""} onChange={(v) => setValue({ ...value, date: v })} placeholder={t("common.date")} />
+
+            {/* A cadence rather than a date each time. "A coupon every three
+                months" was four entries a year, rewritten every January — and
+                a three-year plan needed twelve of them.
+                A fixed set rather than a free number: these are every cadence
+                pay actually arrives on, and a list needs no validating. */}
+            <label className={`${styles.fieldLabel} mt-3`} htmlFor="entry-every">
+              {t("planner.repeats")}
+            </label>
+            <Input
+              id="entry-every"
+              type="select"
+              value={value.every ?? ""}
+              // Dropping the end date with the cadence: an "until" left behind
+              // by a repeat that is now a single date is a stored figure with
+              // nothing to apply to.
+              onChange={(e) => setValue({ ...value, every: e.target.value ? Number(e.target.value) : undefined, until: e.target.value ? value.until : undefined })}
+            >
+              <option value="">{t("planner.repeatOnce")}</option>
+              {REPEAT_CHOICES.map((months) => {
+                const label = repeatLabel(months);
+                return (
+                  <option key={months} value={months}>
+                    {t(label.key, { count: label.count })}
+                  </option>
+                );
+              })}
+            </Input>
+
+            {repeats && (
+              <div className="mt-3">
+                <label className={styles.fieldLabel} htmlFor="entry-until">
+                  {t("planner.repeatUntil")}
+                </label>
+                <DateField clearable name="entry-until" value={value.until ?? ""} onChange={(v) => setValue({ ...value, until: v })} placeholder={t("planner.repeatUntilPlaceholder")} />
+                {repeatBackwards ? <p className={styles.fieldError}>{t("planner.repeatBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.repeatUntilHint")}</p>}
+              </div>
+            )}
           </>
         )}
 

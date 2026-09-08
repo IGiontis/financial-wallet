@@ -373,6 +373,23 @@ describe("extraPayForMonth", () => {
     expect(extraPayForMonth(pay, "spread", now)).toBe(Math.round((2800 / 12) * 100) / 100);
   });
 
+  it("counts a repeat every time it lands, not just the first time", () => {
+    // A coupon every three months is four arrivals a year; counting the day it
+    // was entered on and nothing else understated the year by three of them.
+    const coupon = [{ id: "c1", label: "Coupon", amount: 250, date: "2026-03-15", every: 3 }];
+
+    expect(extraPayForMonth(coupon, "when", new Date(2026, 8, 5))).toBe(250); // 15 Sep
+    expect(extraPayForMonth(coupon, "when", new Date(2026, 9, 5))).toBe(0); // October: nothing
+    expect(extraPayForMonth(coupon, "spread", new Date(2026, 8, 5))).toBe(Math.round(((250 * 4) / 12) * 100) / 100);
+  });
+
+  it("stops counting a repeat once it has ended", () => {
+    const ended = [{ id: "c1", label: "Coupon", amount: 250, date: "2026-03-15", every: 3, until: "2026-09-15" }];
+
+    expect(extraPayForMonth(ended, "when", new Date(2026, 8, 5))).toBe(250);
+    expect(extraPayForMonth(ended, "when", new Date(2026, 11, 5))).toBe(0);
+  });
+
   it("ignores a date it cannot read", () => {
     expect(extraPayForMonth([{ id: "x", label: "bad", amount: 500, date: "not-a-date" }], "spread", now)).toBe(0);
   });
