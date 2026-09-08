@@ -1599,11 +1599,11 @@ describe("urgencyToken", () => {
     expect(urgencyToken("paid")).toBe("--color-income");
     expect(urgencyToken("late")).toBe("--color-expense");
     expect(urgencyToken("soon")).toBe("--color-goal");
-    expect(urgencyToken("upcoming")).toBe("--bs-primary");
+    expect(urgencyToken("later")).toBe("--bs-primary");
   });
 
   it("names a token rather than a colour, so both themes follow", () => {
-    for (const urgency of ["paid", "late", "soon", "upcoming"] as const) {
+    for (const urgency of ["paid", "late", "soon", "later"] as const) {
       expect(urgencyToken(urgency)).toMatch(/^--/);
     }
   });
