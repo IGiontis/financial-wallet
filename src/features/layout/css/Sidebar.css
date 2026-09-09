@@ -8,7 +8,14 @@
 
 .sidebar {
   width: var(--sidebar-width);
-  min-height: 100vh;
+  /* Exactly the screen, not "at least" it. With `min-height` the panel grew to
+     whatever the nav needed — 802px inside a 560px window — and because it is
+     fixed, everything past the fold was simply unreachable: no scroll anywhere
+     could bring the last items or the footer into view.
+     `dvh` first where it is supported, so the collapsing browser chrome on a
+     phone does not leave the foot of the menu cut off either. */
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--sidebar-bg);
   color: var(--sidebar-text);
   display: flex;
@@ -66,8 +73,26 @@
 /* ─── Nav ─── */
 .sidebar-nav {
   flex-grow: 1;
+  min-height: 0; /* A flex child will not shrink below its content without this */
+  /* Bootstrap's `.nav` wraps. In a column with a bounded height that means the
+     list breaks into a second column beside the first rather than overflowing
+     downward — so nothing ever scrolled, and the overspill was clipped
+     sideways instead. */
+  flex-wrap: nowrap;
   padding: 0.5rem;
-  overflow: hidden; /* Clip text during width animation */
+  /* Horizontally clipped, as before, so labels do not spill while the panel
+     animates its width. Vertically it scrolls: a phone in landscape, or a
+     shorter list on a small screen, has more items than fit. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* A flex column squashes its children before it overflows. Left to itself the
+   list quietly shrank every row below its 44px touch target instead of
+   scrolling — the items were all "visible" and none of them were tappable. */
+.sidebar-nav .nav-item {
+  flex-shrink: 0;
 }
 
 .sidebar-nav .nav-link {

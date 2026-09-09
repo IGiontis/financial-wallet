@@ -3,6 +3,10 @@
 .main-layout {
   display: flex;
   min-height: 100vh;
+  /* `dvh` where it is supported: on a phone `100vh` is the tallest the viewport
+     ever gets, so a screenful of content sat partly behind the browser's own
+     chrome until you scrolled. */
+  min-height: 100dvh;
   overflow: hidden;
 }
 

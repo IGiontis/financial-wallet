@@ -33,6 +33,7 @@ import {
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
@@ -322,7 +323,7 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
 
 // ─── Quick stats ─────────────────────────────────────────────────────────────
 
-function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
+function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string; onOpenActive: () => void }) {
   const { t, i18n } = useTranslation();
   const active = bills.filter((b) => b.isActive);
   const grouped = groupBills(active);
@@ -364,23 +365,39 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
       label: t("bills.totalActive"),
       color: "var(--color-invest-text)",
       sub: bills.length > active.length ? t("bills.pausedCount", { count: bills.length - active.length }) : t("bills.allRunning"),
+      // The one stat with an obvious follow-up question: which ones?
+      onClick: active.length > 0 ? onOpenActive : undefined,
     },
   ];
 
   return (
     <>
       <Row className="g-2 mb-2">
-        {stats.map((s) => (
-          <Col xs={6} lg={3} key={s.label}>
-            <div className={styles.statBox} title={s.title}>
+        {stats.map((s) => {
+          const body = (
+            <>
               <div className={styles.statValue} style={{ color: s.color }}>
                 {s.value}
               </div>
               <div className={styles.statLabel}>{s.label}</div>
               <div className={styles.statSub}>{s.sub}</div>
-            </div>
-          </Col>
-        ))}
+            </>
+          );
+
+          return (
+            <Col xs={6} lg={3} key={s.label}>
+              {s.onClick ? (
+                <button type="button" className={`${styles.statBox} ${styles.statBoxTappable}`} title={s.title} onClick={s.onClick}>
+                  {body}
+                </button>
+              ) : (
+                <div className={styles.statBox} title={s.title}>
+                  {body}
+                </div>
+              )}
+            </Col>
+          );
+        })}
       </Row>
       <WhatBillsLeave bills={bills} formatCurrency={formatCurrency} />
     </>
@@ -760,6 +777,11 @@ export default function BillsPage() {
   const [payingInstallment, setPayingInstallment] = useState<number | undefined>();
   // Which month's breakdown is open, if any.
   const [breakdownMonth, setBreakdownMonth] = useState<"current" | "next" | null>(null);
+  const [showActive, setShowActive] = useState(false);
+  // Below the desktop breakpoint the year sat under the whole list, which meant
+  // scrolling past every bill to reach it. Two views, one at a time.
+  const compact = useNarrowScreen("(max-width: 991.98px)");
+  const [mobileView, setMobileView] = useState<"bills" | "year">("bills");
   // One clock reading for the whole visit, so every card's month strip lines up
   // on the same window instead of drifting across renders.
   const [now] = useState(() => new Date());
@@ -801,6 +823,7 @@ export default function BillsPage() {
 
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
+  const activeBills = useMemo(() => bills.filter((b) => b.isActive).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent), [bills]);
   const categoryBills = useMemo(
     () => (openCategory ? bills.filter((b) => b.isActive && b.categoryId === openCategory.id).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent) : []),
     [bills, openCategory],
@@ -909,7 +932,25 @@ export default function BillsPage() {
           <Col xs={12} lg={7} xl={8}>
             <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("current")} />
             {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("next")} />}
-            <QuickStats bills={bills} formatCurrency={formatCurrency} />
+            <QuickStats bills={bills} formatCurrency={formatCurrency} onOpenActive={() => setShowActive(true)} />
+
+            {/* On a phone the two halves of this page take turns. */}
+            {compact && bills.length > 0 && (
+              <div className={styles.viewTabs} role="tablist" aria-label={t("bills.title")}>
+                {(["bills", "year"] as const).map((view) => (
+                  <button
+                    key={view}
+                    type="button"
+                    role="tab"
+                    aria-selected={mobileView === view}
+                    className={`${styles.viewTab} ${mobileView === view ? styles.viewTabOn : ""}`}
+                    onClick={() => setMobileView(view)}
+                  >
+                    {t(view === "bills" ? "bills.tabBills" : "bills.tabYear")}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {bills.length === 0 ? (
               <div className="text-center text-body-secondary" style={{ padding: "3rem 0" }}>
@@ -920,6 +961,8 @@ export default function BillsPage() {
                   + {t("bills.newBill")}
                 </Button>
               </div>
+            ) : compact && mobileView === "year" ? (
+              <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
             ) : (
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
@@ -947,15 +990,36 @@ export default function BillsPage() {
             )}
           </Col>
 
-          {/* Yearly projection — beside the list on desktop, below it on mobile */}
-          <Col xs={12} lg={5} xl={4}>
-            <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
-          </Col>
+          {/* Beside the list on desktop. On a phone it is one of the two tabs
+              above instead, so it is never mounted twice. */}
+          {!compact && (
+            <Col xs={12} lg={5} xl={4}>
+              <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
+            </Col>
+          )}
         </Row>
       )}
 
       {/* ── Modals (unchanged) ── */}
       <AddBillModal isOpen={showModal} onClose={() => setShowModal(false)} categories={categories} bill={editBill} onSubmit={handleSubmit} />
+
+      {/* Every active bill in one place, reached from the count that names
+          them. The same component the yearly projection opens a category into —
+          it is the same question asked of a different set. */}
+      {showActive && (
+        <CategoryBillsModal
+          label={t("bills.activeBillsTitle")}
+          icon="🧾"
+          bills={activeBills}
+          yearlyAmount={activeBills.reduce((sum, b) => sum + b.monthlyEquivalent * 12, 0)}
+          formatCurrency={formatCurrency}
+          onClose={() => setShowActive(false)}
+          onOpenBill={(bill) => {
+            setShowActive(false);
+            setDetailBill(bill);
+          }}
+        />
+      )}
 
       {/* One category of the yearly projection, opened out. Handing a bill
           straight to the detail modal means the two never stack up. */}
