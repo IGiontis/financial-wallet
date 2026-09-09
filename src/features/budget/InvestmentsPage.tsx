@@ -340,7 +340,6 @@ export default function InvestmentsPage() {
                 <Col xs={12} md={6} xl={3} key={goal.id}>
                   <GoalCard
                     goal={goal}
-                    showTypeBadge={isSearching}
                     formatCurrency={formatCurrency}
                     onViewHistory={setHistoryGoal}
                     onAddDeposit={setDepositGoal}

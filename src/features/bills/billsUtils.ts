@@ -1231,3 +1231,55 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
 
   return cells;
 }
+
+// ─── How firm are these figures? ─────────────────────────────────────────────
+
+/**
+ * Whether a set of bills adds up to a figure that can be relied on.
+ *
+ * Two separate reasons a total is only close. A variable bill — electricity,
+ * water — carries an estimate by design: the real figure arrives with the
+ * charge. And a monthly figure covering anything that is not billed monthly is
+ * a spread average: a €360 yearly gym is €30 a month in the sense that it is
+ * nothing for eleven months and €360 once.
+ *
+ * Worth saying out loud rather than printing a total to the cent that was never
+ * going to be exact.
+ */
+export function totalsAreApproximate(bills: Pick<Bill, "amount" | "isVariableAmount" | "frequency" | "intervalCount">[]): { monthly: boolean; yearly: boolean } {
+  const variable = bills.some((bill) => bill.isVariableAmount);
+  const spread = bills.some((bill) => bill.frequency !== "monthly" || getIntervalCount(bill) !== 1);
+
+  return { monthly: variable || spread, yearly: variable };
+}
+
+// ─── What the bills leave behind ─────────────────────────────────────────────
+
+export interface SalaryShare {
+  /** What is left of the pay once the bills are covered. Negative means they overrun it. */
+  left: number;
+  /** Share of the pay the bills take, 0–100. Can exceed 100 when they overrun it. */
+  takenPct: number;
+  /** Share left over, 0–100. Floors at zero rather than reporting a negative share. */
+  leftPct: number;
+}
+
+/**
+ * What the monthly bills take out of the monthly pay, and what survives.
+ *
+ * The bills page could say what the bills cost and never say what that meant.
+ * "€640 a month" answers nothing on its own; "€640 of €1,800 — 36%, leaving
+ * €1,160" is the same figure with the only context that makes it a decision.
+ */
+export function salaryShare(salary: number, monthlyBills: number): SalaryShare | undefined {
+  if (!Number.isFinite(salary) || salary <= 0) return undefined;
+
+  const bills = Math.max(monthlyBills, 0);
+  const takenPct = round2((bills / salary) * 100);
+
+  return {
+    left: round2(salary - bills),
+    takenPct,
+    leftPct: round2(Math.max(100 - takenPct, 0)),
+  };
+}

@@ -21,8 +21,10 @@ import {
   isInGracePeriod,
   monthForecast,
   periodTotals,
+  salaryShare,
   type MonthCell,
   supportsMonthStrip,
+  totalsAreApproximate,
   URGENT_DAYS,
   urgencyToken,
   yearlyBreakdown,
@@ -30,6 +32,7 @@ import {
   type MonthForecast,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
@@ -237,6 +240,86 @@ function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast
   );
 }
 
+// ─── What the bills leave ────────────────────────────────────────────────────
+
+/**
+ * The monthly bills set against the pay they come out of.
+ *
+ * "€640 a month" answers nothing on its own. Beside the pay it is a decision:
+ * a third of it gone before anything else is bought. The pay comes from the
+ * figure already typed into the planner rather than from an average of past
+ * income — a forecast belongs to the person making it.
+ */
+function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
+  const { t, i18n } = useTranslation();
+  const [storedSalary] = useLocalStorage<{ amount?: string | number }>("planner-salary", { amount: "" });
+
+  // This month, not the twelve-month average. The pay arriving this month meets
+  // the bills falling in this month; an average of a year is the wrong figure to
+  // set against it, and in a month with a quarterly bill in it, badly wrong.
+  const month = useMemo(() => monthForecast(bills, new Date(), 0), [bills]);
+  // What the month owes in full: still to pay, plus whatever has already gone.
+  const monthlyBills = Math.round((month.total + month.prepaid) * 100) / 100;
+  const approximate = month.variableCount > 0;
+  // Short month with the year: Greek renders a lone long month in the genitive
+  // ("Σεπτεμβρίου"), which reads as a fragment of a sentence rather than a label.
+  const monthName = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(month.monthStart);
+
+  const salary = parseFloat(String(storedSalary?.amount ?? ""));
+  const share = salaryShare(salary, monthlyBills);
+
+  if (!share) {
+    return (
+      <div className={`${styles.leaveBand} mb-4`}>
+        <div className={styles.leaveSum}>{t("bills.setPayHint")}</div>
+      </div>
+    );
+  }
+
+  const overrun = share.left < 0;
+  const owed = `${approximate ? "~" : ""}${formatCurrency(monthlyBills)}`;
+
+  return (
+    <div className={`${styles.leaveBand} mb-4`}>
+      <div className="d-flex align-items-baseline justify-content-between gap-3 flex-wrap">
+        <div>
+          <div className={styles.statLabel} style={{ marginTop: 0 }}>
+            {monthName}
+          </div>
+          <div className={styles.leaveSum} title={approximate ? t("bills.approximate") : undefined}>
+            <strong>{formatCurrency(salary)}</strong> {t("bills.payLabel")} − <strong>{owed}</strong> {t("bills.billsLabel")}
+          </div>
+        </div>
+        <div className={styles.leaveAmount} style={{ color: overrun ? "var(--color-expense-text)" : "var(--color-income-text)" }}>
+          {formatCurrency(share.left)}
+        </div>
+      </div>
+
+      <div className={styles.leaveBar} role="img" aria-label={t("bills.whatBillsLeave")}>
+        <div className={styles.leaveBarBills} style={{ width: `${Math.min(share.takenPct, 100)}%` }} />
+        <div className={styles.leaveBarLeft} style={{ width: `${share.leftPct}%` }} />
+      </div>
+
+      <div className={styles.leaveLegend}>
+        <span>
+          <span className={styles.leaveDot} style={{ background: "var(--color-expense)" }} />
+          {t("bills.billsTakePct", { pct: Math.round(share.takenPct) })}
+        </span>
+        <span>
+          {overrun ? (
+            <span style={{ color: "var(--color-expense-text)", fontWeight: 600 }}>{t("bills.overrunsPay", { amount: formatCurrency(Math.abs(share.left)) })}</span>
+          ) : (
+            <>
+              <span className={styles.leaveDot} style={{ background: "var(--color-income)" }} />
+              {t("bills.leftPct", { pct: Math.round(share.leftPct) })}
+            </>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Quick stats ─────────────────────────────────────────────────────────────
 
 function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
@@ -245,6 +328,7 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
   const grouped = groupBills(active);
   const overdueCount = grouped.overdue.length;
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
+  const approximate = totalsAreApproximate(active);
 
   // Soonest unpaid bill, measured by when the money is actually needed.
   const nextBill = grouped.overdue[0] ?? grouped.upcoming.find((b) => b.deadline);
@@ -263,29 +347,43 @@ function QuickStats({ bills, formatCurrency }: { bills: BillWithStatus[]; format
       sub: overdueCount > 0 ? formatCurrency(grouped.overdue.reduce((s, b) => s + expectedAmount(b), 0)) : t("bills.noneLate"),
     },
     { value: nextValue, label: t("bills.nextUp"), color: nextColor, sub: nextSub },
-    { value: formatCurrency(avgMonthly), label: t("bills.avgMonthly"), color: "var(--bs-primary)", sub: t("bills.perYearShort", { amount: formatCurrency(avgMonthly * 12) }) },
+    {
+      // A tilde, because neither figure is firm: variable bills carry an
+      // estimate, and anything not billed monthly is an average spread over the
+      // months rather than what actually leaves in one.
+      value: `${approximate.monthly ? "~" : ""}${formatCurrency(avgMonthly)}`,
+      label: t("bills.avgMonthly"),
+      // The link blue, which is tuned per theme: Bootstrap's #0d6efd measures
+      // 3.39:1 on the dark stat box.
+      color: "var(--color-link)",
+      sub: t("bills.perYearShort", { amount: `${approximate.yearly ? "~" : ""}${formatCurrency(avgMonthly * 12)}` }),
+      title: approximate.monthly ? t("bills.approximate") : undefined,
+    },
     {
       value: String(active.length),
       label: t("bills.totalActive"),
-      color: "var(--color-invest)",
+      color: "var(--color-invest-text)",
       sub: bills.length > active.length ? t("bills.pausedCount", { count: bills.length - active.length }) : t("bills.allRunning"),
     },
   ];
 
   return (
-    <Row className="g-2 mb-4">
-      {stats.map((s) => (
-        <Col xs={6} lg={3} key={s.label}>
-          <div className={styles.statBox}>
-            <div className={styles.statValue} style={{ color: s.color }}>
-              {s.value}
+    <>
+      <Row className="g-2 mb-2">
+        {stats.map((s) => (
+          <Col xs={6} lg={3} key={s.label}>
+            <div className={styles.statBox} title={s.title}>
+              <div className={styles.statValue} style={{ color: s.color }}>
+                {s.value}
+              </div>
+              <div className={styles.statLabel}>{s.label}</div>
+              <div className={styles.statSub}>{s.sub}</div>
             </div>
-            <div className={styles.statLabel}>{s.label}</div>
-            <div className={styles.statSub}>{s.sub}</div>
-          </div>
-        </Col>
-      ))}
-    </Row>
+          </Col>
+        ))}
+      </Row>
+      <WhatBillsLeave bills={bills} formatCurrency={formatCurrency} />
+    </>
   );
 }
 
@@ -559,6 +657,7 @@ function YearlyProjection({
     () => yearlyBreakdown(bills, (id) => categoryLabel(categoryFor(id)?.name, t) || "—"),
     [bills, categoryFor, t],
   );
+  const approximate = useMemo(() => totalsAreApproximate(bills.filter((b) => b.isActive)), [bills]);
 
   return (
     <div className={`${styles.yearlyCard} p-3 p-lg-4`}>
@@ -579,14 +678,18 @@ function YearlyProjection({
               figures people actually budget against. */}
           <div className="d-flex align-items-baseline justify-content-between gap-2">
             <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.perYear")}</span>
-            <span className={styles.yearlyAmount}>{formatCurrency(total)}</span>
+            <span className={styles.yearlyAmount} title={approximate.yearly ? t("bills.approximate") : undefined}>
+              {approximate.yearly ? "~" : ""}
+              {formatCurrency(total)}
+            </span>
           </div>
 
           <hr className={styles.yearlyDivider} />
 
           <div className="d-flex align-items-baseline justify-content-between gap-2 mb-3">
             <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.monthlyEquivalentLabel")}</span>
-            <span className="fw-semibold" style={{ fontSize: 17, fontVariantNumeric: "tabular-nums" }}>
+            <span className="fw-semibold" style={{ fontSize: 17, fontVariantNumeric: "tabular-nums" }} title={approximate.monthly ? t("bills.approximate") : undefined}>
+              {approximate.monthly ? "~" : ""}
               {formatCurrency(total / 12)}
               <span className="fw-normal ms-1" style={{ fontSize: 11, opacity: 0.7 }}>
                 {t("bills.perMonthShort")}

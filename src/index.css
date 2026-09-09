@@ -80,6 +80,9 @@
   --figure-income: var(--color-text-primary);
   --figure-expense: var(--color-text-primary);
 
+  /* Text-safe versions of the semantic colours: the solid ones are tuned for
+     fills and strokes, and several of them are too light to read as text. */
+  --color-invest-text: #4338ca;
   --color-income-text: #166534;
   --color-expense-text: #991b1b;
   --color-goal-text: #92400e;
@@ -133,6 +136,7 @@
   --figure-income: color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary));
   --figure-expense: color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary));
 
+  --color-invest-text: #a5b4fc;
   --color-income-text: #4ade80;
   --color-expense-text: #f87171;
   --color-goal-text: #fbbf24;
@@ -194,6 +198,21 @@
   /* Never wider than the screen — an overflowing menu was pushing the page
      sideways and creating a horizontal scrollbar. */
   max-width: calc(100vw - 1rem);
+}
+
+/* A row menu on a card opens inward, always.
+ *
+ * Popper decides where a menu goes from the space around it, and on the last
+ * column of the grid it kept choosing the space to the right — which is off the
+ * screen. There is no judgement needed here: the toggle sits at the card's right
+ * edge, so the menu belongs directly under it, right edges aligned. Pinning it
+ * in CSS is deterministic in a way that a placement calculation is not.
+ */
+.card-row-menu .dropdown-menu {
+  position: absolute !important;
+  inset: 100% 0 auto auto !important;
+  transform: none !important;
+  margin-top: 4px;
 }
 
 .dropdown-item {

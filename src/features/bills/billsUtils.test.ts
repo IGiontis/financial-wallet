@@ -26,6 +26,8 @@ import {
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
+  salaryShare,
+  totalsAreApproximate,
   urgencyToken,
   periodProgress,
   periodTotals,
@@ -1606,5 +1608,69 @@ describe("urgencyToken", () => {
     for (const urgency of ["paid", "late", "soon", "later"] as const) {
       expect(urgencyToken(urgency)).toMatch(/^--/);
     }
+  });
+});
+
+describe("totalsAreApproximate", () => {
+  it("calls a plain set of monthly bills exact", () => {
+    const fixed = [makeBill({ amount: 40, frequency: "monthly" }), makeBill({ amount: 15, frequency: "monthly" })];
+
+    expect(totalsAreApproximate(fixed)).toEqual({ monthly: false, yearly: false });
+  });
+
+  it("marks both figures approximate when an amount is only an estimate", () => {
+    // Electricity: the real charge arrives with the bill.
+    const withVariable = [makeBill({ amount: 40, frequency: "monthly" }), makeBill({ amount: 90, frequency: "monthly", isVariableAmount: true })];
+
+    expect(totalsAreApproximate(withVariable)).toEqual({ monthly: true, yearly: true });
+  });
+
+  it("marks only the monthly figure approximate when a bill is spread over months", () => {
+    // A 360 yearly gym is 30 a month in the sense that it is nothing for
+    // eleven months and 360 once. The year, though, is exactly 360.
+    expect(totalsAreApproximate([makeBill({ amount: 360, frequency: "yearly" })])).toEqual({ monthly: true, yearly: false });
+    expect(totalsAreApproximate([makeBill({ amount: 60, frequency: "monthly", intervalCount: 2 })])).toEqual({ monthly: true, yearly: false });
+    expect(totalsAreApproximate([makeBill({ amount: 12, frequency: "weekly" })])).toEqual({ monthly: true, yearly: false });
+  });
+
+  it("says nothing is approximate when there are no bills at all", () => {
+    expect(totalsAreApproximate([])).toEqual({ monthly: false, yearly: false });
+  });
+});
+
+describe("salaryShare", () => {
+  it("splits the pay into what the bills take and what is left", () => {
+    const share = salaryShare(1800, 640)!;
+
+    expect(share.left).toBe(1160);
+    expect(share.takenPct).toBeCloseTo(35.56, 2);
+    expect(share.leftPct).toBeCloseTo(64.44, 2);
+    // The two shares are the whole of it.
+    expect(share.takenPct + share.leftPct).toBeCloseTo(100, 6);
+    // And the money agrees with the percentages.
+    expect((share.left / 1800) * 100).toBeCloseTo(share.leftPct, 2);
+  });
+
+  it("reports an overrun rather than pretending the pay covers it", () => {
+    const share = salaryShare(1000, 1250)!;
+
+    expect(share.left).toBe(-250);
+    expect(share.takenPct).toBe(125);
+    // No negative share: the bar cannot be less than empty, and the overrun is
+    // already reported by `left` going under.
+    expect(share.leftPct).toBe(0);
+  });
+
+  it("handles the ends without dividing by nothing", () => {
+    expect(salaryShare(0, 400)).toBeUndefined();
+    expect(salaryShare(-100, 400)).toBeUndefined();
+    expect(salaryShare(Number.NaN, 400)).toBeUndefined();
+
+    const nothingOwed = salaryShare(1800, 0)!;
+    expect(nothingOwed).toEqual({ left: 1800, takenPct: 0, leftPct: 100 });
+  });
+
+  it("treats a negative bill total as nothing owed", () => {
+    expect(salaryShare(1800, -50)).toEqual({ left: 1800, takenPct: 0, leftPct: 100 });
   });
 });

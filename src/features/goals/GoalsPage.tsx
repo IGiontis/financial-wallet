@@ -276,7 +276,6 @@ export default function GoalsPage() {
                 <Col xs={12} md={6} xl={4} key={goal.id}>
                   <GoalCard
                     goal={goal}
-                    showTypeBadge={false}
                     formatCurrency={formatCurrency}
                     onViewHistory={setHistoryGoal}
                     onAddDeposit={setDepositGoal}

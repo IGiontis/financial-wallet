@@ -5,13 +5,12 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   Badge,
   Button,
   Card,
   CardBody,
-  Col,
   Dropdown,
   DropdownItem,
   DropdownMenu,
@@ -20,8 +19,6 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
-  Progress,
-  Row,
 } from "reactstrap";
 import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentContribution } from "../../../shared/types/IndexTypes";
@@ -29,125 +26,87 @@ import { useContributions } from "../useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
 import i18n from "../../../i18n";
-import { toDate, formatDate, getStatusConfig, getGoalTypeLabel, getGoalTypeBadgeColor } from "./goalDisplay";
+import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 
-// ─── StatCell ─────────────────────────────────────────────────────────────────
-// Declared at module scope so React preserves component identity between renders.
-// Variants are token-tinted, so they adapt to light and dark instead of being
-// fixed pastels.
+// ─── Progress ring ────────────────────────────────────────────────────────────
+// The share of the target, drawn once and read at a glance. It replaced a row
+// of identical bordered boxes that reported figures without ever answering the
+// question a savings goal raises: how far along am I, and will I get there.
 
-type StatVariant = "neutral" | "red" | "green-current" | "emerald";
-
-const STAT_TOKEN: Record<Exclude<StatVariant, "neutral">, string> = {
-  red: "--color-expense",
-  "green-current": "--color-income",
-  emerald: "--color-income",
-};
-
-export function StatCell({ label, value, xs = 6, variant = "neutral" }: { label: string; value: string | number; xs?: number; variant?: StatVariant }) {
-  const isNeutral = variant === "neutral";
-  const token = isNeutral ? undefined : STAT_TOKEN[variant];
-
-  const style: React.CSSProperties = isNeutral
-    ? { background: "var(--color-surface)", border: "1.5px solid var(--color-border-primary)" }
-    : {
-        background: `color-mix(in srgb, var(${token}) 14%, transparent)`,
-        border: `1.5px solid color-mix(in srgb, var(${token}) 35%, transparent)`,
-      };
-
-  const labelColor = isNeutral ? "var(--color-text-secondary)" : `var(${token})`;
-  const valueColor = isNeutral ? "var(--color-text-primary)" : `var(${token})`;
+function ProgressRing({ pct, accent, centre }: { pct: number; accent: string; centre: string }) {
+  const size = 74;
+  const stroke = 8;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const filled = Math.max(0, Math.min(pct, 100)) / 100;
 
   return (
-    <Col xs={xs}>
-      <div style={{ ...style, borderRadius: 8, padding: "8px 10px" }}>
-        <p style={{ fontSize: 11, fontWeight: 400, color: labelColor, margin: "0 0 2px" }}>{label}</p>
-        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: valueColor }}>{value}</p>
-      </div>
-    </Col>
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }} aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={`color-mix(in srgb, var(${accent}) 20%, transparent)`} strokeWidth={stroke} />
+        {filled > 0 && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={`var(${accent})`}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${circumference * filled} ${circumference}`}
+          />
+        )}
+      </svg>
+      <span
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "grid",
+          placeItems: "center",
+          fontSize: 15,
+          fontWeight: 650,
+          color: "var(--color-text-primary)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {centre}
+      </span>
+    </div>
   );
 }
 
-// ─── Recurring progress bar ───────────────────────────────────────────────────
-// Five visual states for a recurring goal's period progress.
+// ─── Foot figure ──────────────────────────────────────────────────────────────
+// Three of these along the bottom, divided by rules rather than boxed. Boxes
+// give every figure the same weight; rules let the numbers themselves carry it.
 
-interface RecurringProgressBarProps {
-  isAhead: boolean;
-  isCreditCovered: boolean;
-  hasDebt: boolean;
-  isWithdrawalDebt: boolean;
-  pctOfTotal: number;
-  currentMonthSegmentPct: number;
-  displayPct: number;
-  progressColor: string;
+function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, padding: "9px 6px", textAlign: "center" }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13,
+          fontWeight: 650,
+          color: tone ?? "var(--color-text-primary)",
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {value}
+      </p>
+      <p style={{ margin: "2px 0 0", fontSize: 11, lineHeight: 1.25, color: "var(--color-text-secondary)" }}>{label}</p>
+    </div>
+  );
 }
 
-export function RecurringProgressBar({
-  isAhead,
-  isCreditCovered,
-  hasDebt,
-  isWithdrawalDebt,
-  pctOfTotal,
-  currentMonthSegmentPct,
-  displayPct,
-  progressColor,
-}: RecurringProgressBarProps) {
-  const track = (token: string, strength = 22): React.CSSProperties => ({
-    background: `color-mix(in srgb, var(${token}) ${strength}%, transparent)`,
-  });
-
-  // 1. Ahead — net-positive this period
-  if (isAhead) {
-    return (
-      <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-income") }}>
-        <div style={{ height: 8, borderRadius: 4, background: "var(--color-income)", width: "100%" }} />
-      </div>
-    );
-  }
-
-  // 2. Covered by carryover — nothing deposited this month, credit covers it
-  if (isCreditCovered) {
-    return (
-      <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-income", 30) }}>
-        <div
-          style={{
-            height: "100%",
-            width: "100%",
-            background: "var(--color-income)",
-            backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.22) 4px, rgba(255,255,255,0.22) 8px)",
-          }}
-        />
-      </div>
-    );
-  }
-
-  // 3. Arrears — past missed months (primary = this period's target, red = arrears)
-  if (hasDebt) {
-    return (
-      <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-        <div style={{ position: "absolute", left: 0, width: `${currentMonthSegmentPct}%`, height: "100%", ...track("--bs-primary", 28) }} />
-        <div style={{ position: "absolute", left: `${currentMonthSegmentPct}%`, width: `${100 - currentMonthSegmentPct}%`, height: "100%", ...track("--color-expense", 28) }} />
-        <div style={{ position: "absolute", left: 0, width: `${pctOfTotal}%`, height: "100%", background: "var(--bs-primary)", borderRadius: "4px 0 0 4px", zIndex: 2 }} />
-        <div style={{ position: "absolute", left: `calc(${currentMonthSegmentPct}% - 1px)`, top: 0, width: 2, height: "100%", background: "var(--color-surface)", zIndex: 3 }} />
-      </div>
-    );
-  }
-
-  // 4. Over-withdrawn — withdrawal consumed the credit, empty red bar
-  if (isWithdrawalDebt) {
-    return <div style={{ height: 8, borderRadius: 4, marginBottom: 6, overflow: "hidden", ...track("--color-expense") }} />;
-  }
-
-  // 5. Normal — credit silently baked into totalDue so displayPct is correct
-  return <Progress value={displayPct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: 6 }} />;
-}
-
+const FIGURE_DIVIDER = <div style={{ width: 1, background: "var(--color-border-tertiary)", alignSelf: "stretch" }} />;
 
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
 
 export interface GoalCardProps {
   goal: InvestmentGoalWithStats;
-  showTypeBadge?: boolean;
   onViewHistory: (goal: InvestmentGoalWithStats) => void;
   onAddDeposit: (goal: InvestmentGoalWithStats) => void;
   onWithdraw: (goal: InvestmentGoalWithStats) => void;
@@ -157,13 +116,15 @@ export interface GoalCardProps {
   formatCurrency: (n: number) => string;
 }
 
-export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
+export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Read once per render: the pace and the projection are measured against it,
+  // and two different "now"s inside one card would report two different days.
+  const now = new Date();
 
   const isTargetedGoal = goal.goalType === "targeted";
   const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
   const isYearly = goal.targetPeriod === "yearly";
-  const periodLabel = isYearly ? "year" : "month";
 
   const st = goal.status ? getStatusConfig(goal.status) : null;
   const isPaused = !goal.isActive && !goal.isCompleted;
@@ -208,223 +169,286 @@ export function GoalCard({ goal, showTypeBadge = false, onViewHistory, onAddDepo
   // credit reduction without us needing to show a separate credit segment.
   const displayPct = totalDue > 0 ? Math.min((currentPeriodSaved / totalDue) * 100, 100) : goal.status !== "behind" ? 100 : 0;
 
-  // For the arrears split bar
-  const pctOfTotal = totalDue > 0 ? Math.min((currentPeriodSaved / totalDue) * 100, 100) : 0;
-  const currentMonthSegmentPct = totalDue > 0 ? (targetAmount / totalDue) * 100 : 100;
 
   // Non-recurring pct (targeted goals)
   const pct = Math.min(goal.percentageReached ?? 0, 100);
 
-  const progressColor = goal.status === "completed" ? "success" : goal.status === "behind" ? "danger" : goal.status === "ahead" ? "info" : "success";
 
   // StatCell and RecurringProgressBar are declared at module scope (below) so
   // React keeps their identity across renders instead of remounting them.
 
-  // ── Recurring progress note ────────────────────────────────────────────────
-  const recurringNote = () => {
-    if (hasDebt) {
-      return (
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          {pctOfTotal.toFixed(0)}% of total due{" · "}
-          <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(Math.max(totalDue - currentPeriodSaved, 0))}</span> remaining
-        </p>
-      );
+  // ── What the card says under the figure ────────────────────────────────────
+  // One line, and it is the line worth reading: for a goal with a deadline it
+  // is where the current pace actually lands, and for a recurring one it is how
+  // this period stands. Everything else is a figure in the foot.
+
+  const projection = projectedFinish(goal, now);
+  const pace = savingPace(goal, now);
+  const quietDays = daysSinceContribution(goal, now);
+
+  const monthYear = (date: Date) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(date);
+
+  const headline = (): { text: string; tone?: string } | undefined => {
+    if (isRecurring) {
+      if (hasDebt) return { text: `${formatCurrency(Math.max(totalDue - currentPeriodSaved, 0))} ${i18n.t("goals.stillOwed")}`, tone: "var(--color-expense-text)" };
+      if (isCreditCovered) return { text: `${i18n.t("goals.coveredByCarryover")} · ${formatCurrency(periodCredit)}`, tone: "var(--color-income-text)" };
+      if (isAhead) return { text: `${formatCurrency(periodSurplus)} ${i18n.t("goals.surplus").toLowerCase()}`, tone: "var(--color-income-text)" };
+      if (isWithdrawalDebt) return { text: `${formatCurrency(remaining)} ${i18n.t("goals.stillOwed")}`, tone: "var(--color-expense-text)" };
+      return undefined;
     }
 
-    if (isCreditCovered) {
-      return (
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>{i18n.t("goals.coveredByCarryover")}</span>
-          {" · "}
-          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>{formatCurrency(periodCredit)}</span> credit applied
-        </p>
-      );
+    if (isEffectivelyCompleted) return undefined;
+
+    if (projection) {
+      const when = i18n.t("goals.finishesIn", { month: monthYear(projection.date) });
+      if (projection.monthsLate) return { text: `${when} · ${i18n.t("goals.monthsPastDeadline", { count: projection.monthsLate })}`, tone: "var(--color-expense-text)" };
+      if (projection.monthsEarly) return { text: `${when} · ${i18n.t("goals.monthsToSpare", { count: projection.monthsEarly })}`, tone: "var(--color-income-text)" };
+      return { text: when };
     }
 
-    if (isAhead) {
-      return (
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          {"100% · "}
-          <span style={{ fontWeight: 600, color: "var(--color-income)" }}>
-            {formatCurrency(periodSurplus)} surplus this {periodLabel}
-          </span>
-        </p>
-      );
+    // Nothing in the pot yet: there is no rate to project from, and guessing
+    // one would be the card inventing a date.
+    if (isTargetedGoal && remaining > 0 && !pace) {
+      return goal.monthlyRequired ? { text: i18n.t("goals.startWith", { amount: formatCurrency(perWeek(goal.monthlyRequired)) }) } : { text: i18n.t("goals.noPaceYet") };
     }
-
-    if (isWithdrawalDebt) {
-      return (
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-          <span style={{ fontWeight: 600, color: "var(--color-expense)" }}>{formatCurrency(remaining)}</span> owed this {periodLabel}
-          <span style={{ color: "var(--color-text-secondary)" }}> · withdrawn past credit</span>
-        </p>
-      );
-    }
-
-    // Normal — credit is silently baked in, no mention of it
-    return (
-      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-        <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{displayPct.toFixed(1)}%</span> of {periodLabel} target
-        {remaining > 0 && (
-          <>
-            {" · "}
-            <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(remaining)}</span> remaining
-          </>
-        )}
-      </p>
-    );
+    return undefined;
   };
+
+  const note = headline();
+
+  // ── The three figures along the foot ───────────────────────────────────────
+  const lastMoveValue = quietDays === undefined ? i18n.t("goals.neverShort") : i18n.t("goals.daysShort", { count: quietDays });
+
+  const figures: { label: string; value: string; tone?: string }[] = isRecurring
+    ? hasDebt
+      ? [
+          { label: i18n.t(isYearly ? "goals.yearsBehindCount" : "goals.monthsBehindCount", { count: missedMonths }), value: String(missedMonths), tone: "var(--color-expense-text)" },
+          { label: i18n.t("goals.stillOwed"), value: formatCurrency(remaining), tone: "var(--color-expense-text)" },
+          { label: i18n.t(isYearly ? "goals.thisYearShort" : "goals.thisMonthShort"), value: formatCurrency(currentPeriodSaved) },
+        ]
+      : [
+          { label: i18n.t(isYearly ? "goals.thisYearShort" : "goals.thisMonthShort"), value: formatCurrency(currentPeriodSaved) },
+          { label: i18n.t("goals.targetLabel").toLowerCase(), value: formatCurrency(targetAmount) },
+          { label: i18n.t("goals.allTime"), value: formatCurrency(goal.totalSaved) },
+        ]
+    : isTargetedGoal
+      ? // One figure to a cell. Two of them side by side — "€140.00 · €32.19/wk" —
+        // ran past the third of a card each cell gets and were cut off mid-number,
+        // which is worse than not showing them at all.
+        goal.monthlyRequired !== undefined
+        ? pace
+          ? [
+              { label: i18n.t("goals.aMonth"), value: formatCurrency(goal.monthlyRequired) },
+              { label: i18n.t("goals.yourPace"), value: formatCurrency(pace), tone: pace < goal.monthlyRequired ? "var(--color-expense-text)" : "var(--color-income-text)" },
+              { label: i18n.t("goals.lastMove"), value: lastMoveValue },
+            ]
+          : // Nothing saved yet, so a pace and a last deposit are both blank. What
+            // helps here is the size of the thing to start, not two dashes.
+            [
+              { label: i18n.t("goals.aMonth"), value: formatCurrency(goal.monthlyRequired) },
+              { label: i18n.t("goals.aWeek"), value: formatCurrency(perWeek(goal.monthlyRequired)) },
+              { label: i18n.t("goals.monthsLeftShort", { count: goal.monthsLeft ?? 0 }), value: String(goal.monthsLeft ?? 0) },
+            ]
+        : [
+            { label: i18n.t("goals.remaining"), value: formatCurrency(remaining) },
+            { label: i18n.t("goals.yourPace"), value: pace ? formatCurrency(pace) : "—" },
+            { label: i18n.t("goals.lastMove"), value: lastMoveValue },
+          ]
+      : [
+          { label: i18n.t("goals.deposited").toLowerCase(), value: formatCurrency(goal.totalDeposited) },
+          { label: i18n.t("goals.withdrawn").toLowerCase(), value: formatCurrency(goal.totalWithdrawn) },
+          { label: i18n.t("goals.averagePerMonth"), value: pace ? formatCurrency(pace) : "—" },
+        ];
+
+  // ── Identity band ──────────────────────────────────────────────────────────
+  const deadlineDate = toDate(goal.deadline);
+  const bandSubtitle = [
+    isRecurring || !deadlineDate ? getGoalTypeLabel(goal) : i18n.t("goals.deadlineOn", { date: formatDate(deadlineDate) }),
+    !isRecurring && goal.monthsLeft !== undefined && goal.monthsLeft > 0 ? i18n.t("goals.monthsLeftCount", { count: goal.monthsLeft }) : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // Two tokens for one colour, on purpose. The solid one is what the ring, the
+  // band and the borders are drawn in; the `-text` one is the readable version
+  // of the same colour, which matters in light mode where green on white
+  // measures 3.1:1 as text and passes comfortably as a stroke.
+  const accent =
+    goal.status === "behind" ? "--color-expense" : goal.status === "ahead" || goal.status === "completed" ? "--color-income" : isRecurring ? "--bs-primary" : "--color-goal";
+  const accentText = accent === "--bs-primary" ? "--color-link" : `${accent}-text`;
+
+  const ringPct = isRecurring ? displayPct : pct;
+  const hasRing = (isRecurring && targetAmount > 0) || (isTargetedGoal && !!goal.targetAmount);
+  const heroAmount = isRecurring ? currentPeriodSaved : goal.totalSaved;
+  const heroSubtitle = isRecurring
+    ? i18n.t("goals.ofTarget", { amount: formatCurrency(targetAmount) })
+    : goal.targetAmount
+      ? [i18n.t("goals.ofTarget", { amount: formatCurrency(goal.targetAmount) }), remaining > 0 ? i18n.t("goals.leftToGo", { amount: formatCurrency(remaining) }) : undefined].filter(Boolean).join(" · ")
+      : i18n.t("investments.totalSaved");
 
   return (
     <Card
       className="mb-3 h-100"
       style={{
-        border: "0.5px solid var(--color-border-tertiary)",
+        border: "1px solid var(--color-border-tertiary)",
         borderRadius: "var(--border-radius-lg)",
         boxShadow: "none",
+        // Deliberately not `overflow: hidden`. Clipping tidies the band's
+        // corners and takes the row menu with it: the dropdown opened inside
+        // the card and was cut off at its edge.
         opacity: isPaused ? 0.72 : 1,
         transition: "opacity 0.2s",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <CardBody style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="d-flex justify-content-between gap-3 align-items-start mb-3">
-          <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
-            <span style={{ fontSize: 24, flexShrink: 0 }}>{goal.icon ?? "💰"}</span>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontWeight: 600, margin: 0, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</p>
-              <div className="d-flex align-items-center gap-1 flex-wrap">
-                <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{getGoalTypeLabel(goal)}</p>
-                {showTypeBadge && (
-                  <Badge color={getGoalTypeBadgeColor(goal)} style={{ fontSize: 10, padding: "2px 6px" }}>
-                    {getGoalTypeLabel(goal).split(" · ")[0]}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* ── Identity band ─────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "11px 14px",
+          background: `color-mix(in srgb, var(${accent}) 10%, transparent)`,
+          borderBottom: `1px solid color-mix(in srgb, var(${accent}) 26%, transparent)`,
+          // Inside the card's own border, so a pixel tighter than its radius.
+          borderTopLeftRadius: "calc(var(--border-radius-lg) - 1px)",
+          borderTopRightRadius: "calc(var(--border-radius-lg) - 1px)",
+        }}
+      >
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            display: "grid",
+            placeItems: "center",
+            fontSize: 17,
+            flexShrink: 0,
+            background: "var(--color-surface-raised)",
+            border: `1px solid color-mix(in srgb, var(${accent}) 38%, transparent)`,
+          }}
+        >
+          {goal.icon ?? "💰"}
+        </span>
 
-          <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
-            <div className="d-flex flex-column align-items-end gap-1">
-              {st && (
-                <Badge color={st.color} style={{ fontSize: 11 }}>
-                  {st.label}
-                </Badge>
-              )}
-              {isPaused && (
-                <Badge color="warning" style={{ fontSize: 11 }}>
-                  Paused
-                </Badge>
-              )}
-            </div>
-            <Dropdown isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
-              <DropdownToggle
-                tag="button"
-                style={{ background: "transparent", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
-              >
-                <FiMoreVertical size={16} />
-              </DropdownToggle>
-              <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
-                <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={isEffectivelyCompleted}>
-                  Edit
-                </DropdownItem>
-                <DropdownItem style={{ fontSize: 13 }} onClick={() => onTogglePause(goal)} disabled={isEffectivelyCompleted}>
-                  {goal.isActive ? "Pause" : "Resume"}
-                </DropdownItem>
-                <DropdownItem divider />
-                <DropdownItem style={{ fontSize: 13, color: "var(--bs-danger)" }} onClick={() => onDelete(goal)}>
-                  Delete
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {goal.name}
+          </p>
+          <p style={{ margin: 0, fontSize: 11.5, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bandSubtitle}</p>
         </div>
 
-        {/* ── Recurring: progress bar + note ─────────────────────────────── */}
-        {isRecurring && targetAmount > 0 && (
-          <>
-            <RecurringProgressBar
-              isAhead={isAhead}
-              isCreditCovered={isCreditCovered}
-              hasDebt={hasDebt}
-              isWithdrawalDebt={isWithdrawalDebt}
-              pctOfTotal={pctOfTotal}
-              currentMonthSegmentPct={currentMonthSegmentPct}
-              displayPct={displayPct}
-              progressColor={progressColor}
-            />
-            {recurringNote()}
-          </>
-        )}
+        <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
+          {isPaused && (
+            <Badge color="warning" style={{ fontSize: 10.5 }}>
+              {i18n.t("common.paused")}
+            </Badge>
+          )}
+          {st && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "3px 9px",
+                borderRadius: 999,
+                whiteSpace: "nowrap",
+                color: `var(${accentText})`,
+                // The card's surface rather than another tint: stacked on the
+                // band's own 10% wash, a 15% pill left the red label at 3.82:1
+                // in dark mode. On the surface it clears 5:1 and reads as a chip
+                // sitting on the band, which is what it is.
+                background: "var(--color-surface-raised)",
+                border: `1px solid color-mix(in srgb, var(${accent}) 38%, transparent)`,
+              }}
+            >
+              {st.label}
+            </span>
+          )}
+          <Dropdown className="card-row-menu" isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
+            <DropdownToggle
+              tag="button"
+              aria-label={goal.name}
+              style={{ background: "transparent", border: "none", padding: "2px 2px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
+            >
+              <FiMoreVertical size={16} />
+            </DropdownToggle>
+            <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
+              <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={isEffectivelyCompleted}>
+                {i18n.t("common.edit")}
+              </DropdownItem>
+              <DropdownItem style={{ fontSize: 13 }} onClick={() => onTogglePause(goal)} disabled={isEffectivelyCompleted}>
+                {i18n.t(goal.isActive ? "goals.pause" : "goals.resume")}
+              </DropdownItem>
+              <DropdownItem divider />
+              {/* The token red rather than Bootstrap's: #dc3545 measures 3.03:1 on
+                  the dark menu, and this one is tuned for both themes. */}
+              <DropdownItem style={{ fontSize: 13, color: "var(--color-expense)" }} onClick={() => onDelete(goal)}>
+                {i18n.t("common.delete")}
+              </DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+      </div>
 
-        {/* ── Targeted: deadline progress ───────────────────────────────── */}
-        {isTargetedGoal && !isRecurring && goal.targetAmount && (
-          <>
-            <div className="d-flex justify-content-between mb-1">
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</span>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>of {formatCurrency(goal.targetAmount)}</span>
-            </div>
-            <Progress value={pct} color={progressColor} style={{ height: 8, borderRadius: 4, marginBottom: "0.5rem" }} />
-            <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: "0.75rem" }}>
-              <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{pct.toFixed(1)}%</span> reached
-              {(goal.remaining ?? 0) > 0 && (
-                <>
-                  {" · "}
-                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{formatCurrency(goal.remaining!)}</span> remaining
-                </>
-              )}
+      {/* ── The figure, and where it is going ─────────────────────────────── */}
+      <CardBody style={{ padding: "14px", flex: "1 1 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {hasRing && <ProgressRing pct={ringPct} accent={accent} centre={`${Math.round(ringPct)}%`} />}
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 25,
+                fontWeight: 650,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                color: "var(--color-text-primary)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {formatCurrency(heroAmount)}
             </p>
-          </>
-        )}
-
-        {/* ── Open-ended tracking ───────────────────────────────────────── */}
-        {!isTargetedGoal && !isRecurring && (
-          <div className="mb-3">
-            <p style={{ fontSize: 22, fontWeight: 600, margin: 0, color: "var(--color-text-primary)" }}>{formatCurrency(goal.totalSaved)}</p>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>total saved</p>
+            <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
+            {note && <p style={{ margin: "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
           </div>
-        )}
-
-        {/* ── Stat mini cards ───────────────────────────────────────────── */}
-        <Row className="g-2 mb-3">
-          {/* Behind: arrears info only when status is behind */}
-          {isRecurring && hasDebt && <StatCell label={isYearly ? "Yrs behind" : "Mths behind"} value={missedMonths} variant="red" />}
-          {isRecurring && hasDebt && <StatCell label="Still owed" value={formatCurrency(remaining)} variant="red" />}
-          {/* Ahead: surplus info only when status is ahead */}
-          {isRecurring && isAhead && <StatCell label={i18n.t("goals.surplus")} value={formatCurrency(periodSurplus)} variant="green-current" />}
-          {/* Credit: only when month is covered purely by carryover (no deposits yet) */}
-          {isRecurring && isCreditCovered && <StatCell label="Credit" value={formatCurrency(periodCredit)} variant="emerald" />}
-          {/* Withdrawal debt */}
-          {isRecurring && isWithdrawalDebt && <StatCell label="Owed" value={formatCurrency(remaining)} variant="red" />}
-          {/* Always-visible */}
-          {isRecurring && <StatCell label={`This ${periodLabel}`} value={formatCurrency(currentPeriodSaved)} />}
-          {isRecurring && <StatCell label="Target" value={formatCurrency(targetAmount)} />}
-          {isRecurring && <StatCell label="All-time" value={formatCurrency(goal.totalSaved)} />}
-          {!isRecurring && goal.monthlyRequired !== undefined && <StatCell label="Monthly needed" value={formatCurrency(goal.monthlyRequired)} />}
-          {goal.monthsLeft !== undefined && <StatCell label="Months left" value={goal.monthsLeft} />}
-          {goal.deadline && <StatCell label="Deadline" value={formatDate(toDate(goal.deadline))} />}
-          <StatCell label="Contributions" value={goal.contributionCount} xs={isRecurring || goal.monthlyRequired !== undefined ? 6 : 12} />
-        </Row>
-
-        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", marginBottom: "0.75rem" }}>{goal.notes}</p>}
-
-        {/* ── Action buttons ────────────────────────────────────────────── */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
-          {!isEffectivelyCompleted && (
-            <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 100 }} onClick={() => onAddDeposit(goal)}>
-              Add deposit
-            </Button>
-          )}
-          {goal.totalSaved > 0 && !isEffectivelyCompleted && (
-            <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 80 }} onClick={() => onWithdraw(goal)}>
-              Withdraw
-            </Button>
-          )}
-          <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 70 }} onClick={() => onViewHistory(goal)}>
-            {i18n.t("goals.history")}
-          </Button>
         </div>
+
+        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", margin: "12px 0 0" }}>{goal.notes}</p>}
       </CardBody>
+
+      {/* ── Three figures, divided by rules ───────────────────────────────── */}
+      <div
+        style={{
+          display: "flex",
+          borderTop: "1px solid var(--color-border-tertiary)",
+          background: "color-mix(in srgb, var(--color-text-primary) 3%, transparent)",
+        }}
+      >
+        {figures.map((figure, index) => (
+          <Fragment key={figure.label}>
+            {index > 0 && FIGURE_DIVIDER}
+            <Figure {...figure} />
+          </Fragment>
+        ))}
+      </div>
+
+      {/* ── Actions ───────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "11px 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+        {!isEffectivelyCompleted && (
+          <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 96 }} onClick={() => onAddDeposit(goal)}>
+            {i18n.t("investments.addDeposit")}
+          </Button>
+        )}
+        {goal.totalSaved > 0 && !isEffectivelyCompleted && (
+          <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 84 }} onClick={() => onWithdraw(goal)}>
+            {i18n.t("investments.withdraw")}
+          </Button>
+        )}
+        <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 78 }} onClick={() => onViewHistory(goal)}>
+          {i18n.t("goals.history")}
+        </Button>
+      </div>
     </Card>
   );
 }
