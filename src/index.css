@@ -303,6 +303,52 @@
   border-color: var(--color-border-tertiary);
 }
 
+/* ── Which way the money goes ─────────────────────────────────────────────── */
+/* A wash over a form that has one question deciding everything else on it: is
+   this money leaving or arriving. Six per cent of the semantic colour is enough
+   to tell at a glance — the thing that must never be misread — and light enough
+   that nothing written on it gets harder to read. The transition answers a tap;
+   it is the only motion on these dialogs. */
+
+.wash-expense,
+.wash-income {
+  transition: background-color 0.25s ease;
+}
+
+.wash-expense {
+  background: color-mix(in srgb, var(--color-expense) 6%, transparent);
+}
+
+.wash-income {
+  background: color-mix(in srgb, var(--color-income) 6%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wash-expense,
+  .wash-income {
+    transition: none;
+  }
+}
+
+/* A scrollable modal whose body sits inside a <form>.
+ *
+ * Bootstrap makes `.modal-content` a flex column and lets `.modal-body` scroll
+ * inside it — but only while the body is a direct child. Wrap the body and the
+ * footer in a form, as a dialog that submits must, and the form becomes the
+ * flex child instead: it grows to whatever it contains, the body never shrinks,
+ * and the whole thing runs off the bottom of the screen with the buttons on it.
+ * Measured at 900x520: a 675px body inside a 464px dialog, footer off-screen.
+ *
+ * Handing the form the same treatment puts the body back in charge of its own
+ * overflow.
+ */
+.modal-dialog-scrollable .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Full-height sheets on phones so long forms stay reachable */
 @media (max-width: 575.98px) {
   .modal-dialog {

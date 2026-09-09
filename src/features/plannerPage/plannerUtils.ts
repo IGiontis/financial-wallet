@@ -1,6 +1,7 @@
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
+import { isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
 import { getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, paidInstallments } from "../bills/billsUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
@@ -819,12 +820,47 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
 
   for (const debt of debts) {
     const enabled = isOn(debt.id);
+    const label = debt.label || debt.person;
+
+    // A loan is paid off a month at a time, and the plan has to say so. Dropping
+    // the whole balance on the final due date put five years of a car loan into
+    // one day of the forecast: the months in between looked comfortable and the
+    // month of the due date looked ruinous, and neither was true.
+    if (isLoan(debt)) {
+      const instalment = monthlyInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
+      const payoff = loanPayoff(debt, 0, today);
+      if (!payoff || instalment <= 0) continue;
+
+      // Paid on the same day of the month the loan started on, stepped from the
+      // month index so a loan taken on the 31st does not walk back to the 28th.
+      const startDay = firestoreToDate(debt.date).getDate();
+      const dates: Date[] = [];
+      for (let month = 0; month < payoff.months; month++) {
+        const date = clampDay(today.getFullYear(), today.getMonth() + month, startDay);
+        if (date < today) continue;
+        if (date > end) break;
+        dates.push(date);
+      }
+
+      rows.push({
+        id: debt.id,
+        source: "debt",
+        label: debt.person,
+        total: enabled ? negate(instalment * dates.length) : 0,
+        occurrences: dates.length,
+        perMonth: -instalment,
+        enabled,
+      });
+      if (enabled) for (const date of dates) events.push({ kind: "goal", label, amount: -instalment, date });
+      continue;
+    }
+
     const dueDate = debt.dueDate ? startOfDay(firestoreToDate(debt.dueDate)) : today;
     const date = dueDate < today ? today : dueDate;
     if (date > end) continue;
 
     rows.push({ id: debt.id, source: "debt", label: debt.person, total: enabled ? negate(debt.remaining) : 0, occurrences: 1, enabled });
-    if (enabled) events.push({ kind: "goal", label: debt.label || debt.person, amount: -debt.remaining, date });
+    if (enabled) events.push({ kind: "goal", label, amount: -debt.remaining, date });
   }
 
   // ── Dated one-offs ────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { addMonths, differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import type { Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 
@@ -11,7 +12,7 @@ import type { Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Pairs each debt with its repayments and works out what is left. */
-export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[]): DebtWithStatus {
+export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[], now: Date = new Date()): DebtWithStatus {
   const payments = allPayments
     .filter((p) => p.debtId === debt.id)
     .sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
@@ -20,7 +21,14 @@ export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[]): DebtW
   // Clamped at zero: paying back more than was borrowed settles the loan, it
   // does not turn it into a debt the other way. If that happens it is a new
   // loan in the other direction, which is a thing the user can actually say.
-  const remaining = round2(Math.max(debt.amount - paid, 0));
+  const handedBack = round2(Math.max(debt.amount - paid, 0));
+
+  // A loan owes more than it was lent. "Borrowed less repaid" is exactly right
+  // between two people and wrong the moment interest is charged: it would have
+  // this figure fall faster than the debt actually does, and stop at zero
+  // several payments before the lender does.
+  const state = isLoan(debt) ? loanState({ ...debt, payments, paid, remaining: handedBack, isSettled: false }, now) : undefined;
+  const remaining = state ? state.balance : handedBack;
 
   return { ...debt, payments, paid, remaining, isSettled: remaining <= 0 };
 }
@@ -79,4 +87,241 @@ export function debtTotals(people: DebtPerson[]): DebtTotals {
  */
 export function plannableDebts(debts: DebtWithStatus[]): DebtWithStatus[] {
   return debts.filter((d) => d.direction === "owed_by_me" && !d.isSettled);
+}
+
+// ─── Loans ───────────────────────────────────────────────────────────────────
+//
+// A loan is a debt whose balance grows. Everything above treats what is owed as
+// "handed over, less handed back", which is exactly right between two people
+// and quietly wrong once a bank is involved: on €10,000 at 7% over five years
+// that arithmetic hides €1,881 of interest, reports the monthly cost as €167
+// when the bank takes €198, and after a year says the balance is €645 lower
+// than it is. Early payments are mostly interest; the principal barely moves.
+//
+// A debt with no rate behaves exactly as it always did — every function here
+// returns undefined for one, and nothing downstream changes.
+
+/**
+ * Is this repaid on a schedule, rather than whenever there is money?
+ *
+ * The term is what decides it, not the rate. Twelve άτοκες δόσεις carry no
+ * interest at all and are still a loan in every way that matters here: a fixed
+ * payment, a known end, and a plan that has to make room for it every month.
+ */
+export const isLoan = (debt: Pick<Debt, "termMonths">): boolean => (debt.termMonths ?? 0) > 0;
+
+/**
+ * The level payment that clears a loan over its term — the annuity formula.
+ *
+ * At 0% it is simply the principal split evenly, which is the limit of the
+ * formula and would otherwise divide by zero.
+ */
+function exactInstalment(principal: number, annualRatePct: number, termMonths: number, interestFreeMonths = 0): number {
+  if (!(principal > 0) || !(termMonths > 0)) return 0;
+
+  const monthly = annualRatePct / 100 / 12;
+  const free = Math.max(Math.min(interestFreeMonths, termMonths), 0);
+  // Nothing is ever charged: the payment is simply the debt split evenly.
+  if (monthly <= 0 || free >= termMonths) return principal / termMonths;
+
+  // The level payment that covers an interest-free opening and then amortises
+  // whatever is left over the months that do charge. After `free` payments the
+  // balance is `principal − free·P`, and that has to be the amount the annuity
+  // clears over the remaining term — so P·(1 + free·k) = principal·k, where k is
+  // the annuity factor for the paying months.
+  const paying = termMonths - free;
+  const growth = Math.pow(1 + monthly, paying);
+  const factor = (monthly * growth) / (growth - 1);
+  return (principal * factor) / (1 + free * factor);
+}
+
+export function monthlyInstalment(principal: number, annualRatePct: number, termMonths: number, interestFreeMonths = 0): number {
+  return round2(exactInstalment(principal, annualRatePct, termMonths, interestFreeMonths));
+}
+
+export interface LoanState {
+  /** What is actually still owed, principal only. */
+  balance: number;
+  /** Interest charged so far, over the life of the loan to this point. */
+  interestPaid: number;
+  /** Of everything handed over, the part that reduced the debt. */
+  principalPaid: number;
+  /** The contractual payment. */
+  instalment: number;
+}
+
+/**
+ * Where a loan stands, from its actual repayments rather than its schedule.
+ *
+ * Interest accrues on the balance day by day — actual days over 365, the
+ * convention consumer loans are usually quoted on — and each payment is applied
+ * to the interest accrued since the last one, then to the principal. Reading
+ * the real payments rather than the schedule means a missed month makes the
+ * balance go up, and an overpayment shortens the loan, both of which are true
+ * and neither of which a schedule would show.
+ */
+export function loanState(debt: DebtWithStatus, asOf: Date = new Date()): LoanState | undefined {
+  if (!isLoan(debt)) return undefined;
+
+  const instalment = monthlyInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
+  const dailyRate = (debt.interestRate ?? 0) / 100 / 365;
+  // Nothing accrues until the free months are up.
+  const chargesFrom = addMonths(firestoreToDate(debt.date), Math.max(debt.interestFreeMonths ?? 0, 0));
+
+  // Oldest first: interest is charged on what was owed at the time.
+  const payments = [...debt.payments].sort((a, b) => firestoreToDate(a.date).getTime() - firestoreToDate(b.date).getTime());
+
+  let balance = debt.amount;
+  let interestPaid = 0;
+  let principalPaid = 0;
+  let cursor = firestoreToDate(debt.date);
+
+  const accrueTo = (date: Date) => {
+    // Only the stretch on the far side of the free period is charged for.
+    const from = cursor > chargesFrom ? cursor : chargesFrom;
+    const days = Math.max(differenceInCalendarDays(date, from), 0);
+    if (days > 0 && balance > 0) {
+      const interest = balance * dailyRate * days;
+      balance += interest;
+      interestPaid += interest;
+    }
+    cursor = date;
+  };
+
+  for (const payment of payments) {
+    accrueTo(firestoreToDate(payment.date));
+    const amount = Math.abs(payment.amount);
+    // Whatever is left of a payment after the interest it met reduces the debt.
+    principalPaid += Math.min(amount, Math.max(balance, 0));
+    balance = Math.max(balance - amount, 0);
+  }
+
+  accrueTo(asOf);
+
+  return {
+    balance: round2(balance),
+    interestPaid: round2(interestPaid),
+    principalPaid: round2(principalPaid),
+    instalment,
+  };
+}
+
+export interface ScheduleRow {
+  /** 1-based payment number. */
+  number: number;
+  date: Date;
+  payment: number;
+  interest: number;
+  principal: number;
+  /** What is left after this payment. */
+  balance: number;
+}
+
+export interface Payoff {
+  /** Payments still to make. */
+  months: number;
+  /** The month the last one falls in. */
+  finishDate: Date;
+  /** Interest still to pay from here on. */
+  interestToCome: number;
+  schedule: ScheduleRow[];
+}
+
+/**
+ * What is left to pay, month by month, at a given monthly payment.
+ *
+ * `extra` is the overpayment being considered — the question a borrower
+ * actually asks. Every euro above the interest goes straight at the principal,
+ * so a small regular addition takes months off the end and compounds into a
+ * saving far larger than itself.
+ */
+export function loanPayoff(debt: DebtWithStatus, extra = 0, asOf: Date = new Date()): Payoff | undefined {
+  const state = loanState(debt, asOf);
+  if (!state || state.balance <= 0) return undefined;
+
+  const monthly = (debt.interestRate ?? 0) / 100 / 12;
+  // The exact annuity payment, not the rounded one on screen. Two tenths of a
+  // cent a month short is enough to leave a balance after the final payment and
+  // grow the schedule a sixty-first row for twelve cents.
+  const payment = exactInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0) + Math.max(extra, 0);
+  // How many of the free months are still ahead. Past them the rate applies to
+  // whatever is left, which is the whole point of the offer running out.
+  const chargesFrom = addMonths(firestoreToDate(debt.date), Math.max(debt.interestFreeMonths ?? 0, 0));
+  const freeLeft = Math.max(differenceInCalendarMonths(chargesFrom, asOf), 0);
+
+  // The walk keeps full precision and only the reported figures are rounded.
+  // Rounding the balance every month left a few cents outstanding after the
+  // final payment, and the schedule grew a sixty-first row for them — which is
+  // not what a bank does, and not what the borrower would ever see.
+  let balance = state.balance;
+  let interestToCome = 0;
+  const schedule: ScheduleRow[] = [];
+
+  // A payment that does not even meet the interest never clears the debt, so
+  // the walk is bounded rather than trusting the arithmetic to terminate.
+  for (let number = 1; balance > 0.005 && number <= 600; number++) {
+    const interest = number <= freeLeft ? 0 : balance * monthly;
+    const due = Math.min(payment, balance + interest);
+    const principal = due - interest;
+
+    // Under half a cent off the debt a month is not repayment: the payment is
+    // being swallowed by the interest and the loan never ends.
+    if (principal <= 0.005) return undefined;
+
+    balance -= principal;
+    interestToCome += interest;
+    // The three figures on a row are rounded so that they tie: the principal is
+    // what is left of the rounded payment after the rounded interest, rather
+    // than a third independent rounding. Otherwise a reader adding up the
+    // columns of their own schedule finds it eleven cents out.
+    const shownPayment = round2(due);
+    const shownInterest = round2(interest);
+    schedule.push({
+      number,
+      date: addMonths(asOf, number),
+      payment: shownPayment,
+      interest: shownInterest,
+      principal: round2(shownPayment - shownInterest),
+      balance: round2(Math.max(balance, 0)),
+    });
+  }
+
+  // The last payment carries the rounding, which is what a lender does too:
+  // sixty rows each rounded to the cent leave the principal column eleven cents
+  // short of the debt, and a schedule whose column does not add up to the loan
+  // is the first thing a careful reader checks.
+  const last = schedule[schedule.length - 1];
+  if (last) {
+    const drift = round2(state.balance - schedule.reduce((sum, row) => sum + row.principal, 0));
+    if (drift !== 0) {
+      last.principal = round2(last.principal + drift);
+      last.payment = round2(last.interest + last.principal);
+    }
+  }
+
+  return {
+    months: schedule.length,
+    finishDate: schedule.length ? schedule[schedule.length - 1].date : asOf,
+    interestToCome: round2(interestToCome),
+    schedule,
+  };
+}
+
+export interface PayoffSaving {
+  monthsSaved: number;
+  interestSaved: number;
+  finishDate: Date;
+}
+
+/** What paying `extra` a month buys: time off the end, and interest never charged. */
+export function payoffSaving(debt: DebtWithStatus, extra: number, asOf: Date = new Date()): PayoffSaving | undefined {
+  const base = loanPayoff(debt, 0, asOf);
+  const faster = loanPayoff(debt, extra, asOf);
+  if (!base || !faster) return undefined;
+
+  return {
+    monthsSaved: base.months - faster.months,
+    interestSaved: round2(base.interestToCome - faster.interestToCome),
+    finishDate: faster.finishDate,
+  };
 }

@@ -27,18 +27,83 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
 
-  const navItems: NavItemProp[] = [
-    { path: "/", label: t("nav.overview"), icon: FiHome },
-    { path: "/transactions", label: t("nav.transactions"), icon: FiCreditCard },
-    { path: "/analytics", label: t("nav.analytics"), icon: FiPieChart },
-    { path: "/investments", label: t("nav.investments"), icon: FiDollarSign },
-    { path: "/goals", label: t("nav.goals"), icon: FiTarget },
-    { path: "/bills", label: t("nav.bills"), icon: FiRepeat, badge: billsDue },
-    { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
-    { path: "/allocation", label: t("nav.allocation"), icon: FiSliders },
-    { path: "/debts", label: t("nav.debts"), icon: FiUsers },
-    { path: "/settings", label: t("nav.settings"), icon: FiSettings },
+  // Grouped by the question each screen answers, rather than by the order they
+  // happened to be built in. Ten equal entries in a column make the reader scan
+  // the whole list every time; four short groups let them jump to the part of
+  // their money they came for.
+  const navGroups: { key: string; label: string; items: NavItemProp[] }[] = [
+    {
+      key: "standing",
+      label: t("nav.groupStanding"),
+      items: [
+        { path: "/", label: t("nav.overview"), icon: FiHome },
+        { path: "/analytics", label: t("nav.analytics"), icon: FiPieChart },
+      ],
+    },
+    {
+      key: "daily",
+      label: t("nav.groupDaily"),
+      items: [
+        { path: "/transactions", label: t("nav.transactions"), icon: FiCreditCard },
+        { path: "/bills", label: t("nav.bills"), icon: FiRepeat, badge: billsDue },
+      ],
+    },
+    {
+      key: "plan",
+      label: t("nav.groupPlan"),
+      items: [
+        { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
+        { path: "/allocation", label: t("nav.allocation"), icon: FiSliders },
+        { path: "/goals", label: t("nav.goals"), icon: FiTarget },
+      ],
+    },
+    {
+      key: "holdings",
+      label: t("nav.groupHoldings"),
+      items: [
+        { path: "/investments", label: t("nav.investments"), icon: FiDollarSign },
+        { path: "/debts", label: t("nav.debts"), icon: FiUsers },
+      ],
+    },
   ];
+
+  // Settings is not one of the four: it is where you go to change the app, not
+  // to look at your money. It sits on its own at the foot, always in the same
+  // place.
+  const settingsItem: NavItemProp = { path: "/settings", label: t("nav.settings"), icon: FiSettings };
+
+  const renderItem = (item: NavItemProp) => {
+    const Icon = item.icon;
+    // Read out as part of the link's name rather than left as a bare number,
+    // which a screen reader would announce as "Bills, 2".
+    const badgeLabel = item.badge ? t("bills.dueCount", { count: item.badge }) : undefined;
+
+    return (
+      <NavItem key={item.path}>
+        <NavLink
+          to={item.path}
+          end={item.path === "/"}
+          onClick={toggleSidebar}
+          className={({ isActive }) =>
+            `nav-link text-white d-flex align-items-center rounded
+            ${isCollapsed ? "justify-content-center" : "gap-2"}
+            ${isActive ? "bg-primary" : ""}`
+          }
+          title={isCollapsed ? [item.label, badgeLabel].filter(Boolean).join(" — ") : undefined}
+          aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}
+        >
+          <Icon size={20} className="nav-icon flex-shrink-0" />
+          {!isCollapsed && <span>{item.label}</span>}
+          {/* Capped so a long-neglected list cannot widen the rail. */}
+          {!!item.badge && (
+            <span className="nav-badge" aria-hidden>
+              {item.badge > 9 ? "9+" : item.badge}
+            </span>
+          )}
+        </NavLink>
+      </NavItem>
+    );
+  };
 
   return (
     <>
@@ -53,38 +118,18 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
         </div>
 
         <Nav vertical className="sidebar-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            // Read out as part of the link's name rather than left as a bare
-            // number, which a screen reader would announce as "Bills, 2".
-            const badgeLabel = item.badge ? t("bills.dueCount", { count: item.badge }) : undefined;
+          {navGroups.map((group) => (
+            <div key={group.key} className="sidebar-group">
+              {/* A heading while there is room for one; a rule when the rail is
+                  collapsed to icons and a word would not fit. */}
+              {isCollapsed ? <div className="sidebar-group-rule" aria-hidden /> : <div className="sidebar-group-label">{group.label}</div>}
+              {group.items.map(renderItem)}
+            </div>
+          ))}
+        </Nav>
 
-            return (
-              <NavItem key={item.path}>
-                <NavLink
-                  to={item.path}
-                  end={item.path === "/"}
-                  onClick={toggleSidebar}
-                  className={({ isActive }) =>
-                    `nav-link text-white d-flex align-items-center rounded
-                    ${isCollapsed ? "justify-content-center" : "gap-2"}
-                    ${isActive ? "bg-primary" : ""}`
-                  }
-                  title={isCollapsed ? [item.label, badgeLabel].filter(Boolean).join(" — ") : undefined}
-                  aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}
-                >
-                  <Icon size={20} className="nav-icon flex-shrink-0" />
-                  {!isCollapsed && <span>{item.label}</span>}
-                  {/* Capped so a long-neglected list cannot widen the rail. */}
-                  {!!item.badge && (
-                    <span className="nav-badge" aria-hidden>
-                      {item.badge > 9 ? "9+" : item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              </NavItem>
-            );
-          })}
+        <Nav vertical className="sidebar-foot">
+          {renderItem(settingsItem)}
 
           <NavItem className="d-none d-lg-block">
             <Button

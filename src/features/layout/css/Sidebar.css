@@ -95,7 +95,53 @@
   flex-shrink: 0;
 }
 
-.sidebar-nav .nav-link {
+/* ── Groups ────────────────────────────────────────────────────────────────── */
+/* Ten equal rows made the reader scan the whole column every time. Four short
+   groups, each named for the question its screens answer, let them go straight
+   to the part of their money they came for. */
+
+.sidebar-group + .sidebar-group {
+  margin-top: 0.5rem;
+}
+
+.sidebar-group-label {
+  padding: 0.5rem 1rem 0.25rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+/* Collapsed to icons there is no room for a word, so the grouping is carried by
+   a rule instead of losing it altogether. */
+.sidebar-group-rule {
+  height: 1px;
+  margin: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-group:first-child .sidebar-group-rule {
+  display: none;
+}
+
+/* ── Foot ──────────────────────────────────────────────────────────────────── */
+/* Settings and the collapse control sit apart from the four groups: they change
+   the app rather than show the money, and they stay put while the list above
+   scrolls. */
+
+.sidebar-foot {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-foot .nav-item {
+  flex-shrink: 0;
+}
+
+.sidebar-nav .nav-link,
+.sidebar-foot .nav-link {
   padding: 0.75rem 1rem;
   min-height: 44px; /* comfortable touch target */
   color: var(--sidebar-text);
@@ -105,18 +151,21 @@
   white-space: nowrap; /* Prevent text wrap during animation */
 }
 
-.sidebar-nav .nav-link:hover {
+.sidebar-nav .nav-link:hover,
+.sidebar-foot .nav-link:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
 /* Active route — Bootstrap's .bg-primary is applied in the component */
-.sidebar-nav .nav-link.bg-primary {
+.sidebar-nav .nav-link.bg-primary,
+.sidebar-foot .nav-link.bg-primary {
   color: #fff;
 }
 
 /* Tighter padding when collapsed so icon stays centered */
-.sidebar.collapsed .sidebar-nav .nav-link {
+.sidebar.collapsed .sidebar-nav .nav-link,
+.sidebar.collapsed .sidebar-foot .nav-link {
   padding: 0.75rem 0;
   justify-content: center;
 }

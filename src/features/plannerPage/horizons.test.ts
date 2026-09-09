@@ -731,3 +731,75 @@ describe("the same date reads the same however far ahead you look", () => {
     expect(plan.points.length).toBeLessThanOrEqual(38);
   });
 });
+
+describe("a loan in the plan is a monthly instalment, not a lump", () => {
+  const salary = { amount: 2000, dayOfMonth: 25, occurrences: 4 };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+
+  // 10,000 at 7% over five years, taken out today: €198.01 a month.
+  const carLoan = (over: Partial<DebtWithStatus> = {}): DebtWithStatus =>
+    ({
+      id: "loan",
+      userId: "u1",
+      person: "Τράπεζα",
+      label: "Αυτοκίνητο",
+      direction: "owed_by_me",
+      amount: 10000,
+      remaining: 10000,
+      interestRate: 7,
+      termMonths: 60,
+      date: new Date(2026, 7, 14),
+      isSettled: false,
+      payments: [],
+      paid: 0,
+      createdAt: new Date(2026, 7, 14),
+      updatedAt: new Date(2026, 7, 14),
+      ...over,
+    }) as DebtWithStatus;
+
+  it("charges the instalment once a month rather than the balance once", () => {
+    const plan = buildPlan({ ...base, horizon: 12, debts: [carLoan()] });
+    const row = plan.rows.find((r) => r.source === "debt")!;
+    const payments = plan.events.filter((e) => e.label === "Αυτοκίνητο");
+
+    expect(row.occurrences).toBe(12);
+    expect(row.perMonth).toBe(-198.01);
+    expect(row.total).toBeCloseTo(-198.01 * 12, 2);
+    expect(payments).toHaveLength(12);
+    expect(payments.every((e) => Math.abs(e.amount) === 198.01)).toBe(true);
+  });
+
+  it("does not drop five years of debt into a single day", () => {
+    // The old behaviour: the whole balance charged on the due date, which made
+    // every month before it look comfortable and that one month impossible.
+    const plan = buildPlan({ ...base, horizon: 12, debts: [carLoan()] });
+    const biggest = Math.max(...plan.events.filter((e) => e.amount < 0).map((e) => Math.abs(e.amount)));
+
+    expect(biggest).toBeLessThan(500);
+  });
+
+  it("stops at the end of the loan, not at the end of the window", () => {
+    // Six months left to run, on a three-year view.
+    const nearlyDone = carLoan({ amount: 1200, interestRate: 6, termMonths: 6, date: new Date(2026, 7, 14) });
+    const plan = buildPlan({ ...base, horizon: 36, debts: [nearlyDone] });
+
+    expect(plan.rows.find((r) => r.source === "debt")!.occurrences).toBe(6);
+  });
+
+  it("leaves money lent between people charged as it always was", () => {
+    const iou = carLoan({ id: "iou", label: "Δανεικά", amount: 400, remaining: 400, interestRate: undefined, termMonths: undefined, dueDate: new Date(2026, 10, 20) });
+    const plan = buildPlan({ ...base, horizon: 12, debts: [iou] });
+    const row = plan.rows.find((r) => r.source === "debt")!;
+
+    expect(row.occurrences).toBe(1);
+    expect(row.total).toBe(-400);
+  });
+
+  it("still frees the money when the row is switched off", () => {
+    const input = { ...base, horizon: 12, debts: [carLoan()] };
+    const off = buildPlan({ ...input, skipIds: new Set(["loan"]) });
+
+    expect(off.rows.find((r) => r.source === "debt")!.total).toBe(0);
+    expect(off.events.some((e) => e.label === "Αυτοκίνητο")).toBe(false);
+  });
+});

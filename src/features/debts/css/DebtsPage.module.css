@@ -209,3 +209,77 @@
   font-size: 11px;
   color: var(--color-income);
 }
+
+/* ── Loans ─────────────────────────────────────────────────────────────────── */
+/* What a loan costs, said before it is saved. The monthly figure is the one
+   people decide on; the total is the one they are never shown. */
+
+.loanPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--bs-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bs-primary) 26%, transparent);
+}
+
+.loanPreviewAmount {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.loanPreviewCost {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The facts of an open loan, on its row in the person's sheet. */
+.loanFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.loanFacts strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ── Paying extra ──────────────────────────────────────────────────────────── */
+/* The question a borrower actually has, and the only one the app can answer
+   that a bank statement cannot. */
+
+.payMore {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-md);
+  border: 1px dashed var(--color-border-primary);
+}
+
+.payMoreHead {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.payMoreResult {
+  font-size: 12.5px;
+  margin-top: 6px;
+  color: var(--color-income-text);
+  font-weight: 600;
+}
+
+.payMoreIdle {
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+}

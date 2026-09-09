@@ -1,5 +1,6 @@
 import { addDays, endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { isLoan, monthlyInstalment } from "../debts/debtsUtils";
 import { goalMonthlyTarget, oneOffDates, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import { categorySplit } from "../transactions/transactionInsights";
 import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
@@ -42,7 +43,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * is nothing to spread across and no date to wait for, so it stands as owed
  * now — which is also the honest reading of a loan with no agreed date.
  */
-export function debtMonthlyShare(debt: Pick<DebtWithStatus, "remaining" | "dueDate">, now: Date = new Date()): number {
+export function debtMonthlyShare(debt: Pick<DebtWithStatus, "remaining" | "dueDate" | "amount" | "interestRate" | "termMonths" | "interestFreeMonths">, now: Date = new Date()): number {
+  // A loan already has a monthly figure, set by whoever lent the money. Spreading
+  // its balance over the months to the final date would invent a different one —
+  // and a lower one, since the balance ignores the interest still to come.
+  if (isLoan(debt)) return monthlyInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
+
   if (!debt.dueDate) return round2(debt.remaining);
 
   const due = firestoreToDate(debt.dueDate);

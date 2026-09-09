@@ -71,3 +71,45 @@
     min-height: 40px;
   }
 }
+
+/* ── A two-way choice ──────────────────────────────────────────────────────── */
+/* The period pickers hold five or six chips and scroll; a question with exactly
+   two answers is a different thing. Each side takes half the row so the choice
+   reads as a pair, and the selected one is filled in the colour that side means
+   everywhere else in the app — red for money owed, green for money coming back.
+   A tint rather than a solid fill, because white on either token fails contrast
+   in one theme or the other. */
+
+.even {
+  flex-wrap: nowrap;
+  overflow-x: visible;
+}
+
+.even .item {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  padding-inline: 8px;
+}
+
+/* The fill and the border carry the colour; the label does not.
+   Red text on a red fill measured 4.07:1 in dark mode — the two reds are too
+   close together to read one against the other. The ordinary text colour on the
+   same fill is 10:1, and the side being chosen is no less obvious for it. */
+.item.owe.active {
+  background: color-mix(in srgb, var(--color-expense) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-expense) 75%, transparent);
+  color: var(--color-text-primary);
+}
+
+.item.lend.active {
+  background: color-mix(in srgb, var(--color-income) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-income) 75%, transparent);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 767.98px) {
+  .even {
+    overflow-x: visible;
+  }
+}

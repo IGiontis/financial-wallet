@@ -3,11 +3,45 @@ import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFoote
 import { useTranslation } from "react-i18next";
 import { FiPlus, FiTrash2, FiX } from "react-icons/fi";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { loanPayoff, loanState, payoffSaving } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useRecordRepayment } from "./useDebts";
 import styles from "./css/DebtsPage.module.css";
 import type { DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * What paying a little more each month would do.
+ *
+ * The one question a borrower has that a bank statement never answers. Every
+ * euro above the interest goes straight at the principal, so a small regular
+ * addition takes months off the end and saves several times itself.
+ */
+function PayMore({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
+  const [extra, setExtra] = useState("");
+
+  const amount = parseFloat(extra);
+  const saving = Number.isFinite(amount) && amount > 0 ? payoffSaving(debt, amount) : undefined;
+
+  return (
+    <div className={styles.payMore}>
+      <div className={styles.payMoreHead}>{t("debts.payMoreTitle")}</div>
+      <InputGroup size="sm" style={{ maxWidth: 190 }}>
+        <Input type="number" min={0} step="10" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="100" aria-label={t("debts.payMoreTitle")} />
+        <InputGroupText>{t("debts.perMonthSuffix")}</InputGroupText>
+      </InputGroup>
+
+      {saving === undefined ? (
+        <div className={styles.payMoreIdle}>{t("debts.payMorePrompt")}</div>
+      ) : saving.monthsSaved <= 0 ? (
+        <div className={styles.payMoreIdle}>{t("debts.payMoreNothing")}</div>
+      ) : (
+        <div className={styles.payMoreResult}>{t("debts.payMoreResult", { months: saving.monthsSaved, amount: formatCurrency(saving.interestSaved) })}</div>
+      )}
+    </div>
+  );
+}
 
 /**
  * One person's record: every loan with them and every repayment against it.
@@ -39,6 +73,7 @@ export default function PersonDebtsModal({
   const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
 
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+
 
   const openRepay = (debt: DebtWithStatus) => {
     setPayingId(debt.id);
@@ -78,7 +113,16 @@ export default function PersonDebtsModal({
         </div>
 
         {person.debts.map((debt) => {
-          const progress = debt.amount > 0 ? Math.min((debt.paid / debt.amount) * 100, 100) : 0;
+          // Once per row: the payoff walk is sixty iterations and the row reads
+          // it four times.
+          const loan = loanState(debt);
+          const payoff = loan ? loanPayoff(debt) : undefined;
+          // How much of the debt is gone, not how much has been handed over.
+          // On a loan those differ by the interest: six payments of €198 on a
+          // €10,000 loan is 12% handed over and 8% repaid, and the bar was
+          // drawing the flattering one.
+          const cleared = loan ? debt.amount - loan.balance : debt.paid;
+          const progress = debt.amount > 0 ? Math.min(Math.max((cleared / debt.amount) * 100, 0), 100) : 0;
 
           return (
             <div key={debt.id} className={styles.loan}>
@@ -98,6 +142,31 @@ export default function PersonDebtsModal({
               <div className={styles.track}>
                 <div className={styles.fill} style={{ width: `${progress}%` }} />
               </div>
+
+              {/* A loan owes more than it was lent, and pays it back on a
+                  schedule. Both of those are facts the row could not show while
+                  every debt was "handed over less handed back". */}
+              {loan && (
+                <>
+                  <div className={styles.loanFacts}>
+                    <span>
+                      <strong>{t("debts.instalmentIs", { amount: formatCurrency(loan.instalment) })}</strong>
+                    </span>
+                    <span>
+                      <strong>{formatCurrency(debt.remaining)}</strong> {t("debts.owedNow")}
+                    </span>
+                    {payoff && (
+                      <>
+                        <span>{t("debts.paymentsLeft", { count: payoff.months })}</span>
+                        <span>{t("debts.finishesOn", { date: dateFmt.format(payoff.finishDate) })}</span>
+                      </>
+                    )}
+                    <span>{t("debts.interestSoFar", { amount: formatCurrency(loan.interestPaid) })}</span>
+                  </div>
+
+                  {!debt.isSettled && <PayMore debt={debt} formatCurrency={formatCurrency} />}
+                </>
+              )}
 
               {debt.payments.map((p) => (
                 <div key={p.id} className={styles.repayment}>

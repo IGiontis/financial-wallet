@@ -247,7 +247,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{t("transactions.editTransaction")}</ModalHeader>
 
-      <ModalBody>
+      {/* The same wash the debts dialog uses: the form takes the colour of
+          the answer to the one question that changes everything else on it. */}
+      <ModalBody className={formik.values.type === "income" ? "wash-income" : "wash-expense"}>
         <WizardSteps steps={STEPS} current={step} onGo={setStep} />
 
         {/* ── 1. Which category ── */}

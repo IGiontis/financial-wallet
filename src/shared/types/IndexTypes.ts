@@ -575,6 +575,27 @@ export interface Debt {
   date: Date;
   /** When it is meant to come back. Most loans between friends have none. */
   dueDate?: Date;
+  /**
+   * Annual interest, as a percentage. Absent on money lent between people,
+   * which is the case this register was built for.
+   *
+   * Its presence is what makes a debt a loan: with a rate the balance grows
+   * between payments, the monthly cost is the bank's instalment rather than the
+   * balance divided by the months left, and the total repaid is more than the
+   * amount borrowed.
+   */
+  interestRate?: number;
+  /** How many monthly payments the loan runs for. Meaningless without a rate. */
+  termMonths?: number;
+  /**
+   * Months at the start that carry no interest at all.
+   *
+   * "Άτοκες δόσεις" — the shop's twelve payments, a card's opening offer — and
+   * the rate applies only to what is still owed once they run out. Covering the
+   * whole term makes it genuinely interest-free; covering part of it lowers the
+   * payment, because less of the loan is ever charged for.
+   */
+  interestFreeMonths?: number;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -597,6 +618,10 @@ export interface CreateDebtDTO {
   amount: number;
   date: Date;
   dueDate?: Date;
+  /** Annual percentage. Its presence is what makes this a loan rather than an IOU. */
+  interestRate?: number;
+  termMonths?: number;
+  interestFreeMonths?: number;
   notes?: string;
 }
 
@@ -605,6 +630,9 @@ export interface UpdateDebtDTO {
   direction?: DebtDirection;
   label?: string;
   amount?: number;
+  interestRate?: number;
+  termMonths?: number;
+  interestFreeMonths?: number;
   date?: Date;
   dueDate?: Date;
   notes?: string;
