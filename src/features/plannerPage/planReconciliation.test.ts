@@ -184,18 +184,36 @@ describe("the list on the left and the line on the right", () => {
 });
 
 describe("the bars and the line are drawn from the same plan", () => {
-  it("totals the periods back to what the events add up to", () => {
+  it("totals the bars back to what the plan says arrives and leaves", () => {
+    // Not to the events: the budget lines accrue by the day and land on no
+    // date at all, so a chart built from events alone drew no outgoing bar for
+    // them. A plan whose costs are all budget lines — three trips a year and a
+    // ski season — showed pay coming in, nothing going out, and a balance
+    // falling for no visible reason.
     for (const horizon of horizons) {
       const plan = buildPlan({ ...everything, horizon });
       const periods = planPeriods(plan);
 
       const barsIn = round(periods.reduce((sum, p) => sum + p.income, 0));
       const barsOut = round(periods.reduce((sum, p) => sum + p.outgoing, 0));
-      const eventsIn = round(plan.events.filter((e) => e.amount > 0).reduce((sum, e) => sum + e.amount, 0));
-      const eventsOut = round(plan.events.filter((e) => e.amount < 0).reduce((sum, e) => sum - e.amount, 0));
 
-      expect(barsIn, `horizon ${horizon}`).toBeCloseTo(eventsIn, 2);
-      expect(barsOut, `horizon ${horizon}`).toBeCloseTo(eventsOut, 2);
+      expect(barsIn, `horizon ${horizon}`).toBeCloseTo(plan.incomeTotal, 1);
+      expect(barsOut, `horizon ${horizon}`).toBeCloseTo(plan.outgoingTotal, 1);
+    }
+  });
+
+  it("moves the line by exactly what the bars beside it say", () => {
+    // Period by period: in, less out, is how far the balance moved. This is
+    // what makes the two halves of the chart one picture rather than two.
+    for (const horizon of horizons) {
+      const plan = buildPlan({ ...everything, horizon });
+      const periods = planPeriods(plan);
+
+      let previous = plan.openingBalance;
+      for (const period of periods) {
+        expect(round(period.balance - previous), `${period.key} at horizon ${horizon}`).toBeCloseTo(round(period.income - period.outgoing), 1);
+        previous = period.balance;
+      }
     }
   });
 

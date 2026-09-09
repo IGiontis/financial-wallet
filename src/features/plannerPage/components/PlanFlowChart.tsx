@@ -49,10 +49,13 @@ interface PlanFlowChartProps {
  * are drawn apart, above and below the axis, with the balance running across
  * them.
  *
- * The bars come from dated events and the line from the daily walk, on purpose:
- * the budget lines accrue by the day and never land on a date, so adding the
- * bars would not reach the balance. The gap between them *is* the day-to-day
- * spending, which is the right thing for it to look like.
+ * The bars carry the budget lines as well as the dated events. They used to
+ * carry only the events, on the reasoning that a line accruing by the day lands
+ * on no date to draw it against — but that left a plan whose costs are all
+ * budget lines showing pay arriving, nothing leaving, and a balance sliding
+ * away underneath for no visible reason. Three trips a year and a ski season
+ * were nowhere on the chart. Each period's accrual is now added to its bar, so
+ * in less out is exactly how far the line moves across it.
  */
 export function PlanFlowChart({ periods, formatCurrency, locale }: PlanFlowChartProps) {
   const { t } = useTranslation();

@@ -617,6 +617,17 @@ export interface ProjectionPoint {
   date: Date;
   balance: number;
   events: PlannerEvent[];
+  /**
+   * Budget-line money that accrued since the previous point, positive.
+   *
+   * The lines never land on a date, so they produce no events — and the chart
+   * built its bars from events alone. A plan whose outgoings are all budget
+   * lines therefore drew no outgoing bar at all while the balance fell away
+   * underneath it: three trips a year and a ski season, and the only thing on
+   * screen was the pay coming in.
+   */
+  accruedIn: number;
+  accruedOut: number;
 }
 
 export type PlannerVerdict = "ok" | "tight" | "short";
@@ -844,7 +855,11 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // season's edges. Two entries per stretch, then a running sum during the
   // walk — rather than re-testing every line on every day, which is what keeps
   // a yearly season as cheap to draw as a flat one.
-  const rateDelta = new Float64Array(days + 2);
+  // Two of them rather than one net rate: the balance only needs the net, but
+  // the chart has to show what arrives and what leaves as separate bars, and a
+  // net rate cannot be taken apart again afterwards.
+  const rateIn = new Float64Array(days + 2);
+  const rateOut = new Float64Array(days + 2);
 
   for (const line of lines) {
     const enabled = isOn(line.id);
@@ -869,9 +884,10 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     });
     if (!enabled) continue;
 
+    const rate = line.kind === "income" ? rateIn : rateOut;
     for (const season of seasons) {
-      rateDelta[season.from] += sign * line.amount;
-      rateDelta[season.to + 1] -= sign * line.amount;
+      rate[season.from] += line.amount;
+      rate[season.to + 1] -= line.amount;
     }
   }
 
@@ -925,16 +941,25 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // the points actually kept.
   const cursor = new Date(today);
   let daysInMonth = getDaysInMonth(cursor);
-  // Net of every budget line running on the day being walked.
-  let monthlyRate = 0;
+  // The budget lines running on the day being walked, each side kept apart.
+  let monthlyIn = 0;
+  let monthlyOut = 0;
+  // Accrued since the last point was kept, for the bars.
+  let accruedIn = 0;
+  let accruedOut = 0;
 
   for (let offset = 0; offset <= days; offset++) {
     if (offset > 0) {
       cursor.setDate(cursor.getDate() + 1);
       if (cursor.getDate() === 1) daysInMonth = getDaysInMonth(cursor);
     }
-    monthlyRate += rateDelta[offset];
-    balance += monthlyRate / daysInMonth;
+    monthlyIn += rateIn[offset];
+    monthlyOut += rateOut[offset];
+    const inToday = monthlyIn / daysInMonth;
+    const outToday = monthlyOut / daysInMonth;
+    balance += inToday - outToday;
+    accruedIn += inToday;
+    accruedOut += outToday;
 
     const dayEvents = byDay.get(offset) ?? [];
     for (const event of dayEvents) balance += event.amount;
@@ -963,12 +988,20 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       // nothing either.
       const dips = lowOffset >= 0 && lowOffset < offset && round2(lowBalance) < 0 && round2(lowBalance) < Math.min(round2(lastKept), round2(balance));
       if (dips) {
-        points.push({ date: addDays(today, lowOffset), balance: round2(lowBalance), events: pending.slice(0, lowPending) });
+        // The accrual is flushed with the boundary point below rather than split
+        // here: both points fall inside the same period, so the period's total
+        // is the same either way and the split would be arbitrary.
+        points.push({ date: addDays(today, lowOffset), balance: round2(lowBalance), events: pending.slice(0, lowPending), accruedIn: 0, accruedOut: 0 });
         pending = pending.slice(lowPending);
       }
 
-      points.push({ date: new Date(cursor), balance: round2(balance), events: pending });
+      // Kept unrounded: these are summed a period at a time and rounded there.
+      // Rounding each point instead drifted the bars a cent per point away from
+      // the totals the rows report — eight of them over three years.
+      points.push({ date: new Date(cursor), balance: round2(balance), events: pending, accruedIn, accruedOut });
       pending = [];
+      accruedIn = 0;
+      accruedOut = 0;
       lastKept = balance;
       lowBalance = Number.POSITIVE_INFINITY;
       lowOffset = -1;
@@ -1083,10 +1116,13 @@ export function planPeriods(plan: Pick<PlannerPlan, "events" | "points" | "month
     return period;
   };
 
+  // Totalled raw and rounded once at the end. Rounding on every addition drifts
+  // half a cent at a time, and a day-sampled window adds ninety of them: the
+  // bars came out eight cents away from the totals the rows report.
   for (const event of plan.events) {
     const period = at(event.date);
-    if (event.amount > 0) period.income = round2(period.income + event.amount);
-    else period.outgoing = round2(period.outgoing - event.amount);
+    if (event.amount > 0) period.income += event.amount;
+    else period.outgoing -= event.amount;
   }
 
   // The closing balance of a period is the last point falling inside it. The
@@ -1100,10 +1136,19 @@ export function planPeriods(plan: Pick<PlannerPlan, "events" | "points" | "month
   for (const point of plan.points) {
     const period = at(point.date);
     period.balance = point.balance;
+    // The budget lines accrue by the day and never land on a date, so they
+    // reach the bars this way or not at all. Without them a plan whose costs
+    // are all budget lines drew no outgoing bar while its balance fell.
+    period.income += point.accruedIn;
+    period.outgoing += point.accruedOut;
     measured.add(period.key);
   }
 
   const ordered = Array.from(periods.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
+  for (const period of ordered) {
+    period.income = round2(period.income);
+    period.outgoing = round2(period.outgoing);
+  }
 
   // A period the walk did not reach carries the previous one forward, so the
   // line stays flat through a quiet stretch rather than dropping to zero.
