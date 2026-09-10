@@ -6,9 +6,10 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCreateDebt } from "./useDebts";
 import { monthlyInstalment } from "./debtsUtils";
 import { DateField } from "../../shared/components/DateField";
+import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
-import type { DebtDirection } from "../../shared/types/IndexTypes";
+import type { DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -21,8 +22,10 @@ const today = () => new Date().toISOString().slice(0, 10);
  * then never noticed again.
  */
 export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: string[]; onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { baseCurrency, format: formatCurrency } = useCurrencyConverter();
+  // The same locale the money formatter uses: 3,5% in Greek, 3.5% in English.
+  const pct = new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", { maximumFractionDigits: 2 });
   const create = useCreateDebt();
 
   const [direction, setDirection] = useState<DebtDirection>("owed_by_me");
@@ -32,21 +35,51 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
   const [date, setDate] = useState(today);
   const [dueDate, setDueDate] = useState("");
   const [withInterest, setWithInterest] = useState(false);
+  const [rateType, setRateType] = useState<DebtRateType>("fixed");
   const [rate, setRate] = useState("");
+  const [base, setBase] = useState("");
+  const [margin, setMargin] = useState("");
   const [term, setTerm] = useState("");
   const [free, setFree] = useState("");
   const [touched, setTouched] = useState(false);
 
   const value = parseFloat(amount);
-  const rateValue = parseFloat(rate);
   const termValue = parseInt(term, 10);
   const freeValue = Number.isFinite(parseInt(free, 10)) ? Math.max(parseInt(free, 10), 0) : 0;
   // A term is enough to make it a loan: twelve άτοκες δόσεις charge nothing and
   // are still a fixed payment with a known end.
   const isLoanEntry = withInterest && Number.isFinite(termValue) && termValue > 0;
-  const instalment = isLoanEntry && Number.isFinite(value) ? monthlyInstalment(value, Number.isFinite(rateValue) ? rateValue : 0, termValue, freeValue) : 0;
+
+  // A floating loan is quoted in two parts, and only the second one is the
+  // bank's for keeps. What every figure below is worked out from is their sum —
+  // which is true today and will be something else at the next reset.
+  const floating = rateType === "floating";
+  const num = (raw: string) => (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : 0);
+  const allInRate = floating ? Math.max(num(base) + num(margin), 0) : Math.max(num(rate), 0);
+  const instalment = isLoanEntry && Number.isFinite(value) ? monthlyInstalment(value, allInRate, termValue, freeValue) : 0;
   const personInvalid = touched && person.trim() === "";
   const amountInvalid = touched && !(Number.isFinite(value) && value > 0);
+
+  // The two cells that appear in both layouts, written once.
+  const termField = (
+    <FormGroup className="flex-fill">
+      <Label className="small fw-medium">{t("debts.termMonths")}</Label>
+      <InputGroup>
+        <Input type="number" min={1} step="1" inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="60" />
+        <InputGroupText>{t("debts.monthsUnit")}</InputGroupText>
+      </InputGroup>
+    </FormGroup>
+  );
+
+  const freeField = (
+    <FormGroup className="flex-fill">
+      <Label className="small fw-medium">{t("debts.interestFree")}</Label>
+      <InputGroup>
+        <Input type="number" min={0} step="1" inputMode="numeric" value={free} onChange={(e) => setFree(e.target.value)} placeholder="0" />
+        <InputGroupText>{t("debts.monthsUnit")}</InputGroupText>
+      </InputGroup>
+    </FormGroup>
+  );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,10 +95,17 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
         date: new Date(date),
         dueDate: dueDate ? new Date(dueDate) : undefined,
         // Only when both are there: a rate without a term cannot be amortised,
-        // and half a loan is worse than none.
-        interestRate: isLoanEntry && Number.isFinite(rateValue) && rateValue > 0 ? rateValue : undefined,
+        // and half a loan is worse than none. On a floating loan the stored rate
+        // is the sum of the two parts, so anything reading only that still gets
+        // the rate in force; the parts are kept beside it so the index can be
+        // updated on its own when it moves.
+        interestRate: isLoanEntry && allInRate > 0 ? allInRate : undefined,
         termMonths: isLoanEntry ? termValue : undefined,
         interestFreeMonths: isLoanEntry && freeValue > 0 ? freeValue : undefined,
+        rateType: isLoanEntry && floating ? "floating" : undefined,
+        baseRate: isLoanEntry && floating ? num(base) : undefined,
+        margin: isLoanEntry && floating ? num(margin) : undefined,
+        rateReviewedAt: isLoanEntry && floating ? new Date() : undefined,
       },
       { onSuccess: onClose },
     );
@@ -142,45 +182,83 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
 
           {withInterest && (
             <>
-              <div className="d-flex gap-2">
-                <FormGroup className="flex-fill">
-                  <Label className="small fw-medium">{t("debts.interestRate")}</Label>
-                  <InputGroup>
-                    <Input type="number" min={0} step="0.01" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="7" />
-                    <InputGroupText>%</InputGroupText>
-                  </InputGroup>
-                </FormGroup>
-
-                <FormGroup className="flex-fill">
-                  <Label className="small fw-medium">{t("debts.termMonths")}</Label>
-                  <InputGroup>
-                    <Input type="number" min={1} step="1" inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="60" />
-                    <InputGroupText>{t("debts.monthsUnit")}</InputGroupText>
-                  </InputGroup>
-                </FormGroup>
+              {/* Fixed or floating, before any figure is typed. Most mortgages
+                  here are floating — an index plus a margin, re-read every few
+                  months — and a loan recorded as fixed quietly promises a
+                  payment the bank never promised. */}
+              <div className={`${segmented.group} ${segmented.even} mb-1`} role="group" aria-label={t("debts.interestRate")}>
+                <button type="button" className={`${segmented.item} ${!floating ? segmented.active : ""}`} aria-pressed={!floating} onClick={() => setRateType("fixed")}>
+                  {t("debts.rateFixed")}
+                </button>
+                <button type="button" className={`${segmented.item} ${floating ? segmented.active : ""}`} aria-pressed={floating} onClick={() => setRateType("floating")}>
+                  {t("debts.rateFloating")}
+                </button>
               </div>
+              <small className="text-body-secondary d-block mb-2">
+                {t("debts.rateTypeHint")}
+                <RateHelpButton formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
+              </small>
 
-              <div className="d-flex gap-2">
-                <FormGroup className="flex-fill">
-                  <Label className="small fw-medium">{t("debts.interestFree")}</Label>
-                  <InputGroup>
-                    <Input type="number" min={0} step="1" inputMode="numeric" value={free} onChange={(e) => setFree(e.target.value)} placeholder="0" />
-                    <InputGroupText>{t("debts.monthsUnit")}</InputGroupText>
-                  </InputGroup>
-                </FormGroup>
-                <div className="flex-fill" />
-              </div>
+              {/* Two fields to a row, never three. At 375px a third one squeezes
+                  the number inputs to forty pixels and "300" cannot be read in
+                  the box it was typed into. */}
+              {floating ? (
+                <>
+                  <div className="d-flex gap-2">
+                    <FormGroup className="flex-fill">
+                      <Label className="small fw-medium">{t("debts.baseRate")}</Label>
+                      <InputGroup>
+                        <Input type="number" min={0} step="0.01" inputMode="decimal" value={base} onChange={(e) => setBase(e.target.value)} placeholder="2.4" />
+                        <InputGroupText>%</InputGroupText>
+                      </InputGroup>
+                    </FormGroup>
+
+                    <FormGroup className="flex-fill">
+                      <Label className="small fw-medium">{t("debts.margin")}</Label>
+                      <InputGroup>
+                        <Input type="number" min={0} step="0.01" inputMode="decimal" value={margin} onChange={(e) => setMargin(e.target.value)} placeholder="1.2" />
+                        <InputGroupText>%</InputGroupText>
+                      </InputGroup>
+                    </FormGroup>
+                  </div>
+
+                  <div className="d-flex gap-2">
+                    {termField}
+                    {freeField}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="d-flex gap-2">
+                    <FormGroup className="flex-fill">
+                      <Label className="small fw-medium">{t("debts.interestRate")}</Label>
+                      <InputGroup>
+                        <Input type="number" min={0} step="0.01" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="7" />
+                        <InputGroupText>%</InputGroupText>
+                      </InputGroup>
+                    </FormGroup>
+                    {termField}
+                  </div>
+
+                  <div className="d-flex gap-2">
+                    {freeField}
+                    <div className="flex-fill" />
+                  </div>
+                </>
+              )}
               <small className="text-body-secondary d-block mb-2">{t("debts.interestFreeHint")}</small>
 
               {instalment > 0 && (
                 <div className={styles.loanPreview}>
-                  <span className={styles.loanPreviewAmount}>{t("debts.instalmentIs", { amount: formatCurrency(instalment) })}</span>
+                  <span className={styles.loanPreviewAmount}>
+                    {t("debts.instalmentIs", { amount: formatCurrency(instalment) })}
+                    {floating && <span className={styles.loanPreviewNote}> · {t("debts.atTodaysRate")}</span>}
+                  </span>
                   <span className={styles.loanPreviewCost}>
                     {t("debts.loanCost", { total: formatCurrency(instalment * termValue), interest: formatCurrency(Math.max(instalment * termValue - value, 0)) })}
                   </span>
-                  {freeValue > 0 && rateValue > 0 && (
-                    <span className={styles.loanPreviewCost}>{t("debts.freeThenCharged", { free: freeValue, rate: rateValue })}</span>
-                  )}
+                  {floating && <span className={styles.loanPreviewCost}>{t("debts.rateParts", { base: pct.format(num(base)), margin: pct.format(num(margin)) })} = {pct.format(allInRate)}%</span>}
+                  {freeValue > 0 && allInRate > 0 && <span className={styles.loanPreviewCost}>{t("debts.freeThenCharged", { free: freeValue, rate: pct.format(allInRate) })}</span>}
                 </div>
               )}
             </>

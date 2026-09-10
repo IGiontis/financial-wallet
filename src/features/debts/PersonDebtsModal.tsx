@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiPlus, FiTrash2, FiX } from "react-icons/fi";
+import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { loanPayoff, loanState, payoffSaving } from "./debtsUtils";
-import { useDeleteDebt, useDeleteRepayment, useRecordRepayment } from "./useDebts";
+import { currentRate, isFloating, loanPayoff, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { useDeleteDebt, useDeleteRepayment, useRecordRepayment, useUpdateDebt } from "./useDebts";
+import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
+import segmented from "../../shared/css/Segmented.module.css";
 import type { DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -39,6 +42,109 @@ function PayMore({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrenc
       ) : (
         <div className={styles.payMoreResult}>{t("debts.payMoreResult", { months: saving.monthsSaved, amount: formatCurrency(saving.interestSaved) })}</div>
       )}
+    </div>
+  );
+}
+
+/** The moves worth trying. A cut, and the three rises a borrower is warned about. */
+const RATE_MOVES = [-1, 0.5, 1, 2];
+
+/**
+ * What a move in the index would do — and the one field that keeps it honest.
+ *
+ * A floating loan is repriced rather than restarted: the bank keeps the end date
+ * and recalculates the payment on what is still owed. So a point on the index is
+ * not a point on the payment — on a mortgage with twenty years left it is nearer
+ * a tenth of it — and that is the figure this answers.
+ *
+ * The index field is what stops the rest of the screen from lying. Every number
+ * on this row is worked out from a rate that was true the day it was typed, and
+ * a floating rate left alone for a year is a guess wearing two decimal places.
+ */
+function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; formatCurrency: (n: number) => string; locale: string }) {
+  const { t } = useTranslation();
+  const update = useUpdateDebt();
+  const [delta, setDelta] = useState<number | null>(null);
+  const [index, setIndex] = useState(() => String(debt.baseRate ?? 0));
+
+  const outlook = delta === null ? undefined : rateOutlook(debt, delta);
+  // Greek writes 0,5 where English writes 0.5, and a rate is a number like any
+  // other. The signed one is for the moves, which only read as a pair with it.
+  const move = new Intl.NumberFormat(locale, { signDisplay: "always", maximumFractionDigits: 2 });
+  const pct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+
+  const typed = parseFloat(index);
+  const changed = Number.isFinite(typed) && typed >= 0 && typed !== (debt.baseRate ?? 0);
+  const reviewed = debt.rateReviewedAt ? firestoreToDate(debt.rateReviewedAt) : undefined;
+  // Half a year is longer than every reset period a Greek mortgage uses, so by
+  // then the figure on file is certainly not the one the bank is charging.
+  const stale = reviewed ? differenceInCalendarMonths(new Date(), reviewed) >= 6 : false;
+
+  const saveIndex = () => {
+    if (!changed) return;
+    // The stored rate stays the sum of the parts. Writing one without the other
+    // would leave the payment and the rate beside it disagreeing.
+    const allIn = Math.round((typed + (debt.margin ?? 0)) * 100) / 100;
+    update.mutate({ debtId: debt.id, data: { baseRate: typed, interestRate: allIn, rateReviewedAt: new Date() } });
+  };
+
+  return (
+    <div className={styles.payMore}>
+      <div className={styles.payMoreHead}>
+        {t("debts.rateWatchTitle")}
+        <RateHelpButton debt={debt} formatCurrency={formatCurrency} locale={locale} />
+      </div>
+
+      <div className={segmented.group} role="group" aria-label={t("debts.rateWatchTitle")}>
+        {RATE_MOVES.map((step) => (
+          <button
+            key={step}
+            type="button"
+            className={`${segmented.item} ${delta === step ? segmented.active : ""}`}
+            aria-pressed={delta === step}
+            onClick={() => setDelta(delta === step ? null : step)}
+          >
+            {move.format(step)}%
+          </button>
+        ))}
+      </div>
+
+      {outlook === undefined ? (
+        <div className={styles.payMoreIdle}>{t("debts.rateWatchPrompt")}</div>
+      ) : outlook.instalmentDelta === 0 ? (
+        <div className={styles.payMoreIdle}>{t("debts.rateWatchSame")}</div>
+      ) : (
+        <>
+          <div className={outlook.instalmentDelta > 0 ? styles.rateWatchUp : styles.payMoreResult}>
+            {t(outlook.instalmentDelta > 0 ? "debts.rateWatchMore" : "debts.rateWatchLess", {
+              amount: formatCurrency(outlook.instalment),
+              delta: formatCurrency(Math.abs(outlook.instalmentDelta)),
+            })}
+          </div>
+          <div className={styles.payMoreIdle}>
+            {t(outlook.interestDelta > 0 ? "debts.rateWatchInterestMore" : "debts.rateWatchInterestLess", {
+              amount: formatCurrency(Math.abs(outlook.interestDelta)),
+            })}
+          </div>
+        </>
+      )}
+
+      <div className={styles.rateIndex}>
+        <span className={styles.rateIndexLabel}>{t("debts.baseRate")}</span>
+        <InputGroup size="sm" style={{ width: 120 }}>
+          <Input type="number" min={0} step="0.01" inputMode="decimal" value={index} onChange={(e) => setIndex(e.target.value)} aria-label={t("debts.baseRate")} />
+          <InputGroupText>%</InputGroupText>
+        </InputGroup>
+        <Button color="secondary" outline size="sm" disabled={!changed || update.isPending} onClick={saveIndex}>
+          {t("debts.updateIndex")}
+        </Button>
+      </div>
+
+      <div className={stale ? styles.rateWatchUp : styles.payMoreIdle}>
+        {t("debts.rateParts", { base: pct.format(debt.baseRate ?? 0), margin: pct.format(debt.margin ?? 0) })}
+        {reviewed ? ` · ${t(stale ? "debts.rateStale" : "debts.rateAsOf", { date: dateFmt.format(reviewed) })}` : ""}
+      </div>
     </div>
   );
 }
@@ -162,9 +268,13 @@ export default function PersonDebtsModal({
                       </>
                     )}
                     <span>{t("debts.interestSoFar", { amount: formatCurrency(loan.interestPaid) })}</span>
+                    {/* On a floating loan the rate is the one fact on this row
+                        with a date attached to it, so it says so. */}
+                    {isFloating(debt) && <span>{t("debts.allInRate", { rate: new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(currentRate(debt)) })}</span>}
                   </div>
 
                   {!debt.isSettled && <PayMore debt={debt} formatCurrency={formatCurrency} />}
+                  {!debt.isSettled && isFloating(debt) && <RateWatch debt={debt} formatCurrency={formatCurrency} locale={locale} />}
                 </>
               )}
 

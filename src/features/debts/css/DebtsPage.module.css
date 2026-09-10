@@ -283,3 +283,168 @@
   margin-top: 6px;
   color: var(--color-text-secondary);
 }
+
+/* ── A rate that moves ─────────────────────────────────────────────────────── */
+/* Everything a floating loan shows is true of today, and the screen says so
+   rather than letting a photograph pass for a fact. */
+
+.loanPreviewNote {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+/* The payment going up is not a saving, so it does not get the saving's colour. */
+.rateWatchUp {
+  font-size: 12.5px;
+  margin-top: 6px;
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+
+/* The index on file, and the one field that keeps it current. */
+.rateIndex {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border-primary);
+}
+
+.rateIndexLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* ── "How it works" ────────────────────────────────────────────────────────── */
+/* A rate in two parts, resetting on a timetable, changing the payment and not
+   the end date, is four facts deep before it makes sense. The dot is small and
+   the answer is a tap away rather than in the middle of the form. */
+
+.rateHelp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bs-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rateHelp:hover {
+  text-decoration: underline;
+}
+
+.helpSection {
+  margin-bottom: 18px;
+}
+
+.helpHeading {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.helpBody {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+/* index + margin = rate, which is the whole idea in one line. */
+.partsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.part {
+  padding: 5px 9px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.part em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.partOp {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.partSum {
+  background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--bs-primary) 40%, transparent);
+}
+
+/* Today against one point up, and the end date repeated on purpose. */
+.helpTable {
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+
+.helpTableHead,
+.helpTableRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.helpTableHead {
+  background: var(--color-background-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.helpTableHead span,
+.helpTableRow span {
+  text-align: right;
+  min-width: 88px;
+}
+
+.helpTableHead span:first-child,
+.helpTableRow span:first-child {
+  text-align: left;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+.helpTableRow {
+  border-top: 1px solid var(--color-border-primary);
+  color: var(--color-text-primary);
+}
+
+.helpTableUp {
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+
+.helpPunch {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}

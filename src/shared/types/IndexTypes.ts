@@ -561,6 +561,17 @@ export interface InvestmentSummary {
 /** Which way the money went. Never inferred from a sign — see `debtsUtils`. */
 export type DebtDirection = "owed_by_me" | "owed_to_me";
 
+/**
+ * Whether the rate can move under the borrower.
+ *
+ * Absent means fixed, which is what every loan recorded before this existed was
+ * taken to be. A floating loan follows an index — Euribor, or the ECB's own
+ * rate — plus a margin the bank sets once and keeps for the life of the loan.
+ * The margin is the fixed part; the index is re-read every one, three or six
+ * months, and every figure derived from it is true of today and of no other day.
+ */
+export type DebtRateType = "fixed" | "floating";
+
 export interface Debt {
   id: string;
   userId: string;
@@ -596,6 +607,18 @@ export interface Debt {
    * payment, because less of the loan is ever charged for.
    */
   interestFreeMonths?: number;
+  /** Fixed for the whole term, or an index that moves. Absent means fixed. */
+  rateType?: DebtRateType;
+  /**
+   * The index a floating loan follows, as last recorded, and the bank's spread
+   * over it. `interestRate` stays the all-in rate the two add up to, so that
+   * anything reading only that keeps working; these two say where it came from
+   * and let the index be updated on its own when it moves.
+   */
+  baseRate?: number;
+  margin?: number;
+  /** When the index was last entered. A floating rate read a year ago is a guess. */
+  rateReviewedAt?: Date;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -622,6 +645,10 @@ export interface CreateDebtDTO {
   interestRate?: number;
   termMonths?: number;
   interestFreeMonths?: number;
+  rateType?: DebtRateType;
+  baseRate?: number;
+  margin?: number;
+  rateReviewedAt?: Date;
   notes?: string;
 }
 
@@ -633,6 +660,10 @@ export interface UpdateDebtDTO {
   interestRate?: number;
   termMonths?: number;
   interestFreeMonths?: number;
+  rateType?: DebtRateType;
+  baseRate?: number;
+  margin?: number;
+  rateReviewedAt?: Date;
   date?: Date;
   dueDate?: Date;
   notes?: string;

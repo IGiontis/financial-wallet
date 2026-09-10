@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { computeDebtStatus, debtTotals, debtsByPerson, isLoan, loanPayoff, loanState, monthlyInstalment, payoffSaving, plannableDebts } from "./debtsUtils";
+import {
+  computeDebtStatus,
+  currentRate,
+  debtTotals,
+  debtsByPerson,
+  isFloating,
+  isLoan,
+  loanPayoff,
+  loanState,
+  monthlyInstalment,
+  payoffSaving,
+  plannableDebts,
+  rateOutlook,
+} from "./debtsUtils";
 import type { Debt, DebtPayment, DebtWithStatus } from "../../shared/types/IndexTypes";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -449,5 +462,205 @@ describe("άτοκες δόσεις — nothing charged, at least to begin with"
     expect(loanState(phone, new Date(2027, 2, 9))!.instalment).toBe(100);
     expect(loanState(phone, new Date(2027, 2, 9))!.interestPaid).toBe(0);
     expect(phone.remaining).toBe(1100);
+  });
+});
+
+// ─── A rate that moves ───────────────────────────────────────────────────────
+//
+// Most mortgages here are floating: an index — Euribor, or the ECB's own — plus
+// a margin the bank sets once. The margin is theirs for keeps; the index is not,
+// and every figure worked out from their sum is a photograph of today rather
+// than a fact about the loan. These check that the photograph is at least
+// honestly taken, and that the screen can say what a move would cost.
+
+/** €200,000 over 25 years at 2.30% Euribor + 1.20% — an ordinary Greek mortgage. */
+const mortgage = (over: Partial<Debt> = {}, payments: DebtPayment[] = []): DebtWithStatus =>
+  computeDebtStatus(
+    debt({ id: "m1", person: "Τράπεζα", amount: 200000, rateType: "floating", baseRate: 2.3, margin: 1.2, interestRate: 3.5, termMonths: 300, date: NOW, ...over }),
+    payments,
+  );
+
+describe("currentRate — which number the loan is actually charged at", () => {
+  it("reads a fixed loan's own rate, and nothing at all off one without", () => {
+    expect(currentRate(debt({ interestRate: 7 }))).toBe(7);
+    expect(currentRate(debt())).toBe(0);
+    expect(isFloating(debt({ interestRate: 7 }))).toBe(false);
+  });
+
+  it("adds the index to the margin on a floating one", () => {
+    expect(currentRate(debt({ rateType: "floating", baseRate: 2.3, margin: 1.2 }))).toBe(3.5);
+    expect(isFloating(debt({ rateType: "floating" }))).toBe(true);
+  });
+
+  it("believes the parts over a stored rate that has drifted from them", () => {
+    // `interestRate` is written as the sum of the two, and the index can be
+    // updated on its own. If a write ever half-lands, the payment on screen must
+    // follow the parts the screen is showing beside it, not a stale total.
+    const drifted = debt({ rateType: "floating", baseRate: 2.3, margin: 1.2, interestRate: 99 });
+    expect(currentRate(drifted)).toBe(3.5);
+  });
+
+  it("copes with half a rate, and never charges a negative one", () => {
+    expect(currentRate(debt({ rateType: "floating", margin: 1.2 }))).toBe(1.2);
+    expect(currentRate(debt({ rateType: "floating", baseRate: 2.3 }))).toBe(2.3);
+    expect(currentRate(debt({ rateType: "floating" }))).toBe(0);
+    // A negative index below the margin has happened; a bank charging less than
+    // nothing has not.
+    expect(currentRate(debt({ rateType: "floating", baseRate: -2, margin: 1.2 }))).toBe(0);
+  });
+});
+
+describe("a floating loan is exactly the fixed one at the same all-in rate", () => {
+  // The whole model was routed through `currentRate`. This is the check that it
+  // changed nothing for the loans already recorded, and that a floating loan is
+  // not a second set of arithmetic that could drift from the first.
+  const paid = [repay("m1", 1001.25, new Date(2026, 9, 9)), repay("m1", 1001.25, new Date(2026, 10, 9))];
+  const floating = mortgage({}, paid);
+  const fixed = computeDebtStatus(debt({ id: "m1", person: "Τράπεζα", amount: 200000, interestRate: 3.5, termMonths: 300, date: NOW }), paid);
+  const asOf = new Date(2026, 11, 9);
+
+  it("charges the same instalment", () => {
+    expect(loanState(floating, asOf)!.instalment).toBe(loanState(fixed, asOf)!.instalment);
+    expect(loanState(floating, asOf)!.instalment).toBe(1001.25);
+  });
+
+  it("stands at the same balance after the same payments", () => {
+    expect(loanState(floating, asOf)!.balance).toBe(loanState(fixed, asOf)!.balance);
+    expect(loanState(floating, asOf)!.interestPaid).toBe(loanState(fixed, asOf)!.interestPaid);
+  });
+
+  it("finishes on the same day, having paid the same interest", () => {
+    const a = loanPayoff(floating, 0, asOf)!;
+    const b = loanPayoff(fixed, 0, asOf)!;
+    expect(a.months).toBe(b.months);
+    expect(a.interestToCome).toBe(b.interestToCome);
+    expect(a.finishDate.getTime()).toBe(b.finishDate.getTime());
+  });
+
+  it("moves when the index moves, and the margin stays put", () => {
+    // The same loan after a reset: Euribor up 0.7, margin untouched.
+    expect(currentRate(mortgage({ baseRate: 3 }))).toBe(4.2);
+    expect(loanState(mortgage({ baseRate: 3 }), NOW)!.instalment).toBeGreaterThan(1001.25);
+    expect(loanState(mortgage({ baseRate: 1.3 }), NOW)!.instalment).toBe(897.23);
+  });
+});
+
+describe("rateOutlook — what a move would cost", () => {
+  it("says nothing has changed when nothing has moved", () => {
+    const flat = rateOutlook(mortgage(), 0, NOW)!;
+
+    expect(flat.rate).toBe(3.5);
+    expect(flat.instalmentDelta).toBe(0);
+    expect(flat.interestDelta).toBe(0);
+    // Repricing at the rate in force, on a loan not yet paid into, must
+    // reproduce the contractual payment. If it did not, every comparison below
+    // would be measured from the wrong place.
+    expect(flat.instalment).toBe(1001.25);
+    expect(flat.monthsLeft).toBe(300);
+  });
+
+  it("puts a point on the index at about a tenth on the payment", () => {
+    const up = rateOutlook(mortgage(), 1, NOW)!;
+
+    expect(up.rate).toBe(4.5);
+    expect(up.instalment).toBe(1111.66);
+    expect(up.instalmentDelta).toBe(110.41);
+    // The thing worth knowing, and the thing nobody guesses right: one point on
+    // the rate is eleven percent on the payment, not one percent.
+    expect(up.instalmentDelta / up.instalment).toBeGreaterThan(0.08);
+    expect(up.instalmentDelta / up.instalment).toBeLessThan(0.13);
+  });
+
+  it("adds up the extra interest the same two ways", () => {
+    const flat = rateOutlook(mortgage(), 0, NOW)!;
+    const up = rateOutlook(mortgage(), 1, NOW)!;
+
+    expect(flat.interestToCome).toBe(100374.14);
+    expect(up.interestToCome).toBe(133499.49);
+    // Route one: the difference between the two totals. Route two: the extra
+    // payment, every month, for the months that are left. Separate roundings, so
+    // they tie to the cent rather than exactly.
+    expect(up.interestDelta).toBe(33125.35);
+    // Exactly, not nearly: the reported difference is the difference between the
+    // two totals, so a reader subtracting the column gets the same number.
+    expect(round2(up.interestToCome - flat.interestToCome)).toBe(up.interestDelta);
+    // The payment route lands within a few euros of it and not on it, because a
+    // payment rounded to the cent is up to half a cent out three hundred times.
+    expect(Math.abs(up.instalmentDelta * up.monthsLeft - up.interestDelta)).toBeLessThan(3);
+  });
+
+  it("keeps the end date and changes the payment, which is what a bank does", () => {
+    // A floating loan is repriced, not restarted. Every scenario clears on the
+    // same day; only the monthly cost moves.
+    const months = [-1, 0, 0.5, 1, 2, 5].map((move) => rateOutlook(mortgage(), move, NOW)!.monthsLeft);
+    expect(new Set(months)).toEqual(new Set([300]));
+  });
+
+  it("costs less when the index falls", () => {
+    const down = rateOutlook(mortgage(), -1, NOW)!;
+
+    expect(down.rate).toBe(2.5);
+    expect(down.instalment).toBe(897.23);
+    expect(down.instalmentDelta).toBeLessThan(0);
+    expect(down.interestDelta).toBeLessThan(0);
+    expect(down.interestToCome).toBeLessThan(100374.14);
+  });
+
+  it("floors the rate at zero rather than paying you to borrow", () => {
+    const gift = rateOutlook(mortgage(), -10, NOW)!;
+
+    expect(gift.rate).toBe(0);
+    // Nothing charged: the payment is simply the debt split over what is left.
+    expect(gift.instalment).toBe(666.67);
+    expect(gift.interestToCome).toBe(0);
+  });
+
+  it("still honours the άτοκες δόσεις that have not run out", () => {
+    const promo = loan({ interestFreeMonths: 12, rateType: "floating", baseRate: 5, margin: 2, interestRate: 7 });
+
+    expect(rateOutlook(promo, 0, NOW)!.instalment).toBe(186.01);
+    expect(rateOutlook(promo, 1, NOW)!.instalment).toBe(188.81);
+    expect(rateOutlook(promo, 1, NOW)!.instalmentDelta).toBe(2.8);
+    expect(rateOutlook(promo, 1, NOW)!.interestToCome).toBe(1328.9);
+  });
+
+  it("has nothing to say about a debt that is not a loan, or one already settled", () => {
+    expect(rateOutlook(computeDebtStatus(debt({ id: "iou", amount: 400 }), []), 1, NOW)).toBeUndefined();
+    expect(rateOutlook(mortgage({}, [repay("m1", 200500, new Date(2026, 8, 10))]), 1, new Date(2026, 8, 11))).toBeUndefined();
+  });
+
+  it("does not call a loan finished while a day of interest is still on it", () => {
+    // Handing back exactly what was borrowed leaves the day it was out for, so
+    // the loan is repriced over the month that is left rather than closed. It is
+    // a small thing and it is the right one: the bank would send that bill.
+    const almost = mortgage({}, [repay("m1", 200000, new Date(2026, 8, 10))]);
+    const left = rateOutlook(almost, 1, new Date(2026, 8, 11))!;
+
+    expect(left.monthsLeft).toBe(1);
+    expect(left.instalment).toBeGreaterThan(19);
+    expect(left.instalment).toBeLessThan(20);
+  });
+
+  it("measures from where the loan is, not from where it started", () => {
+    // Two years of payments in. The comparison is made on the balance that is
+    // left over the months that are left, so a rise costs less in total than the
+    // same rise on day one: there is less loan left to charge it on.
+    const paid = Array.from({ length: 24 }, (_, i) => repay("m1", 1001.25, new Date(2026, 9 + i, 9)));
+    const twoYearsIn = mortgage({}, paid);
+    const later = new Date(2028, 8, 9);
+
+    const up = rateOutlook(twoYearsIn, 1, later)!;
+    const fresh = rateOutlook(mortgage(), 1, NOW)!;
+
+    expect(up.monthsLeft).toBeLessThan(300);
+    expect(up.interestDelta).toBeGreaterThan(0);
+    expect(up.interestDelta).toBeLessThan(fresh.interestDelta);
+    // And the baseline it measures from is still the payment being made: two
+    // years of paying exactly the instalment leaves the loan on schedule. Not to
+    // the cent — interest is charged by the day here and the annuity assumes
+    // twelve equal months — but the two agree inside a couple of euros, which is
+    // the check that the daily walk and the schedule are describing one loan.
+    const onSchedule = rateOutlook(twoYearsIn, 0, later)!.instalment;
+    expect(Math.abs(onSchedule - 1001.25)).toBeLessThan(3);
   });
 });

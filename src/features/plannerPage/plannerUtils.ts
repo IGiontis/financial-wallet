@@ -1,7 +1,7 @@
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
-import { isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
+import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
 import { getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, paidInstallments } from "../bills/billsUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
@@ -827,7 +827,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     // one day of the forecast: the months in between looked comfortable and the
     // month of the due date looked ruinous, and neither was true.
     if (isLoan(debt)) {
-      const instalment = monthlyInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
+      const instalment = monthlyInstalment(debt.amount, currentRate(debt), debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
       const payoff = loanPayoff(debt, 0, today);
       if (!payoff || instalment <= 0) continue;
 

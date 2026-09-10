@@ -110,6 +110,24 @@ export function plannableDebts(debts: DebtWithStatus[]): DebtWithStatus[] {
  */
 export const isLoan = (debt: Pick<Debt, "termMonths">): boolean => (debt.termMonths ?? 0) > 0;
 
+/** Does the rate move under the borrower, or is it the same for the whole term? */
+export const isFloating = (debt: Pick<Debt, "rateType">): boolean => debt.rateType === "floating";
+
+/**
+ * The all-in annual rate in force today — index plus margin on a floating loan,
+ * the agreed rate on a fixed one.
+ *
+ * Everything below is computed from this one number, and on a floating loan it
+ * is a photograph rather than a fact: it is what the bank charges this month.
+ * Reading the two parts here rather than the stored `interestRate` means the
+ * screen can never show a payment worked out from a stale index while the parts
+ * beside it say something else.
+ */
+export function currentRate(debt: Pick<Debt, "rateType" | "interestRate" | "baseRate" | "margin">): number {
+  if (!isFloating(debt)) return debt.interestRate ?? 0;
+  return round2(Math.max((debt.baseRate ?? 0) + (debt.margin ?? 0), 0));
+}
+
 /**
  * The level payment that clears a loan over its term — the annuity formula.
  *
@@ -163,8 +181,8 @@ export interface LoanState {
 export function loanState(debt: DebtWithStatus, asOf: Date = new Date()): LoanState | undefined {
   if (!isLoan(debt)) return undefined;
 
-  const instalment = monthlyInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
-  const dailyRate = (debt.interestRate ?? 0) / 100 / 365;
+  const instalment = monthlyInstalment(debt.amount, currentRate(debt), debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
+  const dailyRate = currentRate(debt) / 100 / 365;
   // Nothing accrues until the free months are up.
   const chargesFrom = addMonths(firestoreToDate(debt.date), Math.max(debt.interestFreeMonths ?? 0, 0));
 
@@ -239,11 +257,11 @@ export function loanPayoff(debt: DebtWithStatus, extra = 0, asOf: Date = new Dat
   const state = loanState(debt, asOf);
   if (!state || state.balance <= 0) return undefined;
 
-  const monthly = (debt.interestRate ?? 0) / 100 / 12;
+  const monthly = currentRate(debt) / 100 / 12;
   // The exact annuity payment, not the rounded one on screen. Two tenths of a
   // cent a month short is enough to leave a balance after the final payment and
   // grow the schedule a sixty-first row for twelve cents.
-  const payment = exactInstalment(debt.amount, debt.interestRate ?? 0, debt.termMonths ?? 0, debt.interestFreeMonths ?? 0) + Math.max(extra, 0);
+  const payment = exactInstalment(debt.amount, currentRate(debt), debt.termMonths ?? 0, debt.interestFreeMonths ?? 0) + Math.max(extra, 0);
   // How many of the free months are still ahead. Past them the rate applies to
   // whatever is left, which is the whole point of the offer running out.
   const chargesFrom = addMonths(firestoreToDate(debt.date), Math.max(debt.interestFreeMonths ?? 0, 0));
@@ -323,5 +341,89 @@ export function payoffSaving(debt: DebtWithStatus, extra: number, asOf: Date = n
     monthsSaved: base.months - faster.months,
     interestSaved: round2(base.interestToCome - faster.interestToCome),
     finishDate: faster.finishDate,
+  };
+}
+
+// ─── When the rate moves ─────────────────────────────────────────────────────
+//
+// Most mortgages here are not fixed at all: the rate is an index — Euribor, or
+// the ECB's own — plus a margin the bank sets once, and it is re-read every one,
+// three or six months. Everything above is worked out from the rate in force
+// today, which makes the instalment, the end date and the interest still to come
+// true of today and of no other day.
+//
+// A floating loan is repriced rather than restarted: the bank keeps the end date
+// and changes the payment, recalculating it on what is still owed over the
+// months that are left. So the question worth answering is not what the loan
+// would have cost at some other rate — it was never at that rate — but what the
+// payment becomes if the index moves from here. That is the stress test the
+// ESIS disclosure puts in front of every borrower once, at signing, and that
+// nobody ever recomputes afterwards.
+
+export interface RateOutlook {
+  /** The all-in annual rate being tested. */
+  rate: number;
+  /** The payment that would clear what is left over the months that remain. */
+  instalment: number;
+  /** How much more, each month, than the payment at today's rate. */
+  instalmentDelta: number;
+  /** Interest from here to the end at that rate. */
+  interestToCome: number;
+  /** How much more of it than at today's rate. */
+  interestDelta: number;
+  monthsLeft: number;
+}
+
+interface Repriced {
+  months: number;
+  balance: number;
+  instalment: number;
+}
+
+/** The payment at `ratePct` on what is still owed, over the months that are left. */
+function repriceRemaining(debt: DebtWithStatus, ratePct: number, asOf: Date): Repriced | undefined {
+  const state = loanState(debt, asOf);
+  const remaining = loanPayoff(debt, 0, asOf);
+  if (!state || !remaining || remaining.months <= 0 || state.balance <= 0) return undefined;
+
+  // Free months already used up are gone; only the ones still ahead lower the
+  // repriced payment, and never more of them than there are payments left.
+  const chargesFrom = addMonths(firestoreToDate(debt.date), Math.max(debt.interestFreeMonths ?? 0, 0));
+  const freeLeft = Math.min(Math.max(differenceInCalendarMonths(chargesFrom, asOf), 0), remaining.months);
+
+  return { months: remaining.months, balance: state.balance, instalment: exactInstalment(state.balance, ratePct, remaining.months, freeLeft) };
+}
+
+/**
+ * What a move of `deltaPoints` in the rate would do to this loan, from today.
+ *
+ * Points, not percent: a loan at 3.5% with the index up one point is at 4.5%,
+ * not 3.535%. A negative delta is a cut, and the rate is floored at zero because
+ * a bank does not pay you to borrow.
+ */
+export function rateOutlook(debt: DebtWithStatus, deltaPoints: number, asOf: Date = new Date()): RateOutlook | undefined {
+  const today = currentRate(debt);
+  const shifted = Math.max(today + deltaPoints, 0);
+
+  const now = repriceRemaining(debt, today, asOf);
+  const then = repriceRemaining(debt, shifted, asOf);
+  if (!now || !then) return undefined;
+
+  // Every difference here is the difference between two figures the reader can
+  // see, rather than a more exact one worked out behind them. The payment goes
+  // up by what the two payments differ by; the interest goes up by what the two
+  // totals differ by. Taking the delta from the unrounded payment instead is a
+  // cent nearer the truth and a cent away from the column beside it, and a
+  // reader who subtracts what is on screen must not get a different answer.
+  const interestNow = round2(now.instalment * now.months - now.balance);
+  const interestThen = round2(then.instalment * then.months - then.balance);
+
+  return {
+    rate: round2(shifted),
+    instalment: round2(then.instalment),
+    instalmentDelta: round2(round2(then.instalment) - round2(now.instalment)),
+    interestToCome: interestThen,
+    interestDelta: round2(interestThen - interestNow),
+    monthsLeft: then.months,
   };
 }
