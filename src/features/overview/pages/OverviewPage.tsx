@@ -229,7 +229,7 @@ export const OverviewPage = () => {
         </CurrentBalanceCard>
 
         <Card className="mb-0">
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.totalIncome")}</span>
             <span className={styles.statValue} style={{ color: "var(--color-income)" }}>
               {formatCurrency(metrics.totalIncome)}
@@ -238,7 +238,7 @@ export const OverviewPage = () => {
         </Card>
 
         <Card className="mb-0">
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.totalExpenses")}</span>
             <span className={styles.statValue} style={{ color: "var(--color-expense)" }}>
               {formatCurrency(metrics.totalExpenses)}
@@ -247,7 +247,7 @@ export const OverviewPage = () => {
         </Card>
 
         <Card className={`${styles.wide} mb-0`}>
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.netIncome")}</span>
             <span className={styles.statValue} style={{ color: metrics.netIncome >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
               {formatCurrency(metrics.netIncome)}
@@ -264,7 +264,7 @@ export const OverviewPage = () => {
         </Card>
 
         <Card className="mb-0">
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.invested")}</span>
             <span className={styles.statValue} style={{ color: "var(--color-invest)" }}>
               {formatCurrency(totalInvestments)}
@@ -273,7 +273,7 @@ export const OverviewPage = () => {
         </Card>
 
         <Card className="mb-0">
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.goalSavings")}</span>
             <span className={styles.statValue} style={{ color: "var(--color-goal)" }}>
               {formatCurrency(goalSavings)}
@@ -282,7 +282,7 @@ export const OverviewPage = () => {
         </Card>
 
         <Card className={`${styles.wide} mb-0`}>
-          <CardBody className={`p-3 ${styles.stat}`}>
+          <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.moneyLeft")}</span>
             <span className={styles.statValue} style={{ color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
               {formatCurrency(moneyLeft)}

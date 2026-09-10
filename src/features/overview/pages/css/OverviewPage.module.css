@@ -28,8 +28,9 @@
 .bento {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
+
 
 .bento > * {
   min-width: 0;
@@ -75,8 +76,10 @@
   height: 100%;
 }
 
+/* Big enough to be the one figure that leads the page, not so big that a
+   four-digit balance looks like a headline about somebody else's money. */
 .figure {
-  font-size: 2.1rem;
+  font-size: 1.8rem;
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -85,7 +88,7 @@
 
 @media (min-width: 992px) {
   .figure {
-    font-size: 2.6rem;
+    font-size: 2.1rem;
   }
 }
 
@@ -109,18 +112,22 @@
 .spark {
   display: block;
   width: 100%;
-  height: 54px;
+  height: 40px;
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 /* ── The small figures ────────────────────────────────────────────────────── */
 
+/* The small tiles hold four or five digits, so they do not need a card's worth
+   of padding around them — the padding is theirs rather than Bootstrap's, so
+   there is no race between two rules of equal weight. */
 .stat {
   display: flex;
   flex-direction: column;
   justify-content: center;
   height: 100%;
+  padding: 0.7rem 0.85rem;
 }
 
 .statLabel {
@@ -133,7 +140,7 @@
 }
 
 .statValue {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;

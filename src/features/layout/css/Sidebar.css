@@ -135,9 +135,16 @@
    the app rather than show the money, and they stay put while the list above
    scrolls. */
 
+/* Settings sits at the very bottom of a full-height panel, which on a phone is
+   the very bottom of the screen — hard against the home indicator on an
+   installed PWA, and against the browser's own bar otherwise. The safe-area
+   inset is what the device says it needs; the half-rem underneath it is so the
+   row is not touching the edge even on a phone that reports none. */
 .sidebar-foot {
   flex-shrink: 0;
   padding: 0.5rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  margin-bottom: 0.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
