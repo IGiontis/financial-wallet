@@ -104,12 +104,17 @@
   margin-top: 0.5rem;
 }
 
+/* Quieter than the items they head — a group name is scenery — but quiet here
+   is spacing and weight, not fading the text out. At 45% white these measured
+   4.17:1 on the sidebar and at 38% they were 3.39:1; ten-pixel uppercase needs
+   4.5:1, so the alpha is set where it clears it (5.9:1 light, 6.4:1 dark) and
+   the letter-spacing does the softening instead. */
 .sidebar-group-label {
-  padding: 0.5rem 1rem 0.25rem;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.45);
+  padding: 0.75rem 1rem 0.3rem;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.58);
   white-space: nowrap;
 }
 
@@ -157,10 +162,30 @@
   color: #fff;
 }
 
-/* Active route — Bootstrap's .bg-primary is applied in the component */
-.sidebar-nav .nav-link.bg-primary,
-.sidebar-foot .nav-link.bg-primary {
+/* The current page.
+ *
+ * This was `.bg-primary` — a solid blue block, the loudest thing on a rail
+ * nobody is looking at. A quiet fill says the same thing, and the bar down the
+ * left edge is what the eye actually finds: it is the only vertical line in the
+ * list, so it reads before any of the words do. */
+.sidebar-nav .nav-link.nav-link-current,
+.sidebar-foot .nav-link.nav-link-current {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.12);
   color: #fff;
+  font-weight: 600;
+}
+
+.sidebar-nav .nav-link.nav-link-current::before,
+.sidebar-foot .nav-link.nav-link-current::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--bs-primary);
 }
 
 /* Tighter padding when collapsed so icon stays centered */

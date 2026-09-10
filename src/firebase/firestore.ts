@@ -81,6 +81,17 @@ export const setOpeningBalance = async (uid: string, opening: { amount: number; 
   });
 };
 
+/**
+ * One key of the workspace, written on its own.
+ *
+ * A dotted path rather than a whole `workspace` object: two screens write to it,
+ * and sending the object would mean whichever wrote last erased whatever the
+ * other had changed in between. Firestore merges a dotted field in place.
+ */
+export const saveWorkspaceValue = async (uid: string, key: string, value: unknown) => {
+  await updateDoc(doc(db, "users", uid), { [`workspace.${key}`]: value, updatedAt: serverTimestamp() });
+};
+
 // ─── TRANSACTIONS ─────────────────────────────────────────────────────────────
 
 export const createTransaction = async (userId: string, data: CreateTransactionDTO) => {

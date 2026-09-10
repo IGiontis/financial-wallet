@@ -36,33 +36,33 @@ describe("rateExample — the figures behind the explanation", () => {
     expect(facts.amount).toBe(ILLUSTRATION.amount);
     expect(facts.base).toBe(2.3);
     expect(facts.margin).toBe(1.2);
-    expect(facts.months).toBe(300);
+    expect(facts.months).toBe(240);
 
     expect(facts.now.rate).toBe(3.5);
-    expect(facts.now.instalment).toBe(1001.25);
+    expect(facts.now.instalment).toBe(579.96);
     expect(facts.up.rate).toBe(4.5);
-    expect(facts.up.instalment).toBe(1111.66);
+    expect(facts.up.instalment).toBe(632.65);
   });
 
   it("charges the interest the explanation claims, and ties to the payment", () => {
     const facts = rateExample(undefined, NOW)!;
 
-    expect(facts.now.interest).toBe(100374.14);
-    expect(facts.up.interest).toBe(133499.49);
+    expect(facts.now.interest).toBe(39190.33);
+    expect(facts.up.interest).toBe(51835.85);
     // The second route: what is handed over across the whole term, less the
     // loan. Half a cent on the payment is a euro and a half over three hundred
     // months, so they tie to the euro rather than to the cent.
     expect(Math.abs(facts.now.instalment * facts.months - facts.amount - facts.now.interest)).toBeLessThan(2);
     expect(Math.abs(facts.up.instalment * facts.months - facts.amount - facts.up.interest)).toBeLessThan(2);
     // And the point the table is there to make.
-    expect(facts.up.instalment - facts.now.instalment).toBeCloseTo(110.41, 2);
-    expect(facts.up.interest - facts.now.interest).toBeCloseTo(33125.35, 1);
+    expect(facts.up.instalment - facts.now.instalment).toBeCloseTo(52.69, 2);
+    expect(facts.up.interest - facts.now.interest).toBeCloseTo(12645.52, 1);
   });
 
   it("ends on one date, not two — which is the row that repeats itself", () => {
     const facts = rateExample(undefined, NOW)!;
-    expect(differenceInCalendarMonths(facts.finish, NOW)).toBe(300);
-    expect(facts.finish.getTime()).toBe(addMonths(NOW, 300).getTime());
+    expect(differenceInCalendarMonths(facts.finish, NOW)).toBe(240);
+    expect(facts.finish.getTime()).toBe(addMonths(NOW, 240).getTime());
   });
 
   it("puts a point on the index at about a tenth on the payment", () => {

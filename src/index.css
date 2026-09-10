@@ -198,22 +198,32 @@
   /* Never wider than the screen — an overflowing menu was pushing the page
      sideways and creating a horizontal scrollbar. */
   max-width: calc(100vw - 1rem);
+  /* Above the sidebar (1050) and the modal (1055). The menus are rendered on
+     the body now, so one that was opened from a row must still draw over the
+     chrome it was opened from. */
+  z-index: 1060;
 }
 
-/* A row menu on a card opens inward, always.
+/* A row menu is rendered on the body and positioned from there.
  *
- * Popper decides where a menu goes from the space around it, and on the last
- * column of the grid it kept choosing the space to the right — which is off the
- * screen. There is no judgement needed here: the toggle sits at the card's right
- * edge, so the menu belongs directly under it, right edges aligned. Pinning it
- * in CSS is deterministic in a way that a placement calculation is not.
+ * This used to be pinned in CSS — `position: absolute !important` with a fixed
+ * inset — to stop the last column's menu opening off the right of the screen.
+ * It worked on the card grid and then broke the moment a menu appeared inside a
+ * container that clips: an absolutely positioned box is cut by any ancestor
+ * with `overflow: hidden`, and the pin left Popper no way to move it back into
+ * view. Worse, the `!important` beat Popper's own inline styles, so the
+ * `preventOverflow` and `flip` modifiers next door were computing a placement
+ * that was then thrown away — the menu had no escape and no fallback.
+ *
+ * The menus now pass `container="body"` and `strategy="fixed"`, which takes
+ * them out of every clipping ancestor and positions them against the viewport.
+ * Popper's modifiers run for real, so the right-edge case is handled by
+ * `preventOverflow` rather than by a rule that guesses. All that is left here is
+ * a gap under the toggle and a layer above the sidebar.
  */
-.card-row-menu .dropdown-menu {
-  position: absolute !important;
-  inset: 100% 0 auto auto !important;
-  transform: none !important;
-  margin-top: 4px;
-}
+/* Nothing is left to pin here: a `.card-row-menu .dropdown-menu` selector no
+   longer matches anything, because the wrapper stays in the row and the menu
+   does not. The layer it needed belongs on every menu instead, above. */
 
 .dropdown-item {
   color: var(--color-text-primary);

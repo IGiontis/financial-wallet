@@ -24,6 +24,19 @@ export interface User {
    * this figure ALREADY reflects does not subtract them a second time.
    */
   openingBalance?: number;
+  /**
+   * The planner's and the allocation page's own state, kept with the account
+   * rather than with the browser.
+   *
+   * Both screens wrote to `localStorage`, which is per device and per browser: a
+   * plan typed on a phone never reached the desktop, and clearing site data
+   * threw it away. It is a small object — a salary, a handful of lines, some
+   * one-offs — so it sits on the user document rather than in a collection of
+   * its own, and needs no security rule that does not already exist. Genuinely
+   * per-device preferences (which view a screen was left on, which stacks were
+   * collapsed) stay in `localStorage`, where they belong.
+   */
+  workspace?: Record<string, unknown>;
   /** The day `openingBalance` was true. Undefined when no balance is set. */
   openingBalanceDate?: Date;
   /** Payee list the user maintains for quick pick when adding a transaction. */
@@ -61,6 +74,7 @@ export interface UpdateUserDTO {
   baseCurrency?: Currency;
   locale?: string;
   savedPayees?: string[];
+  workspace?: Record<string, unknown>;
 }
 
 // ============================================================================

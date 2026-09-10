@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { Container, Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
+import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -19,7 +19,7 @@ import {
   type CustomRange,
   type TimePeriod,
 } from "../overviewUtils";
-import { MetricCard } from "../components/MetricCard";
+import { Sparkline } from "../components/Sparkline";
 import CurrentBalanceCard from "../components/CurrentBalanceCard";
 import { CashFlowLegend } from "../components/CashFlowLegend";
 import { CustomRangeModal } from "../components/CustomRangeModal";
@@ -33,7 +33,7 @@ const CashFlowChart = lazy(() => import("../components/CashFlowChart"));
 
 /** Same height as the chart, so nothing jumps when it finishes loading. */
 function ChartSkeleton() {
-  return <div style={{ height: 280 }} />;
+  return <Skeleton height={280} style={{ borderRadius: "var(--border-radius-md)" }} />;
 }
 
 const PERIODS: { value: TimePeriod; labelKey: string }[] = [
@@ -84,6 +84,17 @@ export const OverviewPage = () => {
         : groupByMonth(filtered, (d) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "2-digit" }).format(d)),
     [filtered, isSingleMonth, dateRange, t, i18n.resolvedLanguage],
   );
+
+  // What the period added up to as it went. The figure above it is today's
+  // balance and ignores the period entirely — this is the shape of the period
+  // itself, which is a different claim and is labelled as one.
+  const runningNet = useMemo(() => {
+    let total = 0;
+    return chartData.map((point) => {
+      total += point.income - point.expenses;
+      return Math.round(total * 100) / 100;
+    });
+  }, [chartData]);
 
   const metrics = useMemo(() => calculateMetrics(filtered), [filtered]);
   // Net flows — negative when more was withdrawn than deposited, so totals
@@ -156,14 +167,6 @@ export const OverviewPage = () => {
     );
   }
 
-  const metricCards = [
-    { key: "income", label: t("overview.totalIncome"), value: metrics.totalIncome, color: "var(--color-income)" },
-    { key: "expenses", label: t("overview.totalExpenses"), value: metrics.totalExpenses, color: "var(--color-expense)" },
-    { key: "net", label: t("overview.netIncome"), value: metrics.netIncome, color: metrics.netIncome >= 0 ? "var(--color-income)" : "var(--color-expense)" },
-    { key: "invested", label: t("overview.invested"), value: totalInvestments, color: "var(--color-invest)" },
-    { key: "goals", label: t("overview.goalSavings"), value: goalSavings, color: "var(--color-goal)" },
-    { key: "left", label: t("overview.moneyLeft"), value: moneyLeft, color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" },
-  ];
 
   return (
     <Container fluid className="py-2">
@@ -202,21 +205,92 @@ export const OverviewPage = () => {
         </div>
       </div>
 
-      <CurrentBalanceCard transactions={transactions} formatCurrency={formatCurrency} />
+      {/* ── The month, as unequal tiles ──
+          Six identical cards gave the balance, the month's income and the money
+          left over the same weight, so the page stressed nothing. The figure
+          that answers "am I all right" now takes four times the area of the
+          ones that qualify it, and the rest fall in behind it. */}
+      <div className={styles.bento} style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+        <CurrentBalanceCard
+          transactions={transactions}
+          formatCurrency={formatCurrency}
+          className={`${styles.balance} mb-0`}
+          bodyClassName={styles.balanceBody}
+          figureClassName={styles.figure}
+        >
+          {runningNet.length > 1 && (
+            <Sparkline
+              className={styles.spark}
+              values={runningNet}
+              tone={runningNet[runningNet.length - 1] >= 0 ? "var(--color-income)" : "var(--color-expense)"}
+              label={t("overview.runningNet")}
+            />
+          )}
+        </CurrentBalanceCard>
 
-      {/* Metric cards */}
-      <Row className="g-3 mb-4" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
-        {metricCards.map((c) => (
-          <Col xs={6} md={4} xl={2} key={c.key}>
-            <MetricCard label={c.label} value={c.value} color={c.color} formatFn={formatCurrency} />
-          </Col>
-        ))}
-      </Row>
+        <Card className="mb-0">
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.totalIncome")}</span>
+            <span className={styles.statValue} style={{ color: "var(--color-income)" }}>
+              {formatCurrency(metrics.totalIncome)}
+            </span>
+          </CardBody>
+        </Card>
 
-      {/* Chart + goals */}
-      <Row className="g-3" style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
-        <Col xs={12} lg={8}>
-          <Card className="h-100">
+        <Card className="mb-0">
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.totalExpenses")}</span>
+            <span className={styles.statValue} style={{ color: "var(--color-expense)" }}>
+              {formatCurrency(metrics.totalExpenses)}
+            </span>
+          </CardBody>
+        </Card>
+
+        <Card className={`${styles.wide} mb-0`}>
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.netIncome")}</span>
+            <span className={styles.statValue} style={{ color: metrics.netIncome >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+              {formatCurrency(metrics.netIncome)}
+            </span>
+            {/* The same two figures again as one rule: "net" is a subtraction,
+                and a subtraction is easier to believe when you can see it. */}
+            {metrics.totalIncome + metrics.totalExpenses > 0 && (
+              <span className={styles.split} aria-hidden>
+                <span style={{ width: `${(metrics.totalExpenses / (metrics.totalIncome + metrics.totalExpenses)) * 100}%`, background: "var(--color-expense)" }} />
+                <span style={{ width: `${(metrics.totalIncome / (metrics.totalIncome + metrics.totalExpenses)) * 100}%`, background: "var(--color-income)" }} />
+              </span>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card className="mb-0">
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.invested")}</span>
+            <span className={styles.statValue} style={{ color: "var(--color-invest)" }}>
+              {formatCurrency(totalInvestments)}
+            </span>
+          </CardBody>
+        </Card>
+
+        <Card className="mb-0">
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.goalSavings")}</span>
+            <span className={styles.statValue} style={{ color: "var(--color-goal)" }}>
+              {formatCurrency(goalSavings)}
+            </span>
+          </CardBody>
+        </Card>
+
+        <Card className={`${styles.wide} mb-0`}>
+          <CardBody className={`p-3 ${styles.stat}`}>
+            <span className={styles.statLabel}>{t("overview.moneyLeft")}</span>
+            <span className={styles.statValue} style={{ color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+              {formatCurrency(moneyLeft)}
+            </span>
+          </CardBody>
+        </Card>
+
+        <Card className={`${styles.full} mb-0`}>
             <CardBody className="p-3 p-sm-4">
               <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
@@ -245,10 +319,8 @@ export const OverviewPage = () => {
               )}
             </CardBody>
           </Card>
-        </Col>
 
-        <Col xs={12} lg={4}>
-          <Card className="h-100">
+        <Card className={`${styles.full} mb-0`}>
             <CardBody className="p-3 p-sm-4">
               <p className="fw-medium mb-1" style={{ fontSize: 14 }}>
                 {t("overview.activeGoals")}
@@ -316,9 +388,8 @@ export const OverviewPage = () => {
                 </div>
               )}
             </CardBody>
-          </Card>
-        </Col>
-      </Row>
+        </Card>
+      </div>
     </Container>
   );
 };

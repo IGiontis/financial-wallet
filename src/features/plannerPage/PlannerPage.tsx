@@ -11,6 +11,7 @@ import { useDebts } from "../debts/useDebts";
 import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { useDebounce } from "../../shared/hooks/useDebounce";
 import {
   asHorizon,
@@ -69,12 +70,14 @@ export function PlannerPage() {
   // older version of this page can still be sitting. None of these are trusted
   // on their type alone — one stale horizon name was enough to take the whole
   // page down with an invalid date.
-  const [storedHorizon, setHorizon] = useLocalStorage<PlannerHorizon>("planner-horizon", 1);
-  const [openingInput, setOpeningInput] = useLocalStorage("planner-opening", "");
-  const [storedSalary, setSalaryInput] = useLocalStorage("planner-salary", { amount: "", day: "" });
-  const [storedLines, setLines] = useLocalStorage<BudgetLine[]>("planner-lines", []);
-  const [storedOneOffs, setOneOffs] = useLocalStorage<OneOff[]>("planner-oneoffs", []);
-  const [storedSkipped, setSkipped] = useLocalStorage<string[]>("planner-skip", []);
+  const [storedHorizon, setHorizon] = useWorkspaceSetting<PlannerHorizon>("planner-horizon", 1);
+  const [openingInput, setOpeningInput] = useWorkspaceSetting("planner-opening", "");
+  const [storedSalary, setSalaryInput] = useWorkspaceSetting("planner-salary", { amount: "", day: "" });
+  const [storedLines, setLines] = useWorkspaceSetting<BudgetLine[]>("planner-lines", []);
+  const [storedOneOffs, setOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
+  const [storedSkipped, setSkipped] = useWorkspaceSetting<string[]>("planner-skip", []);
+  // Which groups are folded is a habit of this screen on this device, not part
+  // of the plan — it stays local while everything above it syncs.
   const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
 
   const horizon = asHorizon(storedHorizon);

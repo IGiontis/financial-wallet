@@ -18,3 +18,133 @@
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
 }
+
+/* ── The dashboard as unequal tiles ───────────────────────────────────────── */
+/* Six identical metric cards gave the balance, the month's income and the money
+   left over exactly the same weight, so the page said everything and stressed
+   nothing. Size is the cheapest hierarchy there is: the figure that answers
+   "am I all right" gets four times the area of the ones that qualify it. */
+
+.bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bento > * {
+  min-width: 0;
+}
+
+@media (min-width: 576px) {
+  .bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .balance,
+  .wide,
+  .full {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 992px) {
+  .bento {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* The one tile that is bigger in both directions. */
+  .balance {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+
+  .wide {
+    grid-column: span 2;
+  }
+
+  .full {
+    grid-column: span 4;
+  }
+}
+
+/* ── The balance, at the size it deserves ─────────────────────────────────── */
+
+.balanceBody {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.figure {
+  font-size: 2.1rem;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 992px) {
+  .figure {
+    font-size: 2.6rem;
+  }
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.deltaUp {
+  color: var(--color-income-text);
+}
+
+.deltaDown {
+  color: var(--color-expense-text);
+}
+
+/* The shape of the period, under the number rather than in a card of its own. */
+.spark {
+  display: block;
+  width: 100%;
+  height: 54px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+/* ── The small figures ────────────────────────────────────────────────────── */
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.statLabel {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin-bottom: 3px;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* Income against outgoings on one rule, so "net" is shown as well as stated. */
+.split {
+  display: flex;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 9px;
+  background: var(--color-background-secondary);
+}

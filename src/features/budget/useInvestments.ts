@@ -22,9 +22,12 @@ import type {
 import { transactionKeys } from "../transactions/hooks/useTransactions";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
-// Goals and contributions are two separate queries under a shared prefix, so a
-// single invalidate on `all` refreshes both, while each is fetched only once
-// no matter how many components ask for it.
+// Goals and contributions are two separate queries under a shared prefix. Each
+// is fetched once no matter how many components ask for it, and each is
+// refreshed on its own: a write that touches only goals should not re-read every
+// contribution the user has ever made. Invalidating the shared prefix did
+// exactly that — pausing one goal cost a full second read of the larger of the
+// two collections, for nothing.
 
 export const investmentKeys = {
   all: (userId: string) => ["investments", userId] as const,
@@ -109,7 +112,8 @@ export function useCreateGoal() {
   return useMutation({
     mutationFn: ({ data, isActive }: { data: CreateInvestmentGoalDTO; isActive: boolean }) => createInvestmentGoal(userId, data, isActive),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      // Goals only: nothing here writes a contribution.
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });
     },
   });
 }
@@ -124,7 +128,8 @@ export function useUpdateGoal() {
   return useMutation({
     mutationFn: ({ goalId, data }: { goalId: string; data: UpdateInvestmentGoalDTO }) => updateInvestmentGoal(goalId, data),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      // Goals only: nothing here writes a contribution.
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });
     },
   });
 }
@@ -139,7 +144,8 @@ export function useDeleteGoal() {
   return useMutation({
     mutationFn: (goalId: string) => deleteInvestmentGoal(goalId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      // Goals only: nothing here writes a contribution.
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });
     },
   });
 }
@@ -172,7 +178,10 @@ export function useAddContribution() {
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      // Contributions and the mirrored transaction. The goal document is not
+      // written here — completion is derived on read, in the memo below — so
+      // there is nothing to re-read about the goals themselves.
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(userId) });
       void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });
@@ -188,7 +197,10 @@ export function useDeleteContribution() {
   return useMutation({
     mutationFn: (contributionId: string) => deleteContribution(contributionId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.all(userId) });
+      // Contributions and the mirrored transaction. The goal document is not
+      // written here — completion is derived on read, in the memo below — so
+      // there is nothing to re-read about the goals themselves.
+      void queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(userId) });
       void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
     },
   });

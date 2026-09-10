@@ -1,4 +1,4 @@
-import { Navbar, Container, Button, UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
+import { Navbar, Container, Button } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
 import { FiSettings, FiLogOut, FiMenu, FiSun, FiMoon } from "react-icons/fi";
@@ -10,7 +10,7 @@ import { logout } from "../../firebase/auth";
 import { getUser } from "../../firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
-import { DROPDOWN_MENU_MODIFIERS } from "../../shared/utils/dropdown";
+import { MENU_DIVIDER, RowMenu } from "../../shared/components/RowMenu";
 import { useBillsNeedingAttention } from "../bills/useBills";
 
 interface TopbarProps {
@@ -102,36 +102,28 @@ export function Topbar({ toggleSidebar }: TopbarProps) {
             {theme === "dark" ? <FiSun size={19} /> : <FiMoon size={19} />}
           </Button>
 
-          <UncontrolledDropdown>
-            <DropdownToggle tag="button" className={styles.userButton}>
-              <div className={styles.userAvatar}>{getUserInitials()}</div>
-              {/* Only show name once Firestore has loaded — prevents flash */}
-              {firestoreUser && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
-              <IoChevronDown size={16} className="d-none d-md-inline" />
-            </DropdownToggle>
-
-            <DropdownMenu end className={styles.userDropdown} modifiers={DROPDOWN_MENU_MODIFIERS}>
+          <RowMenu
+            label={displayName || email || t("nav.settings")}
+            className={styles.userButton}
+            menuClassName={styles.userDropdown}
+            header={
               <div className={styles.userInfo}>
                 <div style={{ ...avatarStyle, width: 36, height: 36, fontSize: 13, marginBottom: 8 }}>{getUserInitials()}</div>
                 {displayName && <div style={{ fontWeight: 500, fontSize: 13, color: "var(--color-text-primary)" }}>{displayName}</div>}
                 <div className={styles.userInfoEmail}>{email}</div>
               </div>
-
-              <DropdownItem divider />
-
-              <DropdownItem className={styles.dropdownItem} onClick={() => navigate("/settings")}>
-                <FiSettings size={18} className={styles.dropdownItemIcon} />
-                {t("nav.settings")}
-              </DropdownItem>
-
-              <DropdownItem divider />
-
-              <DropdownItem className={`${styles.dropdownItem} ${styles.logoutItem}`} onClick={handleLogout}>
-                <FiLogOut size={18} className={styles.dropdownItemIcon} />
-                {t("nav.signOut")}
-              </DropdownItem>
-            </DropdownMenu>
-          </UncontrolledDropdown>
+            }
+            entries={[
+              { label: t("nav.settings"), onSelect: () => navigate("/settings"), icon: <FiSettings size={18} /> },
+              MENU_DIVIDER,
+              { label: t("nav.signOut"), onSelect: handleLogout, icon: <FiLogOut size={18} />, danger: true },
+            ]}
+          >
+            <div className={styles.userAvatar}>{getUserInitials()}</div>
+            {/* Only show name once Firestore has loaded — prevents flash */}
+            {firestoreUser && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
+            <IoChevronDown size={16} className="d-none d-md-inline" />
+          </RowMenu>
         </div>
       </Container>
     </Navbar>

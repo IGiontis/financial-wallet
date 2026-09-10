@@ -10,8 +10,8 @@ import type { Debt, DebtWithStatus } from "../../shared/types/IndexTypes";
 // typed — it falls back to an ordinary mortgage, so the answer is there at the
 // moment the question comes up.
 
-/** €200,000 over 25 years at 2.30% Euribor + 1.20%. */
-export const ILLUSTRATION = { amount: 200000, base: 2.3, margin: 1.2, months: 300 };
+/** €100,000 over 20 years at 2.30% Euribor + 1.20% — the ordinary Greek case. */
+export const ILLUSTRATION = { amount: 100000, base: 2.3, margin: 1.2, months: 240 };
 
 export interface RateSide {
   /** The all-in annual rate. */

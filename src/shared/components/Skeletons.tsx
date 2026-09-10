@@ -95,6 +95,36 @@ export function SkeletonStats({ count = 4 }: { count?: number }) {
   );
 }
 
+/**
+ * A table: the header rule, then rows of cells.
+ *
+ * `alignEnd` names the columns whose real content sits flush right. A figure
+ * column that fills from the left is a different table to the eye, and the
+ * whole grid appears to shift sideways once the numbers arrive.
+ */
+export function SkeletonTable({ columns = 4, rows = 6, alignEnd = [] }: { columns?: number; rows?: number; alignEnd?: number[] }) {
+  const cell = (index: number, height: number, width: string) => (
+    <div key={index} style={{ flex: 1, minWidth: 0, textAlign: alignEnd.includes(index) ? "end" : undefined }}>
+      <Skeleton height={height} width={width} />
+    </div>
+  );
+
+  return (
+    <div className="p-3">
+      <div className="d-flex gap-3 pb-2 mb-3" style={{ borderBottom: "1px solid var(--color-border-tertiary)" }}>
+        {Array.from({ length: columns }, (_, c) => cell(c, 9, "50%"))}
+      </div>
+      <div className="d-flex flex-column gap-3">
+        {Array.from({ length: rows }, (_, r) => (
+          <div key={r} className="d-flex align-items-center gap-3">
+            {Array.from({ length: columns }, (_, c) => cell(c, 13, `${50 + ((r * 7 + c * 17) % 40)}%`))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Cards in a responsive grid — the goals and investments boards. */
 export function SkeletonCardGrid({ count = 6 }: { count?: number }) {
   return (

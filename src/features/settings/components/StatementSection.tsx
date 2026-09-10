@@ -1,11 +1,27 @@
 import { lazy, Suspense, useState } from "react";
-import { Button } from "reactstrap";
+import { Button, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiFileText } from "react-icons/fi";
+import { SkeletonHeading, SkeletonRows } from "../../../shared/components/Skeletons";
 
 // Nothing about a statement is needed until it is asked for, and it pulls in a
 // stylesheet and two tables' worth of markup to do its job.
 const StatementModal = lazy(() => import("../../statement/StatementModal"));
+
+/** The dialog's frame while its chunk downloads — the same size and shape, empty. */
+function StatementShell({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <Modal isOpen toggle={onClose} centered scrollable size="lg">
+      <ModalHeader toggle={onClose}>{t("statement.title")}</ModalHeader>
+      <ModalBody>
+        <SkeletonHeading width="35%" />
+        <SkeletonRows count={6} icon={false} />
+      </ModalBody>
+    </Modal>
+  );
+}
 
 /**
  * The printable record of a period.
@@ -27,8 +43,11 @@ export default function StatementSection() {
       </Button>
       <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0.75rem 0 0" }}>{t("statement.notABackup")}</p>
 
+      {/* The dialog is a lazy chunk. `null` meant the button was pressed and
+          nothing happened at all until it arrived, which reads as a dead
+          control; the shell says the dialog is on its way. */}
       {open && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<StatementShell onClose={() => setOpen(false)} />}>
           <StatementModal onClose={() => setOpen(false)} />
         </Suspense>
       )}

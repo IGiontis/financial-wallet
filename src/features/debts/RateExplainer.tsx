@@ -59,6 +59,32 @@ function RateExplainer({
           </div>
         </div>
 
+        {/* The vocabulary before the arithmetic. Every line here names a box on
+            the form and says what goes in it, using the same numbers the example
+            below is worked out from. */}
+        <div className={styles.helpSection}>
+          <div className={styles.helpHeading}>{t("debts.rateHelpFields")}</div>
+          <dl className={styles.fields}>
+            <dt>{t("common.amount")}</dt>
+            <dd>{t("debts.fieldAmountBody", { amount: formatCurrency(facts.amount) })}</dd>
+
+            <dt>{t("debts.baseRate")}</dt>
+            <dd>{t("debts.fieldIndexBody", { value: pct.format(facts.base) })}</dd>
+
+            <dt>{t("debts.margin")}</dt>
+            <dd>{t("debts.fieldMarginBody", { value: pct.format(facts.margin) })}</dd>
+
+            <dt>{t("debts.interestRate")}</dt>
+            <dd>{t("debts.fieldRateBody")}</dd>
+
+            <dt>{t("debts.termMonths")}</dt>
+            <dd>{t("debts.fieldTermBody", { months: facts.months, years: Math.round(facts.months / 12) })}</dd>
+
+            <dt>{t("debts.interestFree")}</dt>
+            <dd>{t("debts.fieldFreeBody")}</dd>
+          </dl>
+        </div>
+
         <div className={styles.helpSection}>
           <div className={styles.helpHeading}>{t("debts.rateHelpWhen")}</div>
           <p className={`${styles.helpBody} mb-0`}>{t("debts.rateHelpWhenBody")}</p>

@@ -285,7 +285,12 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
       {/* The same wash the debts dialog uses: the form takes the colour of
           the answer to the one question that changes everything else on it. */}
-      <ModalBody className={formik.values.type === "income" ? "wash-income" : "wash-expense"}>
+      {/* No wash until the choice has actually been made. `type` starts as
+          "expense", so the whole dialog opened red before the reader had said
+          anything — the form answering its own first question. A category is
+          only ever set after the type step, so it is the signal that the choice
+          is real. */}
+      <ModalBody className={formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
         <WizardSteps steps={STEPS} current={step} onGo={setStep} />
 
         {/* ── 1. Money in or money out ── */}

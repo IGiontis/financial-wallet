@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
 import { Alert, Container } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
+import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
 import { TransactionInsights } from "../../transactions/components/TransactionInsights";
@@ -397,7 +397,9 @@ export function AnalyticsPage() {
               valueTone="income"
               empty={sankey ? undefined : noData}
             >
-              <Suspense fallback={null}>
+              {/* The card reserves its own height, so a blank one just looks
+                  broken until the chart chunk lands. */}
+              <Suspense fallback={<Skeleton height="100%" />}>
                 <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
               </Suspense>
             </ChartCard>

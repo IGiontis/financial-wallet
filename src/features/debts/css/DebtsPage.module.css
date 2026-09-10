@@ -331,7 +331,11 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--bs-primary);
+  /* Not `--bs-primary`: Bootstrap's blue is the same #0d6efd in both themes and
+     measures 3.05:1 on the dark surface, which twelve-pixel text cannot carry.
+     `--color-link` is the token that already darkens and lightens with the
+     theme for exactly this. */
+  color: var(--color-link);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -447,4 +451,36 @@
   font-size: 12.5px;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+/* Each box on the form, and what goes in it. A definition list rather than a
+   paragraph: the reader is looking for one field, not reading prose. */
+.fields {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.fields dt {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.fields dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+@media (max-width: 575.98px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .fields dd {
+    margin-bottom: 8px;
+  }
 }

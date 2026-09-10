@@ -11,20 +11,15 @@ import {
   Button,
   Card,
   CardBody,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownToggle,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
 } from "reactstrap";
-import { FiMoreVertical } from "react-icons/fi";
 import type { InvestmentGoalWithStats, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
-import { DROPDOWN_MENU_MODIFIERS } from "../../../shared/utils/dropdown";
+import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import i18n from "../../../i18n";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 
@@ -117,7 +112,6 @@ export interface GoalCardProps {
 }
 
 export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   // Read once per render: the pace and the projection are measured against it,
   // and two different "now"s inside one card would report two different days.
   const now = new Date();
@@ -365,29 +359,15 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
               {st.label}
             </span>
           )}
-          <Dropdown className="card-row-menu" isOpen={menuOpen} toggle={() => setMenuOpen((o) => !o)}>
-            <DropdownToggle
-              tag="button"
-              aria-label={goal.name}
-              style={{ background: "transparent", border: "none", padding: "2px 2px", cursor: "pointer", color: "var(--color-text-secondary)", lineHeight: 1 }}
-            >
-              <FiMoreVertical size={16} />
-            </DropdownToggle>
-            <DropdownMenu end modifiers={DROPDOWN_MENU_MODIFIERS}>
-              <DropdownItem style={{ fontSize: 13 }} onClick={() => onEdit(goal)} disabled={isEffectivelyCompleted}>
-                {i18n.t("common.edit")}
-              </DropdownItem>
-              <DropdownItem style={{ fontSize: 13 }} onClick={() => onTogglePause(goal)} disabled={isEffectivelyCompleted}>
-                {i18n.t(goal.isActive ? "goals.pause" : "goals.resume")}
-              </DropdownItem>
-              <DropdownItem divider />
-              {/* The token red rather than Bootstrap's: #dc3545 measures 3.03:1 on
-                  the dark menu, and this one is tuned for both themes. */}
-              <DropdownItem style={{ fontSize: 13, color: "var(--color-expense)" }} onClick={() => onDelete(goal)}>
-                {i18n.t("common.delete")}
-              </DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
+          <RowMenu
+            label={goal.name}
+            entries={[
+              { label: i18n.t("common.edit"), onSelect: () => onEdit(goal), disabled: isEffectivelyCompleted },
+              { label: i18n.t(goal.isActive ? "goals.pause" : "goals.resume"), onSelect: () => onTogglePause(goal), disabled: isEffectivelyCompleted },
+              MENU_DIVIDER,
+              { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
+            ]}
+          />
         </div>
       </div>
 

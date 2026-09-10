@@ -85,9 +85,12 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
           end={item.path === "/"}
           onClick={toggleSidebar}
           className={({ isActive }) =>
-            `nav-link text-white d-flex align-items-center rounded
+            // Not `bg-primary`. A solid blue block for the current page is the
+            // loudest thing on the rail, and the rail is the one part of the app
+            // nobody is looking at — they are looking at what it opened.
+            `nav-link d-flex align-items-center rounded
             ${isCollapsed ? "justify-content-center" : "gap-2"}
-            ${isActive ? "bg-primary" : ""}`
+            ${isActive ? "nav-link-current" : ""}`
           }
           title={isCollapsed ? [item.label, badgeLabel].filter(Boolean).join(" — ") : undefined}
           aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}

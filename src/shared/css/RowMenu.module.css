@@ -1,0 +1,70 @@
+/* The ⋮ menu on a row. The look is the one the Bootstrap dropdowns had — this
+   is a change of positioning engine, not of appearance. */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.menu {
+  z-index: 1060; /* above the sidebar (1050) and the modal (1055) */
+  min-width: 160px;
+  max-width: calc(100vw - 1rem);
+  padding: 6px 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px; /* comfortable touch target */
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover:not(:disabled),
+.item:focus-visible {
+  background-color: var(--color-background-secondary);
+  outline: none;
+}
+
+.item:disabled {
+  color: var(--color-text-secondary);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The token red rather than Bootstrap's: #dc3545 measures 3.03:1 on the dark
+   menu, and this one is tuned for both themes. */
+.danger {
+  color: var(--color-expense);
+}
+
+.divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--color-border-tertiary);
+}

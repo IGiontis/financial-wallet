@@ -134,6 +134,20 @@
 }
 
 /* Only the arrow takes the tone. A whole card in red reads as an error. */
+/* The two boxes carry their own colour before either is chosen — a light red
+   and a light green — so the choice can be read at a glance rather than after
+   it has been made. Choosing one deepens the tint and hardens its border;
+   nothing here is loud enough to look picked on its own. */
+.typeExpense {
+  background: color-mix(in srgb, var(--color-expense) 7%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-expense) 28%, transparent);
+}
+
+.typeIncome {
+  background: color-mix(in srgb, var(--color-income) 7%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-income) 28%, transparent);
+}
+
 .typeExpense .typeIcon {
   color: var(--color-expense);
 }
@@ -144,12 +158,12 @@
 
 .typeSelected.typeExpense {
   border-color: var(--color-expense);
-  background: color-mix(in srgb, var(--color-expense) 8%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 18%, var(--color-surface));
 }
 
 .typeSelected.typeIncome {
   border-color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 8%, transparent);
+  background: color-mix(in srgb, var(--color-income) 18%, var(--color-surface));
 }
 
 /* The prompt above each step. One line, so the step itself starts high on the

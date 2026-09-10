@@ -2,7 +2,7 @@
 // component file so React Fast Refresh keeps working during development.
 
 import type { InvestmentGoalWithStats, InvestmentGoalStatus } from "../../../shared/types/IndexTypes";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, firestoreToDateOrUndefined } from "../../../shared/utils/dates";
 import i18n from "../../../i18n";
 
@@ -10,10 +10,60 @@ export const toDate = firestoreToDateOrUndefined;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-// Not a component, so it reads the app language straight off the shared i18n
-// instance rather than the useTranslation() hook — was hardcoded to en-US
-// before, which is why dates here stayed English regardless of app language.
-export const formatDate = (date?: Date) => (date ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", day: "numeric", year: "numeric" }).format(date) : "—");
+// Not components, so these read the app language straight off the shared i18n
+// instance rather than the useTranslation() hook — dates here were hardcoded to
+// en-US before, which is why they stayed English whatever the app was set to.
+//
+// Built once per language and kept. An `Intl` constructor is among the most
+// expensive things that can go in a list render, and these are called once per
+// row: twenty goals meant forty formatters a render. `useCurrencyConverter`
+// learned the same lesson — see the note on its `formatter` memo.
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
+
+function dateFormatter(): Intl.DateTimeFormat {
+  const locale = i18n.resolvedLanguage ?? "en";
+  const found = dateFormatters.get(locale);
+  if (found) return found;
+
+  const made = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
+  dateFormatters.set(locale, made);
+  return made;
+}
+
+function relativeFormatter(): Intl.RelativeTimeFormat {
+  const locale = i18n.resolvedLanguage ?? "en";
+  const found = relativeFormatters.get(locale);
+  if (found) return found;
+
+  const made = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  relativeFormatters.set(locale, made);
+  return made;
+}
+
+export const formatDate = (date?: Date) => (date ? dateFormatter().format(date) : "—");
+
+/**
+ * "in 3 months", "12 days ago" — the same date said the way it is thought about.
+ *
+ * A deadline of 15 Dec 2026 is a fact the reader has to do arithmetic on. Both
+ * are shown, because the date is what they wrote down and the distance is what
+ * they wanted to know. Days up to a month, then months, then years: nobody says
+ * "in 340 days".
+ */
+export function relativeToNow(date: Date, now: Date = new Date()): string {
+  const fmt = relativeFormatter();
+
+  const days = differenceInCalendarDays(date, now);
+  if (Math.abs(days) < 31) return fmt.format(days, "day");
+
+  const months = differenceInCalendarMonths(date, now);
+  if (Math.abs(months) < 12) return fmt.format(months, "month");
+
+  // Rounded, not truncated: twenty months is nearer two years than one, and
+  // "next year" for a date in the year after next is simply wrong.
+  return fmt.format(Math.round(months / 12), "year");
+}
 
 // Colours are static, labels are not — resolving the label lazily means a
 // language switch is picked up instead of being frozen at module-load time.
@@ -42,6 +92,36 @@ export function getGoalTypeLabel(goal: InvestmentGoalWithStats): string {
   return i18n.t("investments.tracking");
 }
 
+
+export interface GoalHeadline {
+  /** What has gone in — this period for a recurring goal, in total otherwise. */
+  saved: number;
+  /** What it is measured against. Zero when the goal has no target at all. */
+  target: number;
+  /** The share of it, 0 to 100. */
+  pct: number;
+}
+
+/**
+ * The pair of figures a goal is read by, whichever view is drawing it.
+ *
+ * A recurring goal is measured against this period and not against its life:
+ * €4,800 put away over a year, against a €400 month, is not twelve hundred per
+ * cent of anything. Credit carried in from an overpayment lowers what is due,
+ * arrears raise it — the same obligation the card's bar is drawn from.
+ */
+export function goalHeadline(goal: InvestmentGoalWithStats): GoalHeadline {
+  const target = goal.targetAmount ?? 0;
+  const recurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
+
+  if (!recurring) {
+    return { saved: goal.totalSaved ?? 0, target, pct: Math.min(Math.max(goal.percentageReached ?? 0, 0), 100) };
+  }
+
+  const saved = goal.currentPeriodSaved ?? 0;
+  const due = Math.max(target - (goal.periodCredit ?? 0), 0) + (goal.arrears ?? 0);
+  return { saved, target: due, pct: due > 0 ? Math.min((saved / due) * 100, 100) : goal.status !== "behind" ? 100 : 0 };
+}
 
 // ─── Pace, and where it lands ────────────────────────────────────────────────
 // A goal card can say what has been saved and what the target is, and still not

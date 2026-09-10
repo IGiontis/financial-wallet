@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Container, Spinner } from "reactstrap";
+import { Alert, Button, Container } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
 import { FiPlus } from "react-icons/fi";
 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -32,11 +33,16 @@ export function DebtsPage() {
   const person = people.find((p) => p.person === openPerson);
   const netTone = totals.net > 0 ? "var(--color-income)" : totals.net < 0 ? "var(--color-expense)" : undefined;
 
+  // The shape of what is coming, rather than a wheel. The whole page used to be
+  // replaced by the spinner — heading, "add a loan" button and all — so there was
+  // a moment where the screen offered nothing to do and nothing to read.
   if (isLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 300 }}>
-        <Spinner color="primary" />
-      </div>
+      <Container fluid className="py-4">
+        <SkeletonPageHeader />
+        <SkeletonStats count={3} />
+        <SkeletonRows count={4} />
+      </Container>
     );
   }
 

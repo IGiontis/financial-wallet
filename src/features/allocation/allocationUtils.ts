@@ -1,6 +1,6 @@
 import { addDays, endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { currentRate, isLoan, monthlyInstalment } from "../debts/debtsUtils";
+import { currentRate, isLoan, monthlyInstalment, plannableDebts } from "../debts/debtsUtils";
 import { goalMonthlyTarget, oneOffDates, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import { categorySplit } from "../transactions/transactionInsights";
 import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
@@ -376,4 +376,20 @@ export function seedFromHistory(
       kind: "expense" as const,
       categoryIds: [row.categoryId],
     }));
+}
+
+/**
+ * The order to throw spare money at, dearest first.
+ *
+ * Only what is owed, and only what is charged for: a debt with no rate has no
+ * interest to save, so paying it early buys relief rather than money. The
+ * ordering is the whole point — the biggest balance is very often not the
+ * expensive one, and a list sorted by size sends the money to the wrong place.
+ */
+export function payoffOrder(debts: DebtWithStatus[]): DebtWithStatus[] {
+  return plannableDebts(debts)
+    .filter((debt) => currentRate(debt) > 0)
+    // Rate first; between two at the same rate, the smaller balance, because it
+    // is the one that can actually be cleared.
+    .sort((a, b) => currentRate(b) - currentRate(a) || a.remaining - b.remaining || a.id.localeCompare(b.id));
 }

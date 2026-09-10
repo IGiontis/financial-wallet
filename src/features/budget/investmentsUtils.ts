@@ -1,17 +1,73 @@
 import type { InvestmentGoal, InvestmentContribution, InvestmentGoalWithStats, InvestmentGoalStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate as toDate } from "../../shared/utils/dates";
 
+/**
+ * Every contribution's date read once, as numbers the loops below can compare.
+ *
+ * The carryover walks used to re-filter the whole list for every month since the
+ * goal was created, calling `toDate` twice inside each predicate — a three-year
+ * monthly goal with forty contributions built something like five thousand seven
+ * hundred `Date` objects every time the stats were computed, which is on every
+ * fetch and every remount. A month becomes one integer here (`year × 12 +
+ * month`), so the walks read a map instead of scanning.
+ */
+interface DatedContribution {
+  month: number;
+  year: number;
+  time: number;
+  deposit: boolean;
+  amount: number;
+}
+
+function read(contributions: InvestmentContribution[]): DatedContribution[] {
+  return contributions.map((c) => {
+    const date = toDate(c.date);
+    return {
+      month: date.getFullYear() * 12 + date.getMonth(),
+      year: date.getFullYear(),
+      time: date.getTime(),
+      deposit: c.contributionType === "deposit",
+      amount: c.amount,
+    };
+  });
+}
+
+/** Net per period — deposits less withdrawals — keyed by the given period. */
+function netBy(dated: DatedContribution[], key: (row: DatedContribution) => number): Map<number, number> {
+  const totals = new Map<number, number>();
+  for (const row of dated) {
+    const at = key(row);
+    totals.set(at, (totals.get(at) ?? 0) + (row.deposit ? row.amount : -row.amount));
+  }
+  return totals;
+}
+
 export function computeGoalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
+  const dated = read(contributions);
+
   // ── Totals ────────────────────────────────────────────────────────────────
-  const totalDeposited = contributions.filter((c) => c.contributionType === "deposit").reduce((sum, c) => sum + c.amount, 0);
-  const totalWithdrawn = contributions.filter((c) => c.contributionType === "withdrawal").reduce((sum, c) => sum + c.amount, 0);
+  let totalDeposited = 0;
+  let totalWithdrawn = 0;
+  let contributionCount = 0;
+  let withdrawalCount = 0;
+  // The newest, found by walking once. Sorting the whole list to read element
+  // zero is the same answer for more work, and the sort parsed every date twice
+  // per comparison.
+  let newest: number | undefined;
+
+  for (const row of dated) {
+    if (row.deposit) {
+      totalDeposited += row.amount;
+      contributionCount++;
+    } else {
+      totalWithdrawn += row.amount;
+      withdrawalCount++;
+    }
+    if (newest === undefined || row.time > newest) newest = row.time;
+  }
+
   const totalSaved = totalDeposited - totalWithdrawn;
-
-  const contributionCount = contributions.filter((c) => c.contributionType === "deposit").length;
-  const withdrawalCount = contributions.filter((c) => c.contributionType === "withdrawal").length;
-
-  const sorted = [...contributions].sort((a, b) => toDate(b.date).getTime() - toDate(a.date).getTime());
-  const lastContributionDate = sorted[0]?.date ? toDate(sorted[0].date) : undefined;
+  const lastContributionDate = newest === undefined ? undefined : new Date(newest);
 
   // ── Open-ended goals ──────────────────────────────────────────────────────
   if (goal.goalType === "open_ended") {
@@ -23,43 +79,26 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   // ── Recurring monthly goal ────────────────────────────────────────────────
   if (goal.targetPeriod === "monthly") {
     const now = new Date();
-    const isThisMonth = (d: Date) => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-
-    const thisMonthDeposits = contributions.filter((c) => c.contributionType === "deposit" && isThisMonth(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
-
-    const thisMonthWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisMonth(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
+    const netByMonth = netBy(dated, (row) => row.month);
+    const currentMonth = now.getFullYear() * 12 + now.getMonth();
 
     // Raw net — can be negative when withdrawals exceed deposits this period.
-    const currentPeriodNet = thisMonthDeposits - thisMonthWithdrawals;
+    const currentPeriodNet = netByMonth.get(currentMonth) ?? 0;
     // Clamped only for display (stat cell, bar fill).
     const currentPeriodSaved = Math.max(currentPeriodNet, 0);
 
     // ── Carryover: walk every past month ─────────────────────────────────
     const goalCreated = toDate(goal.createdAt);
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    let cursor = new Date(goalCreated.getFullYear(), goalCreated.getMonth(), 1);
+    const startMonth = goalCreated.getFullYear() * 12 + goalCreated.getMonth();
 
     // positive = credit (overpaid), negative = debt (underpaid)
     let accumulatedBalance = 0;
     let missedMonths = 0;
 
-    while (cursor < thisMonthStart) {
-      const y = cursor.getFullYear();
-      const m = cursor.getMonth();
-
-      const mDeposits = contributions
-        .filter((c) => c.contributionType === "deposit" && toDate(c.date).getFullYear() === y && toDate(c.date).getMonth() === m)
-        .reduce((sum, c) => sum + c.amount, 0);
-
-      const mWithdrawals = contributions
-        .filter((c) => c.contributionType === "withdrawal" && toDate(c.date).getFullYear() === y && toDate(c.date).getMonth() === m)
-        .reduce((sum, c) => sum + c.amount, 0);
-
-      const diff = mDeposits - mWithdrawals - targetAmount;
+    for (let month = startMonth; month < currentMonth; month++) {
+      const diff = (netByMonth.get(month) ?? 0) - targetAmount;
       accumulatedBalance += diff;
       if (diff < 0) missedMonths++;
-
-      cursor = new Date(y, m + 1, 1);
     }
 
     const arrears = accumulatedBalance < 0 ? Math.abs(accumulatedBalance) : 0;
@@ -114,13 +153,9 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   if (goal.targetPeriod === "yearly") {
     const now = new Date();
     const currentYear = now.getFullYear();
-    const isThisYear = (d: Date) => d.getFullYear() === currentYear;
 
-    const thisYearDeposits = contributions.filter((c) => c.contributionType === "deposit" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
-
-    const thisYearWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && isThisYear(toDate(c.date))).reduce((sum, c) => sum + c.amount, 0);
-
-    const currentPeriodNet = thisYearDeposits - thisYearWithdrawals;
+    const netByYear = netBy(dated, (row) => row.year);
+    const currentPeriodNet = netByYear.get(currentYear) ?? 0;
     const currentPeriodSaved = Math.max(currentPeriodNet, 0);
 
     // ── Carryover: walk every past year ──────────────────────────────────
@@ -129,11 +164,7 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
     let missedMonths = 0;
 
     for (let y = goalStartYear; y < currentYear; y++) {
-      const yDeposits = contributions.filter((c) => c.contributionType === "deposit" && toDate(c.date).getFullYear() === y).reduce((sum, c) => sum + c.amount, 0);
-
-      const yWithdrawals = contributions.filter((c) => c.contributionType === "withdrawal" && toDate(c.date).getFullYear() === y).reduce((sum, c) => sum + c.amount, 0);
-
-      const diff = yDeposits - yWithdrawals - targetAmount;
+      const diff = (netByYear.get(y) ?? 0) - targetAmount;
       accumulatedBalance += diff;
       if (diff < 0) missedMonths++;
     }

@@ -1,0 +1,310 @@
+/* Goals as stacks rather than a grid.
+   A card gives every goal the same weight; a stack gives the eye an order —
+   soonest at the top, the total the stack still needs beside its heading, and
+   one line per goal so twenty of them fit on a screen instead of six. */
+
+.stacks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stack {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/* ── The heading of a stack ────────────────────────────────────────────────── */
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: var(--color-background-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.headLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chevron {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.chevronShut {
+  transform: rotate(-90deg);
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+/* A stack the data named for itself: the icon is the heading. */
+.glyph {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.headTotals {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.headTotals strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* The one stack that is a problem rather than a plan. */
+.urgent .title {
+  color: var(--color-expense-text);
+}
+
+/* ── One goal, one line ────────────────────────────────────────────────────── */
+
+.row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 116px minmax(0, 150px) 52px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--color-border-primary);
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--color-invest) 14%, transparent);
+}
+
+.main {
+  min-width: 0;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.meta {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metaLate {
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+
+/* ── Progress ─────────────────────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.pct {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* ── The two figures on the right ─────────────────────────────────────────── */
+
+.figures {
+  text-align: right;
+  min-width: 0;
+}
+
+.amount {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.amount span {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.pace {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.empty {
+  padding: 14px 12px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Narrow ───────────────────────────────────────────────────────────────── */
+/* Five columns do not fit a phone. The bar and the figures drop under the name
+   and keep their own line each, rather than being squeezed to forty pixels. */
+
+@media (max-width: 767.98px) {
+  .row {
+    grid-template-columns: 30px minmax(0, 1fr) 52px;
+    grid-template-areas:
+      "icon main menu"
+      ".    figs figs"
+      ".    bar  bar";
+    row-gap: 6px;
+  }
+
+  .icon {
+    grid-area: icon;
+  }
+  .main {
+    grid-area: main;
+  }
+  .menu {
+    grid-area: menu;
+  }
+  .bar {
+    grid-area: bar;
+  }
+  .figures {
+    grid-area: figs;
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .head {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Cards or list ────────────────────────────────────────────────────────── */
+/* The same shape as the segmented controls elsewhere, without the shared
+   module's mobile rule that stretches a group to the full width — this one
+   lives in a header beside a button and has to keep its size. */
+
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  flex-shrink: 0;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0.5px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  min-height: 34px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.viewBtn:hover:not(.viewBtnOn) {
+  color: var(--color-text-primary);
+}
+
+.viewBtnOn {
+  background: var(--color-surface);
+  border-color: var(--color-border-tertiary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}

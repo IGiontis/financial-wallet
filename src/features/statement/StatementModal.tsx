@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiPrinter } from "react-icons/fi";
 
 import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
+import { SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { categoryLabel } from "../../shared/utils/categories";
 import { buildStatement, monthRange, yearRange, yearsWithRecords, type StatementLine } from "./statementUtils";
@@ -26,7 +27,10 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency } = useCurrencyConverter();
 
-  const { data: transactions = [] } = useTransactions();
+  // Without `isLoading` this dialog printed a complete, well-formed statement
+  // with nothing in it — and a statement that says "no records" is a claim, not
+  // a placeholder. Whoever read it in that second read a wrong document.
+  const { data: transactions = [], isLoading } = useTransactions();
   const { data: categories = [] } = useCategories();
 
   const [now] = useState(() => new Date());
@@ -149,7 +153,16 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
             <div className={styles.generated}>{t("statement.generated", { date: generatedAt })}</div>
           </header>
 
-          {statement.count === 0 ? (
+          {isLoading ? (
+            <div className="py-2">
+              <SkeletonHeading width="30%" sub={false} />
+              <SkeletonRows count={5} icon={false} />
+              <div className="mt-4">
+                <SkeletonHeading width="30%" sub={false} />
+                <SkeletonRows count={5} icon={false} />
+              </div>
+            </div>
+          ) : statement.count === 0 ? (
             <p className={`${styles.emptyNote} mt-3`}>{t("statement.empty")}</p>
           ) : (
             <>

@@ -107,10 +107,11 @@
 
 /* ── User dropdown ────────────────────────────────────────────────────────── */
 
+/* No `top`/`right`/`left` here any more. They were pinned with `!important`,
+   which beat the positioning the menu is given inline — so once the menu moved
+   to Floating UI it was dragged back to the top-right corner of the screen and
+   looked, from the button, as though nothing had opened at all. */
 .userDropdown {
-  top: 50px !important;
-  right: 0 !important;
-  left: auto !important;
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-lg);
   overflow: hidden;

@@ -4,9 +4,9 @@ import { Alert, Button, Container, Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiPlus, FiTag, FiX } from "react-icons/fi";
 
-import { SkeletonCard, SkeletonPageHeader } from "../../shared/components/Skeletons";
+import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
 import { useInvestmentGoals } from "../budget/useInvestments";
@@ -34,6 +34,7 @@ import {
   type ExtraThisMonth,
   type RolloverState,
 } from "./allocationUtils";
+import { DebtOrder, MonthFlow } from "./components/MoneyFlow";
 import CategoryLinkModal from "./CategoryLinkModal";
 import styles from "./css/Allocation.module.css";
 
@@ -65,12 +66,12 @@ export function AllocationPage() {
   // Reads the planner's pay figures; writes nothing the planner reads. Dragging
   // a slider here to see how a month could go should not quietly rewrite the
   // plan relied on there.
-  const [storedSalary] = useLocalStorage("planner-salary", { amount: "", day: "" });
-  const [storedOneOffs] = useLocalStorage<OneOff[]>("planner-oneoffs", []);
-  const [storedLines, setLines] = useLocalStorage<Bucket[]>("allocation-buckets", []);
-  const [storedExtra, setExtra] = useLocalStorage<ExtraThisMonth | null>("allocation-extra", null);
-  const [payMode, setPayMode] = useLocalStorage<ExtraPayMode>("allocation-pay-mode", "when");
-  const [storedRollover, setRollover] = useLocalStorage<RolloverState | null>("allocation-rollover", null);
+  const [storedSalary] = useWorkspaceSetting("planner-salary", { amount: "", day: "" });
+  const [storedOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
+  const [storedLines, setLines] = useWorkspaceSetting<Bucket[]>("allocation-buckets", []);
+  const [storedExtra, setExtra] = useWorkspaceSetting<ExtraThisMonth | null>("allocation-extra", null);
+  const [payMode, setPayMode] = useWorkspaceSetting<ExtraPayMode>("allocation-pay-mode", "when");
+  const [storedRollover, setRollover] = useWorkspaceSetting<RolloverState | null>("allocation-rollover", null);
 
   const [now] = useState(() => new Date());
   const [linking, setLinking] = useState<string | null>(null);
@@ -154,9 +155,15 @@ export function AllocationPage() {
 
   if (billsLoading || goalsLoading || txLoading) {
     return (
-      <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 820 }}>
+      <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1240 }}>
         <SkeletonPageHeader />
-        <SkeletonCard />
+        {/* A bordered box with nothing in it is not a skeleton, it is an empty
+            card — the reader waits at it wondering whether that is the page. */}
+        <SkeletonCard>
+          <SkeletonHeading />
+          <Skeleton height={26} style={{ borderRadius: 6, marginBottom: 12 }} />
+          <SkeletonRows count={5} icon={false} />
+        </SkeletonCard>
       </Container>
     );
   }
@@ -166,7 +173,7 @@ export function AllocationPage() {
   const canSeed = transactions.length > 0;
 
   return (
-    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 820 }}>
+    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1240 }}>
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("allocation.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("allocation.subtitle")}</p>
@@ -177,24 +184,19 @@ export function AllocationPage() {
           {t("allocation.noSalary")}
         </Alert>
       ) : (
-        <>
+        <div className={styles.columns}>
+          <div>
           {/* ── The pot ── */}
           <div className={styles.card}>
-            <div className={styles.sum}>
-              {t("allocation.equation", {
-                income: formatCurrency(plan.income),
-                bills: formatCurrency(committed.bills),
-                goals: formatCurrency(committed.goals),
-                debts: formatCurrency(committed.debts),
-              })}
-            </div>
-            {extra > 0 && (
-              <div className={styles.sum}>
-                {t("allocation.lessExtra", { label: storedExtra?.label || t("allocation.extraFallback"), amount: formatCurrency(extra) })}
-              </div>
-            )}
-            <div className={`${styles.free} ${plan.free < 0 ? styles.freeNegative : ""}`}>{t("allocation.availableAmount", { amount: formatCurrency(plan.free) })}</div>
-            <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
+            <MonthFlow
+              income={plan.income}
+              committed={committed}
+              free={plan.free}
+              extra={extra}
+              extraLabel={storedExtra?.label || t("allocation.extraFallback")}
+              formatCurrency={formatCurrency}
+            />
+            <p className="text-body-secondary mb-2 mt-2" style={{ fontSize: 12 }}>
               {t("allocation.dividesThis")}
             </p>
 
@@ -404,6 +406,21 @@ export function AllocationPage() {
             </div>
           )}
 
+          </div>
+
+          <aside className={styles.side}>
+          {/* ── Which loan first ──
+              The only advice on this page that is not about the reader's own
+              habits: the same euro kills more interest at the highest rate, and
+              a list of balances does not show that — the biggest debt is very
+              often not the expensive one. */}
+          {debts.length > 0 && (
+            <div className={styles.card}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{t("allocation.orderTitle")}</div>
+              <DebtOrder debts={debts} formatCurrency={formatCurrency} />
+            </div>
+          )}
+
           {/* ── Cushion ── */}
           {committed.total > 0 && (
             <div className={styles.card}>
@@ -423,7 +440,8 @@ export function AllocationPage() {
           <p className="text-body-secondary" style={{ fontSize: 11.5 }}>
             {t("allocation.sharedWithPlanner")}
           </p>
-        </>
+          </aside>
+        </div>
       )}
 
       {linkingBucket && (

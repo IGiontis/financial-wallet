@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { FiFlag } from "react-icons/fi";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../../budget/useInvestments";
+import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import styles from "./css/GoalDetailModal.module.css";
 
@@ -33,7 +34,10 @@ interface GoalDetailModalProps {
 export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalDetailModalProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { data: contributions = [] } = useContributions(goal.id);
+  // Gated on `isLoading`, because the empty state below is a confident claim:
+  // "nothing has gone in yet" is a wrong answer to show while the answer is
+  // still being fetched, and it is the one the reader believes.
+  const { data: contributions = [], isLoading } = useContributions(goal.id);
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
 
@@ -158,7 +162,9 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
           {t("overview.recentActivity")}
         </div>
 
-        {recentContributions.length === 0 ? (
+        {isLoading ? (
+          <SkeletonRows count={4} icon={false} />
+        ) : recentContributions.length === 0 ? (
           <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
             {t("overview.noContributionsYet")}
           </p>

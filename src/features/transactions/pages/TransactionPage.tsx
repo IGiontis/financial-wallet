@@ -9,7 +9,6 @@ import {
   Table,
   Badge,
   Button,
-  Spinner,
   Alert,
   Modal,
   ModalHeader,
@@ -26,7 +25,7 @@ import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { Skeleton, SkeletonCard, SkeletonHeading } from "../../../shared/components/Skeletons";
+import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonRows, SkeletonTable } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
@@ -603,9 +602,7 @@ export function TransactionsPage() {
             <Card className="border-0 shadow-sm">
               <CardBody className="p-0">
                 {isLoading ? (
-                  <div className="text-center py-5">
-                    <Spinner color="primary" />
-                  </div>
+                  <SkeletonTable columns={5} rows={8} alignEnd={[3, 4]} />
                 ) : (
                   <div className={styles.tableScroll}>
                     <Table hover className="mb-0">
@@ -763,9 +760,12 @@ export function TransactionsPage() {
           </Alert>
         )}
         {isLoading ? (
-          <div className="text-center py-5">
-            <Spinner color="primary" />
-          </div>
+          // The same block the desktop column uses one screen over: the shape
+          // of what is coming, rather than a wheel that says only "wait".
+          <SkeletonCard>
+            <SkeletonHeading />
+            <Skeleton height={230} style={{ borderRadius: "var(--border-radius-md)" }} />
+          </SkeletonCard>
         ) : (
           <MobileCalendar {...calendarProps} />
         )}
@@ -811,9 +811,7 @@ export function TransactionsPage() {
         <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <CardBody className={`p-0 ${styles.mobileScroll}`}>
             {isLoading ? (
-              <div className="text-center py-5">
-                <Spinner color="primary" />
-              </div>
+              <SkeletonRows count={8} />
             ) : pagedTransactions.length === 0 ? (
               <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
             ) : (

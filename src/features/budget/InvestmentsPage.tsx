@@ -6,19 +6,24 @@
 // File location: src/features/budget/InvestmentsPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
-import { Alert, Badge, Button, Col, Container, Nav, NavItem, NavLink, Row } from "reactstrap";
+import { useCallback, useMemo, useState } from "react";
+import { Alert, Button, Col, Container, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
+import { GoalStacks } from "./components/GoalStacks";
+import { GoalsWorkbench } from "./components/GoalsWorkbench";
+import { groupGoals } from "./components/goalGrouping";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import type { GoalView } from "./components/GoalStacks";
+import type { GoalGroupBy } from "./components/goalGrouping";
 import AddDepositModal from "./AddDepositModal";
-import { SkeletonCardGrid } from "../../shared/components/Skeletons";
+import { SkeletonCardGrid, SkeletonStats } from "../../shared/components/Skeletons";
 import WithdrawModal from "./WithdrawModal";
 import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
 import { useTranslation } from "react-i18next";
-import { SearchInput } from "../../shared/components/SearchInput";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 
@@ -34,6 +39,9 @@ const TAB_LABEL_KEYS: Record<InvestmentsFilterTab, string> = {
 };
 
 // ─── Scope helpers ────────────────────────────────────────────────────────────
+
+/** Nothing on this screen has a deadline, so that dimension is not offered. */
+const INVESTMENT_GROUPINGS: GoalGroupBy[] = ["kind", "progress", "status", "category"];
 
 const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
 const isTracking = (g: InvestmentGoalWithStats) => g.goalType === "open_ended";
@@ -184,6 +192,8 @@ function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentG
 export default function InvestmentsPage() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<InvestmentsFilterTab>("all");
+  const [view, setView] = useLocalStorage<GoalView>("investments:view", "cards");
+  const [groupBy, setGroupBy] = useLocalStorage<GoalGroupBy>("investments:groupBy", "kind");
   const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -219,141 +229,139 @@ export default function InvestmentsPage() {
     deleteGoalMutation.mutate(deleteGoal.id, { onSuccess: () => setDeleteGoal(null) });
   };
 
-  const handleTogglePause = (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } });
+  // Stable, because it is handed to every row on the screen: a new function each
+  // render is a new prop for every card, and nothing downstream can be memoised
+  // past it.
+  const handleTogglePause = useCallback(
+    (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } }),
+    [updateGoalMutation],
+  );
 
   const isSearching = search.trim().length > 0;
 
-  const filterByTab = (g: InvestmentGoalWithStats): boolean => {
-    if (!belongsHere(g)) return false;
-    if (filter === "all") return effectivelyActive(g);
-    if (filter === "recurring") return isRecurring(g) && g.isActive;
-    if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
-    if (filter === "paused") return !g.isActive;
-    return false;
-  };
+  // One pass, once per change of what it depends on, rather than two predicates
+  // rebuilt every render and a full scan on every keystroke.
+  const filtered = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    return goals.filter((g) => {
+      if (!belongsHere(g)) return false;
+      // Search reaches across the tabs on purpose: something you are looking for
+      // by name should not be hidden by which tab happens to be open.
+      if (isSearching) return g.name.toLowerCase().includes(query) || (g.notes?.toLowerCase().includes(query) ?? false);
+      if (filter === "all") return effectivelyActive(g);
+      if (filter === "recurring") return isRecurring(g) && g.isActive;
+      if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
+      return !g.isActive;
+    });
+  }, [goals, isSearching, search, filter]);
 
-  const filterBySearch = (g: InvestmentGoalWithStats): boolean => {
-    if (!belongsHere(g)) return false;
-    const q = search.toLowerCase().trim();
-    return g.name.toLowerCase().includes(q) || (g.notes?.toLowerCase().includes(q) ?? false);
-  };
+  const stacks = useMemo(() => groupGoals(filtered, groupBy), [filtered, groupBy]);
 
-  const filtered = isSearching ? goals.filter(filterBySearch) : goals.filter(filterByTab);
-
-  const tabCount = (tab: InvestmentsFilterTab): number => {
+  // Each count used to run two passes over every goal, and the strip asked for
+  // four of them on every render — eight passes for numbers that only change
+  // when the goals do.
+  const counts = useMemo(() => {
     const mine = goals.filter(belongsHere);
-    if (tab === "all") return mine.filter(effectivelyActive).length;
-    if (tab === "recurring") return mine.filter((g) => isRecurring(g) && g.isActive).length;
-    if (tab === "tracking") return mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length;
-    if (tab === "paused") return mine.filter((g) => !g.isActive).length;
-    return 0;
-  };
+    return {
+      all: mine.filter(effectivelyActive).length,
+      recurring: mine.filter((g) => isRecurring(g) && g.isActive).length,
+      tracking: mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length,
+      paused: mine.filter((g) => !g.isActive).length,
+    } as Record<InvestmentsFilterTab, number>;
+  }, [goals]);
+
+  const tabs = useMemo(
+    () => (["all", "recurring", "tracking", "paused"] as InvestmentsFilterTab[]).map((tab) => ({ id: tab, label: t(TAB_LABEL_KEYS[tab]), count: counts[tab] })),
+    [counts, t],
+  );
 
   const emptyLabel = isSearching ? t("investments.noResultsFor", { query: search }) : t("investments.noneYet");
 
+  // A missing strip is worse than a placeholder one: the row would appear a
+  // moment later and shove everything under it down the page.
+  const summary = isLoading ? <SkeletonStats /> : isError ? undefined : <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />;
+
   return (
     <Container fluid className="py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4 gap-2">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("investments.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("investments.subtitle")}</p>
-        </div>
-        <Button color="primary" onClick={() => setShowNewGoal(true)} style={{ flexShrink: 0 }}>
-          <span className="d-none d-sm-inline">+ {t("investments.newInvestment")}</span>
-          <span className="d-sm-none">+ {t("bills.new")}</span>
-        </Button>
-      </div>
+      <GoalsWorkbench
+        title={t("investments.title")}
+        subtitle={t("investments.subtitle")}
+        action={
+          <Button color="primary" onClick={() => setShowNewGoal(true)}>
+            <span className="d-none d-sm-inline">+ {t("investments.newInvestment")}</span>
+            <span className="d-sm-none">+ {t("bills.new")}</span>
+          </Button>
+        }
+        stats={summary}
+        tabs={tabs}
+        activeTab={filter}
+        onTab={(id) => setFilter(id as InvestmentsFilterTab)}
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder={t("investments.searchPlaceholder")}
+        groupOptions={INVESTMENT_GROUPINGS}
+        groupBy={groupBy}
+        onGroupBy={setGroupBy}
+        view={view}
+        onView={setView}
+      >
+        {isLoading && <SkeletonCardGrid count={6} />}
+        {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
-      {isLoading && <SkeletonCardGrid count={6} />}
-      {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
+        {!isLoading && !isError && (
+          <>
+            {isSearching && (
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("investments.showingResults", { count: filtered.length })}</p>
+            )}
 
-      {!isLoading && !isError && (
-        <>
-          <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />
-
-          <div className="d-md-none mb-2">
-            <SearchInput value={search} onChange={setSearch} placeholder={t("investments.searchPlaceholder")} block />
-          </div>
-
-          {isSearching && (
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              {t("investments.showingResults", { count: filtered.length })}
-            </p>
-          )}
-
-          <div style={{ overflowX: "auto", marginBottom: "1.5rem", msOverflowStyle: "none", scrollbarWidth: "none" }}>
-            <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
-              {!isSearching && (
-                <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
-                  {(["all", "recurring", "tracking", "paused"] as InvestmentsFilterTab[]).map((tab) => {
-                    const isActive = filter === tab;
-                    return (
-                      <NavItem key={tab}>
-                        <NavLink
-                          onClick={() => setFilter(tab)}
-                          className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
-                          style={{
-                            cursor: "pointer",
-                            border: "none",
-                            borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
-                            color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                            fontWeight: isActive ? 600 : 400,
-                            padding: "10px 16px",
-                            background: "transparent",
-                          }}
-                        >
-                          {t(TAB_LABEL_KEYS[tab])}
-                          <Badge pill color={tab === "paused" ? "warning" : "primary"} style={{ fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
-                            {tabCount(tab)}
-                          </Badge>
-                        </NavLink>
-                      </NavItem>
-                    );
-                  })}
-                </Nav>
-              )}
-              <div
-                className="d-none d-md-flex align-items-center justify-content-end"
-                style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
-              >
-                <SearchInput value={search} onChange={setSearch} placeholder={t("investments.searchPlaceholder")} size="sm" />
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
+                <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "📈"}</p>
+                <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
+                {!isSearching && filter !== "paused" && (
+                  <>
+                    <p style={{ fontSize: 14 }}>{t("investments.startTrackingHint")}</p>
+                    <Button color="primary" onClick={() => setShowNewGoal(true)}>
+                      + {t("investments.newInvestment")}
+                    </Button>
+                  </>
+                )}
               </div>
-            </div>
-          </div>
-
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
-              <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "📈"}</p>
-              <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
-              {!isSearching && filter !== "paused" && (
-                <>
-                  <p style={{ fontSize: 14 }}>{t("investments.startTrackingHint")}</p>
-                  <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    + {t("investments.newInvestment")}
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <Row className="g-3">
-              {filtered.map((goal) => (
-                <Col xs={12} md={6} xl={3} key={goal.id}>
-                  <GoalCard
-                    goal={goal}
-                    formatCurrency={formatCurrency}
-                    onViewHistory={setHistoryGoal}
-                    onAddDeposit={setDepositGoal}
-                    onWithdraw={setWithdrawGoal}
-                    onDelete={setDeleteGoal}
-                    onEdit={setEditGoal}
-                    onTogglePause={handleTogglePause}
-                  />
-                </Col>
-              ))}
-            </Row>
-          )}
-        </>
-      )}
+            ) : view === "stacks" ? (
+              /* Nothing here has a deadline, so "kind" is the natural stack —
+                 the rest are the reader's to pick. See `goalGrouping`. */
+              <GoalStacks
+                groups={stacks}
+                storageKey={`investments:stack:${groupBy}`}
+                formatCurrency={formatCurrency}
+                onViewHistory={setHistoryGoal}
+                onAddDeposit={setDepositGoal}
+                onWithdraw={setWithdrawGoal}
+                onDelete={setDeleteGoal}
+                onEdit={setEditGoal}
+                onTogglePause={handleTogglePause}
+              />
+            ) : (
+              <Row className="g-3">
+                {filtered.map((goal) => (
+                  <Col xs={12} md={6} xl={3} key={goal.id}>
+                    <GoalCard
+                      goal={goal}
+                      formatCurrency={formatCurrency}
+                      onViewHistory={setHistoryGoal}
+                      onAddDeposit={setDepositGoal}
+                      onWithdraw={setWithdrawGoal}
+                      onDelete={setDeleteGoal}
+                      onEdit={setEditGoal}
+                      onTogglePause={handleTogglePause}
+                    />
+                  </Col>
+                ))}
+              </Row>
+            )}
+          </>
+        )}
+      </GoalsWorkbench>
 
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}

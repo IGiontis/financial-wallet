@@ -9,18 +9,23 @@
 // and are imported via "../budget/..."
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
-import { Alert, Badge, Button, Col, Container,  Nav, NavItem, NavLink, Row } from "reactstrap";
+import { useCallback, useMemo, useState } from "react";
+import { Alert, Button, Col, Container, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "../budget/components/InvestmentsShared";
+import { GoalStacks } from "../budget/components/GoalStacks";
+import { GoalsWorkbench } from "../budget/components/GoalsWorkbench";
+import { groupGoals } from "../budget/components/goalGrouping";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
+import type { GoalView } from "../budget/components/GoalStacks";
+import type { GoalGroupBy } from "../budget/components/goalGrouping";
 import AddDepositModal from "../budget/AddDepositModal";
-import { SkeletonCardGrid } from "../../shared/components/Skeletons";
+import { SkeletonCardGrid, SkeletonStats } from "../../shared/components/Skeletons";
 import WithdrawModal from "../budget/WithdrawModal";
 import AddNewGoalModal from "../budget/AddNewGoalModal";
 import EditGoalModal from "../budget/EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
-import { SearchInput } from "../../shared/components/SearchInput";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
@@ -38,6 +43,9 @@ const TAB_LABEL_KEYS: Record<GoalsFilterTab, string> = {
 // ─── Scope helper ─────────────────────────────────────────────────────────────
 // A goal "belongs" to GoalsPage if it is targeted AND not recurring.
 // Recurring targeted goals (monthly/yearly) live in InvestmentsPage instead.
+
+/** A targeted goal has a deadline, so every dimension here means something. */
+const GOAL_GROUPINGS: GoalGroupBy[] = ["deadline", "progress", "status", "category"];
 
 const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
 
@@ -106,6 +114,8 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
 export default function GoalsPage() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<GoalsFilterTab>("all");
+  const [view, setView] = useLocalStorage<GoalView>("goals:view", "cards");
+  const [groupBy, setGroupBy] = useLocalStorage<GoalGroupBy>("goals:groupBy", "deadline");
   const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -143,36 +153,52 @@ export default function GoalsPage() {
     deleteGoalMutation.mutate(deleteGoal.id, { onSuccess: () => setDeleteGoal(null) });
   };
 
-  const handleTogglePause = (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } });
+  // Stable, because it is handed to every row on the screen: a new function each
+  // render is a new prop for every card, and nothing downstream can be memoised
+  // past it.
+  const handleTogglePause = useCallback(
+    (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } }),
+    [updateGoalMutation],
+  );
 
   // ── Filtering ─────────────────────────────────────────────────────────────
 
   const isSearching = search.trim().length > 0;
 
-  const filterByTab = (g: InvestmentGoalWithStats): boolean => {
-    if (!belongsHere(g)) return false;
-    if (filter === "all") return g.isActive && !g.isCompleted;
-    if (filter === "paused") return !g.isActive && !g.isCompleted;
-    if (filter === "completed") return g.isCompleted;
-    return false;
-  };
+  // One pass, once per change of what it depends on — rather than two predicates
+  // rebuilt every render and a full scan on every keystroke.
+  const filtered = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    return goals.filter((g) => {
+      if (!belongsHere(g)) return false;
+      // Search reaches across the tabs on purpose: a paused goal you are looking
+      // for by name should not be hidden by which tab happens to be open.
+      if (isSearching) return g.name.toLowerCase().includes(query) || (g.notes?.toLowerCase().includes(query) ?? false);
+      if (filter === "all") return g.isActive && !g.isCompleted;
+      if (filter === "paused") return !g.isActive && !g.isCompleted;
+      return g.isCompleted;
+    });
+  }, [goals, isSearching, search, filter]);
 
-  // Search scoped to targeted goals only — will not surface recurring/tracking
-  const filterBySearch = (g: InvestmentGoalWithStats): boolean => {
-    if (!belongsHere(g)) return false;
-    const q = search.toLowerCase().trim();
-    return g.name.toLowerCase().includes(q) || (g.notes?.toLowerCase().includes(q) ?? false);
-  };
+  const stacks = useMemo(() => groupGoals(filtered, groupBy), [filtered, groupBy]);
 
-  const filtered = isSearching ? goals.filter(filterBySearch) : goals.filter(filterByTab);
-
-  const tabCount = (tab: GoalsFilterTab): number => {
+  // Each count used to run two passes over every goal, and the strip asked for
+  // three of them on every render — six passes for a number that only changes
+  // when the goals do.
+  const counts = useMemo(() => {
     const mine = goals.filter(belongsHere);
-    if (tab === "all") return mine.filter((g) => g.isActive && !g.isCompleted).length;
-    if (tab === "paused") return mine.filter((g) => !g.isActive && !g.isCompleted).length;
-    if (tab === "completed") return mine.filter((g) => g.isCompleted).length;
-    return 0;
-  };
+    return {
+      all: mine.filter((g) => g.isActive && !g.isCompleted).length,
+      paused: mine.filter((g) => !g.isActive && !g.isCompleted).length,
+      completed: mine.filter((g) => g.isCompleted).length,
+    } as Record<GoalsFilterTab, number>;
+  }, [goals]);
+
+  const tabs = useMemo(
+    () => (["all", "paused", "completed"] as GoalsFilterTab[]).map((tab) => ({ id: tab, label: t(TAB_LABEL_KEYS[tab]), count: counts[tab] })),
+    [counts, t],
+  );
+
 
   const emptyLabel = isSearching
     ? t("investments.noResultsFor", { query: search })
@@ -182,114 +208,92 @@ export default function GoalsPage() {
         ? t("goals.noPausedYet")
         : t("goals.noCompletedYet");
 
+  // A missing strip is worse than a placeholder one: the row would appear a
+  // moment later and shove everything under it down the page.
+  const summary = isLoading ? <SkeletonStats /> : isError ? undefined : <GoalsSummaryCards goals={goals} formatCurrency={formatCurrency} />;
+
   return (
     <Container fluid className="py-4">
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("goals.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("goals.subtitle")}</p>
-        </div>
-        <Button color="primary" onClick={() => setShowNewGoal(true)}>
-          <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
-          <span className="d-sm-none">+ {t("bills.new")}</span>
-        </Button>
-      </div>
+      <GoalsWorkbench
+        title={t("goals.title")}
+        subtitle={t("goals.subtitle")}
+        action={
+          <Button color="primary" onClick={() => setShowNewGoal(true)}>
+            <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
+            <span className="d-sm-none">+ {t("bills.new")}</span>
+          </Button>
+        }
+        stats={summary}
+        tabs={tabs}
+        activeTab={filter}
+        onTab={(id) => setFilter(id as GoalsFilterTab)}
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder={t("goals.searchPlaceholder")}
+        groupOptions={GOAL_GROUPINGS}
+        groupBy={groupBy}
+        onGroupBy={setGroupBy}
+        view={view}
+        onView={setView}
+      >
+        {isLoading && <SkeletonCardGrid count={6} />}
+        {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
-      {isLoading && <SkeletonCardGrid count={6} />}
-      {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
+        {!isLoading && !isError && (
+          <>
+            {isSearching && (
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("investments.showingResults", { count: filtered.length })}</p>
+            )}
 
-      {!isLoading && !isError && (
-        <>
-          <GoalsSummaryCards goals={goals} formatCurrency={formatCurrency} />
-
-          {/* Mobile search */}
-          <div className="d-md-none mb-2">
-            <SearchInput value={search} onChange={setSearch} placeholder={t("goals.searchPlaceholder")} block />
-          </div>
-
-          {isSearching && (
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              {t("investments.showingResults", { count: filtered.length })}
-            </p>
-          )}
-
-          {/* Tabs + desktop search */}
-          <div style={{ overflowX: "auto", marginBottom: "1.5rem", msOverflowStyle: "none", scrollbarWidth: "none" }}>
-            <div className="d-flex align-items-center" style={{ borderBottom: "1px solid var(--color-border-tertiary)", minWidth: "max-content" }}>
-              {!isSearching && (
-                <Nav style={{ border: "none", flexWrap: "nowrap", flex: 1 }}>
-                  {(["all", "paused", "completed"] as GoalsFilterTab[]).map((tab) => {
-                    const isActive = filter === tab;
-                    return (
-                      <NavItem key={tab}>
-                        <NavLink
-                          onClick={() => setFilter(tab)}
-                          className={`d-flex align-items-center gap-2 ${isActive ? "active" : ""}`}
-                          style={{
-                            cursor: "pointer",
-                            border: "none",
-                            borderBottom: isActive ? "2px solid var(--bs-primary)" : "2px solid transparent",
-                            color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                            fontWeight: isActive ? 600 : 400,
-                            padding: "10px 16px",
-                            background: "transparent",
-                          }}
-                        >
-                          {t(TAB_LABEL_KEYS[tab])}
-                          <Badge pill color={tab === "paused" ? "warning" : "primary"} style={{ fontWeight: 500, fontSize: 11, padding: "4px 8px" }}>
-                            {tabCount(tab)}
-                          </Badge>
-                        </NavLink>
-                      </NavItem>
-                    );
-                  })}
-                </Nav>
-              )}
-              <div
-                className="d-none d-md-flex align-items-center justify-content-end"
-                style={{ flex: isSearching ? 1 : "none", paddingBottom: 6, paddingLeft: isSearching ? 0 : 16 }}
-              >
-                <SearchInput value={search} onChange={setSearch} placeholder={t("goals.searchPlaceholder")} size="sm" />
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
+                <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "🎯"}</p>
+                <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
+                {!isSearching && filter !== "paused" && (
+                  <>
+                    <p style={{ fontSize: 14 }}>{t("goals.createFirstHint")}</p>
+                    <Button color="primary" onClick={() => setShowNewGoal(true)}>
+                      <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
+                      <span className="d-sm-none">+ {t("bills.new")}</span>
+                    </Button>
+                  </>
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* Grid */}
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
-              <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "🎯"}</p>
-              <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
-              {!isSearching && filter !== "paused" && (
-                <>
-                  <p style={{ fontSize: 14 }}>{t("goals.createFirstHint")}</p>
-                  <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                    <span className="d-none d-sm-inline">+ {t("goals.newGoal")}</span>
-                    <span className="d-sm-none">+ {t("bills.new")}</span>
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <Row className="g-3">
-              {filtered.map((goal) => (
-                <Col xs={12} md={6} xl={4} key={goal.id}>
-                  <GoalCard
-                    goal={goal}
-                    formatCurrency={formatCurrency}
-                    onViewHistory={setHistoryGoal}
-                    onAddDeposit={setDepositGoal}
-                    onWithdraw={setWithdrawGoal}
-                    onDelete={setDeleteGoal}
-                    onEdit={setEditGoal}
-                    onTogglePause={handleTogglePause}
-                  />
-                </Col>
-              ))}
-            </Row>
-          )}
-        </>
-      )}
+            ) : view === "stacks" ? (
+              /* The same goals and the same actions, stacked the way the reader
+                 asked for — see `goalGrouping`. */
+              <GoalStacks
+                groups={stacks}
+                storageKey={`goals:stack:${groupBy}`}
+                formatCurrency={formatCurrency}
+                onViewHistory={setHistoryGoal}
+                onAddDeposit={setDepositGoal}
+                onWithdraw={setWithdrawGoal}
+                onDelete={setDeleteGoal}
+                onEdit={setEditGoal}
+                onTogglePause={handleTogglePause}
+              />
+            ) : (
+              <Row className="g-3">
+                {filtered.map((goal) => (
+                  <Col xs={12} md={6} xl={4} key={goal.id}>
+                    <GoalCard
+                      goal={goal}
+                      formatCurrency={formatCurrency}
+                      onViewHistory={setHistoryGoal}
+                      onAddDeposit={setDepositGoal}
+                      onWithdraw={setWithdrawGoal}
+                      onDelete={setDeleteGoal}
+                      onEdit={setEditGoal}
+                      onTogglePause={handleTogglePause}
+                    />
+                  </Col>
+                ))}
+              </Row>
+            )}
+          </>
+        )}
+      </GoalsWorkbench>
 
       {/* Modals */}
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
