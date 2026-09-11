@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
+import { useDebts } from "../../debts/useDebts";
+import { firestoreToDate } from "../../../shared/utils/dates";
+import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { TransactionInsights } from "../../transactions/components/TransactionInsights";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
@@ -48,6 +51,11 @@ import TopMoversChart from "../components/TopMoversChart";
 import CategorySparklines from "../components/CategorySparklines";
 import MonthWaterfall from "../components/MonthWaterfall";
 import CommittedSplitChart from "../components/CommittedSplitChart";
+import NetWorthChart, { type NetWorthRow } from "../components/NetWorthChart";
+import IncomeMonthsChart from "../components/IncomeMonthsChart";
+import IncomeSources from "../components/IncomeSources";
+import { topPayees } from "../../transactions/transactionInsights";
+import { netWorthSeries, repaymentsOutsideCash } from "../netWorthUtils";
 
 // ECharts is a second, heavier engine, loaded only for the three charts recharts
 // can't draw. Because ChartCard holds its children back until the card nears the
@@ -71,6 +79,8 @@ export function AnalyticsPage() {
 
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
+  const { data: debts = [] } = useDebts();
+  const { opening } = useOpeningBalance();
   const { format: formatCurrency } = useCurrencyConverter();
 
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
@@ -104,6 +114,46 @@ export function AnalyticsPage() {
   const totalExpenses = useMemo(() => flows.reduce((s, f) => s + f.expenses, 0), [flows]);
 
   const sankey = useMemo(() => moneyFlow(scoped), [scoped]);
+
+  // ── What you are worth ─────────────────────────────────────────────────────
+  //
+  // The one part of the page that is not about a period. Every chart around it
+  // measures what moved; this measures what there is, which needed the debts
+  // and the goals the page had never once looked at.
+  // The range picker's "all" has no start date, but a series still needs a
+  // first month — the earliest thing on record, whichever ledger it is in.
+  const positionFrom = useMemo(() => {
+    if (from) return from;
+    const times = [...transactions.map((tx) => firestoreToDate(tx.date).getTime()), ...debts.map((debt) => firestoreToDate(debt.date).getTime())];
+    return times.length > 0 ? new Date(Math.min(...times)) : now;
+  }, [from, transactions, debts, now]);
+
+  const position = useMemo(() => netWorthSeries(transactions, debts, opening, positionFrom, now), [transactions, debts, opening, positionFrom, now]);
+
+  const positionData = useMemo<NetWorthRow[]>(
+    () => position.map((point) => ({ label: monthFmt.format(point.start), cash: point.cash, saved: point.saved, owedToMe: point.owedToMe, debt: -point.owedByMe, net: point.net })),
+    [position, monthFmt],
+  );
+
+  const netWorth = position.length > 0 ? position[position.length - 1].net : 0;
+  const netWorthMove = position.length > 1 ? netWorth - position[0].net : undefined;
+
+  // Whether the line above can be believed. A repayment is its own record, not
+  // spending, so one entered without the matching expense lowers what is owed
+  // without lowering the cash — and the position climbs for no reason.
+  const repayments = useMemo(() => repaymentsOutsideCash(debts, transactions), [debts, transactions]);
+  const repaymentWarning = repayments.unmatched > 0 && repayments.unmatched >= repayments.matched;
+
+  // The warning outranks the movement: a figure that may be wrong should not be
+  // captioned with how pleasingly it has grown.
+  const netWorthHint = (() => {
+    if (repaymentWarning) return t("analytics.netWorth.repaymentWarning");
+    if (netWorthMove === undefined || Math.abs(netWorthMove) < 1) return t("analytics.netWorth.hint");
+    return t(netWorthMove > 0 ? "analytics.netWorth.moveUp" : "analytics.netWorth.moveDown", {
+      amount: formatCurrency(Math.abs(netWorthMove)),
+      since: monthFmt.format(position[0].start),
+    });
+  })();
 
   const flowLabel = useCallback(
     (node: FlowNode) => {
@@ -192,6 +242,26 @@ export function AnalyticsPage() {
   // Deliberately unscoped: this card is always "this month against last month",
   // whatever window the rest of the page is showing.
   const pace = useMemo(() => monthPace(transactions, now), [transactions, now]);
+
+  // ── The income half ────────────────────────────────────────────────────────
+  //
+  // This used to be a toggle on the panel at the top of the page, where it had
+  // to answer the same five questions asked of spending. Income does not have
+  // five answers: for most people it has one source and arrives on the same day.
+  // The two questions it does answer — where it comes from, and whether it can
+  // be relied on — are these.
+  const incomeSources = useMemo(() => topPayees(scoped, "income"), [scoped]);
+  const incomeMonths = useMemo(() => flows.map((flow) => ({ label: monthFmt.format(flow.start), income: flow.income })), [flows, monthFmt]);
+  const incomeTotal = useMemo(() => flows.reduce((sum, flow) => sum + flow.income, 0), [flows]);
+  const incomeAverage = flows.length > 0 ? incomeTotal / flows.length : 0;
+
+  // How lumpy it is: the average gap from the average, as a share of it. A
+  // salary sits near zero; work invoiced in bursts runs high.
+  const incomeSpread = useMemo(() => {
+    if (flows.length < 2 || incomeAverage <= 0) return undefined;
+    const spread = flows.reduce((sum, flow) => sum + Math.abs(flow.income - incomeAverage), 0) / flows.length;
+    return Math.round((spread / incomeAverage) * 100);
+  }, [flows, incomeAverage]);
   const paceGap = pace.currentTotal - pace.previousToDate;
 
 
@@ -258,6 +328,36 @@ export function AnalyticsPage() {
             fromDate={from}
             toDate={now}
           />
+
+          {/* ── Where you stand ── */}
+          {positionData.length > 0 && (
+            <>
+              <h2 className={styles.sectionTitle}>{t("analytics.groups.position")}</h2>
+
+              <div className={styles.grid}>
+                <ChartCard
+                  wide
+                  tall
+                  title={t("analytics.netWorth.title")}
+                  hint={netWorthHint}
+                  value={formatCurrency(netWorth)}
+                  valueTone={netWorth >= 0 ? "income" : "expense"}
+                  footer={
+                    <Legend
+                      items={[
+                        { color: "var(--color-income)", label: t("analytics.netWorth.cash") },
+                        { color: "var(--color-invest)", label: t("analytics.netWorth.saved") },
+                        { color: "var(--color-goal)", label: t("analytics.netWorth.owedToMe") },
+                        { color: "var(--color-expense)", label: t("analytics.netWorth.owedByMe") },
+                      ]}
+                    />
+                  }
+                >
+                  <NetWorthChart data={positionData} formatCurrency={formatCurrency} />
+                </ChartCard>
+              </div>
+            </>
+          )}
 
           {/* ── Where the money goes ── */}
           <h2 className={styles.sectionTitle}>{t("analytics.groups.where")}</h2>
@@ -404,12 +504,10 @@ export function AnalyticsPage() {
                 <MoneyFlowSankey nodes={sankey?.nodes ?? []} links={sankey?.links ?? []} labelFor={flowLabel} formatCurrency={formatCurrency} ariaLabel={t("analytics.moneyFlow.title")} />
               </Suspense>
             </ChartCard>
-          </div>
 
-          <div className={styles.grid}>
             <ChartCard
               wide
-              tall
+              xtall
               title={t("analytics.categoryTrend.title")}
               hint={t("analytics.categoryTrend.hint")}
               value={formatCurrency(totalExpenses)}
@@ -429,6 +527,38 @@ export function AnalyticsPage() {
               <CategoryTrendChart data={trendData} series={trendSeries} formatCurrency={formatCurrency} totalLabel={t("common.total")} />
             </ChartCard>
           </div>
+
+          {/* ── Your income ── */}
+          {incomeTotal > 0 && (
+            <>
+              <h2 className={styles.sectionTitle}>{t("analytics.groups.income")}</h2>
+
+              <div className={styles.grid}>
+                <ChartCard
+                  title={t("analytics.income.stabilityTitle")}
+                  hint={incomeSpread === undefined ? t("analytics.income.stabilityHint") : t("analytics.income.spread", { percent: incomeSpread })}
+                  value={formatCurrency(incomeAverage)}
+                  valueTone="income"
+                  footer={<Legend items={[{ color: "var(--color-text-primary)", label: t("analytics.income.average") }]} />}
+                  empty={incomeMonths.length === 0 ? noData : undefined}
+                >
+                  <IncomeMonthsChart data={incomeMonths} average={incomeAverage} formatCurrency={formatCurrency} />
+                </ChartCard>
+
+                <ChartCard
+                  auto
+                  zoomable={false}
+                  title={t("analytics.income.sourcesTitle")}
+                  hint={t("analytics.income.sourcesHint")}
+                  value={formatCurrency(incomeTotal)}
+                  valueTone="income"
+                  empty={incomeSources.length === 0 ? t("analytics.income.noNames") : undefined}
+                >
+                  <IncomeSources rows={incomeSources} total={incomeTotal} formatCurrency={formatCurrency} />
+                </ChartCard>
+              </div>
+            </>
+          )}
         </div>
       )}
     </PageShell>

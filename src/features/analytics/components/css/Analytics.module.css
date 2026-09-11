@@ -89,6 +89,21 @@
   line-height: 1.35;
 }
 
+/* The headline figure and the magnify button, as one block on the right. */
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cardDivide {
+  width: 1px;
+  align-self: stretch;
+  min-height: 20px;
+  background: var(--color-border-primary);
+}
+
 .cardValue {
   flex-shrink: 0;
   font-size: 15px;
@@ -120,6 +135,12 @@
   height: 210px;
 }
 
+/* A dozen lines a few euros apart need room before they read as separate
+   lines rather than one thick one. */
+.chartArea.xtall {
+  height: 300px;
+}
+
 @media (min-width: 768px) {
   .chartArea {
     height: 215px;
@@ -127,6 +148,10 @@
 
   .chartArea.tall {
     height: 280px;
+  }
+
+  .chartArea.xtall {
+    height: 420px;
   }
 }
 
@@ -280,3 +305,26 @@
 
 /* Opens a bigger copy of a chart the card is too small to hold. Sits with the
    headline figure rather than over the plot, which is a tap target itself. */
+
+/* ── Where income comes from ─────────────────────────────────────────────── */
+
+.sourceName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.sourceTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.sourceFill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-income);
+}

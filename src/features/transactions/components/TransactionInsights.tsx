@@ -17,7 +17,6 @@ import {
   OTHER_CATEGORY_ID,
   sliceTransactions,
   type Bucket,
-  type InsightMode,
 } from "../transactionInsights";
 import SliceTransactionsModal from "./SliceTransactionsModal";
 import styles from "./css/TransactionInsights.module.css";
@@ -41,7 +40,10 @@ interface InsightsProps {
 export function TransactionInsights({ transactions, allTransactions, categories, formatCurrency, fromDate, toDate }: InsightsProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useLocalStorage("transactions-insights-open", true);
-  const [mode, setMode] = useState<InsightMode>("expense");
+  // Expenses only. The income half used to live behind a toggle here and said
+  // nothing a single source could not: its own section at the foot of the
+  // analytics page shows the two things about income that are worth showing.
+  const mode = "expense" as const;
 
   const lang = i18n.resolvedLanguage ?? "en";
   const span = useMemo(() => spanInDays(fromDate, toDate, transactions), [fromDate, toDate, transactions]);
@@ -94,7 +96,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   const pickedBucket = buckets.find((b) => b.key === picked);
   const dateFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
 
-  const splitTitle = mode === "expense" ? t("transactions.whereItWent") : t("transactions.whereItCameFrom");
+  const splitTitle = t("transactions.whereItWent");
   const timeHint = t(bucket === "day" ? "transactions.byDay" : bucket === "week" ? "transactions.byWeek" : "transactions.byMonth");
 
   // Both charts are drawn by the same code in the card and in the sheet, with a
@@ -167,7 +169,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
           {pickedBucket ? (
             <>
               <span className={styles.barReadoutLabel}>{pickedBucket.label}</span>
-              <span className={styles.barReadoutAmount} style={{ color: mode === "expense" ? "var(--color-expense)" : "var(--color-income)" }}>
+              <span className={styles.barReadoutAmount} style={{ color: "var(--color-expense)" }}>
                 {formatCurrency(pickedBucket.amount)}
               </span>
             </>
@@ -186,7 +188,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
               aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
               onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
             >
-              <div className={`${styles.bar} ${mode === "income" ? styles.barIncome : ""}`} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
+              <div className={styles.bar} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
               {/* A month of daily bars would collide, so only every nth
                   label is drawn — the rest are reachable by tap. */}
               <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
@@ -205,16 +207,6 @@ export function TransactionInsights({ transactions, allTransactions, categories,
           {open ? <FiChevronUp size={15} /> : <FiChevronDown size={15} />}
         </Button>
 
-        {open && (
-          <div className="btn-group btn-group-sm" role="group">
-            <Button color="secondary" outline={mode !== "expense"} size="sm" style={{ fontSize: 11.5 }} onClick={() => setMode("expense")} active={mode === "expense"}>
-              {t("transactions.expense")}
-            </Button>
-            <Button color="secondary" outline={mode !== "income"} size="sm" style={{ fontSize: 11.5 }} onClick={() => setMode("income")} active={mode === "income"}>
-              {t("transactions.income")}
-            </Button>
-          </div>
-        )}
       </div>
 
       <Collapse isOpen={open}>
@@ -259,7 +251,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                         has to follow the mode, not the sign alone. */}
                     <div
                       className={styles.statValue}
-                      style={{ color: comparison.difference === 0 ? undefined : (comparison.difference > 0) === (mode === "expense") ? "var(--color-expense)" : "var(--color-income)" }}
+                      style={{ color: comparison.difference === 0 ? undefined : comparison.difference > 0 ? "var(--color-expense)" : "var(--color-income)" }}
                     >
                       {comparison.difference > 0 ? "+" : ""}
                       {Math.round(comparison.percentage)}%
@@ -284,7 +276,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                   {/* Headline sits here rather than inside the ring — a five- or
                       six-figure total simply doesn't fit in the hole. */}
                   <div className="text-end flex-shrink-0">
-                    <div className={styles.headlineAmount} style={{ color: mode === "expense" ? "var(--color-expense)" : "var(--color-income)" }}>
+                    <div className={styles.headlineAmount} style={{ color: "var(--color-expense)" }}>
                       {formatCurrency(stats.total)}
                     </div>
                     <div className={styles.statSub}>{t("transactions.transactionCount", { count: stats.count })}</div>
@@ -312,7 +304,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
             {/* ── Top payees ── */}
             {payees.length > 0 && (
               <div className={styles.card}>
-                <div className={`${styles.cardTitle} mb-3`}>{mode === "expense" ? t("transactions.whoYouPayMost") : t("transactions.whoPaysYouMost")}</div>
+                <div className={`${styles.cardTitle} mb-3`}>{t("transactions.whoYouPayMost")}</div>
                 <div className="d-flex flex-column gap-2">
                   {payees.map((p) => (
                     <div key={p.name}>

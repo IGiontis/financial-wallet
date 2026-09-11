@@ -12,6 +12,10 @@ interface ChartCardProps {
   wide?: boolean;
   /** Taller chart box — for the two long time series that need the vertical room. */
   tall?: boolean;
+  /** Taller still. For a plot holding many lines at once: with a dozen
+   *  categories a few euros apart, height is the only thing that separates
+   *  them, and at `tall` they arrive as one thick band. */
+  xtall?: boolean;
   /** Let the content set its own height, for cards that draw rows not plots. */
   auto?: boolean;
   /** Shown instead of the chart when there isn't enough data to plot. */
@@ -37,7 +41,7 @@ interface ChartCardProps {
  * there is. The modal renders the very same `children`, so a card never has to
  * describe itself twice.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, auto, empty, zoomable = true, footer, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, children }: ChartCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
   // defer against, so start visible rather than never rendering the chart.
@@ -72,18 +76,28 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
           <h3 className={styles.cardTitle}>{title}</h3>
           {hint && <p className={styles.cardHint}>{hint}</p>}
         </div>
-        {value !== undefined && (
-          <div className={styles.cardValue} style={{ color: toneColor }}>
-            {value}
+        {/* The figure and the button travel together on the right. Loose in the
+            header they were two of three items sharing out the free space, so on
+            a wide card the figure drifted into the middle and read as belonging
+            to nothing. The rule between them is what says they are a pair
+            rather than one run-on label. */}
+        {(value !== undefined || canZoom) && (
+          <div className={styles.cardMeta}>
+            {value !== undefined && (
+              <div className={styles.cardValue} style={{ color: toneColor }}>
+                {value}
+              </div>
+            )}
+            {value !== undefined && canZoom && <span className={styles.cardDivide} aria-hidden />}
+            {/* A button rather than making the whole card clickable: several
+                cards already answer taps inside the plot, and a card that
+                swallowed them would take the tap meant for a bar. */}
+            {canZoom && <ZoomButton onClick={() => setZoomed(true)} />}
           </div>
         )}
-        {/* A button rather than making the whole card clickable: several cards
-            already answer taps inside the plot, and a card that swallowed them
-            would take the tap meant for a bar. */}
-        {canZoom && <ZoomButton onClick={() => setZoomed(true)} />}
       </div>
 
-      <div className={`${styles.chartArea} ${tall ? styles.tall : ""} ${auto ? styles.auto : ""}`}>
+      <div className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""}`}>
         {empty ? <p className={styles.emptyNote}>{empty}</p> : visible ? children : null}
       </div>
 

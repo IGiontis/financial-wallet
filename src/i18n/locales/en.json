@@ -482,7 +482,9 @@
     "groups": {
       "flow": "Flow & saving",
       "where": "Where the money goes",
-      "habits": "Habits & pace"
+      "habits": "Habits & pace",
+      "position": "Where you stand",
+      "income": "Your income"
     },
     "netPosition": {
       "title": "Net position",
@@ -562,7 +564,31 @@
       "share": "Committed share",
       "headline": "{{percent}}% already spoken for"
     },
-    "expandChart": "See it bigger"
+    "expandChart": "See it bigger",
+    "netWorth": {
+      "title": "What you are worth",
+      "hint": "Everything you hold, less everything you owe",
+      "repaymentWarning": "Most loan repayments have no spending entered beside them, so your cash reads higher than it is",
+      "cash": "Cash",
+      "saved": "Set aside",
+      "owedToMe": "Owed to you",
+      "owedByMe": "You owe",
+      "net": "Net",
+      "moveUp": "Up {{amount}} since {{since}}",
+      "moveDown": "Down {{amount}} since {{since}}"
+    },
+    "income": {
+      "stabilityTitle": "How steady it is",
+      "stabilityHint": "What arrived each month, against the average",
+      "spread": "Each month lands about {{percent}}% away from the average",
+      "average": "Average",
+      "thatMonth": "That month",
+      "vsAverage": "Against the average",
+      "sourcesTitle": "Where it comes from",
+      "sourcesHint": "Largest first, with each one against the biggest",
+      "shareOfAll": "{{percent}}% of it",
+      "noNames": "Income needs a description before it can be grouped by source"
+    }
   },
   "investments": {
     "title": "Investments",
