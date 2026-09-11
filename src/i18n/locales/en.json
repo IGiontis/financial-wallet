@@ -586,7 +586,7 @@
       "vsAverage": "Against the average",
       "sourcesTitle": "Where it comes from",
       "sourcesHint": "Largest first, with each one against the biggest",
-      "shareOfAll": "{{percent}}% of it",
+      "shareOfAll": "{{percent}}% of income",
       "noNames": "Income needs a description before it can be grouped by source"
     }
   },
