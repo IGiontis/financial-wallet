@@ -828,7 +828,9 @@
     "seasonNeedsStart": "Pick the month it starts first.",
     "note_outofseason": "outside this window",
     "seasonFromOnly": "from {{month}}",
-    "seasonToOnly": "until {{month}}"
+    "seasonToOnly": "until {{month}}",
+    "paneNumbers": "Your numbers",
+    "paneMonths": "Month by month"
   },
   "settings": {
     "title": "Settings",

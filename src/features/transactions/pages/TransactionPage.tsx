@@ -1,20 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  Container,
-  Row,
-  Col,
-  Card,
-  CardBody,
-  Table,
-  Badge,
-  Button,
-  Alert,
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "reactstrap";
+import { Row, Col, Card, CardBody, Table, Badge, Button, Alert, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { FiEdit2, FiTrash2, FiUsers } from "react-icons/fi";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
@@ -36,6 +22,7 @@ import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
+import { PageShell } from "../../../shared/components/PageShell";
 
 const PAGE_SIZE = 15;
 
@@ -529,7 +516,7 @@ export function TransactionsPage() {
   };
 
   return (
-    <Container fluid className="py-2">
+    <PageShell>
       {/* ── Desktop ── */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
@@ -842,6 +829,6 @@ export function TransactionsPage() {
         <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
       )}
       {viewTransaction && <TransactionViewModal transaction={viewTransaction} categories={categories} formatCurrency={formatCurrency} onClose={() => setViewTransaction(null)} />}
-    </Container>
+    </PageShell>
   );
 }

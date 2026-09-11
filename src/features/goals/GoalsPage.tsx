@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Button, Col, Container, Row } from "reactstrap";
+import { Alert, Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "../budget/components/InvestmentsShared";
 import { GoalStacks } from "../budget/components/GoalStacks";
@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
+import { PageShell } from "../../shared/components/PageShell";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -213,7 +214,7 @@ export default function GoalsPage() {
   const summary = isLoading ? <SkeletonStats /> : isError ? undefined : <GoalsSummaryCards goals={goals} formatCurrency={formatCurrency} />;
 
   return (
-    <Container fluid className="py-4">
+    <PageShell>
       <GoalsWorkbench
         title={t("goals.title")}
         subtitle={t("goals.subtitle")}
@@ -307,6 +308,6 @@ export default function GoalsPage() {
           - Shows only the deadline picker (no monthly/yearly period options)
       */}
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="targeted" />
-    </Container>
+    </PageShell>
   );
 }

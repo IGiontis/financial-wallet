@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Button, Col, Container, Row } from "reactstrap";
+import { Alert, Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
 import { GoalStacks } from "./components/GoalStacks";
@@ -26,6 +26,7 @@ import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, u
 import { useTranslation } from "react-i18next";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
+import { PageShell } from "../../shared/components/PageShell";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -282,7 +283,7 @@ export default function InvestmentsPage() {
   const summary = isLoading ? <SkeletonStats /> : isError ? undefined : <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />;
 
   return (
-    <Container fluid className="py-4">
+    <PageShell>
       <GoalsWorkbench
         title={t("investments.title")}
         subtitle={t("investments.subtitle")}
@@ -369,6 +370,6 @@ export default function InvestmentsPage() {
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="recurring" />
-    </Container>
+    </PageShell>
   );
 }

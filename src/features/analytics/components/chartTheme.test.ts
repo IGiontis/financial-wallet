@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AXIS_TICK, GRID_STROKE, SERIES_COLORS, amountTicks, compactNumber, seriesColor, seriesDash, weekdayNames } from "./chartTheme";
+import { AXIS_TICK, GRID_STROKE, SERIES_COLORS, alignedZeroDomains, amountTicks, compactNumber, seriesColor, seriesDash, weekdayNames } from "./chartTheme";
 
 // Axis labels and gridlines are how an amount is read. A tick that rounds the
 // wrong way, or a scale whose steps do not suit the numbers, misreports the
@@ -138,5 +138,71 @@ describe("amountTicks", () => {
     expect(amountTicks(-50)).toEqual([0]);
     expect(amountTicks(Number.NaN)).toEqual([0]);
     expect(amountTicks(Number.POSITIVE_INFINITY)).toEqual([0]);
+  });
+});
+
+// ─── Two axes, one zero ──────────────────────────────────────────────────────
+//
+// The planner's flow chart draws bars against the left axis and the running
+// balance against the right. A month ending with €684.28 in hand was drawn
+// below the zero line, because that line belonged to the bars. The figure was
+// right; the picture said the plan had gone under. These pin down the property
+// that stops it: whatever the numbers, zero is at the same height on both.
+
+/** Where a value lands, as a fraction of the plot's height from the top. */
+const heightOf = (value: number, [min, max]: [number, number]) => (max - value) / (max - min);
+
+describe("alignedZeroDomains", () => {
+  it("puts both zeros at the same height", () => {
+    const cases: [{ min: number; max: number }, { min: number; max: number }][] = [
+      [{ min: -2096.77, max: 1700 }, { min: 0, max: 1950 }],
+      [{ min: -400, max: 3200 }, { min: -1200, max: 260 }],
+      [{ min: -5000, max: 900 }, { min: 40, max: 14000 }],
+      [{ min: -80, max: 80 }, { min: -19000, max: 4 }],
+    ];
+
+    for (const [flow, balance] of cases) {
+      const { flow: f, balance: b } = alignedZeroDomains(flow, balance);
+      expect(heightOf(0, b)).toBeCloseTo(heightOf(0, f), 10);
+    }
+  });
+
+  it("draws the reported month above the line, not below it", () => {
+    // March 2027: €1,700 in, €2,096.77 out, ending with €684.28 — the balance
+    // falls, and is still money in the bank.
+    const { flow, balance } = alignedZeroDomains({ min: -2096.77, max: 1700 }, { min: 684.28, max: 1950 });
+
+    expect(heightOf(684.28, balance)).toBeLessThan(heightOf(0, flow));
+    expect(balance[0]).toBeLessThan(0);
+  });
+
+  it("never clips a value out of its own axis", () => {
+    const { balance } = alignedZeroDomains({ min: -900, max: 2400 }, { min: -1500, max: 8200 });
+
+    expect(balance[0]).toBeLessThanOrEqual(-1500);
+    expect(balance[1]).toBeGreaterThanOrEqual(8200);
+  });
+
+  it("keeps zero on the floor when nothing goes out", () => {
+    const { flow, balance } = alignedZeroDomains({ min: 0, max: 1800 }, { min: 200, max: 9000 });
+
+    expect(flow[0]).toBe(0);
+    expect(balance[0]).toBe(0);
+    expect(heightOf(0, balance)).toBeCloseTo(heightOf(0, flow), 10);
+  });
+
+  it("keeps zero on the ceiling when nothing comes in", () => {
+    const { flow, balance } = alignedZeroDomains({ min: -1800, max: 0 }, { min: -9000, max: 0 });
+
+    expect(flow[1]).toBe(0);
+    expect(balance[1]).toBe(0);
+    expect(balance[0]).toBeLessThanOrEqual(-9000);
+  });
+
+  it("survives a plan with no movement at all", () => {
+    const { flow, balance } = alignedZeroDomains({ min: 0, max: 0 }, { min: 0, max: 0 });
+
+    expect(flow[1]).toBeGreaterThan(flow[0]);
+    expect(balance[1]).toBeGreaterThan(balance[0]);
   });
 });

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
-import { Container, Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
+import { Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
@@ -26,6 +26,7 @@ import { CustomRangeModal } from "../components/CustomRangeModal";
 import GoalDetailModal from "../components/GoalDetailModal";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/OverviewPage.module.css";
+import { PageShell } from "../../../shared/components/PageShell";
 
 // recharts is by far the heaviest thing on this page. Loading it separately lets
 // the metric cards and goal list paint first instead of waiting on the chart.
@@ -139,7 +140,7 @@ export const OverviewPage = () => {
 
   if (txLoading) {
     return (
-      <Container fluid className="py-3 py-lg-4">
+      <PageShell>
         <SkeletonPageHeader />
         <SkeletonStats />
         <Row className="g-3">
@@ -153,23 +154,23 @@ export const OverviewPage = () => {
             </SkeletonCard>
           </Col>
         </Row>
-      </Container>
+      </PageShell>
     );
   }
 
   if (txError) {
     return (
-      <Container fluid className="py-4">
+      <PageShell>
         <Alert color="danger" className="small">
           {t("common.failedToLoad")}
         </Alert>
-      </Container>
+      </PageShell>
     );
   }
 
 
   return (
-    <Container fluid className="py-2">
+    <PageShell>
       <CustomRangeModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -390,6 +391,6 @@ export const OverviewPage = () => {
             </CardBody>
         </Card>
       </div>
-    </Container>
+    </PageShell>
   );
 };

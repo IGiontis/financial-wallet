@@ -828,7 +828,9 @@
     "seasonNeedsStart": "Διάλεξε πρώτα μήνα έναρξης.",
     "note_outofseason": "εκτός περιόδου",
     "seasonFromOnly": "από {{month}}",
-    "seasonToOnly": "έως {{month}}"
+    "seasonToOnly": "έως {{month}}",
+    "paneNumbers": "Τα ποσά σου",
+    "paneMonths": "Μήνα με μήνα"
   },
   "settings": {
     "title": "Ρυθμίσεις",

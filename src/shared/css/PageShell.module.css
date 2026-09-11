@@ -1,0 +1,18 @@
+/* One box for every screen. See PageShell.tsx for why this exists. */
+
+.shell {
+  /* Matches what the overview, transactions and analytics screens already had,
+     so the pages that were right stay exactly as they were and the rest come
+     to meet them. */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  /* No ceiling: the widest a chart can be is the widest the screen allows. */
+  max-width: none;
+}
+
+/* For a form or a column of reading — a text field two thousand pixels wide is
+   not more usable, it is just longer. */
+.narrow {
+  max-width: 760px;
+  margin-inline: auto;
+}

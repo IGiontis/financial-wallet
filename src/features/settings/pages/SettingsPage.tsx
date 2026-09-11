@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from "reactstrap";
+import { Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from "reactstrap";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
 import CategoryManager from "../../categories/CategoryManager";
@@ -18,6 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { SUPPORTED_LANGUAGES } from "../../../i18n";
+import { PageShell } from "../../../shared/components/PageShell";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -241,7 +242,7 @@ export function SettingsPage() {
 
   if (loadingUser) {
     return (
-      <Container className="py-3 py-lg-4">
+      <PageShell>
         <SkeletonPageHeader action={false} />
         <Row className="g-3">
           {Array.from({ length: 4 }, (_, i) => (
@@ -253,14 +254,14 @@ export function SettingsPage() {
             </Col>
           ))}
         </Row>
-      </Container>
+      </PageShell>
     );
   }
 
   const initials = getInitials(userData?.firstName ?? currentUser?.displayName?.split(" ")[0] ?? "", userData?.lastName ?? currentUser?.displayName?.split(" ")[1] ?? "");
 
   return (
-    <Container fluid className="py-4" style={{ maxWidth: 720 }}>
+    <PageShell>
       <div style={{ marginBottom: "1.5rem" }}>
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
@@ -658,6 +659,6 @@ export function SettingsPage() {
           </Button>
         </ModalFooter>
       </Modal>
-    </Container>
+    </PageShell>
   );
 }

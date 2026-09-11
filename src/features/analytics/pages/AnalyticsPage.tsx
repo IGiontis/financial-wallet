@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
-import { Alert, Container } from "reactstrap";
+import { Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
 
@@ -56,6 +56,7 @@ const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
 
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
+import { PageShell } from "../../../shared/components/PageShell";
 
 export function AnalyticsPage() {
   const { t, i18n } = useTranslation();
@@ -198,7 +199,7 @@ export function AnalyticsPage() {
 
   if (isLoading) {
     return (
-      <Container fluid className="py-3 py-lg-4">
+      <PageShell>
         <SkeletonPageHeader />
         <div className="row g-3">
           {Array.from({ length: 6 }, (_, i) => (
@@ -207,24 +208,24 @@ export function AnalyticsPage() {
             </div>
           ))}
         </div>
-      </Container>
+      </PageShell>
     );
   }
 
   if (isError) {
     return (
-      <Container fluid className="py-4">
+      <PageShell>
         <Alert color="danger" className="small">
           {t("common.failedToLoad")}
         </Alert>
-      </Container>
+      </PageShell>
     );
   }
 
   const noData = t("analytics.noData");
 
   return (
-    <Container fluid className="py-2">
+    <PageShell>
       <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
         <div>
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("analytics.title")}</h1>
@@ -430,6 +431,6 @@ export function AnalyticsPage() {
           </div>
         </div>
       )}
-    </Container>
+    </PageShell>
   );
 }

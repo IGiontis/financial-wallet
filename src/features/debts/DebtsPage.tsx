@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Button, Container } from "reactstrap";
+import { Alert, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
 import { FiPlus } from "react-icons/fi";
@@ -10,6 +10,7 @@ import { debtTotals, debtsByPerson } from "./debtsUtils";
 import PersonDebtsModal from "./PersonDebtsModal";
 import AddDebtModal from "./AddDebtModal";
 import styles from "./css/DebtsPage.module.css";
+import { PageShell } from "../../shared/components/PageShell";
 
 /**
  * Who you owe, and who owes you.
@@ -38,11 +39,11 @@ export function DebtsPage() {
   // a moment where the screen offered nothing to do and nothing to read.
   if (isLoading) {
     return (
-      <Container fluid className="py-4">
+      <PageShell>
         <SkeletonPageHeader />
         <SkeletonStats count={3} />
         <SkeletonRows count={4} />
-      </Container>
+      </PageShell>
     );
   }
 
@@ -55,7 +56,7 @@ export function DebtsPage() {
   };
 
   return (
-    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 900 }}>
+    <PageShell>
       <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
         <div style={{ minWidth: 0 }}>
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("debts.title")}</h1>
@@ -126,7 +127,7 @@ export function DebtsPage() {
 
       {person && <PersonDebtsModal person={person} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />}
       {adding && <AddDebtModal knownPeople={people.map((p) => p.person)} onClose={() => setAdding(false)} />}
-    </Container>
+    </PageShell>
   );
 }
 

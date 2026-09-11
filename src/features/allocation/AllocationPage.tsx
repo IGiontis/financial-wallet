@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
-import { Alert, Button, Container, Input } from "reactstrap";
+import { Alert, Button, Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiPlus, FiTag, FiX } from "react-icons/fi";
 
@@ -37,6 +37,7 @@ import {
 import { DebtOrder, MonthFlow } from "./components/MoneyFlow";
 import CategoryLinkModal from "./CategoryLinkModal";
 import styles from "./css/Allocation.module.css";
+import { PageShell } from "../../shared/components/PageShell";
 
 const newId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -155,7 +156,7 @@ export function AllocationPage() {
 
   if (billsLoading || goalsLoading || txLoading) {
     return (
-      <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1240 }}>
+      <PageShell>
         <SkeletonPageHeader />
         {/* A bordered box with nothing in it is not a skeleton, it is an empty
             card — the reader waits at it wondering whether that is the page. */}
@@ -164,7 +165,7 @@ export function AllocationPage() {
           <Skeleton height={26} style={{ borderRadius: 6, marginBottom: 12 }} />
           <SkeletonRows count={5} icon={false} />
         </SkeletonCard>
-      </Container>
+      </PageShell>
     );
   }
 
@@ -173,7 +174,7 @@ export function AllocationPage() {
   const canSeed = transactions.length > 0;
 
   return (
-    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1240 }}>
+    <PageShell>
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("allocation.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("allocation.subtitle")}</p>
@@ -453,7 +454,7 @@ export function AllocationPage() {
           onClose={() => setLinking(null)}
         />
       )}
-    </Container>
+    </PageShell>
   );
 }
 

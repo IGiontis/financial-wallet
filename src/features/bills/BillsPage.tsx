@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Col, Container, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Alert, Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
@@ -42,6 +42,7 @@ import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { PageShell } from "../../shared/components/PageShell";
 
 /** Bars in the yearly panel cycle through the semantic accents. */
 const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
@@ -893,7 +894,7 @@ export default function BillsPage() {
   };
 
   return (
-    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1200 }}>
+    <PageShell>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-start mb-3 gap-2">
         <div style={{ minWidth: 0 }}>
@@ -1111,6 +1112,6 @@ export default function BillsPage() {
           </Button>
         </ModalFooter>
       </Modal>
-    </Container>
+    </PageShell>
   );
 }

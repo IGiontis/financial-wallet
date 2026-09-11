@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 
-import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, compactNumber } from "../../analytics/components/chartTheme";
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, alignedZeroDomains, compactNumber } from "../../analytics/components/chartTheme";
 import { TooltipRow, TooltipShell } from "../../analytics/components/TooltipShell";
 import type { PlanPeriod } from "../plannerUtils";
 
@@ -82,6 +82,19 @@ export function PlanFlowChart({ periods, formatCurrency, locale }: PlanFlowChart
     [periods, monthFmt, yearFmt, longFmt],
   );
 
+  // Both axes get an explicit domain so their zeros land at the same height.
+  // Left to themselves they do not: the bars' zero sat mid-plot while the
+  // balance axis started at the floor, and a month ending with money in hand
+  // was drawn below the only zero line on the screen.
+  const domains = useMemo(() => {
+    const flows = data.flatMap((row) => [row.income, row.outgoing]);
+    const balances = data.map((row) => row.balance);
+    return alignedZeroDomains(
+      { min: Math.min(0, ...flows), max: Math.max(0, ...flows) },
+      { min: Math.min(0, ...balances), max: Math.max(0, ...balances) },
+    );
+  }, [data]);
+
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap="24%">
@@ -96,8 +109,19 @@ export function PlanFlowChart({ periods, formatCurrency, locale }: PlanFlowChart
             flattened every bar into the floor while the line used the whole
             height. The left axis is the monthly flow; the right is the balance
             the line traces. */}
-        <YAxis yAxisId="flow" tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={48} />
-        <YAxis yAxisId="balance" orientation="right" tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={48} />
+        <YAxis yAxisId="flow" domain={domains.flow} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={48} />
+        {/* Tinted like the line it belongs to, so which scale reads which is
+            visible without having to work it out from the numbers. */}
+        <YAxis
+          yAxisId="balance"
+          orientation="right"
+          domain={domains.balance}
+          tickFormatter={compactNumber}
+          tick={{ ...AXIS_TICK, fill: "var(--color-text-primary)" }}
+          axisLine={false}
+          tickLine={false}
+          width={48}
+        />
         <ReferenceLine yAxisId="flow" y={0} stroke={GRID_STROKE} strokeWidth={1.5} />
         <Tooltip content={<FlowTooltip formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
 

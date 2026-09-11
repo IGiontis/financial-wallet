@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Col, Container, Input, InputGroup, InputGroupText, Row } from "reactstrap";
+import { Alert, Col, Input, InputGroup, InputGroupText, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiPlus } from "react-icons/fi";
@@ -33,7 +33,9 @@ import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
 import LeverGroup from "./components/LeverGroup";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
+import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/PlannerPage.module.css";
+import { PageShell } from "../../shared/components/PageShell";
 
 const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -79,6 +81,9 @@ export function PlannerPage() {
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
   const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
+  // Which half of the planner a phone is looking at. On a laptop both are on
+  // screen at once and this is ignored — see the two `d-lg-block` below.
+  const [pane, setPane] = useLocalStorage<"numbers" | "months">("planner-pane", "months");
 
   const horizon = asHorizon(storedHorizon);
   // Memoised because it feeds the plan: a fresh object each render would
@@ -282,7 +287,7 @@ export function PlannerPage() {
 
   if (txLoading || goalLoading || billLoading) {
     return (
-      <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1100 }}>
+      <PageShell>
         <SkeletonPageHeader />
         <Row className="g-3">
           <Col xs={12} lg={7}>
@@ -300,17 +305,17 @@ export function PlannerPage() {
             <SkeletonChartCard height={260} />
           </Col>
         </Row>
-      </Container>
+      </PageShell>
     );
   }
 
   if (isError) {
     return (
-      <Container fluid className="py-4">
+      <PageShell>
         <Alert color="danger" className="small">
           {t("common.failedToLoad")}
         </Alert>
-      </Container>
+      </PageShell>
     );
   }
 
@@ -397,7 +402,7 @@ export function PlannerPage() {
     rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
 
   return (
-    <Container fluid className="py-3 py-lg-4" style={{ maxWidth: 1100 }}>
+    <PageShell>
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
@@ -419,10 +424,27 @@ export function PlannerPage() {
             dateFmt={dateFmt}
           />
 
-          <PlannerTimeline months={eventMonths} bills={bills} breakingEvent={plan.breakingEvent} formatCurrency={formatCurrency} dateFmt={dateFmt} />
+          {/* Stacked on a phone, the levers sat below the whole timeline, so
+              changing a number meant scrolling past every month to reach it.
+              These two switch between them instead. There is deliberately no
+              third "both" tab: on a phone that is the scroll this replaced, and
+              on a laptop both panes are already side by side, which is why the
+              switch itself is gone from lg up. */}
+          <div className={`${segmented.group} ${segmented.even} d-lg-none mb-3`} role="tablist">
+            <button type="button" role="tab" aria-selected={pane === "months"} className={`${segmented.item} ${pane === "months" ? segmented.active : ""}`} onClick={() => setPane("months")}>
+              {t("planner.paneMonths")}
+            </button>
+            <button type="button" role="tab" aria-selected={pane === "numbers"} className={`${segmented.item} ${pane === "numbers" ? segmented.active : ""}`} onClick={() => setPane("numbers")}>
+              {t("planner.paneNumbers")}
+            </button>
+          </div>
+
+          <div className={pane === "months" ? "" : "d-none d-lg-block"}>
+            <PlannerTimeline months={eventMonths} bills={bills} breakingEvent={plan.breakingEvent} formatCurrency={formatCurrency} dateFmt={dateFmt} />
+          </div>
         </Col>
 
-        <Col xs={12} lg={5}>
+        <Col xs={12} lg={5} className={pane === "numbers" ? "" : "d-none d-lg-block"}>
           {/* Every lever, folded. Each group says what it costs before it says
               what it is made of. */}
           <div className={`${styles.chartCard} px-3 px-lg-4`}>
@@ -627,7 +649,7 @@ export function PlannerPage() {
           onClose={() => setEditor(null)}
         />
       )}
-    </Container>
+    </PageShell>
   );
 }
 
