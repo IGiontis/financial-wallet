@@ -326,6 +326,24 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
 
 export type BillFrequency = "weekly" | "monthly" | "yearly";
 
+/**
+ * A stretch when a bill is not charged: the holiday house over the winter, the
+ * flat that was left behind.
+ *
+ * Months, in the planner's own "YYYY-MM" shape, because that is the grain these
+ * decisions are made at — electricity is cut for the winter, not from the 14th.
+ * The three cases are one idea with two dials: whether it comes back (`to`), and
+ * whether it comes back every year (`yearly`).
+ */
+export interface BillPause {
+  /** First month not charged, "YYYY-MM". */
+  from: string;
+  /** Last month not charged, inclusive. Absent: it does not come back. */
+  to?: string;
+  /** Off over the same months every year, beginning with `from`. Needs `to`. */
+  yearly?: boolean;
+}
+
 export interface Bill {
   id: string;
   userId: string;
@@ -379,6 +397,8 @@ export interface Bill {
   icon?: string;
   color?: string;
   isActive: boolean;
+  /** When it is not charged. See `BillPause`. */
+  pause?: BillPause;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -399,6 +419,8 @@ export interface CreateBillDTO {
   color?: string;
   installmentCount?: number;
   installmentIntervalMonths?: number;
+  /** `null` from an edit that switched the pause off — see `updateBill`. */
+  pause?: BillPause | null;
 }
 
 export interface UpdateBillDTO {
@@ -418,6 +440,8 @@ export interface UpdateBillDTO {
   icon?: string;
   color?: string;
   isActive?: boolean;
+  /** `null` clears it. */
+  pause?: BillPause | null;
 }
 
 export interface BillPayment {

@@ -2,7 +2,7 @@ import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOf
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
-import { getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, paidInstallments } from "../bills/billsUtils";
+import { currentPause, getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, isPausedOn, paidInstallments } from "../bills/billsUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The planner is a forward budget: what is going to arrive, what is going to
@@ -240,6 +240,10 @@ export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { d
   for (let i = 0; i < 120; i++) {
     const date = startOfDay(step(anchor, i));
     if (date > to) break;
+
+    // The holiday house over the winter: not charged, so not in the plan. Asked
+    // of the period's date, so a paused period takes all its instalments with it.
+    if (isPausedOn(bill, date)) continue;
 
     const periodKey = getPeriodKey(bill, date);
 
@@ -580,7 +584,7 @@ export interface PlanRow {
    * having nothing to charge, so every active bill and goal now gets a row and
    * this says which case it is.
    */
-  note?: "paid" | "undated" | "funded" | "outofseason";
+  note?: "paid" | "undated" | "funded" | "outofseason" | "paused";
   enabled: boolean;
 }
 
@@ -756,7 +760,9 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       perMonth: negate(amount),
       // Listed even at zero: a bill that is settled for this month has not
       // stopped existing, and hiding it makes the plan look like it forgot.
-      note: occurrences.length > 0 ? undefined : getPeriodDueDate(bill, today) ? "paid" : "undated",
+      // "Paid" would be a lie for a bill that is simply switched off for the
+      // whole window, and it is the one reason a dated bill has nothing in it.
+      note: occurrences.length > 0 ? undefined : currentPause(bill, today)?.state === "paused" || currentPause(bill, today)?.state === "ended" ? "paused" : getPeriodDueDate(bill, today) ? "paid" : "undated",
       enabled,
     });
     if (!enabled) continue;

@@ -2,13 +2,15 @@ import { useMemo } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import type { Bill, BillFrequency, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
+import type { Bill, BillFrequency, BillPause, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { firestoreToDate } from "../../shared/utils/dates";
 import NewCategoryButton from "../categories/NewCategoryButton";
 import { categoryLabel } from "../../shared/utils/categories";
-import { installmentIntervalOptions } from "./billsUtils";
+import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
+import { DateField } from "../../shared/components/DateField";
+import { parseISOMonth } from "../../shared/utils/dates";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -37,10 +39,29 @@ interface BillFormValues {
   dueMonth: number | "";
   hasGrace: boolean;
   graceDays: number | "";
+  /** The bill stops for a while — see `BillPause`. */
+  hasPause: boolean;
+  /** Comes back after a stretch, or does not come back. */
+  pauseKind: "stretch" | "forever";
+  pauseFrom: string; // "YYYY-MM"
+  pauseTo: string; // "YYYY-MM"
+  pauseYearly: boolean;
   notes: string;
 }
 
 const toMonthInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+/**
+ * The pause the form currently describes, or undefined when it does not
+ * describe a whole one yet. Built with no undefined keys, since Firestore
+ * refuses those even inside a nested object.
+ */
+function pauseFromValues(values: Pick<BillFormValues, "hasPause" | "pauseKind" | "pauseFrom" | "pauseTo" | "pauseYearly">): BillPause | undefined {
+  if (!values.hasPause || !parseISOMonth(values.pauseFrom)) return undefined;
+  if (values.pauseKind === "forever") return { from: values.pauseFrom };
+  if (!parseISOMonth(values.pauseTo)) return undefined;
+  return values.pauseYearly ? { from: values.pauseFrom, to: values.pauseTo, yearly: true } : { from: values.pauseFrom, to: values.pauseTo };
+}
 
 interface AddBillModalProps {
   isOpen: boolean;
@@ -76,6 +97,24 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         intervalCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.intervalMin").max(24, "validation.intervalMax").required("validation.required"),
         installmentCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.installmentMin").max(12, "validation.installmentMax").required("validation.required"),
         notes: Yup.string().max(200, "validation.maxChars"),
+        pauseFrom: Yup.string().when("hasPause", {
+          is: true,
+          then: (schema) => schema.required("validation.required"),
+        }),
+        pauseTo: Yup.string().when(["hasPause", "pauseKind"], {
+          is: (hasPause: boolean, kind: string) => hasPause && kind === "stretch",
+          then: (schema) =>
+            schema
+              .required("validation.pauseToRequired")
+              // A yearly pause wraps the new year — November to March — so only
+              // a one-off stretch can end before it starts.
+              .test("after-start", "validation.pauseEndBeforeStart", function (value) {
+                const { pauseFrom, pauseYearly } = this.parent as BillFormValues;
+                const from = parseISOMonth(pauseFrom ?? "");
+                const to = parseISOMonth(value ?? "");
+                return pauseYearly || !from || !to || to >= from;
+              }),
+        }),
       }),
     [],
   );
@@ -99,6 +138,13 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       dueMonth: bill?.dueMonth ?? "",
       hasGrace: (bill?.graceDays ?? 0) > 0,
       graceDays: bill?.graceDays ?? "",
+      hasPause: !!bill?.pause,
+      pauseKind: bill?.pause && !bill.pause.to ? "forever" : "stretch",
+      // Next month by default: a pause is almost always decided ahead of the
+      // month it starts in.
+      pauseFrom: bill?.pause?.from ?? toMonthInput(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)),
+      pauseTo: bill?.pause?.to ?? "",
+      pauseYearly: bill?.pause?.yearly ?? false,
       notes: bill?.notes ?? "",
     },
     validationSchema,
@@ -141,6 +187,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           graceDays: values.hasGrace && values.graceDays !== "" ? Number(values.graceDays) : 0,
           dueMonth: values.frequency === "yearly" && values.dueMonth !== "" ? Number(values.dueMonth) : undefined,
           notes: values.notes.trim() || undefined,
+          // Switched off on an edit means "remove it", which has to be said out
+          // loud: an absent field would leave the old pause where it was.
+          pause: pauseFromValues(values) ?? (isEdit ? null : undefined),
         };
         await onSubmit(data);
         resetForm();
@@ -166,6 +215,38 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
   const spacingOptions = installmentIntervalOptions({ frequency: formik.values.frequency, intervalCount, installmentCount });
   const spacing = spacingOptions.includes(Number(formik.values.installmentIntervalMonths)) ? Number(formik.values.installmentIntervalMonths) : 1;
   const intervalUnitKey = frequency === "weekly" ? "bills.intervalWeeks" : frequency === "yearly" ? "bills.intervalYears" : "bills.intervalMonths";
+
+  // What the pause will do, in words, before it is saved. Worked out with the
+  // same functions the list uses afterwards, so the promise and the result are
+  // one calculation rather than two that could drift.
+  const draftPause = pauseFromValues(formik.values);
+  const pausePreview = (() => {
+    if (!draftPause) return undefined;
+    if (!draftPause.to) return t("bills.pausePreviewForever");
+    if (!draftPause.yearly) {
+      const from = parseISOMonth(draftPause.from)!;
+      const to = parseISOMonth(draftPause.to)!;
+      const months = (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth() + 1;
+      return months > 0 ? t("bills.pausePreviewStretch", { count: months }) : undefined;
+    }
+
+    const typed = Number(formik.values.amount);
+    if (!Number.isFinite(typed) || typed <= 0) return t("bills.pausePreviewYearlyNoAmount");
+    const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
+    const [year, month] = formik.values.anchorMonth.split("-").map(Number);
+    const draft = {
+      amount: amountInBase,
+      frequency,
+      intervalCount,
+      dueDay: formik.values.dueDay === "" ? undefined : Number(formik.values.dueDay),
+      dueMonth: formik.values.dueMonth === "" ? undefined : Number(formik.values.dueMonth),
+      anchorDate: Number.isFinite(year) && Number.isFinite(month) ? new Date(year, month - 1, 1) : new Date(),
+      createdAt: new Date(),
+      pause: draftPause,
+    } as Bill;
+    const full = monthlyEquivalent(draft);
+    return t("bills.pausePreviewYearly", { average: formatCurrency(full * chargedShare(draft)), full: formatCurrency(full) });
+  })();
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
@@ -456,6 +537,95 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               </div>
               <FormText className="small">{t("bills.graceDaysHint")}</FormText>
             </FormGroup>
+          )}
+
+          {/* A stop — the holiday house over the winter, the flat that was
+              left. Same switch-and-reveal as the payment window above, so the
+              form keeps one way of saying "this bill has an exception". */}
+          <FormGroup switch className="mt-3 mb-0 d-flex align-items-start gap-2">
+            <Input
+              type="switch"
+              role="switch"
+              id="bill-has-pause"
+              name="hasPause"
+              checked={formik.values.hasPause}
+              onChange={(e) => formik.setFieldValue("hasPause", e.target.checked)}
+            />
+            <div style={{ minWidth: 0 }}>
+              <Label for="bill-has-pause" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
+                {t("bills.hasPause")}
+              </Label>
+              <FormText className="small d-block">{t("bills.hasPauseHint")}</FormText>
+            </div>
+          </FormGroup>
+
+          {formik.values.hasPause && (
+            <div className="mt-2">
+              {/* Chosen before the dates, because it decides which dates there are. */}
+              <FormGroup check className="mb-1">
+                <Input type="radio" id="pause-stretch" name="pauseKind" value="stretch" checked={formik.values.pauseKind === "stretch"} onChange={() => formik.setFieldValue("pauseKind", "stretch")} />
+                <Label check for="pause-stretch" className="small">
+                  {t("bills.pauseStretch")}
+                </Label>
+              </FormGroup>
+              <FormGroup check className="mb-2">
+                <Input type="radio" id="pause-forever" name="pauseKind" value="forever" checked={formik.values.pauseKind === "forever"} onChange={() => formik.setFieldValue("pauseKind", "forever")} />
+                <Label check for="pause-forever" className="small">
+                  {t("bills.pauseForever")}
+                </Label>
+              </FormGroup>
+
+              <Row className="g-2">
+                <Col xs={formik.values.pauseKind === "stretch" ? 6 : 12}>
+                  <FormGroup className="mb-0">
+                    <Label className="small fw-medium">{t("bills.pauseFrom")}</Label>
+                    <DateField
+                      month
+                      small
+                      name="pauseFrom"
+                      value={formik.values.pauseFrom}
+                      onChange={(value) => formik.setFieldValue("pauseFrom", value)}
+                      invalid={!!(formik.touched.pauseFrom && formik.errors.pauseFrom)}
+                    />
+                    {formik.touched.pauseFrom && formik.errors.pauseFrom && <div className="invalid-feedback d-block">{t(formik.errors.pauseFrom)}</div>}
+                  </FormGroup>
+                </Col>
+                {formik.values.pauseKind === "stretch" && (
+                  <Col xs={6}>
+                    <FormGroup className="mb-0">
+                      <Label className="small fw-medium">{t("bills.pauseTo")}</Label>
+                      <DateField
+                        month
+                        small
+                        name="pauseTo"
+                        value={formik.values.pauseTo}
+                        onChange={(value) => {
+                          formik.setFieldValue("pauseTo", value);
+                          formik.setFieldTouched("pauseTo", true, false);
+                        }}
+                        invalid={!!(formik.touched.pauseTo && formik.errors.pauseTo)}
+                      />
+                      {formik.touched.pauseTo && formik.errors.pauseTo && <div className="invalid-feedback d-block">{t(formik.errors.pauseTo)}</div>}
+                    </FormGroup>
+                  </Col>
+                )}
+              </Row>
+
+              {formik.values.pauseKind === "stretch" && (
+                <FormGroup check className="mt-2 mb-0">
+                  <Input type="checkbox" id="pause-yearly" name="pauseYearly" checked={formik.values.pauseYearly} onChange={(e) => formik.setFieldValue("pauseYearly", e.target.checked)} />
+                  <Label check for="pause-yearly" className="small">
+                    {t("bills.pauseYearly")}
+                  </Label>
+                </FormGroup>
+              )}
+
+              {pausePreview && (
+                <p className="small text-body-secondary mb-0 mt-2 px-2 py-2 rounded" style={{ background: "var(--color-background-secondary)" }}>
+                  {pausePreview}
+                </p>
+              )}
+            </div>
           )}
 
           <FormGroup className="mt-3 mb-0">

@@ -347,7 +347,25 @@
     "monthFuture": "still to come",
     "saveFailed": "Could not save the bill. Check your connection and try again.",
     "dueCount_one": "{{count}} bill needs paying",
-    "dueCount_other": "{{count}} bills need paying"
+    "dueCount_other": "{{count}} bills need paying",
+    "hasPause": "This bill stops for a while",
+    "hasPauseHint": "The holiday house over the winter, or a home you moved out of. While it is off it is not charged and never shows as owed.",
+    "pauseStretch": "For a while",
+    "pauseForever": "For good — moved out or closed",
+    "pauseFrom": "From",
+    "pauseTo": "Until",
+    "pauseYearly": "The same months every year",
+    "pausePreviewForever": "From then on it is not charged and never shows as owed. Its history stays.",
+    "pausePreviewStretch_one": "Not charged for {{count}} month, then back to normal.",
+    "pausePreviewStretch_other": "Not charged for {{count}} months, then back to normal.",
+    "pausePreviewYearly": "Across a year that comes to about {{average}} a month instead of {{full}}.",
+    "pausePreviewYearlyNoAmount": "Not charged over the same months every year. Enter an amount to see what it comes to a month.",
+    "chipPausedUntil": "Paused until {{month}}",
+    "chipStopped": "Stopped {{month}}",
+    "labelResumes": "Back on",
+    "labelStopped": "Stopped",
+    "monthPaused": "Paused",
+    "monthState_paused": "paused"
   },
   "transactions": {
     "title": "Transactions",
@@ -856,7 +874,8 @@
     "seasonFromOnly": "from {{month}}",
     "seasonToOnly": "until {{month}}",
     "paneNumbers": "Your numbers",
-    "paneMonths": "Month by month"
+    "paneMonths": "Month by month",
+    "note_paused": "paused — not charged in this range"
   },
   "settings": {
     "title": "Settings",
@@ -978,7 +997,9 @@
     "graceMin": "At least 1 day",
     "graceMax": "At most 120 days",
     "installmentMin": "At least 1 payment",
-    "installmentMax": "At most 12 payments"
+    "installmentMax": "At most 12 payments",
+    "pauseToRequired": "Choose when it ends",
+    "pauseEndBeforeStart": "The end is before the start"
   },
   "errors": {
     "invalidCredentials": "Invalid email or password.",

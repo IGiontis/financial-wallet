@@ -28,6 +28,7 @@ import {
   URGENT_DAYS,
   urgencyToken,
   yearlyBreakdown,
+  currentPause,
   type MonthChip,
   type MonthForecast,
 } from "./billsUtils";
@@ -327,6 +328,9 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
 function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string; onOpenActive: () => void }) {
   const { t, i18n } = useTranslation();
   const active = bills.filter((b) => b.isActive);
+  // Off right now — the holiday house this winter, the flat that was left. The
+  // "N paused" line under the count existed before anything could be paused.
+  const stopped = active.filter((b) => isStoppedNow(b)).length;
   const grouped = groupBills(active);
   const overdueCount = grouped.overdue.length;
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
@@ -362,10 +366,10 @@ function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithSt
       title: approximate.monthly ? t("bills.approximate") : undefined,
     },
     {
-      value: String(active.length),
+      value: String(active.length - stopped),
       label: t("bills.totalActive"),
       color: "var(--color-invest-text)",
-      sub: bills.length > active.length ? t("bills.pausedCount", { count: bills.length - active.length }) : t("bills.allRunning"),
+      sub: stopped + (bills.length - active.length) > 0 ? t("bills.pausedCount", { count: stopped + (bills.length - active.length) }) : t("bills.allRunning"),
       // The one stat with an obvious follow-up question: which ones?
       onClick: active.length > 0 ? onOpenActive : undefined,
     },
@@ -412,10 +416,32 @@ function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithSt
  * deadline, so a bill sitting comfortably inside its grace window doesn't wear
  * the same red as one that has genuinely lapsed.
  */
+/** Off right now or gone for good — as opposed to merely coming up. */
+const isStoppedNow = (bill: BillWithStatus) => {
+  const state = currentPause(bill)?.state;
+  return state === "paused" || state === "ended";
+};
+
 function StatusChip({ bill }: { bill: BillWithStatus }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const urgency = billUrgency(bill);
   const color = `var(${urgencyToken(urgency)})`;
+
+  // Measured in days, a paused bill reads "due in 170 days", which is true and
+  // says nothing. What the reader needs is that it is off, and until when.
+  const pause = currentPause(bill);
+  if (!bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended")) {
+    const month = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
+    return pause.state === "paused" ? (
+      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-goal) 15%, transparent)", color: "var(--color-goal-text)" }}>
+        {t("bills.chipPausedUntil", { month: month.format(pause.to!) })}
+      </span>
+    ) : (
+      <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>
+        {t("bills.chipStopped", { month: month.format(pause.from) })}
+      </span>
+    );
+  }
 
   if (urgency === "paid") {
     return (
@@ -446,6 +472,9 @@ function StatusChip({ bill }: { bill: BillWithStatus }) {
  * the status chip as an afterthought.
  */
 function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTimeFormat): { label: string; value: string; color?: string } {
+  const pause = currentPause(bill);
+  if (!bill.isPaidThisPeriod && pause?.state === "ended") return { label: t("bills.labelStopped"), value: dateFmt.format(pause.from) };
+  if (!bill.isPaidThisPeriod && pause?.state === "paused") return { label: t("bills.labelResumes"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
   if (bill.isPaidThisPeriod) {
     return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
   }
@@ -525,14 +554,14 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const chips = useMemo(() => billMonthStrip(bill, now), [bill, now]);
 
   const labelFor = (status: MonthChip["status"]) =>
-    status === "paid" ? t("bills.monthPaid") : status === "due" ? t("bills.monthDue") : status === "future" ? t("bills.monthFuture") : t("bills.monthEmpty");
+    status === "paid" ? t("bills.monthPaid") : status === "paused" ? t("bills.monthPaused") : status === "due" ? t("bills.monthDue") : status === "future" ? t("bills.monthFuture") : t("bills.monthEmpty");
 
   return (
     <div className={styles.monthStrip} onClick={(e) => e.stopPropagation()}>
       {chips.map((chip) => (
         <div
           key={chip.key}
-          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""}`}
+          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""} ${chip.status === "paused" ? styles.monthChipPaused : ""}`}
           style={{ background: chipTone(chip.status), color: chip.status === "paid" || chip.status === "due" ? "#fff" : undefined }}
           title={`${monthFmt.format(chip.start)} — ${labelFor(chip.status)}`}
         >
@@ -592,10 +621,12 @@ function BillCard({
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const lastPaidAmount = bill.payments[0]?.amount;
   const deadline = deadlineFact(bill, t, dateFmt);
+  // Recedes like a settled card: nothing to do about it until it comes back.
+  const stopped = !paid && isStoppedNow(bill);
 
   return (
     <div
-      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""}`}
+      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -646,7 +677,7 @@ function BillCard({
           sub={bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}
         />
         <Metric label={t("bills.colPerMonth")} value={formatCurrency(bill.monthlyEquivalent)} sub={t("bills.perMonthShort")} />
-        <Metric label={deadline.label} value={deadline.value} color={deadline.color} sub={bill.deadline || paid ? undefined : t("bills.noDueDateSet")} />
+        <Metric label={deadline.label} value={deadline.value} color={deadline.color} sub={bill.deadline || paid || stopped ? undefined : t("bills.noDueDateSet")} />
       </div>
 
       {/* Weekly is the one cadence a strip of calendar months can't represent —

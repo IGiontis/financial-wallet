@@ -347,7 +347,25 @@
     "monthFuture": "έρχεται",
     "saveFailed": "Δεν αποθηκεύτηκε ο λογαριασμός. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.",
     "dueCount_one": "{{count}} λογαριασμός θέλει πληρωμή",
-    "dueCount_other": "{{count}} λογαριασμοί θέλουν πληρωμή"
+    "dueCount_other": "{{count}} λογαριασμοί θέλουν πληρωμή",
+    "hasPause": "Ο λογαριασμός σταματάει",
+    "hasPauseHint": "Το εξοχικό τον χειμώνα ή ένα σπίτι που άφησες. Όσο είναι σε παύση δεν χρεώνεται και δεν φαίνεται ως οφειλή.",
+    "pauseStretch": "Για ένα διάστημα",
+    "pauseForever": "Επ’ αόριστον — μετακόμισα ή έκλεισε",
+    "pauseFrom": "Από",
+    "pauseTo": "Μέχρι",
+    "pauseYearly": "Κάθε χρόνο τους ίδιους μήνες",
+    "pausePreviewForever": "Από εκεί και πέρα δεν χρεώνεται και δεν φαίνεται ποτέ ως οφειλή. Το ιστορικό του μένει.",
+    "pausePreviewStretch_one": "Δεν χρεώνεται για {{count}} μήνα και μετά συνεχίζει κανονικά.",
+    "pausePreviewStretch_other": "Δεν χρεώνεται για {{count}} μήνες και μετά συνεχίζει κανονικά.",
+    "pausePreviewYearly": "Σε έναν χρόνο βγαίνει περίπου {{average}} τον μήνα αντί για {{full}}.",
+    "pausePreviewYearlyNoAmount": "Κάθε χρόνο τους ίδιους μήνες δεν χρεώνεται. Βάλε ποσό για να δεις πόσο βγαίνει τον μήνα.",
+    "chipPausedUntil": "Σε παύση ως {{month}}",
+    "chipStopped": "Σταμάτησε {{month}}",
+    "labelResumes": "Επιστρέφει",
+    "labelStopped": "Σταμάτησε",
+    "monthPaused": "Σε παύση",
+    "monthState_paused": "σε παύση"
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -856,7 +874,8 @@
     "seasonFromOnly": "από {{month}}",
     "seasonToOnly": "έως {{month}}",
     "paneNumbers": "Τα ποσά σου",
-    "paneMonths": "Μήνα με μήνα"
+    "paneMonths": "Μήνα με μήνα",
+    "note_paused": "σε παύση — δεν χρεώνεται σε αυτό το διάστημα"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -978,7 +997,9 @@
     "graceMin": "Τουλάχιστον 1 μέρα",
     "graceMax": "Το πολύ 120 μέρες",
     "installmentMin": "Τουλάχιστον 1 δόση",
-    "installmentMax": "Το πολύ 12 δόσεις"
+    "installmentMax": "Το πολύ 12 δόσεις",
+    "pauseToRequired": "Διάλεξε μέχρι πότε",
+    "pauseEndBeforeStart": "Το τέλος είναι πριν από την αρχή"
   },
   "errors": {
     "invalidCredentials": "Λάθος email ή κωδικός.",

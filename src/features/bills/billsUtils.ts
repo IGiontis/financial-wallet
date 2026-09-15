@@ -1,6 +1,6 @@
 import { addMonths, addWeeks, addYears, differenceInCalendarMonths, differenceInCalendarWeeks, getISOWeek, getISOWeekYear, startOfWeek } from "date-fns";
-import type { Bill, BillFrequency, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
-import { firestoreToDate } from "../../shared/utils/dates";
+import type { Bill, BillFrequency, BillPause, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
+import { firestoreToDate, parseISOMonth } from "../../shared/utils/dates";
 
 // ─── Interval helpers ────────────────────────────────────────────────────────
 // A bill repeats every `intervalCount` periods of `frequency` — e.g. water every
@@ -231,6 +231,162 @@ function clampDayOfMonth(year: number, month: number, day: number): Date {
   return new Date(year, month, Math.min(day, lastDay));
 }
 
+// ─── Pauses ─────────────────────────────────────────────────────────────────
+// A bill that is not charged for a while: the holiday house cut off for the
+// winter, the flat that was left. Without somewhere to say so, the only choices
+// were to keep a bill that went on reporting itself overdue every month nobody
+// paid it, or to delete it and lose its history — and re-create it every summer.
+//
+// Everything below asks one question, `isPausedOn`, so the list, the forecast,
+// the arrears, the calendar, the allocation and the planner cannot disagree
+// about which months are owed. A paused month is a month the bill does not
+// exist in; a payment made in one anyway is still a payment.
+
+/** Months since year zero, so the distance between two months is subtraction. */
+const monthNumber = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+const monthFromNumber = (n: number) => new Date(Math.floor(n / 12), n % 12, 1);
+
+interface PauseBounds {
+  from: number;
+  /** Absent on a pause that does not come back, and on a yearly one. */
+  to?: number;
+  /** Months off each year, 1–12. Yearly only. */
+  length?: number;
+}
+
+/**
+ * The pause as month numbers, or undefined when there is nothing usable.
+ *
+ * Unreadable data switches the pause off rather than on: a bill wrongly shown as
+ * owed is visible and fixable, a bill wrongly hidden is a missed payment.
+ */
+function pauseBounds(pause: BillPause | undefined): PauseBounds | undefined {
+  if (!pause) return undefined;
+  const from = parseISOMonth(pause.from ?? "");
+  if (!from) return undefined;
+  if (!pause.to) return { from: monthNumber(from) };
+
+  const to = parseISOMonth(pause.to);
+  if (!to) return undefined;
+
+  // Only the months matter for a yearly pause: November to March is five months
+  // whichever years the two ends were typed with.
+  if (pause.yearly) return { from: monthNumber(from), length: ((to.getMonth() - from.getMonth() + 12) % 12) + 1 };
+
+  return monthNumber(to) < monthNumber(from) ? undefined : { from: monthNumber(from), to: monthNumber(to) };
+}
+
+/**
+ * True when the bill is not charged in the month `date` falls in.
+ *
+ * Nothing before `from` is ever paused — including on a yearly pause — so
+ * setting one today cannot quietly erase a winter that was genuinely owed.
+ */
+export function isPausedOn(bill: Pick<Bill, "pause">, date: Date): boolean {
+  const bounds = pauseBounds(bill.pause);
+  if (!bounds) return false;
+
+  const month = monthNumber(date);
+  if (month < bounds.from) return false;
+  if (bounds.length !== undefined) return (month - bounds.from) % 12 < bounds.length;
+  return bounds.to === undefined || month <= bounds.to;
+}
+
+/** How far a pause is walked looking for the bill to come back — ten years of weekly bills. */
+const MAX_PAUSE_WALK = 520;
+
+/**
+ * The first period due on or after `due` that is actually charged.
+ *
+ * Undefined when the bill never comes back. Walks by the bill's own periods
+ * rather than by months, so a bill every two months resumes on its own cycle
+ * and not on whichever month happens to follow the pause.
+ */
+export function firstUnpausedDue(bill: Bill, due: Date): Date | undefined {
+  if (!isPausedOn(bill, due)) return due;
+
+  const bounds = pauseBounds(bill.pause)!;
+  if (bounds.length === undefined && bounds.to === undefined) return undefined;
+
+  const periodStart = getPeriodStart(bill, due);
+  for (let step = 1; step <= MAX_PAUSE_WALK; step++) {
+    const start = shiftPeriodStart(bill, periodStart, step);
+    const next = getPeriodDueDate(bill, start) ?? start;
+    if (!isPausedOn(bill, next)) return next;
+  }
+  return undefined;
+}
+
+/**
+ * Share of the coming twelve months' payments that are actually charged, 0–1.
+ *
+ * What turns a pause into a monthly figure. The holiday house's €60 electricity,
+ * off November to March, is charged seven months in twelve, so it costs €35 a
+ * month across the year — the same reading already given to a €360 yearly gym as
+ * €30 a month. A bill that has stopped for good comes out at nothing, and one
+ * about to stop is charged for the months it has left.
+ *
+ * Counted in real payments, not in months: a bill every two months with one of
+ * its six payments in the pause is five sixths, which a month count would get
+ * wrong.
+ */
+export function chargedShare(bill: Bill, now: Date = new Date()): number {
+  if (!pauseBounds(bill.pause)) return 1;
+
+  const windowStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const windowEnd = new Date(now.getFullYear(), now.getMonth() + 12, 1);
+
+  let total = 0;
+  let charged = 0;
+  let start = getPeriodStart(bill, windowStart);
+  for (let i = 0; i < MAX_PAUSE_WALK; i++) {
+    const due = getPeriodDueDate(bill, start) ?? start;
+    if (due >= windowEnd) break;
+    if (due >= windowStart) {
+      total += 1;
+      if (!isPausedOn(bill, due)) charged += 1;
+    }
+    start = shiftPeriodStart(bill, start, 1);
+  }
+
+  return total === 0 ? 1 : charged / total;
+}
+
+/** Where a pause stands today — what the list's badge says. */
+export interface PauseStretch {
+  /** Off right now, gone for good, or coming up. */
+  state: "paused" | "ended" | "upcoming";
+  /** First month off. */
+  from: Date;
+  /** Last month off. Absent when it does not come back. */
+  to?: Date;
+}
+
+/**
+ * The stretch that matters today: the one in progress, or failing that the next.
+ *
+ * Undefined once a one-off pause is over, which is when there is nothing left to
+ * say about it. A yearly pause always has a next winter.
+ */
+export function currentPause(bill: Pick<Bill, "pause">, now: Date = new Date()): PauseStretch | undefined {
+  const bounds = pauseBounds(bill.pause);
+  if (!bounds) return undefined;
+  const month = monthNumber(now);
+
+  if (bounds.length !== undefined) {
+    const length = bounds.length;
+    const stretch = (first: number, state: PauseStretch["state"]): PauseStretch => ({ state, from: monthFromNumber(first), to: monthFromNumber(first + length - 1) });
+    if (month < bounds.from) return stretch(bounds.from, "upcoming");
+
+    const seasonStart = month - ((month - bounds.from) % 12);
+    return month - seasonStart < length ? stretch(seasonStart, "paused") : stretch(seasonStart + 12, "upcoming");
+  }
+
+  if (bounds.to === undefined) return { state: month >= bounds.from ? "ended" : "upcoming", from: monthFromNumber(bounds.from) };
+  if (month > bounds.to) return undefined;
+  return { state: month >= bounds.from ? "paused" : "upcoming", from: monthFromNumber(bounds.from), to: monthFromNumber(bounds.to) };
+}
+
 // ─── Monthly-equivalent cost ────────────────────────────────────────────────
 // Normalizes every frequency AND interval to a per-month figure, so the overview
 // can total a €60 bill every 2 months alongside a €15 monthly one.
@@ -392,7 +548,8 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
     lastPaidDate: payments[0] ? firestoreToDate(payments[0].paidDate) : undefined,
     nextDueDate,
     deadline: getDeadline(bill, nextDueDate),
-    monthlyEquivalent: monthlyEquivalent(bill, forecastAmount),
+    // Spread across the months actually charged — see `chargedShare`.
+    monthlyEquivalent: monthlyEquivalent(bill, forecastAmount) * chargedShare(bill, now),
   };
 }
 
@@ -414,16 +571,45 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
  */
 export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: Date = new Date()): BillWithStatus {
   const status = computeStatusInternal(bill, allPayments, now);
-  if (status.isPaidThisPeriod) return status;
+  if (status.isPaidThisPeriod) return withPause(bill, status, now);
 
   const periodDue = getPeriodDueDate(bill, now);
-  if (!periodDue) return status;
+  if (!periodDue) return withPause(bill, status, now);
 
   // Which instalment of it, though: pinning a part-paid bill back to the first
   // one would re-advertise a payment already made and hide the one actually owed.
   const target = installmentDueDates(bill, periodDue)[status.nextInstallmentIndex ?? 0] ?? periodDue;
 
-  return { ...status, nextDueDate: target, deadline: getDeadline(bill, target) };
+  return withPause(bill, { ...status, nextDueDate: target, deadline: getDeadline(bill, target) }, now);
+}
+
+/**
+ * Moves a bill's next payment past any pause it lands in.
+ *
+ * Last of everything on purpose: the rules above decide which payment is next —
+ * this one owed, a part-paid instalment, the period after one paid ahead — and
+ * only then is it asked whether that month is charged at all. A paused bill then
+ * reads as due on the day it comes back, which is both true and what keeps it
+ * off the badge until then; one that never comes back has no next payment.
+ */
+function withPause(bill: Bill, status: BillWithStatus, now: Date): BillWithStatus {
+  if (!bill.pause) return status;
+
+  const currentDue = getPeriodDueDate(bill, now) ?? getPeriodStart(bill, now);
+  const currentPaused = !status.isPaidThisPeriod && isPausedOn(bill, currentDue);
+  const owed = currentPaused ? { ...status, outstandingAmount: 0 } : status;
+
+  // A bill with no due day has no next date to move, paused or not.
+  const next = status.nextDueDate;
+  if (!next) return owed;
+
+  // Tested against the period the date belongs to: an instalment is charged or
+  // not along with the rest of its period.
+  const periodOfNext = getPeriodDueDate(bill, next) ?? next;
+  if (!isPausedOn(bill, periodOfNext)) return owed;
+
+  const resumes = firstUnpausedDue(bill, periodOfNext);
+  return { ...owed, nextDueDate: resumes, deadline: getDeadline(bill, resumes) };
 }
 
 // ─── Grouping by urgency ────────────────────────────────────────────────────
@@ -803,8 +989,10 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
       const date = getPeriodDueDate(bill, start) ?? start;
       const periodKey = getPeriodKey(bill, start);
 
-      if (date >= monthStart && date <= monthEnd) {
-        const paid = paidByKey.get(periodKey);
+      const paidHere = paidByKey.get(periodKey);
+      // Not charged that month — unless it was paid anyway, which is a fact.
+      if (date >= monthStart && date <= monthEnd && (paidHere || !isPausedOn(bill, date))) {
+        const paid = paidHere;
         items.push({
           bill,
           periodKey,
@@ -876,7 +1064,8 @@ export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeri
       // grace window is late in no meaningful sense — it is still payable.
       const deadline = getDeadline(bill, due) ?? due;
 
-      if (deadline < today && !paidKeys.has(periodKey)) {
+      // A paused month was never owed, so it cannot be in arrears.
+      if (deadline < today && !paidKeys.has(periodKey) && !isPausedOn(bill, due)) {
         items.push({ bill, periodKey, date: due, amount: expectedAmount(bill), isPaid: false, isVariable: !!bill.isVariableAmount });
       }
 
@@ -981,7 +1170,7 @@ export function getFrequencyLabel(bill: Pick<Bill, "frequency" | "intervalCount"
 // single calendar month, so one chip can't stand for one period the way it can
 // for everything monthly or slower.
 
-export type MonthChipStatus = "paid" | "due" | "future" | "empty";
+export type MonthChipStatus = "paid" | "paused" | "due" | "future" | "empty";
 
 export interface MonthChip {
   key: string;
@@ -1027,7 +1216,9 @@ export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), bef
     status:
       cell.status === "paid"
         ? "paid"
-        : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey
+        : cell.status === "paused"
+          ? "paused"
+          : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey
           ? "due"
           : cell.status === "future"
             ? "future"
@@ -1069,7 +1260,7 @@ export function periodTotals(breakdown: MonthForecast): PeriodTotals {
 // one, so October 2025 on a yearly bill covers through September 2026, and
 // October 2026 opens the next stretch.
 
-export type MonthCellStatus = "none" | "paid" | "partial" | "overdue" | "due" | "future";
+export type MonthCellStatus = "none" | "paid" | "partial" | "paused" | "overdue" | "due" | "future";
 
 /** An instalment of the covering period falling due in this month. */
 export interface MonthInstallment {
@@ -1213,13 +1404,17 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
     cell.dueDate = covering.due;
     cell.isPeriodStart = covering.due.getFullYear() === cell.year && covering.due.getMonth() === cell.month;
     cell.payment = payment;
-    cell.amount = payment ? payment.amount : total;
+    const paused = isPausedOn(bill, covering.due);
+    // A paused month costs nothing, so it has no amount to show.
+    cell.amount = payment ? payment.amount : paused ? undefined : total;
     cell.status =
       settledHere.size >= installmentCount
         ? "paid"
         : settledHere.size > 0
           ? "partial"
-          : deadline < today
+          : paused
+            ? "paused"
+            : deadline < today
             ? "overdue"
             : covering.due <= endOfThisMonth
               ? "due"
