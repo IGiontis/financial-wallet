@@ -383,7 +383,8 @@
     "timelineEmpty": "Nothing falls due this month.",
     "timelineIncome": "Pay",
     "timelineGap": "{{amount}} has to leave before the pay lands on {{day}} — that comes out of last month.",
-    "timelineNoSalary": "Set a pay day in the planner and this will show what has to be covered before it arrives."
+    "timelineNoSalary": "Set a pay day in the planner and this will show what has to be covered before it arrives.",
+    "timelineToday": "today"
   },
   "transactions": {
     "title": "Transactions",

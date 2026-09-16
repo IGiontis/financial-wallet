@@ -126,3 +126,42 @@ describe("monthTimeline", () => {
     expect(november.out).toBe(0);
   });
 });
+
+describe("where today falls", () => {
+  it("marks the place between what has happened and what has not", () => {
+    // 15 October, with bills on the 1st, 12th and 20th: the marker belongs
+    // before the 20th.
+    const timeline = monthTimeline([bill("rent", "Rent", 420, 1), bill("water", "Water", 68, 12), bill("phone", "Phone", 25, 20)], NOW, SALARY);
+
+    expect(timeline.todayAt).toBe(2);
+    expect(timeline.events[2].label).toBe("Phone");
+  });
+
+  it("says nothing when something already falls due today", () => {
+    // The 15th has its own row; a second mark beside it would be two things
+    // pointing at one date.
+    const timeline = monthTimeline([bill("rent", "Rent", 420, 1), bill("mid", "Internet", 30, 15)], NOW, SALARY);
+
+    expect(timeline.todayAt).toBeUndefined();
+  });
+
+  it("sits at the end once everything in the month has gone by", () => {
+    const timeline = monthTimeline([bill("rent", "Rent", 420, 1), bill("water", "Water", 68, 12)], NOW);
+
+    expect(timeline.todayAt).toBe(2);
+    expect(timeline.events).toHaveLength(2);
+  });
+
+  it("sits at the start when nothing has happened yet", () => {
+    const timeline = monthTimeline([bill("phone", "Phone", 25, 20)], new Date(2026, 9, 3), SALARY);
+
+    expect(timeline.todayAt).toBe(0);
+  });
+
+  it("stays away from a month we are not in", () => {
+    const next = monthTimeline([bill("rent", "Rent", 420, 1)], NOW, SALARY, 1);
+
+    expect(next.monthStart.getMonth()).toBe(10);
+    expect(next.todayAt).toBeUndefined();
+  });
+});

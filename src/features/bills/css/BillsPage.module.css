@@ -1718,3 +1718,49 @@
   color: var(--color-text-secondary);
   font-weight: 500;
 }
+
+/* Where you are on the line. */
+.timelineNow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+.timelineDotNow {
+  background: var(--color-surface);
+  /* The ring, not a fill: today is a position rather than an event. */
+  box-shadow:
+    0 0 0 2px var(--bs-primary),
+    0 0 0 5px var(--color-surface);
+}
+
+.timelineNowLabel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bs-primary);
+}
+
+/* The dashed rule that carries the label across the row. */
+.timelineNowLabel::after {
+  content: "";
+  flex: 1;
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--bs-primary) 45%, transparent);
+}
+
+/* Settled bills are struck through as well as dimmed. Not the pay that has
+   already arrived — a line through that reads as cancelled, which it is not. */
+.timelineRowPaid .timelineName,
+.timelineRowPaid .timelineAmount {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--color-text-secondary) 65%, transparent);
+}

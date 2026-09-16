@@ -48,6 +48,14 @@ export interface MonthTimeline {
    * known to arrive.
    */
   beforeIncome: number;
+  /**
+   * Where today sits among the events, as the index to draw a marker before.
+   *
+   * Absent when the month on screen is not the one we are in, and — deliberately
+   * — when something already falls due today: the day is marked by its own row,
+   * and a second mark beside it would be two things pointing at one date.
+   */
+  todayAt?: number;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -88,9 +96,17 @@ export function monthTimeline(bills: BillWithStatus[], now: Date = new Date(), i
   const firstIncomeIndex = events.findIndex((event) => event.kind === "income");
   const beforeIncome = firstIncomeIndex === -1 ? 0 : events.slice(0, firstIncomeIndex).reduce((sum, event) => sum - Math.min(event.amount, 0), 0);
 
+  const sameMonth = monthStart.getFullYear() === today.getFullYear() && monthStart.getMonth() === today.getMonth();
+  const marked = events.some((event) => event.date.getTime() === today.getTime());
+  // Everything before it has happened; the marker goes in front of the first
+  // thing that has not.
+  const after = events.findIndex((event) => event.date > today);
+  const todayAt = !sameMonth || marked ? undefined : after === -1 ? events.length : after;
+
   return {
     monthStart,
     events,
+    todayAt,
     out: round2(out),
     incoming: round2(incoming),
     firstIncome: firstIncomeIndex === -1 ? undefined : events[firstIncomeIndex].date,

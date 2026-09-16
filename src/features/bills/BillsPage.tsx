@@ -1130,7 +1130,7 @@ export default function BillsPage() {
                 </div>
 
                 {billView === "timeline" && (
-                  <BillMonthTimeline timeline={timeline} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
+                  <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
                 )}
 
                 {billView === "months" && (

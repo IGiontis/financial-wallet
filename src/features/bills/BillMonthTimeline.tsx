@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { standaloneMonthName } from "../../shared/utils/dates";
@@ -20,11 +20,13 @@ import styles from "./css/BillsPage.module.css";
  */
 export default function BillMonthTimeline({
   timeline,
+  now,
   formatCurrency,
   locale,
   onOpenBill,
 }: {
   timeline: MonthTimeline;
+  now: Date;
   formatCurrency: (n: number) => string;
   locale: string;
   onOpenBill: (bill: BillWithStatus) => void;
@@ -36,6 +38,17 @@ export default function BillMonthTimeline({
   const fullFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }), [locale]);
 
   const bills = timeline.events.filter((event) => event.kind === "bill");
+
+  // Where you are on the line. Skipped when something already falls due today —
+  // that row is the marker, and a second one beside it points at the same date
+  // twice.
+  const marker = (
+    <div className={styles.timelineNow}>
+      <span className={styles.timelineDay}>{dayFmt.format(now)}</span>
+      <span className={`${styles.timelineDot} ${styles.timelineDotNow}`} aria-hidden />
+      <span className={styles.timelineNowLabel}>{t("bills.timelineToday")}</span>
+    </div>
+  );
 
   return (
     <div className={styles.yearAhead}>
@@ -57,14 +70,15 @@ export default function BillMonthTimeline({
         </p>
       ) : (
         <div className={styles.timeline}>
-          {timeline.events.map((event) => (
-            <button
-              key={event.key}
-              type="button"
-              className={`${styles.timelineRow} ${event.done ? styles.timelineRowDone : ""}`}
-              disabled={!event.bill}
-              onClick={() => event.bill && onOpenBill(event.bill)}
-            >
+          {timeline.events.map((event, index) => (
+            <Fragment key={event.key}>
+              {timeline.todayAt === index && marker}
+              <button
+                type="button"
+                className={`${styles.timelineRow} ${event.done ? styles.timelineRowDone : ""} ${event.kind === "bill" && event.done ? styles.timelineRowPaid : ""}`}
+                disabled={!event.bill}
+                onClick={() => event.bill && onOpenBill(event.bill)}
+              >
               <span className={styles.timelineDay} title={fullFmt.format(event.date)}>
                 {dayFmt.format(event.date)}
               </span>
@@ -74,8 +88,10 @@ export default function BillMonthTimeline({
                 {event.amount > 0 ? "+" : "−"}
                 {formatCurrency(Math.abs(event.amount))}
               </span>
-            </button>
+              </button>
+            </Fragment>
           ))}
+          {timeline.todayAt === timeline.events.length && marker}
         </div>
       )}
 
