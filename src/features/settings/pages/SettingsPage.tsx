@@ -10,6 +10,7 @@ import CategoryManager from "../../categories/CategoryManager";
 import { SkeletonCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../../shared/components/Skeletons";
 import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import StatementSection from "../components/StatementSection";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
@@ -221,6 +222,11 @@ export function SettingsPage() {
 
   // ── Delete account ─────────────────────────────────────────────────────────
 
+  // Everything on this page changes what the rest of the app means, or is the
+  // account itself. None of it is sensible to queue against a copy.
+  const settingsGuard = useOfflineGuard("settings");
+  const deleteGuard = useOfflineGuard("delete");
+
   const handleDeleteAccount = async () => {
     setDeleteError("");
     setDeleteLoading(true);
@@ -411,7 +417,7 @@ export function SettingsPage() {
               </Col>
             </Row>
             <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty}>
+              <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
                 {profileForm.isSubmitting ? t("common.saving") : t("settings.saveProfile")}
               </Button>
             </div>
@@ -449,7 +455,7 @@ export function SettingsPage() {
             </Col>
           </Row>
           <div className="d-flex justify-content-end mt-4">
-            <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty}>
+            <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
               {prefsForm.isSubmitting ? t("common.saving") : t("settings.savePreferences")}
             </Button>
           </div>
@@ -498,7 +504,7 @@ export function SettingsPage() {
               </Col>
             </Row>
             <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty}>
+              <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
                 {emailForm.isSubmitting ? t("settings.updating") : t("settings.updateEmail")}
               </Button>
             </div>
@@ -555,7 +561,7 @@ export function SettingsPage() {
               </Col>
             </Row>
             <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty}>
+              <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
                 {passwordForm.isSubmitting ? t("settings.changing") : t("settings.changePassword")}
               </Button>
             </div>
@@ -602,7 +608,7 @@ export function SettingsPage() {
           <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
             {t("settings.dangerZoneBody")}
           </p>
-          <Button color="danger" outline onClick={() => setShowDeleteModal(true)}>
+          <Button color="danger" outline onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason}>
             {t("settings.deleteAccount")}
           </Button>
         </CardBody>
@@ -654,7 +660,7 @@ export function SettingsPage() {
           >
             {t("common.cancel")}
           </Button>
-          <Button color="danger" onClick={handleDeleteAccount} disabled={deleteLoading || (!googleUser && !deletePassword)}>
+          <Button color="danger" onClick={handleDeleteAccount} disabled={deleteLoading || (!googleUser && !deletePassword) || deleteGuard.locked} title={deleteGuard.reason}>
             {deleteLoading ? t("common.deleting") : t("settings.deleteMyAccount")}
           </Button>
         </ModalFooter>

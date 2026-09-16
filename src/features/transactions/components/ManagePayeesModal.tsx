@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2, FiTrash2, FiPlus, FiCheck, FiX } from "react-icons/fi";
 import { validatePayee, MAX_PAYEE_LENGTH, type PayeeError } from "../payeeStore";
 import styles from "./css/ManagePayeesModal.module.css";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 
 const ERROR_KEY: Record<PayeeError, string> = {
   empty: "validation.nameRequired",
@@ -31,6 +32,7 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const deleteGuard = useOfflineGuard("delete");
   const [busy, setBusy] = useState(false);
 
   const addError = draft.trim() ? validatePayee(payees, draft) : undefined;
@@ -140,7 +142,13 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
                 return (
                   <div key={name} className={`${styles.row} ${styles.rowDanger}`}>
                     <span className={styles.name}>{t("transactions.deletePayeeConfirm", { name })}</span>
-                    <Button color="danger" size="sm" onClick={() => run(() => onRemove(name), () => setConfirmDelete(null))} disabled={busy}>
+                    <Button
+                      color="danger"
+                      size="sm"
+                      onClick={() => run(() => onRemove(name), () => setConfirmDelete(null))}
+                      disabled={busy || deleteGuard.locked}
+                      title={deleteGuard.reason}
+                    >
                       {t("common.delete")}
                     </Button>
                     <Button color="secondary" outline size="sm" onClick={() => setConfirmDelete(null)}>

@@ -13,6 +13,8 @@ import { useAuth } from "./shared/hooks/useAuth";
 import { ThemeProvider } from "./context/ThemeContext";
 import { seedDefaultCategories } from "./firebase/seedCategories";
 import { useOnlineStatus } from "./shared/hooks/useOnlineStatus";
+import { useCurrencyConverter } from "./shared/hooks/useCurrencyConverter";
+import { UpdateBanner } from "./shared/components/UpdateBanner";
 
 // Devtools are a development-only aid — lazily imported so the bundle Vite ships
 // to users never contains them.
@@ -24,7 +26,21 @@ const ReactQueryDevtools = import.meta.env.DEV
 // Non-blocking: the app stays usable (cached data, PWA) while we show a slim
 // bar. This replaces the old full-screen block that broke the offline promise.
 function OfflineBanner() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Rates cannot be fetched with no connection. Where the display currency is
+  // the base one that changes nothing; where it is not, every figure on screen
+  // depends on numbers this device saved earlier — which the reader is entitled
+  // to know before planning against them.
+  const { baseCurrency, displayCurrency, ratesAsOf, ratesMissing } = useCurrencyConverter();
+  const converting = baseCurrency !== displayCurrency;
+  const rateNote = !converting
+    ? undefined
+    : ratesMissing
+      ? t("common.offlineNoRates")
+      : ratesAsOf
+        ? t("common.offlineRates", { date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(ratesAsOf) })
+        : undefined;
+
   return (
     <div
       role="status"
@@ -46,6 +62,7 @@ function OfflineBanner() {
       }}
     >
       📡 {t("common.offline")}
+      {rateNote && <div style={{ opacity: 0.85, fontWeight: 400 }}>{rateNote}</div>}
     </div>
   );
 }
@@ -93,6 +110,9 @@ export function App() {
           <LanguageSync />
           <RouterProvider router={router} />
           {!isOnline && <OfflineBanner />}
+          {/* Mounted always: the hook inside it is what registers the service
+              worker, and it draws nothing until there is a version waiting. */}
+          <UpdateBanner />
           <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
           {ReactQueryDevtools && (
             <Suspense fallback={null}>

@@ -23,6 +23,7 @@ import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 
 const PAGE_SIZE = 15;
 
@@ -193,6 +194,8 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
 
 function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
   const { t } = useTranslation();
+  const deleteGuard = useOfflineGuard("delete");
+
   return (
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{t("transactions.deleteTransaction")}</ModalHeader>
@@ -201,12 +204,13 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
           {t("transactions.deleteConfirm", { defaultValue: "Are you sure you want to delete {{name}}?", name: transaction.description })}
         </p>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
+        {deleteGuard.locked && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={isDeleting}>
+        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked}>
           {isDeleting ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>

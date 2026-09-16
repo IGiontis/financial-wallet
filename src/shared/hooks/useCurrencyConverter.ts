@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./useAuth";
 import { getUser } from "../../firebase/firestore";
-import { fetchExchangeRates, convertAmount } from "../../firebase/exchangeRate";
+import { fetchExchangeRates, convertAmount, readStoredRates } from "../../firebase/exchangeRate";
 import type { Currency } from "../../shared/types/IndexTypes";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -21,12 +21,21 @@ export function useCurrencyConverter() {
   const uid = currentUser?.uid ?? "";
 
   // Exchange rates — cached 1 hour
-  const { data: rateData, isLoading: ratesLoading } = useQuery({
+  const { data: fetchedRates, isLoading: ratesLoading } = useQuery({
     queryKey: exchangeRateKeys.rates(),
     queryFn: fetchExchangeRates,
     staleTime: 1000 * 60 * 60,
     retry: 2,
   });
+
+  // What came back the last time this device had a connection. Read once: it
+  // only ever changes by way of a fetch, which replaces `fetchedRates` anyway.
+  const storedRates = useMemo(() => readStoredRates(), []);
+
+  // Yesterday's rates beat no rates. With neither, `convert` hands the amount
+  // back untouched, and `ratesMissing` is how a screen knows not to present
+  // that as a converted figure.
+  const rateData = fetchedRates ?? storedRates;
 
   // Currency + locale change only from the Settings screen, which updates this
   // cache itself — so there's no reason to keep re-reading the user document.
@@ -82,5 +91,9 @@ export function useCurrencyConverter() {
     baseCurrency,
     displayCurrency,
     isLoading,
+    /** Set when the amounts are being converted with rates from an earlier session. */
+    ratesAsOf: !fetchedRates && storedRates ? new Date(storedRates.fetchedAt) : undefined,
+    /** No rates at all, and two different currencies — the figures are not converted. */
+    ratesMissing: !rateData && baseCurrency !== displayCurrency,
   };
 }

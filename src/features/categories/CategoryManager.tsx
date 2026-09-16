@@ -6,6 +6,7 @@ import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { groupCategories, type CategoryGroup } from "../../shared/utils/categoryNames";
 import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useCategoryGroupUsage } from "../transactions/hooks/useTransactions";
 import CategoryModal from "./CategoryModal";
+import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 
 /** Badge wording per scope — "both" is the one worth calling out. */
 const SCOPE_LABEL = { expense: "transactions.expense", income: "transactions.income", both: "categories.both" } as const;
@@ -30,6 +31,7 @@ export default function CategoryManager() {
   const createCategory = useCreateCategoryScope();
   const updateCategory = useUpdateCategoryGroup();
   const deleteCategory = useDeleteCategoryGroup();
+  const deleteGuard = useOfflineGuard("delete");
   const checkUsage = useCategoryGroupUsage();
 
   const [editing, setEditing] = useState<CategoryGroup | null>(null);
@@ -149,7 +151,7 @@ export default function CategoryManager() {
             {inUse ? t("common.close") : t("common.cancel")}
           </Button>
           {!inUse && usage !== null && (
-            <Button color="danger" onClick={confirmDelete} disabled={deleteCategory.isPending}>
+            <Button color="danger" onClick={confirmDelete} disabled={deleteCategory.isPending || deleteGuard.locked} title={deleteGuard.reason}>
               {deleteCategory.isPending ? t("common.deleting") : t("common.delete")}
             </Button>
           )}

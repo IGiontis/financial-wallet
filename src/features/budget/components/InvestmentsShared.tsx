@@ -20,6 +20,7 @@ import type { InvestmentGoalWithStats, InvestmentContribution } from "../../../s
 import { useContributions } from "../useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import i18n from "../../../i18n";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 
@@ -436,6 +437,8 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 // ─── DeleteConfirmModal ───────────────────────────────────────────────────────
 
 export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
+  const deleteGuard = useOfflineGuard("delete");
+
   return (
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>Delete</ModalHeader>
@@ -450,12 +453,15 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>
           This will permanently delete the goal and all its contribution history. This cannot be undone.
         </p>
+        {deleteGuard.locked && (
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>
+        )}
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
           Cancel
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={isDeleting}>
+        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked}>
           {isDeleting ? "Deleting..." : "Delete"}
         </Button>
       </ModalFooter>

@@ -28,10 +28,16 @@
     "comingSoon": "Coming Soon",
     "optionalNote": "Optional note...",
     "failedToLoad": "Failed to load. Please refresh the page.",
-    "offline": "You're offline — showing your latest saved data.",
+    "offline": "You're offline — anything you add is sent when you're back.",
     "prev": "Prev",
     "next": "Next",
-    "type": "Type"
+    "type": "Type",
+    "updateReady": "A new version is ready.",
+    "updateNow": "Refresh",
+    "offlineDelete": "Deleting waits for a connection — it cannot be judged against an offline copy.",
+    "offlineSettings": "Changing this waits for a connection.",
+    "offlineRates": "Rates from {{date}}.",
+    "offlineNoRates": "No saved rates — amounts are not converted."
   },
   "nav": {
     "groupStanding": "Where you stand",
@@ -1039,7 +1045,10 @@
     "notFoundMovedBody": "The page you're looking for doesn't exist or has been moved.",
     "serverErrorTitle": "Server error",
     "genericTitle": "Oops! Something went wrong",
-    "unknownTitle": "Unknown error"
+    "unknownTitle": "Unknown error",
+    "outdatedTitle": "This version is out of date",
+    "outdatedBody": "A newer version has been published, so this screen could not be loaded. Reload to pick it up — nothing of yours is lost.",
+    "reload": "Reload"
   },
   "categories": {
     "groceries": "Groceries",

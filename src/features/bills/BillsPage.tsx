@@ -6,6 +6,7 @@ import type { TFunction } from "i18next";
 import { FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
@@ -893,6 +894,8 @@ export default function BillsPage() {
   const createBill = useCreateBill();
   const updateBill = useUpdateBill();
   const deleteBill = useDeleteBill();
+  // Deleting waits for a connection; everything else on this page is queued.
+  const deleteGuard = useOfflineGuard("delete");
   const markPaid = useMarkBillPaid();
   const unmarkPaid = useUnmarkBillPaid();
   const updatePayment = useUpdateBillPayment();
@@ -1281,12 +1284,17 @@ export default function BillsPage() {
           <p className="mb-0" style={{ fontSize: 14 }}>
             {t("bills.deleteConfirm", { name: deleteTarget?.name ?? "" })}
           </p>
+          {deleteGuard.locked && (
+            <p className="mb-0 mt-2" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+              {deleteGuard.reason}
+            </p>
+          )}
         </ModalBody>
         <ModalFooter>
           <Button color="secondary" outline onClick={() => setDeleteTarget(null)} disabled={deleteBill.isPending}>
             {t("common.cancel")}
           </Button>
-          <Button color="danger" onClick={confirmDelete} disabled={deleteBill.isPending}>
+          <Button color="danger" onClick={confirmDelete} disabled={deleteBill.isPending || deleteGuard.locked}>
             {deleteBill.isPending ? t("common.deleting") : t("common.delete")}
           </Button>
         </ModalFooter>

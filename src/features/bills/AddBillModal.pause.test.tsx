@@ -16,7 +16,13 @@ import type { Bill, BillPause, Category, CreateBillDTO } from "../../shared/type
 vi.mock("../../firebase/firestore", () => ({ getUser: vi.fn(() => Promise.resolve(null)) }));
 // No rates: the converter then hands amounts back unchanged, which keeps every
 // figure below exactly the one typed.
-vi.mock("../../firebase/exchangeRate", () => ({ fetchExchangeRates: vi.fn(() => new Promise(() => {})), convertAmount: (n: number) => n }));
+vi.mock("../../firebase/exchangeRate", () => ({
+  fetchExchangeRates: vi.fn(() => new Promise(() => {})),
+  convertAmount: (n: number) => n,
+  // Nothing saved from a previous session either, so there is no stored rate
+  // standing in for the fetch that never resolves.
+  readStoredRates: () => undefined,
+}));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCreateCategoryScope: () => ({ mutateAsync: vi.fn() }) }));
 
 const categories = [{ id: "c1", name: "Electricity", type: "expense", icon: "⚡", userId: "u1" }] as unknown as Category[];

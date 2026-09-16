@@ -10,6 +10,7 @@ import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
 import type { DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
+import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -171,6 +172,7 @@ export default function PersonDebtsModal({
   const { t } = useTranslation();
   const record = useRecordRepayment();
   const removeRepayment = useDeleteRepayment();
+  const deleteGuard = useOfflineGuard("delete");
   const removeDebt = useDeleteDebt();
 
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -285,7 +287,14 @@ export default function PersonDebtsModal({
                   </span>
                   <span className="d-flex align-items-center gap-1">
                     {formatCurrency(p.amount)}
-                    <button type="button" className={styles.repaymentRemove} onClick={() => removeRepayment.mutate(p.id)} aria-label={t("common.delete")}>
+                    <button
+                      type="button"
+                      className={styles.repaymentRemove}
+                      onClick={() => removeRepayment.mutate(p.id)}
+                      disabled={deleteGuard.locked}
+                      title={deleteGuard.reason}
+                      aria-label={t("common.delete")}
+                    >
                       <FiX size={13} />
                     </button>
                   </span>
@@ -346,7 +355,8 @@ export default function PersonDebtsModal({
             </Button>
             <Button
               color="danger"
-              disabled={removeDebt.isPending}
+              disabled={removeDebt.isPending || deleteGuard.locked}
+              title={deleteGuard.reason}
               onClick={() => removeDebt.mutate({ debtId: deleting.id, paymentIds: deleting.payments.map((p) => p.id) }, { onSuccess: () => setDeleting(null) })}
             >
               {removeDebt.isPending ? t("common.deleting") : t("common.delete")}

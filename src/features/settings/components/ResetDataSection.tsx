@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { resetUserData, type ResetScope } from "../../../firebase/firestore";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 
 /** Order shown in the dialog; every switch names exactly what it clears. */
 const SCOPE_ITEMS: { key: keyof ResetScope; labelKey: string; hintKey: string }[] = [
@@ -34,6 +35,9 @@ export default function ResetDataSection() {
   const [scope, setScope] = useState<ResetScope>({ transactions: true, bills: true, goals: true, budgets: true, categories: false });
   const [confirmText, setConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
+  // Clearing collections is a deletion like any other: it waits for the live
+  // account rather than being queued against a cached copy.
+  const deleteGuard = useOfflineGuard("delete");
   const [error, setError] = useState("");
   const [deleted, setDeleted] = useState<number | null>(null);
 
@@ -137,7 +141,7 @@ export default function ResetDataSection() {
             {deleted !== null ? t("common.close") : t("common.cancel")}
           </Button>
           {deleted === null && (
-            <Button color="danger" onClick={run} disabled={busy || !anySelected || !confirmed}>
+            <Button color="danger" onClick={run} disabled={busy || !anySelected || !confirmed || deleteGuard.locked} title={deleteGuard.reason}>
               {busy ? t("common.deleting") : t("settings.resetConfirmAction")}
             </Button>
           )}

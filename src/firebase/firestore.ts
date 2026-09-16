@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, deleteField, writeBatch } from "firebase/firestore";
 import { db } from "./config";
+import { requireConnection } from "../shared/utils/offlinePolicy";
 
 import type {
   Debt,
@@ -120,6 +121,9 @@ export const updateTransaction = async (transactionId: string, data: UpdateTrans
 };
 
 export const deleteTransaction = async (transactionId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "transactions", transactionId));
 };
 
@@ -213,6 +217,9 @@ export const updateCategories = async (categoryIds: string[], data: UpdateCatego
 
 /** Removes a whole pair, so "both" never half-disappears either. */
 export const deleteCategories = async (categoryIds: string[]) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   const batch = writeBatch(db);
   for (const id of categoryIds) batch.delete(doc(db, "categories", id));
   await batch.commit();
@@ -223,6 +230,9 @@ export const updateCategory = async (categoryId: string, data: UpdateCategoryDTO
 };
 
 export const deleteCategory = async (categoryId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "categories", categoryId));
 };
 
@@ -268,6 +278,9 @@ export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmen
 };
 
 export const deleteInvestmentGoal = async (goalId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "investmentGoals", goalId));
 };
 
@@ -309,6 +322,9 @@ export const createContributionWithTransaction = async (
 };
 
 export const deleteContribution = async (contributionId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "investmentContributions", contributionId));
 };
 
@@ -345,6 +361,9 @@ export const updateBill = async (billId: string, data: UpdateBillDTO) => {
 };
 
 export const deleteBill = async (billId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "bills", billId));
 };
 
@@ -462,6 +481,9 @@ export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
 
 /** Deleting a loan takes its repayments with it — they mean nothing alone. */
 export const deleteDebt = async (debtId: string, paymentIds: string[]) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   const batch = writeBatch(db);
   for (const id of paymentIds) batch.delete(doc(db, "debtPayments", id));
   batch.delete(doc(db, "debts", debtId));
@@ -477,6 +499,9 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 };
 
 export const deleteDebtPayment = async (paymentId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   await deleteDoc(doc(db, "debtPayments", paymentId));
 };
 
@@ -511,6 +536,9 @@ const RESET_COLLECTIONS: Record<keyof ResetScope, string[]> = {
  * than a silent "everything".
  */
 export const resetUserData = async (userId: string, scope: ResetScope): Promise<number> => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   const names = (Object.keys(RESET_COLLECTIONS) as (keyof ResetScope)[]).filter((k) => scope[k]).flatMap((k) => RESET_COLLECTIONS[k]);
   if (names.length === 0) return 0;
 
@@ -540,6 +568,9 @@ export const resetUserData = async (userId: string, scope: ResetScope): Promise<
 // and privacy expectations). Runs while the user is still authenticated.
 
 export const deleteAllUserData = async (userId: string) => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
   // Collections keyed by userId (categories: only the user's own, never defaults)
   const ownedCollections = ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments"];
 

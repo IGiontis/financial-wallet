@@ -2,6 +2,7 @@
 import { useRouteError, isRouteErrorResponse, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Container } from "reactstrap";
+import { isStaleChunkError } from "../../lib/staleChunk";
 
 export const ErrorBoundary: React.FC = () => {
   const error = useRouteError();
@@ -52,6 +53,24 @@ export const ErrorBoundary: React.FC = () => {
         </Container>
       );
     }
+  }
+
+  // A route that cannot be fetched because it belongs to the build before last
+  // is not a crash the reader can do anything about, and the browser reports it
+  // as a MIME type complaint. The recovery in main.tsx reloads for this on its
+  // own; this is what is left when it has already spent its one reload.
+  if (isStaleChunkError(error)) {
+    return (
+      <Container className="mt-5">
+        <Alert color="info">
+          <h1>{t("errors.outdatedTitle")}</h1>
+          <p>{t("errors.outdatedBody")}</p>
+          <Button color="primary" onClick={() => window.location.reload()}>
+            {t("errors.reload")}
+          </Button>
+        </Alert>
+      </Container>
+    );
   }
 
   // JavaScript errors
