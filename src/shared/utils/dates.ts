@@ -69,3 +69,20 @@ export function toISOMonth(value: unknown): string {
   const date = firestoreToDate(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
+
+/**
+ * A month's name on its own, in the form you would use to name it in a list.
+ *
+ * Greek has two: "Δεκεμβρίου" is the one that goes in a date ("1 Δεκεμβρίου"),
+ * and "Δεκέμβριος" is the one that goes in a sentence about the month itself.
+ * Asked for the month alone, Intl hands back the first — so "the heavy one is
+ * Δεκεμβρίου", which is not something anyone would write.
+ *
+ * Asking for the month *with* a year switches the platform to the stand-alone
+ * form, so that is what this asks for, and then keeps only the month. English
+ * and every language without the distinction are unaffected.
+ */
+export function standaloneMonthName(locale: string, date: Date): string {
+  const parts = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).formatToParts(date);
+  return parts.find((part) => part.type === "month")?.value ?? new Intl.DateTimeFormat(locale, { month: "long" }).format(date);
+}

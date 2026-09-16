@@ -365,7 +365,19 @@
     "labelResumes": "Back on",
     "labelStopped": "Stopped",
     "monthPaused": "Paused",
-    "monthState_paused": "paused"
+    "monthState_paused": "paused",
+    "viewLabel": "How to show the bills",
+    "viewCards": "Cards",
+    "viewList": "List",
+    "lineLate": "late",
+    "linePaused": "paused",
+    "lineStopped": "stopped",
+    "linePaid": "paid",
+    "viewMonths": "Months",
+    "yearAheadTitle": "The next 12 months",
+    "yearAheadHint": "What each month is asking for. Tap one to see which bills.",
+    "yearAheadPeak_one": "{{month}} is the heavy one at {{amount}} — {{count}} bill lands in it.",
+    "yearAheadPeak_other": "{{month}} is the heavy one at {{amount}} — {{count}} bills land in it."
   },
   "transactions": {
     "title": "Transactions",

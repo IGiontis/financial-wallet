@@ -1478,3 +1478,44 @@ export function salaryShare(salary: number, monthlyBills: number): SalaryShare |
     leftPct: round2(Math.max(100 - takenPct, 0)),
   };
 }
+
+// ─── The year ahead ─────────────────────────────────────────────────────────
+// Which months are the heavy ones.
+//
+// The page could say what a month costs on average and what it costs next
+// month, and nothing about the shape of the year. That shape is most of what
+// there is to plan around: the insurance and the road tax land in the same
+// December, and the holiday house switches itself off for the winter. A figure
+// spread evenly over twelve months hides both.
+//
+// Built entirely on `monthForecast`, one call per month, so a month here and the
+// "next month" card are the same arithmetic asked twice rather than two sums
+// that could drift.
+
+export interface MonthAhead {
+  /** First day of the month. */
+  start: Date;
+  /** Everything landing in it — including anything already settled. */
+  total: number;
+  /** How many payments make it up. */
+  count: number;
+  /** Of `total`, the part already paid. */
+  paid: number;
+}
+
+/** How far ahead the year view looks. Twelve months, starting with this one. */
+export const YEAR_AHEAD_MONTHS = 12;
+
+export function yearAhead(bills: BillWithStatus[], now: Date = new Date(), months = YEAR_AHEAD_MONTHS): MonthAhead[] {
+  return Array.from({ length: months }, (_, offset) => {
+    const breakdown = monthForecast(bills, now, offset);
+    const totals = periodTotals(breakdown);
+    return { start: breakdown.monthStart, total: round2(totals.total), count: totals.totalCount, paid: round2(totals.paid) };
+  });
+}
+
+/** The dearest month of a run, for the sentence under the chart. Undefined when nothing is owed at all. */
+export function heaviestMonth(months: MonthAhead[]): MonthAhead | undefined {
+  const heaviest = months.reduce<MonthAhead | undefined>((worst, month) => (!worst || month.total > worst.total ? month : worst), undefined);
+  return heaviest && heaviest.total > 0 ? heaviest : undefined;
+}

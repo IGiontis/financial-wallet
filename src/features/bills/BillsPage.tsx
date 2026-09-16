@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFoo
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
-import { FiChevronRight, FiCheck, FiLock } from "react-icons/fi";
+import { FiBarChart2, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
@@ -29,6 +29,7 @@ import {
   urgencyToken,
   yearlyBreakdown,
   currentPause,
+  yearAhead,
   type MonthChip,
   type MonthForecast,
 } from "./billsUtils";
@@ -36,11 +37,13 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
+import BillYearAhead from "./BillYearAhead";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
+import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../shared/components/PageShell";
@@ -600,6 +603,96 @@ function Metric({ label, value, sub, color }: { label: string; value: string; su
   );
 }
 
+/**
+ * One bill on one line: what it is called, how often it comes, what leaves and
+ * when next.
+ *
+ * The cards answer "where does this one stand" and are the right thing when a
+ * bill needs doing something about. They are the wrong thing for "what do I
+ * actually pay for" — six of them fill a phone screen, and the answer to that
+ * question is a list you can take in at once. Same bills, same order, same tap
+ * target; only the detail is cut.
+ *
+ * The figure is what leaves each time, not the monthly average. On a list with
+ * no room to explain itself, "€210" beside "every 6 months" is a fact, while
+ * "€35" beside it is a calculation the reader has to be told about.
+ */
+function BillLine({
+  bill,
+  category,
+  formatCurrency,
+  onOpenDetails,
+}: {
+  bill: BillWithStatus;
+  category: Category | undefined;
+  formatCurrency: (n: number) => string;
+  onOpenDetails: (b: BillWithStatus) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
+
+  const cadence = getFrequencyLabel(bill);
+  const pause = currentPause(bill);
+  const stopped = !bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended");
+  const late = !bill.isPaidThisPeriod && !stopped && billUrgency(bill) === "late";
+
+  // A variable bill carries an estimate until the charge arrives, so its figure
+  // is marked as one rather than printed like a fact.
+  const amount = expectedAmount(bill);
+
+  return (
+    <button type="button" className={`${styles.billLine} ${bill.isPaidThisPeriod || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
+      <span className={styles.lineIcon} aria-hidden>
+        {category?.icon ?? "🧾"}
+      </span>
+
+      <span className={styles.lineMain}>
+        <span className={styles.lineName}>{bill.name}</span>
+        <span className={styles.lineCadence}>{t(cadence.key, { count: cadence.count })}</span>
+      </span>
+
+      {late && <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>}
+      {stopped && <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>}
+      {bill.isPaidThisPeriod && <span className={`${styles.linePill} ${styles.linePillPaid}`}>{t("bills.linePaid")}</span>}
+
+      <span className={styles.lineAmount}>
+        <strong>
+          {bill.isVariableAmount ? "~" : ""}
+          {formatCurrency(amount)}
+        </strong>
+        <span className={styles.lineWhen}>
+          {pause?.state === "ended" ? "—" : bill.nextDueDate ? (stopped ? monthFmt.format(bill.nextDueDate) : dateFmt.format(bill.nextDueDate)) : "—"}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+type BillView = "cards" | "list" | "months";
+
+/** Cards or one line each — the same switch the goals list has. */
+function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: BillView) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className={styles.viewToggle} role="group" aria-label={t("bills.viewLabel")}>
+      <button type="button" className={`${styles.viewBtn} ${view === "cards" ? styles.viewBtnOn : ""}`} aria-pressed={view === "cards"} onClick={() => onChange("cards")}>
+        <FiGrid size={13} aria-hidden />
+        <span className="d-none d-sm-inline">{t("bills.viewCards")}</span>
+      </button>
+      <button type="button" className={`${styles.viewBtn} ${view === "list" ? styles.viewBtnOn : ""}`} aria-pressed={view === "list"} onClick={() => onChange("list")}>
+        <FiList size={13} aria-hidden />
+        <span className="d-none d-sm-inline">{t("bills.viewList")}</span>
+      </button>
+      <button type="button" className={`${styles.viewBtn} ${view === "months" ? styles.viewBtnOn : ""}`} aria-pressed={view === "months"} onClick={() => onChange("months")}>
+        <FiBarChart2 size={13} aria-hidden />
+        <span className="d-none d-sm-inline">{t("bills.viewMonths")}</span>
+      </button>
+    </div>
+  );
+}
+
 function BillCard({
   bill,
   category,
@@ -785,7 +878,7 @@ function YearlyProjection({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function BillsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: bills = [], isLoading, isError } = useBills();
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
@@ -808,7 +901,9 @@ export default function BillsPage() {
   // And which instalment of it, for a bill paid in parts.
   const [payingInstallment, setPayingInstallment] = useState<number | undefined>();
   // Which month's breakdown is open, if any.
-  const [breakdownMonth, setBreakdownMonth] = useState<"current" | "next" | null>(null);
+  // An offset in months from today: 0 is this one, 1 the next, and the year
+  // view can ask for any of the twelve.
+  const [breakdownMonth, setBreakdownMonth] = useState<number | null>(null);
   const [showActive, setShowActive] = useState(false);
   // Below the desktop breakpoint the year sat under the whole list, which meant
   // scrolling past every bill to reach it. Two views, one at a time.
@@ -840,6 +935,13 @@ export default function BillsPage() {
    * enough to answer "what's left?" at a glance. A heading with a running
    * total answers it before you read a single row.
    */
+  // Per device, not per account: how you like to read a list is not a fact
+  // about your money, and putting it on the account would cost a read.
+  const [billView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
+
+  const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
+  const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
+
   const sections = useMemo(() => {
     const byDeadline = (a: BillWithStatus, b: BillWithStatus) => (daysUntilDeadline(a) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDeadline(b) ?? Number.MAX_SAFE_INTEGER);
     const outstanding = bills.filter((b) => !b.isPaidThisPeriod).sort(byDeadline);
@@ -962,20 +1064,26 @@ export default function BillsPage() {
         <Row className="g-3 g-lg-4">
           {/* Summary + list */}
           <Col xs={12} lg={7} xl={8}>
-            <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("current")} />
-            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth("next")} />}
+            <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(0)} />
+            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(1)} />}
             <QuickStats bills={bills} formatCurrency={formatCurrency} onOpenActive={() => setShowActive(true)} />
 
-            {/* On a phone the two halves of this page take turns. */}
+            {/* On a phone the two halves of this page take turns.
+
+                These used to be the page's own buttons, marking the selected tab
+                with a white-on-near-white fill: in dark mode #1f262f on #1e242c,
+                a contrast of 1.03:1, which is no mark at all. The shared control
+                has the same fill and adds a border — which is what actually says
+                "this one" — and it is the switcher every other page uses. */}
             {compact && bills.length > 0 && (
-              <div className={styles.viewTabs} role="tablist" aria-label={t("bills.title")}>
+              <div className={`${segmented.group} ${segmented.even} mb-3`} role="tablist" aria-label={t("bills.title")}>
                 {(["bills", "year"] as const).map((view) => (
                   <button
                     key={view}
                     type="button"
                     role="tab"
                     aria-selected={mobileView === view}
-                    className={`${styles.viewTab} ${mobileView === view ? styles.viewTabOn : ""}`}
+                    className={`${segmented.item} ${mobileView === view ? segmented.active : ""}`}
                     onClick={() => setMobileView(view)}
                   >
                     {t(view === "bills" ? "bills.tabBills" : "bills.tabYear")}
@@ -999,7 +1107,16 @@ export default function BillsPage() {
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
 
-                {sections.map((section) => (
+                <div className="d-flex justify-content-end mb-2">
+                  <BillViewToggle view={billView} onChange={setBillView} />
+                </div>
+
+                {billView === "months" && (
+                  <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
+                )}
+
+                {billView !== "months" &&
+                  sections.map((section) => (
                   <div key={section.key} className="mb-3">
                     <div className={styles.listSection}>
                       <span className={styles.listSectionTitle} style={{ color: section.tone }}>
@@ -1011,11 +1128,19 @@ export default function BillsPage() {
                       </span>
                     </div>
 
-                    <div className="d-flex flex-column gap-2">
-                      {section.bills.map((bill) => (
-                        <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
-                      ))}
-                    </div>
+                    {billView === "list" ? (
+                      <div className={styles.billLines}>
+                        {section.bills.map((bill) => (
+                          <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="d-flex flex-column gap-2">
+                        {section.bills.map((bill) => (
+                          <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </>
@@ -1112,17 +1237,17 @@ export default function BillsPage() {
 
       {breakdownMonth && (
         <MonthBreakdownModal
-          title={breakdownMonth === "current" ? t("bills.thisMonthTitle") : t("bills.nextMonthTitle")}
-          forecast={breakdownMonth === "current" ? thisMonth : forecast}
+          title={breakdownMonth === 0 ? t("bills.thisMonthTitle") : breakdownMonth === 1 ? t("bills.nextMonthTitle") : monthTitleFmt.format(new Date(now.getFullYear(), now.getMonth() + breakdownMonth, 1))}
+          forecast={breakdownMonth === 0 ? thisMonth : breakdownMonth === 1 ? forecast : monthForecast(bills, now, breakdownMonth)}
           // Next month only. Debt from months gone by is exactly what "this
           // month" is not, and listing it here buried the two lines that
           // answer the question; the page carries its own overdue figure. A
           // plan for next month, though, is not honest while an earlier one
           // is still outstanding.
-          arrears={breakdownMonth === "next" ? owed : []}
+          arrears={breakdownMonth === 1 ? owed : []}
           categoryFor={categoryFor}
           formatCurrency={formatCurrency}
-          emptyText={breakdownMonth === "current" ? t("bills.nothingThisMonth") : t("bills.nothingNextMonth")}
+          emptyText={breakdownMonth === 0 ? t("bills.nothingThisMonth") : t("bills.nothingNextMonth")}
           onClose={() => setBreakdownMonth(null)}
         />
       )}

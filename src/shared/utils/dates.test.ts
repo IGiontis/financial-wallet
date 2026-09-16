@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { el, enUS } from "date-fns/locale";
-import { dateFnsLocale, firestoreToDate, firestoreToDateOrUndefined, parseISODay, parseISOMonth, toISODay, toISOMonth } from "./dates";
+import { dateFnsLocale, firestoreToDate, firestoreToDateOrUndefined, parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "./dates";
 
 
 
@@ -126,5 +126,22 @@ describe("dateFnsLocale", () => {
     expect(dateFnsLocale("el-GR")).toBe(el);
     expect(dateFnsLocale("en")).toBe(enUS);
     expect(dateFnsLocale(undefined)).toBe(enUS);
+  });
+});
+
+describe("standaloneMonthName", () => {
+  it("names a Greek month the way a sentence would", () => {
+    // "Δεκεμβρίου" belongs in a date; on its own the month is "Δεκέμβριος".
+    expect(standaloneMonthName("el", new Date(2026, 11, 1))).toBe("Δεκέμβριος");
+    expect(standaloneMonthName("el", new Date(2026, 3, 1))).toBe("Απρίλιος");
+  });
+
+  it("leaves English alone, which has only the one form", () => {
+    expect(standaloneMonthName("en", new Date(2026, 11, 1))).toBe("December");
+  });
+
+  it("carries no year with it", () => {
+    expect(standaloneMonthName("el", new Date(2026, 11, 1))).not.toMatch(/2026/);
+    expect(standaloneMonthName("en", new Date(2026, 11, 1))).not.toMatch(/2026/);
   });
 });

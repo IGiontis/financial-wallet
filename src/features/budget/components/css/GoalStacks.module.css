@@ -302,8 +302,8 @@
 }
 
 .viewBtnOn {
-  background: var(--color-surface);
-  border-color: var(--color-border-tertiary);
+  background: var(--color-segment-active);
+  border-color: var(--color-segment-active-border);
   color: var(--color-text-primary);
   font-weight: 600;
   box-shadow: var(--shadow-sm);

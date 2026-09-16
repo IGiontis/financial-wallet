@@ -365,7 +365,19 @@
     "labelResumes": "Επιστρέφει",
     "labelStopped": "Σταμάτησε",
     "monthPaused": "Σε παύση",
-    "monthState_paused": "σε παύση"
+    "monthState_paused": "σε παύση",
+    "viewLabel": "Πώς να δείχνει τους λογαριασμούς",
+    "viewCards": "Κάρτες",
+    "viewList": "Λίστα",
+    "lineLate": "εκπρόθεσμο",
+    "linePaused": "σε παύση",
+    "lineStopped": "σταμάτησε",
+    "linePaid": "πληρωμένο",
+    "viewMonths": "Μήνες",
+    "yearAheadTitle": "Οι επόμενοι 12 μήνες",
+    "yearAheadHint": "Τι ζητάει ο κάθε μήνας. Πάτα έναν για να δεις ποιοι λογαριασμοί.",
+    "yearAheadPeak_one": "Ο βαρύς είναι ο {{month}} με {{amount}} — πέφτει {{count}} λογαριασμός.",
+    "yearAheadPeak_other": "Ο βαρύς είναι ο {{month}} με {{amount}} — πέφτουν {{count}} λογαριασμοί."
   },
   "transactions": {
     "title": "Συναλλαγές",

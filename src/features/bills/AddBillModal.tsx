@@ -10,7 +10,7 @@ import NewCategoryButton from "../categories/NewCategoryButton";
 import { categoryLabel } from "../../shared/utils/categories";
 import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
 import { DateField } from "../../shared/components/DateField";
-import { parseISOMonth } from "../../shared/utils/dates";
+import { parseISOMonth, standaloneMonthName } from "../../shared/utils/dates";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -21,7 +21,8 @@ const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
 /** Weekday and month names in the active locale. */
 function useDateNames(locale: string) {
   const weekdays = Array.from({ length: 7 }, (_, d) => new Intl.DateTimeFormat(locale, { weekday: "long" }).format(new Date(2024, 0, 7 + d)));
-  const months = Array.from({ length: 12 }, (_, m) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2020, m, 1)));
+  // A list of months names them; it does not date anything with them.
+  const months = Array.from({ length: 12 }, (_, m) => standaloneMonthName(locale, new Date(2020, m, 1)));
   return { weekdays, months };
 }
 

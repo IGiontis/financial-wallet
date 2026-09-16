@@ -1272,37 +1272,324 @@
    reaching it meant scrolling past everything. Below the desktop breakpoint the
    list and the year become a pair of tabs instead. */
 
-.viewTabs {
+
+
+/* ── Cards or one line each ──────────────────────────────────────────────────
+   The switch, copied from the goals list so the two read as the same control.
+   The border on the selected one is what marks it: the fill is `--color-surface`
+   against `--color-background-secondary`, which in dark mode is 1.03:1 and
+   invisible on its own. */
+
+.viewToggle {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: 1rem;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  flex-shrink: 0;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0.5px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  min-height: 34px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.viewBtn:hover:not(.viewBtnOn) {
+  color: var(--color-text-primary);
+}
+
+.viewBtnOn {
+  background: var(--color-segment-active);
+  border-color: var(--color-segment-active-border);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.viewBtn:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}
+
+/* ── One bill per line ─────────────────────────────────────────────────────── */
+
+.billLines {
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.billLine {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 13px;
+  border: none;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.billLine:last-child {
+  border-bottom: none;
+}
+
+.billLine:hover {
   background: var(--color-background-secondary);
 }
 
-.viewTab {
+.billLine:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+/* Settled or switched off: still there to be read, never competing. */
+.billLineQuiet .lineName,
+.billLineQuiet .lineAmount strong {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.lineIcon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--color-background-secondary);
+  font-size: 14px;
+}
+
+.lineMain {
   flex: 1;
-  min-height: 40px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lineName {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lineCadence {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.linePill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--border-radius-sm);
+}
+
+.linePillLate {
+  background: color-mix(in srgb, var(--color-expense) 15%, transparent);
+  color: var(--color-expense-text);
+}
+
+.linePillPaused {
+  background: color-mix(in srgb, var(--color-goal) 15%, transparent);
+  color: var(--color-goal-text);
+}
+
+.linePillPaid {
+  background: color-mix(in srgb, var(--color-income) 15%, transparent);
+  color: var(--color-income-text);
+}
+
+.lineAmount {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.lineAmount strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.lineWhen {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The twelve months ahead ─────────────────────────────────────────────────
+   One list, two layouts. Rows on a phone, where a 24px column cannot hold a
+   month name; columns from `sm` up, where they read faster. Only the bar
+   changes: `--fill` is its length, and which dimension grows is the layout's
+   business. */
+
+.yearAhead {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 1rem;
+}
+
+.yearAheadHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.yearAheadTotal {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.yearBars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yearBarItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 6px;
   border: none;
   background: transparent;
-  border-radius: calc(var(--border-radius-md) - 3px);
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  text-align: left;
 }
 
-.viewTabOn {
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.12));
+.yearBarItem:hover {
+  background: var(--color-background-secondary);
 }
 
-.viewTab:focus-visible {
+.yearBarItem:focus-visible {
   outline: 2px solid var(--bs-primary);
-  outline-offset: 1px;
+  outline-offset: -2px;
+}
+
+.yearBarMonth {
+  flex: 0 0 42px;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.yearBarTrack {
+  flex: 1;
+  min-width: 0;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.yearBarFill {
+  display: block;
+  width: var(--fill, 0%);
+  height: 100%;
+  border-radius: 5px;
+  background: var(--bs-primary);
+}
+
+/* The dearest month, which is the one the view exists to find. */
+.yearBarItemPeak .yearBarFill {
+  background: var(--color-expense);
+}
+
+.yearBarItemPeak .yearBarAmount {
+  color: var(--color-expense-text);
+  font-weight: 700;
+}
+
+.yearBarAmount {
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.yearAheadNote {
+  margin: 0.75rem 0 0;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+/* From here the twelve stand up as columns. */
+@media (min-width: 576px) {
+  .yearBars {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 4px;
+    height: 170px;
+  }
+
+  .yearBarItem {
+    flex: 1;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 5px;
+    height: 100%;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .yearBarMonth {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+
+  .yearBarTrack {
+    flex: 1;
+    width: 100%;
+    height: auto;
+    display: flex;
+    align-items: flex-end;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .yearBarFill {
+    width: 100%;
+    height: var(--fill, 0%);
+    border-radius: 4px 4px 0 0;
+  }
+
+  .yearBarAmount {
+    font-size: 10.5px;
+    font-weight: 500;
+  }
 }
