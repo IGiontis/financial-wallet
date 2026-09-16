@@ -1325,6 +1325,23 @@
   outline-offset: 1px;
 }
 
+/* On a phone the switch takes the width it needs to be tappable: three targets
+   sized to an icon, side by side, is a game of chance. 40px is the smallest
+   height a thumb finds reliably. */
+@media (max-width: 575.98px) {
+  .viewToggle {
+    width: 100%;
+  }
+
+  .viewBtn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    min-height: 40px;
+    padding: 6px 4px;
+  }
+}
+
 /* ── One bill per line ─────────────────────────────────────────────────────── */
 
 .billLines {
@@ -1592,4 +1609,85 @@
     font-size: 10.5px;
     font-weight: 500;
   }
+}
+
+/* ── What each bill that moves has been costing ──────────────────────────────
+   One row per bill, scaled to its own charges. A shared axis would flatten the
+   €9 subscription against the rent and say nothing about either. */
+
+.spreadRow {
+  display: block;
+  width: 100%;
+  padding: 11px 6px;
+  border: none;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.spreadRow:hover {
+  background: var(--color-background-secondary);
+}
+
+.spreadRow:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.spreadHead,
+.spreadFoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.spreadName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.spreadUsual,
+.spreadLatest {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.spreadBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 36px;
+  margin: 8px 0;
+}
+
+.spreadBar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--bs-primary) 45%, transparent);
+}
+
+/* The charge being judged. Neutral unless it broke the range. */
+.spreadBarLast {
+  background: var(--bs-primary);
+}
+
+.spreadBarAbove {
+  background: var(--color-expense);
+}
+
+.spreadBarBelow {
+  background: var(--color-income);
+}
+
+.spreadFoot {
+  margin-top: 2px;
 }

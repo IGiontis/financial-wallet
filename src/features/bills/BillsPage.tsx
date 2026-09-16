@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFoo
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
-import { FiBarChart2, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
+import { FiActivity, FiBarChart2, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
@@ -28,6 +28,7 @@ import {
   URGENT_DAYS,
   urgencyToken,
   yearlyBreakdown,
+  billSpreads,
   currentPause,
   yearAhead,
   type MonthChip,
@@ -38,6 +39,7 @@ import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import BillYearAhead from "./BillYearAhead";
+import BillSpreads from "./BillSpreads";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import CategoryBillsModal from "./CategoryBillsModal";
@@ -669,7 +671,7 @@ function BillLine({
   );
 }
 
-type BillView = "cards" | "list" | "months";
+type BillView = "cards" | "list" | "months" | "trends";
 
 /** Cards or one line each — the same switch the goals list has. */
 function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: BillView) => void }) {
@@ -679,15 +681,19 @@ function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: B
     <div className={styles.viewToggle} role="group" aria-label={t("bills.viewLabel")}>
       <button type="button" className={`${styles.viewBtn} ${view === "cards" ? styles.viewBtnOn : ""}`} aria-pressed={view === "cards"} onClick={() => onChange("cards")}>
         <FiGrid size={13} aria-hidden />
-        <span className="d-none d-sm-inline">{t("bills.viewCards")}</span>
+        <span>{t("bills.viewCards")}</span>
       </button>
       <button type="button" className={`${styles.viewBtn} ${view === "list" ? styles.viewBtnOn : ""}`} aria-pressed={view === "list"} onClick={() => onChange("list")}>
         <FiList size={13} aria-hidden />
-        <span className="d-none d-sm-inline">{t("bills.viewList")}</span>
+        <span>{t("bills.viewList")}</span>
       </button>
       <button type="button" className={`${styles.viewBtn} ${view === "months" ? styles.viewBtnOn : ""}`} aria-pressed={view === "months"} onClick={() => onChange("months")}>
         <FiBarChart2 size={13} aria-hidden />
-        <span className="d-none d-sm-inline">{t("bills.viewMonths")}</span>
+        <span>{t("bills.viewMonths")}</span>
+      </button>
+      <button type="button" className={`${styles.viewBtn} ${view === "trends" ? styles.viewBtnOn : ""}`} aria-pressed={view === "trends"} onClick={() => onChange("trends")}>
+        <FiActivity size={13} aria-hidden />
+        <span>{t("bills.viewTrends")}</span>
       </button>
     </div>
   );
@@ -940,6 +946,7 @@ export default function BillsPage() {
   const [billView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
 
   const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
+  const spreads = useMemo(() => billSpreads(bills), [bills]);
   const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
 
   const sections = useMemo(() => {
@@ -1107,7 +1114,10 @@ export default function BillsPage() {
               <>
                 <CashRunway bills={bills} formatCurrency={formatCurrency} />
 
-                <div className="d-flex justify-content-end mb-2">
+                {/* Full width on a phone, where three icon-sized targets side by
+                    side are a game of chance; tucked to the right once there is
+                    room for it to be a control rather than a row. */}
+                <div className="d-flex justify-content-sm-end mb-2">
                   <BillViewToggle view={billView} onChange={setBillView} />
                 </div>
 
@@ -1115,7 +1125,12 @@ export default function BillsPage() {
                   <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                 )}
 
+                {billView === "trends" && (
+                  <BillSpreads spreads={spreads} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenDetails={(spread) => setDetailBill(spread.bill)} />
+                )}
+
                 {billView !== "months" &&
+                  billView !== "trends" &&
                   sections.map((section) => (
                   <div key={section.key} className="mb-3">
                     <div className={styles.listSection}>

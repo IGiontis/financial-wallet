@@ -377,7 +377,17 @@
     "yearAheadTitle": "The next 12 months",
     "yearAheadHint": "What each month is asking for. Tap one to see which bills.",
     "yearAheadPeak_one": "{{month}} is the heavy one at {{amount}} — {{count}} bill lands in it.",
-    "yearAheadPeak_other": "{{month}} is the heavy one at {{amount}} — {{count}} bills land in it."
+    "yearAheadPeak_other": "{{month}} is the heavy one at {{amount}} — {{count}} bills land in it.",
+    "viewTrends": "Trends",
+    "spreadsTitle": "The bills that move",
+    "spreadsHint": "What each charge actually was, and where the latest one falls.",
+    "spreadsEmpty": "Once three or four payments are recorded against a bill whose amount changes, this shows what it usually costs and whether the last charge broke that.",
+    "spreadUsual": "usually {{min}} – {{max}}",
+    "spreadLatest": "latest {{amount}}",
+    "spreadAbove": "{{gap}} above anything before",
+    "spreadBelow": "{{gap}} below anything before",
+    "spreadAsUsual": "in its usual range",
+    "spreadNeedsHistory": "needs more payments"
   },
   "transactions": {
     "title": "Transactions",
