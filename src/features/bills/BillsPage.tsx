@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFoo
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
-import { FiActivity, FiBarChart2, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../transactions/hooks/useTransactions";
@@ -28,7 +28,6 @@ import {
   URGENT_DAYS,
   urgencyToken,
   yearlyBreakdown,
-  billSpreads,
   currentPause,
   yearAhead,
   type MonthChip,
@@ -39,7 +38,9 @@ import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import BillYearAhead from "./BillYearAhead";
-import BillSpreads from "./BillSpreads";
+import BillMonthTimeline from "./BillMonthTimeline";
+import { monthTimeline } from "./monthTimeline";
+import { useSalary } from "../../shared/hooks/useSalary";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import CategoryBillsModal from "./CategoryBillsModal";
@@ -671,7 +672,7 @@ function BillLine({
   );
 }
 
-type BillView = "cards" | "list" | "months" | "trends";
+type BillView = "cards" | "list" | "months" | "timeline";
 
 /** Cards or one line each — the same switch the goals list has. */
 function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: BillView) => void }) {
@@ -687,13 +688,13 @@ function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: B
         <FiList size={13} aria-hidden />
         <span>{t("bills.viewList")}</span>
       </button>
+      <button type="button" className={`${styles.viewBtn} ${view === "timeline" ? styles.viewBtnOn : ""}`} aria-pressed={view === "timeline"} onClick={() => onChange("timeline")}>
+        <FiCalendar size={13} aria-hidden />
+        <span>{t("bills.viewTimeline")}</span>
+      </button>
       <button type="button" className={`${styles.viewBtn} ${view === "months" ? styles.viewBtnOn : ""}`} aria-pressed={view === "months"} onClick={() => onChange("months")}>
         <FiBarChart2 size={13} aria-hidden />
         <span>{t("bills.viewMonths")}</span>
-      </button>
-      <button type="button" className={`${styles.viewBtn} ${view === "trends" ? styles.viewBtnOn : ""}`} aria-pressed={view === "trends"} onClick={() => onChange("trends")}>
-        <FiActivity size={13} aria-hidden />
-        <span>{t("bills.viewTrends")}</span>
       </button>
     </div>
   );
@@ -946,7 +947,14 @@ export default function BillsPage() {
   const [billView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
 
   const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
-  const spreads = useMemo(() => billSpreads(bills), [bills]);
+
+  // The same pay day the planner works from — a second guess here would be a
+  // second answer to "when do I get paid".
+  const { salary } = useSalary(now);
+  const timeline = useMemo(
+    () => monthTimeline(bills, now, salary ? { amount: salary.amount, dayOfMonth: salary.dayOfMonth, label: t("bills.timelineIncome") } : undefined),
+    [bills, now, salary, t],
+  );
   const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
 
   const sections = useMemo(() => {
@@ -1121,16 +1129,16 @@ export default function BillsPage() {
                   <BillViewToggle view={billView} onChange={setBillView} />
                 </div>
 
+                {billView === "timeline" && (
+                  <BillMonthTimeline timeline={timeline} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
+                )}
+
                 {billView === "months" && (
                   <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                 )}
 
-                {billView === "trends" && (
-                  <BillSpreads spreads={spreads} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenDetails={(spread) => setDetailBill(spread.bill)} />
-                )}
-
                 {billView !== "months" &&
-                  billView !== "trends" &&
+                  billView !== "timeline" &&
                   sections.map((section) => (
                   <div key={section.key} className="mb-3">
                     <div className={styles.listSection}>

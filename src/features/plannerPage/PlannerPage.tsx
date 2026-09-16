@@ -12,11 +12,11 @@ import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { useSalary } from "../../shared/hooks/useSalary";
 import { useDebounce } from "../../shared/hooks/useDebounce";
 import {
   asHorizon,
   buildPlan,
-  detectSalary,
   lineRanges,
   monthStart,
   nextOneOffDate,
@@ -59,7 +59,7 @@ export function PlannerPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
-  const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
+  const { isLoading: txLoading, isError } = useTransactions();
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { data: bills = [], isLoading: billLoading } = useBills();
   const { data: allDebts = [] } = useDebts();
@@ -74,7 +74,6 @@ export function PlannerPage() {
   // page down with an invalid date.
   const [storedHorizon, setHorizon] = useWorkspaceSetting<PlannerHorizon>("planner-horizon", 1);
   const [openingInput, setOpeningInput] = useWorkspaceSetting("planner-opening", "");
-  const [storedSalary, setSalaryInput] = useWorkspaceSetting("planner-salary", { amount: "", day: "" });
   const [storedLines, setLines] = useWorkspaceSetting<BudgetLine[]>("planner-lines", []);
   const [storedOneOffs, setOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
   const [storedSkipped, setSkipped] = useWorkspaceSetting<string[]>("planner-skip", []);
@@ -88,7 +87,6 @@ export function PlannerPage() {
   const horizon = asHorizon(storedHorizon);
   // Memoised because it feeds the plan: a fresh object each render would
   // rebuild the whole projection on every keystroke anywhere on the page.
-  const salaryInput = useMemo(() => ({ amount: String(storedSalary?.amount ?? ""), day: String(storedSalary?.day ?? "") }), [storedSalary]);
   const lines = useMemo(
     () => (Array.isArray(storedLines) ? storedLines.filter((l): l is BudgetLine => !!l && typeof l.id === "string" && Number.isFinite(l.amount)) : []),
     [storedLines],
@@ -112,21 +110,9 @@ export function PlannerPage() {
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
-  // Detection only ever fills the field in; the figure the plan uses is the one
-  // left in the box.
-  const detectedSalary = useMemo(() => detectSalary(transactions, now), [transactions, now]);
-
-  const salary = useMemo(() => {
-    const typedAmount = parseFloat(salaryInput.amount);
-    const typedDay = parseInt(salaryInput.day, 10);
-
-    const amount = Number.isFinite(typedAmount) && typedAmount > 0 ? typedAmount : detectedSalary?.amount;
-    const dayOfMonth = Number.isFinite(typedDay) && typedDay >= 1 && typedDay <= 31 ? typedDay : detectedSalary?.dayOfMonth;
-
-    return amount && dayOfMonth ? { amount, dayOfMonth, occurrences: detectedSalary?.occurrences ?? 0 } : undefined;
-  }, [salaryInput, detectedSalary]);
-
-  const salaryIsManual = salaryInput.amount.trim() !== "" || salaryInput.day.trim() !== "";
+  // Shared with the bills timeline, so the two screens cannot end up planning
+  // against different pay days.
+  const { salary, input: salaryInput, setInput: setSalaryInput, detected: detectedSalary, isManual: salaryIsManual } = useSalary(now);
 
   // Only what is owed: money owed *to* you is not income until it turns up, and
   // a plan that spent it in advance would be promising an unmade sale.

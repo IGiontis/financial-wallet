@@ -1611,83 +1611,110 @@
   }
 }
 
-/* ── What each bill that moves has been costing ──────────────────────────────
-   One row per bill, scaled to its own charges. A shared axis would flatten the
-   €9 subscription against the rent and say nothing about either. */
+/* ── The month in order ──────────────────────────────────────────────────────
+   Dated rows on a line, not a calendar grid: seven columns of day squares leave
+   about 44px for an amount, and a row has the whole width for it. */
 
-.spreadRow {
-  display: block;
+.timeline {
+  position: relative;
+  padding-left: 48px;
+}
+
+/* The line itself, stopping at the first and last dot rather than running off
+   the ends of the list. */
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 32px;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  background: var(--color-border-tertiary);
+}
+
+.timelineRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 11px 6px;
+  padding: 8px 4px;
   border: none;
-  border-top: 1px solid var(--color-border-tertiary);
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 
-.spreadRow:hover {
+.timelineRow:disabled {
+  cursor: default;
+}
+
+.timelineRow:hover:not(:disabled) {
   background: var(--color-background-secondary);
 }
 
-.spreadRow:focus-visible {
+.timelineRow:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: -2px;
 }
 
-.spreadHead,
-.spreadFoot {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+.timelineDay {
+  position: absolute;
+  left: -48px;
+  width: 20px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.spreadName {
+.timelineDot {
+  position: absolute;
+  left: -21px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-expense);
+  /* A ring in the card's own colour, so the line appears to pass behind it. */
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
+.timelineDotIn {
+  background: var(--color-income);
+}
+
+.timelineDotDone {
+  background: var(--color-border-primary);
+}
+
+.timelineName {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13.5px;
   color: var(--color-text-primary);
 }
 
-.spreadUsual,
-.spreadLatest {
+.timelineAmount {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.timelineOut {
+  color: var(--color-expense-text);
+}
+
+.timelineIn {
+  color: var(--color-income-text);
+}
+
+/* Already settled, or pay that has landed: still on the line, no longer loud. */
+.timelineRowDone .timelineName,
+.timelineRowDone .timelineAmount {
   color: var(--color-text-secondary);
-}
-
-.spreadBars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 36px;
-  margin: 8px 0;
-}
-
-.spreadBar {
-  flex: 1;
-  min-width: 0;
-  border-radius: 2px 2px 0 0;
-  background: color-mix(in srgb, var(--bs-primary) 45%, transparent);
-}
-
-/* The charge being judged. Neutral unless it broke the range. */
-.spreadBarLast {
-  background: var(--bs-primary);
-}
-
-.spreadBarAbove {
-  background: var(--color-expense);
-}
-
-.spreadBarBelow {
-  background: var(--color-income);
-}
-
-.spreadFoot {
-  margin-top: 2px;
+  font-weight: 500;
 }
