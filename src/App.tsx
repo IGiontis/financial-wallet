@@ -14,7 +14,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { seedDefaultCategories } from "./firebase/seedCategories";
 import { useOnlineStatus } from "./shared/hooks/useOnlineStatus";
 import { useCurrencyConverter } from "./shared/hooks/useCurrencyConverter";
-import { UpdateBanner } from "./shared/components/UpdateBanner";
+import { UpdatePrompt } from "./shared/components/UpdatePrompt";
 
 // Devtools are a development-only aid — lazily imported so the bundle Vite ships
 // to users never contains them.
@@ -112,7 +112,7 @@ export function App() {
           {!isOnline && <OfflineBanner />}
           {/* Mounted always: the hook inside it is what registers the service
               worker, and it draws nothing until there is a version waiting. */}
-          <UpdateBanner />
+          <UpdatePrompt />
           <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
           {ReactQueryDevtools && (
             <Suspense fallback={null}>
