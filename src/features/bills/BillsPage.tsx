@@ -18,6 +18,7 @@ import {
   expectedAmount,
   getFrequencyLabel,
   groupBills,
+  overdueBills,
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
@@ -332,14 +333,26 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
 
 // ─── Quick stats ─────────────────────────────────────────────────────────────
 
-function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string; onOpenActive: () => void }) {
+function QuickStats({
+  bills,
+  formatCurrency,
+  onOpenActive,
+  onOpenOverdue,
+}: {
+  bills: BillWithStatus[];
+  formatCurrency: (n: number) => string;
+  onOpenActive: () => void;
+  onOpenOverdue: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const active = bills.filter((b) => b.isActive);
   // Off right now — the holiday house this winter, the flat that was left. The
   // "N paused" line under the count existed before anything could be paused.
   const stopped = active.filter((b) => isStoppedNow(b)).length;
   const grouped = groupBills(active);
-  const overdueCount = grouped.overdue.length;
+  // The same list the tile opens, so the number and the names cannot disagree.
+  const overdue = overdueBills(bills);
+  const overdueCount = overdue.bills.length;
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
   const approximate = totalsAreApproximate(active);
 
@@ -357,7 +370,9 @@ function QuickStats({ bills, formatCurrency, onOpenActive }: { bills: BillWithSt
       value: String(overdueCount),
       label: t("bills.overdueCount"),
       color: overdueCount > 0 ? "var(--color-expense)" : "var(--color-text-primary)",
-      sub: overdueCount > 0 ? formatCurrency(grouped.overdue.reduce((s, b) => s + expectedAmount(b), 0)) : t("bills.noneLate"),
+      sub: overdueCount > 0 ? formatCurrency(overdue.total) : t("bills.noneLate"),
+      // "Three late" is a headline; which three is what you act on.
+      onClick: overdueCount > 0 ? onOpenOverdue : undefined,
     },
     { value: nextValue, label: t("bills.nextUp"), color: nextColor, sub: nextSub },
     {
@@ -915,6 +930,7 @@ export default function BillsPage() {
   // view can ask for any of the twelve.
   const [breakdownMonth, setBreakdownMonth] = useState<number | null>(null);
   const [showActive, setShowActive] = useState(false);
+  const [showOverdue, setShowOverdue] = useState(false);
   // Below the desktop breakpoint the year sat under the whole list, which meant
   // scrolling past every bill to reach it. Two views, one at a time.
   const compact = useNarrowScreen("(max-width: 991.98px)");
@@ -976,6 +992,8 @@ export default function BillsPage() {
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
   const activeBills = useMemo(() => bills.filter((b) => b.isActive).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent), [bills]);
+  const late = useMemo(() => overdueBills(bills), [bills]);
+  const shortDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const categoryBills = useMemo(
     () => (openCategory ? bills.filter((b) => b.isActive && b.categoryId === openCategory.id).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent) : []),
     [bills, openCategory],
@@ -1084,7 +1102,7 @@ export default function BillsPage() {
           <Col xs={12} lg={7} xl={8}>
             <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(0)} />
             {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(1)} />}
-            <QuickStats bills={bills} formatCurrency={formatCurrency} onOpenActive={() => setShowActive(true)} />
+            <QuickStats bills={bills} formatCurrency={formatCurrency} onOpenActive={() => setShowActive(true)} onOpenOverdue={() => setShowOverdue(true)} />
 
             {/* On a phone the two halves of this page take turns.
 
@@ -1204,6 +1222,33 @@ export default function BillsPage() {
         />
       )}
 
+      {/* The late ones, from the count that says how many. Same list as the
+          active bills, told what matters here instead: how late, and what it
+          comes to. */}
+      {showOverdue && (
+        <CategoryBillsModal
+          label={t("bills.overdueCount")}
+          icon="⏰"
+          bills={late.bills}
+          formatCurrency={formatCurrency}
+          summary={{ left: t("bills.billsInCategory", { count: late.bills.length }), right: t("bills.owedTotal", { amount: formatCurrency(late.total) }), tone: "var(--color-expense-text)" }}
+          describeRow={(bill) => {
+            const days = daysUntilDeadline(bill) ?? 0;
+            return {
+              meta: t("bills.lateByDays", { count: Math.abs(days) }),
+              amount: `${bill.isVariableAmount ? "~" : ""}${formatCurrency(expectedAmount(bill))}`,
+              sub: bill.deadline ? t("bills.wasDueOn", { date: shortDateFmt.format(bill.deadline) }) : "",
+              tone: "var(--color-expense-text)",
+            };
+          }}
+          onClose={() => setShowOverdue(false)}
+          onOpenBill={(bill) => {
+            setShowOverdue(false);
+            setDetailBill(bill);
+          }}
+        />
+      )}
+
       {/* One category of the yearly projection, opened out. Handing a bill
           straight to the detail modal means the two never stack up. */}
       <CategoryBillsModal
@@ -1261,7 +1306,8 @@ export default function BillsPage() {
         />
       )}
 
-      {breakdownMonth && (
+      {/* `!== null`, not truthiness: this period is month 0. */}
+      {breakdownMonth !== null && (
         <MonthBreakdownModal
           title={breakdownMonth === 0 ? t("bills.thisMonthTitle") : breakdownMonth === 1 ? t("bills.nextMonthTitle") : monthTitleFmt.format(new Date(now.getFullYear(), now.getMonth() + breakdownMonth, 1))}
           forecast={breakdownMonth === 0 ? thisMonth : breakdownMonth === 1 ? forecast : monthForecast(bills, now, breakdownMonth)}

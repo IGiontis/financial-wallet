@@ -390,7 +390,9 @@
     "timelineIncome": "Μισθός",
     "timelineGap": "{{amount}} πρέπει να φύγουν πριν μπει ο μισθός στις {{day}} — αυτά βγαίνουν από τον προηγούμενο μήνα.",
     "timelineNoSalary": "Όρισε μέρα μισθού στον planner και εδώ θα βλέπεις τι πρέπει να καλυφθεί πριν αυτός έρθει.",
-    "timelineToday": "σήμερα"
+    "timelineToday": "σήμερα",
+    "owedTotal": "{{amount}} οφειλή",
+    "wasDueOn": "λήξη {{date}}"
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -1210,13 +1212,7 @@
     "empty": "Δεν υπάρχει τίποτα. Καταχώρισε ένα δάνειο και θα κρατάει λογαριασμό.",
     "remaining": "μένουν {{amount}}",
     "settled": "Εξοφλημένο",
-    "tookAmount": "πήρες {{amount}}",
-    "gaveAmount": "έδωσες {{amount}}",
     "dueBy": "επιστροφή ώς {{date}}",
-    "paidBack": "έδωσες πίσω",
-    "gotBack": "πήρες πίσω",
-    "recordPayback": "Καταχώριση εξόφλησης",
-    "recordReceipt": "Καταχώριση είσπραξης",
     "of": "από {{amount}}",
     "deleteLoan": "Διαγραφή δανείου",
     "deleteLoanConfirm": "Να διαγραφεί το δάνειο και όλες οι εξοφλήσεις του; Δεν αναιρείται.",
@@ -1228,7 +1224,17 @@
     "netBehind": "εις βάρος σου",
     "netEven": "πατσί",
     "useTypedPerson": "Χρήση «{{name}}»",
-    "noPersonMatches": "Κανείς καταχωρημένος δεν ταιριάζει. Γράψε όνομα για να προστεθεί."
+    "noPersonMatches": "Κανείς καταχωρημένος δεν ταιριάζει. Γράψε όνομα για να προστεθεί.",
+    "editLoan": "Επεξεργασία δανείου",
+    "payShortOut": "Πληρωμή",
+    "payShortIn": "Είσπραξη",
+    "editShort": "Αλλαγή",
+    "took": "Πήρες",
+    "gave": "Έδωσες",
+    "repaidOut": "Έδωσες πίσω",
+    "repaidIn": "Πήρες πίσω",
+    "today": "Σήμερα",
+    "history": "Ιστορικό"
   },
   "statement": {
     "title": "Κατάσταση",

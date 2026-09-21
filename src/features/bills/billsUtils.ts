@@ -762,6 +762,22 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
 /** Amount a bill is expected to cost — the recent average for variable bills. */
 export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
 
+/**
+ * The bills that are late, most late first, and what they come to.
+ *
+ * One function behind both the count on the page and the list that count opens,
+ * so "3 late, €214" can never sit above a list of two, or a list that adds up
+ * to something else. Stopped bills are left out for the same reason the count
+ * always left them out: a bill that is switched off is not owed.
+ */
+export function overdueBills(bills: BillWithStatus[], now: Date = new Date()): { bills: BillWithStatus[]; total: number } {
+  const late = groupBills(
+    bills.filter((bill) => bill.isActive),
+    now,
+  ).overdue;
+  return { bills: late, total: late.reduce((sum, bill) => sum + expectedAmount(bill), 0) };
+}
+
 // ─── Cash runway ────────────────────────────────────────────────────────────
 // "How much do I need to have, and by when?" — the question a list of bills
 // can't answer on its own. Each checkpoint is a real deadline date carrying a

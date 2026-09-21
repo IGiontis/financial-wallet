@@ -125,7 +125,9 @@ export function DebtsPage() {
         )}
       </div>
 
-      {person && <PersonDebtsModal person={person} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />}
+      {person && (
+        <PersonDebtsModal person={person} knownPeople={people.map((p) => p.person)} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />
+      )}
       {adding && <AddDebtModal knownPeople={people.map((p) => p.person)} onClose={() => setAdding(false)} />}
     </PageShell>
   );

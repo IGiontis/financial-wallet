@@ -23,6 +23,7 @@ import {
   getPeriodKey,
   getPeriodOptions,
   groupBills,
+  overdueBills,
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
@@ -1672,5 +1673,50 @@ describe("salaryShare", () => {
 
   it("treats a negative bill total as nothing owed", () => {
     expect(salaryShare(1800, -50)).toEqual({ left: 1800, takenPct: 0, leftPct: 100 });
+  });
+});
+
+describe("overdueBills", () => {
+  const now = new Date("2026-07-15T10:00:00");
+
+  it("lists what is late, most late first", () => {
+    const { bills } = overdueBills(
+      [
+        statusOf({ id: "recent", nextDueDate: new Date("2026-07-14") }),
+        statusOf({ id: "upcoming", nextDueDate: new Date("2026-07-25") }),
+        statusOf({ id: "ancient", nextDueDate: new Date("2026-07-01") }),
+        statusOf({ id: "paid", isPaidThisPeriod: true, nextDueDate: new Date("2026-07-01") }),
+      ],
+      now,
+    );
+
+    expect(bills.map((b) => b.id)).toEqual(["ancient", "recent"]);
+  });
+
+  it("leaves out a bill that is switched off", () => {
+    // Not owed, so not late — the count on the page never included it either.
+    const { bills } = overdueBills([statusOf({ id: "off", nextDueDate: new Date("2026-07-01") }, { isActive: false })], now);
+
+    expect(bills).toHaveLength(0);
+  });
+
+  it("adds up to the same figure the rows show", () => {
+    const late = [
+      statusOf({ id: "rent", nextDueDate: new Date("2026-07-01") }, { amount: 420 }),
+      statusOf({ id: "water", nextDueDate: new Date("2026-07-10") }, { amount: 68.4 }),
+      // Variable: counted at its recent average, which is what the row shows.
+      statusOf({ id: "power", nextDueDate: new Date("2026-07-12"), averagePaidAmount: 91.25 }, { amount: 80, isVariableAmount: true }),
+    ];
+
+    const { bills, total } = overdueBills(late, now);
+
+    // Second route: by hand, from the figures above rather than the function.
+    expect(420 + 68.4 + 91.25).toBeCloseTo(579.65, 2);
+    expect(total).toBeCloseTo(579.65, 2);
+    expect(bills.reduce((sum, b) => sum + (b.isVariableAmount ? (b.averagePaidAmount ?? b.amount) : b.amount), 0)).toBeCloseTo(total, 2);
+  });
+
+  it("comes to nothing when nothing is late", () => {
+    expect(overdueBills([statusOf({ id: "a", nextDueDate: new Date("2026-07-25") })], now)).toEqual({ bills: [], total: 0 });
   });
 });

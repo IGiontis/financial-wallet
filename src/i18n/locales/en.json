@@ -390,7 +390,9 @@
     "timelineIncome": "Pay",
     "timelineGap": "{{amount}} has to leave before the pay lands on {{day}} — that comes out of last month.",
     "timelineNoSalary": "Set a pay day in the planner and this will show what has to be covered before it arrives.",
-    "timelineToday": "today"
+    "timelineToday": "today",
+    "owedTotal": "{{amount}} owed",
+    "wasDueOn": "due {{date}}"
   },
   "transactions": {
     "title": "Transactions",
@@ -1210,13 +1212,7 @@
     "empty": "Nothing on record. Add a loan and it will keep count for you.",
     "remaining": "{{amount}} left",
     "settled": "Settled",
-    "tookAmount": "you took {{amount}}",
-    "gaveAmount": "you gave {{amount}}",
     "dueBy": "back by {{date}}",
-    "paidBack": "you paid back",
-    "gotBack": "you got back",
-    "recordPayback": "Record a payment",
-    "recordReceipt": "Record money back",
     "of": "of {{amount}}",
     "deleteLoan": "Delete loan",
     "deleteLoanConfirm": "Delete this loan and every repayment against it? This cannot be undone.",
@@ -1228,7 +1224,17 @@
     "netBehind": "against you",
     "netEven": "all square",
     "useTypedPerson": "Use \"{{name}}\"",
-    "noPersonMatches": "Nobody on record matches. Type a name to add them."
+    "noPersonMatches": "Nobody on record matches. Type a name to add them.",
+    "editLoan": "Edit loan",
+    "payShortOut": "Payment",
+    "payShortIn": "Money back",
+    "editShort": "Edit",
+    "took": "You took",
+    "gave": "You gave",
+    "repaidOut": "You paid back",
+    "repaidIn": "You got back",
+    "today": "Today",
+    "history": "History"
   },
   "statement": {
     "title": "Statement",

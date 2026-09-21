@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  debtEdit,
+  DEBT_FORM_OPTIONAL_FIELDS,
   computeDebtStatus,
   currentRate,
   debtTotals,
@@ -662,5 +664,63 @@ describe("rateOutlook — what a move would cost", () => {
     // the check that the daily walk and the schedule are describing one loan.
     const onSchedule = rateOutlook(twoYearsIn, 0, later)!.instalment;
     expect(Math.abs(onSchedule - 1001.25)).toBeLessThan(3);
+  });
+});
+
+// ─── Correcting a loan ───────────────────────────────────────────────────────
+//
+// What matters is what an edit takes away. The ordinary update skips anything
+// undefined, which is right for a partial change and wrong for a corrected
+// form: a loan typed with 7% interest by mistake and then corrected to a plain
+// IOU would keep its 7% on the document, and with it an instalment, an interest
+// bill and a finish date for money a friend lent you.
+
+describe("debtEdit", () => {
+  const loan = {
+    person: "Bank",
+    direction: "owed_by_me" as const,
+    label: "Car",
+    amount: 10000,
+    date: new Date(2026, 0, 10),
+    dueDate: new Date(2031, 0, 10),
+    interestRate: 7,
+    termMonths: 60,
+    interestFreeMonths: 3,
+  };
+
+  it("writes every field the form filled in", () => {
+    const { set, clear } = debtEdit(loan);
+
+    expect(set).toEqual(loan);
+    expect(clear).toEqual(["rateType", "baseRate", "margin", "rateReviewedAt"]);
+  });
+
+  it("clears the whole loan when the interest is switched off", () => {
+    // The mistake this exists for: corrected to money between two people.
+    const { set, clear } = debtEdit({ person: "Nikos", direction: "owed_by_me", amount: 200, date: new Date(2026, 0, 10) });
+
+    expect(clear).toEqual(expect.arrayContaining(["interestRate", "termMonths", "interestFreeMonths", "rateType", "baseRate", "margin", "rateReviewedAt"]));
+    expect(set).not.toHaveProperty("interestRate");
+    expect(set).not.toHaveProperty("termMonths");
+  });
+
+  it("clears a label or a due date that was emptied", () => {
+    const { clear } = debtEdit({ ...loan, label: undefined, dueDate: undefined });
+
+    expect(clear).toContain("label");
+    expect(clear).toContain("dueDate");
+  });
+
+  it("never touches a field the form does not show", () => {
+    // Notes have no field on the form, so no edit can have meant to remove them.
+    expect(DEBT_FORM_OPTIONAL_FIELDS).not.toContain("notes");
+    expect(debtEdit({ person: "Nikos", direction: "owed_by_me", amount: 200, date: new Date(2026, 0, 10) }).clear).not.toContain("notes");
+  });
+
+  it("never clears what it is also writing", () => {
+    const { set, clear } = debtEdit({ ...loan, rateType: "floating", baseRate: 2.4, margin: 1.2, rateReviewedAt: new Date(2026, 5, 1) });
+
+    expect(clear.filter((field) => field in set)).toEqual([]);
+    expect(clear).toEqual([]);
   });
 });

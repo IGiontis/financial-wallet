@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import type { Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
+import type { CreateDebtDTO, Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 
 // What is still open, per loan and per person.
 //
@@ -426,4 +426,32 @@ export function rateOutlook(debt: DebtWithStatus, deltaPoints: number, asOf: Dat
     interestDelta: round2(interestThen - interestNow),
     monthsLeft: then.months,
   };
+}
+
+// ─── Correcting a loan ───────────────────────────────────────────────────────
+
+/**
+ * The optional fields the loan form owns — and so the ones an edit may remove.
+ *
+ * `notes` is deliberately not here: the form has no field for it, so an edit
+ * has no business deciding it should be gone.
+ */
+export const DEBT_FORM_OPTIONAL_FIELDS = ["label", "dueDate", "interestRate", "termMonths", "interestFreeMonths", "rateType", "baseRate", "margin", "rateReviewedAt"] as const;
+
+type DebtFormOptionalField = (typeof DEBT_FORM_OPTIONAL_FIELDS)[number];
+
+/**
+ * What saving the loan form over an existing loan writes, and what it removes.
+ *
+ * The ordinary update drops anything undefined, which for an edit is the wrong
+ * answer: switch the interest off on a loan entered with 7% and the 7% would
+ * quietly stay on the document, and every figure worked out from it — the
+ * instalment, the interest, the finish date — would carry on as if it were
+ * still a loan. An edit is the form's whole answer, so a field the form now
+ * leaves empty is one to clear, not one to keep.
+ */
+export function debtEdit(next: CreateDebtDTO): { set: Partial<CreateDebtDTO>; clear: DebtFormOptionalField[] } {
+  const set = Object.fromEntries(Object.entries(next).filter(([, value]) => value !== undefined)) as Partial<CreateDebtDTO>;
+  const clear = DEBT_FORM_OPTIONAL_FIELDS.filter((field) => next[field] === undefined);
+  return { set, clear };
 }

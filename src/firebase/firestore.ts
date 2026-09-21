@@ -1,6 +1,7 @@
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, deleteField, writeBatch } from "firebase/firestore";
 import { db } from "./config";
 import { requireConnection } from "../shared/utils/offlinePolicy";
+import { debtEdit } from "../features/debts/debtsUtils";
 
 import type {
   Debt,
@@ -479,6 +480,19 @@ export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
   await updateDoc(doc(db, "debts", debtId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
 };
 
+/**
+ * Saving the loan form over an existing loan. Unlike `updateDebt`, fields the
+ * form now leaves empty are removed rather than kept — see `debtEdit`.
+ */
+export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
+  const { set, clear } = debtEdit(next);
+  await updateDoc(doc(db, "debts", debtId), {
+    ...set,
+    ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
+    updatedAt: serverTimestamp(),
+  });
+};
+
 /** Deleting a loan takes its repayments with it — they mean nothing alone. */
 export const deleteDebt = async (debtId: string, paymentIds: string[]) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
@@ -496,6 +510,11 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
     createdAt: serverTimestamp(),
   });
   return ref.id;
+};
+
+/** Correcting a repayment typed wrong: the amount, the day, or both. */
+export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date }) => {
+  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date });
 };
 
 export const deleteDebtPayment = async (paymentId: string) => {

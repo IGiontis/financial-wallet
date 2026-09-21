@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, getDebtPayments, getDebts, updateDebt } from "../../firebase/firestore";
+import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, editDebt, getDebtPayments, getDebts, updateDebt, updateDebtPayment } from "../../firebase/firestore";
 import { computeDebtStatus } from "./debtsUtils";
 import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, UpdateDebtDTO } from "../../shared/types/IndexTypes";
 
@@ -51,6 +51,12 @@ export function useUpdateDebt() {
   return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: UpdateDebtDTO }) => updateDebt(debtId, data), onSuccess: refresh });
 }
 
+/** The whole loan form saved over an existing loan — see `editDebt`. */
+export function useEditDebt() {
+  const { refresh } = useDebtRefresh();
+  return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: CreateDebtDTO }) => editDebt(debtId, data), onSuccess: refresh });
+}
+
 export function useDeleteDebt() {
   const { refresh } = useDebtRefresh();
   return useMutation({ mutationFn: ({ debtId, paymentIds }: { debtId: string; paymentIds: string[] }) => deleteDebt(debtId, paymentIds), onSuccess: refresh });
@@ -64,4 +70,9 @@ export function useRecordRepayment() {
 export function useDeleteRepayment() {
   const { refresh } = useDebtRefresh();
   return useMutation({ mutationFn: (paymentId: string) => deleteDebtPayment(paymentId), onSuccess: refresh });
+}
+
+export function useUpdateRepayment() {
+  const { refresh } = useDebtRefresh();
+  return useMutation({ mutationFn: ({ paymentId, amount, date }: { paymentId: string; amount: number; date: Date }) => updateDebtPayment(paymentId, { amount, date }), onSuccess: refresh });
 }

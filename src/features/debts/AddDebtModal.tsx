@@ -3,15 +3,19 @@ import { Button, Form, FormGroup, Input, InputGroup, InputGroupText, Label, Moda
 import { useTranslation } from "react-i18next";
 import { PayeeInput } from "../transactions/components/PayeeInput";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useCreateDebt } from "./useDebts";
+import { useCreateDebt, useEditDebt } from "./useDebts";
 import { monthlyInstalment } from "./debtsUtils";
 import { DateField } from "../../shared/components/DateField";
 import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
-import type { DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
+import { parseISODay, toISODay } from "../../shared/utils/dates";
+import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar day, not `toISOString()`: in Greece that is still yesterday
+// until three in the morning.
+const today = () => toISODay(new Date());
+const asInput = (n: number | undefined) => (n === undefined || n === null ? "" : String(n));
 
 /**
  * Recording a loan.
@@ -20,27 +24,35 @@ const today = () => new Date().toISOString().slice(0, 10);
  * did the money go" is the one thing that must never be ambiguous, and a minus
  * sign in a text field is exactly the kind of detail that is misread once and
  * then never noticed again.
+ *
+ * Given a `debt`, the same form corrects it instead. Same fields, same rules,
+ * filled in from what was saved — a second form for editing would be a second
+ * place for the two to drift apart.
  */
-export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: string[]; onClose: () => void }) {
+export default function AddDebtModal({ knownPeople, onClose, debt }: { knownPeople: string[]; onClose: () => void; debt?: Debt }) {
   const { t, i18n } = useTranslation();
   const { baseCurrency, format: formatCurrency } = useCurrencyConverter();
   // The same locale the money formatter uses: 3,5% in Greek, 3.5% in English.
   const pct = new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", { maximumFractionDigits: 2 });
   const create = useCreateDebt();
+  const edit = useEditDebt();
+  const saving = create.isPending || edit.isPending;
 
-  const [direction, setDirection] = useState<DebtDirection>("owed_by_me");
-  const [person, setPerson] = useState("");
-  const [label, setLabel] = useState("");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(today);
-  const [dueDate, setDueDate] = useState("");
-  const [withInterest, setWithInterest] = useState(false);
-  const [rateType, setRateType] = useState<DebtRateType>("fixed");
-  const [rate, setRate] = useState("");
-  const [base, setBase] = useState("");
-  const [margin, setMargin] = useState("");
-  const [term, setTerm] = useState("");
-  const [free, setFree] = useState("");
+  const [direction, setDirection] = useState<DebtDirection>(debt?.direction ?? "owed_by_me");
+  const [person, setPerson] = useState(debt?.person ?? "");
+  const [label, setLabel] = useState(debt?.label ?? "");
+  const [amount, setAmount] = useState(asInput(debt?.amount));
+  const [date, setDate] = useState(() => (debt ? toISODay(debt.date) : today()));
+  const [dueDate, setDueDate] = useState(() => (debt?.dueDate ? toISODay(debt.dueDate) : ""));
+  // A term is what made it a loan when it was saved (see below), so it is what
+  // says whether the switch starts on.
+  const [withInterest, setWithInterest] = useState((debt?.termMonths ?? 0) > 0);
+  const [rateType, setRateType] = useState<DebtRateType>(debt?.rateType ?? "fixed");
+  const [rate, setRate] = useState(debt?.rateType === "floating" ? "" : asInput(debt?.interestRate));
+  const [base, setBase] = useState(asInput(debt?.baseRate));
+  const [margin, setMargin] = useState(asInput(debt?.margin));
+  const [term, setTerm] = useState(asInput(debt?.termMonths));
+  const [free, setFree] = useState(asInput(debt?.interestFreeMonths));
   const [touched, setTouched] = useState(false);
 
   const value = parseFloat(amount);
@@ -85,35 +97,42 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
     e.preventDefault();
     setTouched(true);
     if (person.trim() === "" || !Number.isFinite(value) || value <= 0) return;
+    const when = parseISODay(date);
+    if (!when) return;
 
-    create.mutate(
-      {
-        person: person.trim(),
-        direction,
-        label: label.trim() || undefined,
-        amount: value,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-        // Only when both are there: a rate without a term cannot be amortised,
-        // and half a loan is worse than none. On a floating loan the stored rate
-        // is the sum of the two parts, so anything reading only that still gets
-        // the rate in force; the parts are kept beside it so the index can be
-        // updated on its own when it moves.
-        interestRate: isLoanEntry && allInRate > 0 ? allInRate : undefined,
-        termMonths: isLoanEntry ? termValue : undefined,
-        interestFreeMonths: isLoanEntry && freeValue > 0 ? freeValue : undefined,
-        rateType: isLoanEntry && floating ? "floating" : undefined,
-        baseRate: isLoanEntry && floating ? num(base) : undefined,
-        margin: isLoanEntry && floating ? num(margin) : undefined,
-        rateReviewedAt: isLoanEntry && floating ? new Date() : undefined,
-      },
-      { onSuccess: onClose },
-    );
+    // The index date says when the rate was last read. Re-saving a loan to fix
+    // its label has not re-read anything, so an unchanged rate keeps its date.
+    const rateUnchanged = debt?.rateType === "floating" && debt.baseRate === num(base) && debt.margin === num(margin);
+    const reviewedAt = rateUnchanged && debt?.rateReviewedAt ? debt.rateReviewedAt : new Date();
+
+    const data: CreateDebtDTO = {
+      person: person.trim(),
+      direction,
+      label: label.trim() || undefined,
+      amount: value,
+      date: when,
+      dueDate: parseISODay(dueDate) ?? undefined,
+      // Only when both are there: a rate without a term cannot be amortised,
+      // and half a loan is worse than none. On a floating loan the stored rate
+      // is the sum of the two parts, so anything reading only that still gets
+      // the rate in force; the parts are kept beside it so the index can be
+      // updated on its own when it moves.
+      interestRate: isLoanEntry && allInRate > 0 ? allInRate : undefined,
+      termMonths: isLoanEntry ? termValue : undefined,
+      interestFreeMonths: isLoanEntry && freeValue > 0 ? freeValue : undefined,
+      rateType: isLoanEntry && floating ? "floating" : undefined,
+      baseRate: isLoanEntry && floating ? num(base) : undefined,
+      margin: isLoanEntry && floating ? num(margin) : undefined,
+      rateReviewedAt: isLoanEntry && floating ? reviewedAt : undefined,
+    };
+
+    if (debt) edit.mutate({ debtId: debt.id, data }, { onSuccess: onClose });
+    else create.mutate(data, { onSuccess: onClose });
   };
 
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{t("debts.add")}</ModalHeader>
+      <ModalHeader toggle={onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
       <Form onSubmit={submit}>
         <ModalBody className={direction === "owed_by_me" ? "wash-expense" : "wash-income"}>
           {/* Two answers, half the row each, and the selected side filled in the
@@ -277,11 +296,11 @@ export default function AddDebtModal({ knownPeople, onClose }: { knownPeople: st
         </ModalBody>
 
         <ModalFooter>
-          <Button color="secondary" outline type="button" onClick={onClose} disabled={create.isPending}>
+          <Button color="secondary" outline type="button" onClick={onClose} disabled={saving}>
             {t("common.cancel")}
           </Button>
-          <Button color="primary" type="submit" disabled={create.isPending}>
-            {create.isPending ? t("common.saving") : t("common.save")}
+          <Button color="primary" type="submit" disabled={saving}>
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         </ModalFooter>
       </Form>
