@@ -134,28 +134,6 @@
 
 /* ── One loan inside a person ─────────────────────────────────────────────── */
 
-.loan {
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--color-border-tertiary);
-}
-
-.loan:first-of-type {
-  border-top: 0;
-}
-
-.loanHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 13px;
-}
-
-.loanMeta {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
 .track {
   height: 5px;
   margin: 0.375rem 0;
@@ -167,154 +145,6 @@
 .fill {
   height: 100%;
   background: var(--color-income);
-}
-
-/* ── A loan's buttons ──────────────────────────────────────────────────────── */
-/* Real buttons in one row, the thing you came to do widest. They were text
-   links, and on a phone a text link is a guess about where to tap. */
-
-.loanButtons {
-  display: flex;
-  gap: 6px;
-  margin: 0.625rem 0 0.25rem;
-}
-
-.loanButtonMain {
-  flex: 1.4 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.loanButtonSide {
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-/* Delete is an icon: it is the least used and the most final, and it should
-   not compete for width with the two that are used every week. */
-.loanButtonIcon {
-  flex: 0 0 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0;
-}
-
-/* ── The line through time ─────────────────────────────────────────────────── */
-/* The same shape as the month on the Bills page: a rule down the left, a dot
-   per event, and a hollow ring for today. */
-
-.history {
-  position: relative;
-  margin: 0.5rem 0 0;
-  padding: 0 0 0 20px;
-  list-style: none;
-}
-
-.history::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 16px;
-  bottom: 16px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--color-border-primary);
-}
-
-.historyRow {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 36px;
-  padding: 0.25rem 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-size: 13px;
-  text-align: left;
-}
-
-.historyRowTappable {
-  cursor: pointer;
-  border-radius: var(--border-radius-sm);
-}
-
-.historyRowTappable:hover,
-.historyRowTappable[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-}
-
-.historyRowTappable:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
-}
-
-.historyDot {
-  position: absolute;
-  left: -19px;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin-top: -5px;
-  border-radius: 50%;
-}
-
-.historyDotOut {
-  background: var(--color-expense);
-}
-
-.historyDotIn {
-  background: var(--color-income);
-}
-
-/* Repayments in both directions: each one is the debt getting smaller. */
-.historyDotPaid {
-  background: var(--color-income);
-}
-
-/* Today is a position, not an event — a ring rather than a fill. */
-.historyDotNow {
-  left: -20px;
-  width: 12px;
-  height: 12px;
-  margin-top: -6px;
-  border: 2px solid var(--bs-primary);
-  background: var(--color-surface-raised);
-}
-
-.historyWhat {
-  min-width: 0;
-}
-
-.historyWhen {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-}
-
-.historyAmount {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.historyEdit {
-  color: var(--color-text-secondary);
 }
 
 /* ── Recording or correcting a payment ─────────────────────────────────────── */
@@ -391,21 +221,6 @@
 }
 
 /* The facts of an open loan, on its row in the person's sheet. */
-.loanFacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin: 6px 0 2px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.loanFacts strong {
-  color: var(--color-text-primary);
-  font-weight: 600;
-}
-
 /* ── Paying extra ──────────────────────────────────────────────────────────── */
 /* The question a borrower actually has, and the only one the app can answer
    that a bank statement cannot. */
@@ -635,5 +450,444 @@
 
   .fields dd {
     margin-bottom: 8px;
+  }
+}
+
+/* ── One person's sheet ───────────────────────────────────────────────────── */
+/* One loan in front. A phone gets the whole screen with the payment button held
+   at the bottom; from 992px it splits into the loan on the left and its tabs on
+   the right, so nothing needs scrolling to compare. */
+
+.sheetHeader {
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sheetHeader :global(.modal-title) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sheetTitle {
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.sheetHeadline {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheetNew {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 0;
+}
+
+/* On one column the two halves dissolve, so the button can sit last. */
+.sheetLeft,
+.sheetRight {
+  display: contents;
+}
+
+/* Which loan is in front: chips that scroll sideways on a phone. */
+.picker {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--bs-modal-padding));
+  padding: 0 var(--bs-modal-padding) 2px;
+  scrollbar-width: none;
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pickOn {
+  border-color: var(--bs-primary);
+  background: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+}
+
+.pickDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pickAmount {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pickBar {
+  display: none;
+}
+
+.pick:focus-visible,
+.payRow:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.heroText {
+  min-width: 0;
+}
+
+.heroName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.heroLabel {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.heroAmount {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroSub {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ring {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+}
+
+.ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: var(--color-background-secondary);
+  stroke-width: 10;
+}
+
+.ringFill {
+  fill: none;
+  stroke: var(--color-income);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.ringCentre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+
+.ringCentre strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ringCentre span {
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.stat {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+}
+
+.stat dt {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.stat dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Held at the bottom of the screen, where a thumb finds it. */
+.cta {
+  order: 1;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: auto calc(-1 * var(--bs-modal-padding)) 0;
+  padding: 0.75rem var(--bs-modal-padding) calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--color-border-tertiary);
+  background: var(--bs-modal-bg);
+}
+
+.cta :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.tabs {
+  --bs-nav-link-color: var(--color-text-secondary);
+  --bs-nav-link-hover-color: var(--color-text-primary);
+  --bs-nav-underline-link-active-color: var(--color-text-primary);
+  --bs-nav-underline-gap: 1.25rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  scrollbar-width: none;
+}
+
+.tabs :global(.nav-link) {
+  padding-block: 0.625rem;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.tabs :global(.nav-link.active) {
+  border-bottom-color: var(--bs-primary);
+}
+
+.tabPanel {
+  padding-block: 0.25rem 1rem;
+}
+
+.payList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+button.payRow {
+  cursor: pointer;
+}
+
+button.payRow:hover,
+button.payRow[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.payWhen {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13.5px;
+}
+
+.paySplit {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.payAmount {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-income-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.payEdit {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Where the loan started: not tappable, lined up with the rows above. */
+.payOrigin {
+  border-bottom: 0;
+  color: var(--color-text-secondary);
+}
+
+.payOrigin::after {
+  content: "";
+  width: 13px;
+  flex-shrink: 0;
+}
+
+.payEmpty {
+  margin: 0.75rem 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.details {
+  margin: 0.25rem 0 0;
+}
+
+.details > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  font-size: 13px;
+}
+
+.details dt {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.details dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.detailButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.detailButtons > :global(.btn) {
+  flex: 1 1 160px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@media (min-width: 992px) {
+  .sheetBody {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+
+  .sheetLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-right: 1px solid var(--color-border-tertiary);
+    background: var(--color-surface);
+  }
+
+  .sheetRight {
+    display: block;
+    min-width: 0;
+    padding: 0.5rem 1.25rem 1.25rem;
+  }
+
+  .picker {
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .pick {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 6px;
+    padding: 9px 10px;
+    border-radius: var(--border-radius-md);
+    text-align: left;
+    white-space: normal;
+  }
+
+  .pickName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pickBar {
+    display: block;
+    grid-column: 1 / -1;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--color-background-secondary);
+  }
+
+  .pickBar span {
+    display: block;
+    height: 100%;
+    background: var(--color-income);
+  }
+
+  /* Beside the figures rather than pinned: the column is never taller than the screen. */
+  .cta {
+    position: static;
+    order: 0;
+    margin: 0.25rem 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
   }
 }

@@ -371,13 +371,16 @@
   overflow: hidden;
 }
 
-/* Full-height sheets on phones so long forms stay reachable */
+/* Full-height sheets on phones so long forms stay reachable.
+   Not for a dialog that asked to fill the screen (`fullscreen="sm"`): these two
+   rules put its 8px margin back and capped its body at the screen less 12rem,
+   so a sheet meant to be edge to edge floated with its button half-way up. */
 @media (max-width: 575.98px) {
-  .modal-dialog {
+  .modal-dialog:not(.modal-fullscreen):not(.modal-fullscreen-sm-down) {
     margin: 0.5rem;
     max-width: calc(100% - 1rem);
   }
-  .modal-body {
+  .modal-dialog:not(.modal-fullscreen):not(.modal-fullscreen-sm-down) .modal-body {
     max-height: calc(100dvh - 12rem);
     overflow-y: auto;
   }

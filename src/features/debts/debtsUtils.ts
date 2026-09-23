@@ -168,6 +168,16 @@ export interface LoanState {
   instalment: number;
 }
 
+/** How one repayment divided between the interest it met and the debt itself. */
+export interface LoanPaymentSplit {
+  /** Interest that had built up since the payment before, as far as this one covered it. */
+  interest: number;
+  /** The rest, off the debt. With `interest` it adds up to the payment to the cent. */
+  principal: number;
+  /** What was owed straight after it. */
+  balance: number;
+}
+
 /**
  * Where a loan stands, from its actual repayments rather than its schedule.
  *
@@ -177,8 +187,11 @@ export interface LoanState {
  * the real payments rather than the schedule means a missed month makes the
  * balance go up, and an overpayment shortens the loan, both of which are true
  * and neither of which a schedule would show.
+ *
+ * One walk answers both questions asked of it — where the loan stands, and how
+ * each payment divided — so the two can never tell different stories.
  */
-export function loanState(debt: DebtWithStatus, asOf: Date = new Date()): LoanState | undefined {
+function walkLoan(debt: DebtWithStatus, asOf: Date): { state: LoanState; splits: Map<string, LoanPaymentSplit> } | undefined {
   if (!isLoan(debt)) return undefined;
 
   const instalment = monthlyInstalment(debt.amount, currentRate(debt), debt.termMonths ?? 0, debt.interestFreeMonths ?? 0);
@@ -193,35 +206,61 @@ export function loanState(debt: DebtWithStatus, asOf: Date = new Date()): LoanSt
   let interestPaid = 0;
   let principalPaid = 0;
   let cursor = firestoreToDate(debt.date);
+  const splits = new Map<string, LoanPaymentSplit>();
 
   const accrueTo = (date: Date) => {
     // Only the stretch on the far side of the free period is charged for.
     const from = cursor > chargesFrom ? cursor : chargesFrom;
     const days = Math.max(differenceInCalendarDays(date, from), 0);
+    let interest = 0;
     if (days > 0 && balance > 0) {
-      const interest = balance * dailyRate * days;
+      interest = balance * dailyRate * days;
       balance += interest;
       interestPaid += interest;
     }
     cursor = date;
+    return interest;
   };
 
   for (const payment of payments) {
-    accrueTo(firestoreToDate(payment.date));
+    const accrued = accrueTo(firestoreToDate(payment.date));
     const amount = Math.abs(payment.amount);
     // Whatever is left of a payment after the interest it met reduces the debt.
     principalPaid += Math.min(amount, Math.max(balance, 0));
     balance = Math.max(balance - amount, 0);
+
+    // Rounded so the two parts tie to the payment rather than each on its own:
+    // a row reading 28,76 + 156,51 under a payment of 185,26 is the first thing
+    // a careful reader adds up. A payment smaller than the interest it met is
+    // all interest, and the shortfall stays on the debt.
+    const interest = round2(Math.min(accrued, amount));
+    splits.set(payment.id, { interest, principal: round2(amount - interest), balance: round2(balance) });
   }
 
   accrueTo(asOf);
 
   return {
-    balance: round2(balance),
-    interestPaid: round2(interestPaid),
-    principalPaid: round2(principalPaid),
-    instalment,
+    state: {
+      balance: round2(balance),
+      interestPaid: round2(interestPaid),
+      principalPaid: round2(principalPaid),
+      instalment,
+    },
+    splits,
   };
+}
+
+export function loanState(debt: DebtWithStatus, asOf: Date = new Date()): LoanState | undefined {
+  return walkLoan(debt, asOf)?.state;
+}
+
+/**
+ * Each repayment on a loan, divided into interest and the part that came off
+ * the debt, keyed by payment. Undefined for money between people, where there
+ * is no interest to divide out.
+ */
+export function loanSplits(debt: DebtWithStatus, asOf: Date = new Date()): Map<string, LoanPaymentSplit> | undefined {
+  return walkLoan(debt, asOf)?.splits;
 }
 
 export interface ScheduleRow {

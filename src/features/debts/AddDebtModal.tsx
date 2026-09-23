@@ -29,7 +29,18 @@ const asInput = (n: number | undefined) => (n === undefined || n === null ? "" :
  * filled in from what was saved — a second form for editing would be a second
  * place for the two to drift apart.
  */
-export default function AddDebtModal({ knownPeople, onClose, debt }: { knownPeople: string[]; onClose: () => void; debt?: Debt }) {
+export default function AddDebtModal({
+  knownPeople,
+  onClose,
+  debt,
+  defaultPerson,
+}: {
+  knownPeople: string[];
+  onClose: () => void;
+  debt?: Debt;
+  /** Who a new loan is with, when it is added from their own sheet. */
+  defaultPerson?: string;
+}) {
   const { t, i18n } = useTranslation();
   const { baseCurrency, format: formatCurrency } = useCurrencyConverter();
   // The same locale the money formatter uses: 3,5% in Greek, 3.5% in English.
@@ -39,7 +50,7 @@ export default function AddDebtModal({ knownPeople, onClose, debt }: { knownPeop
   const saving = create.isPending || edit.isPending;
 
   const [direction, setDirection] = useState<DebtDirection>(debt?.direction ?? "owed_by_me");
-  const [person, setPerson] = useState(debt?.person ?? "");
+  const [person, setPerson] = useState(debt?.person ?? defaultPerson ?? "");
   const [label, setLabel] = useState(debt?.label ?? "");
   const [amount, setAmount] = useState(asInput(debt?.amount));
   const [date, setDate] = useState(() => (debt ? toISODay(debt.date) : today()));

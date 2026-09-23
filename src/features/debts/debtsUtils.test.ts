@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  loanSplits,
   debtEdit,
   DEBT_FORM_OPTIONAL_FIELDS,
   computeDebtStatus,
@@ -722,5 +723,81 @@ describe("debtEdit", () => {
 
     expect(clear.filter((field) => field in set)).toEqual([]);
     expect(clear).toEqual([]);
+  });
+});
+
+// ─── How each repayment divided ─────────────────────────────────────────────
+//
+// The loan sheet shows every payment as "off the debt" and "interest". Those
+// two figures come from the same walk as the balance on top of the sheet, so
+// they are checked against it rather than against themselves.
+
+describe("loanSplits", () => {
+  const start = new Date(2026, 0, 10);
+  const car = (payments: DebtPayment[]) =>
+    computeDebtStatus(
+      { id: "car", userId: "u1", person: "Bank", direction: "owed_by_me", amount: 6000, date: start, interestRate: 7, termMonths: 36, createdAt: start, updatedAt: start } as Debt,
+      payments,
+      new Date(2026, 8, 10),
+    );
+  const monthly = Array.from({ length: 8 }, (_, k) => ({ id: "p" + (k + 1), userId: "u1", debtId: "car", amount: 185.26, date: new Date(2026, k + 1, 10), createdAt: new Date(2026, k + 1, 10) }) as DebtPayment);
+
+  it("divides each payment into two parts that add up to it, to the cent", () => {
+    const splits = loanSplits(car(monthly), new Date(2026, 8, 10))!;
+
+    expect(splits.size).toBe(8);
+    for (const split of splits.values()) expect(Math.round((split.interest + split.principal) * 100)).toBe(18526);
+  });
+
+  it("charges the first payment for the days since the money was lent", () => {
+    // 10 January to 10 February is 31 days: 6000 × 7% ÷ 365 × 31, worked by hand.
+    expect(Math.round(6000 * 0.07 / 365 * 31 * 100) / 100).toBe(35.67);
+    expect(loanSplits(car(monthly), new Date(2026, 8, 10))!.get("p1")!.interest).toBe(35.67);
+  });
+
+  it("agrees with the balance on top of the sheet", () => {
+    // On the day of the last payment nothing has built up since, so the last
+    // row's balance is what the sheet says is left, and the interest column
+    // adds up to the interest so far.
+    const asOf = new Date(2026, 8, 10);
+    const debt = car(monthly);
+    const splits = [...loanSplits(debt, asOf)!.values()];
+    const state = loanState(debt, asOf)!;
+
+    expect(splits[splits.length - 1].balance).toBe(state.balance);
+    expect(splits.reduce((sum, s) => sum + s.interest, 0)).toBeCloseTo(state.interestPaid, 1);
+    // Second route: what was lent, less everything that came off the debt.
+    expect(6000 - splits.reduce((sum, s) => sum + s.principal, 0)).toBeCloseTo(state.balance, 1);
+  });
+
+  it("takes less interest each month as the debt comes down", () => {
+    const interest = [...loanSplits(car(monthly), new Date(2026, 8, 10))!.values()].map((s) => s.interest);
+    // February is a short month, so compare the months that share a length.
+    expect(interest[2]).toBeGreaterThan(interest[4]);
+    expect(interest[4]).toBeGreaterThan(interest[6]);
+  });
+
+  it("puts nothing to interest inside the free months", () => {
+    const free = computeDebtStatus(
+      { id: "tv", userId: "u1", person: "Shop", direction: "owed_by_me", amount: 1200, date: start, interestRate: 9, termMonths: 12, interestFreeMonths: 3, createdAt: start, updatedAt: start } as Debt,
+      [{ id: "t1", userId: "u1", debtId: "tv", amount: 100, date: new Date(2026, 1, 10), createdAt: new Date(2026, 1, 10) } as DebtPayment],
+      new Date(2026, 1, 10),
+    );
+
+    expect(loanSplits(free, new Date(2026, 1, 10))!.get("t1")).toEqual({ interest: 0, principal: 100, balance: 1100 });
+  });
+
+  it("counts a payment too small for the interest as interest only", () => {
+    const short = car([{ id: "s1", userId: "u1", debtId: "car", amount: 10, date: new Date(2026, 1, 10), createdAt: new Date(2026, 1, 10) } as DebtPayment]);
+    const split = loanSplits(short, new Date(2026, 1, 10))!.get("s1")!;
+
+    expect(split).toMatchObject({ interest: 10, principal: 0 });
+    // The rest of the interest stays on the debt: it went up, not down.
+    expect(split.balance).toBeGreaterThan(6000);
+  });
+
+  it("has nothing to divide on money between people", () => {
+    const iou = computeDebtStatus({ id: "i", userId: "u1", person: "Nikos", direction: "owed_by_me", amount: 500, date: start, createdAt: start, updatedAt: start } as Debt, []);
+    expect(loanSplits(iou)).toBeUndefined();
   });
 });
