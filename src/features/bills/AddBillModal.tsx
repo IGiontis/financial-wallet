@@ -380,8 +380,13 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             {intervalCount > 1 && (
               <Col xs={12} sm={6}>
                 <FormGroup className="mb-0">
-                  <Label className="small fw-medium">{t("bills.startingFrom")}</Label>
-                  <Input type="month" name="anchorMonth" value={formik.values.anchorMonth} onChange={formik.handleChange} />
+                  <Label className="small fw-medium" for="bill-anchor-month">
+                    {t("bills.startingFrom")}
+                  </Label>
+                  {/* The app's own calendar in month mode, like every other date
+                      field — not the browser's month picker, which looks and
+                      opens differently on every phone. Same "YYYY-MM" value. */}
+                  <DateField month id="bill-anchor-month" name="anchorMonth" value={formik.values.anchorMonth} onChange={(value) => formik.setFieldValue("anchorMonth", value)} />
                   <FormText className="small">{t("bills.startingFromHint")}</FormText>
                 </FormGroup>
               </Col>
