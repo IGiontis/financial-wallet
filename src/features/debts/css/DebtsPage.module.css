@@ -500,6 +500,14 @@
   display: contents;
 }
 
+/* The body scrolls; nothing in it should be squeezed to fit instead. The
+   loan chips, which scroll sideways, were collapsing to a sliver once the
+   total above them made the column taller than the screen. */
+.sheetLeft > *,
+.sheetRight > * {
+  flex-shrink: 0;
+}
+
 /* Which loan is in front: chips that scroll sideways on a phone. */
 .picker {
   display: flex;
