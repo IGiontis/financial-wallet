@@ -183,6 +183,10 @@ describe("payee suggestions", () => {
     expect(recentPayees(history, 3)).toEqual(["DEI", "AB", "Lidl"]);
   });
 
+  it("puts Greek letters before Latin ones", () => {
+    expect(payeesByInitial(["Aegean", "Άλφα", "Lidl", "Ωμέγα"]).map((g) => g.letter)).toEqual(["Α", "Ω", "A", "L"]);
+  });
+
   it("files names under their first letter, accents dropped, symbols last", () => {
     expect(payeesByInitial(["Ώρα", "Ωκεανός", "Άλφα", "Αβ", "7-Eleven"])).toEqual([
       { letter: "Α", names: ["Αβ", "Άλφα"] },

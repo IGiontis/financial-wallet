@@ -12,6 +12,8 @@ import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import { usePayees } from "../hooks/usePayees";
+import { useTransactions } from "../hooks/useTransactions";
+import { frequentPayees, recentPayees } from "../payeeStore";
 import CategoryPicker from "../../categories/CategoryPicker";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
@@ -135,6 +137,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   const [isFuelCategory, setIsFuelCategory] = useState(false);
   const { t } = useTranslation();
   const { payees } = usePayees();
+  // Already in the cache from the page behind the form — no extra read.
+  const { data: history = [] } = useTransactions();
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const formik = useFormik<TransactionFormValues>({
@@ -279,6 +283,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
+  // The few payees this category is usually paid to, so most entries are one tap.
+  const suggestedPayees = useMemo(() => frequentPayees(history, formik.values.categoryId || undefined), [history, formik.values.categoryId]);
+  const recentPayeeNames = useMemo(() => recentPayees(history), [history]);
+
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{t("transactions.addTransaction")}</ModalHeader>
@@ -401,6 +409,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   <PayeeInput
                     value={formik.values.description}
                     payees={payees}
+                    suggested={suggestedPayees}
+                    recent={recentPayeeNames}
                     placeholder={t("transactions.payeePlaceholder")}
                     invalid={!!(formik.touched.description && formik.errors.description)}
                     onChange={(v) => formik.setFieldValue("description", v)}

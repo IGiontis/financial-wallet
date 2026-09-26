@@ -136,7 +136,9 @@ export function recentPayees(transactions: PayeeUse[], limit = 5): string[] {
 /**
  * The list under letter headings, the way a phone's contacts read. Accents are
  * dropped for the heading only, so "Ά" files under "Α"; anything not a letter
- * goes under "#", last.
+ * goes under "#", last. Greek letters come before Latin ones, as in a Greek
+ * phone's contacts — otherwise the Latin "A" and the Greek "Α", which look the
+ * same, would be two headings with other letters between them.
  */
 export function payeesByInitial(payees: string[]): { letter: string; names: string[] }[] {
   const groups = new Map<string, string[]>();
@@ -146,6 +148,9 @@ export function payeesByInitial(payees: string[]): { letter: string; names: stri
     groups.set(letter, [...(groups.get(letter) ?? []), name]);
   }
   return [...groups.entries()]
-    .sort(([a], [b]) => (a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)))
+    .sort(([a], [b]) => {
+      const rank = (l: string) => (l === "#" ? 2 : /\p{Script=Greek}/u.test(l) ? 0 : 1);
+      return rank(a) - rank(b) || a.localeCompare(b);
+    })
     .map(([letter, names]) => ({ letter, names }));
 }

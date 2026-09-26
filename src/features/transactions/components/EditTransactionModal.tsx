@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -11,6 +11,8 @@ import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import { usePayees } from "../hooks/usePayees";
+import { useTransactions } from "../hooks/useTransactions";
+import { frequentPayees, recentPayees } from "../payeeStore";
 import { format } from "date-fns";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { getUnitLabel } from "../../categories/fuelTypes";
@@ -134,6 +136,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const [step, setStep] = useState<Step>("category");
   const { t } = useTranslation();
   const { payees } = usePayees();
+  // Already in the cache from the page behind the form — no extra read.
+  const { data: history = [] } = useTransactions();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
@@ -243,6 +247,10 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
+  // The few payees this category is usually paid to, so most entries are one tap.
+  const suggestedPayees = useMemo(() => frequentPayees(history, formik.values.categoryId || undefined), [history, formik.values.categoryId]);
+  const recentPayeeNames = useMemo(() => recentPayees(history), [history]);
+
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{t("transactions.editTransaction")}</ModalHeader>
@@ -324,6 +332,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                   <PayeeInput
                     value={formik.values.description}
                     payees={payees}
+                    suggested={suggestedPayees}
+                    recent={recentPayeeNames}
                     placeholder={t("transactions.payeePlaceholder")}
                     invalid={!!(formik.touched.description && formik.errors.description)}
                     onChange={(v) => formik.setFieldValue("description", v)}

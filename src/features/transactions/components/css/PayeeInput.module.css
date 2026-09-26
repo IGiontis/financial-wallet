@@ -190,7 +190,7 @@
   top: 0;
   z-index: 1;
   padding: 6px 0.25rem 4px;
-  background: var(--bs-body-bg);
+  background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 600;
