@@ -23,6 +23,7 @@ import {
   getPeriodKey,
   getPeriodOptions,
   groupBills,
+  groupByCadence,
   cadenceTone,
   overdueBills,
   isHardDeadline,
@@ -1764,5 +1765,24 @@ describe("cadenceTone", () => {
       "success",
       "dark",
     ]);
+  });
+});
+
+describe("groupByCadence", () => {
+  const b = (id: string, frequency: Bill["frequency"], intervalCount?: number) => ({ id, frequency, intervalCount });
+
+  it("gathers bills by how often they come, shortest cycle first, keeping their order inside", () => {
+    const groups = groupByCadence([b("car-insurance", "yearly"), b("rent", "monthly"), b("water", "monthly", 2), b("netflix", "monthly"), b("gym", "weekly"), b("tax", "yearly")]);
+
+    expect(groups.map((g) => [g.key, g.bills.map((x) => x.id)])).toEqual([
+      ["weekly-1", ["gym"]],
+      ["monthly-1", ["rent", "netflix"]],
+      ["monthly-2", ["water"]],
+      ["yearly-1", ["car-insurance", "tax"]],
+    ]);
+  });
+
+  it("treats a missing interval as one", () => {
+    expect(groupByCadence([b("a", "monthly", 1), b("b", "monthly")])).toHaveLength(1);
   });
 });

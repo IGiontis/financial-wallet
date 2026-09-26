@@ -14,6 +14,7 @@ import {
   billMonthStrip,
   billUrgency,
   cadenceTone,
+  groupByCadence,
   cashRunway,
   daysUntilDeadline,
   expectedAmount,
@@ -1198,11 +1199,25 @@ export default function BillsPage() {
                     </div>
 
                     {billView === "list" ? (
-                      <div className={styles.billLines}>
-                        {section.bills.map((bill) => (
-                          <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
-                        ))}
-                      </div>
+                      // Gathered by how often they come — every yearly bill together —
+                      // so the list reads as "what I pay monthly, what yearly".
+                      groupByCadence(section.bills).map((group) => {
+                        const tone = cadenceTone(group.bills[0]);
+                        const freq = getFrequencyLabel(group.bills[0]);
+                        return (
+                          <div key={group.key} className={styles.cadenceGroup}>
+                            <div className={`${styles.cadenceHead} text-${tone}-emphasis`}>
+                              {t(freq.key, { count: freq.count })}
+                              <span className={styles.listSectionCount}>{group.bills.length}</span>
+                            </div>
+                            <div className={styles.billLines}>
+                              {group.bills.map((bill) => (
+                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="d-flex flex-column gap-2">
                         {section.bills.map((bill) => (

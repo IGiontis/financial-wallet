@@ -1192,6 +1192,26 @@ export function cadenceTone(bill: Pick<Bill, "frequency" | "intervalCount">): Ca
   return "secondary";
 }
 
+/**
+ * Bills gathered by how often they come — every month together, every year
+ * together — shortest cycle first. Order inside a group is kept as given, so
+ * whatever sort the caller applied (by deadline, say) still holds.
+ */
+export function groupByCadence<T extends Pick<Bill, "frequency" | "intervalCount">>(bills: T[]): { key: string; bills: T[] }[] {
+  const months = (bill: T) => {
+    const interval = getIntervalCount(bill);
+    return bill.frequency === "weekly" ? interval / 4 : bill.frequency === "yearly" ? interval * 12 : interval;
+  };
+  const groups = new Map<string, { key: string; span: number; bills: T[] }>();
+  for (const bill of bills) {
+    const key = `${bill.frequency}-${getIntervalCount(bill)}`;
+    const group = groups.get(key) ?? { key, span: months(bill), bills: [] };
+    group.bills.push(bill);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.span - b.span).map(({ key, bills }) => ({ key, bills }));
+}
+
 // ─── Month strip ────────────────────────────────────────────────────────────
 // A second way to read the list: instead of one figure per bill, a run of
 // calendar months, coloured in where a payment covers them. A bill every 2

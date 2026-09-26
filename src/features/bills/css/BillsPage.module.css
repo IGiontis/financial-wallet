@@ -1759,3 +1759,18 @@
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--color-text-secondary) 65%, transparent);
 }
+
+/* ── List, gathered by cadence ────────────────────────────────────────────── */
+
+.cadenceGroup + .cadenceGroup {
+  margin-top: 0.75rem;
+}
+
+.cadenceHead {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 4px 2px;
+  font-size: 12px;
+  font-weight: 700;
+}
