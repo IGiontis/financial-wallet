@@ -78,7 +78,7 @@ export const filterTransactions = (transactions: Transaction[], range: DateRange
 const signedContribution = (tx: Transaction) => (tx.contributionType === "deposit" ? tx.amount : -tx.amount);
 
 const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isInvestmentTransaction;
-const isPlainExpense = (tx: Transaction) => tx.type === "expense" && !tx.isInvestmentTransaction;
+export const isPlainExpense = (tx: Transaction) => tx.type === "expense" && !tx.isInvestmentTransaction;
 const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
 const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
 

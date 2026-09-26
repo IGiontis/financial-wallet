@@ -155,3 +155,263 @@
   margin-top: 9px;
   background: var(--color-background-secondary);
 }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+
+/* Full width on every screen: four equal targets, never a scroll. */
+.tabBar {
+  width: 100%;
+}
+
+.tabButton {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 48px;
+  font-size: 12px;
+}
+
+@media (min-width: 576px) {
+  .tabButton {
+    flex-direction: row;
+    gap: 6px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panelTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+/* ── Today ────────────────────────────────────────────────────────────────── */
+
+.attention {
+  display: flex;
+  flex-direction: column;
+}
+
+.attentionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--color-border-tertiary);
+  color: inherit;
+  text-decoration: none;
+}
+
+.attentionRow:first-child {
+  border-top: 0;
+}
+
+.attentionRow:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.attentionRow:focus-visible,
+.tile:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.attentionName {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.attentionAmount {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pairValue {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The month / position ─────────────────────────────────────────────────── */
+
+.verdictValue {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.positionSpark {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 10px;
+}
+
+.madeOf {
+  margin: 0;
+}
+
+.madeOf > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 13.5px;
+}
+
+.madeOf > div:first-child {
+  border-top: 0;
+}
+
+.madeOf dt {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.madeOf dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.madeOf > .madeOfTotal {
+  border-top: 2px solid var(--color-border-primary);
+}
+
+.madeOf > .madeOfTotal dt {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+/* ── Everything ───────────────────────────────────────────────────────────── */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 992px) {
+  .tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* Two columns on a wide screen; the lead panel of each tab spans both. */
+  .stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .stack > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tile:hover {
+  border-color: var(--color-border-primary);
+}
+
+.tileLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tileValue {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.tileSub {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Where it went ────────────────────────────────────────────────────────── */
+
+.spendBar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--color-background-secondary);
+}
+
+.spendBar span {
+  display: block;
+  height: 100%;
+}
+
+.spendKey {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 2px;
+}
+
+.allStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Six ranges do not fit one row on a phone, and scrolling them sideways hid
+   "From – To" off the edge. Here, unlike the app's other segmented rows, they
+   wrap onto a second line so every choice is in sight. */
+@media (max-width: 767.98px) {
+  div.periodPicker {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  div.periodPicker > * {
+    flex: 1 1 auto;
+  }
+}
