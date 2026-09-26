@@ -290,3 +290,36 @@ describe("a new loan from the sheet", () => {
     expect(screen.getByDisplayValue("Nikos")).toBeInTheDocument();
   });
 });
+
+describe("the progress tab", () => {
+  const detail = (label: string) => within(screen.getByRole("tabpanel")).getByText(label).closest("div")!.querySelector("dd")!.textContent;
+
+  it("between people: started with, paid off, left — and no interest line", async () => {
+    renderSheet([rent]);
+    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
+
+    expect(screen.getByText("You started with").nextSibling).toHaveTextContent("€500.00");
+    expect(detail("Paid off")).toBe("€200.00");
+    expect(detail("Left to pay back")).toBe("€300.00");
+    expect(screen.queryByText("Interest you paid")).not.toBeInTheDocument();
+  });
+
+  it("on a loan: what came off the debt and the interest add up to what was handed over", async () => {
+    renderSheet([car]);
+    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
+
+    const paidOff = parseFloat(detail("Paid off")!.replace("€", ""));
+    const interest = parseFloat(detail("Interest you paid")!.replace("€", ""));
+    // Second route: 3 × 185,26 handed over.
+    expect(paidOff + interest).toBeCloseTo(3 * 185.26, 1);
+    expect(screen.getByText(/You have handed over €555\.78 in all/)).toBeInTheDocument();
+  });
+
+  it("turns the words round when the money was lent", async () => {
+    renderSheet([{ ...rent, direction: "owed_to_me" }]);
+    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
+
+    expect(screen.getByText("You lent")).toBeInTheDocument();
+    expect(detail("Got back")).toBe("€200.00");
+  });
+});

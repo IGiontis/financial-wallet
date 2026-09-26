@@ -511,7 +511,11 @@
       "incomeHint": "Money coming in",
       "pickCategory": "Which category does it belong to?",
       "fillDetails": "Amount, date, and who it was with"
-    }
+    },
+    "payeeSuggested": "Frequent payees",
+    "payeeAll": "All…",
+    "payeeRecent": "Recent",
+    "payeeSearch": "Search payees…"
   },
   "analytics": {
     "title": "Analytics",
@@ -1247,7 +1251,16 @@
     "newLoanShort": "New loan",
     "payAmountOut": "Pay {{amount}}",
     "payAmountIn": "Receive {{amount}}",
-    "pickerLabel": "Loans"
+    "pickerLabel": "Loans",
+    "tabProgress": "Progress",
+    "progressStartedOut": "You started with",
+    "progressStartedIn": "You lent",
+    "progressPaidOff": "Paid off",
+    "progressGotBack": "Got back",
+    "progressInterestOut": "Interest you paid",
+    "progressInterestIn": "Interest you received",
+    "progressHandedOut": "You have handed over {{amount}} in all.",
+    "progressHandedIn": "You have been paid {{amount}} in all."
   },
   "statement": {
     "title": "Statement",

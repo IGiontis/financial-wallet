@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  debtProgress,
   loanSplits,
   debtEdit,
   DEBT_FORM_OPTIONAL_FIELDS,
@@ -799,5 +800,35 @@ describe("loanSplits", () => {
   it("has nothing to divide on money between people", () => {
     const iou = computeDebtStatus({ id: "i", userId: "u1", person: "Nikos", direction: "owed_by_me", amount: 500, date: start, createdAt: start, updatedAt: start } as Debt, []);
     expect(loanSplits(iou)).toBeUndefined();
+  });
+});
+
+describe("debtProgress", () => {
+  const start = new Date(2026, 0, 10);
+  const pay = (id: string, amount: number, date: Date) => ({ id, userId: "u1", debtId: "d", amount, date, createdAt: date }) as DebtPayment;
+
+  it("between people, what was handed back all came off the debt", () => {
+    const iou = computeDebtStatus({ id: "d", userId: "u1", person: "N", direction: "owed_by_me", amount: 500, date: start, createdAt: start, updatedAt: start } as Debt, [pay("a", 120, new Date(2026, 3, 10)), pay("b", 80, new Date(2026, 4, 2))]);
+
+    expect(debtProgress(iou)).toEqual({ started: 500, handedBack: 200, principal: 200, interest: 0, remaining: 300 });
+  });
+
+  it("on a loan, splits what was handed back into debt and interest, adding up to it", () => {
+    const payments = Array.from({ length: 8 }, (_, k) => pay("p" + k, 185.26, new Date(2026, k + 1, 10)));
+    const asOf = new Date(2026, 8, 10);
+    const loan = computeDebtStatus({ id: "d", userId: "u1", person: "B", direction: "owed_by_me", amount: 6000, date: start, interestRate: 7, termMonths: 36, createdAt: start, updatedAt: start } as Debt, payments, asOf);
+    const progress = debtProgress(loan, asOf);
+
+    // Second route: 8 × 185,26 handed over.
+    expect(progress.handedBack).toBeCloseTo(1482.08, 2);
+    expect(progress.principal + progress.interest).toBeCloseTo(1482.08, 1);
+    // On the day of the last payment, what came off the debt plus what is left is what was borrowed.
+    expect(progress.principal + progress.remaining).toBeCloseTo(6000, 1);
+  });
+
+  it("never counts more off the debt than was borrowed", () => {
+    const over = computeDebtStatus({ id: "d", userId: "u1", person: "N", direction: "owed_to_me", amount: 100, date: start, createdAt: start, updatedAt: start } as Debt, [pay("a", 130, new Date(2026, 1, 1))]);
+
+    expect(debtProgress(over)).toMatchObject({ principal: 100, remaining: 0 });
   });
 });

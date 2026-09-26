@@ -151,3 +151,43 @@ describe("filterPayees — two matches that are equally buried", () => {
     expect(filterPayees(["Mini Market", "Super Market"], "market")).toEqual(["Mini Market", "Super Market"]);
   });
 });
+
+import { frequentPayees, recentPayees, payeesByInitial } from "./payeeStore";
+
+describe("payee suggestions", () => {
+  const tx = (description: string, categoryId: string, day: number) => ({ description, categoryId, date: new Date(2026, 8, day) });
+  const history = [
+    tx("Sklavenitis", "food", 1),
+    tx("Lidl", "food", 2),
+    tx("sklavenitis", "food", 3),
+    tx("Sklavenitis ", "food", 4),
+    tx("Lidl", "food", 5),
+    tx("AB", "food", 6),
+    tx("DEI", "power", 7),
+    tx("", "food", 8),
+  ];
+
+  it("ranks by use within the category, spelled as last typed", () => {
+    expect(frequentPayees(history, "food")).toEqual(["Sklavenitis", "Lidl", "AB"]);
+  });
+
+  it("breaks a tie by the most recent", () => {
+    expect(frequentPayees([tx("A", "c", 1), tx("B", "c", 2)], "c")).toEqual(["B", "A"]);
+  });
+
+  it("looks across everything when no category is chosen, and stops at the limit", () => {
+    expect(frequentPayees(history, undefined, 2)).toEqual(["Sklavenitis", "Lidl"]);
+  });
+
+  it("lists the last few distinct payees, newest first", () => {
+    expect(recentPayees(history, 3)).toEqual(["DEI", "AB", "Lidl"]);
+  });
+
+  it("files names under their first letter, accents dropped, symbols last", () => {
+    expect(payeesByInitial(["Ώρα", "Ωκεανός", "Άλφα", "Αβ", "7-Eleven"])).toEqual([
+      { letter: "Α", names: ["Αβ", "Άλφα"] },
+      { letter: "Ω", names: ["Ωκεανός", "Ώρα"] },
+      { letter: "#", names: ["7-Eleven"] },
+    ]);
+  });
+});

@@ -779,6 +779,48 @@ button.payRow[aria-expanded="true"] {
   color: var(--color-text-secondary);
 }
 
+.progress {
+  padding-top: 0.5rem;
+}
+
+.progressStart {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.progressStart strong {
+  font-size: 18px;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progressBar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin: 10px 0 6px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--color-background-secondary);
+}
+
+.progressBar span {
+  display: block;
+  height: 100%;
+}
+
+.progressKey {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 2px;
+  vertical-align: 0;
+}
+
 .details {
   margin: 0.25rem 0 0;
 }

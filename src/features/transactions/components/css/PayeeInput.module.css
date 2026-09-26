@@ -138,3 +138,64 @@
   color: var(--color-text-secondary);
   text-align: center;
 }
+
+/* ── One-tap suggestions ─────────────────────────────────────────────────── */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.chipOn {
+  border-color: var(--bs-primary);
+  background: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+}
+
+.chipAll {
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
+
+/* ── The phone's list, before anything is typed ─────────────────────────── */
+
+.sheetRecent {
+  padding-bottom: 8px;
+}
+
+.sheetRecent .chips {
+  margin-top: 4px;
+}
+
+.sheetLetter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 0.25rem 4px;
+  background: var(--bs-body-bg);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sheetLetter + .sheetOption {
+  border-top: 0;
+}

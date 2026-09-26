@@ -73,3 +73,79 @@ export function isUnsavedPayee(payees: string[], query: string): boolean {
   if (!q) return false;
   return !payees.some((p) => payeeKey(p) === q);
 }
+
+// ─── Suggestions from what was actually entered ─────────────────────────────
+// A long saved list is fine to search and slow to scroll, and on a phone the
+// keyboard covers most of it. Most entries go to the same handful of payees,
+// and the transactions already say which — no extra read, no setup.
+
+interface PayeeUse {
+  description: string;
+  categoryId?: string;
+  date: Date | { toDate(): Date } | string | number;
+}
+
+const when = (value: PayeeUse["date"]): number => {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "object" && value && "toDate" in value) return value.toDate().getTime();
+  return new Date(value).getTime() || 0;
+};
+
+/**
+ * The payees used most with a category, most used first, ties to the most
+ * recent. With no category chosen, across everything. Each is spelled the way
+ * it was last typed, and one-off blanks are skipped.
+ */
+export function frequentPayees(transactions: PayeeUse[], categoryId?: string, limit = 5): string[] {
+  const counts = new Map<string, { name: string; count: number; last: number }>();
+  for (const tx of transactions) {
+    const name = tx.description?.trim();
+    if (!name || (categoryId && tx.categoryId !== categoryId)) continue;
+    const key = payeeKey(name);
+    const at = when(tx.date);
+    const entry = counts.get(key);
+    if (!entry) counts.set(key, { name, count: 1, last: at });
+    else {
+      entry.count += 1;
+      if (at >= entry.last) {
+        entry.last = at;
+        entry.name = name;
+      }
+    }
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || b.last - a.last)
+    .slice(0, limit)
+    .map((e) => e.name);
+}
+
+/** The last few distinct payees, newest first. */
+export function recentPayees(transactions: PayeeUse[], limit = 5): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tx of [...transactions].sort((a, b) => when(b.date) - when(a.date))) {
+    const name = tx.description?.trim();
+    if (!name || seen.has(payeeKey(name))) continue;
+    seen.add(payeeKey(name));
+    out.push(name);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
+/**
+ * The list under letter headings, the way a phone's contacts read. Accents are
+ * dropped for the heading only, so "Ά" files under "Α"; anything not a letter
+ * goes under "#", last.
+ */
+export function payeesByInitial(payees: string[]): { letter: string; names: string[] }[] {
+  const groups = new Map<string, string[]>();
+  for (const name of sortPayees(payees)) {
+    const first = name.trim().charAt(0).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleUpperCase();
+    const letter = /\p{L}/u.test(first) ? first : "#";
+    groups.set(letter, [...(groups.get(letter) ?? []), name]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)))
+    .map(([letter, names]) => ({ letter, names }));
+}

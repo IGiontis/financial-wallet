@@ -263,6 +263,40 @@ export function loanSplits(debt: DebtWithStatus, asOf: Date = new Date()): Map<s
   return walkLoan(debt, asOf)?.splits;
 }
 
+/** Where a debt stands against where it began — the loan sheet's "Progress" tab. */
+export interface DebtProgress {
+  /** What changed hands at the start. */
+  started: number;
+  /** Everything handed back so far, interest included. */
+  handedBack: number;
+  /** Of that, the part that came off the debt. */
+  principal: number;
+  /** Of that, the part that went on interest. Zero between people. */
+  interest: number;
+  /** What is still owed today. */
+  remaining: number;
+}
+
+/**
+ * Built from the same payment-by-payment split as the rest of the sheet, so
+ * the "paid off" here is the sum of the "off the debt" figures under each
+ * payment, not a second estimate that could drift from them.
+ */
+export function debtProgress(debt: DebtWithStatus, asOf: Date = new Date()): DebtProgress {
+  const splits = loanSplits(debt, asOf);
+  if (!splits) {
+    const principal = round2(Math.min(debt.paid, debt.amount));
+    return { started: debt.amount, handedBack: debt.paid, principal, interest: 0, remaining: debt.remaining };
+  }
+  let principal = 0;
+  let interest = 0;
+  for (const split of splits.values()) {
+    principal += split.principal;
+    interest += split.interest;
+  }
+  return { started: debt.amount, handedBack: debt.paid, principal: round2(principal), interest: round2(interest), remaining: debt.remaining };
+}
+
 export interface ScheduleRow {
   /** 1-based payment number. */
   number: number;

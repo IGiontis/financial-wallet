@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { currentRate, isFloating, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { currentRate, debtProgress, isFloating, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useRecordRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
 import { DateField } from "../../shared/components/DateField";
@@ -240,7 +240,7 @@ function PaymentPanel({
   );
 }
 
-type SheetTab = "pays" | "whatif" | "details";
+type SheetTab = "pays" | "progress" | "whatif" | "details";
 
 /** How much of the debt is gone — not how much has been handed over. */
 function clearedPercent(debt: DebtWithStatus, loan: ReturnType<typeof loanState>): number {
@@ -250,6 +250,54 @@ function clearedPercent(debt: DebtWithStatus, loan: ReturnType<typeof loanState>
   // be the flattering one.
   const cleared = loan ? debt.amount - loan.balance : debt.paid;
   return Math.min(Math.max((cleared / debt.amount) * 100, 0), 100);
+}
+
+/**
+ * Where the debt began and where it is now, on one bar.
+ *
+ * The bar is everything that has changed hands or still will: what came off
+ * the debt, what went on interest, and what is left. Between people there is
+ * no interest, and the words turn round when the money was lent rather than
+ * borrowed.
+ */
+function ProgressPanel({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
+  const borrowed = debt.direction === "owed_by_me";
+  const p = debtProgress(debt);
+  const whole = p.principal + p.interest + p.remaining;
+  const share = (n: number) => (whole > 0 ? `${(n / whole) * 100}%` : "0%");
+
+  const rows = [
+    { label: t(borrowed ? "debts.progressPaidOff" : "debts.progressGotBack"), value: p.principal, tone: "var(--color-income)" },
+    ...(p.interest > 0 ? [{ label: t(borrowed ? "debts.progressInterestOut" : "debts.progressInterestIn"), value: p.interest, tone: "var(--color-goal)" }] : []),
+    { label: t(borrowed ? "debts.leftToGive" : "debts.leftToGet"), value: p.remaining, tone: "var(--color-border-primary)" },
+  ];
+
+  return (
+    <div className={styles.progress}>
+      <div className={styles.progressStart}>
+        <span>{t(borrowed ? "debts.progressStartedOut" : "debts.progressStartedIn")}</span>
+        <strong>{formatCurrency(p.started)}</strong>
+      </div>
+      <div className={styles.progressBar} aria-hidden>
+        {rows.map((row) => (
+          <span key={row.label} style={{ width: share(row.value), background: row.tone }} />
+        ))}
+      </div>
+      <dl className={styles.details}>
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt>
+              <span className={styles.progressKey} style={{ background: row.tone }} aria-hidden />
+              {row.label}
+            </dt>
+            <dd>{formatCurrency(row.value)}</dd>
+          </div>
+        ))}
+      </dl>
+      {p.handedBack > 0 && <p className={styles.payEmpty}>{t(borrowed ? "debts.progressHandedOut" : "debts.progressHandedIn", { amount: formatCurrency(p.handedBack) })}</p>}
+    </div>
+  );
 }
 
 /** A circle that fills as the debt comes down. */
@@ -452,6 +500,7 @@ export default function PersonDebtsModal({
 
   const tabs: { id: SheetTab; label: string }[] = [
     { id: "pays", label: `${t("debts.tabPayments")} · ${debt.payments.length}` },
+    { id: "progress", label: t("debts.tabProgress") },
     ...(canWhatIf ? [{ id: "whatif" as const, label: t("debts.tabWhatIf") }] : []),
     { id: "details", label: t("debts.tabDetails") },
   ];
@@ -611,6 +660,8 @@ export default function PersonDebtsModal({
                 {debt.payments.length === 0 && panel?.kind !== "record" && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
               </>
             )}
+
+            {shownTab === "progress" && <ProgressPanel debt={debt} formatCurrency={formatCurrency} />}
 
             {shownTab === "whatif" && canWhatIf && (
               <div className="d-flex flex-column gap-3">

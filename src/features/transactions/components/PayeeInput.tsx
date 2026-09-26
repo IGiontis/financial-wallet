@@ -4,7 +4,7 @@ import { Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
 import { FiCheck, FiPlus, FiX } from "react-icons/fi";
-import { filterPayees, isUnsavedPayee, payeeKey } from "../payeeStore";
+import { filterPayees, isUnsavedPayee, payeeKey, payeesByInitial } from "../payeeStore";
 import styles from "./css/PayeeInput.module.css";
 
 const MENU_MAX_HEIGHT = 232;
@@ -32,6 +32,13 @@ interface PayeeInputProps {
    * thing the caller replaces.
    */
   wording?: { field: string; useTyped: string; empty: string };
+  /**
+   * One-tap choices under the field — the few used most for the category in
+   * hand. Most entries go to the same handful, so most never need the list.
+   */
+  suggested?: string[];
+  /** The last few used, at the top of the phone's list before anything is typed. */
+  recent?: string[];
 }
 
 const PAYEE_WORDING = { field: "transactions.payee", useTyped: "transactions.useTypedPayee", empty: "transactions.noPayeeMatches" } as const;
@@ -49,7 +56,7 @@ const PAYEE_WORDING = { field: "transactions.payee", useTyped: "transactions.use
  * Follows the ARIA combobox pattern — arrow keys move a virtual cursor while
  * focus stays in the input, so typing is never interrupted.
  */
-export function PayeeInput({ value, payees, invalid, placeholder, disabled, onChange, onBlur, wording = PAYEE_WORDING }: PayeeInputProps) {
+export function PayeeInput({ value, payees, invalid, placeholder, disabled, onChange, onBlur, wording = PAYEE_WORDING, suggested = [], recent = [] }: PayeeInputProps) {
   const { t } = useTranslation();
   const listId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -66,8 +73,13 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
   const [storedIndex, setActiveIndex] = useState(-1);
   const [rect, setRect] = useState<{ top: number; left: number; width: number; dropUp: boolean } | null>(null);
 
-  const matches = useMemo(() => filterPayees(payees, value), [payees, value]);
-  const showUseTyped = useMemo(() => isUnsavedPayee(payees, value), [payees, value]);
+  const [search, setSearch] = useState("");
+  // On a phone the sheet is where typing happens, into its own box; the field
+  // underneath keeps showing the chosen payee until another is picked.
+  const query = narrow ? search : value;
+  const matches = useMemo(() => filterPayees(payees, query), [payees, query]);
+  const grouped = useMemo(() => payeesByInitial(payees), [payees]);
+  const showUseTyped = useMemo(() => isUnsavedPayee(payees, query), [payees, query]);
 
   // One flat list of what Enter can land on, so keyboard and mouse agree.
   const optionCount = matches.length + (showUseTyped ? 1 : 0);
@@ -119,7 +131,14 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
   const commit = (name: string) => {
     onChange(name);
     setOpen(false);
+    setSearch("");
     setActiveIndex(-1);
+    onBlur?.();
+  };
+
+  const openSheet = () => {
+    setSearch("");
+    setOpen(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -170,6 +189,13 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
     </div>
   );
 
+  const sheetOption = (name: string) => (
+    <button key={payeeKey(name)} type="button" className={styles.sheetOption} onClick={() => commit(name)}>
+      <span className={styles.optionName}>{name}</span>
+      {payeeKey(name) === payeeKey(value) && <FiCheck size={16} style={{ color: "var(--bs-primary)" }} aria-hidden />}
+    </button>
+  );
+
   return (
     <div className={styles.wrap} ref={wrapRef}>
       <Input
@@ -191,10 +217,33 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
           setActiveIndex(-1);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => !narrow && setOpen(true)}
+        onClick={() => narrow && !disabled && openSheet()}
+        // Read-only on a phone: the tap opens the list, not a keyboard that
+        // would cover it. Typing happens in the sheet's own search box.
+        readOnly={narrow}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
       />
+
+      {suggested.length > 0 && !disabled && (
+        <div className={styles.chips} role="group" aria-label={t("transactions.payeeSuggested")}>
+          {suggested.map((name) => (
+            <button
+              key={payeeKey(name)}
+              type="button"
+              className={`${styles.chip} ${payeeKey(name) === payeeKey(value) ? styles.chipOn : ""}`}
+              aria-pressed={payeeKey(name) === payeeKey(value)}
+              onClick={() => commit(name)}
+            >
+              {name}
+            </button>
+          ))}
+          <button type="button" className={`${styles.chip} ${styles.chipAll}`} onClick={() => (narrow ? openSheet() : inputRef.current?.focus())}>
+            {t("transactions.payeeAll")}
+          </button>
+        </div>
+      )}
 
       {open &&
         narrow &&
@@ -208,34 +257,59 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
             </div>
 
             <div className={styles.sheetSearch}>
+              {/* Not focused on open: the keyboard would cover the list the
+                  sheet exists to show. It comes up when the box is tapped. */}
               <Input
-                autoFocus
-                type="text"
+                type="search"
                 autoComplete="off"
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), setOpen(false))}
+                placeholder={t("transactions.payeeSearch")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  if (matches.length > 0) commit(matches[0]);
+                  else if (search.trim()) commit(search.trim());
+                }}
                 aria-label={t(wording.field)}
               />
             </div>
 
             <div className={styles.sheetList} id={listId} role="listbox">
-              {matches.map((name) => (
-                <button key={payeeKey(name)} type="button" className={styles.sheetOption} onClick={() => commit(name)}>
-                  <span className={styles.optionName}>{name}</span>
-                  {payeeKey(name) === payeeKey(value) && <FiCheck size={16} style={{ color: "var(--bs-primary)" }} aria-hidden />}
-                </button>
-              ))}
-
-              {showUseTyped && (
-                <button type="button" className={`${styles.sheetOption} ${styles.sheetCreate}`} onClick={() => commit(value.trim())}>
-                  <FiPlus size={14} aria-hidden />
-                  <span className={styles.optionName}>{t(wording.useTyped, { name: value.trim() })}</span>
-                </button>
+              {search.trim() === "" ? (
+                <>
+                  {recent.length > 0 && (
+                    <div className={styles.sheetRecent}>
+                      <div className={styles.sheetLetter}>{t("transactions.payeeRecent")}</div>
+                      <div className={styles.chips}>
+                        {recent.map((name) => (
+                          <button key={payeeKey(name)} type="button" className={`${styles.chip} ${payeeKey(name) === payeeKey(value) ? styles.chipOn : ""}`} onClick={() => commit(name)}>
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {grouped.map((group) => (
+                    <div key={group.letter}>
+                      <div className={styles.sheetLetter}>{group.letter}</div>
+                      {group.names.map((name) => sheetOption(name))}
+                    </div>
+                  ))}
+                  {payees.length === 0 && <p className={styles.sheetEmpty}>{t(wording.empty)}</p>}
+                </>
+              ) : (
+                <>
+                  {matches.map((name) => sheetOption(name))}
+                  {showUseTyped && (
+                    <button type="button" className={`${styles.sheetOption} ${styles.sheetCreate}`} onClick={() => commit(search.trim())}>
+                      <FiPlus size={14} aria-hidden />
+                      <span className={styles.optionName}>{t(wording.useTyped, { name: search.trim() })}</span>
+                    </button>
+                  )}
+                  {optionCount === 0 && <p className={styles.sheetEmpty}>{t(wording.empty)}</p>}
+                </>
               )}
-
-              {optionCount === 0 && <p className={styles.sheetEmpty}>{t(wording.empty)}</p>}
             </div>
           </div>,
           document.body,

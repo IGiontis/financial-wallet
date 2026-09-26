@@ -511,7 +511,11 @@
       "incomeHint": "Χρήματα που μπαίνουν",
       "pickCategory": "Σε ποια κατηγορία ανήκει;",
       "fillDetails": "Ποσό, ημερομηνία και με ποιον"
-    }
+    },
+    "payeeSuggested": "Συχνοί payees",
+    "payeeAll": "Όλοι…",
+    "payeeRecent": "Πρόσφατοι",
+    "payeeSearch": "Αναζήτηση payee…"
   },
   "analytics": {
     "title": "Στατιστικά",
@@ -1247,7 +1251,16 @@
     "newLoanShort": "Νέο δάνειο",
     "payAmountOut": "Πληρωμή {{amount}}",
     "payAmountIn": "Είσπραξη {{amount}}",
-    "pickerLabel": "Δάνεια"
+    "pickerLabel": "Δάνεια",
+    "tabProgress": "Πορεία",
+    "progressStartedOut": "Ξεκίνησες με",
+    "progressStartedIn": "Δάνεισες",
+    "progressPaidOff": "Ξεπλήρωσες",
+    "progressGotBack": "Σου επέστρεψαν",
+    "progressInterestOut": "Τόκοι που έδωσες",
+    "progressInterestIn": "Τόκοι που πήρες",
+    "progressHandedOut": "Έχεις δώσει συνολικά {{amount}}.",
+    "progressHandedIn": "Έχεις πάρει συνολικά {{amount}}."
   },
   "statement": {
     "title": "Κατάσταση",
