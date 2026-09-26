@@ -1260,7 +1260,11 @@
     "progressInterestOut": "Interest you paid",
     "progressInterestIn": "Interest you received",
     "progressHandedOut": "You have handed over {{amount}} in all.",
-    "progressHandedIn": "You have been paid {{amount}} in all."
+    "progressHandedIn": "You have been paid {{amount}} in all.",
+    "totalBorrowed_one": "All together · {{count}} loan",
+    "totalBorrowed_other": "All together · {{count}} loans",
+    "totalLent_one": "All you lent · {{count}} loan",
+    "totalLent_other": "All you lent · {{count}} loans"
   },
   "statement": {
     "title": "Statement",

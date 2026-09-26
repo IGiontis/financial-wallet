@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  personProgress,
   debtProgress,
   loanSplits,
   debtEdit,
@@ -830,5 +831,32 @@ describe("debtProgress", () => {
     const over = computeDebtStatus({ id: "d", userId: "u1", person: "N", direction: "owed_to_me", amount: 100, date: start, createdAt: start, updatedAt: start } as Debt, [pay("a", 130, new Date(2026, 1, 1))]);
 
     expect(debtProgress(over)).toMatchObject({ principal: 100, remaining: 0 });
+  });
+});
+
+describe("personProgress", () => {
+  const start = new Date(2026, 0, 10);
+  const debt = (id: string, amount: number, direction: "owed_by_me" | "owed_to_me", paid: number[]) =>
+    computeDebtStatus(
+      { id, userId: "u1", person: "Ethniki", direction, amount, date: start, createdAt: start, updatedAt: start } as Debt,
+      paid.map((a, k) => ({ id: id + k, userId: "u1", debtId: id, amount: a, date: new Date(2026, 1 + k, 1), createdAt: start }) as DebtPayment),
+    );
+
+  it("adds every loan with the person together, settled ones included", () => {
+    const [total] = personProgress([debt("a", 1000, "owed_by_me", [200]), debt("b", 500, "owed_by_me", [500]), debt("c", 300, "owed_by_me", [])]);
+
+    // Second route, by hand: 1000 + 500 + 300 borrowed, 200 + 500 back, 800 + 0 + 300 left.
+    expect(total.count).toBe(3);
+    expect(total.progress).toMatchObject({ started: 1800, principal: 700, remaining: 1100 });
+    expect(total.progress.principal + total.progress.remaining).toBe(total.progress.started);
+  });
+
+  it("keeps the two directions apart, owed first", () => {
+    const totals = personProgress([debt("a", 100, "owed_to_me", [40]), debt("b", 250, "owed_by_me", [50])]);
+
+    expect(totals.map((t) => [t.direction, t.progress.started, t.progress.remaining])).toEqual([
+      ["owed_by_me", 250, 200],
+      ["owed_to_me", 100, 60],
+    ]);
   });
 });

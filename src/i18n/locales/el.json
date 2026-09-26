@@ -1260,7 +1260,11 @@
     "progressInterestOut": "Τόκοι που έδωσες",
     "progressInterestIn": "Τόκοι που πήρες",
     "progressHandedOut": "Έχεις δώσει συνολικά {{amount}}.",
-    "progressHandedIn": "Έχεις πάρει συνολικά {{amount}}."
+    "progressHandedIn": "Έχεις πάρει συνολικά {{amount}}.",
+    "totalBorrowed_one": "Όλα μαζί · {{count}} δάνειο",
+    "totalBorrowed_other": "Όλα μαζί · {{count}} δάνεια",
+    "totalLent_one": "Όσα δάνεισες · {{count}} δάνειο",
+    "totalLent_other": "Όσα δάνεισες · {{count}} δάνεια"
   },
   "statement": {
     "title": "Κατάσταση",

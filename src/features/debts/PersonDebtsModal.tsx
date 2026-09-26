@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { currentRate, debtProgress, isFloating, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useRecordRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
 import { DateField } from "../../shared/components/DateField";
@@ -260,10 +260,19 @@ function clearedPercent(debt: DebtWithStatus, loan: ReturnType<typeof loanState>
  * no interest, and the words turn round when the money was lent rather than
  * borrowed.
  */
-function ProgressPanel({ debt, formatCurrency }: { debt: DebtWithStatus; formatCurrency: (n: number) => string }) {
+function ProgressPanel({
+  progress: p,
+  borrowed,
+  formatCurrency,
+  title,
+}: {
+  progress: DebtProgress;
+  borrowed: boolean;
+  formatCurrency: (n: number) => string;
+  /** Above the figures, when this is a total rather than one loan. */
+  title?: string;
+}) {
   const { t } = useTranslation();
-  const borrowed = debt.direction === "owed_by_me";
-  const p = debtProgress(debt);
   const whole = p.principal + p.interest + p.remaining;
   const share = (n: number) => (whole > 0 ? `${(n / whole) * 100}%` : "0%");
 
@@ -275,6 +284,7 @@ function ProgressPanel({ debt, formatCurrency }: { debt: DebtWithStatus; formatC
 
   return (
     <div className={styles.progress}>
+      {title && <div className={styles.progressTitle}>{title}</div>}
       <div className={styles.progressStart}>
         <span>{t(borrowed ? "debts.progressStartedOut" : "debts.progressStartedIn")}</span>
         <strong>{formatCurrency(p.started)}</strong>
@@ -527,6 +537,22 @@ export default function PersonDebtsModal({
 
       <ModalBody className={styles.sheetBody}>
         <div className={styles.sheetLeft}>
+          {/* Everything with this person added up — "how much have I borrowed
+              from the bank, and how much of it is paid" — before any one loan. */}
+          {loans.length > 1 && (
+            <div className={styles.personTotal}>
+              {personProgress(loans).map((total) => (
+                <ProgressPanel
+                  key={total.direction}
+                  progress={total.progress}
+                  borrowed={total.direction === "owed_by_me"}
+                  formatCurrency={formatCurrency}
+                  title={t(total.direction === "owed_by_me" ? "debts.totalBorrowed" : "debts.totalLent", { count: total.count })}
+                />
+              ))}
+            </div>
+          )}
+
           {loans.length > 1 && (
             <div className={styles.picker} role="group" aria-label={t("debts.pickerLabel")}>
               {loans.map((d) => (
@@ -661,7 +687,7 @@ export default function PersonDebtsModal({
               </>
             )}
 
-            {shownTab === "progress" && <ProgressPanel debt={debt} formatCurrency={formatCurrency} />}
+            {shownTab === "progress" && <ProgressPanel progress={debtProgress(debt)} borrowed={borrowed} formatCurrency={formatCurrency} />}
 
             {shownTab === "whatif" && canWhatIf && (
               <div className="d-flex flex-column gap-3">

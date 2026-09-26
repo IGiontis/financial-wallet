@@ -297,6 +297,31 @@ export function debtProgress(debt: DebtWithStatus, asOf: Date = new Date()): Deb
   return { started: debt.amount, handedBack: debt.paid, principal: round2(principal), interest: round2(interest), remaining: debt.remaining };
 }
 
+/**
+ * Every loan with one person added up, one total per direction — "the bank lent
+ * me" and "I lent them" are never netted into a single figure, because that
+ * would hide both. Settled loans count: "how much have I borrowed from them in
+ * all" includes the ones already paid off.
+ */
+export function personProgress(debts: DebtWithStatus[], asOf: Date = new Date()): { direction: DebtWithStatus["direction"]; count: number; progress: DebtProgress }[] {
+  const byDirection = new Map<DebtWithStatus["direction"], { count: number; progress: DebtProgress }>();
+  for (const debt of debts) {
+    const p = debtProgress(debt, asOf);
+    const entry = byDirection.get(debt.direction) ?? { count: 0, progress: { started: 0, handedBack: 0, principal: 0, interest: 0, remaining: 0 } };
+    entry.count += 1;
+    entry.progress = {
+      started: round2(entry.progress.started + p.started),
+      handedBack: round2(entry.progress.handedBack + p.handedBack),
+      principal: round2(entry.progress.principal + p.principal),
+      interest: round2(entry.progress.interest + p.interest),
+      remaining: round2(entry.progress.remaining + p.remaining),
+    };
+    byDirection.set(debt.direction, entry);
+  }
+  // Money owed first: it is the side that needs doing.
+  return (["owed_by_me", "owed_to_me"] as const).filter((d) => byDirection.has(d)).map((direction) => ({ direction, ...byDirection.get(direction)! }));
+}
+
 export interface ScheduleRow {
   /** 1-based payment number. */
   number: number;

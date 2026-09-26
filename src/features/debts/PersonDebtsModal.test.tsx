@@ -116,7 +116,8 @@ describe("which loan is in front", () => {
     const dialog = sheet();
     // Second route: 500 − 120 − 80.
     expect(500 - 120 - 80).toBe(300);
-    expect(within(dialog).getByText("Left to pay back").nextSibling).toHaveTextContent("€300.00");
+    expect(dialog.querySelector("[class*=_heroLabel_]")).toHaveTextContent("Left to pay back");
+    expect(dialog.querySelector("[class*=_heroAmount_]")).toHaveTextContent("€300.00");
     expect(within(dialog).getByText("of €500.00 · no interest")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /^Car/ }));
@@ -321,5 +322,26 @@ describe("the progress tab", () => {
 
     expect(screen.getByText("You lent")).toBeInTheDocument();
     expect(detail("Got back")).toBe("€200.00");
+  });
+});
+
+describe("the total with one person", () => {
+  it("adds up every loan with them, the paid-off one included", () => {
+    renderSheet();
+
+    const total = screen.getByText("All together · 3 loans").parentElement!;
+    // Second route: 6000 + 500 + 60 borrowed.
+    expect(within(total).getByText("You started with").nextSibling).toHaveTextContent("€6560.00");
+    const paidOff = parseFloat(within(total).getByText("Paid off").closest("div")!.querySelector("dd")!.textContent!.replace("€", ""));
+    // Rent 200 + concert 60 + what came off the car loan.
+    const carOff = loanSplits(nikos([car]).debts[0])!;
+    const expected = 200 + 60 + [...carOff.values()].reduce((sum, s) => sum + s.principal, 0);
+    expect(paidOff).toBeCloseTo(expected, 2);
+  });
+
+  it("is not there for a single loan, whose own figures already say it", () => {
+    renderSheet([rent]);
+
+    expect(screen.queryByText(/All together/)).not.toBeInTheDocument();
   });
 });
