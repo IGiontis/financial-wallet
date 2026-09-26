@@ -114,3 +114,26 @@ describe("the Bills page tiles", () => {
     vi.setSystemTime(NOW);
   });
 });
+
+describe("status and cadence under each bill's name", () => {
+  it("puts the status first, then the cadence, on every card", () => {
+    render(<BillsPage />);
+
+    const rows = [...document.querySelectorAll("[class*=_cardTags_]")];
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.children[1]).toHaveClass("badge");
+      expect(row.children[1]).toHaveTextContent("Monthly");
+    }
+  });
+
+  it("gives every line in the list a status, first, so they line up", async () => {
+    localStorage.setItem("bills-view", JSON.stringify("list"));
+    render(<BillsPage />);
+
+    const rows = [...document.querySelectorAll("[class*=_lineTags_]")];
+    expect(rows.map((row) => row.children[0].textContent)).toEqual(expect.arrayContaining(["late", "unpaid"]));
+    for (const row of rows) expect(row.children[1]).toHaveClass("badge");
+    localStorage.removeItem("bills-view");
+  });
+});
