@@ -891,6 +891,32 @@ describe("billMonthStrip", () => {
     expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("due"); // Sep — what's coming next
   });
 
+  it("marks an unpaid month past its deadline as late, not merely due", () => {
+    const netflix = makeBill({ dueDay: 5, createdAt: new Date("2026-01-01"), anchorDate: new Date("2026-01-01") });
+    const strip = billMonthStrip(computeBillStatus(netflix, [], now), now);
+
+    expect(strip.find((c) => c.start.getMonth() === 5)!.status).toBe("late"); // Jun, never paid
+    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("due"); // Sep, coming up
+  });
+
+  it("does not count months from before the bill was added, even if its months are counted from earlier", () => {
+    // Added in August, counted from January: nothing was owed in May–July, it
+    // just was not recorded yet.
+    const edessa = makeBill({ dueDay: 5, createdAt: new Date("2026-08-01"), anchorDate: new Date("2026-01-01") });
+    const status = computeBillStatus(edessa, [], now);
+
+    expect(billMonthStrip(status, now).filter((c) => c.start.getMonth() >= 4 && c.start.getMonth() <= 6).map((c) => c.status)).toEqual(["empty", "empty", "empty"]);
+    // Nor as arrears carried into next month's plan.
+    expect(arrears([status], now)).toHaveLength(0);
+  });
+
+  it("still shows a payment recorded for a month before the bill was added", () => {
+    const edessa = makeBill({ dueDay: 5, createdAt: new Date("2026-08-01"), anchorDate: new Date("2026-01-01") });
+    const strip = billMonthStrip(computeBillStatus(edessa, [payment("2026-06", new Date("2026-06-05"))], now), now);
+
+    expect(strip.find((c) => c.start.getMonth() === 5)!.status).toBe("paid");
+  });
+
   it("leaves months before the bill existed as plain empty, not flagged", () => {
     const netflix = makeBill({ dueDay: 5, createdAt: new Date("2026-08-01"), anchorDate: new Date("2026-08-01") });
     const status = computeBillStatus(netflix, [], now);

@@ -580,7 +580,9 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
 
 /* Solid fills for what has happened or is happening; the coming months are
    hatched instead, so "will owe" never reads as a washed-out "owes now". */
-const chipTone = (status: MonthChip["status"]) => (status === "paid" ? "var(--color-income)" : status === "due" ? "var(--color-expense)" : undefined);
+// Red for owed, amber for coming up — the same two colours the detail grid uses.
+const chipTone = (status: MonthChip["status"]) =>
+  status === "paid" ? "var(--color-income)" : status === "late" ? "var(--color-expense)" : status === "due" ? "var(--color-goal)" : undefined;
 
 function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const { t, i18n } = useTranslation();
@@ -588,15 +590,15 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const chips = useMemo(() => billMonthStrip(bill, now), [bill, now]);
 
   const labelFor = (status: MonthChip["status"]) =>
-    status === "paid" ? t("bills.monthPaid") : status === "paused" ? t("bills.monthPaused") : status === "due" ? t("bills.monthDue") : status === "future" ? t("bills.monthFuture") : t("bills.monthEmpty");
+    status === "paid" ? t("bills.monthPaid") : status === "paused" ? t("bills.monthPaused") : status === "late" ? t("bills.monthState_overdue") : status === "due" ? t("bills.monthDue") : status === "future" ? t("bills.monthFuture") : t("bills.monthEmpty");
 
   return (
     <div className={styles.monthStrip} onClick={(e) => e.stopPropagation()}>
       {chips.map((chip) => (
         <div
           key={chip.key}
-          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""} ${chip.status === "paused" ? styles.monthChipPaused : ""}`}
-          style={{ background: chipTone(chip.status), color: chip.status === "paid" || chip.status === "due" ? "#fff" : undefined }}
+          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" || chip.status === "late" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""} ${chip.status === "paused" ? styles.monthChipPaused : ""}`}
+          style={{ background: chipTone(chip.status), color: chip.status === "paid" || chip.status === "due" || chip.status === "late" ? "#fff" : undefined }}
           title={`${monthFmt.format(chip.start)} — ${labelFor(chip.status)}`}
         >
           {monthFmt.format(chip.start)}

@@ -133,7 +133,10 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
     setOpen(false);
     setSearch("");
     setActiveIndex(-1);
-    onBlur?.();
+    // No onBlur here. Formik validates on "touched" against the values it
+    // holds at that moment — which is still the old, empty one, since the new
+    // value is only applied on the next render — so picking a chip flagged the
+    // field as missing while filling it in.
   };
 
   const openSheet = () => {

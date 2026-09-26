@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import { PayeeInput } from "./PayeeInput";
 
 // Picking a payee when the saved list has grown long.
@@ -106,5 +108,47 @@ describe("on a phone", () => {
     await userEvent.click(screen.getByRole("button", { name: "All…" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("inside the transaction form", () => {
+  // Wired exactly as the form wires it: required, marked touched on blur.
+  function Form() {
+    const formik = useFormik({ initialValues: { description: "" }, validationSchema: Yup.object({ description: Yup.string().required() }), onSubmit: () => {} });
+    return (
+      <PayeeInput
+        value={formik.values.description}
+        payees={PAYEES}
+        suggested={["Sklavenitis", "Lidl"]}
+        invalid={!!(formik.touched.description && formik.errors.description)}
+        onChange={(v) => formik.setFieldValue("description", v)}
+        onBlur={() => formik.setFieldTouched("description", true)}
+      />
+    );
+  }
+
+  it("does not flag the field as missing when a chip fills it in", async () => {
+    setScreen(false);
+    render(<Form />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Lidl" }));
+
+    const field = screen.getByRole("combobox");
+    expect(field).toHaveValue("Lidl");
+    // Give the validation that used to misfire every chance to land.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(field).not.toHaveClass("is-invalid");
+  });
+
+  it("does not flag it when picked from the phone's list either", async () => {
+    setScreen(true);
+    render(<Form />);
+
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Germanos" }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole("combobox")).toHaveValue("Germanos");
+    expect(screen.getByRole("combobox")).not.toHaveClass("is-invalid");
   });
 });

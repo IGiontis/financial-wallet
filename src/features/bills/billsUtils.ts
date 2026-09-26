@@ -1070,7 +1070,7 @@ export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeri
   for (const bill of bills) {
     if (!bill.isActive) continue;
     const paidKeys = new Set(bill.payments.map((p) => p.periodKey));
-    const born = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
+    const born = billBorn(bill);
 
     let start = getPeriodStart(bill, now);
     for (let i = 0; i <= maxPeriodsBack && start >= born; i++) {
@@ -1204,7 +1204,7 @@ export function cadenceTone(bill: Pick<Bill, "frequency" | "intervalCount">): Ca
 // single calendar month, so one chip can't stand for one period the way it can
 // for everything monthly or slower.
 
-export type MonthChipStatus = "paid" | "paused" | "due" | "future" | "empty";
+export type MonthChipStatus = "paid" | "paused" | "late" | "due" | "future" | "empty";
 
 export interface MonthChip {
   key: string;
@@ -1252,7 +1252,11 @@ export function billMonthStrip(bill: BillWithStatus, now: Date = new Date(), bef
         ? "paid"
         : cell.status === "paused"
           ? "paused"
-          : cell.status === "overdue" || cell.periodKey === nextDuePeriodKey
+          : cell.status === "overdue"
+            ? // Past its deadline and unpaid: owed. Told apart from the one merely
+              // coming up, which the card used to paint the same red.
+              "late"
+            : cell.periodKey === nextDuePeriodKey
           ? "due"
           : cell.status === "future"
             ? "future"
@@ -1332,6 +1336,18 @@ export interface MonthCell {
 }
 
 /**
+ * The first period a bill can be owed for: the later of where its periods start
+ * counting and the day it was added. A bill added in August with its months
+ * counted from January was not owed for February to July — those months were
+ * simply not recorded, and treating them as unpaid invents a debt.
+ */
+function billBorn(bill: BillWithStatus): Date {
+  const anchored = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
+  const added = getPeriodStart(bill, firestoreToDate(bill.createdAt ?? bill.anchorDate));
+  return added > anchored ? added : anchored;
+}
+
+/**
  * Years to lay out: the bill's own, plus at least a couple behind.
  *
  * Never just "since the bill was created": a subscription added this year may
@@ -1391,7 +1407,7 @@ export function coverageForMonths(bill: BillWithStatus, months: { year: number; 
   // Unless it was paid. Recording a payment you actually made before you got
   // round to adding the bill is the whole reason the calendar reaches back, and
   // a period with money against it is a fact whatever its date.
-  const born = getPeriodStart(bill, firestoreToDate(bill.anchorDate ?? bill.createdAt));
+  const born = billBorn(bill);
   let start = shiftPeriodStart(bill, getPeriodStart(bill, windowStart), -1);
 
   for (let i = 0; i < 400; i++) {
