@@ -892,11 +892,12 @@ describe("billMonthStrip", () => {
   });
 
   it("marks an unpaid month past its deadline as late, not merely due", () => {
-    const netflix = makeBill({ dueDay: 5, createdAt: new Date("2026-01-01"), anchorDate: new Date("2026-01-01") });
+    // Today is 15 August; due on the 20th, so August is still to come.
+    const netflix = makeBill({ dueDay: 20, createdAt: new Date("2026-01-01"), anchorDate: new Date("2026-01-01") });
     const strip = billMonthStrip(computeBillStatus(netflix, [], now), now);
 
     expect(strip.find((c) => c.start.getMonth() === 5)!.status).toBe("late"); // Jun, never paid
-    expect(strip.find((c) => c.start.getMonth() === 8)!.status).toBe("due"); // Sep, coming up
+    expect(strip.find((c) => c.start.getMonth() === 7)!.status).toBe("due"); // Aug, coming up
   });
 
   it("does not count months from before the bill was added, even if its months are counted from earlier", () => {
@@ -906,8 +907,11 @@ describe("billMonthStrip", () => {
     const status = computeBillStatus(edessa, [], now);
 
     expect(billMonthStrip(status, now).filter((c) => c.start.getMonth() >= 4 && c.start.getMonth() <= 6).map((c) => c.status)).toEqual(["empty", "empty", "empty"]);
-    // Nor as arrears carried into next month's plan.
-    expect(arrears([status], now)).toHaveLength(0);
+    // Nor as arrears carried into next month's plan: only August, the one
+    // month it existed for and went unpaid, is owed.
+    const owed = arrears([status], now);
+    expect(owed).toHaveLength(1);
+    expect(owed[0].date.getMonth()).toBe(7);
   });
 
   it("still shows a payment recorded for a month before the bill was added", () => {
