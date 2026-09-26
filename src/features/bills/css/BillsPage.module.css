@@ -418,9 +418,7 @@
 .cardHead {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "icon titles chevron"
-    "icon aside  chevron";
+  grid-template-areas: "icon titles chevron";
   column-gap: 0.75rem;
   row-gap: 0.375rem;
   align-items: center;
@@ -441,34 +439,12 @@
   line-height: 1.25;
 }
 
-.cardAside {
-  grid-area: aside;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  min-width: 0;
-}
-
 .cardChevron {
   grid-area: chevron;
   align-self: center;
   color: var(--color-text-secondary);
   opacity: 0.6;
   flex-shrink: 0;
-}
-
-/* From `sm` up there is room for the status to sit beside the name again */
-@media (min-width: 576px) {
-  .cardHead {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "icon titles aside chevron";
-  }
-
-  .cardAside {
-    justify-content: flex-end;
-    flex-shrink: 0;
-  }
 }
 
 /* Figures: an equal-width grid with captions above each value. Three columns
@@ -1411,8 +1387,27 @@
   text-overflow: ellipsis;
 }
 
-.lineCadence {
-  font-size: 11.5px;
+/* Status, then cadence, from the left edge under the name. */
+.lineTags,
+.cardTags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.cardTags {
+  margin-top: 6px;
+}
+
+.cadenceBadge {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.linePillDue {
+  background: var(--color-background-secondary);
   color: var(--color-text-secondary);
 }
 

@@ -23,6 +23,7 @@ import {
   getPeriodKey,
   getPeriodOptions,
   groupBills,
+  cadenceTone,
   overdueBills,
   isHardDeadline,
   isInGracePeriod,
@@ -1718,5 +1719,20 @@ describe("overdueBills", () => {
 
   it("comes to nothing when nothing is late", () => {
     expect(overdueBills([statusOf({ id: "a", nextDueDate: new Date("2026-07-25") })], now)).toEqual({ bills: [], total: 0 });
+  });
+});
+
+describe("cadenceTone", () => {
+  it("gives each cadence its own colour, always the same one", () => {
+    const tone = (frequency: Bill["frequency"], intervalCount?: number) => cadenceTone({ frequency, intervalCount });
+    expect([tone("monthly"), tone("monthly", 2), tone("monthly", 3), tone("monthly", 6), tone("yearly"), tone("yearly", 2), tone("weekly")]).toEqual([
+      "primary",
+      "info",
+      "warning",
+      "secondary",
+      "success",
+      "success",
+      "dark",
+    ]);
   });
 });

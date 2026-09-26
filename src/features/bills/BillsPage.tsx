@@ -13,6 +13,7 @@ import {
   arrears,
   billMonthStrip,
   billUrgency,
+  cadenceTone,
   cashRunway,
   daysUntilDeadline,
   expectedAmount,
@@ -525,10 +526,21 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
 // spaced lines — this is the screen the list is actually read on, so it gets
 // the room; from `md` up the same cells snap into a denser table instead.
 
-/** "Every 2 months · usually €80–122" — the descriptive half of the first cell. */
-function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCurrency: (n: number) => string }) {
+/** How often it comes, as a coloured badge — the same colour for the same cadence everywhere. */
+function CadenceBadge({ bill }: { bill: BillWithStatus }) {
   const { t } = useTranslation();
   const freq = getFrequencyLabel(bill);
+  const tone = cadenceTone(bill);
+  return (
+    <Badge pill color={`${tone}-subtle`} className={`text-${tone}-emphasis border border-${tone}-subtle ${styles.cadenceBadge}`}>
+      {t(freq.key, { count: freq.count })}
+    </Badge>
+  );
+}
+
+/** "Usually €80–122" — what the amount is like; how often lives in the badge. */
+function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
   const range = bill.paidAmountRange;
 
   let amountNote: string;
@@ -544,7 +556,7 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
 
   return (
     <span className={styles.cardSubtitle}>
-      {t(freq.key, { count: freq.count })} · {amountNote}
+      {amountNote}
       {/* A part-paid year owes money now, which nothing else on the row says:
           the amount column shows one instalment and the strip shows the months
           as covered. */}
@@ -651,7 +663,6 @@ function BillLine({
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
 
-  const cadence = getFrequencyLabel(bill);
   const pause = currentPause(bill);
   const stopped = !bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended");
   const late = !bill.isPaidThisPeriod && !stopped && billUrgency(bill) === "late";
@@ -668,12 +679,21 @@ function BillLine({
 
       <span className={styles.lineMain}>
         <span className={styles.lineName}>{bill.name}</span>
-        <span className={styles.lineCadence}>{t(cadence.key, { count: cadence.count })}</span>
+        {/* Status first, from the left edge, so it lines up down the list
+            instead of sliding with the width of the amount beside it. */}
+        <span className={styles.lineTags}>
+          {bill.isPaidThisPeriod ? (
+            <span className={`${styles.linePill} ${styles.linePillPaid}`}>{t("bills.linePaid")}</span>
+          ) : stopped ? (
+            <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
+          ) : late ? (
+            <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
+          ) : (
+            <span className={`${styles.linePill} ${styles.linePillDue}`}>{t("bills.lineUnpaid")}</span>
+          )}
+          <CadenceBadge bill={bill} />
+        </span>
       </span>
-
-      {late && <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>}
-      {stopped && <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>}
-      {bill.isPaidThisPeriod && <span className={`${styles.linePill} ${styles.linePillPaid}`}>{t("bills.linePaid")}</span>}
 
       <span className={styles.lineAmount}>
         <strong>
@@ -774,13 +794,16 @@ function BillCard({
             {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
           </span>
           <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
-        </div>
-
-        <div className={styles.cardAside}>
-          <StatusChip bill={bill} />
-          {/* Paid ahead is the one state the chip can't express: this period is
-              settled AND so is the next, which is not the same as merely paid. */}
-          {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
+          {/* On their own line from the left edge, status first: beside the
+              title they were pushed about by whatever sat before them, so no
+              two cards had them in the same place. */}
+          <div className={styles.cardTags}>
+            <StatusChip bill={bill} />
+            <CadenceBadge bill={bill} />
+            {/* Paid ahead is the one state the chip can't express: this period
+                is settled AND so is the next, which is not the same as paid. */}
+            {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
+          </div>
         </div>
 
         <FiChevronRight size={18} className={styles.cardChevron} aria-hidden />

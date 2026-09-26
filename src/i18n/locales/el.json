@@ -394,7 +394,8 @@
     "timelineNoSalary": "Όρισε μέρα μισθού στον planner και εδώ θα βλέπεις τι πρέπει να καλυφθεί πριν αυτός έρθει.",
     "timelineToday": "σήμερα",
     "owedTotal": "{{amount}} οφειλή",
-    "wasDueOn": "λήξη {{date}}"
+    "wasDueOn": "λήξη {{date}}",
+    "lineUnpaid": "απλήρωτο"
   },
   "transactions": {
     "title": "Συναλλαγές",

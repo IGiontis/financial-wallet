@@ -394,7 +394,8 @@
     "timelineNoSalary": "Set a pay day in the planner and this will show what has to be covered before it arrives.",
     "timelineToday": "today",
     "owedTotal": "{{amount}} owed",
-    "wasDueOn": "due {{date}}"
+    "wasDueOn": "due {{date}}",
+    "lineUnpaid": "unpaid"
   },
   "transactions": {
     "title": "Transactions",

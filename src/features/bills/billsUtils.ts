@@ -1174,6 +1174,24 @@ export function getFrequencyLabel(bill: Pick<Bill, "frequency" | "intervalCount"
   return { key: every[bill.frequency], count: interval };
 }
 
+/** A Bootstrap theme colour, used as its "-subtle" background and "-emphasis" text. */
+export type CadenceTone = "primary" | "info" | "warning" | "secondary" | "success" | "dark";
+
+/**
+ * One colour per cadence, so the eye learns it: every month is always blue,
+ * every year always green, and a bill that comes every three months stands out
+ * among the monthly ones without reading a word.
+ */
+export function cadenceTone(bill: Pick<Bill, "frequency" | "intervalCount">): CadenceTone {
+  const interval = getIntervalCount(bill);
+  if (bill.frequency === "weekly") return "dark";
+  if (bill.frequency === "yearly") return "success";
+  if (interval === 1) return "primary";
+  if (interval === 2) return "info";
+  if (interval === 3) return "warning";
+  return "secondary";
+}
+
 // ─── Month strip ────────────────────────────────────────────────────────────
 // A second way to read the list: instead of one figure per bill, a run of
 // calendar months, coloured in where a payment covers them. A bill every 2
