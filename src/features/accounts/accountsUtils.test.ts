@@ -9,6 +9,7 @@ import {
   projectedTotal,
   readCheckIns,
   realDelta,
+  recordsSinceByAccount,
   unloggedBetween,
   withoutAccount,
   type BalanceCheckIn,
@@ -201,6 +202,35 @@ describe("expectedByAccount", () => {
     const expected = expectedByAccount(accounts, readings[0], logged);
     expect(expected).toEqual({ eb: 1829.6, rev: 180, cash: 120 });
     expect(Object.values(expected).reduce((a, b) => a + b, 0)).toBeCloseTo(projectedTotal(readings[0], logged), 2);
+  });
+});
+
+describe("records that name their account", () => {
+  const readings = readCheckIns([c1], accounts, []);
+  const rows = [
+    tx(62.4, 24), // names none: the main account
+    tx(45, 25, { accountId: "rev" }),
+    tx(13, 26, { accountId: "cash" }),
+    tx(20, 27, { accountId: "gone" }), // an account since deleted: back to the main one
+    tx(100, 27, { type: "income", accountId: "rev" }),
+  ];
+
+  it("comes off the account it names, and the rest off the main one", () => {
+    const expected = expectedByAccount(accounts, readings[0], rows);
+    // Eurobank 1,950 − 62.40 − 20; Revolut 180 − 45 + 100; cash 120 − 13.
+    expect(expected).toEqual({ eb: 1867.6, rev: 235, cash: 107 });
+  });
+
+  it("still adds up to the projected total, however the records are spread", () => {
+    const expected = expectedByAccount(accounts, readings[0], rows);
+    const sum = Object.values(expected).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(projectedTotal(readings[0], rows), 2);
+    // Second route: 2,250 − 62.40 − 45 − 13 − 20 + 100.
+    expect(sum).toBeCloseTo(2209.6, 2);
+  });
+
+  it("counts each account's records since the reading", () => {
+    expect(recordsSinceByAccount(accounts, readings[0], rows)).toEqual({ eb: 2, rev: 2, cash: 1 });
   });
 });
 

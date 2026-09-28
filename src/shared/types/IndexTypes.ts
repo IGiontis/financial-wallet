@@ -95,6 +95,8 @@ export interface Transaction {
   metadata?: FuelMetadata;
   recurringTransactionId?: string;
   billId?: string; // set when this expense was logged by paying a recurring bill
+  /** Which of the Banks & cash accounts it came out of or went into. Optional — see `AccountPicker`. */
+  accountId?: string;
 
   // ── Investment transaction flags ──────────────────────────────────────────
   isInvestmentTransaction?: boolean;
@@ -118,6 +120,7 @@ export interface CreateTransactionDTO {
   isGoalTransaction?: boolean;
   contributionType?: "deposit" | "withdrawal";
   billId?: string;
+  accountId?: string;
 }
 
 export interface UpdateTransactionDTO {
@@ -128,6 +131,8 @@ export interface UpdateTransactionDTO {
   description?: string;
   notes?: string;
   metadata?: FuelMetadata;
+  /** `null` takes it off; absent leaves it as it is. */
+  accountId?: string | null;
 }
 
 export interface TransactionFilters {

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Badge, Button, Card, CardBody, Col, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiEdit2, FiPlus, FiRefreshCw, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
 
 import { PageShell } from "../../shared/components/PageShell";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
@@ -12,8 +12,10 @@ import { useMoneyAccounts } from "./useMoneyAccounts";
 import {
   STALE_AFTER_DAYS,
   daysSince,
+  accountOf,
   expectedByAccount,
   goalHeldTotal,
+  recordsSinceByAccount,
   mainAccount,
   newId,
   parseAmount,
@@ -23,7 +25,10 @@ import {
   type MoneyAccount,
   type MoneyAccountKind,
 } from "./accountsUtils";
-import { ACCOUNT_ICON, accountTones } from "./accountTones";
+import { ACCOUNT_ICON, accountFinishes, accountTones } from "./accountTones";
+import { BankCard, NoCard } from "./BankCard";
+import AccountSheet from "./AccountSheet";
+import cardStyles from "./css/BankCard.module.css";
 import CheckInModal from "./CheckInModal";
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import styles from "./css/AccountsPage.module.css";
@@ -56,12 +61,15 @@ export function AccountsPage() {
   const [editing, setEditing] = useState<MoneyAccount | "new" | null>(null);
   const [managing, setManaging] = useState(false);
   const [deleting, setDeleting] = useState<MoneyAccount | null>(null);
+  const [viewing, setViewing] = useState<MoneyAccount | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
 
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short" }), [lang]);
   const expected = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   const tones = useMemo(() => accountTones(accounts), [accounts]);
+  const touched = useMemo(() => recordsSinceByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
+  const finishes = useMemo(() => accountFinishes(accounts), [accounts]);
   const projected = latest ? projectedTotal(latest, transactions) : 0;
   const inGoals = goalHeldTotal(transactions);
   const available = currentBalance(transactions, anchors.at(-1));
@@ -85,14 +93,14 @@ export function AccountsPage() {
     if (editing === "new") {
       const id = newId();
       const first = accounts.length === 0;
-      let next = [...accounts, { id, name: draft.name, kind: draft.kind, main: first || draft.main }];
+      let next = [...accounts, { id, name: draft.name, kind: draft.kind, main: first || draft.main, ...(draft.kind === "bank" && draft.color ? { color: draft.color } : {}) }];
       if (draft.main) next = withMain(next, id, true);
       setAccounts(next);
       // Joins with the others at what they are expected to hold, so adding an
       // account never shows up as money found or lost.
       record({ ...expected, [id]: draft.amount ?? 0 });
     } else if (editing) {
-      let next = accounts.map((a) => (a.id === editing.id ? { ...a, name: draft.name, kind: draft.kind } : a));
+      let next = accounts.map((a) => (a.id === editing.id ? { ...a, name: draft.name, kind: draft.kind, color: draft.kind === "bank" ? draft.color : undefined } : a));
       next = withMain(next, editing.id, draft.main);
       setAccounts(next);
     }
@@ -156,7 +164,7 @@ export function AccountsPage() {
   }
 
   const updateButton = (
-    <Button color="primary" size="lg" className={`w-100 fw-semibold ${styles.cta}`} onClick={() => setReading(true)}>
+    <Button color="primary" size="lg" className="w-100 fw-semibold" onClick={() => setReading(true)}>
       <FiRefreshCw size={17} className="me-2" aria-hidden />
       {t("accounts.update")}
     </Button>
@@ -212,10 +220,10 @@ export function AccountsPage() {
             </CardBody>
           </Card>
 
-          {/* ── The accounts ── */}
+          {/* ── The accounts, as the cards in your wallet ── */}
           <Card className="mb-3">
-            <CardBody className="pt-2 pb-1 px-3">
-              <div className="d-flex justify-content-between align-items-center pt-1 pb-1">
+            <CardBody className="p-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
                 <span className="small fw-semibold text-body-secondary">{t("accounts.listTitle", { count: accounts.length })}</span>
                 <Button color="link" size="sm" className="p-0 text-decoration-none" onClick={() => setManaging((m) => !m)} aria-pressed={managing}>
                   {managing ? (
@@ -229,51 +237,39 @@ export function AccountsPage() {
                 </Button>
               </div>
 
-              {accounts.map((account) => {
-                const isMain = account.id === main?.id;
-                const moved = isMain && since > 0;
-                const amount = expected[account.id] ?? 0;
-                const tile = (
-                  <span className={styles.tile} style={{ ["--tone" as string]: tones[account.id] }} aria-hidden>
-                    {ACCOUNT_ICON[account.kind]}
-                  </span>
-                );
-                const text = (
-                  <span className="flex-grow-1" style={{ minWidth: 0 }}>
-                    <span className={styles.name}>{account.name}</span>
-                    <span className={styles.note}>
-                      {moved ? t("accounts.estimated") : latest && account.id in latest.checkIn.amounts ? t("accounts.readOn", { date: dayFmt.format(latest.at) }) : t("accounts.notRead")}
-                      {isMain && accounts.length > 1 && ` · ${t("accounts.mainShort")}`}
-                    </span>
-                  </span>
-                );
-                return (
-                  <div key={account.id} className={styles.row}>
-                    <button type="button" className={styles.rowButton} onClick={() => setEditing(account)} aria-label={t("accounts.openAccount", { name: account.name })}>
-                      {tile}
-                      {text}
-                      <span className={styles.amount} style={{ color: amount < 0 ? "var(--color-expense-text)" : undefined }}>
-                        {formatCurrency(amount)}
-                      </span>
-                      {!managing && <FiChevronRight size={16} className="text-body-tertiary flex-shrink-0" aria-hidden />}
-                    </button>
-                    {managing && (
-                      <Button
-                        color="danger"
-                        outline
-                        size="sm"
-                        className="flex-shrink-0"
-                        onClick={() => setDeleting(account)}
-                        disabled={deleteGuard.locked}
-                        title={deleteGuard.reason}
-                        aria-label={t("accounts.deleteNamed", { name: account.name })}
-                      >
-                        <FiTrash2 size={15} aria-hidden />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+              <div className={cardStyles.grid}>
+                {accounts.map((account) => {
+                  const moved = (touched[account.id] ?? 0) > 0;
+                  const note = moved ? t("accounts.estimatedShort") : latest && account.id in latest.checkIn.amounts ? dayFmt.format(latest.at) : t("accounts.notRead");
+                  return (
+                    <div key={account.id} className="position-relative">
+                      <BankCard
+                        name={account.name}
+                        kind={account.kind}
+                        finish={finishes[account.id]}
+                        amount={formatCurrency(expected[account.id] ?? 0)}
+                        note={note}
+                        badge={account.id === main?.id && accounts.length > 1 ? t("accounts.mainShort") : undefined}
+                        onClick={() => setViewing(account)}
+                        label={t("accounts.openAccount", { name: account.name })}
+                      />
+                      {managing && (
+                        <button
+                          type="button"
+                          className={styles.cardDelete}
+                          onClick={() => setDeleting(account)}
+                          disabled={deleteGuard.locked}
+                          title={deleteGuard.reason}
+                          aria-label={t("accounts.deleteNamed", { name: account.name })}
+                        >
+                          <FiTrash2 size={14} aria-hidden />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <NoCard title={`+ ${t("accounts.add")}`} hint={t("accounts.addHint")} onClick={() => setEditing("new")} />
+              </div>
             </CardBody>
           </Card>
 
@@ -366,8 +362,32 @@ export function AccountsPage() {
           onClose={() => setReading(false)}
         />
       )}
+      {viewing && (
+        <AccountSheet
+          account={viewing}
+          finish={finishes[viewing.id] ?? "blue"}
+          holds={expected[viewing.id] ?? 0}
+          isMain={viewing.id === main?.id && accounts.length > 1}
+          readAt={latest && viewing.id in latest.checkIn.amounts ? latest.at : undefined}
+          readAmount={latest?.checkIn.amounts[viewing.id]}
+          movements={transactions.filter((tx) => accountOf(tx, accounts, main) === viewing.id && (tx.accountId === viewing.id || (!!latest && isAfterReading(tx, latest.at))))}
+          formatCurrency={formatCurrency}
+          dateFmt={dayFmt}
+          deleteLocked={deleteGuard.locked}
+          onEdit={() => {
+            setEditing(viewing);
+            setViewing(null);
+          }}
+          onDelete={() => {
+            setDeleting(viewing);
+            setViewing(null);
+          }}
+          onClose={() => setViewing(null)}
+        />
+      )}
       {editing && (
         <AccountModal
+          defaultColor={editing === "new" ? accountFinishes([...accounts, { id: "new", kind: "bank" }]).new : finishes[editing.id]}
           account={editing === "new" ? undefined : editing}
           baseCurrency={baseCurrency}
           onSave={saveAccount}

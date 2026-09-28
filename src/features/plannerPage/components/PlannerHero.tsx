@@ -10,6 +10,7 @@ import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
 import { BalanceLine } from "../BalanceLine";
 import styles from "../css/PlannerPage.module.css";
+import segmented from "../../../shared/css/Segmented.module.css";
 
 const VERDICT = {
   ok: { className: styles.heroOk, Icon: FiCheckCircle },
@@ -27,6 +28,9 @@ interface PlannerHeroProps {
   onOpening: (value: string) => void;
   /** Money you can spend now, from the bank readings — offered as the opening figure. */
   available?: number;
+  /** Starting from the banks rather than from the typed figure. */
+  fromBanks?: boolean;
+  onOpeningSource?: (source: "banks" | "manual") => void;
   baseCurrency: string;
   formatCurrency: (n: number) => string;
   dateFmt: Intl.DateTimeFormat;
@@ -52,6 +56,8 @@ export function PlannerHero({
   openingInput,
   onOpening,
   available,
+  fromBanks = false,
+  onOpeningSource,
   baseCurrency,
   formatCurrency,
   dateFmt,
@@ -196,17 +202,28 @@ export function PlannerHero({
       <div className={styles.heroLedger}>
         <div className={styles.ledgerRow}>
           <span>{t("planner.openingBalance")}</span>
+          {fromBanks && available !== undefined ? (
+            <span className={styles.ledgerValue}>{formatCurrency(available)}</span>
+          ) : (
           <div style={{ width: 128, flexShrink: 0 }}>
             <InputGroup size="sm">
               <InputGroupText>{baseCurrency}</InputGroupText>
               <Input type="number" inputMode="decimal" placeholder="0" value={openingInput} onChange={(e) => onOpening(e.target.value)} aria-label={t("planner.openingBalance")} />
             </InputGroup>
           </div>
+          )}
         </div>
-        {available !== undefined && Math.round((parseFloat(openingInput) || 0) * 100) !== Math.round(available * 100) && (
-          <button type="button" className="btn btn-link btn-sm p-0 mb-1 text-decoration-none d-block ms-auto" onClick={() => onOpening(String(Math.round(available * 100) / 100))}>
-            {t("planner.useAvailable", { amount: formatCurrency(available) })}
-          </button>
+        {/* Where the plan starts: what the banks hold, or a figure of your own
+            for a "what if". Only offered once the banks have been read. */}
+        {available !== undefined && onOpeningSource && (
+          <div className={`${segmented.group} ${segmented.even} mb-2`} role="group" aria-label={t("planner.openingBalance")}>
+            <button type="button" className={`${segmented.item} ${fromBanks ? segmented.active : ""}`} aria-pressed={fromBanks} onClick={() => onOpeningSource("banks")}>
+              {t("planner.openingFromBanks")}
+            </button>
+            <button type="button" className={`${segmented.item} ${!fromBanks ? segmented.active : ""}`} aria-pressed={!fromBanks} onClick={() => onOpeningSource("manual")}>
+              {t("planner.openingMine")}
+            </button>
+          </div>
         )}
         <div className={styles.ledgerRow}>
           <span>{t("planner.moneyIn")}</span>

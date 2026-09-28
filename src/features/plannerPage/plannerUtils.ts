@@ -1,4 +1,5 @@
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
+import { createResolver, lookbackStart, occurrenceKey, type Actuals, type PlannedOccurrence, type ResolvedOccurrence } from "./plannerActuals";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
@@ -550,6 +551,12 @@ export interface PlannerEvent {
   deadline?: Date;
   /** Bill whose due date has already gone. */
   overdue?: boolean;
+  /** Set when the plan checked this one against the records — see `plannerActuals`. */
+  occurrenceKey?: string;
+  /** Its day has passed and it has not come: held in the plan from today. */
+  late?: boolean;
+  /** The day it was expected, when it now sits on another. */
+  expected?: Date;
 }
 
 export type PlanRowSource = "salary" | "bill" | "goal" | "line" | "debt" | "oneoff";
@@ -667,6 +674,12 @@ export interface PlannerPlan {
   breaksOn?: Date;
   /** The outgoing that tipped it under, when one thing did it. */
   breakingEvent?: PlannerEvent;
+  /**
+   * Every salary, loan instalment and one-off near today, with what became of
+   * it — arrived, late, still to come. Empty when the plan was built without
+   * the records to check against.
+   */
+  occurrences: ResolvedOccurrence[];
   verdict: PlannerVerdict;
   /** `net` when it is positive. The headline figure when the answer is yes. */
   surplus: number;
@@ -691,13 +704,32 @@ export interface PlanInput {
   skipIds?: ReadonlySet<string>;
   horizon?: PlannerHorizon;
   now?: Date;
+  /**
+   * The records, and the user's word on single occurrences. Given, each dated
+   * item near today is checked against them before it is planned: one that has
+   * already come is not counted again, one that is late is not forgotten.
+   * Absent, the plan takes every appointment at its word, as it always did.
+   */
+  actuals?: Actuals;
 }
 
 /** Row id for the salary, which has no document of its own to be keyed by. */
 export const SALARY_ROW_ID = "__salary__";
 
-export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date() }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date(), actuals }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
+  // Checking against the records looks back a little: something due last week
+  // that has not come is still owed, and the plan has to see it to say so.
+  const resolve = actuals ? createResolver(actuals, now) : undefined;
+  const lookFrom = resolve ? lookbackStart(now) : today;
+  const occurrences: ResolvedOccurrence[] = [];
+  /** Each expected item, checked when there is something to check it against; what is left to plan. */
+  const settle = (planned: PlannedOccurrence[]): { date: Date; amount: number; key?: string; late?: boolean; expected?: Date }[] => {
+    if (!resolve) return planned.map((o) => ({ date: o.date, amount: o.amount }));
+    const resolved = planned.map(resolve);
+    occurrences.push(...resolved);
+    return resolved.flatMap((r) => (r.plannedDate ? [{ date: r.plannedDate, amount: r.plannedAmount, key: r.key, late: r.status === "late", expected: r.date }] : []));
+  };
   const end = horizonEnd(horizon, now);
   const days = Math.max(differenceInCalendarDays(end, today), 0);
 
@@ -725,12 +757,18 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   const paydays = salary ? salaryDates(salary.dayOfMonth, end, now) : [];
   if (salary) {
     const enabled = isOn(SALARY_ROW_ID);
+    // From the look-back when checking, so a payday that has just gone by is
+    // seen — and found to have come, or not.
+    const expected = resolve ? salaryDates(salary.dayOfMonth, end, addDays(lookFrom, -1)) : paydays;
+    const placed = enabled
+      ? settle(expected.map((date) => ({ key: occurrenceKey("salary", SALARY_ROW_ID, date), source: "salary" as const, refId: SALARY_ROW_ID, label: SALARY_ROW_ID, amount: salary.amount, date })))
+      : [];
     rows.push({
       id: SALARY_ROW_ID,
       source: "salary",
       label: SALARY_ROW_ID,
-      total: enabled ? round2(salary.amount * paydays.length) : 0,
-      occurrences: paydays.length,
+      total: enabled ? round2(placed.reduce((sum, p) => sum + p.amount, 0)) : 0,
+      occurrences: enabled ? placed.length : paydays.length,
       perMonth: salary.amount,
       enabled,
     });
@@ -739,7 +777,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     // instead meant a fourteenth salary, a room rent and every other line the
     // user had named were all relabelled "Salary" on the chart and the
     // timeline.
-    if (enabled) for (const date of paydays) events.push({ kind: "income", label: SALARY_ROW_ID, amount: salary.amount, date });
+    for (const p of placed) events.push({ kind: "income", label: SALARY_ROW_ID, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
   }
 
   // ── Bills ─────────────────────────────────────────────────────────────────
@@ -841,23 +879,25 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       // month index so a loan taken on the 31st does not walk back to the 28th.
       const startDay = firestoreToDate(debt.date).getDate();
       const dates: Date[] = [];
-      for (let month = 0; month < payoff.months; month++) {
+      // Last month's too when checking: an instalment not yet paid is still due.
+      for (let month = resolve ? -1 : 0; month < payoff.months; month++) {
         const date = clampDay(today.getFullYear(), today.getMonth() + month, startDay);
-        if (date < today) continue;
+        if (date < lookFrom) continue;
         if (date > end) break;
         dates.push(date);
       }
+      const placed = enabled ? settle(dates.map((date) => ({ key: occurrenceKey("loan", debt.id, date), source: "loan" as const, refId: debt.id, label, amount: -instalment, date }))) : [];
 
       rows.push({
         id: debt.id,
         source: "debt",
         label: debt.person,
-        total: enabled ? negate(instalment * dates.length) : 0,
-        occurrences: dates.length,
+        total: enabled ? negate(placed.reduce((sum, p) => sum - p.amount, 0)) : 0,
+        occurrences: enabled ? placed.length : dates.length,
         perMonth: -instalment,
         enabled,
       });
-      if (enabled) for (const date of dates) events.push({ kind: "goal", label, amount: -instalment, date });
+      for (const p of placed) events.push({ kind: "goal", label, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
       continue;
     }
 
@@ -877,14 +917,15 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     // One date or many: a repeat is the same entry landing on every date its
     // cadence reaches inside the window, so the row totals what the window
     // actually holds rather than one payment of it.
-    const dates = oneOffDates(oneOff, today, end);
+    const dates = oneOffDates(oneOff, lookFrom, end);
     if (!dates.length) continue;
 
     const enabled = isOn(oneOff.id);
     const amount = round2(oneOff.amount);
+    const placed = enabled ? settle(dates.map((date) => ({ key: occurrenceKey("oneoff", oneOff.id, date), source: "oneoff" as const, refId: oneOff.id, label: oneOff.label, amount, date }))) : [];
 
-    rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? round2(amount * dates.length) : 0, occurrences: dates.length, kind: "income", enabled });
-    if (enabled) for (const date of dates) events.push({ kind: "income", label: oneOff.label, amount, date });
+    rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? round2(placed.reduce((sum, p) => sum + p.amount, 0)) : 0, occurrences: enabled ? placed.length : dates.length, kind: "income", enabled });
+    for (const p of placed) events.push({ kind: "income", label: oneOff.label, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
   }
 
   // ── The user's own budget lines ───────────────────────────────────────────
@@ -1100,6 +1141,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     lowestBalance: round2(lowestBalance),
     breaksOn,
     breakingEvent,
+    occurrences,
     verdict,
     surplus,
     shortfall,

@@ -11,6 +11,8 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
+import AccountPicker from "../../accounts/AccountPicker";
+import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
@@ -38,6 +40,7 @@ interface TransactionFormValues {
   quantity: number | "";
   odometer: number | "";
   place: string;
+  accountId: string;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -52,7 +55,7 @@ const today = new Date().toISOString().split("T")[0];
 //
 // Editing runs the same three that follow, minus this first one: an expense
 // cannot become an income by editing.
-const STEPS = ["type", "category", "details", "review"] as const;
+const STEPS = ["type", "category", "account", "details", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -140,13 +143,17 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
   const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  // The card step is there only when there are cards on the Banks & cash page.
+  const accounts = useAccountList();
+  const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
+  const afterCategory: Step = accounts.length > 0 ? "account" : "details";
 
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
     initialValues: {
       amount: "", type: "expense", categoryId: "", date: today,
       description: "", notes: "", showFuelDetails: false,
-      fuelType: "", pricePerUnit: "", quantity: "", odometer: "", place: "",
+      fuelType: "", pricePerUnit: "", quantity: "", odometer: "", place: "", accountId: "",
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -167,6 +174,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           amount: amountInBase, type: values.type, categoryId: values.categoryId,
           date: new Date(values.date), description: values.description,
           notes: values.notes || undefined, metadata,
+          accountId: values.accountId || undefined,
         };
 
         await onSubmit(dto);
@@ -259,7 +267,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
   const chooseCategory = (categoryId: string, category: Category) => {
     handleCategorySelect(categoryId, category);
-    setStep("details");
+    setStep(afterCategory);
   };
 
   const handleClose = () => {
@@ -269,7 +277,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     onClose();
   };
 
-  const goBack = () => setStep(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]);
+  const goBack = () => setStep(steps[Math.max(0, steps.indexOf(step) - 1)]);
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
@@ -279,6 +287,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       formik.setTouched(Object.keys(formik.values).reduce((acc, k) => ({ ...acc, [k]: true }), {}));
     }
   };
+
+  const accountName = accounts.find((a) => a.id === formik.values.accountId)?.name;
 
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
@@ -299,7 +309,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           only ever set after the type step, so it is the signal that the choice
           is real. */}
       <ModalBody className={formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
-        <WizardSteps steps={STEPS} current={step} onGo={setStep} />
+        <WizardSteps steps={steps} current={step} onGo={setStep} />
 
         {/* ── 1. Money in or money out ── */}
         {step === "type" && (
@@ -345,6 +355,24 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                 and switching type does — printed the error before the reader
                 had done anything wrong. */}
             {formik.touched.categoryId && formik.errors.categoryId && <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>}
+          </>
+        )}
+
+        {/* ── Which card ── only when there are cards to choose from. */}
+        {step === "account" && (
+          <>
+            <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
+              {t(formik.values.type === "income" ? "transactions.wizard.pickAccountIn" : "transactions.wizard.pickAccount")}
+              <TypeBadge type={formik.values.type} />
+            </p>
+            <AccountPicker
+              value={formik.values.accountId}
+              income={formik.values.type === "income"}
+              onChoose={(id) => {
+                formik.setFieldValue("accountId", id);
+                setStep("details");
+              }}
+            />
           </>
         )}
 
@@ -478,6 +506,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
         {/* ── 4. Read it back before it is written ── */}
         {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} />}
+        {step === "review" && accountName && (
+          <p className="small text-body-secondary mt-2 mb-0">{t(formik.values.type === "income" ? "accounts.reviewInto" : "accounts.reviewFrom", { name: accountName })}</p>
+        )}
       </ModalBody>
 
       <ModalFooter>
@@ -488,8 +519,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         )}
 
         {step === "category" && (
-          <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep("details")}>{t("common.next")}</Button>
+          <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
+        {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
         {step === "details" && <Button color="primary" onClick={handleReview}>{t("transactions.reviewBtn")}</Button>}
         {step === "review" && (
           <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting}>

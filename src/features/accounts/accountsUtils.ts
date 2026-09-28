@@ -31,6 +31,8 @@ export interface MoneyAccount {
   kind: MoneyAccountKind;
   /** Where new records are assumed to land between readings. One account has it. */
   main?: boolean;
+  /** The card's finish, for a bank — see `accountTones`. Cash is always a banknote. */
+  color?: "blue" | "purple" | "black" | "teal" | "red" | "gold";
 }
 
 /** One reading of every account's real balance, at one moment. */
@@ -208,22 +210,44 @@ export function mainAccount(accounts: MoneyAccount[]): MoneyAccount | undefined 
   return accounts.find((a) => a.main) ?? accounts.find((a) => a.kind === "bank") ?? accounts[0];
 }
 
+/** The account a record belongs to: the one it names, if that still exists, else the main one. */
+export function accountOf(tx: Transaction, accounts: MoneyAccount[], main: MoneyAccount | undefined): string | undefined {
+  return tx.accountId && accounts.some((a) => a.id === tx.accountId) ? tx.accountId : main?.id;
+}
+
 /**
  * What each account should show now — the figures a new reading starts from.
  *
- * Every record since the last reading is put against the main account, since
- * records do not say where they came from. The others keep what they were read
- * at. Their sum is the projected total, so saving the reading unchanged finds
- * nothing missing.
+ * Each record since the last reading goes against the account it names; one
+ * that names none — or names an account since deleted — against the main one.
+ * Accounts nothing touched keep what they were read at. Their sum is the
+ * projected total whichever way the records are spread, so saving the reading
+ * unchanged still finds nothing missing.
  */
 export function expectedByAccount(accounts: MoneyAccount[], latest: CheckInReading | undefined, transactions: Transaction[]): Record<string, number> {
   const result: Record<string, number> = {};
   if (!latest) return result;
   for (const account of accounts) result[account.id] = latest.checkIn.amounts[account.id] ?? 0;
   const main = mainAccount(accounts);
-  if (main) {
-    const moved = transactions.filter((tx) => isAfterReading(tx, latest.at)).reduce((sum, tx) => sum + realDelta(tx), 0);
-    result[main.id] = round2((result[main.id] ?? 0) + moved);
+  if (!main) return result;
+  for (const tx of transactions) {
+    if (!isAfterReading(tx, latest.at)) continue;
+    const id = accountOf(tx, accounts, main)!;
+    result[id] = (result[id] ?? 0) + realDelta(tx);
+  }
+  for (const id of Object.keys(result)) result[id] = round2(result[id]);
+  return result;
+}
+
+/** How many records since the last reading each account carries. */
+export function recordsSinceByAccount(accounts: MoneyAccount[], latest: CheckInReading | undefined, transactions: Transaction[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (!latest) return result;
+  const main = mainAccount(accounts);
+  for (const tx of transactions) {
+    if (!isAfterReading(tx, latest.at)) continue;
+    const id = accountOf(tx, accounts, main);
+    if (id) result[id] = (result[id] ?? 0) + 1;
   }
   return result;
 }

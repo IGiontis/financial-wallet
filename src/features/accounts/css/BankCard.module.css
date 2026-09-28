@@ -1,0 +1,294 @@
+/* A bank account drawn as the card in your wallet, small and plain: real card
+   proportions (85.6 × 54 mm, 1.586:1), a chip, the bank's name and what it
+   holds — and no card number, which would only invite comparing it with the
+   real one. The finish comes from `--card`, set per account.
+
+   Cash is not a card, and does not look like one: it is a banknote. */
+
+.card {
+  position: relative;
+  isolation: isolate; /* its own layer: nothing of a card behind shows through */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  aspect-ratio: 1.586;
+  padding: 9px 11px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: var(--card);
+  color: #fff;
+  text-align: left;
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.15s ease;
+}
+
+/* The sheen of a real card under a light. */
+.card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -45%;
+  right: -25%;
+  width: 90%;
+  height: 130%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.2), transparent 70%);
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+button.card {
+  cursor: pointer;
+}
+
+button.card:hover {
+  transform: translateY(-1px);
+}
+
+button.card:focus-visible {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: 3px;
+}
+
+.top,
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.chip {
+  position: relative;
+  width: 24px;
+  height: 18px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f6dc98, #c9a24a 55%, #f1d27f);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.chip::before,
+.chip::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.chip::before {
+  top: 6px;
+}
+
+.chip::after {
+  bottom: 6px;
+}
+
+.amount {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.note {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  opacity: 0.9;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Cash: a banknote ─────────────────────────────────────────────────────── */
+/* Paper, not plastic: a pale green note with a printed double border, a round
+   € seal and square-cut corners, so it can never be taken for a card. */
+
+.cash {
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(135deg, rgba(22, 101, 52, 0.05) 0 2px, transparent 2px 7px),
+    linear-gradient(135deg, #eaf6ee, #d3ecdc);
+  color: #14532d;
+  box-shadow:
+    0 3px 8px rgba(15, 23, 42, 0.14),
+    inset 0 0 0 1px rgba(20, 83, 45, 0.25);
+}
+
+.cash::after {
+  display: none;
+}
+
+/* The printed frame inside the note's edge. */
+.cash::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 5px;
+  border: 1px solid rgba(20, 83, 45, 0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.cash .name,
+.cash .amount {
+  text-shadow: none;
+}
+
+.seal {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid rgba(20, 83, 45, 0.55);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cash .badge {
+  background: rgba(20, 83, 45, 0.12);
+}
+
+/* ── "No particular card" ─────────────────────────────────────────────────── */
+/* Plain on purpose: it is the absence of a card, and must not be mistaken
+   for one. */
+
+.none {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 2px dashed var(--color-border-primary);
+  box-shadow: none;
+}
+
+.none::after {
+  display: none;
+}
+
+.none .name {
+  text-shadow: none;
+  white-space: normal;
+}
+
+.noneHint {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--color-text-secondary);
+}
+
+/* Room for the check in the corner, so it never sits on the words. */
+.none.selected .noneHint {
+  padding-right: 22px;
+}
+
+/* ── Chosen ───────────────────────────────────────────────────────────────── */
+
+.selected {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.check {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* The check sits where the note would be; the note gives way. */
+.selected .note {
+  visibility: hidden;
+}
+
+/* ── Compact: name and balance, nothing else ──────────────────────────────── */
+/* Still card-shaped, so still a card at a glance; the chip goes, and with it
+   the reason to be as tall. */
+
+.compact {
+  aspect-ratio: 1.9;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.compact .amount {
+  font-size: 14px;
+}
+
+/* The rule between "no card / cash" and the cards. */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-tertiary);
+}
+
+/* ── A grid of cards ──────────────────────────────────────────────────────── */
+/* Two to a row on a phone, more as the room allows — never stretched into a
+   slab the width of the screen. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 576px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
+  }
+}
+
+/* The compact cards fit three to a row on a phone. */
+.compactGrid {
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 576px) {
+  .compactGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 150px));
+  }
+}

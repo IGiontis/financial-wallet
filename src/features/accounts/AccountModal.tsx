@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import segmented from "../../shared/css/Segmented.module.css";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { parseAmount, type MoneyAccount, type MoneyAccountKind } from "./accountsUtils";
+import { BankCard } from "./BankCard";
+import { CARD_COLORS, CARD_FINISH, type CardColor } from "./accountTones";
+import styles from "./css/AccountsPage.module.css";
 
 export interface AccountDraft {
   name: string;
@@ -11,6 +14,8 @@ export interface AccountDraft {
   main: boolean;
   /** Only when adding: what it holds now. */
   amount?: number;
+  /** A bank's card finish. */
+  color?: CardColor;
 }
 
 /**
@@ -23,12 +28,15 @@ export interface AccountDraft {
  */
 export default function AccountModal({
   account,
+  defaultColor,
   baseCurrency,
   onSave,
   onDelete,
   onClose,
 }: {
   account?: MoneyAccount;
+  /** The finish the card has now, or would get. */
+  defaultColor?: CardColor | "cash";
   baseCurrency: string;
   onSave: (draft: AccountDraft) => void;
   onDelete?: () => void;
@@ -39,6 +47,7 @@ export default function AccountModal({
   const [name, setName] = useState(account?.name ?? "");
   const [kind, setKind] = useState<MoneyAccountKind>(account?.kind ?? "bank");
   const [main, setMain] = useState(account?.main ?? false);
+  const [color, setColor] = useState<CardColor>(defaultColor && defaultColor !== "cash" ? defaultColor : "blue");
   const [amount, setAmount] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -50,7 +59,7 @@ export default function AccountModal({
   const save = () => {
     setTouched(true);
     if (!nameOk || !amountOk) return;
-    onSave({ name: name.trim(), kind, main, amount: account ? undefined : value });
+    onSave({ name: name.trim(), kind, main, amount: account ? undefined : value, color: kind === "bank" ? color : undefined });
   };
 
   return (
@@ -78,6 +87,31 @@ export default function AccountModal({
             maxLength={40}
           />
         </FormGroup>
+
+        {/* The card as it will look — a bank's finish is chosen here. */}
+        <div className="d-flex gap-3 align-items-center mb-3 flex-wrap">
+          <div style={{ width: 150 }}>
+            <BankCard name={name.trim() || (kind === "bank" ? t("accounts.namePlaceholderBank") : t("accounts.kindCash"))} kind={kind} finish={kind === "cash" ? "cash" : color} amount={value !== undefined ? String(value) : undefined} />
+          </div>
+          {kind === "bank" && (
+            <div>
+              <div className="small fw-medium mb-2">{t("accounts.cardColor")}</div>
+              <div className={styles.swatches} role="group" aria-label={t("accounts.cardColor")}>
+                {CARD_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={styles.swatch}
+                    style={{ ["--card" as string]: CARD_FINISH[c].background }}
+                    aria-pressed={color === c}
+                    aria-label={t(`accounts.color.${c}`)}
+                    onClick={() => setColor(c)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {!account && (
           <FormGroup>

@@ -1,6 +1,7 @@
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronRight, FiLock } from "react-icons/fi";
+import { daysLate, type ResolvedOccurrence } from "../plannerActuals";
 
 import { isHardDeadline } from "../../bills/billsUtils";
 import { SALARY_ROW_ID, type PlannerEvent } from "../plannerUtils";
@@ -24,6 +25,10 @@ interface PlannerTimelineProps {
   breakingEvent?: PlannerEvent;
   formatCurrency: (n: number) => string;
   dateFmt: Intl.DateTimeFormat;
+  /** What already came, or will not, near today — listed first, and struck through. */
+  settled?: ResolvedOccurrence[];
+  /** Opens one salary, instalment or one-off, to say what happened to it. */
+  onOccurrence?: (key: string) => void;
 }
 
 /**
@@ -33,7 +38,7 @@ interface PlannerTimelineProps {
  * "how much" — the hero already said that — but "in what order", which is the
  * difference between a month that adds up and a month that adds up too late.
  */
-function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dateFmt }: PlannerTimelineProps) {
+function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dateFmt, settled = [], onOccurrence }: PlannerTimelineProps) {
   const { t } = useTranslation();
   // Which months have been unrolled by hand, on top of the ones open by default.
   const [opened, setOpened] = useState<Record<string, boolean>>({});
@@ -50,10 +55,18 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
         ? "var(--figure-income)"
         : "var(--figure-expense)";
 
+    const tappable = !!event.occurrenceKey && !!onOccurrence;
+    const Row = tappable ? "button" : "div";
+    const moved = !event.late && event.expected && event.expected.getTime() !== event.date.getTime();
+
     return (
-      <div key={`${event.kind}-${event.billId ?? event.label}-${index}`} className={styles.eventRow}>
+      <Row
+        key={`${event.kind}-${event.occurrenceKey ?? event.billId ?? event.label}-${index}`}
+        className={`${styles.eventRow} ${tappable ? styles.eventButton : ""}`}
+        {...(tappable ? { type: "button" as const, onClick: () => onOccurrence!(event.occurrenceKey!) } : {})}
+      >
         <span className={styles.eventDate} style={{ color: tone }}>
-          {event.overdue ? t("planner.now") : dateFmt.format(event.date)}
+          {event.overdue || event.late ? t("planner.now") : dateFmt.format(event.date)}
         </span>
         <span className={styles.eventName}>
           <span className={styles.eventTitle} style={{ color: tone }}>
@@ -66,19 +79,71 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
           {event.graceDays !== undefined && event.graceDays > 0 && event.deadline && (
             <span className={styles.eventNote}>{t("planner.canWaitUntil", { date: dateFmt.format(event.deadline), days: event.graceDays })}</span>
           )}
+          {event.late && event.expected && (
+            <span className={`${styles.eventNote} ${styles.lateNote}`}>{t("planner.lateBy", { count: daysLate({ date: event.expected }), date: dateFmt.format(event.expected) })}</span>
+          )}
+          {moved && <span className={styles.eventNote}>{t("planner.movedFrom", { date: dateFmt.format(event.expected!) })}</span>}
         </span>
         <span className={styles.eventAmount} style={{ color: tone }}>
           {event.amount > 0 ? "+" : "−"}
           {formatCurrency(Math.abs(event.amount))}
         </span>
-      </div>
+      </Row>
+    );
+  };
+
+  // Came, paid, or not coming this time — kept on the list, struck through, so
+  // the plan shows it knows and the one tap that undoes it stays in reach.
+  const renderSettled = (occurrence: ResolvedOccurrence) => {
+    const name = occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label;
+    const outgoing = occurrence.amount < 0;
+    const m = occurrence.matched;
+    const note =
+      occurrence.status === "skipped"
+        ? t("planner.skippedShort")
+        : m
+          ? t(outgoing ? "planner.paidOn" : "planner.arrivedOn", { date: dateFmt.format(m.date) })
+          : "";
+    const differs = m && Math.round(Math.abs(m.amount) * 100) !== Math.round(Math.abs(occurrence.amount) * 100);
+    const Row = onOccurrence ? "button" : "div";
+    return (
+      <Row
+        key={occurrence.key}
+        className={`${styles.eventRow} ${styles.settledRow} ${onOccurrence ? styles.eventButton : ""}`}
+        {...(onOccurrence ? { type: "button" as const, onClick: () => onOccurrence(occurrence.key) } : {})}
+      >
+        <span className={styles.eventDate}>{dateFmt.format(occurrence.date)}</span>
+        <span className={styles.eventName}>
+          <span className={styles.eventTitle}>{name}</span>
+          <span className={`${styles.eventNote} ${occurrence.status === "skipped" ? "" : styles.doneNote}`}>
+            {note}
+            {differs && ` · ${t("planner.amountWas", { amount: formatCurrency(Math.abs(m!.amount)) })}`}
+          </span>
+        </span>
+        <span className={`${styles.eventAmount} ${styles.struck}`}>
+          {outgoing ? "−" : "+"}
+          {formatCurrency(Math.abs(occurrence.amount))}
+        </span>
+      </Row>
     );
   };
 
   return (
     <div className={`${styles.chartCard} p-3 p-lg-4`}>
       <div className={styles.cardTitle}>{t("planner.stillComing")}</div>
-      <p className={styles.cardHint}>{t("planner.stillComingHint")}</p>
+      <p className={styles.cardHint}>
+        {t("planner.stillComingHint")}
+        {onOccurrence && ` ${t("planner.tapToFix")}`}
+      </p>
+
+      {settled.length > 0 && (
+        <div className="mb-2">
+          <div className={styles.monthHeader} style={{ cursor: "default" }}>
+            <span className={styles.monthLabel}>{t("planner.doneTitle")}</span>
+          </div>
+          {settled.map(renderSettled)}
+        </div>
+      )}
 
       {months.length === 0 ? (
         <p className="text-body-secondary mb-0" style={{ fontSize: 12.5 }}>

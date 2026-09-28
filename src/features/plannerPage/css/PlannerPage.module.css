@@ -109,6 +109,44 @@
   color: var(--color-text-secondary);
 }
 
+/* A row that opens its occurrence: a button, styled back to a row. */
+.eventButton {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+}
+
+.eventButton:hover {
+  background: var(--color-background-secondary);
+}
+
+/* Already came or will not: quiet, and the amount struck through so it reads
+   as not counted without having to be explained. */
+.settledRow {
+  opacity: 0.75;
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+
+.doneNote {
+  color: var(--color-income-text);
+  font-weight: 600;
+}
+
+.lateNote {
+  color: var(--color-goal-text);
+  font-weight: 600;
+}
+
 .eventAmount {
   font-variant-numeric: tabular-nums;
   font-weight: 600;

@@ -15,6 +15,12 @@ const isAccount = (a: unknown): a is MoneyAccount =>
 const isCheckIn = (c: unknown): c is BalanceCheckIn =>
   !!c && typeof (c as BalanceCheckIn).id === "string" && typeof (c as BalanceCheckIn).at === "string" && !!(c as BalanceCheckIn).amounts && typeof (c as BalanceCheckIn).amounts === "object";
 
+/** Only the list of accounts — for a form that offers them, without the readings' arithmetic. */
+export function useAccountList(): MoneyAccount[] {
+  const [stored] = useWorkspaceSetting<MoneyAccount[]>(ACCOUNTS_KEY, []);
+  return useMemo(() => (Array.isArray(stored) ? stored.filter(isAccount) : []), [stored]);
+}
+
 /** The accounts, their readings, and everything worked out from them. */
 export function useMoneyAccounts() {
   const [storedAccounts, setAccounts] = useWorkspaceSetting<MoneyAccount[]>(ACCOUNTS_KEY, []);

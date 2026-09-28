@@ -115,6 +115,8 @@ export const updateTransaction = async (transactionId: string, data: UpdateTrans
   const firestoreData = {
     ...clean({ ...data }),
     metadata: data.metadata === undefined ? deleteField() : data.metadata,
+    // Only touched when the form speaks about it: `null` clears it, a string sets it.
+    ...(data.accountId === null ? { accountId: deleteField() } : {}),
     updatedAt: serverTimestamp(),
   };
 

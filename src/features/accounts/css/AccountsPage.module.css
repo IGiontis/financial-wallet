@@ -142,15 +142,19 @@
 /* On a phone it stays under the thumb while the page scrolls. On a wide screen
    it sits in its column like any other button. */
 
+/* A solid bar, not a floating button. Floating, the text of the page showed
+   around it and under it as it scrolled past — in an installed PWA it read as
+   the button lying on top of the words. On the page's own colour, with a rule
+   above, the page scrolls cleanly underneath, and the padding keeps the button
+   clear of the home indicator. */
 .dock {
   position: sticky;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  bottom: 0;
   z-index: 5;
   margin-top: 0.25rem;
-}
-
-.dock .cta {
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--bs-primary) 35%, transparent);
+  padding: 0.625rem 0 calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  background: var(--color-background-primary);
+  border-top: 1px solid var(--color-border-tertiary);
 }
 
 /* ── The reading form ─────────────────────────────────────────────────────── */
@@ -209,6 +213,17 @@
   color: var(--color-text-secondary);
 }
 
+/* The account's icon inside a chip on the transaction form, on its own tint. */
+.chipDot {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--tone) 22%, var(--color-surface));
+}
+
 /* ── How it counts ────────────────────────────────────────────────────────── */
 
 .how summary {
@@ -222,4 +237,64 @@
   margin: 0.5rem 0 0;
   font-size: 12.5px;
   color: var(--color-text-secondary);
+}
+
+/* ── Cards in edit mode ───────────────────────────────────────────────────── */
+/* A round delete button on the card's corner: in reach of the thumb, and
+   clearly apart from tapping the card itself. */
+
+.cardDelete {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--bs-danger);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.cardDelete:disabled {
+  opacity: 0.5;
+}
+
+/* ── One card, opened ─────────────────────────────────────────────────────── */
+/* Where the last reading falls among the card's records. */
+
+.readingMark {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Colour swatches for a card. */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch {
+  width: 40px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.swatch[aria-pressed="true"] {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: 2px;
 }

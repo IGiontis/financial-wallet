@@ -10,6 +10,8 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
+import AccountPicker from "../../accounts/AccountPicker";
+import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
@@ -38,6 +40,7 @@ interface EditTransactionFormValues {
   quantity: number | "";
   odometer: number | "";
   place: string;
+  accountId: string;
 }
 
 const toDateInputValue = (value: unknown): string => {
@@ -51,7 +54,7 @@ const toDateInputValue = (value: unknown): string => {
 // money go" screen here because there is no answer to give: an expense cannot
 // become an income by editing, so a first step would be a question with a
 // single legal answer. The type rides along as a badge instead.
-const STEPS = ["category", "details", "review"] as const;
+const STEPS = ["category", "account", "details", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -139,6 +142,10 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  // The card step is there only when there are cards on the Banks & cash page.
+  const accounts = useAccountList();
+  const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
+  const afterCategory: Step = accounts.length > 0 ? "account" : "details";
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
   const [isFuelCategory, setIsFuelCategory] = useState(initialIsFuelCategory);
@@ -158,6 +165,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
       quantity: transaction.metadata?.quantity ?? "",
       odometer: transaction.metadata?.odometer ?? "",
       place: transaction.metadata?.place ?? "",
+      accountId: transaction.accountId ?? "",
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -178,6 +186,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
           amount: amountInBase, type: values.type, categoryId: values.categoryId,
           date: new Date(values.date), description: values.description,
           notes: values.notes || undefined, metadata,
+          accountId: values.accountId || null,
         };
 
         await onSubmit(transaction.id, data);
@@ -222,10 +231,10 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     }
     if (category.defaultPayee) formik.setFieldValue("description", category.defaultPayee);
     if (category.defaultAmount != null) formik.setFieldValue("amount", category.defaultAmount);
-    setStep("details");
+    setStep(afterCategory);
   };
 
-  const goBack = () => setStep(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]);
+  const goBack = () => setStep(steps[Math.max(0, steps.indexOf(step) - 1)]);
 
 
   const handleClose = () => {
@@ -244,6 +253,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   };
 
 
+  const accountName = accounts.find((a) => a.id === formik.values.accountId)?.name;
+
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
@@ -258,7 +269,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
       {/* The same wash the debts dialog uses: the form takes the colour of
           the answer to the one question that changes everything else on it. */}
       <ModalBody className={formik.values.type === "income" ? "wash-income" : "wash-expense"}>
-        <WizardSteps steps={STEPS} current={step} onGo={setStep} />
+        <WizardSteps steps={steps} current={step} onGo={setStep} />
 
         {/* ── 1. Which category ── */}
         {step === "category" && (
@@ -284,6 +295,24 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
 
         {/* ── 2. The figures ── */}
+        {/* ── Which card ── only when there are cards to choose from. */}
+        {step === "account" && (
+          <>
+            <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
+              {t(formik.values.type === "income" ? "transactions.wizard.pickAccountIn" : "transactions.wizard.pickAccount")}
+              <TypeBadge type={formik.values.type} />
+            </p>
+            <AccountPicker
+              value={formik.values.accountId}
+              income={formik.values.type === "income"}
+              onChoose={(id) => {
+                formik.setFieldValue("accountId", id);
+                setStep("details");
+              }}
+            />
+          </>
+        )}
+
         {step === "details" && (
           <form id="edit-transaction-form" onSubmit={formik.handleSubmit} noValidate>
             <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
@@ -400,6 +429,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
         {/* ── 3. Read it back before it is written ── */}
         {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} />}
+        {step === "review" && accountName && (
+          <p className="small text-body-secondary mt-2 mb-0">{t(formik.values.type === "income" ? "accounts.reviewInto" : "accounts.reviewFrom", { name: accountName })}</p>
+        )}
       </ModalBody>
 
       <ModalFooter>
@@ -410,8 +442,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
 
         {step === "category" && (
-          <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep("details")}>{t("common.next")}</Button>
+          <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
+        {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
         {/* Still gated on `dirty`: opening a record and closing it again should
             not offer to save it back unchanged. */}
         {step === "details" && <Button color="primary" disabled={!formik.dirty} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}

@@ -30,9 +30,12 @@ import {
   type PlannerEvent,
   type PlannerHorizon,
   type PlanRow,
+  SALARY_ROW_ID,
 } from "./plannerUtils";
 import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
+import OccurrenceSheet from "./components/OccurrenceSheet";
+import type { OccurrenceOverride } from "./plannerActuals";
 import LeverGroup from "./components/LeverGroup";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import segmented from "../../shared/css/Segmented.module.css";
@@ -62,8 +65,8 @@ export function PlannerPage() {
   const lang = i18n.resolvedLanguage ?? "en";
 
   const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
-  // Offered, never imposed: the plan starts from whatever is typed, and the
-  // banks' figure is one tap away once they have been read.
+  // Once the banks have been read, the plan starts from what they hold — unless
+  // switched to a figure of one's own, for "what if I had…" questions.
   const { opening: balanceFrom, source: balanceSource } = useOpeningBalance();
   const available = useMemo(() => (balanceSource === "readings" ? currentBalance(transactions, balanceFrom) : undefined), [balanceSource, transactions, balanceFrom]);
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
@@ -83,6 +86,11 @@ export function PlannerPage() {
   const [storedLines, setLines] = useWorkspaceSetting<BudgetLine[]>("planner-lines", []);
   const [storedOneOffs, setOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
   const [storedSkipped, setSkipped] = useWorkspaceSetting<string[]>("planner-skip", []);
+  const [openingSource, setOpeningSource] = useWorkspaceSetting<"banks" | "manual">("planner-opening-source", "banks");
+  // What the user said about single occurrences — "the rent is coming on the
+  // 1st", "no bonus this year". Keyed by item and expected day; see plannerActuals.
+  const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>("planner-occurrences", {});
+  const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
   const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
@@ -131,10 +139,35 @@ export function PlannerPage() {
   const plannedOpening = useDebounce(openingInput, 250);
   const plannedSalary = useDebounce(salary, 250);
 
+  const overrides = useMemo(() => (storedOverrides && typeof storedOverrides === "object" && !Array.isArray(storedOverrides) ? storedOverrides : {}), [storedOverrides]);
+  // The records the plan checks each salary, instalment and one-off against, so
+  // one that came early is not counted again and one that is late is not lost.
+  const actuals = useMemo(() => ({ transactions, debts, overrides }), [transactions, debts, overrides]);
+  const fromBanks = openingSource !== "manual" && available !== undefined;
+  const openingBalance = fromBanks ? available : parseFloat(plannedOpening) || 0;
+
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, openingBalance: parseFloat(plannedOpening) || 0, skipIds, horizon, now }),
-    [bills, goals, lines, oneOffs, debts, plannedSalary, plannedOpening, skipIds, horizon, now],
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, openingBalance, skipIds, horizon, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, plannedSalary, openingBalance, skipIds, horizon, now, actuals],
   );
+  const settled = useMemo(() => plan.occurrences.filter((o) => o.status === "received" || o.status === "skipped"), [plan.occurrences]);
+  const occurrence = openOccurrence ? plan.occurrences.find((o) => o.key === openOccurrence) : undefined;
+  const saveOverride = (key: string, value: OccurrenceOverride | undefined) => {
+    setOverrides((previous) => {
+      const next: Record<string, OccurrenceOverride> = {};
+      // Words about occurrences long gone are dropped on the way, so the map
+      // never grows past the handful that can still matter.
+      const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 120);
+      for (const [k, v] of Object.entries(previous ?? {})) {
+        const day = new Date(`${k.slice(-10)}T00:00:00`);
+        if (Number.isNaN(day.getTime()) || day >= cutoff) next[k] = v;
+      }
+      if (value) next[key] = value;
+      else delete next[key];
+      return next;
+    });
+    setOpenOccurrence(null);
+  };
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
   // Greek inflects month names: `{ month: "long" }` alone yields the genitive
@@ -409,6 +442,8 @@ export function PlannerPage() {
             openingInput={openingInput}
             onOpening={setOpeningInput}
             available={available}
+            fromBanks={fromBanks}
+            onOpeningSource={setOpeningSource}
             baseCurrency={baseCurrency}
             formatCurrency={formatCurrency}
             dateFmt={dateFmt}
@@ -430,7 +465,15 @@ export function PlannerPage() {
           </div>
 
           <div className={pane === "months" ? "" : "d-none d-lg-block"}>
-            <PlannerTimeline months={eventMonths} bills={bills} breakingEvent={plan.breakingEvent} formatCurrency={formatCurrency} dateFmt={dateFmt} />
+            <PlannerTimeline
+              months={eventMonths}
+              bills={bills}
+              breakingEvent={plan.breakingEvent}
+              formatCurrency={formatCurrency}
+              dateFmt={dateFmt}
+              settled={settled}
+              onOccurrence={setOpenOccurrence}
+            />
           </div>
         </Col>
 
@@ -637,6 +680,18 @@ export function PlannerPage() {
           onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
           onSave={(draft) => saveEntry(editor, draft)}
           onClose={() => setEditor(null)}
+        />
+      )}
+      {occurrence && (
+        <OccurrenceSheet
+          occurrence={occurrence}
+          label={occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label}
+          override={overrides[occurrence.key]}
+          baseCurrency={baseCurrency}
+          formatCurrency={formatCurrency}
+          dateFmt={dateFmt}
+          onSave={(value) => saveOverride(occurrence.key, value)}
+          onClose={() => setOpenOccurrence(null)}
         />
       )}
     </PageShell>
