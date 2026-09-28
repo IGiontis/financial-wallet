@@ -25,7 +25,7 @@ import {
   type MoneyAccount,
   type MoneyAccountKind,
 } from "./accountsUtils";
-import { ACCOUNT_ICON, accountFinishes, accountTones } from "./accountTones";
+import { ACCOUNT_ICON, CARD_COLORS, accountFinishes, accountTones } from "./accountTones";
 import { BankCard, NoCard } from "./BankCard";
 import AccountSheet from "./AccountSheet";
 import cardStyles from "./css/BankCard.module.css";
@@ -387,7 +387,8 @@ export function AccountsPage() {
       )}
       {editing && (
         <AccountModal
-          defaultColor={editing === "new" ? accountFinishes([...accounts, { id: "new", kind: "bank" }]).new : finishes[editing.id]}
+          // A new card starts in a finish no other card has, so two never look alike by default.
+          defaultColor={editing === "new" ? (CARD_COLORS.find((c) => !Object.values(finishes).includes(c)) ?? "blue") : finishes[editing.id]}
           account={editing === "new" ? undefined : editing}
           baseCurrency={baseCurrency}
           onSave={saveAccount}
