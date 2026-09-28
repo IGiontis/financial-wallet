@@ -103,7 +103,6 @@ export function PlannerPage() {
   const skipped = useMemo(() => (Array.isArray(storedSkipped) ? storedSkipped.filter((s): s is string => typeof s === "string") : []), [storedSkipped]);
   const open = useMemo(() => (storedOpen && typeof storedOpen === "object" ? storedOpen : DEFAULT_OPEN), [storedOpen]);
 
-  const [selectedDay, setSelectedDay] = useState(-1);
   // One dialog for every figure the user owns, rather than an inline editor
   // permanently unrolled under each row.
   const [editor, setEditor] = useState<{ mode: "line" | "oneoff"; kind?: "income" | "expense"; draft: EntryDraft } | null>(null);
@@ -400,8 +399,6 @@ export function PlannerPage() {
             plan={plan}
             horizon={horizon}
             onHorizon={setHorizon}
-            selectedDay={selectedDay}
-            onSelectDay={setSelectedDay}
             monthlyLineNet={monthlyLineNet}
             openingInput={openingInput}
             onOpening={setOpeningInput}

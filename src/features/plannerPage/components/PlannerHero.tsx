@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getDaysInMonth } from "date-fns";
 import { Input, InputGroup, InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -21,8 +21,6 @@ interface PlannerHeroProps {
   plan: PlannerPlan;
   horizon: PlannerHorizon;
   onHorizon: (horizon: PlannerHorizon) => void;
-  selectedDay: number;
-  onSelectDay: (index: number) => void;
   /** Net of the user's own monthly lines, for the "nothing happens today" reading. */
   monthlyLineNet: number;
   openingInput: string;
@@ -48,8 +46,6 @@ export function PlannerHero({
   plan,
   horizon,
   onHorizon,
-  selectedDay,
-  onSelectDay,
   monthlyLineNet,
   openingInput,
   onOpening,
@@ -60,6 +56,16 @@ export function PlannerHero({
   const { t, i18n } = useTranslation();
   const { className: tone, Icon } = VERDICT[plan.verdict];
   const [zoomed, setZoomed] = useState(false);
+  // Held here rather than by the page: dragging along the line changes it on
+  // every point passed, and each change re-rendered every editor below.
+  const [selectedDay, setSelectedDay] = useState(-1);
+  // A month can hold a dozen bills and only two fit above the line; the rest
+  // open on request, and close again when the finger moves on.
+  const [allEvents, setAllEvents] = useState(false);
+  const selectDay = useCallback((index: number) => {
+    setSelectedDay(index);
+    setAllEvents(false);
+  }, []);
   const periods = useMemo(() => planPeriods(plan), [plan]);
   const periodFmt = useMemo(
     () => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", plan.pointStep === "month" ? { month: "long", year: "numeric" } : { day: "numeric", month: "short" }),
@@ -88,12 +94,19 @@ export function PlannerHero({
 
   // A point that stands for a whole month is named by the month. Printing "30
   // Nov" over a list of everything that happened in November would be a date
-  // that is true and misleading at once.
-  const pointLabel = (date: Date) => (plan.pointStep === "day" ? dateFmt.format(date) : periodFmt.format(date));
+  // that is true and misleading at once. A week is named as the week it closes,
+  // and the extra point kept for a dip below zero is one day, so it is dated.
+  const pointLabel = (date: Date) => {
+    if (plan.pointStep === "day") return dateFmt.format(date);
+    const monthEnd = getDaysInMonth(date) === date.getDate();
+    if (plan.pointStep === "month" && monthEnd) return periodFmt.format(date);
+    if (plan.pointStep === "week" && date.getTime() !== plan.end.getTime()) return t("planner.weekTo", { date: periodFmt.format(date) });
+    return dateFmt.format(date);
+  };
 
-  // One element, drawn in the card and again in the sheet — a second copy would
-  // be two drawings to keep in step.
-  const line = <BalanceLine points={plan.points} breaksOnIndex={breaksOnIndex} selectedIndex={selectedDay} onSelect={onSelectDay} ariaLabel={t("planner.balanceTitle")} />;
+  // Biggest first, since only a couple fit above the line.
+  const shownEvents = selectedPoint ? [...selectedPoint.events].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)) : [];
+  const SHOWN = 2;
 
   return (
     <section className={`${styles.hero} ${tone}`}>
@@ -103,7 +116,7 @@ export function PlannerHero({
         onChange={(next) => {
           onHorizon(next);
           // The selected day was an index into the old window's points.
-          onSelectDay(-1);
+          selectDay(-1);
         }}
       />
 
@@ -114,7 +127,55 @@ export function PlannerHero({
       <div className={styles.heroAmount}>{formatCurrency(amount)}</div>
       <div className={styles.heroSub}>{subline}</div>
 
-      <div className={styles.chartBox}>{line}</div>
+      {/* Above the line rather than under it: while a finger is on the chart,
+          anything below the chart is under the hand. Always the same height,
+          so the chart does not jump as the figures in it change. */}
+      <div className={styles.readout} aria-live="polite">
+        {selectedPoint ? (
+          <>
+            <div className={styles.readoutMain}>
+              <span className={styles.readoutDate}>{pointLabel(selectedPoint.date)}</span>
+              <span className={styles.readoutValue} style={{ color: selectedPoint.balance < 0 ? "var(--color-expense-text)" : "var(--color-text-primary)" }}>
+                {formatCurrency(selectedPoint.balance)}
+              </span>
+            </div>
+            <div className={styles.readoutEvents}>
+              {shownEvents.length === 0 ? (
+                <span className="text-body-secondary">{t("planner.justBudget", { amount: formatCurrency(Math.abs(monthlyLineNet) / getDaysInMonth(selectedPoint.date)) })}</span>
+              ) : (
+                (allEvents ? shownEvents : shownEvents.slice(0, SHOWN)).map((event, i) => (
+                  <span key={i} className={styles.readoutEvent}>
+                    <span className="text-truncate">{eventLabel(event.label)}</span>
+                    <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                      {event.amount > 0 ? "+" : "−"}
+                      {formatCurrency(Math.abs(event.amount))}
+                    </span>
+                  </span>
+                ))
+              )}
+              {shownEvents.length > SHOWN && !allEvents && (
+                <button type="button" className={styles.readoutMore} onClick={() => setAllEvents(true)}>
+                  {t("planner.moreEvents", { count: shownEvents.length - SHOWN })}
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className={styles.tapHint}>{t("planner.tapHint")}</p>
+        )}
+      </div>
+
+      <BalanceLine
+        points={plan.points}
+        start={plan.start}
+        end={plan.end}
+        pointStep={plan.pointStep}
+        breaksOnIndex={breaksOnIndex}
+        selectedIndex={selectedDay}
+        onSelect={selectDay}
+        ariaLabel={t("planner.balanceTitle")}
+        locale={i18n.resolvedLanguage ?? "en"}
+      />
 
       <div className={styles.heroAxis}>
         <span>{t("planner.today")}</span>
@@ -126,41 +187,6 @@ export function PlannerHero({
           <ZoomButton onClick={() => setZoomed(true)} />
         </span>
       </div>
-
-      {/* Tapping any day explains that day rather than leaving the line to be
-          read by eye. */}
-      {selectedPoint ? (
-        <div className={styles.dayDetail}>
-          <div className="d-flex justify-content-between align-items-baseline gap-2">
-            <span className="fw-semibold" style={{ fontSize: 12.5 }}>
-              {pointLabel(selectedPoint.date)}
-            </span>
-            <span
-              className="fw-semibold"
-              style={{ fontSize: 14, fontVariantNumeric: "tabular-nums", color: selectedPoint.balance < 0 ? "var(--color-expense-text)" : "var(--color-text-primary)" }}
-            >
-              {formatCurrency(selectedPoint.balance)}
-            </span>
-          </div>
-          {selectedPoint.events.length === 0 ? (
-            <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
-              {t("planner.justBudget", { amount: formatCurrency(Math.abs(monthlyLineNet) / getDaysInMonth(selectedPoint.date)) })}
-            </p>
-          ) : (
-            selectedPoint.events.map((event, i) => (
-              <div key={i} className="d-flex justify-content-between gap-2" style={{ fontSize: 11.5 }}>
-                <span className="text-truncate">{eventLabel(event.label)}</span>
-                <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums" }}>
-                  {event.amount > 0 ? "+" : "−"}
-                  {formatCurrency(Math.abs(event.amount))}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <p className={styles.tapHint}>{t("planner.tapHint")}</p>
-      )}
 
       {/* The arithmetic behind the headline, kept quiet underneath it rather
           than given a card of its own. */}

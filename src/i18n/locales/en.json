@@ -886,7 +886,7 @@
     "balanceTitle": "What is left, day by day",
     "perDay": "{{amount}} a day spare",
     "today": "today",
-    "tapHint": "Tap any day on the line to see what happens.",
+    "tapHint": "Tap or drag along the line to see any day.",
     "justBudget": "Your monthly budget only, about {{amount}} a day.",
     "stillComing": "Dated payments",
     "stillComingHint": "Bills, goals and paydays that land on a specific day",
@@ -951,7 +951,10 @@
     "seasonToOnly": "until {{month}}",
     "paneNumbers": "Your numbers",
     "paneMonths": "Month by month",
-    "note_paused": "paused — not charged in this range"
+    "note_paused": "paused — not charged in this range",
+    "weekTo": "Week to {{date}}",
+    "moreEvents_one": "+ {{count}} more",
+    "moreEvents_other": "+ {{count}} more"
   },
   "settings": {
     "title": "Settings",
