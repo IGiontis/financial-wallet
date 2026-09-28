@@ -1,33 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "./useAuth";
-import { getUser } from "../../firebase/firestore";
-import { exchangeRateKeys } from "./useCurrencyConverter";
-import { firestoreToDate } from "../utils/dates";
+import { useMoneyAccounts } from "../../features/accounts/useMoneyAccounts";
 import type { OpeningBalance } from "../utils/balance";
 
 /**
- * The user's declared starting position, or undefined when they never set one.
+ * Where the balance is counted from.
  *
- * Shares `useCurrencyConverter`'s cache key on purpose: it is the same user
- * document, already fetched on nearly every screen, and a second query key
- * would double the reads to show one figure.
+ * The latest reading of the banks when there is one; otherwise the figure typed
+ * in Settings; otherwise nothing, and the balance is the net of every record.
+ * `anchors` is the whole history of them, oldest first, for the charts that
+ * draw a balance month by month.
  */
-export function useOpeningBalance(): { opening: OpeningBalance | undefined; isLoading: boolean } {
-  const { currentUser } = useAuth();
-  const uid = currentUser?.uid ?? "";
-
-  const { data, isLoading } = useQuery({
-    queryKey: exchangeRateKeys.user(uid),
-    queryFn: () => getUser(uid),
-    enabled: !!uid,
-    staleTime: 1000 * 60 * 30,
-  });
-
-  // An amount without a date would silently count every backfilled record
-  // against it — the exact double-subtraction the pairing exists to prevent.
-  const amount = data?.openingBalance;
-  const date = data?.openingBalanceDate;
-  const opening = amount != null && date ? { amount, date: firestoreToDate(date) } : undefined;
-
-  return { opening, isLoading };
+export function useOpeningBalance(): {
+  opening: OpeningBalance | undefined;
+  anchors: OpeningBalance[];
+  /** Where `opening` came from. */
+  source: "readings" | "settings" | undefined;
+  isLoading: boolean;
+} {
+  const { anchors, latest, legacy, isLoading } = useMoneyAccounts();
+  const opening = anchors.at(-1);
+  const source = latest ? "readings" : legacy ? "settings" : undefined;
+  return { opening, anchors, source, isLoading };
 }

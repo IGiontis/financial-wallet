@@ -21,9 +21,38 @@ export interface OpeningBalance {
   amount: number;
   /** Transactions from this day onward move the balance; earlier ones don't. */
   date: Date;
+  /**
+   * The exact moment the figure was true, when it came from reading the banks
+   * rather than from a day typed in Settings.
+   *
+   * A day is too coarse for that. Check in on Sunday evening, after logging
+   * Sunday's lunch, and a day-level rule would deduct the lunch again — the
+   * bank balance just read already had it taken off. On the check-in's own day
+   * a record counts only if it was written afterwards.
+   */
+  at?: Date;
 }
 
 const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/**
+ * True when a record is newer than a reading of the real balances taken at
+ * `at` — so the reading does not include it yet.
+ *
+ * A later day is newer. An earlier day is not, even if it was typed in after the
+ * reading: a forgotten expense backfilled on Tuesday for last Friday was already
+ * gone from the bank when Sunday's reading was taken. On the reading's own day,
+ * the time the record was written decides; a record the server has not stamped
+ * yet was written moments ago, so it is newer.
+ */
+export function isAfterReading(tx: Transaction, at: Date): boolean {
+  const txDay = startOfDay(firestoreToDate(tx.date)).getTime();
+  const readingDay = startOfDay(at).getTime();
+  if (txDay !== readingDay) return txDay > readingDay;
+  const created = tx.createdAt ? firestoreToDate(tx.createdAt) : undefined;
+  if (!created || Number.isNaN(created.getTime())) return true;
+  return created.getTime() > at.getTime();
+}
 
 /**
  * True when this transaction is one the balance should count.
@@ -35,6 +64,7 @@ const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.
  */
 export function affectsBalance(tx: Transaction, opening: OpeningBalance | undefined): boolean {
   if (!opening) return true; // no opening figure — every record is all we know
+  if (opening.at) return isAfterReading(tx, opening.at);
   return startOfDay(firestoreToDate(tx.date)) >= startOfDay(firestoreToDate(opening.date));
 }
 

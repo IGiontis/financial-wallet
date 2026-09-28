@@ -31,6 +31,8 @@ import { useBills } from "../../bills/useBills";
 import { useDebts } from "../../debts/useDebts";
 import { useSalary } from "../../../shared/hooks/useSalary";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
+import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
+import { daysSince, projectedTotal, STALE_AFTER_DAYS, unloggedBetween } from "../../accounts/accountsUtils";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
@@ -108,7 +110,8 @@ export const OverviewPage = () => {
   const { format: formatCurrency } = useCurrencyConverter();
   const { data: bills = [] } = useBills();
   const { data: debts = [] } = useDebts();
-  const { opening } = useOpeningBalance();
+  const { opening, anchors } = useOpeningBalance();
+  const { readings, latest: lastReading } = useMoneyAccounts();
   const { salary } = useSalary(now);
 
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
@@ -143,7 +146,11 @@ export const OverviewPage = () => {
   );
 
   // ── Position ── the same series Analytics draws, over the last six months.
-  const position = useMemo(() => netWorthSeries(transactions, debts, opening, new Date(now.getFullYear(), now.getMonth() - 5, 1), now), [transactions, debts, opening, now]);
+  const position = useMemo(() => netWorthSeries(transactions, debts, anchors, new Date(now.getFullYear(), now.getMonth() - 5, 1), now), [transactions, debts, anchors, now]);
+
+  // ── Banks & cash ── money the readings found gone without a record, this month.
+  const monthUnlogged = useMemo(() => unloggedBetween(readings, new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)), [readings, now]);
+  const readingAge = daysSince(lastReading, now);
 
   // ── Everything ──
   const late = useMemo(() => overdueBills(bills, now), [bills, now]);
@@ -291,6 +298,15 @@ export const OverviewPage = () => {
       : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)" },
     { to: "/planner", label: t("nav.planner"), value: formatCurrency(beforePayday.left), sub: t(salary ? "overview.tilePayday" : "overview.tileMonthEnd"), tone: beforePayday.left >= 0 ? undefined : "var(--color-expense-text)" },
     { to: "/transactions", label: t("nav.transactions"), value: formatCurrency(thisMonth.totalExpenses), sub: t("overview.soFarThisMonth") },
+    lastReading
+      ? {
+          to: "/accounts",
+          label: t("nav.accounts"),
+          value: formatCurrency(projectedTotal(lastReading, transactions)),
+          sub: readingAge === 0 ? t("overview.tileAccountsToday") : t("overview.tileAccountsAgo", { count: readingAge ?? 0 }),
+          tone: (readingAge ?? 0) >= STALE_AFTER_DAYS ? "var(--color-goal-text)" : undefined,
+        }
+      : { to: "/accounts", label: t("nav.accounts"), value: "—", sub: t("overview.tileAccountsNone") },
     { to: "/debts", label: t("nav.debts"), value: formatCurrency(lastPosition?.owedByMe ?? 0), sub: t("overview.tileOwed"), tone: (lastPosition?.owedByMe ?? 0) > 0 ? "var(--color-expense-text)" : undefined },
     goalProgress.target > 0
       ? { to: "/goals", label: t("nav.goals"), value: `${goalProgress.percent}%`, sub: t("overview.tileGoalsOf", { saved: formatCurrency(goalProgress.saved), target: formatCurrency(goalProgress.target) }), tone: "var(--color-goal)" }
@@ -378,6 +394,7 @@ export const OverviewPage = () => {
           <MonthInOut
             income={thisMonth.totalIncome}
             expenses={thisMonth.totalExpenses}
+            unlogged={monthUnlogged}
             formatCurrency={formatCurrency}
             sub={salary ? t("overview.paydayOn", { date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(payday) }) : undefined}
           />
@@ -389,7 +406,8 @@ export const OverviewPage = () => {
       {tab === "position" && (
         <div className={styles.stack} role="tabpanel">
           <PositionPanel series={position} formatCurrency={formatCurrency} locale={locale} />
-          <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses} formatCurrency={formatCurrency} />
+          <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses}
+            unlogged={monthUnlogged} formatCurrency={formatCurrency} />
           <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
         </div>
       )}
@@ -405,7 +423,8 @@ export const OverviewPage = () => {
       {tab === "month" && (
       <div className={styles.stack} role="tabpanel">
         <PaydayVerdict left={beforePayday.left} owed={beforePayday.owed} count={beforePayday.count} payday={payday} known={!!salary} formatCurrency={formatCurrency} locale={locale} />
-        <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses} formatCurrency={formatCurrency} />
+        <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses}
+            unlogged={monthUnlogged} formatCurrency={formatCurrency} />
         <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
 
         {/* The month in order, last: the figures above answer "how is it

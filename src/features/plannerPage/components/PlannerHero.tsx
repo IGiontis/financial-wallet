@@ -25,6 +25,8 @@ interface PlannerHeroProps {
   monthlyLineNet: number;
   openingInput: string;
   onOpening: (value: string) => void;
+  /** Money you can spend now, from the bank readings — offered as the opening figure. */
+  available?: number;
   baseCurrency: string;
   formatCurrency: (n: number) => string;
   dateFmt: Intl.DateTimeFormat;
@@ -49,6 +51,7 @@ export function PlannerHero({
   monthlyLineNet,
   openingInput,
   onOpening,
+  available,
   baseCurrency,
   formatCurrency,
   dateFmt,
@@ -200,6 +203,11 @@ export function PlannerHero({
             </InputGroup>
           </div>
         </div>
+        {available !== undefined && Math.round((parseFloat(openingInput) || 0) * 100) !== Math.round(available * 100) && (
+          <button type="button" className="btn btn-link btn-sm p-0 mb-1 text-decoration-none d-block ms-auto" onClick={() => onOpening(String(Math.round(available * 100) / 100))}>
+            {t("planner.useAvailable", { amount: formatCurrency(available) })}
+          </button>
+        )}
         <div className={styles.ledgerRow}>
           <span>{t("planner.moneyIn")}</span>
           <span className={styles.ledgerValue} style={{ color: "var(--color-income-text)" }}>

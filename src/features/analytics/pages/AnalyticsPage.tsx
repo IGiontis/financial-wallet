@@ -80,7 +80,7 @@ export function AnalyticsPage() {
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
   const { data: debts = [] } = useDebts();
-  const { opening } = useOpeningBalance();
+  const { anchors } = useOpeningBalance();
   const { format: formatCurrency } = useCurrencyConverter();
 
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
@@ -128,7 +128,7 @@ export function AnalyticsPage() {
     return times.length > 0 ? new Date(Math.min(...times)) : now;
   }, [from, transactions, debts, now]);
 
-  const position = useMemo(() => netWorthSeries(transactions, debts, opening, positionFrom, now), [transactions, debts, opening, positionFrom, now]);
+  const position = useMemo(() => netWorthSeries(transactions, debts, anchors, positionFrom, now), [transactions, debts, anchors, positionFrom, now]);
 
   const positionData = useMemo<NetWorthRow[]>(
     () => position.map((point) => ({ label: monthFmt.format(point.start), cash: point.cash, saved: point.saved, owedToMe: point.owedToMe, debt: -point.owedByMe, net: point.net })),

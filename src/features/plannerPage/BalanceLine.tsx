@@ -8,6 +8,9 @@ import styles from "./css/PlannerPage.module.css";
 const PAD = { top: 10, right: 46, bottom: 24, left: 8 };
 // Until the box has been measured — and in tests, where nothing is laid out.
 const FALLBACK = { width: 320, height: 190 };
+// "5k", not "5.0k": the scale's amounts are round by construction, and the
+// crosshair's is a glance — the exact figure is printed above the chart.
+const short = (value: number) => compactNumber(value).replace(/\.0(?=[kM])/, "");
 
 /**
  * The running balance to the end of the window, read by dragging a finger
@@ -162,7 +165,7 @@ function BalanceLineBase({
     const d = selected.date;
     const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() === d.getDate();
     const dateText = pointStep === "month" && monthEnd ? monthPillFmt.format(d) : pillFmt.format(d);
-    const valueText = compactNumber(selected.balance);
+    const valueText = short(selected.balance);
     const dateWidth = Math.max(dateText.length * 6.4 + 14, 46);
     const valueWidth = Math.max(valueText.length * 6.6 + 12, 40);
     const dateX = Math.min(Math.max(cx - dateWidth / 2, PAD.left), plotRight - dateWidth);
@@ -235,7 +238,7 @@ function BalanceLineBase({
               strokeDasharray={tick === 0 ? "4 3" : undefined}
             />
             <text x={plotRight + 6} y={y(tick) + 4} className={styles.chartTick}>
-              {compactNumber(tick)}
+              {short(tick)}
             </text>
           </g>
         ))}
@@ -245,7 +248,9 @@ function BalanceLineBase({
 
         {geometry.markers.map((index) => {
           const point = points[index];
-          const net = point.events.reduce((sum, e) => sum + e.amount, 0);
+          // Which way the balance went, not what the point holds: on a monthly
+          // line every point holds a pay day, and August's drop came out green.
+          const net = index > 0 ? point.balance - points[index - 1].balance : point.events.reduce((sum, e) => sum + e.amount, 0);
           return (
             <circle
               key={`m-${point.date.getTime()}`}
@@ -274,7 +279,7 @@ function BalanceLineBase({
 
         {/* Calendar labels, minus any the date pill would sit on. */}
         {geometry.ticks
-          .filter((tick) => !(Math.abs(tick.x - hiddenNear) < pillHalf + 16))
+          .filter((tick) => !(Math.abs(tick.x - hiddenNear) < pillHalf + tick.label.length * 3.4 + 6))
           .map((tick) => (
             <text key={`d-${tick.time}`} x={tick.x} y={height - 7} textAnchor="middle" className={styles.chartTick}>
               {tick.label}

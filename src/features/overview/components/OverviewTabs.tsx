@@ -74,7 +74,12 @@ export function AttentionList({ items, formatCurrency }: { items: AttentionItem[
 }
 
 /** Two figures for the month so far — the whole month in one line. */
-export function MonthInOut({ income, expenses, formatCurrency, sub }: { income: number; expenses: number; formatCurrency: Money; sub?: string }) {
+/**
+ * `unlogged` is what the bank readings this month found gone (negative) or
+ * arrived (positive) without a record — shown beside the figure it belongs to,
+ * not folded into it, so the recorded total stays what was recorded.
+ */
+export function MonthInOut({ income, expenses, formatCurrency, sub, unlogged = 0 }: { income: number; expenses: number; formatCurrency: Money; sub?: string; unlogged?: number }) {
   const { t } = useTranslation();
   return (
     <div className={styles.pair}>
@@ -83,12 +88,22 @@ export function MonthInOut({ income, expenses, formatCurrency, sub }: { income: 
           {formatCurrency(income)}
         </div>
         {sub && <div className="small text-body-secondary">{sub}</div>}
+        {unlogged > 0 && (
+          <Link to="/accounts" className="small text-decoration-none d-block" style={{ color: "var(--color-income-text)" }}>
+            {t("overview.unloggedIn", { amount: formatCurrency(unlogged) })}
+          </Link>
+        )}
       </Panel>
       <Panel title={t("overview.wentOut")}>
         <div className={styles.pairValue} style={{ color: "var(--color-expense-text)" }}>
           {formatCurrency(expenses)}
         </div>
         <div className="small text-body-secondary">{t("overview.soFarThisMonth")}</div>
+        {unlogged < 0 && (
+          <Link to="/accounts" className="small text-decoration-none d-block" style={{ color: "var(--color-expense-text)" }}>
+            {t("overview.unloggedOut", { amount: formatCurrency(-unlogged) })}
+          </Link>
+        )}
       </Panel>
     </div>
   );

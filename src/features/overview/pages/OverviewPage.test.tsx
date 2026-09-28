@@ -7,6 +7,7 @@ import { OverviewPage } from "./OverviewPage";
 import { computeBillStatus } from "../../bills/billsUtils";
 import { computeDebtStatus } from "../../debts/debtsUtils";
 import type { Bill, Debt, Transaction } from "../../../shared/types/IndexTypes";
+import { readCheckIns, type CheckInReading } from "../../accounts/accountsUtils";
 
 // The overview's four tabs, on the real page.
 //
@@ -17,7 +18,7 @@ import type { Bill, Debt, Transaction } from "../../../shared/types/IndexTypes";
 
 const NOW = new Date(2026, 8, 26, 12); // 26 September
 
-const data = vi.hoisted(() => ({ transactions: [] as Transaction[], bills: [] as unknown[], debts: [] as unknown[] }));
+const data = vi.hoisted(() => ({ transactions: [] as Transaction[], bills: [] as unknown[], debts: [] as unknown[], readings: [] as unknown[] }));
 
 // The chart is recharts, loaded lazily; what it draws is not what these check,
 // and pulling it in slowed the next test past its timeout.
@@ -30,7 +31,8 @@ vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ dat
 vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }) }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: data.debts }) }));
 vi.mock("../../../shared/hooks/useSalary", () => ({ useSalary: () => ({ salary: { amount: 1700, dayOfMonth: 28, occurrences: 3 } }) }));
-vi.mock("../../../shared/hooks/useOpeningBalance", () => ({ useOpeningBalance: () => ({ opening: undefined, isLoading: false }) }));
+vi.mock("../../../shared/hooks/useOpeningBalance", () => ({ useOpeningBalance: () => ({ opening: undefined, anchors: [], source: undefined, isLoading: false }) }));
+vi.mock("../../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ readings: data.readings, latest: data.readings.at(-1) }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));
@@ -67,6 +69,7 @@ beforeEach(() => {
     { ...tx("shop", "expense", 309.45, new Date(2026, 8, 14)), categoryId: "shop" } as Transaction,
   ];
   data.bills = [bill("water", "Water", 68.4, 20), bill("phone", "Phone", 25, 30)];
+  data.readings = [];
   data.debts = [
     computeDebtStatus({ id: "loan", userId: "u", person: "Nikos", direction: "owed_by_me", label: "Rent loan", amount: 300, date: new Date(2026, 5, 1), dueDate: new Date(2026, 8, 30), createdAt: new Date(2026, 5, 1), updatedAt: new Date(2026, 5, 1) } as Debt, [], NOW),
   ];
@@ -156,5 +159,27 @@ describe("the overview", () => {
     await userEvent.click(screen.getByRole("tab", { name: /Today/ }));
 
     expect(screen.getByText("All clear")).toBeInTheDocument();
+  });
+
+  it("shows what the bank readings found gone without a record, and links to them", async () => {
+    // Read on the 10th and the 20th with the gig and the shop in between:
+    // 2,000 + 150 − 309.45 = 1,840.55 expected, 1,800 found.
+    const accounts = [{ id: "eb", name: "Eurobank", kind: "bank" as const, main: true }];
+    const checkIns = [
+      { id: "a", at: new Date(2026, 8, 10, 20).toISOString(), amounts: { eb: 2000 } },
+      { id: "b", at: new Date(2026, 8, 20, 20).toISOString(), amounts: { eb: 1800 } },
+    ];
+    data.readings = readCheckIns(checkIns, accounts, data.transactions) as CheckInReading[];
+    expect((data.readings as CheckInReading[])[1].unlogged).toBeCloseTo(1800 - (2000 + 150 - 309.45), 2);
+
+    renderPage();
+    const tile = within(screen.getByRole("tabpanel")).getByRole("link", { name: /Banks & cash/ });
+    expect(tile).toHaveAttribute("href", "/accounts");
+    expect(tile).toHaveTextContent("€1800.00");
+
+    await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
+    const line = within(screen.getByRole("tabpanel")).getByRole("link", { name: /without a record/ });
+    expect(line).toHaveTextContent("€40.55");
+    expect(line).toHaveAttribute("href", "/accounts");
   });
 });

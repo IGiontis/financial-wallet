@@ -1,12 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "../../../shared/components/Skeletons";
 import { Link } from "react-router-dom";
 import type { Transaction } from "../../../shared/types/IndexTypes";
-import { currentBalance, excludedByOpeningDate } from "../../../shared/utils/balance";
+import { affectsBalance, currentBalance, excludedByOpeningDate } from "../../../shared/utils/balance";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
+import { STALE_AFTER_DAYS } from "../../accounts/accountsUtils";
 
 /**
  * How much money there is right now — deliberately outside the metric row.
@@ -37,12 +38,24 @@ export default function CurrentBalanceCard({
   // balance worked out from no starting point, and under it the line that says
   // there is no starting point — with a button to go and set one. Both were
   // wrong for the second before the answer arrived.
-  const { opening, isLoading } = useOpeningBalance();
+  const { opening, source, isLoading } = useOpeningBalance();
 
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
-  const excluded = useMemo(() => excludedByOpeningDate(transactions, opening), [transactions, opening]);
+  // Only the Settings figure holds records back by date; after a bank reading
+  // nearly every record is older than it, and saying so would be noise.
+  const excluded = useMemo(() => (source === "settings" ? excludedByOpeningDate(transactions, opening) : 0), [transactions, opening, source]);
+  const since = useMemo(() => (source === "readings" && opening ? transactions.filter((tx) => affectsBalance(tx, opening)).length : 0), [transactions, opening, source]);
+  // One clock reading per visit, not per render.
+  const [nowMs] = useState(() => Date.now());
+  const age = source === "readings" && opening?.at ? Math.floor((nowMs - opening.at.getTime()) / (24 * 60 * 60 * 1000)) : undefined;
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" });
+  const hint =
+    source === "readings" && opening
+      ? t("overview.balanceFromReading", { date: dateFmt.format(opening.date), count: since })
+      : opening
+        ? t("overview.currentBalanceHint", { date: dateFmt.format(opening.date) })
+        : t("overview.currentBalanceNoOpening");
 
   return (
     <Card className={className ?? "mb-4"}>
@@ -63,18 +76,25 @@ export default function CurrentBalanceCard({
               </p>
             )}
             <p className="text-body-secondary mb-0" style={{ fontSize: 12 }}>
-              {isLoading ? <Skeleton width={200} /> : opening ? t("overview.currentBalanceHint", { date: dateFmt.format(opening.date) }) : t("overview.currentBalanceNoOpening")}
+              {isLoading ? <Skeleton width={200} /> : hint}
             </p>
           </div>
 
-          {/* Without a declared starting point the figure is only as complete as
-              the history entered, which is worth saying rather than implying. */}
-          {!opening && !isLoading && (
-            <Link to="/settings" className="btn btn-outline-secondary btn-sm flex-shrink-0">
-              {t("overview.setStartingBalance")}
+          {/* Until the banks have been read the figure is only as complete as
+              the history entered, which is worth saying rather than implying —
+              and the place to fix it is the banks, not a figure in Settings. */}
+          {source !== "readings" && !isLoading && (
+            <Link to="/accounts" className="btn btn-outline-secondary btn-sm flex-shrink-0">
+              {t("overview.addBanks")}
             </Link>
           )}
         </div>
+
+        {age !== undefined && age >= STALE_AFTER_DAYS && (
+          <Link to="/accounts" className="d-block mt-2 text-decoration-none" style={{ fontSize: 12, color: "var(--color-goal-text)" }}>
+            {t("overview.readingStale", { count: age })}
+          </Link>
+        )}
 
         {/* The reassurance that makes backfilling safe: those older records are
             in the charts, they are simply not deducted twice. */}

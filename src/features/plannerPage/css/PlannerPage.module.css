@@ -439,6 +439,9 @@
    and the segmented group's own surface fought the tint. */
 .horizonRow {
   display: flex;
+  /* Six pills and "…" fill a phone; a typed horizon adds a seventh, which
+     pushed "…" off the card. It wraps instead. */
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-bottom: 0.75rem;
 }

@@ -25,12 +25,16 @@ export interface ValueScale {
 /**
  * The vertical range and the amounts to label on it.
  *
+ * Five steps rather than four: a balance peaking at 2,252 gets steps of 500
+ * and a top of 2,500, where four would give 1,000 and 3,000 and leave the upper
+ * quarter of a short phone chart empty.
+ *
  * The top is rounded up to a whole step; the bottom stops just under the
  * lowest point. Rounding the bottom too would let a €900 dip on a ten-year line
  * whose steps are €20,000 drag the floor to −20k, and a fifth of the height
  * would go on showing nothing.
  */
-export function valueScale(values: number[], count = 4): ValueScale {
+export function valueScale(values: number[], count = 5): ValueScale {
   const lo = Math.min(0, ...values);
   const hi = Math.max(0, ...values);
   const step = niceStep((hi - lo) / count);

@@ -8,6 +8,7 @@ import { setOpeningBalance } from "../../../firebase/firestore";
 import { parseISODay, toISODay } from "../../../shared/utils/dates";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { useCurrencyConverter, exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
+import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 
 /** Firestore hands this back as a Timestamp, whatever the type says. */
 const toInputDate = (d: unknown): string => toISODay(d ?? new Date());
@@ -28,6 +29,7 @@ export default function OpeningBalanceSection({ user, onSaved }: { user: User | 
   const queryClient = useQueryClient();
   const { displayCurrency } = useCurrencyConverter();
   const { currentUser } = useAuth();
+  const { source } = useOpeningBalance();
 
   const [amount, setAmount] = useState(user?.openingBalance != null ? String(user.openingBalance) : "");
   const [date, setDate] = useState(toInputDate(user?.openingBalanceDate));
@@ -92,6 +94,11 @@ export default function OpeningBalanceSection({ user, onSaved }: { user: User | 
       <Alert color="info" className="py-2 mt-3 mb-0" style={{ fontSize: 12 }}>
         {t("settings.openingExplainer")}
       </Alert>
+      {source === "readings" && (
+        <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+          {t("settings.openingSuperseded")}
+        </Alert>
+      )}
 
       {error && (
         <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>

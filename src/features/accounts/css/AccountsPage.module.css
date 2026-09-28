@@ -1,0 +1,225 @@
+/* Banks & cash. Bootstrap carries the cards, buttons, badges, forms and
+   modals; what is here is the handful of things it has no piece for. Nothing
+   below 11.5px. */
+
+/* ── The total ────────────────────────────────────────────────────────────── */
+/* The one thing on the page allowed to be loud: the number, and under it a bar
+   cut into each account's share, in the same colours as the rows below — so
+   the list reads as a key to the bar without a legend of its own. */
+
+.eyebrow {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.total {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.shareBar {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  margin: 0.75rem 0 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+}
+
+.shareBar span {
+  display: block;
+  min-width: 4px;
+  height: 100%;
+}
+
+/* The sum under the total: real money, less what is set aside, is what you can
+   spend. Right-aligned figures so the subtraction reads down a column. */
+.sum {
+  margin: 0.75rem 0 0;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 13px;
+}
+
+.sum > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 2px 0;
+}
+
+.sum dt {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.sum dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sumTotal {
+  margin-top: 3px;
+  padding-top: 6px !important;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.sumTotal dt {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ── Accounts ─────────────────────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 60px;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+/* The row is a button when it opens the account; styled back to a row. */
+.rowButton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+/* Tinted with the account's own colour — the key to the bar above. */
+.tile {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 19px;
+  background: color-mix(in srgb, var(--tone) 16%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 35%, transparent);
+}
+
+.name {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── The update button ────────────────────────────────────────────────────── */
+/* On a phone it stays under the thumb while the page scrolls. On a wide screen
+   it sits in its column like any other button. */
+
+.dock {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 5;
+  margin-top: 0.25rem;
+}
+
+.dock .cta {
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bs-primary) 35%, transparent);
+}
+
+/* ── The reading form ─────────────────────────────────────────────────────── */
+
+.readInput {
+  width: 140px;
+  flex-shrink: 0;
+}
+
+/* 16px, not smaller: below that iOS zooms the page in on focus. */
+.readInput input {
+  font-size: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Full width under the name on a phone, a fixed column beside it on wider screens. */
+.setupAmount input {
+  font-size: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 576px) {
+  .setupAmount {
+    width: 150px;
+    flex-shrink: 0;
+  }
+}
+
+.delta {
+  display: block;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── History ──────────────────────────────────────────────────────────────── */
+
+.history {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 13px;
+}
+
+.history:first-child {
+  border-top: 0;
+}
+
+.when {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* ── How it counts ────────────────────────────────────────────────────────── */
+
+.how summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.how p {
+  margin: 0.5rem 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}

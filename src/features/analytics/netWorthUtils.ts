@@ -82,7 +82,21 @@ function outstandingAt(debt: DebtWithStatus, at: Date): number {
  * would draw a flat run that never happened. Those months are left out rather
  * than invented.
  */
-export function netWorthSeries(transactions: Transaction[], debts: DebtWithStatus[], opening: OpeningBalance | undefined, from: Date, to: Date): NetWorthPoint[] {
+export function netWorthSeries(
+  transactions: Transaction[],
+  debts: DebtWithStatus[],
+  /**
+   * Where the cash is counted from. A list when the banks have been read more
+   * than once: each month is counted from the latest reading before it closes,
+   * so a month after a reading shows the truth, not a sum drifted from an older
+   * starting point.
+   */
+  openings: OpeningBalance | OpeningBalance[] | undefined,
+  from: Date,
+  to: Date,
+): NetWorthPoint[] {
+  const anchors = openings === undefined ? [] : Array.isArray(openings) ? openings : [openings];
+  const opening = anchors[0];
   const firstDrawable = opening ? new Date(Math.max(from.getTime(), firestoreToDate(opening.date).getTime())) : from;
   if (firstDrawable > to) return [];
 
@@ -97,7 +111,17 @@ export function netWorthSeries(transactions: Transaction[], debts: DebtWithStatu
 
   const sorted = [...transactions].sort((a, b) => firestoreToDate(a.date).getTime() - firestoreToDate(b.date).getTime());
 
-  let cash = opening?.amount ?? 0;
+  // The starting point in force when a month closes: the latest one taken before.
+  const inForce = (closes: Date): OpeningBalance | undefined => {
+    let found = opening;
+    for (const anchor of anchors) {
+      const day = firestoreToDate(anchor.date);
+      const from = anchor.at ?? new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      if (from < closes) found = anchor;
+    }
+    return found;
+  };
+
   let saved = 0;
   let cursorIndex = 0;
 
@@ -105,12 +129,19 @@ export function netWorthSeries(transactions: Transaction[], debts: DebtWithStatu
     const closes = endOfMonth(start);
 
     while (cursorIndex < sorted.length && firestoreToDate(sorted[cursorIndex].date) < closes) {
-      const tx = sorted[cursorIndex];
-      if (affectsBalance(tx, opening)) cash += balanceDelta(tx);
       // Money set aside before the opening date is still set aside: the opening
       // figure speaks for the cash account, not for the goals beside it.
-      saved += savedDelta(tx);
+      saved += savedDelta(sorted[cursorIndex]);
       cursorIndex += 1;
+    }
+
+    // Counted afresh each month from whichever starting point applies, rather
+    // than carried forward: a reading replaces the running sum, it does not add
+    // to it.
+    const anchor = inForce(closes);
+    let cash = anchor?.amount ?? 0;
+    for (let i = 0; i < cursorIndex; i++) {
+      if (affectsBalance(sorted[i], anchor)) cash += balanceDelta(sorted[i]);
     }
 
     let owedToMe = 0;

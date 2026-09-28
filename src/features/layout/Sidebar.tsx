@@ -61,6 +61,7 @@ export function Sidebar({ isOpen, toggleSidebar, isCollapsed, onToggleCollapse }
       key: "holdings",
       label: t("nav.groupHoldings"),
       items: [
+        { path: "/accounts", label: t("nav.accounts"), icon: FiBriefcase },
         { path: "/investments", label: t("nav.investments"), icon: FiDollarSign },
         { path: "/debts", label: t("nav.debts"), icon: FiUsers },
       ],

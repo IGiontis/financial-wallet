@@ -5,6 +5,8 @@ import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPag
 import { FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
+import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
+import { currentBalance } from "../../shared/utils/balance";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
@@ -59,7 +61,11 @@ export function PlannerPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
-  const { isLoading: txLoading, isError } = useTransactions();
+  const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
+  // Offered, never imposed: the plan starts from whatever is typed, and the
+  // banks' figure is one tap away once they have been read.
+  const { opening: balanceFrom, source: balanceSource } = useOpeningBalance();
+  const available = useMemo(() => (balanceSource === "readings" ? currentBalance(transactions, balanceFrom) : undefined), [balanceSource, transactions, balanceFrom]);
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { data: bills = [], isLoading: billLoading } = useBills();
   const { data: allDebts = [] } = useDebts();
@@ -402,6 +408,7 @@ export function PlannerPage() {
             monthlyLineNet={monthlyLineNet}
             openingInput={openingInput}
             onOpening={setOpeningInput}
+            available={available}
             baseCurrency={baseCurrency}
             formatCurrency={formatCurrency}
             dateFmt={dateFmt}
