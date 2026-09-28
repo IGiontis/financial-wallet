@@ -148,7 +148,7 @@ export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[
       const counted = transactions.filter((tx) => !isAfterReading(tx, at) && (!legacy || affectsLegacy(tx, legacy)));
       const cash = (legacy?.amount ?? 0) + counted.reduce((sum, tx) => sum + balanceDelta(tx), 0);
       const appSaid = round2(cash + goalHeldAt(transactions, at));
-      return { checkIn, at, total, added: present, appSaid, unlogged: 0 };
+      return { checkIn, at, total, added: present, appSaid };
     }
 
     const previous = sorted[index - 1];
