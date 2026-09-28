@@ -66,7 +66,7 @@ export function goalHeldDelta(tx: Transaction): number {
  * leave, so for them it is added back.
  */
 export function realDelta(tx: Transaction): number {
-  return balanceDelta(tx);
+  return balanceDelta(tx) + goalHeldDelta(tx);
 }
 
 /** Only accounts that still exist are counted — a deleted one leaves no trace. */
@@ -148,7 +148,7 @@ export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[
       const counted = transactions.filter((tx) => !isAfterReading(tx, at) && (!legacy || affectsLegacy(tx, legacy)));
       const cash = (legacy?.amount ?? 0) + counted.reduce((sum, tx) => sum + balanceDelta(tx), 0);
       const appSaid = round2(cash + goalHeldAt(transactions, at));
-      return { checkIn, at, total, added: present, appSaid };
+      return { checkIn, at, total, added: present, appSaid, unlogged: 0 };
     }
 
     const previous = sorted[index - 1];
