@@ -64,17 +64,21 @@ export function BankCard({
   );
 }
 
-/** "No particular card": the empty choice, drawn as the outline of a card. */
-export function NoCard({ title, hint, selected, onClick }: { title: string; hint: string; selected?: boolean; onClick: () => void }) {
+/** "No particular card": the empty choice, drawn as the outline of a card. A picture only, without `onClick`. */
+export function NoCard({ title, hint, selected, compact, onClick }: { title: string; hint?: string; selected?: boolean; compact?: boolean; onClick?: () => void }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <button type="button" aria-pressed={selected} onClick={onClick} className={`${styles.card} ${styles.none} ${selected ? styles.selected : ""}`}>
+    <Tag
+      {...(onClick ? { type: "button" as const, onClick, "aria-pressed": selected } : {})}
+      className={`${styles.card} ${styles.none} ${selected ? styles.selected : ""} ${compact ? styles.compact : ""}`}
+    >
       <span className={styles.name}>{title}</span>
-      <span className={styles.noneHint}>{hint}</span>
+      {hint && <span className={styles.noneHint}>{hint}</span>}
       {selected && (
         <span className={styles.check} aria-hidden>
           <FiCheck size={13} strokeWidth={3} />
         </span>
       )}
-    </button>
+    </Tag>
   );
 }

@@ -1519,8 +1519,6 @@
     "pickInto": "Went into",
     "noCard": "No particular card",
     "noCardHint": "Counts against {{name}}",
-    "reviewFrom": "Paid from: {{name}}",
-    "reviewInto": "Went into: {{name}}",
     "estimatedShort": "estimate",
     "addHint": "a bank or cash",
     "readingMark": "Updated {{date}}",
@@ -1542,6 +1540,9 @@
       "red": "Red",
       "gold": "Gold"
     },
-    "cardsDivider": "Cards"
+    "cardsDivider": "Cards",
+    "reviewFromLabel": "Paid from",
+    "reviewIntoLabel": "Goes into",
+    "afterThis": "After this:"
   }
 }

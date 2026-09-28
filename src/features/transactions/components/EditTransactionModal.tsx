@@ -11,6 +11,7 @@ import { DateField } from "../../../shared/components/DateField";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import AccountPicker from "../../accounts/AccountPicker";
+import ReviewCard from "../../accounts/ReviewCard";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
@@ -253,8 +254,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   };
 
 
-  const accountName = accounts.find((a) => a.id === formik.values.accountId)?.name;
-
   const formatAmount = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
@@ -429,8 +428,11 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
         {/* ── 3. Read it back before it is written ── */}
         {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} />}
-        {step === "review" && accountName && (
-          <p className="small text-body-secondary mt-2 mb-0">{t(formik.values.type === "income" ? "accounts.reviewInto" : "accounts.reviewFrom", { name: accountName })}</p>
+        {step === "review" && (
+          <ReviewCard
+            accountId={formik.values.accountId}
+            income={formik.values.type === "income"}
+          />
         )}
       </ModalBody>
 

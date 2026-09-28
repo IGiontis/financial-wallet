@@ -1519,8 +1519,6 @@
     "pickInto": "Σε",
     "noCard": "Καμία συγκεκριμένη",
     "noCardHint": "Μετράει στον λογαριασμό «{{name}}»",
-    "reviewFrom": "Από: {{name}}",
-    "reviewInto": "Σε: {{name}}",
     "estimatedShort": "εκτίμηση",
     "addHint": "τράπεζα ή μετρητά",
     "readingMark": "Ενημέρωση {{date}}",
@@ -1542,6 +1540,9 @@
       "red": "Κόκκινο",
       "gold": "Χρυσό"
     },
-    "cardsDivider": "Κάρτες"
+    "cardsDivider": "Κάρτες",
+    "reviewFromLabel": "Από",
+    "reviewIntoLabel": "Σε",
+    "afterThis": "Μετά από αυτή:"
   }
 }
