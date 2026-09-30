@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
+import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
+import { intlLocale } from "../../../i18n";
+import { formatUnitPrice, fuelTypeLabelKey, getUnitLabel } from "../../categories/fuelTypes";
 import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS, GOAL_COLORS, INVESTMENT_COLORS } from "./reviewPalettes";
 
@@ -21,7 +24,8 @@ interface Props {
 }
 
 export default function TransactionViewModal({ transaction: tx, categories, formatCurrency, onClose }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { displayCurrency } = useCurrencyConverter();
   const cat = resolveCategory(tx, categories);
   const isGoal = !!tx.isGoalTransaction;
   const isInvestment = !!tx.isInvestmentTransaction && !isGoal;
@@ -42,13 +46,16 @@ export default function TransactionViewModal({ transaction: tx, categories, form
   const gradientTo = isGoal || isInvestment ? directionColor : undefined;
 
   const primaryBadge = isGoal ? categoryLabel("Goal", t) : isInvestment ? categoryLabel("Investments", t) : isPositive ? t("transactions.income") : t("transactions.expense");
-  const secondaryBadge = (isGoal || isInvestment) && tx.contributionType ? (tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")) : undefined;
+  const secondaryBadgeKind = (isGoal || isInvestment) && tx.contributionType ? (tx.contributionType === "withdrawal" ? "withdrawal" : "deposit") : undefined;
+  const secondaryBadge = secondaryBadgeKind ? t(secondaryBadgeKind === "withdrawal" ? "transactions.withdrawal" : "transactions.deposit") : undefined;
 
   const meta = tx.metadata;
   const fuelCells: FuelCell[] = meta?.fuelType
     ? [
-        { label: t("transactions.fuelType"), value: String(meta.fuelType).charAt(0).toUpperCase() + String(meta.fuelType).slice(1) },
-        ...(meta.pricePerUnit != null ? [{ label: "Price / unit", value: `€${meta.pricePerUnit}` }] : []),
+        { label: t("transactions.fuelType"), value: t(fuelTypeLabelKey(meta.fuelType)) },
+        ...(meta.pricePerUnit != null
+          ? [{ label: t("transactions.pricePerUnitLabel", { unit: getUnitLabel(meta.fuelType) }), value: formatUnitPrice(meta.pricePerUnit, displayCurrency, intlLocale(i18n.resolvedLanguage)) }]
+          : []),
         ...(meta.quantity != null ? [{ label: t("transactions.quantity"), value: String(meta.quantity) }] : []),
         ...(meta.odometer != null ? [{ label: t("transactions.odometer"), value: `${meta.odometer} km` }] : []),
         ...(meta.place ? [{ label: t("transactions.place"), value: meta.place }] : []),
@@ -60,12 +67,13 @@ export default function TransactionViewModal({ transaction: tx, categories, form
       <ModalHeader toggle={onClose}>{t("transactions.transactionDetails")}</ModalHeader>
       <ModalBody>
         <TransactionReviewBody
-          subtitle="Here are the full details for this transaction."
+          subtitle={t("transactions.detailsSubtitle")}
           description={tx.description}
           categoryIcon={cat?.icon ?? ""}
           categoryName={categoryLabel(cat?.name, t) || "—"}
           primaryBadge={primaryBadge}
           secondaryBadge={secondaryBadge}
+          secondaryBadgeKind={secondaryBadgeKind}
           colors={colors}
           amount={tx.amount}
           formatAmount={formatCurrency}

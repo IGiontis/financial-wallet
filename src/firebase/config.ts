@@ -1,12 +1,28 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+
+/**
+ * Development against the local emulators instead of the real project
+ * (`npm run emulators`, then `npm run dev:emu`).
+ *
+ * Development and the live app share one Firebase project and so one free
+ * quota, and a development reload that cannot resume its cache re-reads the
+ * whole account — about two thousand reads a time. The emulators cost nothing
+ * and hold their own data. Only ever on in a development build, and only when
+ * asked for, so a plain `npm run dev` still talks to the real project.
+ *
+ * The project id is a `demo-` one: the emulators know it has no real project
+ * behind it and refuse to reach out to production for anything.
+ */
+const useEmulators = import.meta.env.DEV && import.meta.env.VITE_FIREBASE_EMULATOR === "true";
+export const EMULATOR_PROJECT_ID = "demo-myfiwallet";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  projectId: useEmulators ? EMULATOR_PROJECT_ID : import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
@@ -15,6 +31,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+if (useEmulators && !auth.emulatorConfig) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
 /**
  * Firestore with an on-disk cache rather than the default in-memory one.
  *
@@ -56,3 +73,11 @@ function openFirestore() {
 }
 
 export const db = openFirestore();
+
+// Connecting twice throws, and Vite's hot reload re-runs this module; the flag
+// on the instance is how the second run knows the first already did it.
+const emulatorFlag = "__myfiwalletEmulator";
+if (useEmulators && !(db as unknown as Record<string, unknown>)[emulatorFlag]) {
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  (db as unknown as Record<string, unknown>)[emulatorFlag] = true;
+}

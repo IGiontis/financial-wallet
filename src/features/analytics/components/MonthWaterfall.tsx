@@ -4,7 +4,8 @@ import styles from "./css/Waterfall.module.css";
 import type { WaterfallStep } from "../analyticsUtils";
 
 /**
- * Income, then each big category taken off it, then what survived.
+ * Income, then each big category taken off it, then what went into goals and
+ * investments, then what survived.
  *
  * Drawn as rows rather than columns, and as plain elements rather than a chart:
  * category names on a shared horizontal axis collide the moment there are more
@@ -30,9 +31,12 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency }: { ste
       ...step,
       name: nameFor(step.id),
       width: pct(step.amount),
+      // Money into goals and investments is not spending, but it leaves the pot
+      // all the same, so it is drawn the way a cost is — in its own colour.
+      takesFrom: step.kind === "expense" || step.kind === "savings",
       // A cost hangs from where the running total was down to where it lands;
       // income and the remainder start at the floor.
-      offset: step.kind === "expense" ? pct(step.balance) : "0%",
+      offset: step.kind === "expense" || step.kind === "savings" ? pct(step.balance) : "0%",
     }));
   }, [steps, nameFor]);
 
@@ -45,15 +49,15 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency }: { ste
           </span>
           <span className={styles.track}>
             <span
-              className={`${styles.bar} ${row.kind === "income" ? styles.barIncome : row.kind === "result" ? styles.barResult : styles.barExpense}`}
+              className={`${styles.bar} ${row.kind === "income" ? styles.barIncome : row.kind === "result" ? styles.barResult : row.kind === "savings" ? styles.barSavings : styles.barExpense}`}
               style={{ left: row.offset, width: row.width }}
             />
           </span>
           <span className={`${styles.amount} ${row.kind === "income" ? styles.amountIncome : row.kind === "result" ? styles.amountResult : ""}`}>
-            {row.kind === "expense" ? "−" : row.amount < 0 ? "−" : "+"}
+            {row.takesFrom ? "−" : row.amount < 0 ? "−" : "+"}
             {formatCurrency(Math.abs(row.amount))}
           </span>
-          {row.kind === "expense" && (
+          {row.takesFrom && (
             <span className={styles.left}>{t("analytics.waterfall.leftShort", { amount: formatCurrency(row.balance) })}</span>
           )}
         </div>

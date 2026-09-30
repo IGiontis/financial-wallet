@@ -1,6 +1,7 @@
 import type { DebtWithStatus, Transaction } from "../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { affectsBalance, balanceDelta, type OpeningBalance } from "../../shared/utils/balance";
+import { isLoan, loanState } from "../debts/debtsUtils";
 
 // What you are worth, month by month.
 //
@@ -55,18 +56,34 @@ const savedDelta = (tx: Transaction): number => {
 };
 
 /**
- * What is still open on one debt as of a date.
- *
- * Deliberately the same definition the debts screen uses — the sum handed over
- * less the sum repaid, floored at zero because an overpayment settles a debt
- * rather than reversing it. For a loan carrying interest the true outstanding
- * principal is not quite this, since part of each instalment is the bank's
- * charge; using anything else here would put two different figures for the same
- * loan on two screens, which is worse than the approximation.
+ * Which pot a contribution belongs to. Records from before contributions
+ * carried their goal share one pot, which is as much as can be said of them.
  */
-function outstandingAt(debt: DebtWithStatus, at: Date): number {
+const holdingOf = (tx: Transaction): string => tx.goalId ?? "";
+
+/**
+ * What is still open on one debt as of a date — the same figure the debts
+ * screen shows for it.
+ *
+ * Between people that is the sum handed over less the sum repaid, floored at
+ * zero because an overpayment settles a debt rather than reversing it.
+ *
+ * A loan is not that. Part of every instalment is the bank's interest, so
+ * "borrowed less repaid" falls faster than the debt does: €10,000 at 7% over
+ * five years, a year of €198.01 instalments in, is €8,291 still owed and not
+ * the €7,624 the subtraction gives — net worth was flattered by the whole of
+ * the interest paid so far. So a loan is read through `loanState`, which is
+ * what `computeDebtStatus` gives the debts screen: the balance amortised from
+ * the repayments made before the month closed, with interest accrued to
+ * `accruedTo` — the month's end, or today for the month still running.
+ */
+function outstandingAt(debt: DebtWithStatus, at: Date, accruedTo: Date = at): number {
   if (firestoreToDate(debt.date) >= at) return 0;
-  const repaid = debt.payments.reduce((sum, payment) => (firestoreToDate(payment.date) < at ? sum + payment.amount : sum), 0);
+  const madeBy = debt.payments.filter((payment) => firestoreToDate(payment.date) < at);
+
+  if (isLoan(debt)) return loanState({ ...debt, payments: madeBy }, accruedTo)?.balance ?? 0;
+
+  const repaid = madeBy.reduce((sum, payment) => sum + payment.amount, 0);
   return Math.max(0, debt.amount - repaid);
 }
 
@@ -122,18 +139,51 @@ export function netWorthSeries(
     return found;
   };
 
-  let saved = 0;
+  // What each goal or investment holds, carried from one month end to the next.
+  //
+  // A holding is never worth less than nothing. Taking €1,200 out of an
+  // investment that €1,000 went into is €200 of gain, not a pot at -€200 — the
+  // withdrawal form allows exactly that — and the whole €1,200 has already
+  // arrived in the cash below. Summed as it stood, the -€200 cancelled the gain
+  // and the net worth never moved. So each pot is floored at zero at every
+  // month end, including the months before the window, and the floor is
+  // carried: the gain was realised, and what goes in afterwards starts from an
+  // empty pot. Month ends rather than each record, so a withdrawal entered a
+  // day before the deposit it came out of — the same month, typed in the
+  // wrong order — is not mistaken for a gain.
+  const holdings = new Map<string, number>();
+  const floorHoldings = () => {
+    for (const [id, held] of holdings) holdings.set(id, Math.max(held, 0));
+  };
+  let heldMonth: number | undefined;
   let cursorIndex = 0;
 
   return months.map((start) => {
     const closes = endOfMonth(start);
+    // A loan's interest in a month still running is accrued only to the
+    // window's end — today, on both screens that draw this — not to a month end
+    // that has not come, so the last point owes what the debts screen says.
+    const accruedTo = closes > to ? to : closes;
 
     while (cursorIndex < sorted.length && firestoreToDate(sorted[cursorIndex].date) < closes) {
       // Money set aside before the opening date is still set aside: the opening
       // figure speaks for the cash account, not for the goals beside it.
-      saved += savedDelta(sorted[cursorIndex]);
+      const tx = sorted[cursorIndex];
+      const delta = savedDelta(tx);
+      if (delta !== 0) {
+        const date = firestoreToDate(tx.date);
+        const month = date.getFullYear() * 12 + date.getMonth();
+        // A month has closed since the last contribution: its pots are settled.
+        if (heldMonth !== undefined && month > heldMonth) floorHoldings();
+        heldMonth = month;
+        holdings.set(holdingOf(tx), (holdings.get(holdingOf(tx)) ?? 0) + delta);
+      }
       cursorIndex += 1;
     }
+
+    floorHoldings();
+    let saved = 0;
+    for (const held of holdings.values()) saved += held;
 
     // Counted afresh each month from whichever starting point applies, rather
     // than carried forward: a reading replaces the running sum, it does not add
@@ -147,7 +197,7 @@ export function netWorthSeries(
     let owedToMe = 0;
     let owedByMe = 0;
     for (const debt of debts) {
-      const open = outstandingAt(debt, closes);
+      const open = outstandingAt(debt, closes, accruedTo);
       if (open === 0) continue;
       if (debt.direction === "owed_to_me") owedToMe += open;
       else owedByMe += open;

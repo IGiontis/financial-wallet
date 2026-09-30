@@ -84,6 +84,25 @@ export function isPeriodSettled(bill: Pick<Bill, "installmentCount">, payments: 
   return paidInstallments(payments, periodKey).size >= getInstallmentCount(bill);
 }
 
+/**
+ * The payments against each instalment of `periodKey`, by index.
+ *
+ * An index past the last part — a payment filed while the bill was split into
+ * more parts than it is now — counts against the last one. Money that was paid
+ * must never read as missing, and for an ordinary bill this is exactly the old
+ * rule: any payment for the period settles it.
+ */
+function paymentsByInstallment(bill: Pick<Bill, "installmentCount">, payments: BillPayment[], periodKey: string): Map<number, BillPayment[]> {
+  const last = getInstallmentCount(bill) - 1;
+  const parts = new Map<number, BillPayment[]>();
+  for (const p of payments) {
+    if (p.periodKey !== periodKey) continue;
+    const index = Math.min(paymentInstallment(p), last);
+    parts.set(index, [...(parts.get(index) ?? []), p]);
+  }
+  return parts;
+}
+
 const getAnchor = (bill: Pick<Bill, "anchorDate" | "createdAt">): Date => firestoreToDate(bill.anchorDate ?? bill.createdAt);
 
 /** First day of the period bucket that `date` falls into. */
@@ -410,10 +429,33 @@ export function monthlyEquivalent(bill: Bill, effectiveAmount?: number): number 
 
 const AVERAGE_WINDOW = 6;
 
-export function averagePaidAmount(payments: BillPayment[]): number | undefined {
-  if (payments.length === 0) return undefined;
-  const recent = payments.slice(0, AVERAGE_WINDOW);
-  return recent.reduce((sum, p) => sum + p.amount, 0) / recent.length;
+/**
+ * What a whole period has cost, averaged over the most recent six.
+ *
+ * Per period, not per payment. ENFIA taken as three €200 instalments costs €600
+ * a year, and averaging the payments said €200 — a third of the year — which
+ * then became the forecast, the monthly figure (€16.67 instead of €50) and the
+ * total the planner split into instalments. For a bill paid in one go the two
+ * readings are the same thing.
+ *
+ * A period still being paid off is left out until its last part is in: €200 of
+ * a €600 year is what has been paid so far, not what the year costs, and
+ * counting it would drag the average down by exactly the amount still owed.
+ * Payments are taken in the order given, newest first, as everywhere else.
+ */
+export function averagePaidAmount(payments: BillPayment[], bill: Pick<Bill, "installmentCount"> = {}): number | undefined {
+  const count = getInstallmentCount(bill);
+  const periods = new Map<string, { sum: number; parts: Set<number> }>();
+  for (const p of payments) {
+    const period = periods.get(p.periodKey) ?? { sum: 0, parts: new Set<number>() };
+    period.sum += p.amount;
+    period.parts.add(paymentInstallment(p));
+    periods.set(p.periodKey, period);
+  }
+
+  const recent = [...periods.values()].filter((period) => period.parts.size >= count).slice(0, AVERAGE_WINDOW);
+  if (recent.length === 0) return undefined;
+  return recent.reduce((sum, period) => sum + period.sum, 0) / recent.length;
 }
 
 /**
@@ -514,7 +556,7 @@ function computeStatusInternal(bill: Bill, allPayments: BillPayment[], now: Date
 
   // For variable bills, forecast from what has actually been paid rather than
   // the (necessarily rough) stored estimate.
-  const average = averagePaidAmount(payments);
+  const average = averagePaidAmount(payments, bill);
   const forecastAmount = bill.isVariableAmount ? (average ?? bill.amount) : bill.amount;
 
   // Paying ahead: count the unbroken run of covered periods starting here, so
@@ -759,8 +801,72 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
   return groups;
 }
 
-/** Amount a bill is expected to cost — the recent average for variable bills. */
+/**
+ * What one whole period of the bill is expected to cost — the recent average
+ * for variable bills.
+ *
+ * The period's price, not what is owed on it and not what the next payment
+ * is: for a gym year of €360 taken in three parts it is €360 whether nothing,
+ * one part or all three have been paid. "What is still owed" is
+ * `outstandingAmount`; "what has to be there by the next deadline" is
+ * `amountDueNext`. Using this for either of those made every instalment bill
+ * ask for its whole year at once.
+ */
 export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ? (bill.averagePaidAmount ?? bill.amount) : bill.amount);
+
+/**
+ * What the bill needs from you by its next deadline.
+ *
+ * For most bills that is simply the period's amount. A bill paid in parts is
+ * the exception the whole function exists for: the gym's €360 year in three
+ * parts asks for €120 by the 5th of November, and the runway, the overview's
+ * list and the late total were all asking for €360.
+ *
+ * Any earlier part already past its own deadline is owed along with it — two
+ * missed instalments are two instalments late, and the runway's "now" has to be
+ * able to pay both. Never more than the period still owes, so a part paid over
+ * the odds is not asked for a second time.
+ *
+ * Settled, or switched off for now, the next payment opens a later period and
+ * is that period's first part.
+ */
+export function amountDueNext(bill: BillWithStatus, now: Date = new Date()): number {
+  const total = expectedAmount(bill);
+  const periodDue = getPeriodDueDate(bill, now);
+  if (bill.isPaidThisPeriod || isPausedOn(bill, periodDue ?? getPeriodStart(bill, now))) return installmentAmount(bill, total, 0);
+
+  const next = bill.nextInstallmentIndex ?? 0;
+  const today = startOfDay(now);
+  const paid = paymentsByInstallment(bill, bill.payments, bill.currentPeriodKey);
+  // Without a due day nothing can be late, so it is only ever the next part.
+  const parts = periodDue ? installmentDueDates(bill, periodDue) : [];
+  const owed = parts.reduce((sum, date, index) => {
+    if (index === next || paid.has(index)) return sum;
+    const deadline = getDeadline(bill, date) ?? date;
+    return deadline < today ? sum + installmentAmount(bill, total, index) : sum;
+  }, installmentAmount(bill, total, next));
+
+  return round2(Math.min(owed, bill.outstandingAmount));
+}
+
+/** Everything paid against the current period — every instalment of it, not only the latest. */
+export function paidThisPeriod(bill: BillWithStatus): number {
+  return round2(bill.payments.filter((p) => p.periodKey === bill.currentPeriodKey).reduce((sum, p) => sum + p.amount, 0));
+}
+
+/**
+ * What the unpaid bills still owe on the periods they are in — the figure on
+ * the list's "still to pay" heading.
+ *
+ * Each bill at what is left of its period, so a part-paid year counts the parts
+ * still to come and a bill switched off for now counts nothing: a stopped €40
+ * and a paused €60 sitting beside a €15 Netflix made the heading say €115 while
+ * the month and the late total both said €15. Bills switched off altogether are
+ * left out, as they are everywhere else.
+ */
+export function outstandingTotal(bills: BillWithStatus[]): number {
+  return round2(bills.filter((bill) => bill.isActive && !bill.isPaidThisPeriod).reduce((sum, bill) => sum + bill.outstandingAmount, 0));
+}
 
 /**
  * The bills that are late, most late first, and what they come to.
@@ -769,13 +875,18 @@ export const expectedAmount = (bill: BillWithStatus) => (bill.isVariableAmount ?
  * so "3 late, €214" can never sit above a list of two, or a list that adds up
  * to something else. Stopped bills are left out for the same reason the count
  * always left them out: a bill that is switched off is not owed.
+ *
+ * Each bill counts what is actually late on it — `amountDueNext`, the same
+ * figure its row and the overview's list show. A part-paid gym a month behind
+ * is €120 late, not the €360 of its year, and not the €240 left on it either
+ * while December's part is still weeks off.
  */
 export function overdueBills(bills: BillWithStatus[], now: Date = new Date()): { bills: BillWithStatus[]; total: number } {
   const late = groupBills(
     bills.filter((bill) => bill.isActive),
     now,
   ).overdue;
-  return { bills: late, total: late.reduce((sum, bill) => sum + expectedAmount(bill), 0) };
+  return { bills: late, total: round2(late.reduce((sum, bill) => sum + amountDueNext(bill, now), 0)) };
 }
 
 // ─── Cash runway ────────────────────────────────────────────────────────────
@@ -816,7 +927,9 @@ export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limi
 
     const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false };
     entry.bills.push(bill);
-    entry.amount += expectedAmount(bill);
+    // What has to be there by this date — one instalment of a bill paid in
+    // parts, not the whole of its period.
+    entry.amount = round2(entry.amount + amountDueNext(bill, now));
     if (raw < today) entry.overdue = true;
     byDate.set(dayKey(date), entry);
   }
@@ -827,7 +940,7 @@ export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limi
   let count = 0;
   let strict = 0;
   for (const checkpoint of checkpoints) {
-    running += checkpoint.amount;
+    running = round2(running + checkpoint.amount);
     count += checkpoint.bills.length;
     strict += checkpoint.bills.filter(isHardDeadline).length;
     checkpoint.cumulative = running;
@@ -902,7 +1015,12 @@ export function sinkingFund(bill: BillWithStatus, now: Date = new Date()): Sinki
   const elapsed = periodProgress(bill, dueDate, now);
   if (!dueDate || elapsed === undefined) return undefined;
 
-  const target = expectedAmount(bill);
+  // The payment being saved for, which for a bill paid in parts is one part: the
+  // gym asks for €120 on the 5th, and saving €360 towards that date is saving
+  // three times too fast. Once the date has gone and the target rolls a period
+  // on, it is that same part of the next period.
+  const rolled = !!bill.nextDueDate && bill.nextDueDate < startOfDay(now);
+  const target = rolled ? installmentAmount(bill, expectedAmount(bill), bill.nextInstallmentIndex ?? 0) : amountDueNext(bill, now);
   // Whole months only: a bill due in eleven days wants the whole amount this
   // month, not eleven thirtieths of it.
   const monthsLeft = Math.max(differenceInCalendarMonths(dueDate, now), 0);
@@ -992,35 +1110,51 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
 
   for (const bill of bills) {
     if (!bill.isActive) continue;
-    // Keyed by amount, not just presence: a settled occurrence should show what
-    // actually left the account, which for a variable bill is the whole point.
-    const paidByKey = new Map(bill.payments.map((p) => [p.periodKey, p]));
+    const total = expectedAmount(bill);
+    const born = billBorn(bill);
 
     // Anchored on the month being asked about rather than on today: a bucket
-    // that opened last month can still fall due inside this one.
-    let start = getPeriodStart(bill, monthStart);
+    // that opened last month can still fall due inside this one. And one bucket
+    // further back, because instalments can run on past the end of their own
+    // period — a gym year due in November and paid in three has its last part
+    // in January, inside the next year's bucket.
+    let start = shiftPeriodStart(bill, getPeriodStart(bill, monthStart), -1);
     for (let i = 0; i < MAX_PERIODS_PER_MONTH && start <= monthEnd; i++) {
       // A bill with no due day still lands somewhere — treat the period's own
       // start as the date it arrives, rather than dropping it from the total.
-      const date = getPeriodDueDate(bill, start) ?? start;
+      const due = getPeriodDueDate(bill, start) ?? start;
       const periodKey = getPeriodKey(bill, start);
+      // Asked of the period, not of each part: a paused period takes all of its
+      // instalments with it, as it does in the planner.
+      const paused = isPausedOn(bill, due);
+      // Keyed by instalment and summed, not one payment per period: the gym's
+      // October €120 used to stand for its whole year, which left November and
+      // December at nothing.
+      const paidParts = paymentsByInstallment(bill, bill.payments, periodKey);
 
-      const paidHere = paidByKey.get(periodKey);
-      // Not charged that month — unless it was paid anyway, which is a fact.
-      if (date >= monthStart && date <= monthEnd && (paidHere || !isPausedOn(bill, date))) {
-        const paid = paidHere;
+      // The look-back is for a period that really ran. One from before the bill
+      // existed was never owed — unless something was paid for it, which is a fact.
+      const beforeBill = i === 0 && start < born && paidParts.size === 0;
+
+      // Each part on its own date. A bill paid in one go has one part, on the
+      // period's due date, exactly as before.
+      if (!beforeBill) installmentDueDates(bill, due).forEach((date, index) => {
+        const paid = paidParts.get(index);
+        // Not charged that month — unless it was paid anyway, which is a fact.
+        if (date < monthStart || date > monthEnd || (!paid && paused)) return;
         items.push({
           bill,
           periodKey,
           date,
           // A settled occurrence is worth what was actually paid; an unpaid one
           // can only be the expectation.
-          amount: paid ? paid.amount : expectedAmount(bill),
+          amount: paid ? round2(paid.reduce((sum, p) => sum + p.amount, 0)) : installmentAmount(bill, total, index),
           isPaid: paid !== undefined,
           isVariable: !!bill.isVariableAmount,
-          paidDate: paid ? firestoreToDate(paid.paidDate) : undefined,
+          // Newest first, so the day the part was finished.
+          paidDate: paid ? firestoreToDate(paid[0].paidDate) : undefined,
         });
-      }
+      });
 
       start = shiftPeriodStart(bill, start, 1);
     }
@@ -1057,7 +1191,8 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
 const MAX_ARREARS_LOOKBACK = 12;
 
 /**
- * Unpaid periods whose deadline has already passed, oldest first.
+ * Unpaid periods whose deadline has already passed, oldest first — or, for a
+ * bill paid in parts, each unpaid part on its own date.
  *
  * Bounded by the bill's own start as well as the lookback: a bill created last
  * month cannot be six months in arrears, and walking past its anchor would
@@ -1069,20 +1204,28 @@ export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeri
 
   for (const bill of bills) {
     if (!bill.isActive) continue;
-    const paidKeys = new Set(bill.payments.map((p) => p.periodKey));
+    const total = expectedAmount(bill);
     const born = billBorn(bill);
 
     let start = getPeriodStart(bill, now);
     for (let i = 0; i <= maxPeriodsBack && start >= born; i++) {
       const periodKey = getPeriodKey(bill, start);
       const due = getPeriodDueDate(bill, start) ?? start;
-      // Measured against the deadline, not the due date: a bill inside its
-      // grace window is late in no meaningful sense — it is still payable.
-      const deadline = getDeadline(bill, due) ?? due;
 
-      // A paused month was never owed, so it cannot be in arrears.
-      if (deadline < today && !paidKeys.has(periodKey) && !isPausedOn(bill, due)) {
-        items.push({ bill, periodKey, date: due, amount: expectedAmount(bill), isPaid: false, isVariable: !!bill.isVariableAmount });
+      // A paused month was never owed, so it cannot be in arrears — and a
+      // paused period takes every one of its instalments with it.
+      if (!isPausedOn(bill, due)) {
+        // Instalment by instalment: one part paid used to mark the whole period
+        // paid, so a gym two instalments behind showed no arrears at all.
+        const paidParts = paymentsByInstallment(bill, bill.payments, periodKey);
+        installmentDueDates(bill, due).forEach((date, index) => {
+          // Measured against the deadline, not the due date: a bill inside its
+          // grace window is late in no meaningful sense — it is still payable.
+          const deadline = getDeadline(bill, date) ?? date;
+          if (deadline < today && !paidParts.has(index)) {
+            items.push({ bill, periodKey, date, amount: installmentAmount(bill, total, index), isPaid: false, isVariable: !!bill.isVariableAmount });
+          }
+        });
       }
 
       start = shiftPeriodStart(bill, start, -1);

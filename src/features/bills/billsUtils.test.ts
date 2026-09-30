@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  amountDueNext,
   arrears,
   averagePaidAmount,
   billMonthStrip,
@@ -15,6 +16,7 @@ import {
   coveredPeriodCount,
   daysUntilDeadline,
   daysUntilDue,
+  expectedAmount,
   getDeadline,
   getFrequencyLabel,
   getFrequencyToken,
@@ -284,8 +286,13 @@ const statusOf = (overrides: Partial<BillWithStatus>, bill: Partial<Bill> = {}):
   } as BillWithStatus;
 
   // computeBillStatus always fills the deadline in alongside the due date, so
-  // a fixture that only sets one would be a shape the app never produces.
-  return { ...base, deadline: base.deadline ?? getDeadline(base, base.nextDueDate) };
+  // a fixture that only sets one would be a shape the app never produces. Same
+  // for what is still owed: nothing paid yet, so the whole expected amount.
+  return {
+    ...base,
+    deadline: base.deadline ?? getDeadline(base, base.nextDueDate),
+    outstandingAmount: base.outstandingAmount ?? (base.isPaidThisPeriod ? 0 : Math.round(expectedAmount(base) * 100) / 100),
+  };
 };
 
 describe("daysUntilDue", () => {
@@ -1745,7 +1752,8 @@ describe("overdueBills", () => {
     // Second route: by hand, from the figures above rather than the function.
     expect(420 + 68.4 + 91.25).toBeCloseTo(579.65, 2);
     expect(total).toBeCloseTo(579.65, 2);
-    expect(bills.reduce((sum, b) => sum + (b.isVariableAmount ? (b.averagePaidAmount ?? b.amount) : b.amount), 0)).toBeCloseTo(total, 2);
+    // The rows show what each bill needs by its deadline — for these, the whole of it.
+    expect(bills.reduce((sum, b) => sum + amountDueNext(b, now), 0)).toBeCloseTo(total, 2);
   });
 
   it("comes to nothing when nothing is late", () => {

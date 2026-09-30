@@ -170,6 +170,13 @@ export interface Projection {
  * The deadline says when it is wanted; this says when it arrives — and the gap
  * between the two is the thing to act on. Undefined when there is nothing to
  * project: no target, nothing left to save, or nothing saved yet to set a pace.
+ *
+ * Counted the way the monthly figure is (`deadlinePace`): this month is a month
+ * to save in, and is taken to reach the pace — less whatever already went in
+ * this month — before each later month adds a full one. Counting from next
+ * month instead put every projection a month later than the figure beside it,
+ * so a goal saved at exactly the monthly figure it was asked for read "on
+ * track" and "a month past the deadline" on the same card.
  */
 export function projectedFinish(goal: InvestmentGoalWithStats, now: Date = new Date()): Projection | undefined {
   if (goal.goalType === "open_ended" || goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly") return undefined;
@@ -180,7 +187,11 @@ export function projectedFinish(goal: InvestmentGoalWithStats, now: Date = new D
   const pace = savingPace(goal, now);
   if (!pace || pace <= 0) return undefined;
 
-  const monthsNeeded = Math.ceil(remaining / pace);
+  // In whole cents, so a pace that divides what is left exactly is not pushed
+  // a month further by a float landing a hair above the whole number.
+  const cents = (n: number) => Math.round(n * 100);
+  const afterThisMonth = Math.max(cents(remaining) - Math.max(cents(pace) - cents(goal.currentPeriodSaved ?? 0), 0), 0);
+  const monthsNeeded = Math.ceil(afterThisMonth / cents(pace));
   const date = new Date(now.getFullYear(), now.getMonth() + monthsNeeded, 1);
 
   const deadline = toDate(goal.deadline);

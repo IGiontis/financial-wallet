@@ -94,7 +94,8 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
     const shownDate = kind === "paid" && item.paidDate ? item.paidDate : item.date;
 
     return (
-      <div key={`${item.bill.id}-${item.periodKey}`} className={`${styles.breakdownRow} ${kind === "paid" ? styles.breakdownRowPaid : ""}`}>
+      // The date as well: two late instalments of one period are two rows.
+      <div key={`${item.bill.id}-${item.periodKey}-${item.date.getTime()}`} className={`${styles.breakdownRow} ${kind === "paid" ? styles.breakdownRowPaid : ""}`}>
         <span className={`${styles.iconTile} ${styles.iconWrap}`} style={{ width: 26, height: 26, fontSize: 13 }}>
           <span aria-hidden>{category?.icon ?? "🧾"}</span>
           {kind === "paid" && (

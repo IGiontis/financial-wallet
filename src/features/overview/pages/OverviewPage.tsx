@@ -1,10 +1,13 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
-import { Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
+import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiPlus, FiTrendingUp } from "react-icons/fi";
+import { toast } from "react-toastify";
+import { Row, Col, Card, CardBody, Progress, Alert, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
-import { useTransactions } from "../../transactions/hooks/useTransactions";
+import { useCreateTransaction, useTransactions } from "../../transactions/hooks/useTransactions";
+import AddTransactionModal from "../../transactions/components/AddTransactionModal";
+import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -21,29 +24,33 @@ import {
   type CustomRange,
   type TimePeriod,
 } from "../overviewUtils";
-import CurrentBalanceCard from "../components/CurrentBalanceCard";
+import OverviewHero from "../components/OverviewHero";
+import BankStrip from "../components/BankStrip";
+import { usePaydayOutlook } from "../usePaydayOutlook";
 import { CashFlowLegend } from "../components/CashFlowLegend";
 import { CustomRangeModal } from "../components/CustomRangeModal";
 import GoalDetailModal from "../components/GoalDetailModal";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/OverviewPage.module.css";
-import { useBills } from "../../bills/useBills";
+import { useBills, useMarkBillPaid } from "../../bills/useBills";
+import MarkPaidModal from "../../bills/MarkPaidModal";
 import { useDebts } from "../../debts/useDebts";
 import { useSalary } from "../../../shared/hooks/useSalary";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
-import { daysSince, projectedTotal, STALE_AFTER_DAYS, unloggedBetween } from "../../accounts/accountsUtils";
+import { daysSince, expectedByAccount, goalHeldTotal, newId, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
+import { accountTones } from "../../accounts/accountTones";
+import CheckInModal from "../../accounts/CheckInModal";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
 import { monthTimeline } from "../../bills/monthTimeline";
 import { overdueBills } from "../../bills/billsUtils";
-import { nextSalaryDate } from "../../plannerPage/plannerUtils";
 import BillMonthTimeline from "../../bills/BillMonthTimeline";
-import { attentionItems, goalsProgress, spendingByCategory, untilPayday } from "../overviewTabs";
+import { attentionItems, goalsProgress, spendingByCategory } from "../overviewTabs";
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { AttentionList, MonthInOut, Panel, PaydayVerdict, PositionPanel, SpendingPanel, TileGrid, type OverviewTile } from "../components/OverviewTabs";
+import { AttentionList, MonthInOut, Panel, PositionPanel, SpendingPanel, TileGrid, TodayPanel, type OverviewTile } from "../components/OverviewTabs";
 import { PageShell } from "../../../shared/components/PageShell";
 
 // recharts is by far the heaviest thing on this page. Loading it separately lets
@@ -107,14 +114,29 @@ export const OverviewPage = () => {
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
-  const { format: formatCurrency } = useCurrencyConverter();
+  const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
   const { data: bills = [] } = useBills();
   const { data: debts = [] } = useDebts();
-  const { opening, anchors } = useOpeningBalance();
-  const { readings, latest: lastReading } = useMoneyAccounts();
+  const { opening, anchors, source: openingSource, isLoading: openingLoading } = useOpeningBalance();
+  const { accounts, readings, latest: lastReading, setCheckIns } = useMoneyAccounts();
   const { salary } = useSalary(now);
 
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
+  const inGoals = useMemo(() => goalHeldTotal(transactions), [transactions]);
+  const banksNow = useMemo(() => (lastReading ? projectedTotal(lastReading, transactions) : undefined), [lastReading, transactions]);
+
+  // ── Will it last until pay day ── the Planner's own walk, from the money above.
+  const { outlook, late: lateOccurrences, settle } = usePaydayOutlook(now, balance);
+
+  // ── Done from here ── the dialogs the Bills, Banks and Transactions pages use.
+  const markPaid = useMarkBillPaid();
+  const createTransaction = useCreateTransaction();
+  const [payingBillId, setPayingBillId] = useState<string | null>(null);
+  const payingBill = payingBillId ? bills.find((b) => b.id === payingBillId) : undefined;
+  const [adding, setAdding] = useState(false);
+  const [readingBanks, setReadingBanks] = useState(false);
+  const expectedNow = useMemo(() => expectedByAccount(accounts, lastReading, transactions), [accounts, lastReading, transactions]);
+  const tones = useMemo(() => accountTones(accounts), [accounts]);
 
   // ── Today ──
   const attention = useMemo(() => attentionItems(bills, debts, now), [bills, debts, now]);
@@ -136,10 +158,6 @@ export const OverviewPage = () => {
   }, [monthTransactions, categories, t]);
 
   // ── The month ──
-  // Pay day as the planner and the bills timeline know it; without one, the
-  // month's last day stands in and the verdict says so.
-  const payday = useMemo(() => (salary ? nextSalaryDate(salary.dayOfMonth, now) : new Date(now.getFullYear(), now.getMonth() + 1, 0)), [salary, now]);
-  const beforePayday = useMemo(() => untilPayday(balance, bills, payday), [balance, bills, payday]);
   const timeline = useMemo(
     () => monthTimeline(bills, now, salary ? { amount: salary.amount, dayOfMonth: salary.dayOfMonth, label: t("bills.timelineIncome") } : undefined),
     [bills, now, salary, t],
@@ -296,17 +314,7 @@ export const OverviewPage = () => {
     late.bills.length > 0
       ? { to: "/bills", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)" }
       : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)" },
-    { to: "/planner", label: t("nav.planner"), value: formatCurrency(beforePayday.left), sub: t(salary ? "overview.tilePayday" : "overview.tileMonthEnd"), tone: beforePayday.left >= 0 ? undefined : "var(--color-expense-text)" },
     { to: "/transactions", label: t("nav.transactions"), value: formatCurrency(thisMonth.totalExpenses), sub: t("overview.soFarThisMonth") },
-    lastReading
-      ? {
-          to: "/accounts",
-          label: t("nav.accounts"),
-          value: formatCurrency(projectedTotal(lastReading, transactions)),
-          sub: readingAge === 0 ? t("overview.tileAccountsToday") : t("overview.tileAccountsAgo", { count: readingAge ?? 0 }),
-          tone: (readingAge ?? 0) >= STALE_AFTER_DAYS ? "var(--color-goal-text)" : undefined,
-        }
-      : { to: "/accounts", label: t("nav.accounts"), value: "—", sub: t("overview.tileAccountsNone") },
     { to: "/debts", label: t("nav.debts"), value: formatCurrency(lastPosition?.owedByMe ?? 0), sub: t("overview.tileOwed"), tone: (lastPosition?.owedByMe ?? 0) > 0 ? "var(--color-expense-text)" : undefined },
     goalProgress.target > 0
       ? { to: "/goals", label: t("nav.goals"), value: `${goalProgress.percent}%`, sub: t("overview.tileGoalsOf", { saved: formatCurrency(goalProgress.saved), target: formatCurrency(goalProgress.target) }), tone: "var(--color-goal)" }
@@ -315,6 +323,10 @@ export const OverviewPage = () => {
     { to: "/allocation", label: t("nav.allocation"), value: formatCurrency(thisMonth.totalIncome), sub: t("overview.tileToAllocate") },
     { to: "/investments", label: t("nav.investments"), value: `${investedThisMonth >= 0 ? "+" : "−"}${formatCurrency(Math.abs(investedThisMonth))}`, sub: t("overview.tileInvestedMonth"), tone: "var(--color-invest)" },
   ];
+
+  const attentionList = (
+    <AttentionList items={attention} late={lateOccurrences} now={now} formatCurrency={formatCurrency} onPay={setPayingBillId} onSettle={settle} />
+  );
 
   if (txLoading) {
     return (
@@ -362,14 +374,27 @@ export const OverviewPage = () => {
 
       {liveSelectedGoal && <GoalDetailModal goal={liveSelectedGoal} formatCurrency={formatCurrency} onClose={() => setSelectedGoal(null)} />}
 
-      {/* Header */}
+      {/* Header: the page's name and the day — a date is what a home screen
+          is opened to learn, a sentence about what the app does is not. */}
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("overview.subtitle")}</p>
+        <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
       </div>
 
-      {/* The one figure every tab starts from, above them all. */}
-      <CurrentBalanceCard transactions={transactions} formatCurrency={formatCurrency} className="mb-3" />
+      {/* The money now and whether it lasts, above every tab. */}
+      <OverviewHero
+        balance={balance}
+        transactions={transactions}
+        opening={opening}
+        source={openingSource}
+        isLoading={openingLoading}
+        banks={banksNow}
+        inGoals={inGoals}
+        outlook={outlook}
+        formatCurrency={formatCurrency}
+        locale={locale}
+      />
+      <BankStrip hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} onUpdate={() => setReadingBanks(true)} />
 
       {/* Labelled and full width, so on a phone each is a real target. */}
       <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")}>
@@ -390,13 +415,14 @@ export const OverviewPage = () => {
 
       {tab === "today" && (
         <div className={styles.stack} role="tabpanel">
-          <AttentionList items={attention} formatCurrency={formatCurrency} />
+          {attentionList}
+          <TodayPanel transactions={transactions} categories={categories} now={now} formatCurrency={formatCurrency} />
           <MonthInOut
             income={thisMonth.totalIncome}
             expenses={thisMonth.totalExpenses}
             unlogged={monthUnlogged}
             formatCurrency={formatCurrency}
-            sub={salary ? t("overview.paydayOn", { date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(payday) }) : undefined}
+            sub={outlook.known ? t("overview.paydayOn", { date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(outlook.date) }) : undefined}
           />
           <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
           {goalsGlance}
@@ -414,7 +440,8 @@ export const OverviewPage = () => {
 
       {tab === "all" && (
         <div className={styles.allStack} role="tabpanel">
-          {attention.length > 0 && <AttentionList items={attention} formatCurrency={formatCurrency} />}
+          {attentionList}
+          <TodayPanel transactions={transactions} categories={categories} now={now} formatCurrency={formatCurrency} />
           <TileGrid tiles={tiles} />
           <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
         </div>
@@ -422,7 +449,6 @@ export const OverviewPage = () => {
 
       {tab === "month" && (
       <div className={styles.stack} role="tabpanel">
-        <PaydayVerdict left={beforePayday.left} owed={beforePayday.owed} count={beforePayday.count} payday={payday} known={!!salary} formatCurrency={formatCurrency} locale={locale} />
         <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses}
             unlogged={monthUnlogged} formatCurrency={formatCurrency} />
         <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
@@ -556,6 +582,46 @@ export const OverviewPage = () => {
 
       </div>
       </div>
+      )}
+
+      {/* The "+" within thumb reach: writing something down is what this app
+          is opened for most, and it used to take the menu, a page and a button. */}
+      <div className={styles.fabSpace} aria-hidden />
+      <Button color="primary" className={styles.fab} onClick={() => setAdding(true)} aria-label={t("overview.addNew")} title={t("overview.addNew")}>
+        <FiPlus size={26} aria-hidden />
+      </Button>
+      <AddTransactionModal
+        isOpen={adding}
+        onClose={() => setAdding(false)}
+        categories={categories}
+        onSubmit={(data) => saveWithoutWaiting(createTransaction, data, () => toast.error(t("transactions.saveFailed")))}
+      />
+
+      {payingBill && (
+        <MarkPaidModal
+          bill={payingBill}
+          isSaving={false}
+          onClose={() => setPayingBillId(null)}
+          onConfirm={(amountInBase, paidDate, periodKey, installmentIndex) => {
+            markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+            setPayingBillId(null);
+          }}
+        />
+      )}
+
+      {readingBanks && accounts.length > 0 && (
+        <CheckInModal
+          accounts={accounts}
+          expected={expectedNow}
+          tones={tones}
+          baseCurrency={baseCurrency}
+          formatCurrency={formatCurrency}
+          onSave={(amounts) => {
+            setCheckIns((previous) => [...(previous ?? []), { id: newId(), at: new Date().toISOString(), amounts }]);
+            setReadingBanks(false);
+          }}
+          onClose={() => setReadingBanks(false)}
+        />
       )}
     </PageShell>
   );

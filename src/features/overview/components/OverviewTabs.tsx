@@ -1,11 +1,17 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Badge, Card, CardBody } from "reactstrap";
+import { Badge, Button, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCheckCircle, FiChevronRight } from "react-icons/fi";
 import { Sparkline } from "./Sparkline";
 import type { AttentionItem } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
+import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActuals";
+import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
+import type { Category, Transaction } from "../../../shared/types/IndexTypes";
+import { categoryLabel } from "../../../shared/utils/categories";
+import { firestoreToDate } from "../../../shared/utils/dates";
+import { isPlainExpense } from "../overviewUtils";
 import styles from "../pages/css/OverviewPage.module.css";
 
 type Money = (n: number) => string;
@@ -30,14 +36,34 @@ export function Panel({ title, action, children }: { title?: string; action?: Re
 // ─── Today ──────────────────────────────────────────────────────────────────
 
 /**
- * Only what wants doing, most urgent first. When nothing does, it says so in
- * one line and gets out of the way — the tab's whole point is that on a quiet
- * day there is nothing to read.
+ * Only what wants doing, most urgent first — and done from here.
+ *
+ * Each row used to be a link to the Bills page, where the bill had to be found
+ * again before it could be marked paid. Now the button is on the row: a bill
+ * opens the same payment dialog the Bills page uses, and a salary or instalment
+ * the Planner is waiting for is confirmed with the same word its own sheet
+ * records. When nothing wants doing it says so in one line and gets out of the
+ * way — on a quiet day there is nothing to read.
  */
-export function AttentionList({ items, formatCurrency }: { items: AttentionItem[]; formatCurrency: Money }) {
+export function AttentionList({
+  items,
+  late = [],
+  now,
+  formatCurrency,
+  onPay,
+  onSettle,
+}: {
+  items: AttentionItem[];
+  /** Planner occurrences overdue: a salary not in yet, an instalment not seen. */
+  late?: ResolvedOccurrence[];
+  now: Date;
+  formatCurrency: Money;
+  onPay?: (billId: string) => void;
+  onSettle?: (occurrence: ResolvedOccurrence) => void;
+}) {
   const { t } = useTranslation();
 
-  if (items.length === 0) {
+  if (items.length === 0 && late.length === 0) {
     return (
       <Panel>
         <div className="d-flex align-items-center gap-2" style={{ color: "var(--color-income-text)" }}>
@@ -49,26 +75,122 @@ export function AttentionList({ items, formatCurrency }: { items: AttentionItem[
     );
   }
 
+  const badge = (lateBy: number | undefined, days: number) =>
+    lateBy !== undefined ? (
+      <Badge pill color="danger-subtle" className="text-danger-emphasis">
+        {t("overview.lateBy", { count: lateBy })}
+      </Badge>
+    ) : (
+      <Badge pill color="warning-subtle" className="text-warning-emphasis">
+        {days === 0 ? t("overview.dueToday") : t("overview.dueIn", { count: days })}
+      </Badge>
+    );
+
   return (
-    <Panel title={t("overview.needsYou", { count: items.length })}>
+    <Panel title={t("overview.needsYou", { count: items.length + late.length })}>
       <div className={styles.attention}>
-        {items.map((item) => (
-          <Link key={`${item.kind}-${item.id}`} to={item.kind === "bill" ? "/bills" : "/debts"} className={styles.attentionRow}>
-            <span className={styles.attentionName}>
-              <span className="text-truncate">{item.name}</span>
-              <Badge pill color={item.late ? "danger-subtle" : "warning-subtle"} className={item.late ? "text-danger-emphasis" : "text-warning-emphasis"}>
-                {item.late
-                  ? t("overview.lateBy", { count: Math.abs(item.days) })
-                  : item.days === 0
-                    ? t("overview.dueToday")
-                    : t("overview.dueIn", { count: item.days })}
-              </Badge>
-            </span>
-            <span className={styles.attentionAmount}>{formatCurrency(item.amount)}</span>
-            <FiChevronRight size={16} className="text-body-secondary flex-shrink-0" aria-hidden />
-          </Link>
+        {late.map((occurrence) => (
+          <div key={occurrence.key} className={styles.attentionRow}>
+            <Link to="/planner" className={styles.attentionName}>
+              <span className="text-truncate">{occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label}</span>
+              {badge(Math.max(1, daysLate(occurrence, now)), 0)}
+            </Link>
+            <span className={styles.attentionAmount}>{formatCurrency(Math.abs(occurrence.amount))}</span>
+            {onSettle && (
+              <Button size="sm" color="success" outline className="flex-shrink-0" onClick={() => onSettle(occurrence)}>
+                {t(occurrence.amount > 0 ? "overview.itArrived" : "overview.markPaid")}
+              </Button>
+            )}
+          </div>
         ))}
+        {items.map((item) =>
+          item.kind === "bill" && onPay ? (
+            <div key={`${item.kind}-${item.id}`} className={styles.attentionRow}>
+              <Link to="/bills" className={styles.attentionName}>
+                <span className="text-truncate">{item.name}</span>
+                {badge(item.late ? Math.abs(item.days) : undefined, item.days)}
+              </Link>
+              <span className={styles.attentionAmount}>{formatCurrency(item.amount)}</span>
+              <Button size="sm" color="success" outline className="flex-shrink-0" onClick={() => onPay(item.id)}>
+                {t("overview.markPaid")}
+              </Button>
+            </div>
+          ) : (
+            <Link key={`${item.kind}-${item.id}`} to={item.kind === "bill" ? "/bills" : "/debts"} className={styles.attentionRow}>
+              <span className={styles.attentionName}>
+                <span className="text-truncate">{item.name}</span>
+                {badge(item.late ? Math.abs(item.days) : undefined, item.days)}
+              </span>
+              <span className={styles.attentionAmount}>{formatCurrency(item.amount)}</span>
+              <FiChevronRight size={16} className="text-body-secondary flex-shrink-0" aria-hidden />
+            </Link>
+          ),
+        )}
       </div>
+    </Panel>
+  );
+}
+
+// ─── What was written down today ────────────────────────────────────────────
+
+const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const newestFirst = (a: Transaction, b: Transaction) => firestoreToDate(b.createdAt ?? b.date).getTime() - firestoreToDate(a.createdAt ?? a.date).getTime();
+
+/**
+ * Today's records, so a forgotten coffee is noticed today rather than at the
+ * next bank reading — and the last one from yesterday, so an empty morning
+ * still shows where the writing stopped.
+ */
+export function TodayPanel({ transactions, categories, now, formatCurrency }: { transactions: Transaction[]; categories: Category[]; now: Date; formatCurrency: Money }) {
+  const { t } = useTranslation();
+  const yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const today = transactions.filter((tx) => sameDay(firestoreToDate(tx.date), now)).sort(newestFirst);
+  const yesterday = transactions.filter((tx) => sameDay(firestoreToDate(tx.date), yesterdayDate)).sort(newestFirst)[0];
+  const spent = Math.round(today.filter(isPlainExpense).reduce((sum, tx) => sum + Math.abs(tx.amount), 0) * 100) / 100;
+
+  const categoryOf = (tx: Transaction) => categories.find((c) => c.id === tx.categoryId);
+  const nameOf = (tx: Transaction) => tx.description?.trim() || categoryLabel(categoryOf(tx)?.name, t) || "—";
+
+  return (
+    <Panel
+      title={today.length > 0 ? t("overview.todayTitle", { count: today.length }) : t("overview.todayNone")}
+      action={
+        <span className="d-inline-flex align-items-baseline gap-2">
+          {spent > 0 && (
+            <span className="fw-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {formatCurrency(spent)}
+            </span>
+          )}
+          <Link to="/transactions" className="small text-decoration-none">
+            {t("overview.allEntries")}
+          </Link>
+        </span>
+      }
+    >
+      {today.length > 0 && (
+        <ul className={styles.todayList}>
+          {today.slice(0, 4).map((tx) => {
+            const category = categoryOf(tx);
+            const income = tx.type === "income";
+            return (
+              <li key={tx.id}>
+                <span className={styles.todayIcon} aria-hidden>
+                  {category?.icon ?? "•"}
+                </span>
+                <span className={styles.todayName}>
+                  <span className="text-truncate fw-semibold">{nameOf(tx)}</span>
+                  <span className="text-truncate small text-body-secondary">{categoryLabel(category?.name, t)}</span>
+                </span>
+                <span className={styles.attentionAmount} style={{ color: income ? "var(--color-income-text)" : undefined }}>
+                  {income ? "+" : ""}
+                  {formatCurrency(Math.abs(tx.amount))}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {yesterday && <div className="small text-body-secondary text-truncate mt-1">{t("overview.yesterdayLast", { name: nameOf(yesterday), amount: formatCurrency(Math.abs(yesterday.amount)) })}</div>}
     </Panel>
   );
 }
@@ -106,47 +228,6 @@ export function MonthInOut({ income, expenses, formatCurrency, sub, unlogged = 0
         )}
       </Panel>
     </div>
-  );
-}
-
-// ─── The month ──────────────────────────────────────────────────────────────
-
-/**
- * "What is left at pay day" — today's balance less the bills that fall before
- * it. A plain answer, labelled as one; the planner has the full projection.
- */
-export function PaydayVerdict({
-  left,
-  owed,
-  count,
-  payday,
-  known,
-  formatCurrency,
-  locale,
-}: {
-  left: number;
-  owed: number;
-  count: number;
-  payday: Date;
-  /** False when no pay day is set, and the month's end stands in for it. */
-  known: boolean;
-  formatCurrency: Money;
-  locale: string;
-}) {
-  const { t } = useTranslation();
-  const day = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(payday);
-  const good = left >= 0;
-
-  return (
-    <Panel title={t(known ? "overview.leftAtPayday" : "overview.leftAtMonthEnd", { date: day })} action={<Link to="/planner" className="small text-decoration-none">{t("overview.openPlanner")}</Link>}>
-      <div className={styles.verdictValue} style={{ color: good ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
-        {formatCurrency(left)}
-      </div>
-      <div className="small text-body-secondary">
-        {count > 0 ? t("overview.afterBills", { count, amount: formatCurrency(owed) }) : t("overview.noBillsBefore")}
-      </div>
-      {!known && <div className="small text-body-secondary mt-1">{t("overview.setPayday")}</div>}
-    </Panel>
   );
 }
 

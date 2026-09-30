@@ -44,6 +44,11 @@
   background: var(--color-expense);
 }
 
+/* The Sankey's colour for the same money, so the two charts name it alike. */
+.barSavings {
+  background: var(--color-invest);
+}
+
 .barResult {
   background: var(--bs-primary);
 }

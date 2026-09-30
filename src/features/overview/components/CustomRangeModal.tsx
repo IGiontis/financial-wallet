@@ -26,6 +26,7 @@ interface MonthGridProps {
 }
 
 function MonthGrid({ label, selectedYear, onSelectMonth, onSelectYear, minYear, maxYear, maxMonth, rangeStart, rangeEnd }: MonthGridProps) {
+  const { t } = useTranslation();
   const months = useMonthNames();
 
   const isDisabled = (m: number) => selectedYear === maxYear && m > maxMonth;
@@ -44,13 +45,13 @@ function MonthGrid({ label, selectedYear, onSelectMonth, onSelectYear, minYear, 
       </p>
 
       <div className="d-flex align-items-center justify-content-between mb-2">
-        <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.max(minYear, selectedYear - 1))} disabled={selectedYear <= minYear} aria-label="Previous year">
+        <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.max(minYear, selectedYear - 1))} disabled={selectedYear <= minYear} aria-label={t("overview.previousYear")}>
           ‹
         </button>
         <span className="fw-medium text-body-emphasis" style={{ fontSize: 14 }}>
           {selectedYear}
         </span>
-        <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.min(maxYear, selectedYear + 1))} disabled={selectedYear >= maxYear} aria-label="Next year">
+        <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.min(maxYear, selectedYear + 1))} disabled={selectedYear >= maxYear} aria-label={t("overview.nextYear")}>
           ›
         </button>
       </div>

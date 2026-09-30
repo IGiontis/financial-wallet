@@ -9,7 +9,9 @@ const now = new Date(2026, 8, 5);
 
 const bill = (monthlyEquivalent: number, isActive = true): BillWithStatus => ({ isActive, monthlyEquivalent }) as BillWithStatus;
 
-const goal = (monthlyRequired: number): InvestmentGoalWithStats => ({ goalType: "target", targetPeriod: "monthly", monthlyRequired }) as unknown as InvestmentGoalWithStats;
+// Running, unless a test says otherwise: a paused goal claims nothing (see below).
+const goal = (monthlyRequired: number, over: Partial<InvestmentGoalWithStats> = {}): InvestmentGoalWithStats =>
+  ({ goalType: "targeted", targetPeriod: "monthly", monthlyRequired, isActive: true, isCompleted: false, ...over }) as unknown as InvestmentGoalWithStats;
 
 const debt = (remaining: number, over: Partial<DebtWithStatus> = {}): DebtWithStatus =>
   ({ direction: "owed_by_me", isSettled: false, remaining, ...over }) as DebtWithStatus;
@@ -22,6 +24,13 @@ describe("committedMonthly", () => {
   it("adds up bills, goals and what you owe", () => {
     const c = committedMonthly([bill(300), bill(220)], [goal(150)], [debt(80)], now);
     expect(c).toEqual({ bills: 520, goals: 150, debts: 80, total: 750 });
+  });
+
+  it("claims nothing for a paused goal, or a finished one — as the Planner does", () => {
+    // A paused €200 a month used to add €200 to "committed" here and €0 there.
+    const c = committedMonthly([], [goal(150), goal(200, { isActive: false }), goal(90, { isCompleted: true })], [], now);
+    expect(c.goals).toBe(150);
+    expect(c.total).toBe(150);
   });
 
   it("ignores a paused bill", () => {
@@ -451,6 +460,17 @@ describe("seedFromHistory", () => {
   it("gives nothing back when there is no history to read", () => {
     n = 0;
     expect(seedFromHistory([], categories, ids, now, 3)).toEqual([]);
+  });
+
+  it("names each bucket the way the page shows the category, and still links it by id", () => {
+    // A built-in category is stored under its English name; the reader sees its translation.
+    n = 0;
+    const greek: Record<string, string> = { Food: "Φαγητό", Fuel: "Καύσιμα" };
+    const seeded = seedFromHistory(threeMonths, categories, ids, now, 3, (category) => greek[category.name] ?? category.name);
+    expect(seeded.map((b) => [b.label, b.categoryIds])).toEqual([
+      ["Φαγητό", ["food"]],
+      ["Καύσιμα", ["fuel"]],
+    ]);
   });
 });
 

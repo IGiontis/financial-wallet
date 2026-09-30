@@ -6,6 +6,7 @@ import type { Bill, BillFrequency, BillPause, CreateBillDTO, Category } from "..
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { validationMessage } from "../../shared/utils/validationMessage";
 import NewCategoryButton from "../categories/NewCategoryButton";
 import { categoryLabel } from "../../shared/utils/categories";
 import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
@@ -78,11 +79,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
   const isEdit = !!bill;
   const { weekdays, months } = useDateNames(i18n.resolvedLanguage ?? "en");
 
-  // Messages are i18n keys; FormFeedback translates them at render time.
+  // Messages are i18n keys ("key|count" for counted ones); FormFeedback
+  // translates them at render time through validationMessage.
   const validationSchema = useMemo(
     () =>
       Yup.object({
-        name: Yup.string().required("validation.nameRequired").max(40, "validation.maxChars"),
+        name: Yup.string().required("validation.nameRequired").max(40, "validation.maxChars|40"),
         amount: Yup.number()
           .typeError("validation.amountNumber")
           .required("validation.amountRequired")
@@ -92,12 +94,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         frequency: Yup.mixed<BillFrequency>().oneOf(["weekly", "monthly", "yearly"]).required(),
         graceDays: Yup.number().when("hasGrace", {
           is: true,
-          then: (schema) => schema.typeError("validation.amountNumber").min(1, "validation.graceMin").max(120, "validation.graceMax").required("validation.required"),
+          then: (schema) => schema.typeError("validation.mustBeNumber").min(1, "validation.graceMin").max(120, "validation.graceMax").required("validation.required"),
           otherwise: (schema) => schema.notRequired(),
         }),
-        intervalCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.intervalMin").max(24, "validation.intervalMax").required("validation.required"),
-        installmentCount: Yup.number().typeError("validation.amountNumber").min(1, "validation.installmentMin").max(12, "validation.installmentMax").required("validation.required"),
-        notes: Yup.string().max(200, "validation.maxChars"),
+        intervalCount: Yup.number().typeError("validation.mustBeNumber").min(1, "validation.intervalMin").max(24, "validation.intervalMax").required("validation.required"),
+        installmentCount: Yup.number().typeError("validation.mustBeNumber").min(1, "validation.installmentMin").max(12, "validation.installmentMax").required("validation.required"),
+        notes: Yup.string().max(200, "validation.maxChars|200"),
         pauseFrom: Yup.string().when("hasPause", {
           is: true,
           then: (schema) => schema.required("validation.required"),
@@ -266,7 +268,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
-                <FormFeedback>{formik.errors.name && t(formik.errors.name)}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               </FormGroup>
             </Col>
             <Col xs={12} sm={5}>
@@ -285,7 +287,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   onBlur={formik.handleBlur}
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
                 />
-                <FormFeedback>{formik.errors.amount && t(formik.errors.amount)}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.amount, t)}</FormFeedback>
               </FormGroup>
             </Col>
           </Row>
@@ -332,13 +334,13 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             </Input>
             <NewCategoryButton categories={categories} type="expense" onCreated={(id) => formik.setFieldValue("categoryId", id)} />
             </div>
-            <FormFeedback className="d-block">{formik.errors.categoryId && t(formik.errors.categoryId)}</FormFeedback>
+            <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>
           </FormGroup>
 
           {/* Frequency segmented control */}
           <FormGroup className="mt-3 mb-0">
             <Label className="small fw-medium d-block">{t("bills.repeats")} *</Label>
-            <div className="btn-group w-100" role="group" aria-label="Frequency">
+            <div className="btn-group w-100" role="group" aria-label={t("bills.frequency")}>
               {FREQUENCIES.map((f) => (
                 <Button
                   key={f.value}
@@ -370,7 +372,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                     onBlur={formik.handleBlur}
                     invalid={!!(formik.touched.intervalCount && formik.errors.intervalCount)}
                   />
-                  <span className="input-group-text">{t(intervalUnitKey)}</span>
+                  <span className="input-group-text">{t(intervalUnitKey, { count: intervalCount })}</span>
                 </div>
                 <FormText className="small">{t("bills.intervalHint")}</FormText>
               </FormGroup>
@@ -539,7 +541,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   invalid={!!(formik.touched.graceDays && formik.errors.graceDays)}
                 />
                 <span className="input-group-text">{t("bills.daysUnit")}</span>
-                <FormFeedback>{formik.errors.graceDays && t(formik.errors.graceDays)}</FormFeedback>
+                <FormFeedback>{validationMessage(formik.errors.graceDays, t)}</FormFeedback>
               </div>
               <FormText className="small">{t("bills.graceDaysHint")}</FormText>
             </FormGroup>
@@ -637,7 +639,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           <FormGroup className="mt-3 mb-0">
             <Label className="small fw-medium">{t("common.notes")}</Label>
             <Input type="textarea" name="notes" rows={2} placeholder={t("common.optionalNote")} value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur} invalid={!!(formik.touched.notes && formik.errors.notes)} />
-            <FormFeedback>{formik.errors.notes && t(formik.errors.notes)}</FormFeedback>
+            <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
           </FormGroup>
         </ModalBody>
 

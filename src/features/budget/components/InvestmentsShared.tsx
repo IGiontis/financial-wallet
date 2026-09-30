@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Fragment, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   Badge,
   Button,
@@ -438,31 +439,37 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 
 export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
   const deleteGuard = useOfflineGuard("delete");
+  const { t } = useTranslation();
 
   return (
     <Modal isOpen toggle={onClose} centered size="sm">
-      <ModalHeader toggle={onClose}>Delete</ModalHeader>
+      <ModalHeader toggle={onClose}>{t("common.delete")}</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: 14, margin: 0 }}>
-          Are you sure you want to delete{" "}
-          <strong>
-            {goal.icon} {goal.name}
-          </strong>
-          ?
+          {/* The name goes in as an element, not as a value, so whatever the
+              user typed is never read as markup. */}
+          <Trans
+            i18nKey="investments.deleteConfirm"
+            components={{
+              name: (
+                <strong>
+                  {goal.icon} {goal.name}
+                </strong>
+              ),
+            }}
+          />
         </p>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>
-          This will permanently delete the goal and all its contribution history. This cannot be undone.
-        </p>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("investments.deleteWarning")}</p>
         {deleteGuard.locked && (
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>
         )}
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked}>
-          {isDeleting ? "Deleting..." : "Delete"}
+          {isDeleting ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>
@@ -475,6 +482,12 @@ type HistoryTab = "all" | "deposits" | "withdrawals";
 
 const historyTabLabel = (tab: HistoryTab): string =>
   i18n.t(tab === "all" ? "investments.historyTabAll" : tab === "deposits" ? "investments.historyTabDeposits" : "investments.historyTabWithdrawals");
+
+const HISTORY_EMPTY_KEYS: Record<HistoryTab, string> = {
+  all: "investments.noContributionsYet",
+  deposits: "investments.noDepositsYet",
+  withdrawals: "investments.noWithdrawalsYet",
+};
 
 function HistorySummaryBar({
   totalDeposited,
@@ -555,6 +568,7 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
 }
 
 export function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalWithStats; onClose: () => void; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<HistoryTab>("all");
   const { data: contributions = [], isLoading } = useContributions(goal.id);
 
@@ -580,7 +594,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
           </div>
         ) : filtered.length === 0 ? (
           <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0", fontSize: 13, margin: 0 }}>
-            {activeTab === "all" ? "No contributions yet." : `No ${activeTab} yet.`}
+            {t(HISTORY_EMPTY_KEYS[activeTab])}
           </p>
         ) : (
           <div
@@ -610,13 +624,13 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
               borderTop: "0.5px solid var(--color-border-tertiary)",
             }}
           >
-            {filtered.length} {filtered.length === 1 ? "transaction" : "transactions"}
+            {t("transactions.transactionCount", { count: filtered.length })}
           </p>
         )}
       </ModalBody>
       <ModalFooter style={{ padding: "10px 16px" }}>
         <Button color="secondary" outline size="sm" onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       </ModalFooter>
     </Modal>

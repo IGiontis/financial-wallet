@@ -9,6 +9,7 @@ import {
   getAllContributions,
   createContributionWithTransaction,
   deleteContribution,
+  newDocId,
 } from "../../firebase/firestore";
 import { computeGoalStats } from "./investmentsUtils";
 import type {
@@ -18,8 +19,11 @@ import type {
   InvestmentGoal,
   InvestmentGoalWithStats,
   InvestmentContribution,
+  CreateTransactionDTO,
+  Transaction,
 } from "../../shared/types/IndexTypes";
-import { transactionKeys } from "../transactions/hooks/useTransactions";
+import { insertTransaction, transactionKeys } from "../transactions/hooks/useTransactions";
+import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 // Goals and contributions are two separate queries under a shared prefix. Each
@@ -135,6 +139,9 @@ export function useUpdateGoal() {
 }
 
 // ─── useDeleteGoal ────────────────────────────────────────────────────────────
+// Takes the goal's contributions and their mirrored transactions with it — see
+// `deleteInvestmentGoal`. Deletes wait for a connection and the dialog waits
+// for the answer, so the three lists are edited once the server has agreed.
 
 export function useDeleteGoal() {
   const { currentUser } = useAuth();
@@ -142,10 +149,12 @@ export function useDeleteGoal() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (goalId: string) => deleteInvestmentGoal(goalId),
-    onSuccess: () => {
-      // Goals only: nothing here writes a contribution.
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });
+    mutationFn: (goalId: string) => deleteInvestmentGoal(userId, goalId),
+    onSuccess: (_deleted, goalId) => {
+      confirmList(queryClient, investmentKeys.goals(userId), removeWhere<InvestmentGoal>((g) => g.id === goalId));
+      confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.goalId === goalId));
+      // The same rule the delete used: only a contribution's mirror carries a goalId.
+      confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.goalId === goalId));
     },
   });
 }
@@ -154,40 +163,81 @@ export function useDeleteGoal() {
 // isGoalTransaction: true  → from GoalsPage  (targeted goal, yellow in UI)
 // isGoalTransaction: false → from InvestmentsPage (recurring/tracking, blue in UI)
 
+export interface AddContributionVars {
+  data: CreateInvestmentContributionDTO;
+  goalName: string;
+  isGoalTransaction?: boolean;
+}
+
+/** The TransactionsPage entry a contribution is mirrored as. */
+const mirrorOf = ({ data, goalName, isGoalTransaction = false }: AddContributionVars): CreateTransactionDTO => ({
+  amount: data.amount,
+  type: "investment",
+  categoryId: "",
+  date: data.date,
+  description: goalName,
+  notes: data.notes,
+  isInvestmentTransaction: true,
+  isGoalTransaction,
+  goalId: data.goalId,
+  goalName,
+  contributionType: data.contributionType,
+});
+
+/** One pair of ids per save, shared by the optimistic rows and the write — see `idsFor`. */
+const contributionIds = new WeakMap<AddContributionVars, { contributionId: string; transactionId: string }>();
+
+interface AddContext {
+  contribution: InvestmentContribution;
+  mirror: Transaction;
+  contributions: ListSnapshot<InvestmentContribution>;
+  transactions: ListSnapshot<Transaction>;
+}
+
 export function useAddContribution() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const idsOf = (vars: AddContributionVars) =>
+    idsFor(contributionIds, vars, () => ({ contributionId: newDocId("investmentContributions"), transactionId: newDocId("transactions") }));
 
-  return useMutation({
-    mutationFn: async ({ data, goalName, isGoalTransaction = false }: { data: CreateInvestmentContributionDTO; goalName: string; isGoalTransaction?: boolean }) => {
-      // Contribution record + its mirrored TransactionsPage entry, written
-      // atomically so a partial failure can't leave the totals out of sync.
-      await createContributionWithTransaction(userId, data, {
-        amount: data.amount,
-        type: "investment",
-        categoryId: "",
-        date: data.date,
-        description: goalName,
-        notes: data.notes,
-        isInvestmentTransaction: true,
-        isGoalTransaction,
-        goalId: data.goalId,
-        goalName,
-        contributionType: data.contributionType,
-      });
+  return useMutation<{ contributionId: string; transactionId: string }, Error, AddContributionVars, AddContext>({
+    // Contribution record + its mirrored TransactionsPage entry, written
+    // atomically so a partial failure can't leave the totals out of sync.
+    mutationFn: (vars: AddContributionVars) => createContributionWithTransaction(userId, vars.data, mirrorOf(vars), idsOf(vars)),
+
+    // Both rows on screen at once, under the ids they will keep. The goal
+    // document is not written here — completion is derived on read, in
+    // `useInvestmentGoals` — so there is nothing to change about the goals.
+    onMutate: async (vars) => {
+      const { contributionId, transactionId } = idsOf(vars);
+      const now = new Date();
+      const contribution = { ...withoutUndefined(vars.data), id: contributionId, userId, createdAt: now, updatedAt: now } as InvestmentContribution;
+      const mirror = { ...withoutUndefined(mirrorOf(vars)), id: transactionId, userId, createdAt: now, updatedAt: now } as Transaction;
+      return {
+        contribution,
+        mirror,
+        contributions: await editList(queryClient, investmentKeys.contributions(userId), upsertById(contribution)),
+        transactions: await editList(queryClient, transactionKeys.all(userId), insertTransaction(mirror)),
+      };
     },
-    onSuccess: () => {
-      // Contributions and the mirrored transaction. The goal document is not
-      // written here — completion is derived on read, in the memo below — so
-      // there is nothing to re-read about the goals themselves.
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(userId) });
-      void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+
+    onError: (_error, _vars, context) => {
+      restoreList(queryClient, context?.contributions);
+      restoreList(queryClient, context?.transactions);
+    },
+
+    onSuccess: (_ids, _vars, context) => {
+      if (!context) return;
+      confirmList(queryClient, investmentKeys.contributions(userId), upsertById(context.contribution));
+      confirmList(queryClient, transactionKeys.all(userId), insertTransaction(context.mirror));
     },
   });
 }
 
 // ─── useDeleteContribution ────────────────────────────────────────────────────
+// Takes the contribution's mirrored transaction with it — see `deleteContribution`
+// for how that one is recognised.
 
 export function useDeleteContribution() {
   const { currentUser } = useAuth();
@@ -195,13 +245,10 @@ export function useDeleteContribution() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (contributionId: string) => deleteContribution(contributionId),
-    onSuccess: () => {
-      // Contributions and the mirrored transaction. The goal document is not
-      // written here — completion is derived on read, in the memo below — so
-      // there is nothing to re-read about the goals themselves.
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.contributions(userId) });
-      void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    mutationFn: (contribution: InvestmentContribution) => deleteContribution(userId, contribution),
+    onSuccess: ({ transactionId }, contribution) => {
+      confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.id === contribution.id));
+      if (transactionId) confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.id === transactionId));
     },
   });
 }

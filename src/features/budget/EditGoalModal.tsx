@@ -84,9 +84,9 @@ function ReviewScreen({
   const isGoalsPageGoal = goal.targetPeriod === "custom";
 
   const rows = [
-    { label: t("goals.typeLabel"), value: isTargeted ? "Targeted goal" : "Open-ended" },
+    { label: t("goals.typeLabel"), value: isTargeted ? t("goals.kindTargeted") : t("goals.kindOpenEnded") },
     ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
-    ...(isTargeted && !isGoalsPageGoal ? [{ label: t("goals.periodLabel"), value: values.targetPeriod }] : []),
+    ...(isTargeted && !isGoalsPageGoal ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "yearly" ? t("goals.periodYearly") : t("goals.periodMonthly") }] : []),
     ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
   ];
@@ -107,7 +107,7 @@ function ReviewScreen({
             <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? "Targeted goal" : "Open-ended goal"}</p>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{isTargeted ? t("goals.kindTargeted") : t("goals.kindOpenEndedGoal")}</p>
             </div>
             <div
               style={{
@@ -130,10 +130,10 @@ function ReviewScreen({
       </ModalBody>
       <ModalFooter>
         <Button type="button" color="secondary" outline onClick={onBack} disabled={isSubmitting}>
-          Back
+          {t("common.back")}
         </Button>
         <Button type="button" color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Confirm & save"}
+          {isSubmitting ? t("common.saving") : t("goals.confirmAndSave")}
         </Button>
       </ModalFooter>
     </>
@@ -174,7 +174,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
           deadline: isTargeted && isGoalsPageGoal && values.deadline ? new Date(values.deadline) : undefined,
         };
         await onSubmit(goal.id, data);
-        toast.success(`Goal "${values.name}" updated successfully!`);
+        toast.success(t("goals.updatedSuccess", { name: values.name }));
         resetForm();
         setStep("form");
         onClose();
@@ -202,7 +202,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="lg" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? `Edit — ${goal.icon ?? "💰"} ${goal.name}` : "Review your changes"}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? t("goals.editTitle", { icon: goal.icon ?? "💰", name: goal.name }) : t("goals.reviewYourChanges")}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
@@ -258,7 +258,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                       </Col>
                       <Col xs={6}>
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.deadline")} *</Label>
                           <DateField
                             name="deadline"
                             value={formik.values.deadline}
@@ -292,7 +292,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                       </Col>
                       <Col xs={6}>
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.periodLabel")} *</Label>
                           <Input
                             type="select"
                             name="targetPeriod"
@@ -301,8 +301,8 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
                           >
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
+                            <option value="monthly">{t("goals.periodMonthly")}</option>
+                            <option value="yearly">{t("goals.periodYearly")}</option>
                           </Input>
                           <FormFeedback>{validationMessage(formik.errors.targetPeriod, t)}</FormFeedback>
                         </FormGroup>
@@ -317,7 +317,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
               {/* ── Icon picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Icon <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  {t("goals.icon")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                 </Label>
                 <div className="d-flex flex-wrap gap-1 mb-2">
                   {PRESET_ICONS.map((icon) => (
@@ -343,7 +343,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   type="text"
                   name="icon"
                   maxLength={4}
-                  placeholder="Or type a custom icon / emoji"
+                  placeholder={t("goals.iconPlaceholder")}
                   value={formik.values.icon}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -356,7 +356,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
               {/* ── Color picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Color <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  {t("goals.color")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                 </Label>
                 <div className="d-flex flex-wrap gap-2 align-items-center">
                   {PRESET_COLORS.map((color) => (
@@ -377,19 +377,19 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   ))}
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <Input type="color" name="color" value={formik.values.color} onChange={formik.handleChange} style={{ width: 36, height: 28, padding: 2, cursor: "pointer" }} />
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Custom</span>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t("goals.customColor")}</span>
                   </div>
                 </div>
               </FormGroup>
 
               {/* ── Notes ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
                 <Input
                   type="textarea"
                   name="notes"
                   rows={2}
-                  placeholder="Any extra details about this goal..."
+                  placeholder={t("goals.notesPlaceholderEdit")}
                   value={formik.values.notes}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -416,8 +416,8 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14 }}>{formik.values.name}</p>
                     <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {isTargeted ? "Targeted goal" : "Open-ended"}
-                      {formik.values.targetAmount ? ` · ${formatCurrency(Number(formik.values.targetAmount))} target` : ""}
+                      {isTargeted ? t("goals.kindTargeted") : t("goals.kindOpenEnded")}
+                      {formik.values.targetAmount ? ` · ${t("goals.amountTarget", { amount: formatCurrency(Number(formik.values.targetAmount)) })}` : ""}
                     </p>
                   </div>
                   <div
@@ -436,10 +436,10 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
 
           <ModalFooter>
             <Button type="button" color="secondary" outline onClick={handleClose}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="button" color="primary" disabled={!formik.dirty} onClick={handleReview}>
-              Review changes
+              {t("goals.reviewChanges")}
             </Button>
           </ModalFooter>
         </>

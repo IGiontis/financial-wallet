@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "dev-emu",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:emu", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
+    },
+    {
       "name": "preview",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview", "--", "--port", "4173", "--strictPort"],

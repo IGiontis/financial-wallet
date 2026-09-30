@@ -6,7 +6,7 @@ import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiTrash2, FiX } from "rea
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
-import { expectedAmount, getFrequencyLabel, getFrequencyToken, sinkingFund, type MonthCell } from "./billsUtils";
+import { expectedAmount, getFrequencyLabel, getFrequencyToken, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
 
@@ -144,7 +144,9 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                 ✓ {t("bills.paidOn", { date: dateFmt.format(paidDate) })}
               </div>
               <div className="text-body-secondary" style={{ fontSize: 12 }}>
-                {t("bills.amountPaid", { amount: formatCurrency(bill.payment?.amount ?? bill.amount) })}
+                {/* Every part of the period, not the last one: a gym year paid in
+                    three was "paid €120". */}
+                {t("bills.amountPaid", { amount: formatCurrency(paidThisPeriod(bill)) })}
                 {bill.nextDueDate && <> · {t("bills.nextDue", { date: dateFmt.format(bill.nextDueDate) })}</>}
               </div>
               {/* Paid beyond this period — say so, or the next due date looks

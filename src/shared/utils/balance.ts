@@ -55,6 +55,28 @@ export function isAfterReading(tx: Transaction, at: Date): boolean {
 }
 
 /**
+ * `isAfterReading` as sort keys, day first and time second: a record is after a
+ * reading exactly when its key is the greater of the two.
+ *
+ * For a caller that holds many records up against many readings — every
+ * reading ever taken, on every render of the balance — so it can put the
+ * records in this order once and find each reading's place by searching,
+ * instead of walking all of them per reading. Kept beside `isAfterReading` so
+ * the two cannot drift: an unreadable day is never after anything, and a
+ * record without a server stamp is after everything on its own day.
+ */
+export function recordReadingKey(tx: Transaction): [day: number, time: number] {
+  const day = startOfDay(firestoreToDate(tx.date)).getTime();
+  const created = tx.createdAt ? firestoreToDate(tx.createdAt).getTime() : Number.NaN;
+  return [Number.isNaN(day) ? -Infinity : day, Number.isNaN(created) ? Infinity : created];
+}
+
+/** The key of a reading taken at `at`, to compare with `recordReadingKey`. */
+export function readingTimeKey(at: Date): [day: number, time: number] {
+  return [startOfDay(at).getTime(), at.getTime()];
+}
+
+/**
  * True when this transaction is one the balance should count.
  *
  * `tx.date` is typed as a Date but arrives from Firestore as a Timestamp — the
@@ -88,10 +110,17 @@ export function balanceDelta(tx: Transaction): number {
  *
  * Without an opening balance this is just the net of every record ever entered,
  * which is the honest answer when the user hasn't told us where they started.
+ *
+ * Rounded to the cent on the way out. A float sum of amounts that cancel exactly
+ * — 0.1 + 0.2 in, 0.3 out — lands a hair either side of zero, and a hair below
+ * it was printed as a red "-0,00 €": an overdraft of nothing. The `+ 0` turns a
+ * rounded `-0` into a plain zero, which is what every sign test downstream
+ * expects to see.
  */
 export function currentBalance(transactions: Transaction[], opening?: OpeningBalance): number {
   const base = opening?.amount ?? 0;
-  return transactions.filter((tx) => affectsBalance(tx, opening)).reduce((sum, tx) => sum + balanceDelta(tx), base);
+  const raw = transactions.filter((tx) => affectsBalance(tx, opening)).reduce((sum, tx) => sum + balanceDelta(tx), base);
+  return Math.round(raw * 100) / 100 + 0;
 }
 
 /** How many records the opening date is holding out of the balance. */

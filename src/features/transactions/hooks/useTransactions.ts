@@ -1,9 +1,26 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { firestoreToDate } from "../../../shared/utils/dates";
-import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getCategories, createCategory, updateCategory, deleteCategory, countCategoryUsage, createCategories, updateCategories, deleteCategories } from "../../../firebase/firestore";
-import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO } from "../../../shared/types/IndexTypes";
+import {
+  getTransactions,
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  countCategoryUsage,
+  createCategories,
+  updateCategories,
+  deleteCategories,
+  newDocId,
+  type BillPaymentLink,
+} from "../../../firebase/firestore";
+import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO, BillWithStatus } from "../../../shared/types/IndexTypes";
 import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
+import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
+import { billKeys, editPayments, paymentIdFor } from "../../bills/billCache";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -41,21 +58,64 @@ export function useCategories() {
 
 // ─── Writing ──────────────────────────────────────────────────────────────────
 // Every one of these used to `await queryClient.invalidateQueries(...)` inside
-// `onSuccess`, which keeps the mutation pending until the *entire* transaction
-// list has been fetched back from Firestore. The modal waits on that promise,
-// so saving a transaction took as long as re-downloading everything — seconds
-// on a slow connection, and on a stalled one it never visibly finished at all
-// even though the write had long since landed.
-//
-// Now the cache is corrected immediately and the refetch happens behind it: the
-// row is on screen before the network has finished, and reconciles when the
-// server's own copy arrives.
+// `onSuccess`, which kept the mutation pending until the *entire* transaction
+// list had been fetched back from Firestore. That became "correct the cache at
+// once, refetch behind it" — and now the refetch is gone too, because on the
+// free tier it was the expensive half of every save: see `listCache`. The row
+// is on screen before the network has finished, under the id it will keep, and
+// once the write lands the list is only marked stale, so the server's own copy
+// arrives with the next natural refresh.
 
 const byNewestFirst = (rows: Transaction[]) => [...rows].sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
 
-/** Rolls the list back to what it was if the write turns out to have failed. */
-interface Rollback {
-  previous?: Transaction[];
+/**
+ * Adds a row, or replaces the one with its id, keeping the list newest first.
+ * Also used for the expenses and deposits other screens mirror into this list.
+ */
+export const insertTransaction =
+  (row: Transaction): ListEdit<Transaction> =>
+  (rows) =>
+    byNewestFirst(upsertById(row)(rows));
+
+/** Sets a few fields on one row — for a mirror corrected from the screen that owns it. */
+export const setTransactionFields =
+  (transactionId: string, fields: Partial<Transaction>): ListEdit<Transaction> =>
+  (rows) =>
+    byNewestFirst(rows.map((row) => (row.id === transactionId ? { ...row, ...withoutUndefined(fields), updatedAt: new Date() } : row)));
+
+/**
+ * What `updateTransaction` leaves in the document, applied to the cached row.
+ *
+ * It has to match the write exactly now that no refetch follows to correct it:
+ * `metadata` left out of an edit is *removed* (the form sends it whenever there
+ * is any), and `accountId: null` removes the account rather than storing null.
+ */
+export function applyTransactionUpdate(row: Transaction, data: UpdateTransactionDTO): Transaction {
+  const next: Record<string, unknown> = { ...row, ...withoutUndefined(data), updatedAt: new Date() };
+  if (data.metadata === undefined) delete next.metadata;
+  if (data.accountId === null) delete next.accountId;
+  return next as unknown as Transaction;
+}
+
+const mergeTransaction =
+  (transactionId: string, data: UpdateTransactionDTO): ListEdit<Transaction> =>
+  (rows) =>
+    byNewestFirst(rows.map((row) => (row.id === transactionId ? applyTransactionUpdate(row, data) : row)));
+
+/** A bill's payment holds the same amount and day as its expense — see `BillPaymentLink`. */
+const syncPayment = (transactionId: string, data: UpdateTransactionDTO) =>
+  editPayments((payments) =>
+    payments.map((p) =>
+      p.transactionId === transactionId ? { ...p, ...(data.amount !== undefined && { amount: data.amount }), ...(data.date !== undefined && { paidDate: data.date }) } : p,
+    ),
+  );
+
+/** One id per save, shared by the optimistic row and the write — see `idsFor`. */
+const createdIds = new WeakMap<CreateTransactionDTO, string>();
+
+interface CreateContext {
+  row: Transaction;
+  transactions: ListSnapshot<Transaction>;
 }
 
 export function useCreateTransaction() {
@@ -63,33 +123,31 @@ export function useCreateTransaction() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
   const key = transactionKeys.all(userId);
+  const idFor = (data: CreateTransactionDTO) => idsFor(createdIds, data, () => newDocId("transactions"));
 
-  return useMutation<string, Error, CreateTransactionDTO, Rollback>({
-    mutationFn: (data: CreateTransactionDTO) => createTransaction(userId, data),
+  return useMutation<string, Error, CreateTransactionDTO, CreateContext>({
+    mutationFn: (data: CreateTransactionDTO) => createTransaction(userId, data, idFor(data)),
 
     onMutate: async (data) => {
-      // An in-flight fetch would otherwise land on top of the optimistic row
-      // and blink it away again.
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Transaction[]>(key);
-
-      // A stand-in id until the real document comes back; nothing keys off it.
-      const optimistic = { ...data, id: `temp-${Date.now()}`, userId, createdAt: new Date(), updatedAt: new Date() } as Transaction;
-      queryClient.setQueryData<Transaction[]>(key, (rows) => byNewestFirst([...(rows ?? []), optimistic]));
-
-      return { previous };
+      // Shaped like the document the write produces. The timestamps are this
+      // device's clock until the server's copy arrives with the next refresh;
+      // every reader goes through `firestoreToDate`, which takes either.
+      const now = new Date();
+      const row = { ...withoutUndefined(data), id: idFor(data), userId, createdAt: now, updatedAt: now } as Transaction;
+      return { row, transactions: await editList(queryClient, key, insertTransaction(row)) };
     },
 
-    onError: (_err, _data, context) => {
-      if (context?.previous) queryClient.setQueryData(key, context.previous);
-    },
+    onError: (_err, _data, context) => restoreList(queryClient, context?.transactions),
 
-    // Deliberately not awaited: the caller is finished, and the refetch is a
-    // correction rather than something to wait on.
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: key });
+    onSuccess: (_id, _data, context) => {
+      if (context) confirmList(queryClient, key, insertTransaction(context.row));
     },
   });
+}
+
+interface UpdateContext {
+  transactions: ListSnapshot<Transaction>;
+  bills?: ListSnapshot<BillWithStatus>;
 }
 
 export function useUpdateTransaction() {
@@ -98,29 +156,37 @@ export function useUpdateTransaction() {
   const userId = currentUser?.uid ?? "";
   const key = transactionKeys.all(userId);
 
-  return useMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, Rollback>({
-    mutationFn: ({ transactionId, data }) => updateTransaction(transactionId, data),
+  /** Set when the row is a bill's expense: its payment is corrected with it. */
+  const billLinkFor = (transactionId: string): BillPaymentLink | undefined => {
+    const row = queryClient.getQueryData<Transaction[]>(key)?.find((r) => r.id === transactionId);
+    return row?.billId ? { userId, paymentId: paymentIdFor(queryClient, userId, transactionId) } : undefined;
+  };
+
+  return useMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, UpdateContext>({
+    mutationFn: ({ transactionId, data }) => updateTransaction(transactionId, data, billLinkFor(transactionId)),
 
     onMutate: async ({ transactionId, data }) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Transaction[]>(key);
-
-      queryClient.setQueryData<Transaction[]>(key, (rows) =>
-        byNewestFirst((rows ?? []).map((row) => (row.id === transactionId ? ({ ...row, ...data, updatedAt: new Date() } as Transaction) : row))),
-      );
-
-      return { previous };
+      const isBillExpense = !!billLinkFor(transactionId);
+      return {
+        transactions: await editList(queryClient, key, mergeTransaction(transactionId, data)),
+        bills: isBillExpense ? await editList(queryClient, billKeys.all(userId), syncPayment(transactionId, data)) : undefined,
+      };
     },
 
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      restoreList(queryClient, context?.transactions);
+      restoreList(queryClient, context?.bills);
     },
 
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: key });
+    onSuccess: (_void, { transactionId, data }, context) => {
+      confirmList(queryClient, key, mergeTransaction(transactionId, data));
+      if (context?.bills) confirmList(queryClient, billKeys.all(userId), syncPayment(transactionId, data));
     },
   });
 }
+
+/** What deleting needs to know about a row: its id, and whether a bill's payment goes with it. */
+export type DeletableTransaction = Pick<Transaction, "id" | "billId">;
 
 export function useDeleteTransaction() {
   const { currentUser } = useAuth();
@@ -128,27 +194,24 @@ export function useDeleteTransaction() {
   const userId = currentUser?.uid ?? "";
   const key = transactionKeys.all(userId);
 
-  return useMutation<void, Error, string, Rollback>({
-    mutationFn: (transactionId: string) => deleteTransaction(transactionId),
+  return useMutation<void, Error, DeletableTransaction, { transactions: ListSnapshot<Transaction> }>({
+    // The payment is looked up in the bills list, which this mutation edits
+    // only after the delete has gone through — so it is still there to find.
+    mutationFn: ({ id, billId }) => deleteTransaction(id, billId ? { userId, paymentId: paymentIdFor(queryClient, userId, id) } : undefined),
 
-    onMutate: async (transactionId) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<Transaction[]>(key);
+    onMutate: async ({ id }) => ({ transactions: await editList(queryClient, key, removeWhere<Transaction>((row) => row.id === id)) }),
 
-      queryClient.setQueryData<Transaction[]>(key, (rows) => (rows ?? []).filter((row) => row.id !== transactionId));
+    onError: (_err, _tx, context) => restoreList(queryClient, context?.transactions),
 
-      return { previous };
-    },
-
-    onError: (_err, _id, context) => {
-      if (context?.previous) queryClient.setQueryData(key, context.previous);
-    },
-
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: key });
+    onSuccess: (_void, { id, billId }) => {
+      confirmList(queryClient, key, removeWhere<Transaction>((row) => row.id === id));
+      // Deletes wait for a connection, so the bill turns unpaid with the
+      // server's answer a moment after the row has gone.
+      if (billId) confirmList(queryClient, billKeys.all(userId), editPayments((payments) => payments.filter((p) => p.transactionId !== id)));
     },
   });
 }
+
 // ─── Category mutations ───────────────────────────────────────────────────────
 // The seeded categories cover the common cases and nothing else — there is no
 // "Δόσεις αυτοκινήτου" in a fixed list, and there never could be. These let the
@@ -178,9 +241,18 @@ export function useUpdateCategory() {
 }
 
 /**
- * Also invalidates transactions and bills: a category rename or removal changes
- * what every row referencing it displays.
+ * Takes the deleted categories out of the cached list.
+ *
+ * Transactions and bills used to be re-read here as well, on the idea that the
+ * rows referencing a category change with it. Nothing references a category
+ * being deleted — the screen refuses while `countCategoryUsage` finds any — and
+ * a row shows its category by looking it up in this list, not from a copy of
+ * its own, so those two re-reads fetched every transaction and bill to change
+ * nothing.
  */
+const dropCategories = (queryClient: QueryClient, userId: string, categoryIds: string[]) =>
+  confirmList(queryClient, transactionKeys.categories(userId), removeWhere<Category>((c) => categoryIds.includes(c.id)));
+
 export function useDeleteCategory() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -188,13 +260,7 @@ export function useDeleteCategory() {
 
   return useMutation({
     mutationFn: (categoryId: string) => deleteCategory(categoryId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
-        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: ["bills", userId] }),
-      ]);
-    },
+    onSuccess: (_void, categoryId) => dropCategories(queryClient, userId, [categoryId]),
   });
 }
 
@@ -241,13 +307,7 @@ export function useDeleteCategoryGroup() {
 
   return useMutation({
     mutationFn: (categoryIds: string[]) => deleteCategories(categoryIds),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
-        queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
-        queryClient.invalidateQueries({ queryKey: ["bills", userId] }),
-      ]);
-    },
+    onSuccess: (_void, categoryIds) => dropCategories(queryClient, userId, categoryIds),
   });
 }
 

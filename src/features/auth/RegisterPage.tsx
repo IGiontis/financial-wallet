@@ -6,6 +6,8 @@ import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedb
 import { useTranslation } from "react-i18next";
 import { registerWithEmail, loginWithGoogle } from "../../firebase/auth";
 import { createUser } from "../../firebase/firestore";
+import { ensureGoogleProfile } from "./googleProfile";
+import { validationMessage } from "../../shared/utils/validationMessage";
 import styles from "./css/Auth.module.css";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
@@ -14,16 +16,17 @@ const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger|LinkedIn/i.test(n
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-// Messages are i18n keys; FormFeedback translates them at render time.
+// Messages are i18n keys ("key|count" for counted ones); FormFeedback
+// translates them at render time through validationMessage.
 
 const validationSchema = Yup.object({
-  firstName: Yup.string().required("validation.nameRequired").max(50),
-  lastName: Yup.string().required("validation.nameRequired").max(50),
+  firstName: Yup.string().required("validation.nameRequired").max(50, "validation.maxChars|50"),
+  lastName: Yup.string().required("validation.nameRequired").max(50, "validation.maxChars|50"),
   username: Yup.string()
     .required("validation.required")
-    .min(3, "validation.minChars")
-    .max(30, "validation.maxChars")
-    .matches(/^[a-zA-Z0-9_]+$/, "validation.required"),
+    .min(3, "validation.minChars|3")
+    .max(30, "validation.maxChars|30")
+    .matches(/^[a-zA-Z0-9_]+$/, "validation.usernameFormat"),
   email: Yup.string().email("validation.emailInvalid").required("validation.emailRequired"),
   password: Yup.string().required("validation.passwordRequired").min(6, "validation.passwordMin"),
   confirmPassword: Yup.string().required("validation.required").oneOf([Yup.ref("password")], "validation.passwordsNoMatch"),
@@ -49,7 +52,7 @@ const getErrorKey = (code: string): string => {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -72,6 +75,7 @@ export default function RegisterPage() {
           username: values.username,
           firstName: values.firstName,
           lastName: values.lastName,
+          locale: i18n.resolvedLanguage ?? "en",
         });
         navigate("/", { replace: true });
       } catch (err) {
@@ -85,24 +89,12 @@ export default function RegisterPage() {
     setGoogleLoading(true);
     try {
       const firebaseUser = await loginWithGoogle();
-      const displayName = firebaseUser.displayName ?? "";
-      const [firstName = "", lastName = ""] = displayName.split(" ");
-
-      await createUser(firebaseUser.uid, {
-        email: firebaseUser.email ?? "",
-        username: firebaseUser.uid.slice(0, 12),
-        firstName,
-        lastName,
-      });
-
+      // Someone who already has an account and taps Google here is signing in,
+      // not starting over — their profile must survive it.
+      await ensureGoogleProfile(firebaseUser, i18n.resolvedLanguage ?? "en");
       navigate("/", { replace: true });
     } catch (err) {
-      const code = (err as { code?: string }).code ?? "";
-      if (code !== "firestore/already-exists") {
-        setError(getErrorKey(code));
-      } else {
-        navigate("/", { replace: true });
-      }
+      setError(getErrorKey((err as { code?: string }).code ?? ""));
     } finally {
       setGoogleLoading(false);
     }
@@ -138,7 +130,7 @@ export default function RegisterPage() {
                   className={`${styles.googleBtn} w-100`}
                   onClick={handleGoogleRegister}
                   disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
-                  title={isInAppBrowser ? "Open in Chrome or Safari to use Google login" : undefined}
+                  title={isInAppBrowser ? t("auth.openInBrowserForGoogle") : undefined}
                 >
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width={18} height={18} />
                   {googleLoading ? t("auth.signingUp") : t("auth.continueWithGoogle")}
@@ -161,7 +153,7 @@ export default function RegisterPage() {
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.firstName && formik.errors.firstName)}
                         />
-                        <FormFeedback>{formik.errors.firstName && t(formik.errors.firstName)}</FormFeedback>
+                        <FormFeedback>{validationMessage(formik.errors.firstName, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
                     <Col xs={6}>
@@ -177,7 +169,7 @@ export default function RegisterPage() {
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.lastName && formik.errors.lastName)}
                         />
-                        <FormFeedback>{formik.errors.lastName && t(formik.errors.lastName)}</FormFeedback>
+                        <FormFeedback>{validationMessage(formik.errors.lastName, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
                   </Row>
@@ -194,7 +186,7 @@ export default function RegisterPage() {
                       onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.username && formik.errors.username)}
                     />
-                    <FormFeedback>{formik.errors.username && t(formik.errors.username)}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.username, t)}</FormFeedback>
                   </FormGroup>
 
                   <FormGroup>
@@ -209,7 +201,7 @@ export default function RegisterPage() {
                       onBlur={formik.handleBlur}
                       invalid={!!(formik.touched.email && formik.errors.email)}
                     />
-                    <FormFeedback>{formik.errors.email && t(formik.errors.email)}</FormFeedback>
+                    <FormFeedback>{validationMessage(formik.errors.email, t)}</FormFeedback>
                   </FormGroup>
 
                   <Row>
@@ -226,7 +218,7 @@ export default function RegisterPage() {
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.password && formik.errors.password)}
                         />
-                        <FormFeedback>{formik.errors.password && t(formik.errors.password)}</FormFeedback>
+                        <FormFeedback>{validationMessage(formik.errors.password, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
                     <Col xs={12} sm={6}>
@@ -242,7 +234,7 @@ export default function RegisterPage() {
                           onBlur={formik.handleBlur}
                           invalid={!!(formik.touched.confirmPassword && formik.errors.confirmPassword)}
                         />
-                        <FormFeedback>{formik.errors.confirmPassword && t(formik.errors.confirmPassword)}</FormFeedback>
+                        <FormFeedback>{validationMessage(formik.errors.confirmPassword, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
                   </Row>

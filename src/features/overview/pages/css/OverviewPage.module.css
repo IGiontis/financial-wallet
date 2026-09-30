@@ -415,3 +415,170 @@
     flex: 1 1 auto;
   }
 }
+
+/* ── The hero: the money now, and whether it lasts until pay day ────────────── */
+
+.heroLabel {
+  margin: 0 0 4px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.heroFigure {
+  margin: 0 0 4px;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroVerdict {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.heroLeft {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What goes, then what stays, as one bar — the subtraction you can see. */
+.heroBar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+}
+
+.heroBar span {
+  min-width: 2px;
+}
+
+.heroLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroLegend li {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── The banks strip under it ──────────────────────────────────────────────── */
+
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+}
+
+.stripText {
+  min-width: 0;
+}
+
+.stripStale {
+  border-color: color-mix(in srgb, var(--color-goal) 45%, transparent);
+  background: color-mix(in srgb, var(--color-goal) 10%, transparent);
+  color: var(--color-goal-text);
+}
+
+.stripFresh,
+.stripNeutral {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.stripLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Rows with a button of their own ───────────────────────────────────────── */
+
+a.attentionName {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ── Today ─────────────────────────────────────────────────────────────────── */
+
+.todayList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todayList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.todayList li:first-child {
+  border-top: 0;
+}
+
+.todayIcon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-background-secondary);
+  font-size: 15px;
+}
+
+.todayName {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* ── The "+" within thumb reach ────────────────────────────────────────────── */
+
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 1030;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Room under the last row, so the button never sits on it. */
+.fabSpace {
+  height: 72px;
+}

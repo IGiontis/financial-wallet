@@ -60,6 +60,55 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        /**
+         * Libraries in files of their own, so a deploy re-downloads only what
+         * changed.
+         *
+         * Left to itself the bundler put app code inside the library chunks —
+         * the Firebase chunk carried `src/firebase`, the React chunk the app
+         * shell, the ECharts chunk the one chart that uses it — so a one-line
+         * edit to one screen gave most of the files new names, and every
+         * installed copy fetched about 800 of its 935 KB again on the next
+         * update. With each library group in its own file, an app change
+         * renames the app's own chunks and leaves the libraries cached.
+         *
+         * Groups are only for libraries that change when a dependency does.
+         * Nothing shared goes into a chart or form group (tslib, for one, is
+         * used by Firebase too): a group is one file, and whatever depends on
+         * any part of it loads all of it.
+         */
+        codeSplitting: {
+          groups: [
+            { name: "firebase", test: /node_modules[\\/](@firebase|firebase)[\\/]/, priority: 30 },
+            { name: "react", test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/, priority: 30 },
+            { name: "query", test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
+            { name: "i18n", test: /node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector)[\\/]/, priority: 20 },
+            { name: "echarts", test: /node_modules[\\/](echarts|zrender)[\\/]/, priority: 20 },
+            {
+              name: "recharts",
+              test: /node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor|@reduxjs|redux|react-redux|reselect|immer|decimal\.js-light|internmap|eventemitter3|es-toolkit)[\\/]/,
+              priority: 20,
+            },
+            { name: "datepicker", test: /node_modules[\\/]react-datepicker[\\/]/, priority: 20 },
+            // A group takes the libraries its own ones import along with it, so
+            // anything the first screen also uses is claimed first, by a group
+            // of higher priority — or react-datepicker would carry date-fns and
+            // floating-ui, and with them itself, into the initial load.
+            { name: "date-fns", test: /node_modules[\\/]date-fns[\\/]/, priority: 40 },
+            { name: "shared", test: /node_modules[\\/](clsx|react-is|use-sync-external-store|tslib|prop-types|@babel[\\/]runtime)[\\/]/, priority: 40 },
+            { name: "forms", test: /node_modules[\\/](formik|yup|lodash-es|lodash|property-expr|toposort|tiny-case|tiny-warning|react-fast-compare|hoist-non-react-statics)[\\/]/, priority: 20 },
+            { name: "floating-ui", test: /node_modules[\\/]@floating-ui[\\/]/, priority: 40 },
+            // Each language its own file: the text changes more often than any
+            // library, and it no longer drags the transactions hooks along.
+            { name: (id: string) => (/[\\/]i18n[\\/]locales[\\/]el\.json/.test(id) ? "locale-el" : /[\\/]i18n[\\/]locales[\\/]en\.json/.test(id) ? "locale-en" : null), priority: 10 },
+          ],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

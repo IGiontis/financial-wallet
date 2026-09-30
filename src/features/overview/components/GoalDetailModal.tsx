@@ -7,6 +7,7 @@ import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../../budget/useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
+import { projectedFinish } from "../../budget/components/goalDisplay";
 import styles from "./css/GoalDetailModal.module.css";
 
 const isRecurringGoal = (g: Pick<InvestmentGoalWithStats, "targetPeriod">) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
@@ -40,6 +41,9 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
   const { data: contributions = [], isLoading } = useContributions(goal.id);
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
+  // The projection is a month, not a day. With the year, Greek gives the
+  // month in the nominative ("Νοέμβριος 2026") rather than the genitive.
+  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
 
   const recurring = isRecurringGoal(goal);
   const oneTime = goal.goalType === "targeted" && !recurring;
@@ -55,17 +59,12 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
     const pct = Math.min(Math.max(goal.percentageReached ?? 0, 0), 100);
     const remaining = goal.remaining ?? Math.max((goal.targetAmount ?? 0) - goal.totalSaved, 0);
 
-    // Average monthly pace so far, to project a finish date.
-    const monthsSinceStart = Math.max((now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()), 1);
-    const avgMonthly = goal.totalSaved / monthsSinceStart;
+    // The goal card's own projection, not a second one: this dialog counted
+    // from next month and the card from this one, so the same goal read a
+    // month later here than on the Goals page.
+    const projection = projectedFinish(goal, now);
 
-    let projectedDate: Date | undefined;
-    if (avgMonthly > 0 && remaining > 0) {
-      const monthsToGo = remaining / avgMonthly;
-      projectedDate = new Date(now.getFullYear(), now.getMonth() + Math.ceil(monthsToGo), now.getDate());
-    }
-
-    return { created, deadline, pct, projectedDate, remaining };
+    return { created, deadline, pct, projectedDate: projection?.date, late: !!projection?.monthsLate, remaining };
   }, [hasDeadline, goal]);
 
   const statusColor =
@@ -116,7 +115,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
               {goal.status === "completed" || timeline.remaining <= 0
                 ? t("overview.goalCompletedMsg")
                 : timeline.projectedDate
-                  ? t(timeline.projectedDate <= timeline.deadline ? "overview.goalProjectionEarly" : "overview.goalProjectionLate", { date: dateFmt.format(timeline.projectedDate) })
+                  ? t(timeline.late ? "overview.goalProjectionLate" : "overview.goalProjectionEarly", { date: monthFmt.format(timeline.projectedDate) })
                   : t("overview.goalProjectionNone")}
             </p>
           </>

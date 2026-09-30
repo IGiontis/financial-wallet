@@ -134,4 +134,71 @@ describe("useWorkspaceSetting", () => {
 
     await waitFor(() => expect(result.current[0]).toEqual([]));
   });
+
+  it("sends a waiting edit at once when the screen goes, rather than dropping it", async () => {
+    // Typing a figure and tapping another tab inside the pause used to cancel
+    // the save; the next cold start then preferred the account's old copy.
+    const { result, unmount } = renderHook(() => useWorkspaceSetting("planner-opening", ""), { wrapper });
+    await waitFor(() => expect(saveWorkspaceValue).not.toHaveBeenCalled());
+
+    act(() => result.current[1]("1200"));
+    expect(saveWorkspaceValue).not.toHaveBeenCalled();
+
+    unmount();
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+    expect(saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-opening", "1200");
+
+    // And only once: the timer it replaced must not send it a second time.
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a waiting edit when the app is closed or put in the background", async () => {
+    const { result } = renderHook(() => useWorkspaceSetting("planner-opening", ""), { wrapper });
+    await waitFor(() => expect(saveWorkspaceValue).not.toHaveBeenCalled());
+
+    act(() => result.current[1]("900"));
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-opening", "900");
+
+    // Nothing waiting any more, so a later hide sends nothing new.
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands back the same default object on every render while nothing is saved", async () => {
+    // A new object per render never looks settled to anything that waits for it
+    // to stop changing — the planner's debounced salary re-rendered itself every
+    // 250ms, forever, until this held still.
+    const { result, rerender } = renderHook(() => useWorkspaceSetting("planner-salary", { amount: "", day: "" }), { wrapper });
+    await waitFor(() => expect(result.current[0]).toEqual({ amount: "", day: "" }));
+    const first = result.current[0];
+
+    rerender();
+    rerender();
+    expect(result.current[0]).toBe(first);
+  });
+
+  it("hands back the same device copy on every render while the account is still answering", async () => {
+    localStorage.setItem("planner-salary", JSON.stringify({ amount: "1400", day: "28" }));
+    const { result, rerender } = renderHook(() => useWorkspaceSetting("planner-salary", { amount: "", day: "" }), { wrapper });
+    // Checked before the account's answer lands: once it does, this device's
+    // plan is handed up and read back from there — one change, not a loop.
+    const first = result.current[0];
+    expect(first).toEqual({ amount: "1400", day: "28" });
+
+    rerender();
+    rerender();
+    expect(result.current[0]).toBe(first);
+
+    // An edit still gets through and wins from then on.
+    act(() => result.current[1]({ amount: "1500", day: "28" }));
+    await waitFor(() => expect(result.current[0]).toEqual({ amount: "1500", day: "28" }));
+  });
 });

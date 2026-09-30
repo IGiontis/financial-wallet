@@ -15,7 +15,11 @@ import {
   planPeriods,
   SALARY_ROW_ID,
 } from "./plannerUtils";
-import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import { differenceInCalendarDays } from "date-fns";
+import { getPeriodDueDate, getPeriodKey } from "../bills/billsUtils";
+import { computeDebtStatus, loanPayoff, loanState } from "../debts/debtsUtils";
+import type { Actuals } from "./plannerActuals";
+import type { BillWithStatus, Debt, DebtPayment, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
 const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
@@ -801,5 +805,188 @@ describe("a loan in the plan is a monthly instalment, not a lump", () => {
 
     expect(off.rows.find((r) => r.source === "debt")!.total).toBe(0);
     expect(off.events.some((e) => e.label === "Αυτοκίνητο")).toBe(false);
+  });
+});
+
+// ─── A loan's last instalment ────────────────────────────────────────────────
+// The walk used to stop after as many *months* as the balance had payments
+// left, counted from this one. When this month's instalment was already paid,
+// the last one fell off the end of the plan.
+
+describe("a loan whose instalment this month is already paid", () => {
+  // Twelve interest-free instalments of €100 on the 5th, from February. Eight
+  // are paid, September's included; today is 29 September 2026.
+  const TODAY = new Date(2026, 8, 29, 10);
+  const loanDoc = (over: Partial<Debt> = {}) =>
+    ({ id: "loan", userId: "u1", person: "Κατάστημα", label: "Ψυγείο", direction: "owed_by_me", amount: 1200, interestRate: 0, termMonths: 12, date: new Date(2026, 0, 5), createdAt: new Date(2026, 0, 5), updatedAt: new Date(2026, 0, 5), ...over }) as unknown as Debt;
+  const repay = (date: Date, amount = 100) => ({ id: `r${date.getTime()}`, userId: "u1", debtId: "loan", amount, date, createdAt: date }) as unknown as DebtPayment;
+  const paidThrough = (months: number) => Array.from({ length: months }, (_, i) => repay(new Date(2026, 1 + i, 5)));
+  const loan = (payments = paidThrough(8), over: Partial<Debt> = {}) => computeDebtStatus(loanDoc(over), payments, TODAY);
+  const records = (debt: DebtWithStatus): Actuals => ({ transactions: [], debts: [debt], overrides: {} });
+  const run = (debt: DebtWithStatus, extra: Partial<Parameters<typeof buildPlan>[0]> = {}) => buildPlan({ bills: [], goals: [], debts: [debt], horizon: 6, now: TODAY, ...extra });
+  const rowOf = (plan: ReturnType<typeof buildPlan>) => plan.rows.find((r) => r.source === "debt")!;
+  const instalmentDates = (plan: ReturnType<typeof buildPlan>) => plan.events.filter((e) => e.label === "Ψυγείο").map((e) => e.date);
+
+  it("plans all four instalments left, not three", () => {
+    const plan = run(loan());
+
+    expect(rowOf(plan)).toMatchObject({ total: -400, occurrences: 4 });
+    expect(instalmentDates(plan)).toEqual([new Date(2026, 9, 5), new Date(2026, 10, 5), new Date(2026, 11, 5), new Date(2027, 0, 5)]);
+  });
+
+  it("plans exactly what the debts screen says is left", () => {
+    const debt = loan();
+    expect(-rowOf(run(debt)).total).toBe(debt.remaining);
+    expect(-rowOf(run(debt)).total).toBe(loanState(debt, TODAY)!.balance);
+    expect(rowOf(run(debt)).occurrences).toBe(loanPayoff(debt, 0, TODAY)!.months);
+  });
+
+  it("covers an interest-bearing loan's balance and the interest still to come", () => {
+    // €10,000 at 7% over five years, a year of it paid.
+    const taken = new Date(2025, 8, 12);
+    const payments = Array.from({ length: 12 }, (_, i) => repay(new Date(2025, 9 + i, 12), 198.01));
+    const debt = computeDebtStatus(loanDoc({ amount: 10000, interestRate: 7, termMonths: 60, date: taken }), payments, TODAY);
+    const payoff = loanPayoff(debt, 0, TODAY)!;
+    const row = rowOf(run(debt, { horizon: 120 }));
+
+    expect(row.occurrences).toBe(payoff.months);
+    // Payment for payment, the schedule the debts screen draws — the last one
+    // included, which is smaller than an instalment.
+    const scheduled = Math.round(payoff.schedule.reduce((sum, r) => sum + r.payment, 0) * 100) / 100;
+    expect(-row.total).toBe(scheduled);
+    expect(payoff.schedule.at(-1)!.payment).toBeLessThan(198.01);
+    // And the balance plus the interest still to come, give or take the
+    // rounding of each row's interest to the cent.
+    expect(Math.abs(-row.total - (debt.remaining + payoff.interestToCome))).toBeLessThanOrEqual(0.005 * payoff.months);
+  });
+
+  it("does not change with the horizon once the window reaches the last instalment", () => {
+    for (const horizon of [5, 6, 12, 36]) expect(rowOf(run(loan(), { horizon }))).toMatchObject({ total: -400, occurrences: 4 });
+    // A shorter window holds what fits in it, and no more.
+    expect(rowOf(run(loan(), { horizon: 3 }))).toMatchObject({ total: -200, occurrences: 2 });
+    expect(rowOf(run(loan(), { horizon: 4 }))).toMatchObject({ total: -300, occurrences: 3 });
+  });
+
+  it("finds September's instalment in the records and still plans four", () => {
+    const debt = loan();
+    const plan = run(debt, { actuals: records(debt) });
+
+    expect(plan.occurrences.find((o) => o.key.endsWith("2026-09-05"))?.status).toBe("received");
+    expect(instalmentDates(plan)).toEqual([new Date(2026, 9, 5), new Date(2026, 10, 5), new Date(2026, 11, 5), new Date(2027, 0, 5)]);
+  });
+
+  it("keeps an unpaid September in the plan, with the checks or without them", () => {
+    // Seven paid: €500 left, five instalments.
+    const debt = loan(paidThrough(7));
+    const plain = run(debt);
+    const checked = run(debt, { actuals: records(debt) });
+
+    expect(debt.remaining).toBe(500);
+    expect(rowOf(plain)).toMatchObject({ total: -500, occurrences: 5 });
+    expect(rowOf(checked)).toMatchObject({ total: -500, occurrences: 5 });
+    // Checked, September is late and held from today rather than pushed to the end.
+    expect(instalmentDates(checked)[0]).toEqual(new Date(2026, 8, 29));
+  });
+
+  it("keeps a loan taken on the 31st on the month's last day, across the year end", () => {
+    // September's instalment (due the 30th) was paid early, on the 25th.
+    const days = [new Date(2026, 1, 28), new Date(2026, 2, 31), new Date(2026, 3, 30), new Date(2026, 4, 31), new Date(2026, 5, 30), new Date(2026, 6, 31), new Date(2026, 7, 31), new Date(2026, 8, 25)];
+    const debt = loan(days.map((d) => repay(d)), { date: new Date(2026, 0, 31) });
+    const checked = run(debt, { actuals: records(debt) });
+
+    expect(instalmentDates(checked)).toEqual([new Date(2026, 9, 31), new Date(2026, 10, 30), new Date(2026, 11, 31), new Date(2027, 0, 31)]);
+    expect(rowOf(checked).total).toBe(-400);
+    // Without the records the plan cannot know September's went early; it still
+    // plans the €400 that is owed, only a month sooner.
+    expect(rowOf(run(debt)).total).toBe(-400);
+  });
+
+  it("frees every instalment when switched off, and still counts them", () => {
+    const plan = run(loan(), { skipIds: new Set(["loan"]) });
+
+    expect(rowOf(plan)).toMatchObject({ total: 0, occurrences: 4 });
+    expect(instalmentDates(plan)).toEqual([]);
+  });
+});
+
+// ─── A bill due at the end of the month ─────────────────────────────────────
+// Stepping a date a month at a time keeps the first month's clamp: a bill due
+// on the 31st seen from September sat on the 30th for good.
+
+describe("billOccurrences for a bill due on the 29th to the 31st", () => {
+  const eom = (dueDay: number, over: Partial<BillWithStatus> = {}) => bill({ id: "eom", name: "Κάρτα", dueDay, ...over });
+  const datesOf = (b: BillWithStatus, from: Date, to: Date) => billOccurrences(b, from, to).map((o) => o.date);
+
+  it("lands on each month's own last day, seen from a 30-day month", () => {
+    expect(datesOf(eom(31), new Date(2026, 8, 29), new Date(2027, 1, 28))).toEqual([
+      new Date(2026, 8, 30),
+      new Date(2026, 9, 31),
+      new Date(2026, 10, 30),
+      new Date(2026, 11, 31),
+      new Date(2027, 0, 31),
+      new Date(2027, 1, 28),
+    ]);
+  });
+
+  it("does not stay on the 28th after February", () => {
+    expect(datesOf(eom(31), new Date(2027, 1, 10), new Date(2027, 5, 30))).toEqual([new Date(2027, 1, 28), new Date(2027, 2, 31), new Date(2027, 3, 30), new Date(2027, 4, 31), new Date(2027, 5, 30)]);
+  });
+
+  it("gives a month the same date whichever month it is seen from", () => {
+    const fromSeptember = datesOf(eom(31), new Date(2026, 8, 29), new Date(2027, 5, 30));
+    const fromFebruary = datesOf(eom(31), new Date(2027, 1, 10), new Date(2027, 5, 30));
+
+    expect(fromSeptember.slice(-fromFebruary.length)).toEqual(fromFebruary);
+  });
+
+  it("puts every occurrence on the due date the bills screen gives its period, once per period", () => {
+    for (const dueDay of [29, 30, 31]) {
+      const b = eom(dueDay);
+      const dates = datesOf(b, new Date(2026, 8, 29), new Date(2028, 2, 31));
+      const keys = dates.map((d) => getPeriodKey(b, d));
+
+      for (const date of dates) expect(date).toEqual(getPeriodDueDate(b, date));
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(keys).toHaveLength(19); // September 2026 to March 2028
+    }
+  });
+
+  it("uses the 29th of a leap February, and the 28th otherwise", () => {
+    expect(datesOf(eom(31), new Date(2028, 0, 2), new Date(2028, 2, 31)).map((d) => d.getDate())).toEqual([31, 29, 31]);
+    expect(datesOf(eom(29), new Date(2027, 1, 1), new Date(2027, 2, 31)).map((d) => d.getDate())).toEqual([28, 29]);
+    expect(datesOf(eom(30), new Date(2027, 1, 1), new Date(2027, 3, 30)).map((d) => d.getDate())).toEqual([28, 30, 30]);
+  });
+
+  it("keeps a custom interval on its months and its day", () => {
+    const everyOther = eom(31, { intervalCount: 2, anchorDate: new Date(2026, 0, 1) });
+    expect(datesOf(everyOther, new Date(2026, 0, 5), new Date(2026, 11, 31))).toEqual([
+      new Date(2026, 0, 31),
+      new Date(2026, 2, 31),
+      new Date(2026, 4, 31),
+      new Date(2026, 6, 31),
+      new Date(2026, 8, 30),
+      new Date(2026, 10, 30),
+    ]);
+  });
+
+  it("puts a yearly bill due on 29 February on the 28th in an ordinary year", () => {
+    const yearly = eom(29, { frequency: "yearly", dueMonth: 1 });
+    expect(datesOf(yearly, new Date(2027, 0, 1), new Date(2028, 11, 31))).toEqual([new Date(2027, 1, 28), new Date(2028, 1, 29)]);
+  });
+
+  it("keeps a weekly bill seven days apart through the clock change", () => {
+    const weekly = eom(1, { frequency: "weekly" }); // Mondays
+    const dates = datesOf(weekly, new Date(2026, 9, 1), new Date(2026, 10, 30));
+
+    expect(dates.length).toBeGreaterThan(7);
+    for (let i = 1; i < dates.length; i++) expect(differenceInCalendarDays(dates[i], dates[i - 1])).toBe(7);
+    expect(dates.every((d) => d.getDay() === 1 && d.getHours() === 0)).toBe(true);
+  });
+
+  it("charges the plan on those days, and the same total", () => {
+    const plan = buildPlan({ bills: [eom(31, { amount: 50 })], goals: [], horizon: 6, now: new Date(2026, 8, 29, 10) });
+
+    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.date.getDate())).toEqual([30, 31, 30, 31, 31, 28]);
+    expect(plan.billsTotal).toBe(300);
   });
 });

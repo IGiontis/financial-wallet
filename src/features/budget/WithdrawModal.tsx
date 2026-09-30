@@ -4,7 +4,7 @@ import * as Yup from "yup";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Alert, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, CreateInvestmentContributionDTO } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 
@@ -166,7 +166,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
           {isFullWithdrawal && (
             <FormGroup>
               <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                {t("investments.profitLabel", { currency: displayCurrency })} <span className="text-body-secondary fw-normal">(optional)</span>
+                {t("investments.profitLabel", { currency: displayCurrency })} <span className="text-body-secondary fw-normal">({t("common.optional")})</span>
               </Label>
               <Input
                 type="number"
@@ -186,7 +186,7 @@ export default function WithdrawModal({ goal, isOpen, onClose, onSubmit }: Withd
 
           {exceedsBalance && (
             <Alert color="success" style={{ fontSize: 13, padding: "8px 12px" }}>
-              Withdrawing <strong>{format(amountInBaseLive)}</strong> — that's <strong>{format(profitAmount)}</strong> more than you put in, recorded as a gain.
+              <Trans i18nKey="investments.withdrawGainNote" values={{ amount: format(amountInBaseLive), gain: format(profitAmount) }} components={{ strong: <strong /> }} />
             </Alert>
           )}
 

@@ -18,21 +18,26 @@ import { readCheckIns, type CheckInReading } from "../../accounts/accountsUtils"
 
 const NOW = new Date(2026, 8, 26, 12); // 26 September
 
-const data = vi.hoisted(() => ({ transactions: [] as Transaction[], bills: [] as unknown[], debts: [] as unknown[], readings: [] as unknown[] }));
+const data = vi.hoisted(() => ({ transactions: [] as Transaction[], bills: [] as unknown[], debts: [] as unknown[], readings: [] as unknown[], accounts: [] as unknown[] }));
 
 // The chart is recharts, loaded lazily; what it draws is not what these check,
 // and pulling it in slowed the next test past its timeout.
 vi.mock("../components/CashFlowChart", () => ({ default: () => <div data-testid="cash-flow-chart" /> }));
 vi.mock("../../transactions/hooks/useTransactions", () => ({
   useTransactions: () => ({ data: data.transactions, isLoading: false, isError: false }),
+  useCreateTransaction: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useCategories: () => ({ data: [{ id: "shop", name: "Groceries", icon: "🛒", type: "expense" }] }),
 }));
 vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [], isLoading: false }) }));
-vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }) }));
+vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }), useMarkBillPaid: () => ({ mutate: vi.fn() }) }));
+// The add form is its own world, tested on its own; here only that the "+" opens it.
+vi.mock("../../transactions/components/AddTransactionModal", () => ({ default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div role="dialog">add form</div> : null) }));
+// The planner's saved figures: none — the salary alone, from the mock below.
+vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({ useWorkspaceSetting: (_key: string, initial: unknown) => [initial, vi.fn()] }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: data.debts }) }));
 vi.mock("../../../shared/hooks/useSalary", () => ({ useSalary: () => ({ salary: { amount: 1700, dayOfMonth: 28, occurrences: 3 } }) }));
 vi.mock("../../../shared/hooks/useOpeningBalance", () => ({ useOpeningBalance: () => ({ opening: undefined, anchors: [], source: undefined, isLoading: false }) }));
-vi.mock("../../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ readings: data.readings, latest: data.readings.at(-1) }) }));
+vi.mock("../../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ accounts: data.accounts, readings: data.readings, latest: data.readings.at(-1), setCheckIns: vi.fn() }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));
@@ -70,6 +75,7 @@ beforeEach(() => {
   ];
   data.bills = [bill("water", "Water", 68.4, 20), bill("phone", "Phone", 25, 30)];
   data.readings = [];
+  data.accounts = [];
   data.debts = [
     computeDebtStatus({ id: "loan", userId: "u", person: "Nikos", direction: "owed_by_me", label: "Rent loan", amount: 300, date: new Date(2026, 5, 1), dueDate: new Date(2026, 8, 30), createdAt: new Date(2026, 5, 1), updatedAt: new Date(2026, 5, 1) } as Debt, [], NOW),
   ];
@@ -99,19 +105,55 @@ describe("the overview", () => {
     expect(within(panel).getAllByText("€309.45")).toHaveLength(2);
   });
 
-  it("says what is left on pay day, then the timeline of the month", async () => {
+  it("says above every tab whether the money lasts to pay day — the Planner's figure", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
-
-    const panel = screen.getByRole("tabpanel");
     // Second route: 3000 − 500 + 150 − 309,45 = 2340,55 in hand, less the
-    // water (20th, unpaid) before pay on the 28th; the phone on the 30th is after.
+    // water (20th, late, so owed now) before pay on the 28th; the phone on the 30th is after.
     expect(3000 - 500 + 150 - 309.45 - 68.4).toBeCloseTo(2272.15, 2);
-    expect(within(panel).getByText("€2272.15")).toBeInTheDocument();
-    // The boxes first, the timeline of the month last.
+    expect(screen.getByText("€2340.55")).toBeInTheDocument();
+    expect(screen.getByText("You make it to payday")).toBeInTheDocument();
+    expect(screen.getByText("€2272.15")).toBeInTheDocument();
+    expect(screen.getByText("Bills €68.40")).toBeInTheDocument();
+
+    // The month tab keeps the month, and no second answer of its own.
+    await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
+    const panel = screen.getByRole("tabpanel");
     const text = panel.textContent ?? "";
     expect(text.indexOf("Came in")).toBeLessThan(text.lastIndexOf("Water"));
+    expect(within(panel).queryByText("€2272.15")).not.toBeInTheDocument();
     expect(within(panel).queryByText("Total income")).not.toBeInTheDocument();
+  });
+
+  it("says when it does not last, and where it breaks", () => {
+    // 50 in hand, and the late water (68,40) is owed today: 50 − 68,40 = −18,40,
+    // the only outgoing before pay on the 28th.
+    data.transactions = [tx("little", "income", 50, new Date(2026, 8, 1))];
+    renderPage();
+    expect(screen.getByText("You don't make it to payday")).toBeInTheDocument();
+    expect(50 - 68.4).toBeCloseTo(-18.4, 2);
+    expect(screen.getByText("€-18.40")).toBeInTheDocument();
+    expect(screen.getByText(/You need €68.40 and have €50.00\. You go below zero on .*, at “Water”\./)).toBeInTheDocument();
+  });
+
+  it("marks a bill paid from the list, in the Bills page's own dialog", async () => {
+    renderPage();
+    // Late first: the water is the first row, and its button opens its dialog.
+    await userEvent.click(within(screen.getByRole("tabpanel")).getAllByRole("button", { name: "Paid" })[0]);
+    expect(screen.getByRole("dialog")).toHaveTextContent("Water");
+  });
+
+  it("opens the add form from the \"+\", without leaving the page", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "New transaction" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("add form");
+  });
+
+  it("lists what was written down today", () => {
+    data.transactions = [...data.transactions, { ...tx("Coffee", "expense", 3.4, new Date(2026, 8, 26, 9)), categoryId: "shop" } as Transaction];
+    renderPage();
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText("Today · 1 entry")).toBeInTheDocument();
+    expect(within(panel).getByText("Coffee")).toBeInTheDocument();
   });
 
   it("keeps the period dashboard, with its range picker and chart, in its own tab", async () => {
@@ -138,7 +180,7 @@ describe("the overview", () => {
     const hrefs = within(screen.getByRole("tabpanel"))
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(expect.arrayContaining(["/bills", "/planner", "/transactions", "/debts", "/goals", "/analytics"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/bills", "/transactions", "/debts", "/goals", "/analytics"]));
   });
 
   it("remembers the tab last chosen", async () => {
@@ -154,11 +196,12 @@ describe("the overview", () => {
     data.bills = [];
     data.debts = [];
     renderPage();
-    // On Everything the list simply is not there; Today says so in words.
+    // One line, on Everything and on Today alike.
     expect(screen.queryByText(/Needs you/)).not.toBeInTheDocument();
+    expect(screen.getByText("Nothing is late or due in the next week.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /Today/ }));
 
-    expect(screen.getByText("All clear")).toBeInTheDocument();
+    expect(screen.getByText("Nothing is late or due in the next week.")).toBeInTheDocument();
   });
 
   it("shows what the bank readings found gone without a record, and links to them", async () => {
@@ -170,15 +213,18 @@ describe("the overview", () => {
       { id: "b", at: new Date(2026, 8, 20, 20).toISOString(), amounts: { eb: 1800 } },
     ];
     data.readings = readCheckIns(checkIns, accounts, data.transactions) as CheckInReading[];
+    data.accounts = accounts;
     expect((data.readings as CheckInReading[])[1].unlogged).toBeCloseTo(1800 - (2000 + 150 - 309.45), 2);
 
     renderPage();
-    const tile = within(screen.getByRole("tabpanel")).getByRole("link", { name: /Banks & cash/ });
-    expect(tile).toHaveAttribute("href", "/accounts");
-    expect(tile).toHaveTextContent("€1800.00");
+    // Under the figure, on every tab: how old the reading is and what it found.
+    // 20 Sep 20:00 to 26 Sep 12:00 is five whole days and sixteen hours.
+    expect(screen.getByText("Banks: 5 days ago")).toBeInTheDocument();
+    const found = screen.getByRole("link", { name: /found €40.55 not written down/ });
+    expect(found).toHaveAttribute("href", "/accounts");
 
     await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
-    const line = within(screen.getByRole("tabpanel")).getByRole("link", { name: /without a record/ });
+    const line = within(screen.getByRole("tabpanel")).getByRole("link", { name: /not written down/ });
     expect(line).toHaveTextContent("€40.55");
     expect(line).toHaveAttribute("href", "/accounts");
   });

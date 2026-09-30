@@ -10,6 +10,7 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
+  amountDueNext,
   arrears,
   billMonthStrip,
   billUrgency,
@@ -24,6 +25,8 @@ import {
   isHardDeadline,
   isInGracePeriod,
   monthForecast,
+  outstandingTotal,
+  paidThisPeriod,
   periodTotals,
   salaryShare,
   type MonthCell,
@@ -38,6 +41,7 @@ import {
   type MonthForecast,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
+import { standaloneMonthName } from "../../shared/utils/dates";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
@@ -192,7 +196,8 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
 function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast: MonthForecast; formatCurrency: (n: number) => string; onOpenBreakdown: () => void }) {
   const { t, i18n } = useTranslation();
 
-  const monthLabel = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long" }).format(forecast.monthStart);
+  // The month named on its own — "Μάρτιος", not the genitive "Μαρτίου".
+  const monthLabel = standaloneMonthName(i18n.resolvedLanguage ?? "en", forecast.monthStart);
 
   return (
     <div
@@ -1009,9 +1014,12 @@ export default function BillsPage() {
     // only to confirm something went through.
     const settled = bills.filter((b) => b.isPaidThisPeriod).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
 
+    // What is left on each period, not its price: a part-paid gym owes the parts
+    // still to come, a paused or stopped bill owes nothing, and one switched off
+    // is not counted. And every part paid, not only the latest, on the other side.
     return [
-      { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstanding.reduce((s, b) => s + expectedAmount(b), 0), tone: "var(--color-expense)" },
-      { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + (b.payment?.amount ?? b.amount), 0), tone: "var(--color-income)" },
+      { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstandingTotal(outstanding), tone: "var(--color-expense)" },
+      { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + paidThisPeriod(b), 0), tone: "var(--color-income)" },
     ].filter((section) => section.bills.length > 0);
   }, [bills, t]);
 
@@ -1276,7 +1284,8 @@ export default function BillsPage() {
             const days = daysUntilDeadline(bill) ?? 0;
             return {
               meta: t("bills.lateByDays", { count: Math.abs(days) }),
-              amount: `${bill.isVariableAmount ? "~" : ""}${formatCurrency(expectedAmount(bill))}`,
+              // The same figure the total above is made of, so the rows add up to it.
+              amount: `${bill.isVariableAmount ? "~" : ""}${formatCurrency(amountDueNext(bill))}`,
               sub: bill.deadline ? t("bills.wasDueOn", { date: shortDateFmt.format(bill.deadline) }) : "",
               tone: "var(--color-expense-text)",
             };

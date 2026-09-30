@@ -1,7 +1,7 @@
 import { addDays, endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { currentRate, isLoan, monthlyInstalment, plannableDebts } from "../debts/debtsUtils";
-import { goalMonthlyTarget, oneOffDates, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
+import { goalMonthlyTarget, oneOffDates, plannableGoals, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import { categorySplit } from "../transactions/transactionInsights";
 import type { BillWithStatus, Category, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
@@ -69,7 +69,11 @@ export interface Committed {
 /** What is already spoken for each month, before anything is decided. */
 export function committedMonthly(bills: BillWithStatus[], goals: InvestmentGoalWithStats[], debts: DebtWithStatus[], now: Date = new Date()): Committed {
   const billTotal = round2(bills.filter((b) => b.isActive).reduce((sum, b) => sum + b.monthlyEquivalent, 0));
-  const goalTotal = round2(goals.reduce((sum, g) => sum + goalMonthlyTarget(g, now), 0));
+  // The goals the Planner charges, and no others: a paused goal claims nothing
+  // this month. Counting every goal put a paused €200 a month into "committed"
+  // here while the Planner — rightly — left it out, so the same month had €200
+  // less to divide on this screen than the plan said it had.
+  const goalTotal = round2(plannableGoals(goals).reduce((sum, g) => sum + goalMonthlyTarget(g, now), 0));
 
   // Only what you owe. Money owed *to* you is not income until it arrives, the
   // same rule the planner and the debts page already follow.
@@ -348,6 +352,10 @@ export function emergencyTarget(committed: Committed, months: number = EMERGENCY
  *
  * Complete months only. Including the one in progress would halve every figure
  * on the 15th.
+ *
+ * `nameOf` gives each bucket its starting name. The page passes the translated
+ * category label: the stored name of a built-in category is its English
+ * identity value, and a bucket label is plain text the reader then owns.
  */
 export function seedFromHistory(
   transactions: Transaction[],
@@ -355,6 +363,7 @@ export function seedFromHistory(
   newId: () => string,
   now: Date = new Date(),
   months: number = 3,
+  nameOf: (category: Category) => string = (category) => category.name,
 ): Bucket[] {
   const span = Math.max(1, months);
   const from = startOfMonth(subMonths(now, span));
@@ -371,7 +380,7 @@ export function seedFromHistory(
     .sort((a, b) => b.monthly - a.monthly)
     .map((row) => ({
       id: newId(),
-      label: row.category!.name,
+      label: nameOf(row.category!),
       amount: row.monthly,
       kind: "expense" as const,
       categoryIds: [row.categoryId],

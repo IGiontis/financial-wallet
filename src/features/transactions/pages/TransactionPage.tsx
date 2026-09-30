@@ -13,6 +13,7 @@ import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared
 import { categoryLabel } from "../../../shared/utils/categories";
 import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonRows, SkeletonTable } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
+import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
 import ManagePayeesModal from "../components/ManagePayeesModal";
@@ -319,7 +320,17 @@ function TransactionCard({
         >
           <FiEdit2 size={13} />
         </Button>
-        <Button size="sm" color="light" style={{ padding: "4px 8px", color: "var(--bs-danger)" }} onClick={onDelete}>
+        {/* A goal or investment mirror is deleted from its goal, like it is
+            edited there: deleting it here left the contribution behind. */}
+        <Button
+          size="sm"
+          color="light"
+          disabled={isInvestment || tx.isGoalTransaction}
+          style={{ padding: "4px 8px", color: "var(--bs-danger)", opacity: isInvestment || tx.isGoalTransaction ? 0.35 : 1, cursor: isInvestment || tx.isGoalTransaction ? "not-allowed" : "pointer" }}
+          onClick={() => {
+            if (!isInvestment && !tx.isGoalTransaction) onDelete();
+          }}
+        >
           <FiTrash2 size={13} />
         </Button>
       </div>
@@ -410,7 +421,8 @@ export function TransactionsPage() {
 
   const handleDelete = () => {
     if (!deleteTransaction) return;
-    deleteMutation.mutate(deleteTransaction.id, {
+    // The whole row, not just its id: a bill's expense takes its payment with it.
+    deleteMutation.mutate(deleteTransaction, {
       onSuccess: () => {
         toast.success(t("transactions.deleteSuccess"));
         setDeleteTransaction(null);
@@ -600,15 +612,15 @@ export function TransactionsPage() {
                       <thead>
                         <tr>
                           <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                            {t("common.date").toUpperCase()}
+                            {localeUpperCase(t("common.date"), i18n.resolvedLanguage)}
                           </th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{t("transactions.payee").toUpperCase()}</th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{t("common.category").toUpperCase()}</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("transactions.payee"), i18n.resolvedLanguage)}</th>
+                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("common.category"), i18n.resolvedLanguage)}</th>
                           <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                            {t("common.amount").toUpperCase()}
+                            {localeUpperCase(t("common.amount"), i18n.resolvedLanguage)}
                           </th>
                           <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                            ACTIONS
+                            {localeUpperCase(t("common.actions"), i18n.resolvedLanguage)}
                           </th>
                         </tr>
                       </thead>
@@ -616,7 +628,7 @@ export function TransactionsPage() {
                         {pagedTransactions.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="text-center text-muted py-5">
-                              No transactions found
+                              {t("transactions.noneFound")}
                             </td>
                           </tr>
                         ) : (
@@ -720,8 +732,16 @@ export function TransactionsPage() {
                                     <Button
                                       size="sm"
                                       color="light"
-                                      style={{ padding: "2px 8px", color: "var(--bs-danger)" }}
-                                      onClick={() => setDeleteTransaction(tx)}
+                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction}
+                                      style={{
+                                        padding: "2px 8px",
+                                        color: "var(--bs-danger)",
+                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction ? 0.35 : 1,
+                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction ? "not-allowed" : "pointer",
+                                      }}
+                                      onClick={() => {
+                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction) setDeleteTransaction(tx);
+                                      }}
                                       title={t("common.delete")}
                                     >
                                       <FiTrash2 size={13} />

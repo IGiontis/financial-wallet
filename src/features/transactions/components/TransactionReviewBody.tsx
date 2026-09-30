@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ReviewColors } from "./reviewPalettes";
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
@@ -35,6 +36,8 @@ export interface TransactionReviewBodyProps {
   categoryName: string;
   primaryBadge: string;
   secondaryBadge?: string;
+  /** What the secondary badge says, untranslated — it picks the badge colour. */
+  secondaryBadgeKind?: "deposit" | "withdrawal";
   colors: ReviewColors;
   amount: number;
   formatAmount: (n: number) => string;
@@ -53,6 +56,7 @@ export function TransactionReviewBody({
   categoryName,
   primaryBadge,
   secondaryBadge,
+  secondaryBadgeKind,
   colors,
   amount,
   formatAmount,
@@ -63,6 +67,7 @@ export function TransactionReviewBody({
   gradientFrom,
   gradientTo,
 }: TransactionReviewBodyProps) {
+  const { t } = useTranslation();
   const hasGradient = !!(gradientFrom && gradientTo);
 
   const heroBorderStyle = hasGradient
@@ -116,8 +121,8 @@ export function TransactionReviewBody({
                     fontWeight: 600,
                     padding: "1px 7px",
                     borderRadius: 20,
-                    background: secondaryBadge === "Deposit" ? "color-mix(in srgb, var(--color-expense) 16%, transparent)" : "color-mix(in srgb, var(--color-income) 16%, transparent)",
-                    color: secondaryBadge === "Deposit" ? "var(--color-expense)" : "var(--color-income)",
+                    background: secondaryBadgeKind === "deposit" ? "color-mix(in srgb, var(--color-expense) 16%, transparent)" : "color-mix(in srgb, var(--color-income) 16%, transparent)",
+                    color: secondaryBadgeKind === "deposit" ? "var(--color-expense)" : "var(--color-income)",
                   }}
                 >
                   {secondaryBadge}
@@ -133,16 +138,16 @@ export function TransactionReviewBody({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <GridCell label="Date" value={dateFormatted} />
-        <GridCell label="Category" value={`${categoryIcon} ${categoryName}`} />
-        <GridCell label="Amount" value={formatAmount(amount)} accent={colors.amtTxt} />
-        <GridCell label="Type" value={primaryBadge} accent={colors.amtTxt} />
-        {notes && <GridCell label="Notes" value={notes} fullWidth />}
+        <GridCell label={t("common.date")} value={dateFormatted} />
+        <GridCell label={t("common.category")} value={`${categoryIcon} ${categoryName}`} />
+        <GridCell label={t("common.amount")} value={formatAmount(amount)} accent={colors.amtTxt} />
+        <GridCell label={t("common.type")} value={primaryBadge} accent={colors.amtTxt} />
+        {notes && <GridCell label={t("common.notes")} value={notes} fullWidth />}
       </div>
 
       {fuelCells && fuelCells.length > 0 && (
         <>
-          <SectionHead label="Fuel details" />
+          <SectionHead label={t("transactions.fuelDetails")} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {fuelCells.map((cell) => (
               <GridCell key={cell.label} label={cell.label} value={cell.value} />

@@ -577,6 +577,8 @@ export function categorySeries(transactions: Transaction[], flows: MonthlyFlow[]
  */
 export const WATERFALL_INCOME_ID = "income";
 export const WATERFALL_LEFTOVER_ID = "leftover";
+/** Money put into goals and investments. Underscored like `OTHER_CATEGORY_ID`, so no category id can collide with it. */
+export const WATERFALL_SAVINGS_ID = "__savings__";
 
 export interface WaterfallStep {
   id: string;
@@ -584,18 +586,31 @@ export interface WaterfallStep {
   amount: number;
   /** Running total after this step. */
   balance: number;
-  kind: "income" | "expense" | "result";
+  /** "savings" is money moved into goals and investments: it leaves the pot like a cost, but it is not spending. */
+  kind: "income" | "expense" | "savings" | "result";
 }
 
 /**
- * Income, then each large category taken off it in turn, then what survived.
+ * Income, then each large category taken off it in turn, then what went into
+ * goals and investments, then what survived.
  *
  * The same figures the Sankey carries, but on a shared baseline — so "which of
  * these is bigger" is answered by comparing two heights rather than the widths
  * of two curved ribbons.
+ *
+ * And the same definition of what survived: income counts what was withdrawn
+ * from goals and investments, and what was put into them comes off before the
+ * last bar. This chart used to stop at income less spending, so a month of
+ * 2,000 in, 1,200 spent and 500 into a goal was "800 left over" here while the
+ * Sankey beside it and the Overview's money left both said 300 — two answers to
+ * one question on the same page. Both halves are counted gross, as everywhere
+ * else (see moneyModel): netting the deposits against the withdrawals *and*
+ * counting the withdrawals as income would count the same euro twice.
  */
 export function spendingWaterfall(transactions: Transaction[], limit = 6): WaterfallStep[] {
-  const income = round2(transactions.filter((tx) => !isTransfer(tx) && tx.type === "income").reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
+  const earned = transactions.filter((tx) => (!isTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal"));
+  const income = round2(earned.reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
+  const savings = round2(transactions.filter((tx) => isTransfer(tx) && tx.contributionType !== "withdrawal").reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
 
   const totals = new Map<string, number>();
   for (const tx of transactions.filter(isSpending)) totals.set(tx.categoryId, round2((totals.get(tx.categoryId) ?? 0) + Math.abs(tx.amount)));
@@ -615,6 +630,10 @@ export function spendingWaterfall(transactions: Transaction[], limit = 6): Water
   if (rest > 0) {
     balance = round2(balance - rest);
     steps.push({ id: OTHER_CATEGORY_ID, amount: -rest, balance, kind: "expense" });
+  }
+  if (savings > 0) {
+    balance = round2(balance - savings);
+    steps.push({ id: WATERFALL_SAVINGS_ID, amount: -savings, balance, kind: "savings" });
   }
 
   steps.push({ id: WATERFALL_LEFTOVER_ID, amount: balance, balance, kind: "result" });

@@ -7,6 +7,7 @@ import { useCategories, useTransactions } from "../transactions/hooks/useTransac
 import { SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { categoryLabel } from "../../shared/utils/categories";
+import { standaloneMonthName } from "../../shared/utils/dates";
 import { buildStatement, monthRange, yearRange, yearsWithRecords, type StatementLine } from "./statementUtils";
 import styles from "./css/Statement.module.css";
 
@@ -56,10 +57,9 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
   const range = useMemo(() => (month === WHOLE_YEAR ? yearRange(year) : monthRange(year, Number(month))), [year, month]);
   const statement = useMemo(() => buildStatement(transactions, range.from, range.to, nameFor), [transactions, range, nameFor]);
 
-  const monthNames = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(lang, { month: "long" });
-    return Array.from({ length: 12 }, (_, i) => fmt.format(new Date(2026, i, 1)));
-  }, [lang]);
+  // Named on their own in the picker and before the year in the title, so the
+  // stand-alone form: "Μάρτιος 2026", never "Μαρτίου 2026".
+  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, i) => standaloneMonthName(lang, new Date(2026, i, 1))), [lang]);
 
   const shortMonth = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
   const generatedAt = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "long" }).format(now), [lang, now]);

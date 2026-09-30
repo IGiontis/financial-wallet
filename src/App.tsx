@@ -90,7 +90,9 @@ function LanguageSync() {
   });
 
   useEffect(() => {
-    const locale = user?.locale;
+    // Older accounts were created with "en-US"; the app's languages are "en" and
+    // "el", so compare the language part — otherwise every load re-applies it.
+    const locale = user?.locale?.split("-")[0];
     if (locale && locale !== i18n.resolvedLanguage) {
       i18n.changeLanguage(locale);
     }

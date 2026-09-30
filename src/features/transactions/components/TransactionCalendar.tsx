@@ -3,7 +3,8 @@ import { Card, CardBody, Modal, ModalHeader, ModalBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
 import type { Transaction } from "../../../shared/types/IndexTypes";
-import { firestoreToDate, parseISODay, toISODay } from "../../../shared/utils/dates";
+import { firestoreToDate, parseISODay, standaloneMonthName, toISODay } from "../../../shared/utils/dates";
+import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { isSameDay, midnight, toDateKey, formatDisplay } from "../transactionDates";
 
 export interface CalendarProps {
@@ -66,11 +67,9 @@ function CalendarGrid({
   const [calView, setCalView] = useState<CalView>("days");
 
   // Locale-aware month/weekday names — built from Intl instead of a hardcoded
-  // English array, so the calendar actually follows the app language.
-  const monthNames = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(lang, { month: "long" });
-    return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
-  }, [lang]);
+  // English array, so the calendar actually follows the app language. The
+  // header names the month itself, so Greek needs "Μάρτιος", not "Μαρτίου".
+  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(lang, new Date(2020, m, 1))), [lang]);
   const monthShort = useMemo(() => {
     const fmt = new Intl.DateTimeFormat(lang, { month: "short" });
     return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
@@ -146,8 +145,8 @@ function CalendarGrid({
   return (
     <>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <RangeDateField label={t("transactions.dateFrom").toUpperCase()} date={fromDate} onChange={onFromChange} max={toDate ?? undefined} />
-        <RangeDateField label={t("transactions.dateTo").toUpperCase()} date={toDate} onChange={onToChange} min={fromDate ?? undefined} />
+        <RangeDateField label={localeUpperCase(t("transactions.dateFrom"), lang)} date={fromDate} onChange={onFromChange} max={toDate ?? undefined} />
+        <RangeDateField label={localeUpperCase(t("transactions.dateTo"), lang)} date={toDate} onChange={onToChange} min={fromDate ?? undefined} />
       </div>
       <div style={{ borderTop: "1px solid var(--color-border-tertiary)", marginBottom: 12 }} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -361,7 +360,7 @@ export function MobileCalendar(props: {
                   }}
                   onClick={() => setExpanded(true)}
                 >
-                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{label.toUpperCase()}</div>
+                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{localeUpperCase(label, lang)}</div>
                   <div style={{ fontSize: 12, color: date ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date, lang) : t("transactions.anyDate")}</div>
                 </div>
               );

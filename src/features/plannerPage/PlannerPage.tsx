@@ -36,6 +36,7 @@ import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
 import type { OccurrenceOverride } from "./plannerActuals";
+import { cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import LeverGroup from "./components/LeverGroup";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import segmented from "../../shared/css/Segmented.module.css";
@@ -81,15 +82,15 @@ export function PlannerPage() {
   // older version of this page can still be sitting. None of these are trusted
   // on their type alone — one stale horizon name was enough to take the whole
   // page down with an invalid date.
-  const [storedHorizon, setHorizon] = useWorkspaceSetting<PlannerHorizon>("planner-horizon", 1);
-  const [openingInput, setOpeningInput] = useWorkspaceSetting("planner-opening", "");
-  const [storedLines, setLines] = useWorkspaceSetting<BudgetLine[]>("planner-lines", []);
-  const [storedOneOffs, setOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
-  const [storedSkipped, setSkipped] = useWorkspaceSetting<string[]>("planner-skip", []);
-  const [openingSource, setOpeningSource] = useWorkspaceSetting<"banks" | "manual">("planner-opening-source", "banks");
+  const [storedHorizon, setHorizon] = useWorkspaceSetting<PlannerHorizon>(PLANNER_KEYS.horizon, 1);
+  const [openingInput, setOpeningInput] = useWorkspaceSetting(PLANNER_KEYS.opening, "");
+  const [storedLines, setLines] = useWorkspaceSetting<BudgetLine[]>(PLANNER_KEYS.lines, []);
+  const [storedOneOffs, setOneOffs] = useWorkspaceSetting<OneOff[]>(PLANNER_KEYS.oneOffs, []);
+  const [storedSkipped, setSkipped] = useWorkspaceSetting<string[]>(PLANNER_KEYS.skip, []);
+  const [openingSource, setOpeningSource] = useWorkspaceSetting<"banks" | "manual">(PLANNER_KEYS.openingSource, "banks");
   // What the user said about single occurrences — "the rent is coming on the
   // 1st", "no bonus this year". Keyed by item and expected day; see plannerActuals.
-  const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>("planner-occurrences", {});
+  const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>(PLANNER_KEYS.occurrences, {});
   const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
@@ -100,21 +101,11 @@ export function PlannerPage() {
 
   const horizon = asHorizon(storedHorizon);
   // Memoised because it feeds the plan: a fresh object each render would
-  // rebuild the whole projection on every keystroke anywhere on the page.
-  const lines = useMemo(
-    () => (Array.isArray(storedLines) ? storedLines.filter((l): l is BudgetLine => !!l && typeof l.id === "string" && Number.isFinite(l.amount)) : []),
-    [storedLines],
-  );
-  // Sanitised like everything else read back from storage: a bad date here
-  // reached `addMonths` as NaN once and took the whole page down with it.
-  const oneOffs = useMemo(
-    () =>
-      Array.isArray(storedOneOffs)
-        ? storedOneOffs.filter((o): o is OneOff => !!o && typeof o.id === "string" && typeof o.date === "string" && Number.isFinite(o.amount) && o.amount > 0 && !!oneOffDate(o.date))
-        : [],
-    [storedOneOffs],
-  );
-  const skipped = useMemo(() => (Array.isArray(storedSkipped) ? storedSkipped.filter((s): s is string => typeof s === "string") : []), [storedSkipped]);
+  // rebuild the whole projection on every keystroke anywhere on the page. The
+  // checks themselves are shared with the Overview — see `plannerInputs`.
+  const lines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  const oneOffs = useMemo(() => cleanOneOffs(storedOneOffs), [storedOneOffs]);
+  const skipped = useMemo(() => cleanSkipped(storedSkipped), [storedSkipped]);
   const open = useMemo(() => (storedOpen && typeof storedOpen === "object" ? storedOpen : DEFAULT_OPEN), [storedOpen]);
 
   // One dialog for every figure the user owns, rather than an inline editor
@@ -139,7 +130,7 @@ export function PlannerPage() {
   const plannedOpening = useDebounce(openingInput, 250);
   const plannedSalary = useDebounce(salary, 250);
 
-  const overrides = useMemo(() => (storedOverrides && typeof storedOverrides === "object" && !Array.isArray(storedOverrides) ? storedOverrides : {}), [storedOverrides]);
+  const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
   // The records the plan checks each salary, instalment and one-off against, so
   // one that came early is not counted again and one that is late is not lost.
   const actuals = useMemo(() => ({ transactions, debts, overrides }), [transactions, debts, overrides]);
@@ -153,19 +144,7 @@ export function PlannerPage() {
   const settled = useMemo(() => plan.occurrences.filter((o) => o.status === "received" || o.status === "skipped"), [plan.occurrences]);
   const occurrence = openOccurrence ? plan.occurrences.find((o) => o.key === openOccurrence) : undefined;
   const saveOverride = (key: string, value: OccurrenceOverride | undefined) => {
-    setOverrides((previous) => {
-      const next: Record<string, OccurrenceOverride> = {};
-      // Words about occurrences long gone are dropped on the way, so the map
-      // never grows past the handful that can still matter.
-      const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 120);
-      for (const [k, v] of Object.entries(previous ?? {})) {
-        const day = new Date(`${k.slice(-10)}T00:00:00`);
-        if (Number.isNaN(day.getTime()) || day >= cutoff) next[k] = v;
-      }
-      if (value) next[key] = value;
-      else delete next[key];
-      return next;
-    });
+    setOverrides((previous) => withOverride(previous, key, value, now));
     setOpenOccurrence(null);
   };
 

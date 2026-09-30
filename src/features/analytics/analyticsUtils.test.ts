@@ -22,8 +22,10 @@ import {
   spendingWaterfall,
   WATERFALL_INCOME_ID,
   WATERFALL_LEFTOVER_ID,
+  WATERFALL_SAVINGS_ID,
   committedSplit,
 } from "./analyticsUtils";
+import { calculateMoneyLeft } from "../overview/overviewUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
 const tx = (overrides: Partial<Transaction> = {}): Transaction =>
@@ -515,6 +517,89 @@ describe("spendingWaterfall", () => {
   it("ends below zero when the month did", () => {
     const rows = [tx({ amount: 100, type: "income", categoryId: "salary" }), tx({ amount: 250, categoryId: "rent" })];
     expect(spendingWaterfall(rows)[2].balance).toBe(-150);
+  });
+});
+
+// ─── One "left over" on the page ─────────────────────────────────────────────
+// The waterfall, the Sankey beside it and the Overview's money left all answer
+// "what was left", and a page that gives two answers to one question gives
+// none. The waterfall used to stop at income less spending.
+
+describe("spendingWaterfall — left over means what the Sankey and the Overview mean", () => {
+  const salary = (amount: number) => tx({ amount, type: "income", categoryId: "salary" });
+  const spend = (amount: number, categoryId = "rent") => tx({ amount, categoryId });
+  const last = (steps: ReturnType<typeof spendingWaterfall>) => steps[steps.length - 1];
+  /** The Sankey's answer: what reached "left over", or minus what came "from reserves". */
+  const sankeyLeft = (rows: Transaction[]) => {
+    const flow = moneyFlow(rows)!;
+    return round((flow.nodes.find((n) => n.id === FLOW_LEFTOVER_ID)?.value ?? 0) - (flow.nodes.find((n) => n.id === FLOW_DEFICIT_ID)?.value ?? 0));
+  };
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  it("takes what went into goals off before the last bar", () => {
+    // 2,000 in, 1,200 spent, 500 into a goal: 300 left — it used to say 800.
+    const rows = [salary(2000), spend(800), spend(400, "food"), deposit(500, new Date(2026, 2, 5), true)];
+    const steps = spendingWaterfall(rows);
+
+    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "rent", "food", WATERFALL_SAVINGS_ID, WATERFALL_LEFTOVER_ID]);
+    expect(steps.find((s) => s.id === WATERFALL_SAVINGS_ID)).toMatchObject({ amount: -500, balance: 300, kind: "savings" });
+    expect(last(steps).balance).toBe(300);
+  });
+
+  it("counts what was withdrawn as income, like every other screen", () => {
+    const rows = [salary(1000), spend(700), withdrawal(250, new Date(2026, 2, 6))];
+    const steps = spendingWaterfall(rows);
+
+    expect(steps[0]).toMatchObject({ id: WATERFALL_INCOME_ID, amount: 1250 });
+    expect(last(steps).balance).toBe(550);
+  });
+
+  it("lands on the Sankey's figure and the Overview's money left, whatever the month did", () => {
+    const months: Transaction[][] = [
+      [salary(2000), spend(800), spend(400, "food"), deposit(500, new Date(2026, 2, 5), true)],
+      [salary(2000), spend(800), deposit(200, new Date(2026, 2, 5)), deposit(100, new Date(2026, 2, 5), true), withdrawal(50, new Date(2026, 2, 6))],
+      [salary(1000), spend(1500), deposit(300, new Date(2026, 2, 5))], // short
+      [withdrawal(600, new Date(2026, 2, 6)), spend(120.35, "food"), spend(79.65, "fuel")],
+      [salary(1234.56), ...["a", "b", "c", "d", "e", "f", "g", "h"].map((c, i) => spend(10.1 * (i + 1), c)), deposit(33.33, new Date(2026, 2, 7), true)],
+    ];
+
+    for (const rows of months) {
+      const left = last(spendingWaterfall(rows)).balance;
+      expect(left).toBe(sankeyLeft(rows));
+      expect(left).toBe(round(calculateMoneyLeft(rows)));
+    }
+  });
+
+  it("walks down to its own last bar: income less every step", () => {
+    const rows = [salary(2000), spend(800), spend(400, "food"), spend(90, "fuel"), deposit(200, new Date(2026, 2, 5)), deposit(100, new Date(2026, 2, 5), true), withdrawal(50, new Date(2026, 2, 6))];
+    const steps = spendingWaterfall(rows, 2);
+    const taken = steps.slice(1, -1).reduce((sum, s) => sum + s.amount, 0);
+
+    expect(round(steps[0].amount + taken)).toBe(last(steps).balance);
+    // Each bar starts where the one before it ended.
+    for (let i = 1; i < steps.length - 1; i++) expect(steps[i].balance).toBe(round(steps[i - 1].balance + steps[i].amount));
+  });
+
+  it("does not care how the categories are folded or in what order the records come", () => {
+    const rows = [salary(2000), ...["a", "b", "c", "d"].map((c, i) => spend(100 + i, c)), deposit(250, new Date(2026, 2, 5), true), withdrawal(40, new Date(2026, 2, 6))];
+
+    const reference = last(spendingWaterfall(rows)).balance;
+    for (const limit of [1, 2, 6]) expect(last(spendingWaterfall(rows, limit)).balance).toBe(reference);
+    expect(last(spendingWaterfall([...rows].reverse())).balance).toBe(reference);
+  });
+
+  it("shows no goals step in a month nothing went into one", () => {
+    const steps = spendingWaterfall([salary(2000), spend(600)]);
+    expect(steps.some((s) => s.id === WATERFALL_SAVINGS_ID)).toBe(false);
+    expect(last(steps).balance).toBe(1400);
+  });
+
+  it("reports a month that ran short by the Sankey's deficit", () => {
+    const rows = [salary(1000), spend(900), deposit(300, new Date(2026, 2, 5))];
+    const flow = moneyFlow(rows)!;
+
+    expect(last(spendingWaterfall(rows)).balance).toBe(-200);
+    expect(flow.nodes.find((n) => n.id === FLOW_DEFICIT_ID)?.value).toBe(200);
   });
 });
 

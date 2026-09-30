@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { Container } from "reactstrap";
@@ -8,6 +9,7 @@ import { Topbar } from "./Topbar";
 import "./css/MainLayout.css";
 
 export function MainLayout() {
+  const { t } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useLocalStorage("sidebar-collapsed", false);
 
@@ -46,7 +48,7 @@ export function MainLayout() {
               >
                 Ilias Giontis
               </a>{" "}
-              · MyFiWallet. All rights reserved.
+              · MyFiWallet. {t("common.allRightsReserved")}
             </p>
           </Container>
         </main>

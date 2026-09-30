@@ -1,9 +1,10 @@
-import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
+import { addDays, addMonths, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
 import { createResolver, lookbackStart, occurrenceKey, type Actuals, type PlannedOccurrence, type ResolvedOccurrence } from "./plannerActuals";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isEarning } from "../../shared/utils/moneyModel";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
-import { currentPause, getDeadline, getGraceDays, getInstallmentCount, getIntervalCount, getPeriodDueDate, getPeriodKey, installmentAmount, installmentDueDates, isPausedOn, paidInstallments } from "../bills/billsUtils";
+import { deadlinePace } from "../budget/investmentsUtils";
+import { currentPause, getDeadline, getGraceDays, getInstallmentCount, getPeriodDueDate, getPeriodKey, getPeriodStart, installmentAmount, installmentDueDates, isPausedOn, paidInstallments, shiftPeriodStart } from "../bills/billsUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The planner is a forward budget: what is going to arrive, what is going to
@@ -131,24 +132,22 @@ export function goalMonthlyNeed(goal: InvestmentGoalWithStats, now: Date = new D
   // Goals screen, not to one month's cash plan.
   if (goal.targetPeriod === "yearly") return round2((goal.yearlyRequired ?? goal.targetAmount ?? 0) / 12);
 
-  if (goal.deadline) {
-    const deadline = firestoreToDate(goal.deadline);
-    const monthsAhead = Math.max((deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()), 0);
-    // Divided by the number of contributions, which is one more than the number
-    // of months *ahead*: the plan charges this month as well as each later one.
-    // Dividing by the gap alone made the slices too big by exactly one payment,
-    // so a €900 goal three months out was planned as €1,350.
-    // Deadline lands this month: the whole remainder is due now, not a slice.
-    return round2((goal.remaining ?? 0) / (monthsAhead + 1));
-  }
+  // A deadline: this month's slice, less whatever already went in this month.
+  // The slicing is `deadlinePace`, shared with the Goals page and the
+  // Allocation page so the three can no longer disagree about the same goal.
+  if (goal.deadline) return deadlineSlices(goal, now).thisMonth;
 
   return round2(goal.monthlyRequired ?? 0);
 }
+
+/** A goal with a deadline, sliced by the one rule every screen uses — see `deadlinePace`. */
+const deadlineSlices = (goal: InvestmentGoalWithStats, now: Date) => deadlinePace(goal.remaining ?? 0, firestoreToDate(goal.deadline), goal.currentPeriodSaved ?? 0, now);
 
 /** The full monthly target, ignoring what has already gone in this period. */
 export function goalMonthlyTarget(goal: InvestmentGoalWithStats, now: Date = new Date()): number {
   if (goal.goalType === "open_ended") return 0;
   if (goal.targetPeriod === "monthly") return round2(goal.monthlyRequired ?? goal.targetAmount ?? 0);
+  if (goal.targetPeriod !== "yearly" && goal.deadline) return deadlineSlices(goal, now).perMonth;
   return goalMonthlyNeed(goal, now);
 }
 
@@ -224,14 +223,18 @@ export function horizonEnd(horizon: PlannerHorizon, now: Date = new Date()): Dat
  * month, not once in total — otherwise a three-month view quietly drops two
  * thirds of the electricity. Occurrences step from the bill's own period anchor
  * so custom intervals (every 2 months, quarterly) stay aligned.
+ *
+ * Each occurrence is the due date of its own period, worked out from the bill's
+ * own day of the month — never a date stepped on from the one before. Stepping
+ * carried the first month's clamp along with it: seen from September, a bill
+ * due on the 31st started on the 30th and stayed there, landing on 30 October
+ * and 30 December; seen from February it sat on the 28th for the rest of the
+ * year. The period is stepped instead, and the day clamped afresh inside each
+ * month: 31 October, 30 November, 31 December, 28 or 29 February.
  */
 export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { date: Date; deadline: Date; amount?: number }[] {
-  const interval = getIntervalCount(bill);
-  const step = (date: Date, times: number) =>
-    bill.frequency === "weekly" ? addWeeks(date, interval * times) : bill.frequency === "yearly" ? addYears(date, interval * times) : addMonths(date, interval * times);
-
-  const anchor = getPeriodDueDate(bill, from);
-  if (!anchor) return [];
+  const firstPeriod = getPeriodStart(bill, from);
+  if (!getPeriodDueDate(bill, firstPeriod)) return [];
 
   const occurrences: { date: Date; deadline: Date; amount?: number }[] = [];
   const installments = getInstallmentCount(bill);
@@ -239,7 +242,9 @@ export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { d
   // A generous cap: twelve months of a weekly bill is ~52. The loop must not
   // depend on the data being sane.
   for (let i = 0; i < 120; i++) {
-    const date = startOfDay(step(anchor, i));
+    const due = getPeriodDueDate(bill, shiftPeriodStart(bill, firstPeriod, i));
+    if (!due) break;
+    const date = startOfDay(due);
     if (date > to) break;
 
     // The holiday house over the winter: not charged, so not in the plan. Asked
@@ -879,14 +884,36 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       // month index so a loan taken on the 31st does not walk back to the 28th.
       const startDay = firestoreToDate(debt.date).getDate();
       const dates: Date[] = [];
+      const placed: ReturnType<typeof settle> = [];
+      // Counted in instalments still owed, not in months from this one.
+      // `payoff.months` is how many payments the balance has left in it, and the
+      // walk starts in the current month — whose instalment may already be paid,
+      // or already matched to a repayment. Stopping after that many *months*
+      // then quietly lost the last instalment: twelve of €100 with eight paid,
+      // seen on the 29th after the 5th's had gone, planned €300 over three
+      // payments against a balance of €400. So the walk runs until the balance
+      // has been placed, or the window closes first.
+      //
       // Last month's too when checking: an instalment not yet paid is still due.
-      for (let month = resolve ? -1 : 0; month < payoff.months; month++) {
+      // The month ceiling is only a guard — the window is at most ten years, so
+      // `end` stops the walk long before it — in case a date ever fails to compare.
+      const owed = () => (enabled ? placed.length : dates.length);
+      for (let month = resolve ? -1 : 0; owed() < payoff.months && month <= MAX_HORIZON_MONTHS + 1; month++) {
         const date = clampDay(today.getFullYear(), today.getMonth() + month, startDay);
         if (date < lookFrom) continue;
         if (date > end) break;
         dates.push(date);
+        // Each one for what the loan's own schedule says that payment is: the
+        // instalment, and a smaller last one for whatever is left. Charging a
+        // full instalment for the last as well put up to one instalment more in
+        // the plan than the balance and the interest to come add up to.
+        const amount = -(payoff.schedule[placed.length]?.payment ?? instalment);
+        // One at a time rather than as a batch: whether this instalment is still
+        // to pay — or has already come off the balance — decides whether the
+        // walk needs another month. Switched off, nothing is checked against the
+        // records, and every date stands for one instalment of the count.
+        if (enabled) placed.push(...settle([{ key: occurrenceKey("loan", debt.id, date), source: "loan", refId: debt.id, label, amount, date }]));
       }
-      const placed = enabled ? settle(dates.map((date) => ({ key: occurrenceKey("loan", debt.id, date), source: "loan" as const, refId: debt.id, label, amount: -instalment, date }))) : [];
 
       rows.push({
         id: debt.id,

@@ -18,6 +18,7 @@ import {
   spendingWaterfall,
   WATERFALL_INCOME_ID,
   WATERFALL_LEFTOVER_ID,
+  WATERFALL_SAVINGS_ID,
   committedSplit,
   averageSavingsRate,
   categoryTrend,
@@ -210,6 +211,8 @@ export function AnalyticsPage() {
       // left, the month ran past what came in.
       if (id === WATERFALL_LEFTOVER_ID) return t(waterfall[waterfall.length - 1]?.balance < 0 ? "analytics.waterfall.shortBy" : "analytics.waterfall.leftover");
       if (id === OTHER_CATEGORY_ID) return t("analytics.waterfall.otherCategories");
+      // The Sankey's own words for the same money, so the two charts agree on it.
+      if (id === WATERFALL_SAVINGS_ID) return t("analytics.moneyFlow.savings");
       return nameFor(id);
     },
     [nameFor, t, waterfall],

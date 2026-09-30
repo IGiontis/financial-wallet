@@ -22,6 +22,23 @@ export const INTL_LOCALES: Record<LanguageCode, string> = {
   el: "el-GR",
 };
 
+/** The Intl locale for an i18next language code — "el" → "el-GR", anything unknown → English. */
+export function intlLocale(language: string | undefined): string {
+  const code = SUPPORTED_LANGUAGES.find((l) => language?.startsWith(l.code))?.code ?? "en";
+  return INTL_LOCALES[code];
+}
+
+// ─── <html lang> ──────────────────────────────────────────────────────────────
+// index.html ships with one fixed `lang`. Screen readers pick their voice from
+// it, and CSS `text-transform: uppercase` only drops Greek accents when the
+// document says it is Greek — so it follows the UI language from the first
+// render on. Registered before `init` so the initial language counts too.
+
+const syncDocumentLanguage = () => {
+  if (typeof document !== "undefined" && i18n.resolvedLanguage) document.documentElement.lang = i18n.resolvedLanguage;
+};
+i18n.on("languageChanged", syncDocumentLanguage);
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -43,5 +60,7 @@ i18n
       caches: ["localStorage"],
     },
   });
+
+syncDocumentLanguage();
 
 export default i18n;

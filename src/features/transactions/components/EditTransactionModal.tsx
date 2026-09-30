@@ -18,7 +18,8 @@ import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
 import { format } from "date-fns";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
-import { getUnitLabel } from "../../categories/fuelTypes";
+import { formatUnitPrice, fuelTypeLabelKey, getUnitLabel } from "../../categories/fuelTypes";
+import { intlLocale } from "../../../i18n";
 import CategoryPicker from "../../categories/CategoryPicker";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
@@ -89,8 +90,8 @@ const validationSchema = Yup.object({
 
 // ─── Review ───────────────────────────────────────────────────────────────────
 
-function ReviewStep({ values, categories, formatAmount }: { values: EditTransactionFormValues; categories: Category[]; formatAmount: (n: number) => string }) {
-  const { t } = useTranslation();
+function ReviewStep({ values, categories, formatAmount, currency }: { values: EditTransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string }) {
+  const { t, i18n } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
   const colors = isIncome ? INCOME_COLORS : EXPENSE_COLORS;
@@ -99,8 +100,8 @@ function ReviewStep({ values, categories, formatAmount }: { values: EditTransact
 
   const fuelCells: FuelCell[] = hasFuel
     ? [
-        { label: t("transactions.fuelType"),       value: values.fuelType ? values.fuelType.charAt(0).toUpperCase() + values.fuelType.slice(1) : "—" },
-        { label: t("transactions.pricePerUnitLabel", { unit }), value: values.pricePerUnit !== "" ? `€${values.pricePerUnit}` : "—" },
+        { label: t("transactions.fuelType"),       value: values.fuelType ? t(fuelTypeLabelKey(values.fuelType)) : "—" },
+        { label: t("transactions.pricePerUnitLabel", { unit }), value: values.pricePerUnit !== "" ? formatUnitPrice(Number(values.pricePerUnit), currency, intlLocale(i18n.resolvedLanguage)) : "—" },
         { label: t("transactions.quantity"),        value: values.quantity !== "" ? `${values.quantity} ${unit}` : "—" },
         ...(values.odometer !== "" ? [{ label: t("transactions.odometer"), value: `${values.odometer} km` }] : []),
         ...(values.place ? [{ label: t("transactions.place"), value: values.place }] : []),
@@ -138,7 +139,7 @@ interface EditTransactionModalProps {
 
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
   const [step, setStep] = useState<Step>("category");
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { payees } = usePayees();
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
@@ -191,7 +192,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         };
 
         await onSubmit(transaction.id, data);
-        toast.success(`Transaction "${values.description}" updated!`);
+        toast.success(t("transactions.updatedSuccess", { name: values.description }));
         resetForm();
         setStep("category");
         onClose();
@@ -255,7 +256,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
 
   const formatAmount = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+    new Intl.NumberFormat(intlLocale(i18n.resolvedLanguage), { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
   // The few payees this category is usually paid to, so most entries are one tap.
   const suggestedPayees = useMemo(() => frequentPayees(history, formik.values.categoryId || undefined), [history, formik.values.categoryId]);
@@ -325,7 +326,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
                     {t("common.amount")} ({displayCurrency}) *
-                    {formik.values.showFuelDetails && <span style={{ fontSize: 11, color: "var(--bs-primary)", marginLeft: 6 }}>auto-calculated</span>}
+                    {formik.values.showFuelDetails && <span style={{ fontSize: 11, color: "var(--bs-primary)", marginLeft: 6 }}>{t("transactions.autoCalculated")}</span>}
                   </Label>
                   <Input
                     type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
@@ -390,9 +391,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 }}
               >
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ Fuel details</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.fuelDetails")}</p>
                   <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                    {formik.values.showFuelDetails ? "Liters, price/L, odometer, place — amount auto-calculated" : "Tap to add liters, price/L, odometer..."}
+                    {formik.values.showFuelDetails ? t("transactions.fuelHint") : t("transactions.fuelHintOff")}
                   </p>
                 </div>
                 <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "var(--bs-primary)" : "var(--color-border-primary)", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
@@ -427,7 +428,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
 
         {/* ── 3. Read it back before it is written ── */}
-        {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} />}
+        {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} currency={displayCurrency} />}
         {step === "review" && (
           <ReviewCard
             accountId={formik.values.accountId}

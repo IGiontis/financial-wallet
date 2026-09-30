@@ -1,0 +1,65 @@
+import { useCallback, useMemo } from "react";
+import { useTransactions } from "../transactions/hooks/useTransactions";
+import { useInvestmentGoals } from "../budget/useInvestments";
+import { useBills } from "../bills/useBills";
+import { useDebts } from "../debts/useDebts";
+import { plannableDebts } from "../debts/debtsUtils";
+import { useSalary } from "../../shared/hooks/useSalary";
+import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { buildPlan, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
+import type { OccurrenceOverride, ResolvedOccurrence } from "../plannerPage/plannerActuals";
+import { toISODay } from "../../shared/utils/dates";
+import { cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "../plannerPage/plannerInputs";
+import { paydayOutlook } from "./overviewTabs";
+
+/**
+ * The Planner's answer to "will I make it to pay day?", for the Overview.
+ *
+ * Built from exactly what the Planner builds from — the same saved lines,
+ * one-offs, switched-off rows and words about single occurrences, read through
+ * the same checks — but always starting from the money there is now, the
+ * figure on the card above it. The Planner can be pointed at a figure of your
+ * own for "what if I had…"; the Overview is about what is.
+ *
+ * Two months of plan: enough to reach the next pay day even when this month's
+ * came early and the next is a month away. A day's balance does not depend on
+ * how far ahead the plan looks, so the shorter window changes nothing.
+ */
+export function usePaydayOutlook(now: Date, balance: number) {
+  const { data: transactions = [] } = useTransactions();
+  const { data: bills = [] } = useBills();
+  const { data: goals = [] } = useInvestmentGoals();
+  const { data: allDebts = [] } = useDebts();
+  const { salary } = useSalary(now);
+
+  const [storedLines] = useWorkspaceSetting<BudgetLine[]>(PLANNER_KEYS.lines, []);
+  const [storedOneOffs] = useWorkspaceSetting<OneOff[]>(PLANNER_KEYS.oneOffs, []);
+  const [storedSkipped] = useWorkspaceSetting<string[]>(PLANNER_KEYS.skip, []);
+  const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>(PLANNER_KEYS.occurrences, {});
+
+  const lines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  const oneOffs = useMemo(() => cleanOneOffs(storedOneOffs), [storedOneOffs]);
+  const skipIds = useMemo(() => new Set(cleanSkipped(storedSkipped)), [storedSkipped]);
+  const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
+  const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
+  const actuals = useMemo(() => ({ transactions, debts, overrides }), [transactions, debts, overrides]);
+
+  const plan = useMemo(
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: balance, skipIds, horizon: 2, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, salary, balance, skipIds, now, actuals],
+  );
+  const outlook = useMemo(() => paydayOutlook(plan, now), [plan, now]);
+
+  // What the Planner found overdue — a salary not in yet, an instalment not
+  // seen — for the list of things that want you.
+  const late = useMemo(() => plan.occurrences.filter((o) => o.status === "late"), [plan.occurrences]);
+
+  /** "It came" / "it's paid" — recorded exactly as the Planner's own sheet records it. */
+  const settle = useCallback(
+    (occurrence: ResolvedOccurrence) =>
+      setOverrides((previous) => withOverride(previous, occurrence.key, { state: "received", date: toISODay(new Date()), amount: Math.abs(occurrence.plannedAmount || occurrence.amount) }, now)),
+    [setOverrides, now],
+  );
+
+  return { outlook, late, settle };
+}

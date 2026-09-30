@@ -110,17 +110,17 @@ export function SettingsPage() {
       country: userData?.country ?? "",
     },
     validationSchema: Yup.object({
-      firstName: Yup.string().required("validation.firstNameRequired").max(50),
-      lastName: Yup.string().required("validation.lastNameRequired").max(50),
-      displayName: Yup.string().max(50),
+      firstName: Yup.string().required("validation.firstNameRequired").max(50, "validation.maxChars|50"),
+      lastName: Yup.string().required("validation.lastNameRequired").max(50, "validation.maxChars|50"),
+      displayName: Yup.string().max(50, "validation.maxChars|50"),
       username: Yup.string()
         .required("validation.usernameRequired")
-        .min(3)
-        .max(30)
+        .min(3, "validation.minChars|3")
+        .max(30, "validation.maxChars|30")
         .matches(/^[a-zA-Z0-9_]+$/, "validation.usernameFormat"),
-      age: Yup.number().typeError("validation.mustBeNumber").min(13).max(120).optional(),
-      city: Yup.string().max(100),
-      country: Yup.string().max(100),
+      age: Yup.number().typeError("validation.mustBeNumber").min(13, "validation.atLeast|13").max(120, "validation.atMost|120").optional(),
+      city: Yup.string().max(100, "validation.maxChars|100"),
+      country: Yup.string().max(100, "validation.maxChars|100"),
     }),
     onSubmit: async (values) => {
       try {
@@ -182,7 +182,7 @@ export function SettingsPage() {
   const emailForm = useFormik({
     initialValues: { newEmail: "", currentPassword: "" },
     validationSchema: Yup.object({
-      newEmail: Yup.string().email("Enter a valid email").required("validation.emailRequired"),
+      newEmail: Yup.string().email("validation.emailInvalid").required("validation.emailRequired"),
       currentPassword: Yup.string().required("validation.currentPasswordRequired"),
     }),
     onSubmit: async (values, { resetForm }) => {
@@ -206,7 +206,7 @@ export function SettingsPage() {
       newPassword: Yup.string().required("validation.newPasswordRequired").min(6, "validation.passwordMin"),
       confirmPassword: Yup.string()
         .required("validation.confirmPasswordRequired")
-        .oneOf([Yup.ref("newPassword")], "Passwords do not match"),
+        .oneOf([Yup.ref("newPassword")], "validation.passwordsNoMatch"),
     }),
     onSubmit: async (values, { resetForm }) => {
       try {
@@ -362,7 +362,7 @@ export function SettingsPage() {
               <Col xs={12} md={6}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Display name <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                    {t("settings.displayName")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input
                     type="text"
@@ -377,7 +377,7 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Age <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                    {t("settings.age")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input
                     type="number"
@@ -395,7 +395,7 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    City <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                    {t("settings.city")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
                 </FormGroup>
@@ -403,7 +403,7 @@ export function SettingsPage() {
               <Col xs={12} md={4}>
                 <FormGroup className="mb-0">
                   <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    Country <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                    {t("settings.country")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                   </Label>
                   <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
                     <option value="">{t("settings.selectCountry")}</option>

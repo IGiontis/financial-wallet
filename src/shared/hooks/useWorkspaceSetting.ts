@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { getUser, saveWorkspaceValue } from "../../firebase/firestore";
@@ -24,14 +24,24 @@ export const workspaceKeys = {
  *  fires sixty times a second; the account does not need to hear about each. */
 const SETTLE_MS = 700;
 
-const readCache = <T,>(key: string): T | undefined => {
+const readRaw = (key: string): string | null => {
   try {
-    const raw = localStorage.getItem(key);
-    return raw === null ? undefined : (JSON.parse(raw) as T);
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const parseRaw = <T,>(raw: string | null): T | undefined => {
+  if (raw === null) return undefined;
+  try {
+    return JSON.parse(raw) as T;
   } catch {
     return undefined;
   }
 };
+
+const readCache = <T,>(key: string): T | undefined => parseRaw<T>(readRaw(key));
 
 const writeCache = (key: string, value: unknown) => {
   try {
@@ -99,7 +109,19 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
   const { data: workspace, isSuccess } = useWorkspace();
 
   const stored = workspace && key in workspace ? (workspace[key] as T) : undefined;
-  const value = stored ?? readCache<T>(key) ?? initial;
+
+  // The stand-in has to be the same object from one render to the next. Parsed
+  // afresh each time — or taken from an `initial` written inline by the caller —
+  // it was a new object on every render, and anything that waited for the value
+  // to settle never saw it settle: the planner debounces the salary built from
+  // this, so a salary not yet saved to the account set state every 250ms, which
+  // rendered, which made a new salary, for as long as the page was open. The
+  // device's copy is parsed again only when its text changes, and the default is
+  // the one from the first render.
+  const raw = stored === undefined || stored === null ? readRaw(key) : null;
+  const cached = useMemo(() => parseRaw<T>(raw), [raw]);
+  const [firstInitial] = useState(initial);
+  const value = stored ?? cached ?? firstInitial;
 
   // Nothing up there yet, and something down here: this device's plan is the
   // plan, so it goes up once. Writes only — the value on screen is already the
@@ -120,8 +142,33 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
     queryClient.setQueryData<Record<string, unknown>>(workspaceKeys.all(userId), (old) => ({ ...(old ?? {}), [key]: cached }));
   }, [isSuccess, workspace, key, userId, queryClient]);
 
+  // The save waiting for the typing to stop. Leaving the screen — or the app —
+  // inside that pause used to cancel it: the edit stayed on this device only,
+  // and the next cold start, which prefers the account's copy, quietly put the
+  // old value back. Now a pending save is sent at once instead: when the screen
+  // goes, and when the page is hidden or closed.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  const pending = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const flush = () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      const send = pending.current;
+      pending.current = null;
+      send?.();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
 
   const update = useCallback(
     (next: T | ((previous: T) => T)) => {
@@ -136,8 +183,12 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
 
       if (!userId) return;
       if (timer.current) clearTimeout(timer.current);
+      pending.current = () => void saveWorkspaceValue(userId, key, resolved);
       timer.current = setTimeout(() => {
-        void saveWorkspaceValue(userId, key, resolved);
+        timer.current = null;
+        const send = pending.current;
+        pending.current = null;
+        send?.();
       }, SETTLE_MS);
     },
     [key, userId, initial, queryClient],

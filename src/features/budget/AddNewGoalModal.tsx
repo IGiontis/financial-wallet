@@ -19,7 +19,7 @@ import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
@@ -105,19 +105,20 @@ function ReviewScreen({
 }) {
   const { t } = useTranslation();
   const isTargeted = values.goalType === "targeted";
+  const kindLabel = t(isTargeted ? (isGoalsPage ? "goals.kindTargeted" : "goals.kindRecurring") : "goals.kindTracking");
 
   const rows = [
     {
       label: t("goals.typeLabel"),
-      value: isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)",
+      value: kindLabel,
     },
     ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
     // Show Period row only for InvestmentsPage recurring goals
-    ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? "Monthly" : "Yearly" }] : []),
+    ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? t("goals.periodMonthly") : t("goals.periodYearly") }] : []),
     // Show Deadline row only for GoalsPage (custom period)
     ...(isGoalsPage && isTargeted && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
-    { label: t("goals.statusLabel"), value: values.isActive ? "Active" : "Paused" },
+    { label: t("goals.statusLabel"), value: values.isActive ? t("goals.statusActive") : t("common.paused") },
   ];
 
   return (
@@ -136,9 +137,7 @@ function ReviewScreen({
             <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
-                {isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)"}
-              </p>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{kindLabel}</p>
             </div>
             <div style={{ width: 16, height: 16, borderRadius: "50%", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
           </div>
@@ -160,16 +159,16 @@ function ReviewScreen({
               fontSize: 13,
             }}
           >
-            This will be created in a <strong>paused</strong> state.
+            <Trans i18nKey="goals.createdPausedNote" components={{ strong: <strong /> }} />
           </div>
         )}
       </ModalBody>
       <ModalFooter>
         <Button type="button" color="secondary" outline onClick={onBack} disabled={isSubmitting}>
-          Back
+          {t("common.back")}
         </Button>
         <Button type="button" color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Confirm & create"}
+          {isSubmitting ? t("goals.creating") : t("goals.confirmAndCreate")}
         </Button>
       </ModalFooter>
     </>
@@ -186,7 +185,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   // GoalsPage passes "targeted" → lock to targeted + custom deadline
   // InvestmentsPage passes "recurring" → show type selector
   const isGoalsPage = defaultGoalType === "targeted";
-  const modalTitle = isGoalsPage ? "New goal" : "New investment";
+  const modalTitle = isGoalsPage ? t("goals.newGoal") : t("investments.newInvestment");
 
   // ── Initial values depend on which page opened the modal ─────────────────
   // useMemo keeps the reference stable so enableReinitialize doesn't loop
@@ -227,7 +226,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
         };
         await onSubmit(dto, values.isActive);
-        toast.success(`"${values.name}" created!`);
+        toast.success(t("goals.createdSuccess", { name: values.name }));
         resetForm({ values: computedInitialValues });
         setStep("form");
         onClose();
@@ -257,7 +256,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : `Review your ${isGoalsPage ? "goal" : "investment"}`}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : t(isGoalsPage ? "goals.reviewYourGoal" : "investments.reviewYourInvestment")}</ModalHeader>
 
       {step === "review" ? (
         <ReviewScreen
@@ -274,11 +273,11 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
             <form id="new-goal-form" onSubmit={formik.handleSubmit} noValidate>
               {/* ── Goal / Investment name ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{isGoalsPage ? "Goal name" : "Investment name"} *</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{isGoalsPage ? t("goals.goalNameLabel") : t("investments.nameLabel")} *</Label>
                 <Input
                   type="text"
                   name="name"
-                  placeholder={isGoalsPage ? '"New Car", "Japan Trip"' : '"Monthly ETF", "Emergency Fund"'}
+                  placeholder={isGoalsPage ? t("goals.namePlaceholder") : t("investments.namePlaceholder")}
                   value={formik.values.name}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -290,19 +289,19 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {/* ── Type selector — ONLY shown on InvestmentsPage ── */}
               {!isGoalsPage && (
                 <FormGroup>
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>Type *</Label>
+                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.typeLabel")} *</Label>
                   <Row className="g-2">
                     {(
                       [
                         {
                           value: "targeted" as InvestmentGoalType,
-                          title: "Recurring Goal",
-                          desc: "Has a monthly or yearly target amount",
+                          title: t("investments.typeRecurringTitle"),
+                          desc: t("investments.typeRecurringDesc"),
                         },
                         {
                           value: "open_ended" as InvestmentGoalType,
-                          title: "Tracking",
-                          desc: "No target — save as much as you want",
+                          title: t("investments.tracking"),
+                          desc: t("investments.typeTrackingDesc"),
                         },
                       ] as const
                     ).map(({ value, title, desc }) => {
@@ -362,7 +361,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                     <Col xs={6}>
                       {isGoalsPage ? (
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Deadline *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.deadline")} *</Label>
                           <DateField
                             name="deadline"
                             value={formik.values.deadline}
@@ -374,7 +373,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                         </FormGroup>
                       ) : (
                         <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>Period *</Label>
+                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.periodLabel")} *</Label>
                           <Input
                             type="select"
                             name="targetPeriod"
@@ -383,8 +382,8 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                             onBlur={formik.handleBlur}
                             invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
                           >
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
+                            <option value="monthly">{t("goals.periodMonthly")}</option>
+                            <option value="yearly">{t("goals.periodYearly")}</option>
                           </Input>
                           <FormFeedback>{validationMessage(formik.errors.targetPeriod, t)}</FormFeedback>
                         </FormGroup>
@@ -399,7 +398,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {/* ── Icon picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Icon <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  {t("goals.icon")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                 </Label>
                 <div className="d-flex flex-wrap gap-1 mb-2">
                   {PRESET_ICONS.map((icon) => (
@@ -425,7 +424,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   type="text"
                   name="icon"
                   maxLength={4}
-                  placeholder="Or type a custom icon / emoji"
+                  placeholder={t("goals.iconPlaceholder")}
                   value={formik.values.icon}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -438,7 +437,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {/* ── Color picker ── */}
               <FormGroup>
                 <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  Color <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>(optional)</span>
+                  {t("goals.color")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                 </Label>
                 <div className="d-flex flex-wrap gap-2 align-items-center">
                   {PRESET_COLORS.map((color) => (
@@ -459,19 +458,19 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   ))}
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <Input type="color" name="color" value={formik.values.color} onChange={formik.handleChange} style={{ width: 36, height: 28, padding: 2, cursor: "pointer" }} />
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Custom</span>
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t("goals.customColor")}</span>
                   </div>
                 </div>
               </FormGroup>
 
               {/* ── Notes ── */}
               <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>Notes</Label>
+                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
                 <Input
                   type="textarea"
                   name="notes"
                   rows={2}
-                  placeholder="Any extra details..."
+                  placeholder={t("goals.notesPlaceholder")}
                   value={formik.values.notes}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -485,7 +484,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               <FormGroup check>
                 <Input type="checkbox" name="isActive" id="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
                 <Label check htmlFor="isActive" style={{ fontSize: 13 }}>
-                  Active <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>(uncheck to create in a paused state)</span>
+                  {t("goals.statusActive")} <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>({t("goals.activeHint")})</span>
                 </Label>
               </FormGroup>
 
@@ -506,14 +505,14 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 500, margin: 0, fontSize: 14 }}>{formik.values.name}</p>
                     <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {isTargeted ? (isGoalsPage ? "Targeted goal" : "Recurring goal") : "Tracking (open-ended)"}
-                      {formik.values.targetAmount ? ` · ${formatCurrency(Number(formik.values.targetAmount))} target` : ""}
+                      {t(isTargeted ? (isGoalsPage ? "goals.kindTargeted" : "goals.kindRecurring") : "goals.kindTracking")}
+                      {formik.values.targetAmount ? ` · ${t("goals.amountTarget", { amount: formatCurrency(Number(formik.values.targetAmount)) })}` : ""}
                     </p>
                   </div>
                   <div style={{ width: 14, height: 14, borderRadius: "50%", background: formik.values.color ?? "#ccc", flexShrink: 0 }} />
                   {!formik.values.isActive && (
                     <Badge color="warning" style={{ fontSize: 11 }}>
-                      Paused
+                      {t("common.paused")}
                     </Badge>
                   )}
                 </div>
@@ -523,10 +522,10 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
 
           <ModalFooter>
             <Button type="button" color="secondary" outline onClick={handleClose}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="button" color="primary" disabled={!formik.dirty} onClick={handleReview}>
-              Review
+              {t("goals.review")}
             </Button>
           </ModalFooter>
         </>

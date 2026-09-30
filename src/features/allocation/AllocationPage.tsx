@@ -146,7 +146,7 @@ export function AllocationPage() {
 
   const seed = () => {
     const kept = lines.filter((l) => l.kind === "income");
-    setLines([...kept, ...seedFromHistory(transactions, categories, newId, now)]);
+    setLines([...kept, ...seedFromHistory(transactions, categories, newId, now, undefined, (category) => categoryLabel(category.name, t))]);
   };
 
   const nameFor = (id: string) => {

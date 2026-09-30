@@ -128,3 +128,43 @@ describe("balance with Firestore Timestamps", () => {
     expect(excludedByOpeningDate(rows, opening)).toBe(1);
   });
 });
+
+// ─── No red "-0,00 €" ────────────────────────────────────────────────────────
+// Amounts that cancel to the cent do not cancel in floating point: 0.3 in and
+// 0.1 + 0.2 out leaves -0.0000000000000000278, which the card printed in red
+// as an overdraft of nothing.
+
+describe("currentBalance to the cent", () => {
+  const income = (amount: number) => tx({ type: "income", amount });
+  const spend = (amount: number) => tx({ amount });
+  const euro = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
+
+  it("reads a balance that cancels exactly as a plain zero", () => {
+    const balance = currentBalance([income(0.3), spend(0.1), spend(0.2)]);
+
+    expect(Object.is(balance, 0)).toBe(true); // not -0, and not -2.8e-17
+    expect(balance < 0).toBe(false);
+    expect(euro.format(balance)).not.toContain("-");
+  });
+
+  it("is the opening figure plus what came in less what went out, counted in cents", () => {
+    const rows = [income(1234.56), spend(99.99), spend(0.01), tx({ isGoalTransaction: true, contributionType: "deposit", amount: 333.33 }), tx({ isGoalTransaction: true, contributionType: "withdrawal", amount: 33.3 }), spend(0.1), spend(0.2)];
+    // The same sum in whole cents, where addition is exact.
+    const cents = 500000 + 123456 - 9999 - 1 - 33333 + 3330 - 10 - 20;
+
+    expect(currentBalance(rows, opening)).toBe(cents / 100);
+  });
+
+  it("gives the same figure whatever order the records were entered in", () => {
+    const rows = [income(0.3), spend(0.1), spend(0.2), income(10.07), spend(3.35), spend(6.72)];
+    const orders = [rows, [...rows].reverse(), [rows[2], rows[4], rows[0], rows[5], rows[1], rows[3]]];
+
+    for (const order of orders) expect(Object.is(currentBalance(order), 0)).toBe(true);
+  });
+
+  it("still reports a real overdraft, to the cent", () => {
+    expect(currentBalance([income(10), spend(10.01)])).toBe(-0.01);
+    expect(currentBalance([spend(0.1), spend(0.2)])).toBe(-0.3);
+    expect(currentBalance([], { amount: -50, date: new Date("2026-09-01") })).toBe(-50);
+  });
+});

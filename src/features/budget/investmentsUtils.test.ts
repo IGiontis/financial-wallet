@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { computeGoalStats } from "./investmentsUtils";
+import { computeGoalStats, deadlinePace } from "./investmentsUtils";
+import { buildPlan, goalMonthlyNeed, goalMonthlyTarget } from "../plannerPage/plannerUtils";
+import { committedMonthly } from "../allocation/allocationUtils";
 import type { InvestmentGoal, InvestmentContribution } from "../../shared/types/IndexTypes";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -208,9 +210,10 @@ describe("computeGoalStats — a yearly goal remembers every past year", () => {
 describe("computeGoalStats — a targeted goal with a deadline", () => {
   const targeted = (over: Partial<InvestmentGoal> = {}) => makeGoal({ targetAmount: 1200, createdAt: new Date(2026, 4, 1), ...over });
 
-  it("spreads what is left over the months that are left", () => {
-    // Today 8 Sep 2026, deadline March 2027: six months ahead.
-    const stats = computeGoalStats(targeted({ deadline: new Date(2027, 2, 20) }), [deposit(300, new Date(2026, 5, 1))]);
+  it("spreads what is left over the months that are left, this one included", () => {
+    // Today 8 Sep 2026, deadline February 2027: September to February is six
+    // months to save in — the same six slices the Planner charges.
+    const stats = computeGoalStats(targeted({ deadline: new Date(2027, 1, 20) }), [deposit(300, new Date(2026, 5, 1))]);
 
     expect(stats.monthsLeft).toBe(6);
     expect(stats.remaining).toBe(900);
@@ -218,14 +221,17 @@ describe("computeGoalStats — a targeted goal with a deadline", () => {
     expect(stats.yearlyRequired).toBe(1800);
   });
 
-  it("asks for nothing per month once the deadline is here or gone", () => {
+  it("asks for everything left, now, once the deadline is here or gone", () => {
+    // Not for nothing: an overdue goal is not settled by being ignored, and the
+    // Planner and Allocation page already charge the whole remainder this month.
     const thisMonth = computeGoalStats(targeted({ deadline: new Date(2026, 8, 30) }), [deposit(300)]);
     const past = computeGoalStats(targeted({ deadline: new Date(2026, 1, 1) }), [deposit(300)]);
 
-    expect(thisMonth.monthsLeft).toBe(0);
-    expect(thisMonth.monthlyRequired).toBeUndefined();
+    expect(thisMonth.monthsLeft).toBe(1);
+    expect(thisMonth.monthlyRequired).toBe(900);
     expect(past.monthsLeft).toBe(0);
-    expect(past.monthlyRequired).toBeUndefined();
+    expect(past.monthlyRequired).toBe(900);
+    expect(past.status).toBe("behind");
   });
 
   it("judges the pace on what has been saved per month so far", () => {
@@ -380,12 +386,207 @@ describe("computeGoalStats — a recurring goal with no target set", () => {
 describe("computeGoalStats — a targeted goal keeping exactly the pace", () => {
   it("calls it on track when the average saved matches the rate needed, to the cent", () => {
     // Created 1 July, today 8 September: two months of saving. 300 saved of
-    // 1,200 leaves 900 over the six months to the deadline — 150 a month
-    // needed against 150 a month achieved.
-    const goal = makeGoal({ targetAmount: 1200, createdAt: new Date(2026, 6, 1), deadline: new Date(2027, 2, 15) });
+    // 1,200 leaves 900 over the six months September to February — 150 a
+    // month needed against 150 a month achieved.
+    const goal = makeGoal({ targetAmount: 1200, createdAt: new Date(2026, 6, 1), deadline: new Date(2027, 1, 15) });
     const stats = computeGoalStats(goal, [deposit(300, new Date(2026, 7, 10))]);
 
     expect(stats.monthlyRequired).toBe(150);
     expect(stats.status).toBe("on_track");
+  });
+});
+
+// ─── Money compared to the cent ─────────────────────────────────────────────
+// A float sum of cents does not land on the cents: 256.02 + 333.33 + 410.65 is
+// 999.9999999999999 in one order and 1000 in another. A status must not depend
+// on the order the deposits happened to be added in.
+
+const orders = <T,>(items: T[]): T[][] => (items.length <= 1 ? [items] : items.flatMap((item, i) => orders([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest])));
+
+describe("computeGoalStats — money compared to the cent", () => {
+  it("completes a €1,000 goal paid to the cent, in every order", () => {
+    const goal = makeGoal({ targetAmount: 1000, createdAt: new Date(2026, 4, 1), deadline: new Date(2027, 1, 1) });
+    const paid = [256.02, 333.33, 410.65];
+    // In whole cents the three add up to the target exactly.
+    expect(paid.reduce((sum, n) => sum + Math.round(n * 100), 0)).toBe(100000);
+
+    for (const order of orders(paid)) {
+      const stats = computeGoalStats(goal, order.map((amount, i) => deposit(amount, new Date(2026, 5 + i, 3))));
+      expect(stats.status).toBe("completed");
+      expect(stats.totalSaved).toBe(1000);
+      expect(stats.remaining).toBe(0);
+      expect(stats.percentageReached).toBe(100);
+    }
+  });
+
+  it("calls a monthly goal paid to the cent on track, not behind with €0.00 remaining", () => {
+    const goal = makeGoal({ goalType: "targeted", targetPeriod: "monthly", targetAmount: 100, createdAt: new Date(2026, 8, 1) });
+
+    for (const order of orders([1.02, 64.07, 34.91])) {
+      const stats = computeGoalStats(goal, order.map((amount, i) => deposit(amount, new Date(2026, 8, 1 + i))));
+      expect(stats.status).toBe("on_track");
+      expect(stats.remaining).toBe(0);
+      expect(stats.periodSurplus).toBe(0);
+      expect(stats.currentPeriodSaved).toBe(100);
+    }
+  });
+
+  it("does not count a past month paid to the cent as missed", () => {
+    const goal = makeGoal({ goalType: "targeted", targetPeriod: "monthly", targetAmount: 100, createdAt: new Date(2026, 6, 1) });
+    const july = [deposit(1.02, new Date(2026, 6, 2)), deposit(64.07, new Date(2026, 6, 9)), deposit(34.91, new Date(2026, 6, 20))];
+    const stats = computeGoalStats(goal, [...july, deposit(100, new Date(2026, 7, 5)), deposit(100, new Date(2026, 8, 5))]);
+
+    expect(stats.missedMonths).toBe(0);
+    expect(stats.arrears).toBe(0);
+    expect(stats.periodCredit).toBe(0);
+    expect(stats.status).toBe("on_track");
+  });
+
+  it("does the same for a yearly goal", () => {
+    const goal = makeGoal({ goalType: "targeted", targetPeriod: "yearly", targetAmount: 1000, createdAt: new Date(2026, 0, 1) });
+    for (const order of orders([256.02, 333.33, 410.65])) {
+      expect(computeGoalStats(goal, order.map((amount, i) => deposit(amount, new Date(2026, 2 + i, 1)))).status).toBe("on_track");
+    }
+  });
+
+  it("still tells a cent short from a cent over", () => {
+    const targeted = makeGoal({ targetAmount: 1000, createdAt: new Date(2026, 4, 1) });
+    const short = computeGoalStats(targeted, [deposit(256.01), deposit(333.33), deposit(410.65)]);
+    expect(short.status).not.toBe("completed");
+    expect(short.remaining).toBe(0.01);
+
+    const monthly = makeGoal({ goalType: "targeted", targetPeriod: "monthly", targetAmount: 100, createdAt: new Date(2026, 8, 1) });
+    const under = computeGoalStats(monthly, [deposit(1.02), deposit(64.07), deposit(34.9)]);
+    const over = computeGoalStats(monthly, [deposit(1.02), deposit(64.07), deposit(34.92)]);
+    expect(under).toMatchObject({ status: "behind", remaining: 0.01 });
+    expect(over).toMatchObject({ status: "ahead", periodSurplus: 0.01 });
+  });
+
+  it("keeps the exact pace on track when the average divides to a float hair", () => {
+    // 300.30 over three months is 100.10000000000001 as a float; the need is
+    // 600.60 over the six months September to February, 100.10 exactly.
+    const goal = makeGoal({ targetAmount: 900.9, createdAt: new Date(2026, 5, 8), deadline: new Date(2027, 1, 10) });
+    const stats = computeGoalStats(goal, [deposit(100.1, new Date(2026, 5, 9)), deposit(100.1, new Date(2026, 6, 9)), deposit(100.1, new Date(2026, 7, 9))]);
+
+    expect(stats.monthlyRequired).toBe(100.1);
+    expect(stats.status).toBe("on_track");
+  });
+});
+
+// ─── One monthly figure for a goal with a deadline ──────────────────────────
+// The Goals page divided what was left by the months *between* now and the
+// deadline; the Planner and Allocation by one more. €900 due in two months was
+// €450 a month on one screen and €300 on the other two.
+
+describe("deadlinePace — the rule every screen uses", () => {
+  const SEP_29 = new Date(2026, 8, 29);
+
+  it("counts this month and the deadline's month: €900 due in November is three slices of €300", () => {
+    expect(deadlinePace(900, new Date(2026, 10, 20), 0, SEP_29)).toEqual({ monthsLeft: 3, perMonth: 300, thisMonth: 300 });
+  });
+
+  it("adds up to what is left, to the cent, however it divides", () => {
+    for (const remaining of [900, 1000, 1234.57, 0.05, 99999.99]) {
+      for (let ahead = 1; ahead <= 13; ahead++) {
+        const { monthsLeft, perMonth, thisMonth } = deadlinePace(remaining, new Date(2026, 8 + ahead, 15), 0, SEP_29);
+        expect(monthsLeft).toBe(ahead + 1);
+        // In whole cents, where the addition is exact.
+        expect(Math.round(thisMonth * 100) + Math.round(perMonth * 100) * (monthsLeft - 1)).toBe(Math.round(remaining * 100));
+        // And the slices are level: this month differs from the rest by rounding only.
+        expect(Math.abs(thisMonth - perMonth)).toBeLessThanOrEqual(0.01 * monthsLeft);
+      }
+    }
+  });
+
+  it("holds the figure steady through the month as this month's slice goes in", () => {
+    // 1,200 by February, seen on 8 September: six slices of 200.
+    const feb = new Date(2027, 1, 20);
+    const at = new Date(2026, 8, 8);
+
+    expect(deadlinePace(1200, feb, 0, at)).toEqual({ monthsLeft: 6, perMonth: 200, thisMonth: 200 });
+    // September's 200 in: the figure stays 200, and this month asks for nothing
+    // more — it used to drop to 166.67 and ask for a second slice.
+    expect(deadlinePace(1000, feb, 200, at)).toEqual({ monthsLeft: 6, perMonth: 200, thisMonth: 0 });
+    // Part of it in: the rest of this month's slice is still wanted.
+    expect(deadlinePace(1150, feb, 50, at)).toEqual({ monthsLeft: 6, perMonth: 200, thisMonth: 150 });
+    // And on 1 October, the same 1,000 over the five months left: still 200.
+    expect(deadlinePace(1000, feb, 0, new Date(2026, 9, 1)).perMonth).toBe(200);
+  });
+
+  it("lets a month that has had more than its slice lower the ones after it", () => {
+    const pace = deadlinePace(700, new Date(2027, 1, 20), 500, new Date(2026, 8, 8));
+
+    expect(pace).toEqual({ monthsLeft: 6, perMonth: 140, thisMonth: 0 });
+    expect(pace.thisMonth + pace.perMonth * 5).toBe(700);
+  });
+
+  it("does not demand money taken out this month back in one go", () => {
+    expect(deadlinePace(1200, new Date(2027, 1, 20), -300, new Date(2026, 8, 8))).toEqual(deadlinePace(1200, new Date(2027, 1, 20), 0, new Date(2026, 8, 8)));
+  });
+
+  it("asks for everything left, now, when the deadline is this month or has gone", () => {
+    expect(deadlinePace(900, new Date(2026, 8, 30), 0, SEP_29)).toEqual({ monthsLeft: 1, perMonth: 900, thisMonth: 900 });
+    expect(deadlinePace(900, new Date(2026, 8, 30), 300, SEP_29)).toEqual({ monthsLeft: 1, perMonth: 900, thisMonth: 900 });
+    expect(deadlinePace(900, new Date(2026, 1, 1), 0, SEP_29)).toEqual({ monthsLeft: 0, perMonth: 900, thisMonth: 900 });
+  });
+
+  it("counts by month, not by day, across a year end and a leap day", () => {
+    const dec = new Date(2026, 11, 31);
+    expect(deadlinePace(900, new Date(2027, 1, 1), 0, dec).monthsLeft).toBe(3); // Dec, Jan, Feb
+    expect(deadlinePace(900, new Date(2027, 1, 28), 0, dec)).toEqual(deadlinePace(900, new Date(2027, 1, 1), 0, dec));
+    expect(deadlinePace(1200, new Date(2028, 1, 29), 0, new Date(2027, 8, 1)).monthsLeft).toBe(6);
+  });
+
+  it("asks for nothing once nothing is left", () => {
+    expect(deadlinePace(0, new Date(2027, 1, 20), 0, SEP_29)).toEqual({ monthsLeft: 6, perMonth: 0, thisMonth: 0 });
+  });
+});
+
+describe("a goal with a deadline reads the same on the Goals page, the Planner and Allocation", () => {
+  // Today 8 September 2026. 1,200 wanted by 20 November, 300 put in in June:
+  // 900 left over September, October and November.
+  const NOW = new Date(2026, 8, 8);
+  const goal = (over: Partial<InvestmentGoal> = {}) => makeGoal({ targetAmount: 1200, createdAt: new Date(2026, 4, 1), deadline: new Date(2026, 10, 20), ...over });
+  const june = deposit(300, new Date(2026, 5, 1));
+  const plan = (stats: ReturnType<typeof computeGoalStats>, horizon = 12) => buildPlan({ bills: [], goals: [stats], horizon, now: NOW });
+
+  it("is €300 a month everywhere — the Goals page used to say €450", () => {
+    const stats = computeGoalStats(goal(), [june]);
+    const row = plan(stats).rows.find((r) => r.source === "goal")!;
+
+    expect(stats.monthsLeft).toBe(3);
+    expect(stats.monthlyRequired).toBe(300);
+    expect(goalMonthlyTarget(stats, NOW)).toBe(300);
+    expect(goalMonthlyNeed(stats, NOW)).toBe(300);
+    expect(committedMonthly([], [stats], [], NOW).goals).toBe(300);
+    expect(row).toMatchObject({ perMonth: -300, total: -900, occurrences: 3 });
+  });
+
+  it("charges the Planner exactly what is left, whatever the horizon", () => {
+    const stats = computeGoalStats(goal(), [june]);
+    for (const horizon of [3, 6, 12, 36]) expect(plan(stats, horizon).goalsTotal).toBe(stats.remaining);
+    // Month by month: today, 1 October, 1 November, and nothing after.
+    const events = plan(stats).events.filter((e) => e.kind === "goal");
+    expect(events.map((e) => [e.date.getMonth(), e.amount])).toEqual([
+      [8, -300],
+      [9, -300],
+      [10, -300],
+    ]);
+  });
+
+  it("stops asking this month once this month's slice is in, on every screen", () => {
+    const stats = computeGoalStats(goal(), [june, deposit(300, new Date(2026, 8, 5))]);
+
+    expect(stats.monthlyRequired).toBe(300);
+    expect(goalMonthlyNeed(stats, NOW)).toBe(0);
+    expect(committedMonthly([], [stats], [], NOW).goals).toBe(300);
+    expect(plan(stats).goalsTotal).toBe(600);
+  });
+
+  it("claims nothing for a paused goal, on the Planner or on Allocation", () => {
+    const stats = computeGoalStats(goal({ isActive: false }), [june]);
+
+    expect(committedMonthly([], [stats], [], NOW).goals).toBe(0);
+    expect(plan(stats).rows.some((r) => r.source === "goal")).toBe(false);
   });
 });

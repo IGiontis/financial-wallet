@@ -5,6 +5,7 @@ import {
   daysSince,
   expectedByAccount,
   goalHeldAt,
+  goalHeldDelta,
   parseAmount,
   projectedTotal,
   readCheckIns,
@@ -15,7 +16,7 @@ import {
   type BalanceCheckIn,
   type MoneyAccount,
 } from "./accountsUtils";
-import { currentBalance, isAfterReading } from "../../shared/utils/balance";
+import { currentBalance, isAfterReading, readingTimeKey, recordReadingKey } from "../../shared/utils/balance";
 import { netWorthSeries } from "../analytics/netWorthUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -286,5 +287,125 @@ describe("parseAmount", () => {
     expect(parseAmount("")).toBeUndefined();
     expect(parseAmount("abc")).toBeUndefined();
     expect(parseAmount("12,3,4")).toBeUndefined();
+  });
+});
+
+// ─── The sorted timeline against walking every record ───────────────────────
+//
+// The readings are worked out from the records sorted once, with running
+// totals, rather than by checking every record against every reading. The two
+// must agree to the cent on everything — so the long way is written out here,
+// straight from `isAfterReading`, and both are run on the same messy data:
+// records on a reading's own day typed before, after and at the very same
+// millisecond, backfilled ones, unstamped ones, unreadable dates, Firestore-
+// style timestamps, goals and investments both ways.
+
+describe("readings from the sorted timeline", () => {
+  // A small seeded generator, so a failure can be run again exactly.
+  const random = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const round2 = (x: number) => Math.round(x * 100) / 100;
+  const HOUR = 60 * 60 * 1000;
+
+  function dataset(seed: number) {
+    const r = random(seed);
+    const pick = <T,>(items: T[]) => items[Math.floor(r() * items.length)];
+    const start = new Date(2026, 7, 25).getTime();
+
+    const readings: BalanceCheckIn[] = Array.from({ length: 12 }, (_, i) => {
+      const at = new Date(start + Math.floor(r() * 60 * 24) * HOUR + Math.floor(r() * HOUR));
+      const amounts: Record<string, number> = { eb: round2(r() * 3000) };
+      if (r() > 0.3) amounts.rev = round2(r() * 400);
+      if (r() > 0.5) amounts.cash = round2(r() * 150);
+      return { id: `r${i}`, at: at.toISOString(), amounts };
+    });
+    const readingTimes = readings.map((c) => new Date(c.at));
+
+    const transactions: Transaction[] = Array.from({ length: 400 }, (_, i) => {
+      // A third of the records land on some reading's own day, to crowd the ties.
+      const onReadingDay = r() < 0.35;
+      const base = onReadingDay ? pick(readingTimes) : new Date(start + Math.floor(r() * 62) * 24 * HOUR);
+      const date = new Date(base.getFullYear(), base.getMonth(), base.getDate(), Math.floor(r() * 24));
+
+      let createdAt: unknown;
+      const c = r();
+      if (onReadingDay && c < 0.15) createdAt = new Date(base.getTime()); // the very same millisecond
+      else if (c < 0.55) createdAt = new Date(date.getFullYear(), date.getMonth(), date.getDate(), Math.floor(r() * 24), Math.floor(r() * 60));
+      else if (c < 0.7) createdAt = new Date(date.getTime() + (1 + Math.floor(r() * 6)) * 24 * HOUR); // backfilled later
+      else if (c < 0.8) createdAt = undefined; // not stamped by the server yet
+      else if (c < 0.85) createdAt = new Date(Number.NaN);
+      else createdAt = { seconds: Math.floor((date.getTime() + Math.floor(r() * 20) * HOUR) / 1000), nanoseconds: 0 };
+
+      const kind = r();
+      const amount = round2(0.01 + r() * 499.99);
+      const extra: Partial<Transaction> =
+        kind < 0.5
+          ? { type: "expense" }
+          : kind < 0.7
+            ? { type: "income" }
+            : kind < 0.85
+              ? { type: "expense", isGoalTransaction: true, contributionType: r() < 0.7 ? "deposit" : "withdrawal" }
+              : { type: "expense", isInvestmentTransaction: true, contributionType: r() < 0.7 ? "deposit" : "withdrawal" };
+
+      const rawDate: unknown = r() < 0.02 ? new Date(Number.NaN) : r() < 0.3 ? { seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 } : date;
+      return { id: `x${i}`, userId: "u", amount, categoryId: "c", description: "", date: rawDate, createdAt, updatedAt: createdAt, ...extra } as Transaction;
+    });
+
+    return { readings, transactions };
+  }
+
+  // The long way, straight from the rule.
+  const walkedGoalHeldAt = (txs: Transaction[], at: Date) => round2(txs.reduce((sum, t) => (isAfterReading(t, at) ? sum : sum + goalHeldDelta(t)), 0));
+  const walkedMoved = (txs: Transaction[], from: Date, to: Date) => txs.filter((t) => isAfterReading(t, from) && !isAfterReading(t, to)).reduce((sum, t) => sum + realDelta(t), 0);
+
+  it.each([1, 2, 3, 7, 42, 2026])("agrees with walking every record, to the cent (seed %i)", (seed) => {
+    const { readings: checkIns, transactions } = dataset(seed);
+    const found = readCheckIns(checkIns, accounts, transactions);
+    const anchors = balanceAnchors(found, transactions);
+
+    expect(found).toHaveLength(12);
+    found.forEach((reading, i) => {
+      // What sat in goals, and so the anchor the balance counts from.
+      expect(goalHeldAt(transactions, reading.at)).toBe(walkedGoalHeldAt(transactions, reading.at));
+      expect(anchors[i].amount).toBe(round2(reading.total - walkedGoalHeldAt(transactions, reading.at)));
+      if (i === 0) return;
+
+      const previous = found[i - 1].checkIn;
+      const current = reading.checkIn;
+      const present = Object.keys(current.amounts);
+      const carried = present.filter((id) => id in previous.amounts).reduce((sum, id) => sum + previous.amounts[id], 0);
+      const joined = present.filter((id) => !(id in previous.amounts)).reduce((sum, id) => sum + current.amounts[id], 0);
+      const expected = round2(carried + joined + walkedMoved(transactions, found[i - 1].at, reading.at));
+      expect(reading.expected).toBe(expected);
+      expect(reading.unlogged).toBe(round2(reading.total - expected));
+    });
+  });
+
+  it("orders records and readings exactly as isAfterReading decides", () => {
+    const { readings: checkIns, transactions } = dataset(99);
+    let ties = 0;
+    for (const c of checkIns) {
+      const at = new Date(c.at);
+      const [readingDay, readingTime] = readingTimeKey(at);
+      for (const t of transactions) {
+        const [day, time] = recordReadingKey(t);
+        if (day === readingDay && time === readingTime) ties += 1;
+        expect(day > readingDay || (day === readingDay && time > readingTime)).toBe(isAfterReading(t, at));
+      }
+    }
+    // The data must actually contain same-moment records, or the tie rule went untested.
+    expect(ties).toBeGreaterThan(0);
+  });
+
+  it("gives the same answers when asked again with the same list", () => {
+    const { readings: checkIns, transactions } = dataset(5);
+    const first = readCheckIns(checkIns, accounts, transactions).map((r) => r.unlogged);
+    const again = readCheckIns(checkIns, accounts, transactions).map((r) => r.unlogged);
+    expect(again).toEqual(first);
   });
 });

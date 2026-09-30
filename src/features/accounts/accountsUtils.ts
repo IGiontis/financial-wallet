@@ -1,5 +1,5 @@
 import type { Transaction } from "../../shared/types/IndexTypes";
-import { balanceDelta, isAfterReading, type OpeningBalance } from "../../shared/utils/balance";
+import { balanceDelta, isAfterReading, readingTimeKey, recordReadingKey, type OpeningBalance } from "../../shared/utils/balance";
 import { firestoreToDate } from "../../shared/utils/dates";
 
 // Banks and cash: the money that is really there, read off the banks now and
@@ -93,14 +93,74 @@ export function goalHeldTotal(transactions: Transaction[]): number {
   return round2(transactions.reduce((sum, tx) => sum + goalHeldDelta(tx), 0));
 }
 
-/** Money in savings goals as of a reading: what the reading's total holds that is not yours to spend. */
-export function goalHeldAt(transactions: Transaction[], at: Date): number {
-  return round2(transactions.reduce((sum, tx) => (isAfterReading(tx, at) ? sum : sum + goalHeldDelta(tx)), 0));
+// ─── The records in the order the readings see them ─────────────────────────
+//
+// Every reading asks the same two questions of the records — what moved since
+// the reading before, and what sat in goals at that moment — and asking them by
+// walking every record for every reading cost the balance card a quarter of a
+// second at a year of weekly readings, on a desktop, three times over on the
+// Overview. Instead the records are put once into `isAfterReading`'s own order
+// with running totals beside them, so each reading is a search for its place
+// and a subtraction. Kept per list of records: the screens that ask share the
+// same list from the query cache, and so share one timeline.
+
+interface Timeline {
+  day: number[];
+  time: number[];
+  /** Running totals, one longer than the records: `real[i]` sums the first i. */
+  real: number[];
+  goal: number[];
 }
 
-/** The records written between two readings: after the first, not after the second. */
-function between(transactions: Transaction[], from: Date | undefined, to: Date): Transaction[] {
-  return transactions.filter((tx) => (!from || isAfterReading(tx, from)) && !isAfterReading(tx, to));
+const timelines = new WeakMap<Transaction[], Timeline>();
+
+const compareKeys = (a: number, b: number) => (a < b ? -1 : a > b ? 1 : 0);
+
+function timelineOf(transactions: Transaction[]): Timeline {
+  const known = timelines.get(transactions);
+  if (known) return known;
+
+  const rows = transactions.map((tx) => {
+    const [day, time] = recordReadingKey(tx);
+    return { day, time, real: realDelta(tx), goal: goalHeldDelta(tx) };
+  });
+  rows.sort((a, b) => compareKeys(a.day, b.day) || compareKeys(a.time, b.time));
+
+  const timeline: Timeline = { day: [], time: [], real: [0], goal: [0] };
+  for (const row of rows) {
+    timeline.day.push(row.day);
+    timeline.time.push(row.time);
+    timeline.real.push(timeline.real[timeline.real.length - 1] + row.real);
+    timeline.goal.push(timeline.goal[timeline.goal.length - 1] + row.goal);
+  }
+  timelines.set(transactions, timeline);
+  return timeline;
+}
+
+/** How many records a reading taken at `at` already includes: they come first in the timeline. */
+function includedBy(timeline: Timeline, at: Date): number {
+  const [day, time] = readingTimeKey(at);
+  let low = 0;
+  let high = timeline.day.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    const after = timeline.day[mid] > day || (timeline.day[mid] === day && timeline.time[mid] > time);
+    if (after) high = mid;
+    else low = mid + 1;
+  }
+  return low;
+}
+
+/** Money in savings goals as of a reading: what the reading's total holds that is not yours to spend. */
+export function goalHeldAt(transactions: Transaction[], at: Date): number {
+  const timeline = timelineOf(transactions);
+  return round2(timeline.goal[includedBy(timeline, at)]);
+}
+
+/** What the records written between two readings did to the banks: after the first, not after the second. */
+function movedBetween(transactions: Transaction[], from: Date, to: Date): number {
+  const timeline = timelineOf(transactions);
+  return timeline.real[includedBy(timeline, to)] - timeline.real[includedBy(timeline, from)];
 }
 
 export interface CheckInReading {
@@ -159,7 +219,7 @@ export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[
     // Only accounts in both readings carry an expectation from the earlier one.
     const carried = present.filter((id) => id in previous.amounts).reduce((sum, id) => sum + (previous.amounts[id] ?? 0), 0);
     const joined = added.reduce((sum, id) => sum + (checkIn.amounts[id] ?? 0), 0);
-    const moved = between(transactions, previousAt, at).reduce((sum, tx) => sum + realDelta(tx), 0);
+    const moved = movedBetween(transactions, previousAt, at);
     const expected = round2(carried + joined + moved);
 
     return { checkIn, at, total, added, expected, unlogged: round2(total - expected) };

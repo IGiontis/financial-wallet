@@ -65,34 +65,38 @@ describe("savingPace", () => {
 describe("projectedFinish", () => {
   const targeted = (over: Partial<InvestmentGoalWithStats> = {}) => goal({ targetAmount: 4500, totalSaved: 1850, remaining: 2650, ...over });
 
-  it("lands where the current pace takes it", () => {
-    // 264 a month against 2,650 left is eleven more months: August 2027.
+  it("lands where the current pace takes it, counting this month as one to save in", () => {
+    // 264.29 a month against 2,650 left. September is a month to save in, the
+    // same as it is for the monthly figure: eleven months, September to July.
     const projection = projectedFinish(targeted(), NOW)!;
+    const pace = savingPace(targeted(), NOW)!;
 
-    expect(projection.date).toEqual(new Date(2027, 7, 1));
-    expect(Math.ceil(2650 / savingPace(targeted(), NOW)!)).toBe(11);
+    expect(projection.date).toEqual(new Date(2027, 6, 1));
+    // Another way round: ten months of the pace fall short, eleven do not.
+    expect(pace * 10).toBeLessThan(2650);
+    expect(pace * 11).toBeGreaterThanOrEqual(2650);
   });
 
   it("says how far past the deadline that is", () => {
     const projection = projectedFinish(targeted({ deadline: new Date(2027, 4, 20) }), NOW)!;
 
-    expect(projection.monthsLate).toBe(3); // May to August
+    expect(projection.monthsLate).toBe(2); // May to July
     expect(projection.monthsEarly).toBeUndefined();
   });
 
   it("says how much room there is when the pace is good enough", () => {
     const projection = projectedFinish(targeted({ deadline: new Date(2028, 0, 15) }), NOW)!;
 
-    expect(projection.monthsEarly).toBe(5);
+    expect(projection.monthsEarly).toBe(6); // July 2027 to January 2028
     expect(projection.monthsLate).toBeUndefined();
   });
 
   it("reports neither when it lands in the deadline's own month", () => {
-    const projection = projectedFinish(targeted({ deadline: new Date(2027, 7, 31) }), NOW)!;
+    const projection = projectedFinish(targeted({ deadline: new Date(2027, 6, 31) }), NOW)!;
 
     expect(projection.monthsLate).toBeUndefined();
     expect(projection.monthsEarly).toBeUndefined();
-    expect(projection.date).toEqual(new Date(2027, 7, 1));
+    expect(projection.date).toEqual(new Date(2027, 6, 1));
   });
 
   it("has nothing to project without a pace, a target, or anything left to save", () => {

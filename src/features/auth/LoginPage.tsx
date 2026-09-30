@@ -5,7 +5,7 @@ import * as Yup from "yup";
 import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { loginWithEmail, loginWithGoogle } from "../../firebase/auth";
-import { createUser, getUser } from "../../firebase/firestore";
+import { ensureGoogleProfile } from "./googleProfile";
 import styles from "./css/Auth.module.css";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
@@ -43,7 +43,7 @@ const getErrorKey = (code: string): string => {
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -68,19 +68,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
     try {
       const firebaseUser = await loginWithGoogle();
-
-      // Check if Firestore document exists — if not, create it
-      const existing = await getUser(firebaseUser.uid);
-      if (!existing) {
-        const displayName = firebaseUser.displayName ?? "";
-        const [firstName = "", lastName = ""] = displayName.split(" ");
-        await createUser(firebaseUser.uid, {
-          email: firebaseUser.email ?? "",
-          username: firebaseUser.uid.slice(0, 12),
-          firstName,
-          lastName,
-        });
-      }
+      await ensureGoogleProfile(firebaseUser, i18n.resolvedLanguage ?? "en");
 
       navigate(from, { replace: true });
     } catch (err) {
@@ -120,7 +108,7 @@ export default function LoginPage() {
                   className={`${styles.googleBtn} w-100`}
                   onClick={handleGoogleLogin}
                   disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
-                  title={isInAppBrowser ? "Open in Chrome or Safari to use Google login" : undefined}
+                  title={isInAppBrowser ? t("auth.openInBrowserForGoogle") : undefined}
                 >
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width={18} height={18} />
                   {googleLoading ? t("auth.signingIn") : t("auth.continueWithGoogle")}

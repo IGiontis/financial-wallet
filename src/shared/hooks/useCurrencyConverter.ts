@@ -20,10 +20,26 @@ export function useCurrencyConverter() {
   const { i18n } = useTranslation();
   const uid = currentUser?.uid ?? "";
 
-  // Exchange rates — cached 1 hour
+  // Currency + locale change only from the Settings screen, which updates this
+  // cache itself — so there's no reason to keep re-reading the user document.
+  const { data: userData, isLoading: userLoading } = useQuery({
+    queryKey: exchangeRateKeys.user(uid),
+    queryFn: () => getUser(uid),
+    enabled: !!uid,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const baseCurrency = (userData?.baseCurrency ?? "EUR") as Currency;
+  const displayCurrency = (userData?.currency ?? "EUR") as Currency;
+
+  // Exchange rates — cached 1 hour, and only asked for when there is something
+  // to convert. With the same currency on both sides every conversion is the
+  // amount itself, and the request would spend the shared API key's monthly
+  // allowance on every cold start for nothing.
   const { data: fetchedRates, isLoading: ratesLoading } = useQuery({
     queryKey: exchangeRateKeys.rates(),
     queryFn: fetchExchangeRates,
+    enabled: !!userData && baseCurrency !== displayCurrency,
     staleTime: 1000 * 60 * 60,
     retry: 2,
   });
@@ -37,17 +53,6 @@ export function useCurrencyConverter() {
   // that as a converted figure.
   const rateData = fetchedRates ?? storedRates;
 
-  // Currency + locale change only from the Settings screen, which updates this
-  // cache itself — so there's no reason to keep re-reading the user document.
-  const { data: userData, isLoading: userLoading } = useQuery({
-    queryKey: exchangeRateKeys.user(uid),
-    queryFn: () => getUser(uid),
-    enabled: !!uid,
-    staleTime: 1000 * 60 * 30,
-  });
-
-  const baseCurrency = (userData?.baseCurrency ?? "EUR") as Currency;
-  const displayCurrency = (userData?.currency ?? "EUR") as Currency;
   const rates = useMemo(() => rateData?.rates ?? {}, [rateData]);
   const isLoading = ratesLoading || userLoading;
 
