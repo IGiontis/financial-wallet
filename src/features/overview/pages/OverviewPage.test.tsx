@@ -8,6 +8,8 @@ import { computeBillStatus } from "../../bills/billsUtils";
 import { computeDebtStatus } from "../../debts/debtsUtils";
 import type { Bill, Debt, Transaction } from "../../../shared/types/IndexTypes";
 import { readCheckIns, type CheckInReading } from "../../accounts/accountsUtils";
+import { occurrenceKey } from "../../plannerPage/plannerActuals";
+import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
 
 // The overview's four tabs, on the real page.
 //
@@ -30,10 +32,10 @@ vi.mock("../../transactions/hooks/useTransactions", () => ({
 }));
 vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [], isLoading: false }) }));
 vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }), useMarkBillPaid: () => ({ mutate: vi.fn() }) }));
-// The add form is its own world, tested on its own; here only that the "+" opens it.
-vi.mock("../../transactions/components/AddTransactionModal", () => ({ default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div role="dialog">add form</div> : null) }));
 // The planner's saved figures: none — the salary alone, from the mock below.
-vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({ useWorkspaceSetting: (_key: string, initial: unknown) => [initial, vi.fn()] }));
+// What the page writes back is kept, so an answer can be read off it.
+const saved = vi.hoisted(() => new Map<string, unknown>());
+vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({ useWorkspaceSetting: (key: string, initial: unknown) => [initial, (value: unknown) => saved.set(key, value)] }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: data.debts }) }));
 vi.mock("../../../shared/hooks/useSalary", () => ({ useSalary: () => ({ salary: { amount: 1700, dayOfMonth: 28, occurrences: 3 } }) }));
 vi.mock("../../../shared/hooks/useOpeningBalance", () => ({ useOpeningBalance: () => ({ opening: undefined, anchors: [], source: undefined, isLoading: false }) }));
@@ -66,6 +68,7 @@ afterAll(() => vi.useRealTimers());
 
 beforeEach(() => {
   localStorage.removeItem("overview-tab");
+  saved.clear();
   // August: 3000 in, 500 out. September so far: 150 in, 309,45 out. Balance 2340,55.
   data.transactions = [
     tx("salary-aug", "income", 3000, new Date(2026, 7, 28)),
@@ -140,12 +143,6 @@ describe("the overview", () => {
     // Late first: the water is the first row, and its button opens its dialog.
     await userEvent.click(within(screen.getByRole("tabpanel")).getAllByRole("button", { name: "Paid" })[0]);
     expect(screen.getByRole("dialog")).toHaveTextContent("Water");
-  });
-
-  it("opens the add form from the \"+\", without leaving the page", async () => {
-    renderPage();
-    await userEvent.click(screen.getByRole("button", { name: "New transaction" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("add form");
   });
 
   it("lists what was written down today", () => {
@@ -227,5 +224,35 @@ describe("the overview", () => {
     const line = within(screen.getByRole("tabpanel")).getByRole("link", { name: /not written down/ });
     expect(line).toHaveTextContent("€40.55");
     expect(line).toHaveAttribute("href", "/accounts");
+  });
+
+  it("asks about pay the last bank reading may already hold, and records the answer as the Planner does", async () => {
+    // Pay is due on the 28th (the salary mocked above) and is not written down.
+    // The banks were read on the 20th — on or after the 18th, the earliest it
+    // could have come — so it may already be in the money the plan starts from.
+    const accounts = [{ id: "eb", name: "Eurobank", kind: "bank" as const, main: true }];
+    data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 20, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
+    data.accounts = accounts;
+    const day = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(2026, 8, 28));
+    const key = occurrenceKey("salary", SALARY_ROW_ID, new Date(2026, 8, 28));
+    const occurrences = () => (saved.get("planner-occurrences") as (previous: unknown) => unknown)({});
+
+    renderPage();
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText(`Your salary of ${day} wasn’t found — has it come already?`)).toBeInTheDocument();
+
+    await userEvent.click(within(panel).getByRole("button", { name: `Salary · ${day}: It came` }));
+    expect(occurrences()).toEqual({ [key]: { state: "received", date: "2026-09-26", amount: 1700 } });
+
+    await userEvent.click(within(panel).getByRole("button", { name: `Salary · ${day}: Not yet` }));
+    expect(occurrences()).toEqual({ [key]: { state: "waiting" } });
+  });
+
+  it("does not ask when the banks were read before the pay could have come", () => {
+    const accounts = [{ id: "eb", name: "Eurobank", kind: "bank" as const, main: true }];
+    data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 17, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
+    data.accounts = accounts;
+    renderPage();
+    expect(screen.queryByText(/wasn’t found — has it come already/)).toBeNull();
   });
 });

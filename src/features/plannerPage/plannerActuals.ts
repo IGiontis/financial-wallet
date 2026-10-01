@@ -71,7 +71,11 @@ export interface OccurrenceOverride {
   amount?: number;
 }
 
-export type OccurrenceStatus = "due" | "late" | "received" | "skipped" | "assumed";
+/**
+ * `unconfirmed`: money in with no record of it, at a time a bank reading may
+ * already hold it — see `mayBeInReading`. Left out of the plan and asked about.
+ */
+export type OccurrenceStatus = "due" | "late" | "received" | "skipped" | "assumed" | "unconfirmed";
 
 export interface ResolvedOccurrence extends PlannedOccurrence {
   status: OccurrenceStatus;
@@ -88,6 +92,12 @@ export interface Actuals {
   transactions: Transaction[];
   debts: DebtWithStatus[];
   overrides: Record<string, OccurrenceOverride>;
+  /**
+   * When the banks were last read (`useMoneyAccounts().latest?.at`). The plan
+   * starts from that reading, so anything that had landed by then is already
+   * in the money it starts from — recorded or not.
+   */
+  lastReadingAt?: Date;
 }
 
 export const occurrenceKey = (source: OccurrenceSource, refId: string, date: Date) => `${source}:${refId}:${toISODay(date)}`;
@@ -154,6 +164,28 @@ export function createResolver(actuals: Actuals, now: Date = new Date()) {
     return best;
   };
 
+  /**
+   * Whether the last bank reading may already hold this arrival.
+   *
+   * The plan starts from what the banks said at that reading. Pay that came
+   * early and was never written down is in that figure and nowhere else — no
+   * record for the match above to find — so the plan used to count it a
+   * second time on its own day: the owner's October salary, in on 28 September
+   * and only in a reading, was in "what you have now" and again on 1 October.
+   *
+   * An arrival can be early by up to `EARLY_DAYS`, so a reading taken on or
+   * after the first day it could have come may hold it. Counted by the day,
+   * like the match window, so a reading on that first day counts.
+   *
+   * Only for money in. A payment out that has already left is in the reading
+   * too, but planning it again only makes the plan more careful than it need
+   * be; pay planned again is money that does not exist. The one mistake is a
+   * warning a tap clears, the other a promise the plan cannot keep.
+   */
+  const lastReading = actuals.lastReadingAt ? startOfDay(actuals.lastReadingAt) : undefined;
+  const mayBeInReading = (occurrence: PlannedOccurrence) =>
+    occurrence.source !== "loan" && occurrence.amount > 0 && !!lastReading && lastReading >= addDays(occurrence.date, -EARLY_DAYS);
+
   return (occurrence: PlannedOccurrence): ResolvedOccurrence => {
     const override = actuals.overrides[occurrence.key];
     const sign = occurrence.amount < 0 ? -1 : 1;
@@ -170,6 +202,20 @@ export function createResolver(actuals: Actuals, now: Date = new Date()) {
       used.add(match.id);
       return { ...base, status: "received", plannedAmount: 0, matched: { date: match.date, amount: sign * Math.abs(match.amount), label: match.label, manual: false } };
     }
+
+    // Not found among the records, and the user has not said anything about
+    // it — but the banks have been read since it could have come. Left out
+    // rather than planned: under-counting until the question is answered is a
+    // plan that is too careful for a day; double-counting is one that spends
+    // a salary twice. "It came" answers it as received, "not yet" as waiting,
+    // and either way it is an override, so it is not asked again.
+    //
+    // Except a day already gone for a kind of income this user never records:
+    // that is "assumed" below, which is already left out of the plan, so the
+    // question would change no figure and only nag someone who does not write
+    // their pay down about last month's.
+    const assumedAnyway = occurrence.date < today && !isRecorded(occurrence);
+    if (!override && mayBeInReading(occurrence) && !assumedAnyway) return { ...base, status: "unconfirmed", plannedAmount: 0 };
 
     const amount = sign * (override?.amount ?? Math.abs(occurrence.amount));
     const when = parseISODay(override?.date ?? "") ?? occurrence.date;

@@ -8,6 +8,7 @@ import type { AttentionItem } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
 import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActuals";
 import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
+import { UnconfirmedQuestion } from "../../plannerPage/components/UnconfirmedQuestion";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -44,26 +45,38 @@ export function Panel({ title, action, children }: { title?: string; action?: Re
  * the Planner is waiting for is confirmed with the same word its own sheet
  * records. When nothing wants doing it says so in one line and gets out of the
  * way — on a quiet day there is nothing to read.
+ *
+ * Pay the plan could not confirm comes first: until it is answered the
+ * pay-day outlook above leaves it out, so it is the one row that changes a
+ * figure on this screen.
  */
 export function AttentionList({
   items,
   late = [],
+  unconfirmed = [],
   now,
   formatCurrency,
   onPay,
   onSettle,
+  onAnswer,
 }: {
   items: AttentionItem[];
   /** Planner occurrences overdue: a salary not in yet, an instalment not seen. */
   late?: ResolvedOccurrence[];
+  /** Money in with no record that the last bank reading may already hold. */
+  unconfirmed?: ResolvedOccurrence[];
   now: Date;
   formatCurrency: Money;
   onPay?: (billId: string) => void;
   onSettle?: (occurrence: ResolvedOccurrence) => void;
+  /** "It came" (true) or "not yet" (false) to an unconfirmed one. */
+  onAnswer?: (occurrence: ResolvedOccurrence, arrived: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+  const asked = onAnswer ? unconfirmed : [];
 
-  if (items.length === 0 && late.length === 0) {
+  if (items.length === 0 && late.length === 0 && asked.length === 0) {
     return (
       <Panel>
         <div className="d-flex align-items-center gap-2" style={{ color: "var(--color-income-text)" }}>
@@ -87,8 +100,19 @@ export function AttentionList({
     );
 
   return (
-    <Panel title={t("overview.needsYou", { count: items.length + late.length })}>
+    <Panel title={t("overview.needsYou", { count: items.length + late.length + asked.length })}>
       <div className={styles.attention}>
+        {asked.map((occurrence) => (
+          <UnconfirmedQuestion
+            key={occurrence.key}
+            occurrence={occurrence}
+            dateFmt={dateFmt}
+            className={styles.attentionRow}
+            textClassName={styles.attentionName}
+            amount={<span className={styles.attentionAmount}>{formatCurrency(Math.abs(occurrence.amount))}</span>}
+            onAnswer={(arrived) => onAnswer?.(occurrence, arrived)}
+          />
+        ))}
         {late.map((occurrence) => (
           <div key={occurrence.key} className={styles.attentionRow}>
             <Link to="/planner" className={styles.attentionName}>

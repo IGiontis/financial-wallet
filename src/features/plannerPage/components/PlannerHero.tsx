@@ -4,7 +4,7 @@ import { Input, InputGroup, InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiClock } from "react-icons/fi";
 
-import { planPeriods, SALARY_ROW_ID, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import { heroSubline, planPeriods, SALARY_ROW_ID, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
 import PlanFlowChart from "./PlanFlowChart";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
@@ -84,15 +84,14 @@ export function PlannerHero({
   const headline = plan.verdict === "short" ? t("planner.verdictShort") : plan.verdict === "tight" ? t("planner.verdictTight") : t("planner.verdictOk");
   const amount = plan.verdict === "short" ? plan.shortfall : plan.surplus;
 
-  // "Tight" means the months add up but the running total dips below zero on
-  // the way, so the subline has to name the day and how deep — that is the
-  // whole difference between it and a straight yes.
+  // "Tight" means the line dips below zero and comes back, so the subline
+  // names the first day under and, separately, the lowest point with its own
+  // day — see `heroSubline`. Never the deepest figure beside the first day.
+  const line = heroSubline(plan);
   const subline =
-    plan.verdict === "tight" && plan.breaksOn
-      ? plan.breakingEvent
-        ? t("planner.dipsOnBill", { date: dateFmt.format(plan.breaksOn), name: plan.breakingEvent.label, amount: formatCurrency(plan.dip) })
-        : t("planner.dipsOn", { date: dateFmt.format(plan.breaksOn), amount: formatCurrency(plan.dip) })
-      : t("planner.untilDate", { date: dateFmt.format(plan.end), months: plan.months });
+    line.key === "planner.untilDate"
+      ? t(line.key, { date: dateFmt.format(line.date), count: line.count })
+      : t(line.key, { date: dateFmt.format(line.date), name: line.name, amount: formatCurrency(line.lowest), lowDate: dateFmt.format(line.lowestOn) });
 
   // The first point at or after the day it breaks. An exact match only exists
   // while the line is sampled daily; on a monthly line the dip belongs to the

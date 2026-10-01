@@ -121,6 +121,26 @@ describe("paydayOutlook", () => {
     expect(outlook.breaksOn).toBeUndefined();
   });
 
+  it("runs to the next pay day past one a bank reading may already hold, and does not count it", () => {
+    // The banks were read on the 10th, on or after the 10th (the 20th less ten
+    // days), with no record of the pay: it may be in the 1,000 already, so the
+    // plan leaves it out and the outlook runs on to 20 October.
+    const read = buildPlan({ bills, goals: [], lines: [food], debts: [], salary: { amount: 1450, dayOfMonth: 20, occurrences: 3 }, openingBalance: 1000, horizon: 2, now: TODAY, actuals: { transactions: [], debts: [], overrides: {}, lastReadingAt: new Date(2026, 8, 10, 8) } });
+    const outlook = paydayOutlook(read, TODAY);
+
+    expect(read.occurrences.find((o) => o.status === "unconfirmed")?.date).toEqual(new Date(2026, 8, 20));
+    expect(outlook.date).toEqual(new Date(2026, 9, 20));
+    expect(outlook.incoming).toBe(0);
+    // By hand, to 19 October: 1,000 less September's three bills, October's
+    // water and phone (the 12th, the 15th), and food — 21 days of September at
+    // 10 and 19 of October at 300 / 31.
+    const expected = Math.round((1000 - 68.4 - 25 - 30 - 68.4 - 25 - 21 * 10 - (19 * 300) / 31) * 100) / 100;
+    expect(outlook.left).toBe(expected);
+    // The same day of the plan with the pay counted is exactly 1,450 higher.
+    expect(paydayOutlook(plan(1000), TODAY).left).toBe(byHand(1000, 19));
+    expect(plan(1000).points.find((p) => p.date.getTime() === new Date(2026, 9, 19).getTime())?.balance).toBe(Math.round((expected + 1450) * 100) / 100);
+  });
+
   it("names the day it goes under, and the bill that did it", () => {
     const outlook = paydayOutlook(plan(50), TODAY);
     // 50 − 3 × 10 = 20 on the 12th before the water, then − 68,40.

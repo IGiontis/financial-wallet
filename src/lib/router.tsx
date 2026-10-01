@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { MainLayout } from "../features/layout/MainLayout";
 import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
@@ -119,12 +119,23 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            // One address per tab, so a link can open Settings exactly where it
+            // is needed — /settings/data for the statement, say. The page itself
+            // turns an unknown tab back into Profile. Being one route with a
+            // parameter, switching tabs keeps the same page mounted: a profile
+            // edit left unsaved is still there when you come back to it.
             path: "settings",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <SettingsPage />
-              </Suspense>
-            ),
+            children: [
+              { index: true, element: <Navigate to="profile" replace /> },
+              {
+                path: ":tab",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <SettingsPage />
+                  </Suspense>
+                ),
+              },
+            ],
           },
         ],
       },

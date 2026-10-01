@@ -1,0 +1,24 @@
+/* The theme and language switches: the segmented control, sized for a row of
+   two or three short choices rather than a strip of period chips.
+
+   Element-qualified so they outrank the segmented control's own phone rules
+   whichever order the two sheets happen to load in. */
+
+div.switch {
+  /* The segmented group turns into a full-width scrolling strip on a phone,
+     which is right for six period chips and wrong for two or three choices
+     sitting side by side with something else. */
+  width: auto;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+button.option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+}

@@ -1,0 +1,156 @@
+/* The phone's bottom bar. Its height is --bottom-nav-height (MainLayout.css),
+   which the offline banner and the Transactions list read to stay clear of it. */
+
+.bar {
+  position: relative;
+  /* Over the page it sits under (the raised «+» overlaps the page's last few
+     pixels), under every backdrop and dialog Bootstrap opens. */
+  z-index: 1030;
+  flex-shrink: 0;
+  height: var(--bottom-nav-height);
+  padding: 6px max(2px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(2px, env(safe-area-inset-left));
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.item:hover {
+  color: var(--color-text-primary);
+}
+
+.item:focus-visible {
+  outline: none;
+}
+
+/* The ring goes on the pill — the shape that reads as "this item" — rather
+   than on a cell stretched to a fifth of the screen. */
+.item:focus-visible .pill,
+.item:focus-visible .addCircle {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.pill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 30px;
+  border-radius: 15px;
+  transition: background-color 0.15s ease;
+}
+
+.label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Where you are: the label darkens and the icon sits in a soft blue pill — the
+   same mark the sidebar and the menu use for the current page. */
+.current {
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.current .pill {
+  background: color-mix(in srgb, var(--color-link) 13%, var(--color-surface));
+  color: var(--color-link);
+}
+
+/* ── The raised «+» ───────────────────────────────────────────────────────── */
+
+.add {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.addCircle {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  /* Lifted half out of the bar; the ring in the bar's own colour is what makes
+     it read as sitting on the bar rather than being cut by its edge. */
+  margin-top: -26px;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: #fff;
+  box-shadow:
+    0 6px 16px rgba(13, 110, 253, 0.4),
+    0 0 0 5px var(--color-surface);
+  transition: transform 0.12s ease;
+}
+
+.add:active .addCircle {
+  transform: scale(0.94);
+}
+
+/* ── Counts ───────────────────────────────────────────────────────────────── */
+
+/* The darker red in both themes: white on it holds 4.8:1 either way. */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+/* On the Menu button: something inside wants you. No number — the count
+   belongs on the row it counts. */
+.dot {
+  position: absolute;
+  top: 2px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .addCircle {
+    transition: none;
+  }
+}

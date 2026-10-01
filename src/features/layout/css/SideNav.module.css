@@ -1,0 +1,130 @@
+/* The wide-screen sidebar. Its width lives in --sidebar-width /
+   --sidebar-collapsed-width (MainLayout.css), which the page beside it reads to
+   know where to start. */
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  /* Below Bootstrap's backdrops (1040+) and modals (1055), so a dialog always
+     draws over it; above anything a page makes sticky. */
+  z-index: 1030;
+  width: var(--sidebar-width);
+  /* Exactly the screen: with "at least" the panel grew to whatever the list
+     needed and, being fixed, its foot went off the bottom with no way back. */
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border-tertiary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar {
+    transition: width 0.2s ease-in-out;
+  }
+}
+
+.collapsed {
+  width: var(--sidebar-collapsed-width);
+  padding-inline: 8px;
+}
+
+/* ── Top: name and the «+» ────────────────────────────────────────────────── */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 2px 6px 6px;
+  white-space: nowrap;
+}
+
+.collapsed .brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--bs-primary);
+  color: #fff;
+}
+
+.brandName {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 42px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.collapsed .add {
+  padding-inline: 0;
+}
+
+/* ── The list ─────────────────────────────────────────────────────────────── */
+/* Scrolls on its own when the window is shorter than the list, so the «+» and
+   the foot stay where they are. */
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* ── Foot: who, theme, language, fold ─────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profileIconOnly {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.switches {
+  display: flex;
+  gap: 6px;
+}
+
+.railTools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}

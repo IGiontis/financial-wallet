@@ -46,12 +46,75 @@ const bill = (overrides: Partial<BillWithStatus> = {}): BillWithStatus =>
 const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
 const round = (n: number) => Math.round(n * 100) / 100;
 
+/** The last instant of a local calendar day — what `horizonEnd` returns. */
+const endOfDayOn = (year: number, month: number, day: number) => new Date(year, month, day, 23, 59, 59, 999);
+
+/**
+ * The same rule worked out a second way, without `addMonths` or `endOfMonth`:
+ * from the 1st, N months is N calendar months; from any other day it is the
+ * rest of this month and N whole months after it. `new Date(y, m + k + 1, 0)`
+ * is the last day of month m + k, rolling the year over on its own.
+ */
+const expectedEnd = (today: Date, months: number) => {
+  const ahead = today.getDate() === 1 ? months - 1 : months;
+  const last = new Date(today.getFullYear(), today.getMonth() + ahead + 1, 0);
+  return endOfDayOn(last.getFullYear(), last.getMonth(), last.getDate());
+};
+
 describe("horizonEnd", () => {
-  it("covers whole calendar months, the current one included", () => {
-    expect(horizonEnd(1, now)).toEqual(new Date(2026, 7, 31, 23, 59, 59, 999));
-    expect(horizonEnd(3, now).getMonth()).toBe(9); // through October
-    expect(horizonEnd(6, now).getMonth()).toBe(0); // through January
-    expect(horizonEnd(6, now).getFullYear()).toBe(2027);
+  it("runs to the end of the month holding the day before today plus N months", () => {
+    // 14 Aug: +1 month −1 day is 13 Sep; +3 is 13 Nov; +6 is 13 Feb 2027.
+    expect(horizonEnd(1, now)).toEqual(endOfDayOn(2026, 8, 30));
+    expect(horizonEnd(3, now)).toEqual(endOfDayOn(2026, 10, 30));
+    // Six months from mid-August closes on February's last day, not January's:
+    // the old rule counted the rest of August as one of the six.
+    expect(horizonEnd(6, now)).toEqual(endOfDayOn(2027, 1, 28));
+    for (const months of [1, 3, 6, 12, 36]) expect(horizonEnd(months, now)).toEqual(expectedEnd(now, months));
+  });
+
+  it("gives the owner's 30 September a month ahead, not a day", () => {
+    // The case behind the confusing figure: "1 month" on the 30th was the
+    // 30th alone, so the plan's verdict was about tomorrow.
+    const lastOfSeptember = new Date(2026, 8, 30, 21, 15);
+    expect(horizonEnd(1, lastOfSeptember)).toEqual(endOfDayOn(2026, 9, 31));
+    expect(horizonEnd(3, lastOfSeptember)).toEqual(endOfDayOn(2026, 11, 31));
+    expect(buildPlan({ ...base, horizon: 1, now: lastOfSeptember }).days).toBe(31); // 30 Sep → 31 Oct, 32 days with today
+  });
+
+  it("from the 1st, is exactly the calendar months asked for", () => {
+    const first = new Date(2026, 8, 1);
+    expect(horizonEnd(1, first)).toEqual(endOfDayOn(2026, 8, 30));
+    expect(horizonEnd(3, first)).toEqual(endOfDayOn(2026, 10, 30));
+    expect(horizonEnd(12, first)).toEqual(endOfDayOn(2027, 7, 31));
+  });
+
+  it("closes on February's own last day, the 29th in a leap year", () => {
+    expect(horizonEnd(1, new Date(2027, 0, 15))).toEqual(endOfDayOn(2027, 1, 28));
+    expect(horizonEnd(1, new Date(2028, 0, 15))).toEqual(endOfDayOn(2028, 1, 29));
+    // From 31 January a month on is clamped to February, not rolled into March.
+    expect(horizonEnd(1, new Date(2028, 0, 31))).toEqual(endOfDayOn(2028, 1, 29));
+    expect(horizonEnd(6, new Date(2027, 7, 31))).toEqual(endOfDayOn(2028, 1, 29));
+    // From 29 February, a year on is 28 February of an ordinary year.
+    expect(horizonEnd(12, new Date(2028, 1, 29))).toEqual(endOfDayOn(2029, 1, 28));
+  });
+
+  it("crosses the year end", () => {
+    expect(horizonEnd(1, new Date(2026, 11, 31))).toEqual(endOfDayOn(2027, 0, 31));
+    expect(horizonEnd(1, new Date(2026, 11, 1))).toEqual(endOfDayOn(2026, 11, 31));
+    expect(horizonEnd(3, new Date(2026, 10, 20))).toEqual(endOfDayOn(2027, 1, 28));
+  });
+
+  it("agrees with the rule worked out by hand, on every day of four years", () => {
+    // Every start day from 2026 to 2029, leap February included, against the
+    // helper above — which shares no date code with `horizonEnd`.
+    for (let d = new Date(2026, 0, 1); d < new Date(2030, 0, 1); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+      for (const months of [1, 2, 3, 6, 12]) {
+        const end = horizonEnd(months, d);
+        expect(end, `${d.toDateString()} +${months}`).toEqual(expectedEnd(d, months));
+        // And the property the rule exists for: at least N months of calendar ahead.
+        expect(end.getTime()).toBeGreaterThanOrEqual(new Date(d.getFullYear(), d.getMonth() + months, Math.min(d.getDate(), 28)).getTime() - 24 * 3600 * 1000);
+      }
+    }
   });
 
   it("reports the months it stands for", () => {
@@ -125,7 +188,9 @@ describe("buildPlan across months", () => {
   it("credits a payday in every month, without which a long window is a fiction", () => {
     const paydays = buildPlan({ ...base, horizon: 3 }).events.filter((e) => e.kind === "income");
 
-    expect(paydays.map((e) => e.date)).toEqual([new Date(2026, 7, 20), new Date(2026, 8, 20), new Date(2026, 9, 20)]);
+    // Three months from 14 Aug run to 30 Nov: the rest of August, then
+    // September, October and November — four twentieths.
+    expect(paydays.map((e) => e.date)).toEqual([new Date(2026, 7, 20), new Date(2026, 8, 20), new Date(2026, 9, 20), new Date(2026, 10, 20)]);
     expect(paydays.every((e) => e.amount === 2000)).toBe(true);
   });
 
@@ -189,8 +254,11 @@ describe("bills paid in instalments", () => {
   });
 
   it("leaves an ordinary bill charged in full on its own date", () => {
+    // One month from 14 Aug runs to 30 Sep, so 22 Aug and 22 Sep — each in full.
     const plan = buildPlan({ ...base, horizon: 1, bills: [bill({ name: "Netflix", amount: 12.99, dueDay: 22 })] });
-    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.amount)).toEqual([-12.99]);
+    const charged = plan.events.filter((e) => e.kind === "bill");
+    expect(charged.map((e) => e.amount)).toEqual([-12.99, -12.99]);
+    expect(charged.map((e) => e.date)).toEqual([new Date(2026, 7, 22), new Date(2026, 8, 22)]);
   });
 });
 
@@ -347,7 +415,8 @@ describe("extra pay that keeps coming back", () => {
     const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon()] });
     const dates = plan.events.filter((e) => e.label === "Coupon").map((e) => e.date);
 
-    // 15 Sep, 15 Dec, 15 Mar, 15 Jun — twelve months from August closes on 31 July 2027.
+    // 15 Sep, 15 Dec, 15 Mar, 15 Jun — twelve months from 14 August close on
+    // 31 August 2027, and the next, 15 Sep 2027, is past it.
     expect(dates).toEqual([new Date(2026, 8, 15), new Date(2026, 11, 15), new Date(2027, 2, 15), new Date(2027, 5, 15)]);
     // The row totals what the window holds, not one payment of it.
     expect(plan.rows.find((r) => r.source === "oneoff")).toMatchObject({ occurrences: 4, total: 1000 });
@@ -364,7 +433,10 @@ describe("extra pay that keeps coming back", () => {
     const plan = buildPlan({ ...base, horizon: 12, oneOffs: [coupon({ date: "2026-02-15" })] });
     const dates = plan.events.filter((e) => e.label === "Coupon").map((e) => e.date);
 
-    expect(dates).toEqual([new Date(2026, 7, 15), new Date(2026, 10, 15), new Date(2027, 1, 15), new Date(2027, 4, 15)]);
+    // Every third month from 15 Feb that lands between today (14 Aug) and the
+    // window's close on 31 Aug 2027: five of them, the last on 15 Aug 2027.
+    expect(dates).toEqual([new Date(2026, 7, 15), new Date(2026, 10, 15), new Date(2027, 1, 15), new Date(2027, 4, 15), new Date(2027, 7, 15)]);
+    expect(plan.rows.find((r) => r.source === "oneoff")).toMatchObject({ occurrences: 5, total: 5 * 250 });
   });
 
   it("keeps the day of the month instead of drifting back off the 31st", () => {
@@ -413,10 +485,28 @@ describe("how finely the line is sampled", () => {
 
   it("keeps a point per day only while the window is short", () => {
     expect(pointStepFor(30)).toBe("day");
-    expect(pointStepFor(92)).toBe("day");
-    expect(pointStepFor(93)).toBe("week");
+    // Four of the longest months back to back: 31 + 31 + 30 + 31 (Jul–Oct).
+    expect(pointStepFor(123)).toBe("day");
+    expect(pointStepFor(124)).toBe("week");
     expect(pointStepFor(550)).toBe("week");
     expect(pointStepFor(551)).toBe("month");
+  });
+
+  it("draws every three-month window a day at a time, whatever day it starts on", () => {
+    // Since the rest of this month comes on top of the three, the window is up
+    // to 121 days (2 July to 31 October). At the old threshold of 92 days a
+    // three-month plan from mid-month drew weekly points and its readout
+    // jumped a week at a time.
+    let longest = 0;
+    for (let d = new Date(2026, 0, 1); d < new Date(2030, 0, 1); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+      const days = differenceInCalendarDays(horizonEnd(3, d), d);
+      longest = Math.max(longest, days);
+      expect(pointStepFor(days), d.toDateString()).toBe("day");
+    }
+    expect(longest).toBe(121);
+    expect(buildPlan({ ...base, horizon: 3, now: new Date(2026, 6, 2) })).toMatchObject({ days: 121, pointStep: "day" });
+    // Six months is where the line thins out.
+    expect(buildPlan({ ...base, horizon: 6 }).pointStep).toBe("week");
   });
 
   it("draws a three-year plan in months rather than in days", () => {
@@ -446,8 +536,15 @@ describe("how finely the line is sampled", () => {
 
     expect(daily.pointStep).toBe("day");
     expect(monthly.pointStep).toBe("month");
-    // Same monthly arithmetic, so the first three months of the long plan must agree.
-    expect(monthly.incomeTotal / 36).toBeCloseTo(daily.incomeTotal / 3, 2);
+    // The long plan's point on the short plan's last day (30 Nov) is the short
+    // plan's closing balance — month ends are always kept, at any step.
+    const sameDay = monthly.points.find((p) => p.date.toDateString() === daily.end.toDateString());
+    expect(sameDay?.balance).toBe(daily.endingBalance);
+    // Worked out by hand: four paydays (20 Aug, Sep, Oct, Nov) against four
+    // rents — 5 Sep, Oct and Nov, and August's, unpaid and pulled onto today.
+    expect(daily.endingBalance).toBe(4 * 2000 - 4 * 400);
+    // Same monthly arithmetic: 37 paydays over 14 Aug 2026 – 31 Aug 2029, 2,000 each.
+    expect(monthly.incomeTotal / monthly.rows.find((r) => r.id === SALARY_ROW_ID)!.occurrences!).toBe(daily.incomeTotal / 4);
   });
 
   it("keeps every event, folded into the period it happened in", () => {
@@ -478,7 +575,8 @@ describe("planPeriods", () => {
     const plan = buildPlan({ ...base, horizon: 3, bills: [bill({ name: "Rent", amount: 500, dueDay: 5 })] });
     const periods = planPeriods(plan);
 
-    expect(periods).toHaveLength(3);
+    // The rest of August, then September, October and November.
+    expect(periods.map((p) => p.key)).toEqual(["2026-08", "2026-09", "2026-10", "2026-11"]);
     expect(periods[1]).toMatchObject({ income: 2000, outgoing: 500 });
   });
 
@@ -514,7 +612,10 @@ describe("planPeriods", () => {
   it("keeps months while the window is short enough to show them", () => {
     const periods = planPeriods(buildPlan({ ...base, horizon: 12 }));
 
-    expect(periods).toHaveLength(12);
+    // August 2026 to August 2027 inclusive: the part-month this is, and twelve whole ones.
+    expect(periods).toHaveLength(13);
+    expect(periods[0].key).toBe("2026-08");
+    expect(periods[12].key).toBe("2027-08");
     expect(periods[0].key).toMatch(/^\d{4}-\d{2}$/);
   });
 
@@ -554,9 +655,12 @@ describe("a budget line that runs for part of the year", () => {
   });
 
   it("charges the part of the season the window reaches", () => {
-    // Through January: Dec and Jan only.
+    // Six months from 14 Aug close on 28 Feb 2027: Dec, Jan and Feb of a
+    // December-to-April season, at 200 each.
     const plan = buildPlan({ ...base, horizon: 6, lines: [ski()] });
-    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-400);
+    expect(plan.rows.find((r) => r.source === "line")?.total).toBe(-3 * 200);
+    // One month less stops at 31 Jan, and takes February's 200 with it.
+    expect(buildPlan({ ...base, horizon: 5, lines: [ski()] }).rows.find((r) => r.source === "line")?.total).toBe(-2 * 200);
   });
 
   it("keeps a line with no season running the whole window", () => {
@@ -697,6 +801,26 @@ describe("the same date reads the same however far ahead you look", () => {
     }
   });
 
+  it("gives 31 October the same balance from 30 September at 1, 3, 6, 12 and 36 months", () => {
+    // The day the horizon rule changed for: on the 30th, "one month" is now
+    // October too, and October's last day must not move when the view widens.
+    const lastOfSeptember = new Date(2026, 8, 30, 9);
+    const octoberEnd = (horizon: number) => {
+      const plan = buildPlan({ ...input, now: lastOfSeptember, horizon });
+      return plan.points.find((p) => p.date.toDateString() === new Date(2026, 9, 31).toDateString())?.balance;
+    };
+
+    // By hand: 900 in hand; September's three bills are unpaid and overdue, so
+    // charged on the 30th (700 + 180 + 400); October's three on the 5th, 8th
+    // and 10th; one salary, 25 Oct; food at 450 a month for one day of
+    // September (450 / 30) and all of October (450).
+    const byHand = round(900 - 2 * (700 + 180 + 400) + 1800 - (450 / 30 + 450));
+    expect(byHand).toBe(-325);
+    for (const horizon of [1, 3, 6, 12, 36]) expect(octoberEnd(horizon), `${horizon} months`).toBe(byHand);
+    // At one month it is the last day, so it is also where the plan ends.
+    expect(buildPlan({ ...input, now: lastOfSeptember, horizon: 1 }).endingBalance).toBe(byHand);
+  });
+
   it("keeps a month's dip on the line even when sampling by month", () => {
     // The dip is the whole reason the page exists. Sampling kept the last day
     // of each month, which with pay on the 25th is the best day of it — so a
@@ -766,10 +890,12 @@ describe("a loan in the plan is a monthly instalment, not a lump", () => {
     const row = plan.rows.find((r) => r.source === "debt")!;
     const payments = plan.events.filter((e) => e.label === "Αυτοκίνητο");
 
-    expect(row.occurrences).toBe(12);
+    // On the 14th, from today to the window's close on 31 Aug 2027: 14 Aug 2026
+    // and every month after it through 14 Aug 2027 — thirteen.
+    expect(payments.map((e) => e.date)).toEqual(Array.from({ length: 13 }, (_, i) => new Date(2026, 7 + i, 14)));
+    expect(row.occurrences).toBe(13);
     expect(row.perMonth).toBe(-198.01);
-    expect(row.total).toBeCloseTo(-198.01 * 12, 2);
-    expect(payments).toHaveLength(12);
+    expect(row.total).toBeCloseTo(-198.01 * 13, 2);
     expect(payments.every((e) => Math.abs(e.amount) === 198.01)).toBe(true);
   });
 
@@ -861,10 +987,14 @@ describe("a loan whose instalment this month is already paid", () => {
   });
 
   it("does not change with the horizon once the window reaches the last instalment", () => {
-    for (const horizon of [5, 6, 12, 36]) expect(rowOf(run(loan(), { horizon }))).toMatchObject({ total: -400, occurrences: 4 });
-    // A shorter window holds what fits in it, and no more.
-    expect(rowOf(run(loan(), { horizon: 3 }))).toMatchObject({ total: -200, occurrences: 2 });
-    expect(rowOf(run(loan(), { horizon: 4 }))).toMatchObject({ total: -300, occurrences: 3 });
+    // From 29 Sep, N months close at the end of month N ahead: 4 → 31 Jan,
+    // which is the last instalment's month, so four and more all hold it.
+    for (const horizon of [4, 5, 6, 12, 36]) expect(rowOf(run(loan(), { horizon }))).toMatchObject({ total: -400, occurrences: 4 });
+    // A shorter window holds what fits in it, and no more: 1 → 31 Oct holds
+    // 5 Oct; 2 → 30 Nov adds 5 Nov; 3 → 31 Dec adds 5 Dec.
+    expect(rowOf(run(loan(), { horizon: 1 }))).toMatchObject({ total: -100, occurrences: 1 });
+    expect(rowOf(run(loan(), { horizon: 2 }))).toMatchObject({ total: -200, occurrences: 2 });
+    expect(rowOf(run(loan(), { horizon: 3 }))).toMatchObject({ total: -300, occurrences: 3 });
   });
 
   it("finds September's instalment in the records and still plans four", () => {
@@ -984,9 +1114,10 @@ describe("billOccurrences for a bill due on the 29th to the 31st", () => {
   });
 
   it("charges the plan on those days, and the same total", () => {
+    // Six months from 29 Sep close on 31 Mar: September to March is seven month ends.
     const plan = buildPlan({ bills: [eom(31, { amount: 50 })], goals: [], horizon: 6, now: new Date(2026, 8, 29, 10) });
 
-    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.date.getDate())).toEqual([30, 31, 30, 31, 31, 28]);
-    expect(plan.billsTotal).toBe(300);
+    expect(plan.events.filter((e) => e.kind === "bill").map((e) => e.date.getDate())).toEqual([30, 31, 30, 31, 31, 28, 31]);
+    expect(plan.billsTotal).toBe(7 * 50);
   });
 });

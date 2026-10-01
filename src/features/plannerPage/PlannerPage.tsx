@@ -6,6 +6,7 @@ import { FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
+import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { currentBalance } from "../../shared/utils/balance";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
@@ -35,8 +36,9 @@ import {
 import PlannerHero from "./components/PlannerHero";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
+import UnconfirmedQuestion from "./components/UnconfirmedQuestion";
 import type { OccurrenceOverride } from "./plannerActuals";
-import { cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
+import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import LeverGroup from "./components/LeverGroup";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import segmented from "../../shared/css/Segmented.module.css";
@@ -70,6 +72,10 @@ export function PlannerPage() {
   // switched to a figure of one's own, for "what if I had…" questions.
   const { opening: balanceFrom, source: balanceSource } = useOpeningBalance();
   const available = useMemo(() => (balanceSource === "readings" ? currentBalance(transactions, balanceFrom) : undefined), [balanceSource, transactions, balanceFrom]);
+  // When the banks were last read: pay that came early and is only in that
+  // reading must not be planned a second time — see `mayBeInReading`.
+  const { latest: lastReading } = useMoneyAccounts();
+  const lastReadingAt = lastReading?.at;
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { data: bills = [], isLoading: billLoading } = useBills();
   const { data: allDebts = [] } = useDebts();
@@ -133,7 +139,7 @@ export function PlannerPage() {
   const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
   // The records the plan checks each salary, instalment and one-off against, so
   // one that came early is not counted again and one that is late is not lost.
-  const actuals = useMemo(() => ({ transactions, debts, overrides }), [transactions, debts, overrides]);
+  const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
   const fromBanks = openingSource !== "manual" && available !== undefined;
   const openingBalance = fromBanks ? available : parseFloat(plannedOpening) || 0;
 
@@ -142,6 +148,8 @@ export function PlannerPage() {
     [bills, goals, lines, oneOffs, debts, plannedSalary, openingBalance, skipIds, horizon, now, actuals],
   );
   const settled = useMemo(() => plan.occurrences.filter((o) => o.status === "received" || o.status === "skipped"), [plan.occurrences]);
+  // Left out of the plan until answered, so asked where the plan is read.
+  const unconfirmed = useMemo(() => plan.occurrences.filter((o) => o.status === "unconfirmed"), [plan.occurrences]);
   const occurrence = openOccurrence ? plan.occurrences.find((o) => o.key === openOccurrence) : undefined;
   const saveOverride = (key: string, value: OccurrenceOverride | undefined) => {
     setOverrides((previous) => withOverride(previous, key, value, now));
@@ -179,8 +187,11 @@ export function PlannerPage() {
   // The budget lines accrue by the day rather than landing on a date, so the
   // "nothing happens here" days still have a figure to show.
 
-  // Two decimals would read as noise; one says "not quite a whole month".
-  const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(plan.monthsCovered);
+  // Two decimals would read as noise; one says "not quite a whole month". The
+  // plural is chosen from the same rounded figure that is printed, so 1.03
+  // months reads "1 month" rather than "1 months".
+  const monthsShown = Math.round(plan.monthsCovered * 10) / 10;
+  const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(monthsShown);
 
   // Which section a budget line belongs to is its kind, not the sign of its
   // figure. Reading the sign meant a line sitting at zero matched neither
@@ -365,7 +376,7 @@ export function PlannerPage() {
           ? t("planner.timesCount", { times: row.occurrences })
           : season
             ? `${monthly} · ${season}`
-            : `${monthly} ${t("planner.timesMonths", { months: monthsLabel })}`;
+            : `${monthly} ${t("planner.timesMonths", { months: monthsLabel, count: monthsShown })}`;
 
     const name = (
       <>
@@ -427,6 +438,19 @@ export function PlannerPage() {
             formatCurrency={formatCurrency}
             dateFmt={dateFmt}
           />
+
+          {/* Pay with no record that the last bank reading may already hold.
+              The plan leaves it out until it is answered; a plain line for
+              now, above both panes so a phone sees it whichever is open. */}
+          {unconfirmed.map((o) => (
+            <UnconfirmedQuestion
+              key={o.key}
+              occurrence={o}
+              dateFmt={dateFmt}
+              className="d-flex flex-wrap align-items-center gap-2 small mb-2"
+              onAnswer={(arrived) => saveOverride(o.key, answerUnconfirmed(o, arrived))}
+            />
+          ))}
 
           {/* Stacked on a phone, the levers sat below the whole timeline, so
               changing a number meant scrolling past every month to reach it.

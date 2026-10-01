@@ -9,7 +9,7 @@ import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { buildPlan, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import type { OccurrenceOverride, ResolvedOccurrence } from "../plannerPage/plannerActuals";
 import { toISODay } from "../../shared/utils/dates";
-import { cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "../plannerPage/plannerInputs";
+import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "../plannerPage/plannerInputs";
 import { paydayOutlook } from "./overviewTabs";
 
 /**
@@ -22,10 +22,16 @@ import { paydayOutlook } from "./overviewTabs";
  * own for "what if I had…"; the Overview is about what is.
  *
  * Two months of plan: enough to reach the next pay day even when this month's
- * came early and the next is a month away. A day's balance does not depend on
- * how far ahead the plan looks, so the shorter window changes nothing.
+ * came early — or is waiting on the question below — and the next is a month
+ * away. A day's balance does not depend on how far ahead the plan looks, so
+ * the shorter window changes nothing.
+ *
+ * `lastReadingAt` is when the banks were last read (`useMoneyAccounts().latest
+ * ?.at`), which the page already has. The balance starts from that reading, so
+ * pay that arrived early and was never written down is already in it; the
+ * plan needs the time to stop counting that pay again — see `mayBeInReading`.
  */
-export function usePaydayOutlook(now: Date, balance: number) {
+export function usePaydayOutlook(now: Date, balance: number, lastReadingAt?: Date) {
   const { data: transactions = [] } = useTransactions();
   const { data: bills = [] } = useBills();
   const { data: goals = [] } = useInvestmentGoals();
@@ -42,7 +48,7 @@ export function usePaydayOutlook(now: Date, balance: number) {
   const skipIds = useMemo(() => new Set(cleanSkipped(storedSkipped)), [storedSkipped]);
   const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
-  const actuals = useMemo(() => ({ transactions, debts, overrides }), [transactions, debts, overrides]);
+  const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
 
   const plan = useMemo(
     () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: balance, skipIds, horizon: 2, now, actuals }),
@@ -53,6 +59,9 @@ export function usePaydayOutlook(now: Date, balance: number) {
   // What the Planner found overdue — a salary not in yet, an instalment not
   // seen — for the list of things that want you.
   const late = useMemo(() => plan.occurrences.filter((o) => o.status === "late"), [plan.occurrences]);
+  // Pay with no record that the last reading may already hold: left out of the
+  // walk above until the user says whether it has come.
+  const unconfirmed = useMemo(() => plan.occurrences.filter((o) => o.status === "unconfirmed"), [plan.occurrences]);
 
   /** "It came" / "it's paid" — recorded exactly as the Planner's own sheet records it. */
   const settle = useCallback(
@@ -61,5 +70,11 @@ export function usePaydayOutlook(now: Date, balance: number) {
     [setOverrides, now],
   );
 
-  return { outlook, late, settle };
+  /** "It came" / "not yet" to an unconfirmed one — the same overrides the Planner stores. */
+  const answer = useCallback(
+    (occurrence: ResolvedOccurrence, arrived: boolean) => setOverrides((previous) => withOverride(previous, occurrence.key, answerUnconfirmed(occurrence, arrived), now)),
+    [setOverrides, now],
+  );
+
+  return { outlook, late, unconfirmed, settle, answer };
 }

@@ -1,5 +1,6 @@
 import { oneOffDate, type BudgetLine, type OneOff } from "./plannerUtils";
-import type { OccurrenceOverride } from "./plannerActuals";
+import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
+import { toISODay } from "../../shared/utils/dates";
 
 // ─── What the planner keeps, and how it is read back ─────────────────────────
 //
@@ -58,4 +59,18 @@ export function withOverride(previous: unknown, key: string, value: OccurrenceOv
   if (value) next[key] = value;
   else delete next[key];
   return next;
+}
+
+/**
+ * The two answers to "it was not found — has it come already?", as the
+ * overrides they are stored as.
+ *
+ * "It came" is recorded exactly as the occurrence sheet records it: today, for
+ * the amount expected. "Not yet" is the sheet's "keep waiting", which tells the
+ * plan to stop second-guessing and count it on its day again. Both are
+ * overrides, so the question is not asked a second time — and the Planner and
+ * the Overview, which both ask it, cannot record the answer differently.
+ */
+export function answerUnconfirmed(occurrence: Pick<ResolvedOccurrence, "amount" | "plannedAmount">, arrived: boolean, today: Date = new Date()): OccurrenceOverride {
+  return arrived ? { state: "received", date: toISODay(today), amount: Math.abs(occurrence.plannedAmount || occurrence.amount) } : { state: "waiting" };
 }

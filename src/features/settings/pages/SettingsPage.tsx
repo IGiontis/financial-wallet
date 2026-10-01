@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
@@ -7,7 +7,7 @@ import { Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
 import CategoryManager from "../../categories/CategoryManager";
-import { SkeletonCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../../shared/components/Skeletons";
+import { SkeletonCard, SkeletonHeading, SkeletonRows } from "../../../shared/components/Skeletons";
 import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
@@ -20,6 +20,11 @@ import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { SUPPORTED_LANGUAGES } from "../../../i18n";
 import { PageShell } from "../../../shared/components/PageShell";
+import { ThemeSwitch } from "../../../shared/components/ThemeSwitch";
+import { useSignOut } from "../../layout/useProfile";
+import { SettingsTabs } from "../components/SettingsTabs";
+import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
+import { FiLogOut } from "react-icons/fi";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,9 +64,10 @@ const getErrorKey = (code: string): string => {
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode; danger?: boolean }) {
+/** `fill`: the card is one cell of a two-column row, so it takes the cell's height and leaves the spacing to the row. */
+function Section({ title, subtitle, children, fill = false }: { title: string; subtitle?: string; children: React.ReactNode; danger?: boolean; fill?: boolean }) {
   return (
-    <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: "1rem" }}>
+    <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: fill ? 0 : "1rem", height: fill ? "100%" : undefined }}>
       <CardBody style={{ padding: "1.5rem" }}>
         <div style={{ marginBottom: "1.25rem" }}>
           <p style={{ fontWeight: 500, fontSize: 15, margin: 0, color: "var(--color-text-primary)" }}>{title}</p>
@@ -81,6 +87,10 @@ export function SettingsPage() {
   const googleUser = isGoogleUser();
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
+  const signOut = useSignOut();
+  // Which tab the address names; anything else is sent to Profile below.
+  const { tab: tabParam } = useParams();
+  const tab = isSettingsTab(tabParam) ? tabParam : null;
 
   const [userData, setUserData] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -246,373 +256,436 @@ export function SettingsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // /settings/anything-else lands on Profile rather than on an empty page.
+  if (!tab) return <Navigate to={settingsTabPath(DEFAULT_SETTINGS_TAB)} replace />;
+
+  // The title and the tabs draw at once, while the account is still loading:
+  // the tab you asked for is already known, and only its cards wait.
+  const header = (
+    <>
+      <div style={{ marginBottom: "1rem" }}>
+        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
+        <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
+      </div>
+      <SettingsTabs current={tab} />
+    </>
+  );
+  const panelProps = { id: SETTINGS_PANEL_ID, role: "tabpanel", "aria-labelledby": settingsTabId(tab) } as const;
+
   if (loadingUser) {
     return (
       <PageShell>
-        <SkeletonPageHeader action={false} />
-        <Row className="g-3">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Col key={i} xs={12} lg={6}>
-              <SkeletonCard>
-                <SkeletonHeading />
-                <SkeletonRows count={3} icon={false} />
-              </SkeletonCard>
-            </Col>
-          ))}
-        </Row>
+        {header}
+        <div {...panelProps} aria-busy="true">
+          <Row className="g-3">
+            {Array.from({ length: 2 }, (_, i) => (
+              <Col key={i} xs={12} lg={6}>
+                <SkeletonCard>
+                  <SkeletonHeading />
+                  <SkeletonRows count={3} icon={false} />
+                </SkeletonCard>
+              </Col>
+            ))}
+          </Row>
+        </div>
       </PageShell>
     );
   }
 
   const initials = getInitials(userData?.firstName ?? currentUser?.displayName?.split(" ")[0] ?? "", userData?.lastName ?? currentUser?.displayName?.split(" ")[1] ?? "");
 
+  // The same cards as before, each in the tab it belongs to — nothing in them
+  // saves any differently. Two columns on a wide screen where two cards stand
+  // on their own; Data stays one column, because its order is the point: the
+  // statement sits right above "start over".
   return (
     <PageShell>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
-      </div>
+      {header}
 
-      {/* ── Profile ─────────────────────────────────────────────────────────── */}
-      <Section title={t("settings.profile")} subtitle={t("settings.profileSubtitle")}>
-        {/* Avatar row */}
-        <div className="d-flex align-items-center gap-3 mb-4">
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20,
-              fontWeight: 600,
-              color: "#ffffff",
-              flexShrink: 0,
-            }}
-          >
-            {initials}
-          </div>
-          <div>
-            <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>{userData?.firstName ? `${userData.firstName} ${userData.lastName}` : (currentUser?.displayName ?? "—")}</p>
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>{currentUser?.email}</p>
-          </div>
-        </div>
+      <div {...panelProps}>
+        {tab === "profile" && (
+          <>
+            {/* ── Profile ─────────────────────────────────────────────────────────── */}
+            <Section title={t("settings.profile")} subtitle={t("settings.profileSubtitle")}>
+              {/* Avatar row */}
+              <div className="d-flex align-items-center gap-3 mb-4">
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    fontWeight: 600,
+                    color: "#ffffff",
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials}
+                </div>
+                <div>
+                  <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>{userData?.firstName ? `${userData.firstName} ${userData.lastName}` : (currentUser?.displayName ?? "—")}</p>
+                  <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>{currentUser?.email}</p>
+                </div>
+              </div>
 
-        {/* Google users — read only message */}
-        {googleUser ? (
-          <div
-            style={{
-              background: "var(--color-background-secondary)",
-              borderRadius: "var(--border-radius-md)",
-              padding: "1rem",
-              fontSize: 13,
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            {t("settings.googleManaged")}
-          </div>
-        ) : (
-          /* Email/password users — editable form */
-          <form onSubmit={profileForm.handleSubmit} noValidate>
-            <Row className="g-3">
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.firstName")} *</Label>
-                  <Input
-                    type="text"
-                    name="firstName"
-                    value={profileForm.values.firstName}
-                    onChange={profileForm.handleChange}
-                    onBlur={profileForm.handleBlur}
-                    invalid={!!(profileForm.touched.firstName && profileForm.errors.firstName)}
-                  />
-                  <FormFeedback>{validationMessage(profileForm.errors.firstName, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.lastName")} *</Label>
-                  <Input
-                    type="text"
-                    name="lastName"
-                    value={profileForm.values.lastName}
-                    onChange={profileForm.handleChange}
-                    onBlur={profileForm.handleBlur}
-                    invalid={!!(profileForm.touched.lastName && profileForm.errors.lastName)}
-                  />
-                  <FormFeedback>{validationMessage(profileForm.errors.lastName, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.username")} *</Label>
-                  <Input
-                    type="text"
-                    name="username"
-                    value={profileForm.values.username}
-                    onChange={profileForm.handleChange}
-                    onBlur={profileForm.handleBlur}
-                    invalid={!!(profileForm.touched.username && profileForm.errors.username)}
-                  />
-                  <FormFeedback>{validationMessage(profileForm.errors.username, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    {t("settings.displayName")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    name="displayName"
-                    placeholder={t("settings.displayNameHint")}
-                    value={profileForm.values.displayName}
-                    onChange={profileForm.handleChange}
-                    onBlur={profileForm.handleBlur}
-                  />
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={4}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    {t("settings.age")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    name="age"
-                    min={13}
-                    max={120}
-                    value={profileForm.values.age}
-                    onChange={profileForm.handleChange}
-                    onBlur={profileForm.handleBlur}
-                    invalid={!!(profileForm.touched.age && profileForm.errors.age)}
-                  />
-                  <FormFeedback>{validationMessage(profileForm.errors.age, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={4}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    {t("settings.city")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                  </Label>
-                  <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={4}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                    {t("settings.country")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                  </Label>
-                  <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
-                    <option value="">{t("settings.selectCountry")}</option>
-                    {COUNTRIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </Input>
-                </FormGroup>
-              </Col>
-            </Row>
-            <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
-                {profileForm.isSubmitting ? t("common.saving") : t("settings.saveProfile")}
-              </Button>
-            </div>
-          </form>
+              {/* Google users — read only message */}
+              {googleUser ? (
+                <div
+                  style={{
+                    background: "var(--color-background-secondary)",
+                    borderRadius: "var(--border-radius-md)",
+                    padding: "1rem",
+                    fontSize: 13,
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  {t("settings.googleManaged")}
+                </div>
+              ) : (
+                /* Email/password users — editable form */
+                <form onSubmit={profileForm.handleSubmit} noValidate>
+                  <Row className="g-3">
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.firstName")} *</Label>
+                        <Input
+                          type="text"
+                          name="firstName"
+                          value={profileForm.values.firstName}
+                          onChange={profileForm.handleChange}
+                          onBlur={profileForm.handleBlur}
+                          invalid={!!(profileForm.touched.firstName && profileForm.errors.firstName)}
+                        />
+                        <FormFeedback>{validationMessage(profileForm.errors.firstName, t)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.lastName")} *</Label>
+                        <Input
+                          type="text"
+                          name="lastName"
+                          value={profileForm.values.lastName}
+                          onChange={profileForm.handleChange}
+                          onBlur={profileForm.handleBlur}
+                          invalid={!!(profileForm.touched.lastName && profileForm.errors.lastName)}
+                        />
+                        <FormFeedback>{validationMessage(profileForm.errors.lastName, t)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.username")} *</Label>
+                        <Input
+                          type="text"
+                          name="username"
+                          value={profileForm.values.username}
+                          onChange={profileForm.handleChange}
+                          onBlur={profileForm.handleBlur}
+                          invalid={!!(profileForm.touched.username && profileForm.errors.username)}
+                        />
+                        <FormFeedback>{validationMessage(profileForm.errors.username, t)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                          {t("settings.displayName")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                        </Label>
+                        <Input
+                          type="text"
+                          name="displayName"
+                          placeholder={t("settings.displayNameHint")}
+                          value={profileForm.values.displayName}
+                          onChange={profileForm.handleChange}
+                          onBlur={profileForm.handleBlur}
+                        />
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={4}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                          {t("settings.age")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          name="age"
+                          min={13}
+                          max={120}
+                          value={profileForm.values.age}
+                          onChange={profileForm.handleChange}
+                          onBlur={profileForm.handleBlur}
+                          invalid={!!(profileForm.touched.age && profileForm.errors.age)}
+                        />
+                        <FormFeedback>{validationMessage(profileForm.errors.age, t)}</FormFeedback>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={4}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                          {t("settings.city")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                        </Label>
+                        <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={4}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                          {t("settings.country")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
+                        </Label>
+                        <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
+                          <option value="">{t("settings.selectCountry")}</option>
+                          {COUNTRIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </Input>
+                      </FormGroup>
+                    </Col>
+                  </Row>
+                  <div className="d-flex justify-content-end mt-4">
+                    <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                      {profileForm.isSubmitting ? t("common.saving") : t("settings.saveProfile")}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </Section>
+          </>
         )}
-      </Section>
 
-      {/* ── Preferences ─────────────────────────────────────────────────────── */}
-      <Section title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")}>
-        <form onSubmit={prefsForm.handleSubmit} noValidate>
-          <Row className="g-3">
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currency")}</Label>
-                <Input type="select" name="currency" value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
-                  {CURRENCIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </Input>
-              </FormGroup>
+        {tab === "preferences" && (
+          <Row className="g-3 mb-3">
+            <Col xs={12} lg={6}>
+              {/* ── Preferences ─────────────────────────────────────────────────────── */}
+              <Section title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} fill>
+                <form onSubmit={prefsForm.handleSubmit} noValidate>
+                  <Row className="g-3">
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currency")}</Label>
+                        <Input type="select" name="currency" value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
+                          {CURRENCIES.map((c) => (
+                            <option key={c.value} value={c.value}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </Input>
+                      </FormGroup>
+                    </Col>
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.language")}</Label>
+                        <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
+                          {LOCALES.map((l) => (
+                            <option key={l.value} value={l.value}>
+                              {l.label}
+                            </option>
+                          ))}
+                        </Input>
+                      </FormGroup>
+                    </Col>
+                  </Row>
+                  <div className="d-flex justify-content-end mt-4">
+                    <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                      {prefsForm.isSubmitting ? t("common.saving") : t("settings.savePreferences")}
+                    </Button>
+                  </div>
+                </form>
+              </Section>
             </Col>
-            <Col xs={12} md={6}>
-              <FormGroup className="mb-0">
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.language")}</Label>
-                <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
-                  {LOCALES.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </Input>
-              </FormGroup>
+            <Col xs={12} lg={6}>
+              {/* ── Theme ─────────────────────────────────────────────────────── */}
+              {/* Kept on this device, as it always was, and applied the moment it
+                  is pressed — the same switch as in the menu and the sidebar. */}
+              <Section title={t("nav.theme")} subtitle={t("settings.themeSubtitle")} fill>
+                <ThemeSwitch className="w-100" />
+              </Section>
             </Col>
           </Row>
-          <div className="d-flex justify-content-end mt-4">
-            <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
-              {prefsForm.isSubmitting ? t("common.saving") : t("settings.savePreferences")}
-            </Button>
-          </div>
-        </form>
-      </Section>
+        )}
 
-      {/* ── Email (email/password users only) ───────────────────────────────── */}
-      {!googleUser && (
-        <Section title={t("settings.emailAddress")} subtitle={t("settings.emailSubtitle")}>
-          <form onSubmit={emailForm.handleSubmit} noValidate>
-            <Row className="g-3">
-              <Col xs={12}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentEmail")}</Label>
-                  <Input type="text" value={currentUser?.email ?? ""} disabled style={{ background: "var(--color-background-secondary)" }} />
-                </FormGroup>
+        {tab === "data" && (
+          <>
+            {/* ── Starting balance ────────────────────────────────────────────────── */}
+            <Section title={t("settings.openingBalance")} subtitle={t("settings.openingBalanceSubtitle")}>
+              <OpeningBalanceSection user={userData} onSaved={(patch) => setUserData((u) => (u ? { ...u, ...patch } : u))} />
+            </Section>
+
+            {/* ── Custom categories ───────────────────────────────────────────────── */}
+            <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
+              <CategoryManager />
+            </Section>
+
+            {/* ── Statement ───────────────────────────────────────────────────────── */}
+            {/* Deliberately just above "start over": the last thing anyone should
+                meet before a button that clears their records is the one that gets a
+                copy of them out first. */}
+            <Section title={t("statement.sectionTitle")} subtitle={t("statement.sectionSubtitle")}>
+              <StatementSection />
+            </Section>
+
+            {/* ── Start over ──────────────────────────────────────────────────────── */}
+            <Section title={t("settings.resetTitle")} subtitle={t("settings.resetSubtitle")}>
+              <ResetDataSection />
+            </Section>
+          </>
+        )}
+
+        {tab === "account" && (
+          <>
+            {googleUser ? (
+              <>
+                {/* ── Account security (Google users) ─────────────────────────────────── */}
+                <Section title={t("settings.accountSecurity")} subtitle={t("settings.googleSecuritySubtitle")}>
+                  <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+                    {t("settings.googleSecurityBody")}
+                  </p>
+                </Section>
+              </>
+            ) : (
+              <Row className="g-3 mb-3">
+                <Col xs={12} lg={6}>
+                  {/* ── Email (email/password users only) ───────────────────────────────── */}
+                  <Section title={t("settings.emailAddress")} subtitle={t("settings.emailSubtitle")} fill>
+                    <form onSubmit={emailForm.handleSubmit} noValidate>
+                      <Row className="g-3">
+                        <Col xs={12}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentEmail")}</Label>
+                            <Input type="text" value={currentUser?.email ?? ""} disabled style={{ background: "var(--color-background-secondary)" }} />
+                          </FormGroup>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
+                            <Input
+                              type="email"
+                              name="newEmail"
+                              value={emailForm.values.newEmail}
+                              onChange={emailForm.handleChange}
+                              onBlur={emailForm.handleBlur}
+                              invalid={!!(emailForm.touched.newEmail && emailForm.errors.newEmail)}
+                            />
+                            <FormFeedback>{validationMessage(emailForm.errors.newEmail, t)}</FormFeedback>
+                          </FormGroup>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Input
+                              type="password"
+                              name="currentPassword"
+                              placeholder={t("settings.requiredToConfirm")}
+                              value={emailForm.values.currentPassword}
+                              onChange={emailForm.handleChange}
+                              onBlur={emailForm.handleBlur}
+                              invalid={!!(emailForm.touched.currentPassword && emailForm.errors.currentPassword)}
+                            />
+                            <FormFeedback>{validationMessage(emailForm.errors.currentPassword, t)}</FormFeedback>
+                          </FormGroup>
+                        </Col>
+                      </Row>
+                      <div className="d-flex justify-content-end mt-4">
+                        <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                          {emailForm.isSubmitting ? t("settings.updating") : t("settings.updateEmail")}
+                        </Button>
+                      </div>
+                    </form>
+                  </Section>
+                </Col>
+                <Col xs={12} lg={6}>
+                  {/* ── Password (email/password users only) ─────────────────────────────── */}
+                  <Section title={t("settings.changePassword")} subtitle={t("settings.passwordSubtitle")} fill>
+                    <form onSubmit={passwordForm.handleSubmit} noValidate>
+                      <Row className="g-3">
+                        <Col xs={12}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Input
+                              type="password"
+                              name="currentPassword"
+                              value={passwordForm.values.currentPassword}
+                              onChange={passwordForm.handleChange}
+                              onBlur={passwordForm.handleBlur}
+                              invalid={!!(passwordForm.touched.currentPassword && passwordForm.errors.currentPassword)}
+                            />
+                            <FormFeedback>{validationMessage(passwordForm.errors.currentPassword, t)}</FormFeedback>
+                          </FormGroup>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
+                            <Input
+                              type="password"
+                              name="newPassword"
+                              value={passwordForm.values.newPassword}
+                              onChange={passwordForm.handleChange}
+                              onBlur={passwordForm.handleBlur}
+                              invalid={!!(passwordForm.touched.newPassword && passwordForm.errors.newPassword)}
+                            />
+                            <FormFeedback>{validationMessage(passwordForm.errors.newPassword, t)}</FormFeedback>
+                          </FormGroup>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormGroup className="mb-0">
+                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
+                            <Input
+                              type="password"
+                              name="confirmPassword"
+                              value={passwordForm.values.confirmPassword}
+                              onChange={passwordForm.handleChange}
+                              onBlur={passwordForm.handleBlur}
+                              invalid={!!(passwordForm.touched.confirmPassword && passwordForm.errors.confirmPassword)}
+                            />
+                            <FormFeedback>{validationMessage(passwordForm.errors.confirmPassword, t)}</FormFeedback>
+                          </FormGroup>
+                        </Col>
+                      </Row>
+                      <div className="d-flex justify-content-end mt-4">
+                        <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                          {passwordForm.isSubmitting ? t("settings.changing") : t("settings.changePassword")}
+                        </Button>
+                      </div>
+                    </form>
+                  </Section>
+                </Col>
+              </Row>
+            )}
+
+            <Row className="g-3 mb-3">
+              <Col xs={12} lg={6}>
+                {/* ── Sign out ──────────────────────────────────────────────── */}
+                <Section title={t("nav.signOut")} subtitle={t("settings.signOutSubtitle")} fill>
+                  <Button color="secondary" outline onClick={signOut} className="d-inline-flex align-items-center gap-2">
+                    <FiLogOut size={16} aria-hidden />
+                    {t("nav.signOut")}
+                  </Button>
+                </Section>
               </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
-                  <Input
-                    type="email"
-                    name="newEmail"
-                    value={emailForm.values.newEmail}
-                    onChange={emailForm.handleChange}
-                    onBlur={emailForm.handleBlur}
-                    invalid={!!(emailForm.touched.newEmail && emailForm.errors.newEmail)}
-                  />
-                  <FormFeedback>{validationMessage(emailForm.errors.newEmail, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
-                  <Input
-                    type="password"
-                    name="currentPassword"
-                    placeholder={t("settings.requiredToConfirm")}
-                    value={emailForm.values.currentPassword}
-                    onChange={emailForm.handleChange}
-                    onBlur={emailForm.handleBlur}
-                    invalid={!!(emailForm.touched.currentPassword && emailForm.errors.currentPassword)}
-                  />
-                  <FormFeedback>{validationMessage(emailForm.errors.currentPassword, t)}</FormFeedback>
-                </FormGroup>
+              <Col xs={12} lg={6}>
+                {/* ── Danger zone ───────────────────────────────────────────── */}
+                <Card style={{ border: "0.5px solid var(--bs-danger)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: 0, height: "100%" }}>
+                  <CardBody style={{ padding: "1.5rem" }}>
+                    <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>
+                    <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
+                      {t("settings.dangerZoneBody")}
+                    </p>
+                    <Button color="danger" outline onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason}>
+                      {t("settings.deleteAccount")}
+                    </Button>
+                  </CardBody>
+                </Card>
               </Col>
             </Row>
-            <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={emailForm.isSubmitting || !emailForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
-                {emailForm.isSubmitting ? t("settings.updating") : t("settings.updateEmail")}
-              </Button>
-            </div>
-          </form>
-        </Section>
-      )}
-
-      {/* ── Password (email/password users only) ─────────────────────────────── */}
-      {!googleUser && (
-        <Section title={t("settings.changePassword")} subtitle={t("settings.passwordSubtitle")}>
-          <form onSubmit={passwordForm.handleSubmit} noValidate>
-            <Row className="g-3">
-              <Col xs={12}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
-                  <Input
-                    type="password"
-                    name="currentPassword"
-                    value={passwordForm.values.currentPassword}
-                    onChange={passwordForm.handleChange}
-                    onBlur={passwordForm.handleBlur}
-                    invalid={!!(passwordForm.touched.currentPassword && passwordForm.errors.currentPassword)}
-                  />
-                  <FormFeedback>{validationMessage(passwordForm.errors.currentPassword, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
-                  <Input
-                    type="password"
-                    name="newPassword"
-                    value={passwordForm.values.newPassword}
-                    onChange={passwordForm.handleChange}
-                    onBlur={passwordForm.handleBlur}
-                    invalid={!!(passwordForm.touched.newPassword && passwordForm.errors.newPassword)}
-                  />
-                  <FormFeedback>{validationMessage(passwordForm.errors.newPassword, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-              <Col xs={12} md={6}>
-                <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
-                  <Input
-                    type="password"
-                    name="confirmPassword"
-                    value={passwordForm.values.confirmPassword}
-                    onChange={passwordForm.handleChange}
-                    onBlur={passwordForm.handleBlur}
-                    invalid={!!(passwordForm.touched.confirmPassword && passwordForm.errors.confirmPassword)}
-                  />
-                  <FormFeedback>{validationMessage(passwordForm.errors.confirmPassword, t)}</FormFeedback>
-                </FormGroup>
-              </Col>
-            </Row>
-            <div className="d-flex justify-content-end mt-4">
-              <Button type="submit" color="primary" disabled={passwordForm.isSubmitting || !passwordForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
-                {passwordForm.isSubmitting ? t("settings.changing") : t("settings.changePassword")}
-              </Button>
-            </div>
-          </form>
-        </Section>
-      )}
-
-      {/* ── Account security (Google users) ─────────────────────────────────── */}
-      {googleUser && (
-        <Section title={t("settings.accountSecurity")} subtitle={t("settings.googleSecuritySubtitle")}>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
-            {t("settings.googleSecurityBody")}
-          </p>
-        </Section>
-      )}
-
-      {/* ── Danger zone ─────────────────────────────────────────────────────── */}
-      {/* ── Starting balance ────────────────────────────────────────────────── */}
-      <Section title={t("settings.openingBalance")} subtitle={t("settings.openingBalanceSubtitle")}>
-        <OpeningBalanceSection user={userData} onSaved={(patch) => setUserData((u) => (u ? { ...u, ...patch } : u))} />
-      </Section>
-
-      {/* ── Custom categories ───────────────────────────────────────────────── */}
-      <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
-        <CategoryManager />
-      </Section>
-
-      {/* ── Statement ───────────────────────────────────────────────────────── */}
-      {/* Deliberately just above "start over": the last thing anyone should
-          meet before a button that clears their records is the one that gets a
-          copy of them out first. */}
-      <Section title={t("statement.sectionTitle")} subtitle={t("statement.sectionSubtitle")}>
-        <StatementSection />
-      </Section>
-
-      {/* ── Start over ──────────────────────────────────────────────────────── */}
-      <Section title={t("settings.resetTitle")} subtitle={t("settings.resetSubtitle")}>
-        <ResetDataSection />
-      </Section>
-
-      <Card style={{ border: "0.5px solid var(--bs-danger)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: "1rem" }}>
-        <CardBody style={{ padding: "1.5rem" }}>
-          <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>
-          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
-            {t("settings.dangerZoneBody")}
-          </p>
-          <Button color="danger" outline onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason}>
-            {t("settings.deleteAccount")}
-          </Button>
-        </CardBody>
-      </Card>
+          </>
+        )}
+      </div>
 
       {/* ── Delete account modal ─────────────────────────────────────────────── */}
       <Modal

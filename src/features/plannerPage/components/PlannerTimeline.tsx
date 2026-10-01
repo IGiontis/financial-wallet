@@ -77,7 +77,7 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
               last day, since "can wait" without a date is not something you can
               plan around. */}
           {event.graceDays !== undefined && event.graceDays > 0 && event.deadline && (
-            <span className={styles.eventNote}>{t("planner.canWaitUntil", { date: dateFmt.format(event.deadline), days: event.graceDays })}</span>
+            <span className={styles.eventNote}>{t("planner.canWaitUntil", { date: dateFmt.format(event.deadline), count: event.graceDays })}</span>
           )}
           {event.late && event.expected && (
             <span className={`${styles.eventNote} ${styles.lateNote}`}>{t("planner.lateBy", { count: daysLate({ date: event.expected }), date: dateFmt.format(event.expected) })}</span>

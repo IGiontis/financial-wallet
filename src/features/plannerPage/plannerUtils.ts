@@ -209,9 +209,29 @@ export function asHorizon(value: unknown): PlannerHorizon {
 
 export const horizonMonths = (horizon: PlannerHorizon): number => asHorizon(horizon);
 
-/** Last day covered: the end of the month `months - 1` ahead, inclusive. */
+/**
+ * Last day covered: the end of the month that holds the day before
+ * "today plus N months", inclusive.
+ *
+ * It used to be the end of the month `N - 1` ahead, which counted the current
+ * month as one of the N however little was left of it. On the 30th, "one
+ * month" was a single day — the whole plan, its verdict and its headline
+ * figure were about tomorrow — and "three months" was two and a day. Now N
+ * months always holds at least N months of calendar ahead of today, rounded
+ * out to a month end so the chart and the bars still close on whole months:
+ *
+ * - 30 Sep, 1 month → 31 Oct; 3 months → 31 Dec.
+ * - 1 Sep, 1 month → 30 Sep, since from the 1st a calendar month is exactly
+ *   a month and nothing needs rounding out.
+ * - 14 Aug, 1 month → 30 Sep; 3 → 30 Nov; 6 → 28 Feb.
+ *
+ * `addMonths` clamps rather than overflowing (31 Aug + 6 months is 28 Feb, not
+ * 3 March), which is what keeps a start on the 29th–31st inside the right
+ * month. Put another way: from the 1st this is the end of month `N - 1`
+ * ahead, and from any other day the end of month `N` ahead.
+ */
 export function horizonEnd(horizon: PlannerHorizon, now: Date = new Date()): Date {
-  return endOfMonth(addMonths(startOfDay(now), horizonMonths(horizon) - 1));
+  return endOfMonth(addDays(addMonths(startOfDay(now), horizonMonths(horizon)), -1));
 }
 
 // ─── Recurring bills in the window ───────────────────────────────────────────
@@ -611,8 +631,21 @@ export interface PlanRow {
  */
 export type PointStep = "day" | "week" | "month";
 
+/**
+ * The longest window still drawn a day at a time.
+ *
+ * A three-month window is the rest of this month plus three whole months, so
+ * it is always shorter than four whole months — and four months back to back
+ * hold at most 123 days (July to October: 31 + 31 + 30 + 31). The threshold
+ * used to be 92, three whole months, which was right while "three months"
+ * meant this one and two more; once the rest of the current month came on top,
+ * a three-month plan started on the 2nd switched to weekly points and its
+ * readout jumped a week at a time.
+ */
+export const DAILY_POINTS_MAX_DAYS = 123;
+
 export function pointStepFor(days: number): PointStep {
-  if (days <= 92) return "day";
+  if (days <= DAILY_POINTS_MAX_DAYS) return "day";
   if (days <= 550) return "week";
   return "month";
 }
@@ -676,6 +709,17 @@ export interface PlannerPlan {
   /** How far apart those points are — the page labels them accordingly. */
   pointStep: PointStep;
   lowestBalance: number;
+  /**
+   * The day `lowestBalance` is reached — the first such day, when the line sits
+   * at its low for more than one.
+   *
+   * Kept apart from `breaksOn` because they are rarely the same day: the line
+   * goes under on the day of the first bill it cannot meet and keeps falling
+   * until the pay comes. Printing the deepest figure beside the first day under
+   * told the owner he would be €489.15 down on 1 October, when 1 October was
+   * −€69.68 and −€489.15 was the 29th.
+   */
+  lowestOn: Date;
   breaksOn?: Date;
   /** The outgoing that tipped it under, when one thing did it. */
   breakingEvent?: PlannerEvent;
@@ -685,10 +729,19 @@ export interface PlannerPlan {
    * the records to check against.
    */
   occurrences: ResolvedOccurrence[];
+  /**
+   * Read off the running balance, the money in hand included: `ok` never goes
+   * under zero, `tight` goes under and is back above by the end, `short` ends
+   * under. See the note where it is worked out.
+   */
   verdict: PlannerVerdict;
-  /** `net` when it is positive. The headline figure when the answer is yes. */
+  /**
+   * `net` when it is positive: what the window adds, before the money you
+   * start with. Not the verdict's figure any more — a secondary line, and one
+   * that has to say what it is when it is shown.
+   */
   surplus: number;
-  /** How far `net` falls short. The headline figure when the answer is no. */
+  /** How far `net` falls short, before the money you start with. Secondary, like `surplus`. */
   shortfall: number;
   /** How deep the running line goes under zero, when it does. */
   dip: number;
@@ -1011,6 +1064,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   let balance = openingBalance;
   const points: ProjectionPoint[] = [];
   let lowestBalance = Number.POSITIVE_INFINITY;
+  let lowestOn = today;
   let breaksOn: Date | undefined;
   let breakingEvent: PlannerEvent | undefined;
 
@@ -1075,13 +1129,21 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     for (const event of dayEvents) balance += event.amount;
     if (dayEvents.length > 0) pending = pending.concat(dayEvents);
 
-    if (balance < lowestBalance) lowestBalance = balance;
+    // Compared to the cent, like everything the page prints. The walk adds a
+    // line's daily slice as a fraction, so a month that nets to exactly zero
+    // can land a hair either side of it; unrounded, a balance of −0.0000001
+    // "went under" on a day the screen shows as 0,00 €, and the lowest day
+    // could move to a later one that differs by nothing a person can see.
+    if (round2(balance) < round2(lowestBalance)) {
+      lowestBalance = balance;
+      lowestOn = new Date(cursor);
+    }
     if (balance < lowBalance) {
       lowBalance = balance;
       lowOffset = offset;
       lowPending = pending.length;
     }
-    if (balance < 0 && !breaksOn) {
+    if (round2(balance) < 0 && !breaksOn) {
       breaksOn = new Date(cursor);
       const outgoings = dayEvents.filter((e) => e.amount < 0);
       breakingEvent = outgoings.length > 0 ? outgoings.reduce((big, e) => (e.amount < big.amount ? e : big)) : undefined;
@@ -1133,17 +1195,23 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   const endingBalance = points.length > 0 ? points[points.length - 1].balance : round2(openingBalance);
   const net = round2(incomeTotal - outgoingTotal);
 
-  // The verdict is about the months, not about the running total: "do three
-  // salaries cover three months of everything" is the question asked, and it is
-  // answered by `net`. Dipping below zero on the way is a separate, lesser
-  // problem — the timing is wrong rather than the arithmetic — so it gets its
-  // own verdict rather than being confused with running out altogether. Without
-  // that split, anyone who has not typed an opening balance is told they will
-  // run short the moment the first bill lands.
-  const dip = lowestBalance < 0 ? round2(-lowestBalance) : 0;
+  // The verdict is read off the running balance, which starts from the money
+  // in hand. It used to be read off `net` — income less outgoings over the
+  // window, with the money already there left out — which answered "do the
+  // months pay for themselves" when the question on the screen is "will I be
+  // all right". Someone with €1,200 in the bank and a month that costs €200
+  // more than it brings was told the months do not add up; someone with
+  // nothing and a month €393 to the good was shown "393 €" as if it were money
+  // they would have, when the line spent three weeks under zero on the way.
+  //
+  // Now: never under zero is `ok`; under at some point but back above by the
+  // end is `tight` — the timing is wrong rather than the arithmetic, which is a
+  // different problem from running out; ending under is `short`. `net` and the
+  // figures made from it stay on the plan, for a line that says what they are.
+  const dip = round2(lowestBalance) < 0 ? round2(-lowestBalance) : 0;
   const surplus = Math.max(net, 0);
   const shortfall = net < 0 ? round2(-net) : 0;
-  const verdict: PlannerVerdict = net < 0 ? "short" : dip > 0 ? "tight" : "ok";
+  const verdict: PlannerVerdict = endingBalance < 0 ? "short" : dip > 0 ? "tight" : "ok";
 
   return {
     start: today,
@@ -1166,6 +1234,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     points,
     pointStep: pointStepFor(days),
     lowestBalance: round2(lowestBalance),
+    lowestOn,
     breaksOn,
     breakingEvent,
     occurrences,
@@ -1175,6 +1244,28 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     dip,
     safeDailySpend: days > 0 ? round2(Math.max(round2(openingBalance) + incomeTotal - outgoingTotal, 0) / (days + 1)) : 0,
   };
+}
+
+/**
+ * The line under the verdict: an i18n key, and the raw figures it is filled with.
+ *
+ * For a plan that dips, two facts on two different days: the first day under
+ * zero, with the outgoing that took it there, and the lowest point, with its
+ * own day. The old line printed the deepest figure beside the first day under
+ * — "you go €489.15 under on 1 Oct" — when 1 October was −69.68 and −489.15
+ * was the 29th. Each figure now sits with the day it belongs to.
+ *
+ * Otherwise the window it covers, with the months counted for a plural.
+ */
+export type HeroSubline =
+  | { key: "planner.dipsOn" | "planner.dipsOnBill"; date: Date; name?: string; lowest: number; lowestOn: Date }
+  | { key: "planner.untilDate"; date: Date; count: number };
+
+export function heroSubline(plan: Pick<PlannerPlan, "verdict" | "breaksOn" | "breakingEvent" | "lowestBalance" | "lowestOn" | "end" | "months">): HeroSubline {
+  if (plan.verdict === "tight" && plan.breaksOn) {
+    return { key: plan.breakingEvent ? "planner.dipsOnBill" : "planner.dipsOn", date: plan.breaksOn, name: plan.breakingEvent?.label, lowest: plan.lowestBalance, lowestOn: plan.lowestOn };
+  }
+  return { key: "planner.untilDate", date: plan.end, count: plan.months };
 }
 
 // ─── The plan, period by period ─────────────────────────────────────────────

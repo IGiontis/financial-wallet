@@ -58,11 +58,19 @@ const DEC_PART = part("gym", "2026", 2, 120, new Date(2026, 11, 5));
 
 const gym = (payments: BillPayment[], now: Date, extra: Partial<Bill> = {}) => computeBillStatus(makeBill({ ...GYM, ...extra }), payments, now);
 
-/** What the planner charges for one bill, by calendar month — the second route. */
+/**
+ * What the planner charges for one bill, by calendar month — the second route.
+ *
+ * Over the months the year view shows: this one and the eleven after it. The
+ * planner's twelve months run one month further from any day but the 1st —
+ * the rest of this month, then twelve whole ones — so the month past the year
+ * view is left out rather than compared with nothing.
+ */
 function plannerByMonth(bill: BillWithStatus, now: Date, horizon = 12): Map<string, number> {
   const plan = buildPlan({ bills: [bill], goals: [], horizon, now });
+  const yearViewEnds = new Date(now.getFullYear(), now.getMonth() + 12, 1);
   const byMonth = new Map<string, number>();
-  for (const event of plan.events.filter((e) => e.kind === "bill" && e.billId === bill.id)) {
+  for (const event of plan.events.filter((e) => e.kind === "bill" && e.billId === bill.id && e.date < yearViewEnds)) {
     const key = `${event.date.getFullYear()}-${event.date.getMonth() + 1}`;
     byMonth.set(key, Math.round(((byMonth.get(key) ?? 0) - event.amount) * 100) / 100);
   }

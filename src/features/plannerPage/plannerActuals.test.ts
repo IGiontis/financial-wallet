@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createResolver, daysLate, occurrenceKey, type Actuals, type PlannedOccurrence } from "./plannerActuals";
 import { buildPlan, SALARY_ROW_ID, type OneOff } from "./plannerUtils";
+import { answerUnconfirmed } from "./plannerInputs";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The scenario on the mockup. Today is Saturday 26 September 2026. Pay is set
@@ -140,8 +141,11 @@ describe("the plan, checked against the records", () => {
     // Second route, by hand: the 1,700 on the 30th goes, the 250 from the 22nd comes back.
     expect(checked.endingBalance - blind.endingBalance).toBeCloseTo(-1700 + 250, 2);
 
+    // Two months from 26 Sep close on 30 Nov (25 Nov, rounded out): the 30th
+    // of September is settled by the 25th's record, October's and November's remain.
     const salaryEvents = checked.events.filter((e) => e.label === SALARY_ROW_ID);
-    expect(salaryEvents.map((e) => e.date)).toEqual([new Date(2026, 9, 30)]);
+    expect(salaryEvents.map((e) => e.date)).toEqual([new Date(2026, 9, 30), new Date(2026, 10, 30)]);
+    expect(blind.events.filter((e) => e.label === SALARY_ROW_ID)).toHaveLength(salaryEvents.length + 1);
     const lateRent = checked.events.find((e) => e.label === "Ενοίκιο δωματίου" && e.late);
     expect(lateRent).toMatchObject({ amount: 250, date: new Date(2026, 8, 26), expected: new Date(2026, 8, 22) });
   });
@@ -184,8 +188,9 @@ describe("the plan, checked against the records", () => {
     } as unknown as DebtWithStatus;
     const plan = buildPlan({ ...base, oneOffs: [], debts: [loan], actuals: actuals({ debts: [loan] }) });
     const instalments = plan.events.filter((e) => e.label === "Αυτοκίνητο");
-    // 14 September settled by the 13th; 14 October still to come — the window closes on 31 October.
-    expect(instalments.map((e) => e.date)).toEqual([new Date(2026, 9, 14)]);
+    // 14 September settled by the 13th; 14 October and 14 November still to
+    // come — two months from 26 September close on 30 November.
+    expect(instalments.map((e) => e.date)).toEqual([new Date(2026, 9, 14), new Date(2026, 10, 14)]);
     expect(plan.occurrences.find((o) => o.source === "loan")?.status).toBe("received");
   });
 
@@ -223,5 +228,119 @@ describe("the plan, checked against the records", () => {
     const plan = buildPlan(base);
     expect(plan.occurrences).toEqual([]);
     expect(plan.events.some((e) => e.late || e.occurrenceKey)).toBe(false);
+  });
+});
+
+// ─── Pay that only shows in a bank reading ──────────────────────────────────
+// Wednesday 30 September 2026. October's salary, due on the 1st, came early on
+// the 28th and was never written down; the banks were read on the 29th, so
+// the plan's starting figure already holds it. Counting it again on 1 October
+// put the same 1,700 in twice.
+
+describe("pay a bank reading may already hold", () => {
+  const today = new Date(2026, 8, 30, 9);
+  const firstOfMonth = { amount: 1700, dayOfMonth: 1, occurrences: 4 };
+  const october1 = new Date(2026, 9, 1);
+  const key = occurrenceKey("salary", SALARY_ROW_ID, october1);
+  const readOn = (day: Date) => actuals({ transactions: [august], lastReadingAt: day });
+  // Two months from the 30th run to 30 November: pay on 1 October and 1 November.
+  const plan = (records: Actuals | undefined, horizon = 2) => buildPlan({ bills: [], goals: [], salary: firstOfMonth, openingBalance: 1200, horizon, now: today, actuals: records });
+  const status = (p: ReturnType<typeof plan>, at = october1) => p.occurrences.find((o) => o.key === occurrenceKey("salary", SALARY_ROW_ID, at))?.status;
+
+  it("asks rather than counts it, when the reading was taken after it could have come", () => {
+    const r = createResolver(readOn(new Date(2026, 8, 29, 20)), today)(occurrence({ date: october1 }));
+    expect(r).toMatchObject({ status: "unconfirmed", plannedAmount: 0, overridden: false });
+    expect(r.plannedDate).toBeUndefined();
+
+    const checked = plan(readOn(new Date(2026, 8, 29, 20)));
+    const blind = plan(actuals({ transactions: [august] }));
+    expect(status(checked)).toBe("unconfirmed");
+    expect(status(blind)).toBe("due");
+    // Not in the plan: no event on the 1st, and the row counts November's pay only.
+    expect(checked.events.filter((e) => e.label === SALARY_ROW_ID).map((e) => e.date)).toEqual([new Date(2026, 10, 1)]);
+    expect(checked.rows.find((r) => r.id === SALARY_ROW_ID)).toMatchObject({ occurrences: 1, total: 1700 });
+    // Reconciled a second way: exactly one salary less, on every total that holds it.
+    expect(blind.incomeTotal - checked.incomeTotal).toBe(1700);
+    expect(blind.endingBalance - checked.endingBalance).toBe(1700);
+    // What is in hand (the early pay already in it), and November's.
+    expect(checked.endingBalance).toBe(1200 + 1700);
+  });
+
+  it("takes «it came» as received — still not counted again", () => {
+    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, true, today) } });
+    const r = createResolver(answered, today)(occurrence({ date: october1 }));
+    expect(r).toMatchObject({ status: "received", plannedAmount: 0, overridden: true });
+    expect(r.matched).toMatchObject({ date: new Date(2026, 8, 30), amount: 1700, manual: true });
+    expect(plan(answered).endingBalance).toBe(plan(readOn(new Date(2026, 8, 29, 20))).endingBalance);
+  });
+
+  it("takes «not yet» as waiting — counted on its day again", () => {
+    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, false, today) } });
+    expect(answered.overrides[key]).toEqual({ state: "waiting" });
+    const r = createResolver(answered, today)(occurrence({ date: october1 }));
+    expect(r).toMatchObject({ status: "due", plannedDate: october1, plannedAmount: 1700 });
+    // The same plan as one that never saw the reading.
+    expect(plan(answered).endingBalance).toBe(plan(actuals({ transactions: [august] })).endingBalance);
+    expect(plan(answered).endingBalance).toBe(1200 + 2 * 1700);
+  });
+
+  it("does not ask when the reading came before the earliest day it could have", () => {
+    // Ten days early is 21 September. Read on the 20th, late in the evening:
+    // the pay cannot be in it, so it is due as before.
+    expect(status(plan(readOn(new Date(2026, 8, 20, 23, 59))))).toBe("due");
+    // Read on the 21st, first thing: it could be.
+    expect(status(plan(readOn(new Date(2026, 8, 21, 0, 1))))).toBe("unconfirmed");
+  });
+
+  it("still matches a salary that was written down, and asks nothing", () => {
+    const logged = actuals({ transactions: [august, income(1700, 8, 28)], lastReadingAt: new Date(2026, 8, 29, 20) });
+    const r = createResolver(logged, today)(occurrence({ date: october1 }));
+    expect(r.status).toBe("received");
+    expect(r.matched).toMatchObject({ date: new Date(2026, 8, 28), amount: 1700, manual: false });
+    expect(plan(logged).occurrences.some((o) => o.status === "unconfirmed")).toBe(false);
+  });
+
+  it("asks about income one-offs too, but never about a loan instalment going out", () => {
+    const resolve = createResolver(readOn(new Date(2026, 8, 29, 20)), today);
+    expect(resolve(occurrence({ source: "oneoff", refId: "rent", label: "Ενοίκιο δωματίου", amount: 250, date: new Date(2026, 9, 3) })).status).toBe("unconfirmed");
+    const instalment = resolve(occurrence({ source: "loan", refId: "loan", label: "Δάνειο", amount: -322.45, date: new Date(2026, 9, 3) }));
+    expect(instalment).toMatchObject({ status: "due", plannedAmount: -322.45 });
+  });
+
+  it("asks about a past one the reading may hold, and keeps it late once told it has not come", () => {
+    // Pay due the 25th, not recorded; read on the 26th, today the 30th.
+    const at = new Date(2026, 8, 25);
+    const k = occurrenceKey("salary", SALARY_ROW_ID, at);
+    const read = { transactions: [august], lastReadingAt: new Date(2026, 8, 26, 12) };
+    expect(createResolver(actuals(read), today)(occurrence({ date: at })).status).toBe("unconfirmed");
+    // Without the reading it was late, from today.
+    expect(createResolver(actuals({ transactions: [august] }), today)(occurrence({ date: at })).status).toBe("late");
+    const waiting = createResolver(actuals({ ...read, overrides: { [k]: { state: "waiting" } } }), today)(occurrence({ date: at }));
+    expect(waiting).toMatchObject({ status: "late", plannedDate: new Date(2026, 8, 30), plannedAmount: 1700 });
+  });
+
+  it("leaves a past one of a kind never recorded as assumed, without asking", () => {
+    // Nothing of the kind is ever written down, and its day has gone: it was
+    // already left out of the plan as having come, so a question would change
+    // no figure. The same pay still to come is asked about.
+    const resolve = createResolver(actuals({ lastReadingAt: new Date(2026, 8, 29, 20) }), today);
+    expect(resolve(occurrence({ date: new Date(2026, 8, 25) }))).toMatchObject({ status: "assumed", plannedAmount: 0 });
+    expect(resolve(occurrence({ date: october1 })).status).toBe("unconfirmed");
+  });
+
+  it("measures the ten days on the calendar — month ends, a leap February, the year end", () => {
+    const cases: [Date, Date][] = [
+      [new Date(2026, 9, 31), new Date(2026, 9, 21)], // the 31st
+      [new Date(2026, 10, 30), new Date(2026, 10, 20)], // the 30th
+      [new Date(2027, 1, 28), new Date(2027, 1, 18)], // the 28th of an ordinary February
+      [new Date(2028, 1, 29), new Date(2028, 1, 19)], // the 29th of a leap one
+      [new Date(2028, 2, 3), new Date(2028, 1, 22)], // early March, reaching back across 29 Feb
+      [new Date(2027, 0, 5), new Date(2026, 11, 26)], // across the year end
+    ];
+    for (const [expected, firstDay] of cases) {
+      const ask = (reading: Date) => createResolver(actuals({ lastReadingAt: reading }), firstDay)(occurrence({ date: expected })).status;
+      expect(ask(new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate(), 8)), expected.toDateString()).toBe("unconfirmed");
+      expect(ask(new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() - 1, 22)), expected.toDateString()).toBe("due");
+    }
   });
 });

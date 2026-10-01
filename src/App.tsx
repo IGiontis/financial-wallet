@@ -49,7 +49,9 @@ function OfflineBanner() {
         position: "fixed",
         left: 0,
         right: 0,
-        bottom: 0,
+        // Just above the phone's bottom bar, so being offline never hides the
+        // navigation — offline is exactly when the app is still meant to work.
+        bottom: "var(--bottom-nav-space, 0px)",
         zIndex: 2000,
         background: "var(--color-tooltip-bg)",
         color: "var(--color-tooltip-text)",
@@ -57,7 +59,9 @@ function OfflineBanner() {
         fontSize: 13,
         fontWeight: 500,
         padding: "8px 16px",
-        paddingBottom: "calc(8px + env(safe-area-inset-bottom))",
+        // Clear of the home-indicator strip — unless the bar is underneath,
+        // which already covers it (the subtraction goes negative, and 8px wins).
+        paddingBottom: "max(8px, calc(8px + env(safe-area-inset-bottom) - var(--bottom-nav-space, 0px)))",
         boxShadow: "0 -2px 12px rgba(0,0,0,0.2)",
       }}
     >

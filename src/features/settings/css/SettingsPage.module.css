@@ -1,0 +1,29 @@
+/* The Settings tab strip: the Overview's segmented tabs, at the same sizes, so
+   the two read as one pattern. Icon over word on a phone, where four words side
+   by side would not fit at 375px; in a row from `sm` up. */
+
+.tabBar {
+  width: 100%;
+  /* The phone width of four equal buttons is the point; nothing wider than the
+     screen to scroll to. */
+  max-width: 640px;
+}
+
+.tabButton {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  font-size: 12px;
+}
+
+@media (min-width: 576px) {
+  .tabButton {
+    flex-direction: row;
+    gap: 6px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+}
