@@ -45,7 +45,6 @@
   },
   "nav": {
     "groupStanding": "Where you stand",
-    "groupActivity": "Activity",
     "groupPlan": "Plan",
     "groupHoldings": "What you own & owe",
     "overview": "Overview",
@@ -63,19 +62,15 @@
     "menu": "Menu",
     "allocation": "Allocation",
     "accounts": "Banks & cash",
-    "newTransaction": "New transaction",
-    "newShort": "New",
-    "mainNav": "Main navigation",
-    "barLabel": "Quick navigation",
-    "allPages": "All pages",
-    "menuAttention": "something in here needs you",
-    "settingsAndProfile": "Settings & profile",
-    "skipToContent": "Skip to content",
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeAuto": "Auto",
-    "themeNow": "Theme: {{theme}}. Switch to {{next}}"
+    "themeNow": "Theme: {{theme}}. Switch to {{next}}",
+    "darkMode": "Dark mode",
+    "groupDaily": "Day to day",
+    "hideBar": "Hide Bar",
+    "lightMode": "Light mode"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -227,7 +222,8 @@
     "todayTitle_other": "Today · {{count}} entries",
     "todayNone": "Nothing written down today",
     "yesterdayLast": "Yesterday · {{name}} · {{amount}}",
-    "allEntries": "All ›"
+    "allEntries": "All ›",
+    "addNew": "New transaction"
   },
   "bills": {
     "title": "Bills",

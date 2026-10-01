@@ -1,25 +1,4 @@
-/* MainLayout.css — the shell's frame. The navigation's own looks are in the
-   modules beside this (SideNav, BottomNav, MenuSheet, Nav). */
-
-/* ─── Sizes the rest of the app reads ─── */
-:root {
-  --sidebar-width: 248px;
-  --sidebar-collapsed-width: 72px;
-  /* The phone bar: its row plus the home-indicator strip under it. */
-  --bottom-nav-height: calc(60px + env(safe-area-inset-bottom, 0px));
-  /* How far the «+» rises out of the bar into the page above it. */
-  --bottom-nav-raise: 28px;
-}
-
-/* What the bar takes from the bottom of the screen, for anything fixed to the
-   bottom edge (the offline banner) or sized to the screen (the Transactions
-   list). Set only while the bar is actually there — never on the login page,
-   never on a wide screen — so everything else reads it with a fallback. */
-@media (max-width: 991.98px) {
-  :root:has(.app-bottom-nav) {
-    --bottom-nav-space: var(--bottom-nav-height);
-  }
-}
+/* MainLayout.css */
 
 .main-layout {
   display: flex;
@@ -45,69 +24,48 @@
      push `.page-content` past the bottom of the shell and take the scrolling
      with it. */
   min-height: 0;
+
+  /* Mobile: no margin (sidebar overlays) */
   margin-left: 0;
-  /* Clear the notch: on a phone nothing sits above the page any more, so the
-     page itself starts below the status bar of an installed PWA. */
-  padding-top: env(safe-area-inset-top);
+  transition: margin-left 0.3s ease-in-out;
+}
+
+/* Desktop expanded (default) */
+@media (min-width: 992px) {
+  .main-content {
+    margin-left: var(--sidebar-width); /* 250px */
+  }
+
+  /* Desktop collapsed — parent gets the class, child reacts */
+  .main-layout.sidebar-collapsed .main-content {
+    margin-left: var(--sidebar-collapsed-width); /* 64px */
+  }
 }
 
 .page-content {
   flex-grow: 1;
-  min-height: 0;
   background-color: var(--color-background-primary);
   overflow-y: auto;
   /* `clip` (not `hidden`) stops a stray wide child from creating a horizontal
      scrollbar, without breaking position: sticky inside the page. */
   overflow-x: clip;
-  /* Room under the last line for the «+» that rises out of the bar, so it
-     never sits on the footer or a list's final row. The bar itself is below
-     the scrolling area, not over it, so nothing more is needed. */
-  padding-bottom: var(--bottom-nav-raise);
+  /* Respect the home-indicator / rounded corners on installed PWAs */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Reached by the skip link: a target, not a control, so no ring around the
-   whole page. */
-.page-content:focus {
-  outline: none;
+/* Clear the notch: push the top bar below the status bar in standalone mode */
+.main-content {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Sidebar header should also sit below the notch when it slides in on mobile */
+.sidebar {
+  padding-top: env(safe-area-inset-top);
 }
 
 @media (min-width: 992px) {
+  /* On desktop the sidebar is fixed full-height — no notch to clear */
   .main-content {
-    margin-left: var(--sidebar-width);
-    /* The sidebar is fixed and full height — no notch to clear. */
     padding-top: 0;
   }
-
-  .main-layout.sidebar-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed-width);
-  }
-
-  /* No bar on a wide screen; the home-indicator strip of an installed PWA is
-     all the page has to leave room for. */
-  .page-content {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
-
-@media (min-width: 992px) and (prefers-reduced-motion: no-preference) {
-  .main-content {
-    transition: margin-left 0.2s ease-in-out;
-  }
-}
-
-/* ─── Skip link ─── */
-/* The first thing Tab reaches: straight past the sidebar's dozen links to the
-   page. Hidden until focused; shown over the corner rather than pushing the
-   layout about. */
-.skip-link:focus {
-  position: fixed;
-  top: calc(8px + env(safe-area-inset-top));
-  left: 8px;
-  z-index: 2100;
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--border-radius-md);
-  background: var(--color-surface-raised);
-  color: var(--color-link);
-  font-weight: 600;
-  box-shadow: var(--shadow-lg);
 }

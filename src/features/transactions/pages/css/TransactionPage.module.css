@@ -24,17 +24,16 @@
 }
 
 /* ── Mobile list ──────────────────────────────────────────────────────────── */
-/* Fill the screen below the header. The subtraction covers only what actually
-   sits outside this shell: the bottom bar and the room left over it for its
-   raised «+» (both from MainLayout.css; the bar's height already includes the
-   home-indicator strip), plus the two nested container paddings and the footer
-   line. The fallback is the 4rem the old top bar took, for a screen with no
-   bar. */
+/* Fill the screen below the header. The subtraction covers only the chrome that
+   actually sits outside this shell — the topbar plus the two nested container
+   paddings and the footer line. The safe-area inset is NOT subtracted here:
+   .page-content already reserves it with padding-bottom, and counting it twice
+   was shrinking the list on notched phones. */
 .mobileShell {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100dvh - 2.5rem - var(--bottom-nav-space, 4rem) - var(--bottom-nav-raise, 0px));
+  height: calc(100dvh - 6.5rem);
 }
 
 .mobileScroll {

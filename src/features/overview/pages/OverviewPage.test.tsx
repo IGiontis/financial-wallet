@@ -32,6 +32,8 @@ vi.mock("../../transactions/hooks/useTransactions", () => ({
 }));
 vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [], isLoading: false }) }));
 vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }), useMarkBillPaid: () => ({ mutate: vi.fn() }) }));
+// The add form is its own world, tested on its own; here only that the "+" opens it.
+vi.mock("../../transactions/components/AddTransactionModal", () => ({ default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div role="dialog">add form</div> : null) }));
 // The planner's saved figures: none — the salary alone, from the mock below.
 // What the page writes back is kept, so an answer can be read off it.
 const saved = vi.hoisted(() => new Map<string, unknown>());
@@ -143,6 +145,12 @@ describe("the overview", () => {
     // Late first: the water is the first row, and its button opens its dialog.
     await userEvent.click(within(screen.getByRole("tabpanel")).getAllByRole("button", { name: "Paid" })[0]);
     expect(screen.getByRole("dialog")).toHaveTextContent("Water");
+  });
+
+  it("opens the add form from the \"+\", without leaving the page", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "New transaction" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("add form");
   });
 
   it("lists what was written down today", () => {

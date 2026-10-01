@@ -1,11 +1,13 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
+import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiPlus, FiTrendingUp } from "react-icons/fi";
 import { toast } from "react-toastify";
-import { Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
+import { Row, Col, Card, CardBody, Progress, Alert, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
-import { useTransactions } from "../../transactions/hooks/useTransactions";
+import { useCreateTransaction, useTransactions } from "../../transactions/hooks/useTransactions";
+import AddTransactionModal from "../../transactions/components/AddTransactionModal";
+import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -130,6 +132,8 @@ export const OverviewPage = () => {
 
   // ── Done from here ── the dialogs the Bills, Banks and Transactions pages use.
   const markPaid = useMarkBillPaid();
+  const createTransaction = useCreateTransaction();
+  const [adding, setAdding] = useState(false);
   const [payingBillId, setPayingBillId] = useState<string | null>(null);
   const payingBill = payingBillId ? bills.find((b) => b.id === payingBillId) : undefined;
   const [readingBanks, setReadingBanks] = useState(false);
@@ -591,8 +595,18 @@ export const OverviewPage = () => {
       </div>
       )}
 
-      {/* No "+" of its own any more: the one in the bottom bar (and the
-          sidebar's «Νέα συναλλαγή») opens the same form from every page. */}
+      {/* The "+" within thumb reach: writing something down is what this app
+          is opened for most, and it used to take the menu, a page and a button. */}
+      <div className={styles.fabSpace} aria-hidden />
+      <Button color="primary" className={styles.fab} onClick={() => setAdding(true)} aria-label={t("overview.addNew")} title={t("overview.addNew")}>
+        <FiPlus size={26} aria-hidden />
+      </Button>
+      <AddTransactionModal
+        isOpen={adding}
+        onClose={() => setAdding(false)}
+        categories={categories}
+        onSubmit={(data) => saveWithoutWaiting(createTransaction, data, () => toast.error(t("transactions.saveFailed")))}
+      />
 
       {payingBill && (
         <MarkPaidModal

@@ -561,3 +561,24 @@ a.attentionName {
   min-width: 0;
   line-height: 1.25;
 }
+
+/* ── The "+" within thumb reach ────────────────────────────────────────────── */
+
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 1030;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Room under the last row, so the button never sits on it. */
+.fabSpace {
+  height: 72px;
+}

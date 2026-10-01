@@ -45,7 +45,6 @@
   },
   "nav": {
     "groupStanding": "Πού είσαι",
-    "groupActivity": "Κινήσεις",
     "groupPlan": "Σχέδιο",
     "groupHoldings": "Τι έχεις & τι χρωστάς",
     "overview": "Επισκόπηση",
@@ -63,19 +62,15 @@
     "menu": "Μενού",
     "allocation": "Κατανομή",
     "accounts": "Τράπεζες & μετρητά",
-    "newTransaction": "Νέα συναλλαγή",
-    "newShort": "Νέα",
-    "mainNav": "Κύρια πλοήγηση",
-    "barLabel": "Γρήγορη πλοήγηση",
-    "allPages": "Όλες οι σελίδες",
-    "menuAttention": "κάτι εδώ μέσα σε θέλει",
-    "settingsAndProfile": "Ρυθμίσεις & προφίλ",
-    "skipToContent": "Μετάβαση στο περιεχόμενο",
     "theme": "Θέμα",
     "themeLight": "Φωτεινό",
     "themeDark": "Σκοτεινό",
     "themeAuto": "Αυτόματο",
-    "themeNow": "Θέμα: {{theme}}. Αλλαγή σε {{next}}"
+    "themeNow": "Θέμα: {{theme}}. Αλλαγή σε {{next}}",
+    "darkMode": "Σκοτεινό θέμα",
+    "groupDaily": "Καθημερινά",
+    "hideBar": "Απόκρυψη μπάρας",
+    "lightMode": "Φωτεινό θέμα"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",
@@ -227,7 +222,8 @@
     "todayTitle_other": "Σήμερα · {{count}} συναλλαγές",
     "todayNone": "Τίποτα γραμμένο σήμερα",
     "yesterdayLast": "Χθες · {{name}} · {{amount}}",
-    "allEntries": "Όλες ›"
+    "allEntries": "Όλες ›",
+    "addNew": "Νέα συναλλαγή"
   },
   "bills": {
     "title": "Πάγια",
