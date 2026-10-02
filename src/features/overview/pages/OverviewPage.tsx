@@ -1,13 +1,10 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiPlus, FiTrendingUp } from "react-icons/fi";
-import { toast } from "react-toastify";
-import { Row, Col, Card, CardBody, Progress, Alert, Button } from "reactstrap";
+import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
+import { Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
-import { useCreateTransaction, useTransactions } from "../../transactions/hooks/useTransactions";
-import AddTransactionModal from "../../transactions/components/AddTransactionModal";
-import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
+import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -32,15 +29,12 @@ import { CustomRangeModal } from "../components/CustomRangeModal";
 import GoalDetailModal from "../components/GoalDetailModal";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/OverviewPage.module.css";
-import { useBills, useMarkBillPaid } from "../../bills/useBills";
-import MarkPaidModal from "../../bills/MarkPaidModal";
+import { useBills } from "../../bills/useBills";
 import { useDebts } from "../../debts/useDebts";
 import { useSalary } from "../../../shared/hooks/useSalary";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
-import { daysSince, expectedByAccount, goalHeldTotal, newId, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
-import { accountTones } from "../../accounts/accountTones";
-import CheckInModal from "../../accounts/CheckInModal";
+import { daysSince, goalHeldTotal, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
@@ -114,11 +108,11 @@ export const OverviewPage = () => {
 
   const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
-  const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
+  const { format: formatCurrency } = useCurrencyConverter();
   const { data: bills = [] } = useBills();
   const { data: debts = [] } = useDebts();
   const { opening, anchors, source: openingSource, isLoading: openingLoading } = useOpeningBalance();
-  const { accounts, readings, latest: lastReading, setCheckIns } = useMoneyAccounts();
+  const { accounts, readings, latest: lastReading } = useMoneyAccounts();
   const { salary } = useSalary(now);
 
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
@@ -128,17 +122,8 @@ export const OverviewPage = () => {
   // ── Will it last until pay day ── the Planner's own walk, from the money above.
   // The reading's time too: pay that came early and only shows in it must not
   // be counted again, and is asked about instead.
-  const { outlook, late: lateOccurrences, unconfirmed, settle, answer } = usePaydayOutlook(now, balance, lastReading?.at);
+  const { outlook, late: lateOccurrences, unconfirmed } = usePaydayOutlook(now, balance, lastReading?.at);
 
-  // ── Done from here ── the dialogs the Bills, Banks and Transactions pages use.
-  const markPaid = useMarkBillPaid();
-  const createTransaction = useCreateTransaction();
-  const [adding, setAdding] = useState(false);
-  const [payingBillId, setPayingBillId] = useState<string | null>(null);
-  const payingBill = payingBillId ? bills.find((b) => b.id === payingBillId) : undefined;
-  const [readingBanks, setReadingBanks] = useState(false);
-  const expectedNow = useMemo(() => expectedByAccount(accounts, lastReading, transactions), [accounts, lastReading, transactions]);
-  const tones = useMemo(() => accountTones(accounts), [accounts]);
 
   // ── Today ──
   const attention = useMemo(() => attentionItems(bills, debts, now), [bills, debts, now]);
@@ -333,9 +318,6 @@ export const OverviewPage = () => {
       unconfirmed={unconfirmed}
       now={now}
       formatCurrency={formatCurrency}
-      onPay={setPayingBillId}
-      onSettle={settle}
-      onAnswer={answer}
     />
   );
 
@@ -402,10 +384,11 @@ export const OverviewPage = () => {
         banks={banksNow}
         inGoals={inGoals}
         outlook={outlook}
+        now={now}
         formatCurrency={formatCurrency}
         locale={locale}
       />
-      <BankStrip hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} onUpdate={() => setReadingBanks(true)} />
+      <BankStrip hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />
 
       {/* Labelled and full width, so on a phone each is a real target. */}
       <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")}>
@@ -595,45 +578,6 @@ export const OverviewPage = () => {
       </div>
       )}
 
-      {/* The "+" within thumb reach: writing something down is what this app
-          is opened for most, and it used to take the menu, a page and a button. */}
-      <div className={styles.fabSpace} aria-hidden />
-      <Button color="primary" className={styles.fab} onClick={() => setAdding(true)} aria-label={t("overview.addNew")} title={t("overview.addNew")}>
-        <FiPlus size={26} aria-hidden />
-      </Button>
-      <AddTransactionModal
-        isOpen={adding}
-        onClose={() => setAdding(false)}
-        categories={categories}
-        onSubmit={(data) => saveWithoutWaiting(createTransaction, data, () => toast.error(t("transactions.saveFailed")))}
-      />
-
-      {payingBill && (
-        <MarkPaidModal
-          bill={payingBill}
-          isSaving={false}
-          onClose={() => setPayingBillId(null)}
-          onConfirm={(amountInBase, paidDate, periodKey, installmentIndex) => {
-            markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex }, { onError: () => toast.error(t("bills.markPaidFailed")) });
-            setPayingBillId(null);
-          }}
-        />
-      )}
-
-      {readingBanks && accounts.length > 0 && (
-        <CheckInModal
-          accounts={accounts}
-          expected={expectedNow}
-          tones={tones}
-          baseCurrency={baseCurrency}
-          formatCurrency={formatCurrency}
-          onSave={(amounts) => {
-            setCheckIns((previous) => [...(previous ?? []), { id: newId(), at: new Date().toISOString(), amounts }]);
-            setReadingBanks(false);
-          }}
-          onClose={() => setReadingBanks(false)}
-        />
-      )}
     </PageShell>
   );
 };

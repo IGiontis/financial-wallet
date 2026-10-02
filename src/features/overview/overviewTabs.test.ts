@@ -4,7 +4,7 @@ import { buildPlan, SALARY_ROW_ID, type BudgetLine, type PlannerPlan } from "../
 import { calculateMetrics } from "./overviewUtils";
 import { billsNeedingAttention, computeBillStatus, overdueBills } from "../bills/billsUtils";
 import { computeDebtStatus } from "../debts/debtsUtils";
-import type { Bill, Debt, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import type { Bill, BillPayment, Debt, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The overview's "what wants doing" list and its "left at pay day" figure.
 //
@@ -13,10 +13,18 @@ import type { Bill, Debt, InvestmentGoalWithStats, Transaction } from "../../sha
 // less exactly the bills that fall before pay day — worked out again by hand.
 
 const NOW = new Date(2026, 8, 26); // 26 September
+/**
+ * January to August paid, on the 1st: a bill kept up to date until this month,
+ * so September is the only one that can be late or due. Without it a bill
+ * added in January with nothing paid is eight months behind — overdue counts
+ * every period, not only the current one.
+ */
+const upToDate = (id: string, amount: number): BillPayment[] =>
+  Array.from({ length: 8 }, (_, m) => ({ id: `${id}-${m}`, userId: "u", billId: id, periodKey: `2026-${String(m + 1).padStart(2, "0")}`, amount, paidDate: new Date(2026, m, 1), createdAt: new Date(2026, m, 1) }) as BillPayment);
 const bill = (id: string, name: string, amount: number, dueDay: number, extra: Partial<Bill> = {}) =>
   computeBillStatus(
     { id, userId: "u", name, amount, categoryId: "c", frequency: "monthly", dueDay, isActive: true, anchorDate: new Date(2026, 0, 1), createdAt: new Date(2026, 0, 1), updatedAt: new Date(2026, 0, 1), ...extra } as Bill,
-    [],
+    upToDate(id, amount),
     NOW,
   );
 const debt = (id: string, amount: number, dueDate?: Date, direction: Debt["direction"] = "owed_by_me") =>
@@ -67,7 +75,7 @@ describe("attentionItems", () => {
   it("is empty when nothing wants doing", () => {
     const paid = computeBillStatus(
       { id: "p", userId: "u", name: "Paid", amount: 10, categoryId: "c", frequency: "monthly", dueDay: 20, isActive: true, anchorDate: new Date(2026, 0, 1), createdAt: new Date(2026, 0, 1), updatedAt: new Date(2026, 0, 1) } as Bill,
-      [{ id: "x", userId: "u", billId: "p", periodKey: "2026-09", amount: 10, paidDate: new Date(2026, 8, 18), createdAt: new Date(2026, 8, 18) }],
+      [...upToDate("p", 10), { id: "x", userId: "u", billId: "p", periodKey: "2026-09", amount: 10, paidDate: new Date(2026, 8, 18), createdAt: new Date(2026, 8, 18) }],
       NOW,
     );
     expect(attentionItems([paid], [debt("far", 100, new Date(2026, 11, 1))], NOW)).toEqual([]);

@@ -680,6 +680,25 @@ export interface ProjectionPoint {
   accruedOut: number;
 }
 
+/**
+ * The walk itself, one entry per day of the window — index 0 is today — kept
+ * whatever the points are sampled at.
+ *
+ * The points thin out past four months, to a week and then a month apart,
+ * because a line three years long has no use for 1,100 dots. But the questions
+ * the page asks of a plan do not thin out with it: what is left on the eve of
+ * each pay day is one particular day, and at weekly sampling that day is
+ * usually not a point at all. Three arrays of a few thousand numbers each cost
+ * nothing next to the walk that fills them.
+ */
+export interface DailyWalk {
+  /** Balance at the end of each day, unrounded — the figure each point rounds. */
+  balance: Float64Array;
+  /** What the budget lines accrued on each day, each side, positive. */
+  lineIn: Float64Array;
+  lineOut: Float64Array;
+}
+
 export type PlannerVerdict = "ok" | "tight" | "short";
 
 export interface PlannerPlan {
@@ -708,6 +727,8 @@ export interface PlannerPlan {
   points: ProjectionPoint[];
   /** How far apart those points are — the page labels them accordingly. */
   pointStep: PointStep;
+  /** Every day of the walk, for the questions a sampled line cannot answer — see `DailyWalk`. */
+  daily: DailyWalk;
   lowestBalance: number;
   /**
    * The day `lowestBalance` is reached — the first such day, when the line sits
@@ -1111,6 +1132,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // Accrued since the last point was kept, for the bars.
   let accruedIn = 0;
   let accruedOut = 0;
+  const daily: DailyWalk = { balance: new Float64Array(days + 1), lineIn: new Float64Array(days + 1), lineOut: new Float64Array(days + 1) };
 
   for (let offset = 0; offset <= days; offset++) {
     if (offset > 0) {
@@ -1128,6 +1150,9 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     const dayEvents = byDay.get(offset) ?? [];
     for (const event of dayEvents) balance += event.amount;
     if (dayEvents.length > 0) pending = pending.concat(dayEvents);
+    daily.balance[offset] = balance;
+    daily.lineIn[offset] = inToday;
+    daily.lineOut[offset] = outToday;
 
     // Compared to the cent, like everything the page prints. The walk adds a
     // line's daily slice as a fraction, so a month that nets to exactly zero
@@ -1233,6 +1258,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     endingBalance,
     points,
     pointStep: pointStepFor(days),
+    daily,
     lowestBalance: round2(lowestBalance),
     lowestOn,
     breaksOn,
@@ -1255,17 +1281,23 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
  * — "you go €489.15 under on 1 Oct" — when 1 October was −69.68 and −489.15
  * was the 29th. Each figure now sits with the day it belongs to.
  *
- * Otherwise the window it covers, with the months counted for a plural.
+ * The same two facts for a plan that ends under as for one that dips and comes
+ * back: both went under on some day, for some reason, and both have a deepest
+ * point. Only the verdict above the line differs.
+ *
+ * A plan that never goes under says where it comes closest — the low point
+ * and its day — because that, and not what the months add, is what the answer
+ * rests on: you make it as long as that figure stays above zero.
  */
 export type HeroSubline =
   | { key: "planner.dipsOn" | "planner.dipsOnBill"; date: Date; name?: string; lowest: number; lowestOn: Date }
-  | { key: "planner.untilDate"; date: Date; count: number };
+  | { key: "planner.lowestPoint"; lowest: number; lowestOn: Date };
 
-export function heroSubline(plan: Pick<PlannerPlan, "verdict" | "breaksOn" | "breakingEvent" | "lowestBalance" | "lowestOn" | "end" | "months">): HeroSubline {
-  if (plan.verdict === "tight" && plan.breaksOn) {
+export function heroSubline(plan: Pick<PlannerPlan, "breaksOn" | "breakingEvent" | "lowestBalance" | "lowestOn">): HeroSubline {
+  if (plan.breaksOn) {
     return { key: plan.breakingEvent ? "planner.dipsOnBill" : "planner.dipsOn", date: plan.breaksOn, name: plan.breakingEvent?.label, lowest: plan.lowestBalance, lowestOn: plan.lowestOn };
   }
-  return { key: "planner.untilDate", date: plan.end, count: plan.months };
+  return { key: "planner.lowestPoint", lowest: plan.lowestBalance, lowestOn: plan.lowestOn };
 }
 
 // ─── The plan, period by period ─────────────────────────────────────────────

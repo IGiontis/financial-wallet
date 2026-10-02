@@ -6,7 +6,7 @@ import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiTrash2, FiX } from "rea
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
-import { expectedAmount, getFrequencyLabel, getFrequencyToken, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
+import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
 
@@ -53,6 +53,12 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
   const freq = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
   const paidDate = bill.payment ? firestoreToDate(bill.payment.paidDate) : undefined;
+  // Behind on anything, this period's or an earlier one's, the dialog says so
+  // in the card's own words: a grey "Unpaid" over three unpaid months, or a
+  // green "Paid" because October happens to be settled, both hid the debt.
+  const overdue = billOverdue(bill);
+  const behind = overdue.count > 0;
+  const tone = behind ? "--color-expense" : paid ? "--color-income" : "--color-goal";
   const fund = sinkingFund(bill);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" });
@@ -100,8 +106,14 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           {bill.name}
-          <Badge color={paid ? "success" : "secondary"} pill style={{ fontSize: 10 }}>
-            {paid ? t("bills.paidThisPeriodShort") : t("bills.unpaid")}
+          <Badge color={behind ? "danger" : paid ? "success" : "secondary"} pill style={{ fontSize: 10 }}>
+            {behind
+              ? overdue.count > 1
+                ? t("bills.chipOverdue", { count: overdue.count, amount: formatCurrency(overdue.total) })
+                : t("bills.lateByDays", { count: Math.abs(daysUntilDeadline(bill) ?? 0) })
+              : paid
+                ? t("bills.paidThisPeriodShort")
+                : t("bills.unpaid")}
           </Badge>
         </span>
       </ModalHeader>
@@ -134,10 +146,17 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
           className="p-3 mb-3"
           style={{
             borderRadius: "var(--border-radius-md)",
-            background: `color-mix(in srgb, var(${paid ? "--color-income" : "--color-goal"}) 10%, transparent)`,
-            border: `1px solid color-mix(in srgb, var(${paid ? "--color-income" : "--color-goal"}) 30%, transparent)`,
+            background: `color-mix(in srgb, var(${tone}) 10%, transparent)`,
+            border: `1px solid color-mix(in srgb, var(${tone}) 30%, transparent)`,
           }}
         >
+          {/* What is overdue, before this period's own line: how many, since
+              when, and what they come to — the late tile's figure for it. */}
+          {behind && overdue.oldestDue && (
+            <div className="fw-semibold mb-1" style={{ fontSize: 13, color: "var(--color-expense)" }}>
+              ⚠ {t("bills.unpaidSince", { count: overdue.count, date: dateFmt.format(overdue.oldestDue) })} · {formatCurrency(overdue.total)}
+            </div>
+          )}
           {paid && paidDate ? (
             <>
               <div className="fw-semibold mb-1" style={{ fontSize: 13, color: "var(--color-income)" }}>

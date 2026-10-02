@@ -411,7 +411,10 @@ describe("the late total, the runway and the overview agree on a part-paid bill"
 
   it("adds the late parts to the other late bills, row by row", () => {
     const now = new Date(2026, 10, 15);
-    const bills = [gym([OCT_PART], now), computeBillStatus(makeBill({ id: "netflix", name: "Netflix", dueDay: 10 }), [], now)];
+    // Netflix added this month, so November is all it can owe — the late list
+    // counts earlier unpaid periods too, and this is about the gym's parts.
+    const thisMonth = { anchorDate: new Date(2026, 10, 1), createdAt: new Date(2026, 10, 1) };
+    const bills = [gym([OCT_PART], now), computeBillStatus(makeBill({ id: "netflix", name: "Netflix", dueDay: 10, ...thisMonth }), [], now)];
     const late = overdueBills(bills, now);
 
     // The rows the late list shows, added up — and by hand, 120 + 15.
@@ -535,10 +538,14 @@ describe("averagePaidAmount — a period at a time", () => {
 
 describe("outstandingTotal — the list's still-to-pay heading", () => {
   const now = new Date(2026, 8, 16);
-  const netflix = computeBillStatus(makeBill({ id: "netflix", name: "Netflix", dueDay: 10 }), [], now);
-  const stopped = computeBillStatus(makeBill({ id: "flat", amount: 40, dueDay: 10, pause: { from: "2026-08" } }), [], now);
-  const paused = computeBillStatus(makeBill({ id: "house", amount: 60, dueDay: 10, pause: { from: "2026-09", to: "2026-12" } }), [], now);
-  const off = computeBillStatus(makeBill({ id: "off", amount: 25, dueDay: 10, isActive: false }), [], now);
+  // All added this month, so the current period is all any of them can owe.
+  // Added in January with nothing paid they would be eight months behind, and
+  // those months belong to the late total, not to this heading.
+  const thisMonth = { anchorDate: new Date(2026, 8, 1), createdAt: new Date(2026, 8, 1) };
+  const netflix = computeBillStatus(makeBill({ id: "netflix", name: "Netflix", dueDay: 10, ...thisMonth }), [], now);
+  const stopped = computeBillStatus(makeBill({ id: "flat", amount: 40, dueDay: 10, pause: { from: "2026-08" }, ...thisMonth }), [], now);
+  const paused = computeBillStatus(makeBill({ id: "house", amount: 60, dueDay: 10, pause: { from: "2026-09", to: "2026-12" }, ...thisMonth }), [], now);
+  const off = computeBillStatus(makeBill({ id: "off", amount: 25, dueDay: 10, isActive: false, ...thisMonth }), [], now);
 
   it("counts neither a stopped nor a paused bill", () => {
     // Was €115: 15 + 40 + 60.

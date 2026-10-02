@@ -8,8 +8,6 @@ import { computeBillStatus } from "../../bills/billsUtils";
 import { computeDebtStatus } from "../../debts/debtsUtils";
 import type { Bill, Debt, Transaction } from "../../../shared/types/IndexTypes";
 import { readCheckIns, type CheckInReading } from "../../accounts/accountsUtils";
-import { occurrenceKey } from "../../plannerPage/plannerActuals";
-import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
 
 // The overview's four tabs, on the real page.
 //
@@ -32,8 +30,6 @@ vi.mock("../../transactions/hooks/useTransactions", () => ({
 }));
 vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [], isLoading: false }) }));
 vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }), useMarkBillPaid: () => ({ mutate: vi.fn() }) }));
-// The add form is its own world, tested on its own; here only that the "+" opens it.
-vi.mock("../../transactions/components/AddTransactionModal", () => ({ default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div role="dialog">add form</div> : null) }));
 // The planner's saved figures: none — the salary alone, from the mock below.
 // What the page writes back is kept, so an answer can be read off it.
 const saved = vi.hoisted(() => new Map<string, unknown>());
@@ -140,17 +136,15 @@ describe("the overview", () => {
     expect(screen.getByText(/You need €68.40 and have €50.00\. You go below zero on .*, at “Water”\./)).toBeInTheDocument();
   });
 
-  it("marks a bill paid from the list, in the Bills page's own dialog", async () => {
+  it("is for looking: no actions, every row of the list leads to its page", () => {
     renderPage();
-    // Late first: the water is the first row, and its button opens its dialog.
-    await userEvent.click(within(screen.getByRole("tabpanel")).getAllByRole("button", { name: "Paid" })[0]);
-    expect(screen.getByRole("dialog")).toHaveTextContent("Water");
-  });
-
-  it("opens the add form from the \"+\", without leaving the page", async () => {
-    renderPage();
-    await userEvent.click(screen.getByRole("button", { name: "New transaction" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("add form");
+    const panel = screen.getByRole("tabpanel");
+    // Nothing to press on the list itself — paying is done on Πάγια, and so on.
+    expect(within(panel).queryAllByRole("button")).toHaveLength(0);
+    expect(within(panel).getByRole("link", { name: /Water/ })).toHaveAttribute("href", "/bills");
+    expect(within(panel).getByRole("link", { name: /Rent loan/ })).toHaveAttribute("href", "/debts");
+    // And no add button of its own.
+    expect(screen.queryByRole("button", { name: "New transaction" })).toBeNull();
   });
 
   it("lists what was written down today", () => {
@@ -234,7 +228,7 @@ describe("the overview", () => {
     expect(line).toHaveAttribute("href", "/accounts");
   });
 
-  it("asks about pay the last bank reading may already hold, and records the answer as the Planner does", async () => {
+  it("shows pay the last bank reading may already hold, and points to the Planner to answer", () => {
     // Pay is due on the 28th (the salary mocked above) and is not written down.
     // The banks were read on the 20th — on or after the 18th, the earliest it
     // could have come — so it may already be in the money the plan starts from.
@@ -242,18 +236,14 @@ describe("the overview", () => {
     data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 20, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
     data.accounts = accounts;
     const day = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(2026, 8, 28));
-    const key = occurrenceKey("salary", SALARY_ROW_ID, new Date(2026, 8, 28));
-    const occurrences = () => (saved.get("planner-occurrences") as (previous: unknown) => unknown)({});
 
     renderPage();
     const panel = screen.getByRole("tabpanel");
-    expect(within(panel).getByText(`Your salary of ${day} wasn’t found — has it come already?`)).toBeInTheDocument();
-
-    await userEvent.click(within(panel).getByRole("button", { name: `Salary · ${day}: It came` }));
-    expect(occurrences()).toEqual({ [key]: { state: "received", date: "2026-09-26", amount: 1700 } });
-
-    await userEvent.click(within(panel).getByRole("button", { name: `Salary · ${day}: Not yet` }));
-    expect(occurrences()).toEqual({ [key]: { state: "waiting" } });
+    const row = within(panel).getByRole("link", { name: new RegExp(`Your salary of ${day} wasn’t found in your transactions — has it come already\\?`) });
+    expect(row).toHaveAttribute("href", "/planner");
+    expect(row).toHaveTextContent("Needs an answer");
+    // Answered there, not here: nothing is written from the Overview.
+    expect(saved.has("planner-occurrences")).toBe(false);
   });
 
   it("does not ask when the banks were read before the pay could have come", () => {
@@ -261,6 +251,6 @@ describe("the overview", () => {
     data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 17, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
     data.accounts = accounts;
     renderPage();
-    expect(screen.queryByText(/wasn’t found — has it come already/)).toBeNull();
+    expect(screen.queryByText(/wasn’t found in your transactions — has it come already/)).toBeNull();
   });
 });

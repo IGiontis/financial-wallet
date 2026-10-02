@@ -664,8 +664,12 @@ describe("computeBillStatus — grace window", () => {
   });
 
   it("is not late while the window is still open", () => {
-    expect(billUrgency(computeBillStatus(electricity, [], now), now)).toBe("later");
-    expect(isInGracePeriod(computeBillStatus(electricity, [], now), now)).toBe(true);
+    // January to June paid. Added in January with nothing paid, the bill is
+    // six months behind — overdue counts every period — and the question here
+    // is this month's window alone.
+    const kept = [1, 2, 3, 4, 5, 6].map((m) => payment(`2026-0${m}`, new Date(2026, m - 1, 6)));
+    expect(billUrgency(computeBillStatus(electricity, kept, now), now)).toBe("later");
+    expect(isInGracePeriod(computeBillStatus(electricity, kept, now), now)).toBe(true);
   });
 
   it("rolls forward once the window has closed too", () => {

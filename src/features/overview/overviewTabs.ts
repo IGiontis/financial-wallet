@@ -1,4 +1,4 @@
-import { amountDueNext, billUrgency, daysUntilDeadline } from "../bills/billsUtils";
+import { amountDueNext, billOverdue, billUrgency, daysUntilDeadline } from "../bills/billsUtils";
 import { SALARY_ROW_ID, type PlannerPlan } from "../plannerPage/plannerUtils";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isPlainExpense } from "./overviewUtils";
@@ -38,10 +38,15 @@ export function attentionItems(bills: BillWithStatus[], debts: DebtWithStatus[],
     if (!bill.isActive) continue;
     const urgency = billUrgency(bill, now);
     if (urgency !== "late" && urgency !== "soon") continue;
+    // Late: counted from the oldest payment still owed, and asking for all of
+    // them — the Bills page's late figure for the same bill. Water with July,
+    // August and September open is €180 and late since July, not €60 and late
+    // since September; and with only its own period open it is that one, as
+    // before. Coming up: what is due by that date, which for a bill paid in
+    // parts is the part and not the year — the gym's €120, not its €360.
     const days = daysUntilDeadline(bill, now) ?? 0;
-    // What is due by that date, which for a bill paid in parts is the part and
-    // not the year: the gym's €120, not its €360.
-    items.push({ kind: "bill", id: bill.id, name: bill.name, amount: amountDueNext(bill, now), days, late: urgency === "late" });
+    const amount = urgency === "late" ? billOverdue(bill, now).total : amountDueNext(bill, now);
+    items.push({ kind: "bill", id: bill.id, name: bill.name, amount, days, late: urgency === "late" });
   }
 
   const today = startOfDay(now);
@@ -92,6 +97,15 @@ export interface PaydayOutlook {
   /** What is left per day of the window, never below zero. */
   perDay: number;
 }
+
+/**
+ * How far the plan behind "until pay day" looks: two months, enough to reach
+ * the next pay day even when this month's came early and the next is a month
+ * away. Shared by the Overview and the Planner, which read the answer off a
+ * plan this long rather than off their own windows: the points are daily up to
+ * four months, and a year's plan, sampled weekly, has no point on the eve.
+ */
+export const PAYDAY_HORIZON = 2;
 
 type PlanWalk = Pick<PlannerPlan, "openingBalance" | "points" | "events">;
 

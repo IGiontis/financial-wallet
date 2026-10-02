@@ -42,6 +42,20 @@ const makeBill = (overrides: Partial<Bill> = {}): Bill =>
 const paid = (periodKey: string, paidDate: Date, amount = 60): BillPayment =>
   ({ id: Math.random().toString(), userId: "u1", billId: "b1", periodKey, amount, paidDate, createdAt: paidDate }) as BillPayment;
 
+/**
+ * Every month paid from the bill's start, January 2025, through `month` of
+ * `year` — a bill kept up to date until then. Without it the bill is behind on
+ * every month since it was added, and a test about the pause would be reading
+ * that debt instead.
+ */
+const paidThrough = (year: number, month: number): BillPayment[] => {
+  const payments: BillPayment[] = [];
+  for (let d = new Date(2025, 0, 1); d <= new Date(year, month, 1); d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    payments.push(paid(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, new Date(d.getFullYear(), d.getMonth(), 4)));
+  }
+  return payments;
+};
+
 const WINTER: BillPause = { from: "2026-11", to: "2027-03" };
 const EVERY_WINTER: BillPause = { from: "2026-11", to: "2027-03", yearly: true };
 const MOVED: BillPause = { from: "2026-09" };
@@ -178,7 +192,8 @@ describe("the bill's status", () => {
 
   it("stays off the badge while it is off", () => {
     const now = new Date(2026, 11, 20);
-    const status = computeBillStatus(makeBill({ pause: WINTER }), [], now);
+    // Paid up to October, the month before the winter.
+    const status = computeBillStatus(makeBill({ pause: WINTER }), paidThrough(2026, 9), now);
 
     expect(billUrgency(status, now)).toBe("later");
     expect(billsNeedingAttention([status], now)).toBe(0);
@@ -186,14 +201,15 @@ describe("the bill's status", () => {
 
   it("comes back onto the badge the week it is due again", () => {
     const now = new Date(2027, 2, 31);
-    const status = computeBillStatus(makeBill({ pause: WINTER }), [], now);
+    const status = computeBillStatus(makeBill({ pause: WINTER }), paidThrough(2026, 9), now);
 
     expect(status.nextDueDate).toEqual(new Date(2027, 3, 5));
     expect(billUrgency(status, now)).toBe("soon");
   });
 
   it("has no next payment once it has stopped for good", () => {
-    const status = computeBillStatus(makeBill({ pause: MOVED }), [], new Date(2026, 9, 20));
+    // Paid up to August, the last month before the move.
+    const status = computeBillStatus(makeBill({ pause: MOVED }), paidThrough(2026, 7), new Date(2026, 9, 20));
 
     expect(status.nextDueDate).toBeUndefined();
     expect(status.deadline).toBeUndefined();

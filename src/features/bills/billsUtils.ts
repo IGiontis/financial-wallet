@@ -669,28 +669,57 @@ export function daysUntilDue(bill: BillWithStatus, now: Date = new Date()): numb
   return Math.round((startOfDue - startOfToday) / 86_400_000);
 }
 
+/**
+ * Which section a bill sits in — read off `billUrgency`, so the late section
+ * and the late colour are one rule. Anything overdue is "overdue", this
+ * period paid or not: a bill a period behind is behind. No due date set means
+ * it can't be late, so it is upcoming.
+ */
 export function getBillGroup(bill: BillWithStatus, now: Date = new Date()): BillGroup {
-  if (bill.isPaidThisPeriod) return "paid";
-  const days = daysUntilDeadline(bill, now);
-  // No due date set → it can't be late, so treat it as upcoming.
-  return days !== undefined && days < 0 ? "overdue" : "upcoming";
+  const urgency = billUrgency(bill, now);
+  return urgency === "late" ? "overdue" : urgency === "paid" ? "paid" : "upcoming";
 }
 
 // ─── Urgency ────────────────────────────────────────────────────────────────
 
-/** Whole days until the money must actually be there. Negative = truly late. */
-export function daysUntilDeadline(bill: BillWithStatus, now: Date = new Date()): number | undefined {
-  if (!bill.deadline) return undefined;
+/** Whole calendar days from today to `date`. Negative once it has gone. */
+function wholeDaysUntil(date: Date, now: Date): number {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const end = new Date(bill.deadline.getFullYear(), bill.deadline.getMonth(), bill.deadline.getDate()).getTime();
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   return Math.round((end - today) / 86_400_000);
 }
 
-/** Inside its grace window: the day has passed but it can still be paid. */
+/**
+ * The earliest deadline still unmet: the oldest overdue payment's, or failing
+ * that this period's own.
+ *
+ * The bill's `deadline` field only knows the period it is in, so for water with
+ * July still unpaid it named 30 October — a date that is fine — while the money
+ * has been late since 30 July.
+ */
+export function earliestDeadline(bill: BillWithStatus, now: Date = new Date()): Date | undefined {
+  return billOverdue(bill, now).oldestDeadline ?? bill.deadline;
+}
+
+/**
+ * Whole days until the money must actually be there. Negative = truly late,
+ * counted from the oldest payment still owed.
+ */
+export function daysUntilDeadline(bill: BillWithStatus, now: Date = new Date()): number | undefined {
+  const deadline = earliestDeadline(bill, now);
+  return deadline ? wholeDaysUntil(deadline, now) : undefined;
+}
+
+/**
+ * Inside its grace window: the day has passed but it can still be paid.
+ *
+ * About this period's payment alone — its own due date against its own
+ * deadline — whatever earlier ones are still owed.
+ */
 export function isInGracePeriod(bill: BillWithStatus, now: Date = new Date()): boolean {
   if (bill.isPaidThisPeriod || isHardDeadline(bill)) return false;
   const toDue = daysUntilDue(bill, now);
-  const toDeadline = daysUntilDeadline(bill, now);
+  const toDeadline = bill.deadline ? wholeDaysUntil(bill.deadline, now) : undefined;
   return toDue !== undefined && toDeadline !== undefined && toDue < 0 && toDeadline >= 0;
 }
 
@@ -704,13 +733,17 @@ export const URGENT_DAYS = 7;
  * deadline rather than the due date — an electricity bill three days past its
  * due date with three weeks of grace left is not in trouble, and shouldn't be
  * coloured as if it were.
+ *
+ * Late means anything overdue (`billOverdue`), from this period or an earlier
+ * one, and it comes before "paid": October settled does not make July any less
+ * owed. With nothing overdue, this period's own deadline is the only one left —
+ * which, since nothing is overdue, has not gone.
  */
 export function billUrgency(bill: BillWithStatus, now: Date = new Date()): BillUrgency {
+  if (billOverdue(bill, now).count > 0) return "late";
   if (bill.isPaidThisPeriod) return "paid";
-  const days = daysUntilDeadline(bill, now);
-  if (days === undefined) return "later";
-  if (days < 0) return "late";
-  return days <= URGENT_DAYS ? "soon" : "later";
+  if (!bill.deadline) return "later";
+  return wholeDaysUntil(bill.deadline, now) <= URGENT_DAYS ? "soon" : "later";
 }
 
 /**
@@ -791,9 +824,12 @@ export function groupBills(bills: BillWithStatus[], now: Date = new Date()): Gro
     groups[getBillGroup(bill, now)].push(bill);
   }
 
-  // Most overdue first; soonest deadline first; most recently paid first.
-  const byDays = (a: BillWithStatus, b: BillWithStatus) =>
-    (daysUntilDeadline(a, now) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDeadline(b, now) ?? Number.MAX_SAFE_INTEGER);
+  // Most overdue first — counted from the oldest payment owed, so four periods
+  // behind outranks one; soonest deadline first; most recently paid first.
+  // Worked out once per bill rather than per comparison: each one walks the
+  // bill's arrears.
+  const days = new Map(bills.map((bill) => [bill, daysUntilDeadline(bill, now) ?? Number.MAX_SAFE_INTEGER]));
+  const byDays = (a: BillWithStatus, b: BillWithStatus) => days.get(a)! - days.get(b)!;
   groups.overdue.sort(byDays);
   groups.upcoming.sort(byDays);
   groups.paid.sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
@@ -863,6 +899,10 @@ export function paidThisPeriod(bill: BillWithStatus): number {
  * and a paused €60 sitting beside a €15 Netflix made the heading say €115 while
  * the month and the late total both said €15. Bills switched off altogether are
  * left out, as they are everywhere else.
+ *
+ * The current periods only. Earlier periods still unpaid are the late total's
+ * (`overdueBills`), and a current period that is itself late is in both — so
+ * the two are read side by side, never added together.
  */
 export function outstandingTotal(bills: BillWithStatus[]): number {
   return round2(bills.filter((bill) => bill.isActive && !bill.isPaidThisPeriod).reduce((sum, bill) => sum + bill.outstandingAmount, 0));
@@ -876,9 +916,10 @@ export function outstandingTotal(bills: BillWithStatus[]): number {
  * to something else. Stopped bills are left out for the same reason the count
  * always left them out: a bill that is switched off is not owed.
  *
- * Each bill counts what is actually late on it — `amountDueNext`, the same
- * figure its row and the overview's list show. A part-paid gym a month behind
- * is €120 late, not the €360 of its year, and not the €240 left on it either
+ * Each bill counts everything overdue on it — `billOverdue`, the same figure
+ * its row and the overview's list show. Water four periods behind is €240
+ * late, not the €60 of the period it is in. A part-paid gym a month behind is
+ * €120 late, not the €360 of its year, and not the €240 left on it either
  * while December's part is still weeks off.
  */
 export function overdueBills(bills: BillWithStatus[], now: Date = new Date()): { bills: BillWithStatus[]; total: number } {
@@ -886,7 +927,7 @@ export function overdueBills(bills: BillWithStatus[], now: Date = new Date()): {
     bills.filter((bill) => bill.isActive),
     now,
   ).overdue;
-  return { bills: late, total: round2(late.reduce((sum, bill) => sum + amountDueNext(bill, now), 0)) };
+  return { bills: late, total: round2(late.reduce((sum, bill) => sum + billOverdue(bill, now).total, 0)) };
 }
 
 // ─── Cash runway ────────────────────────────────────────────────────────────
@@ -916,36 +957,47 @@ const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limit = 3): CashCheckpoint[] {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const pending = bills.filter((b) => b.isActive && !b.isPaidThisPeriod && b.deadline);
-
   const byDate = new Map<string, CashCheckpoint>();
-  for (const bill of pending) {
-    // Anything already past its deadline is needed *now*, not on a date that
-    // has been and gone — so it collapses onto today's checkpoint.
-    const raw = bill.deadline!;
-    const date = raw < today ? today : new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
-
+  const add = (date: Date, bill: BillWithStatus, amount: number, overdue: boolean) => {
     const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false };
-    entry.bills.push(bill);
-    // What has to be there by this date — one instalment of a bill paid in
-    // parts, not the whole of its period.
-    entry.amount = round2(entry.amount + amountDueNext(bill, now));
-    if (raw < today) entry.overdue = true;
+    if (!entry.bills.includes(bill)) entry.bills.push(bill);
+    entry.amount = round2(entry.amount + amount);
+    if (overdue) entry.overdue = true;
     byDate.set(dayKey(date), entry);
+  };
+
+  for (const bill of bills) {
+    if (!bill.isActive) continue;
+
+    // Everything overdue is needed *now*, not on a date that has been and gone
+    // — so it collapses onto today's checkpoint, earlier periods included: the
+    // water three months behind needs its €180 today as surely as this
+    // month's. The same figure as the late tile.
+    const overdue = billOverdue(bill, now);
+    if (overdue.count > 0) add(today, bill, overdue.total, true);
+
+    // Then this period's next payment, on its own deadline — one instalment of
+    // a bill paid in parts, not the whole of its period. Only while that
+    // deadline is still ahead: once it has gone, the payment is among the
+    // overdue above, and adding it here would ask for it twice.
+    const deadline = bill.deadline;
+    if (!bill.isPaidThisPeriod && deadline && deadline >= today) {
+      add(new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate()), bill, amountDueNext(bill, now), false);
+    }
   }
 
   const checkpoints = Array.from(byDate.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
 
+  // Counted as bills, not entries: water owing July now and October on the
+  // 10th is one bill to deal with, not two.
   let running = 0;
-  let count = 0;
-  let strict = 0;
+  const counted = new Set<BillWithStatus>();
   for (const checkpoint of checkpoints) {
     running = round2(running + checkpoint.amount);
-    count += checkpoint.bills.length;
-    strict += checkpoint.bills.filter(isHardDeadline).length;
+    checkpoint.bills.forEach((bill) => counted.add(bill));
     checkpoint.cumulative = running;
-    checkpoint.cumulativeCount = count;
-    checkpoint.strictCount = strict;
+    checkpoint.cumulativeCount = counted.size;
+    checkpoint.strictCount = [...counted].filter(isHardDeadline).length;
   }
 
   return checkpoints.slice(0, limit);
@@ -1182,28 +1234,48 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
 }
 
 // ─── Arrears ────────────────────────────────────────────────────────────────
-// Everything whose deadline has been and gone with no payment against it. The
-// bill list only ever shows the period you are in, so a month you skipped
-// entirely quietly falls off the screen once the next one starts — the debt is
-// still real, and this is what surfaces it.
+// Everything whose deadline has been and gone with no payment against it —
+// this period's and every earlier one's alike.
+//
+// This is the app's one meaning of "overdue" (Ληξιπρόθεσμα). The list used to
+// judge a bill by the period it is in and nothing else, and kept the earlier
+// unpaid ones in a separate pile shown only inside next month's breakdown: a
+// water bill three periods behind, whose current period was not due yet, sat
+// on the list as a grey "unpaid", outside the late tile, the overview's list
+// and the badge. "Unpaid" and "overdue" were two answers to one question.
+// Now the tile, the card, the overview, the badge and the breakdown all read
+// `billOverdue` below, which is this walk.
 
 /** How far back to look for unpaid periods. A year of monthly bills. */
 const MAX_ARREARS_LOOKBACK = 12;
 
 /**
- * Unpaid periods whose deadline has already passed, oldest first — or, for a
- * bill paid in parts, each unpaid part on its own date.
+ * The walk behind `arrears` and `amountOwedNow`: every unpaid period — or, for
+ * a bill paid in parts, every unpaid part — that has come round by today.
+ *
+ * `owedFrom` says when that is. "deadline" is the overdue rule: the deadline
+ * has gone, so a bill inside its grace window is late in no meaningful sense
+ * yet — it is still payable. "due" also takes in what has fallen due and can
+ * still be paid in time: due today, or in its grace window. Both run the same
+ * walk, so the second is always the first plus those, and nothing in it is
+ * counted twice.
  *
  * Bounded by the bill's own start as well as the lookback: a bill created last
  * month cannot be six months in arrears, and walking past its anchor would
  * invent periods that never existed.
  */
-export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeriodsBack = MAX_ARREARS_LOOKBACK): MonthForecastItem[] {
+function unpaidItems(bills: BillWithStatus[], now: Date, maxPeriodsBack: number, owedFrom: "deadline" | "due"): MonthForecastItem[] {
   const today = startOfDay(now);
   const items: MonthForecastItem[] = [];
 
   for (const bill of bills) {
     if (!bill.isActive) continue;
+    // Without a due day nothing can be late — the rule the status, the badge
+    // and the late total have always kept. Walking it anyway dated every
+    // period at its first day, so an undated bill turned overdue on the 1st of
+    // every month.
+    if (getPeriodDueDate(bill, now) === undefined) continue;
+
     const total = expectedAmount(bill);
     const born = billBorn(bill);
 
@@ -1218,13 +1290,21 @@ export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeri
         // Instalment by instalment: one part paid used to mark the whole period
         // paid, so a gym two instalments behind showed no arrears at all.
         const paidParts = paymentsByInstallment(bill, bill.payments, periodKey);
+        // Never more than the period still owes. A first part paid over the
+        // odds leaves less to find on the others, and the late figure must not
+        // ask for money already handed over — `amountDueNext` and
+        // `outstandingAmount` stop at the same line.
+        let left = round2(Math.max(total - [...paidParts.values()].flat().reduce((sum, p) => sum + p.amount, 0), 0));
+
         installmentDueDates(bill, due).forEach((date, index) => {
-          // Measured against the deadline, not the due date: a bill inside its
-          // grace window is late in no meaningful sense — it is still payable.
+          if (paidParts.has(index)) return;
           const deadline = getDeadline(bill, date) ?? date;
-          if (deadline < today && !paidParts.has(index)) {
-            items.push({ bill, periodKey, date, amount: installmentAmount(bill, total, index), isPaid: false, isVariable: !!bill.isVariableAmount });
-          }
+          const owed = owedFrom === "deadline" ? deadline < today : date <= today;
+          if (!owed) return;
+
+          const amount = round2(Math.min(installmentAmount(bill, total, index), left));
+          left = round2(left - amount);
+          if (amount > 0) items.push({ bill, periodKey, date, amount, isPaid: false, isVariable: !!bill.isVariableAmount });
         });
       }
 
@@ -1233,6 +1313,79 @@ export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeri
   }
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime() || a.bill.name.localeCompare(b.bill.name));
+}
+
+/**
+ * Unpaid periods whose deadline has already passed, oldest first — or, for a
+ * bill paid in parts, each unpaid part on its own date.
+ *
+ * The current period is in it as soon as its own deadline goes, alongside the
+ * ones before it: overdue is overdue, whichever period it belongs to.
+ */
+export function arrears(bills: BillWithStatus[], now: Date = new Date(), maxPeriodsBack = MAX_ARREARS_LOOKBACK): MonthForecastItem[] {
+  return unpaidItems(bills, now, maxPeriodsBack, "deadline");
+}
+
+/** What one bill has overdue — what its card, its row and the totals say about it. */
+export interface BillOverdue {
+  /** Every unpaid period or part past its deadline, oldest first. */
+  items: MonthForecastItem[];
+  count: number;
+  /** What they come to. */
+  total: number;
+  /** The oldest one's due date — "unpaid since". */
+  oldestDue?: Date;
+  /** And its deadline — what "N days late" counts from. */
+  oldestDeadline?: Date;
+}
+
+/**
+ * Everything overdue on one bill — the definition every screen reads.
+ *
+ * Its arrears, nothing more: so the late tile's total, a bill's row in the late
+ * list, the overview's amount and the badge all come off one walk and cannot
+ * disagree. A bill paid for this period can still be overdue — water settled
+ * for October with July still open is behind, and says so.
+ *
+ * One case the walk cannot see: a status whose own deadline has gone with
+ * nothing to walk — built by hand without a due day or payments behind it, or
+ * a bill switched off, which the walk skips because it is not owed. It is
+ * still late on its own say-so, for the one payment it names, as it always
+ * was; the totals leave switched-off bills out by themselves. For an active
+ * bill read from the database the walk already holds that payment, and this
+ * never adds a second.
+ */
+export function billOverdue(bill: BillWithStatus, now: Date = new Date()): BillOverdue {
+  let items = arrears([bill], now);
+
+  if (items.length === 0 && !bill.isPaidThisPeriod && bill.deadline && bill.deadline < startOfDay(now)) {
+    items = [{ bill, periodKey: bill.currentPeriodKey, date: bill.nextDueDate ?? bill.deadline, amount: amountDueNext(bill, now), isPaid: false, isVariable: !!bill.isVariableAmount }];
+  }
+
+  const oldest = items[0];
+  return {
+    items,
+    count: items.length,
+    total: round2(items.reduce((sum, item) => sum + item.amount, 0)),
+    oldestDue: oldest?.date,
+    oldestDeadline: oldest ? getDeadline(bill, oldest.date) : undefined,
+  };
+}
+
+/**
+ * What a bill asks of you today: everything overdue, plus a payment that has
+ * fallen due but is not late yet — due today, or inside its grace window.
+ *
+ * The figure on a late bill's line. Water three periods behind on the 5th, its
+ * October not due until the 10th, owes €180 today — not €240, since October is
+ * not owed yet, and not €60, the price of one period. Once the 10th has passed
+ * October is overdue and in the €240 itself, so it is never added twice.
+ */
+export function amountOwedNow(bill: BillWithStatus, now: Date = new Date()): number {
+  const items = unpaidItems([bill], now, MAX_ARREARS_LOOKBACK, "due");
+  // Empty when nothing is owed yet — or for a status the walk cannot see,
+  // which `billOverdue` still holds to its own deadline.
+  return items.length > 0 ? round2(items.reduce((sum, item) => sum + item.amount, 0)) : billOverdue(bill, now).total;
 }
 
 // ─── Yearly projection ──────────────────────────────────────────────────────

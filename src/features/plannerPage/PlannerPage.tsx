@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
-import { Alert, Col, Input, InputGroup, InputGroupText, Row } from "reactstrap";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Col, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
-import { FiPlus } from "react-icons/fi";
+import { FiChevronRight, FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
+import { goalHeldTotal, projectedTotal } from "../accounts/accountsUtils";
 import { currentBalance } from "../../shared/utils/balance";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
@@ -17,10 +18,10 @@ import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { useSalary } from "../../shared/hooks/useSalary";
 import { useDebounce } from "../../shared/hooks/useDebounce";
+import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
 import {
   asHorizon,
   buildPlan,
-  lineRanges,
   monthStart,
   nextOneOffDate,
   oneOffDate,
@@ -28,16 +29,18 @@ import {
   repeatMonths,
   type BudgetLine,
   type OneOff,
-  type PlannerEvent,
   type PlannerHorizon,
   type PlanRow,
   SALARY_ROW_ID,
 } from "./plannerUtils";
-import PlannerHero from "./components/PlannerHero";
+import { payCycles, planMonths, sliceSteps } from "./payCycles";
+import PlannerPaydayCard, { type PaydaySteps } from "./components/PlannerPaydayCard";
+import PeriodCard from "./components/PeriodCard";
+import AnswerStrip from "./components/AnswerStrip";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
-import UnconfirmedQuestion from "./components/UnconfirmedQuestion";
-import type { OccurrenceOverride } from "./plannerActuals";
+import SalaryEditor from "./components/SalaryEditor";
+import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import LeverGroup from "./components/LeverGroup";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
@@ -59,23 +62,33 @@ const DEFAULT_OPEN: Record<string, boolean> = { income: true };
  * is the user's own estimate of the months ahead, and every row can be switched
  * off to ask "and if I dropped this?".
  *
- * The page is arranged around that question rather than around the data behind
- * it: the answer, then the order things happen in, then the levers — folded, so
- * a phone is not handed forty rows before it is handed the one chart.
+ * The page is arranged around two questions, each with a card that names its
+ * answer. First the Overview's own: do you make it to pay day — the same card,
+ * the same figure, worked out from the same plan. Then the whole period: what
+ * you end with, whether the balance ever goes under on the way, and the chart
+ * of what each pay leaves behind. Under those, month by month and the levers —
+ * folded, so a phone is not handed forty rows before it is handed the answers,
+ * and with a strip that keeps both answers in sight while you change them.
  */
 export function PlannerPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
   const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
-  // Once the banks have been read, the plan starts from what they hold — unless
-  // switched to a figure of one's own, for "what if I had…" questions.
-  const { opening: balanceFrom, source: balanceSource } = useOpeningBalance();
-  const available = useMemo(() => (balanceSource === "readings" ? currentBalance(transactions, balanceFrom) : undefined), [balanceSource, transactions, balanceFrom]);
+  // The plan starts from the money you have — the Overview's figure, counted
+  // the same way: from the banks once they have been read, otherwise from the
+  // records. It used to start from a typed figure until the banks were read,
+  // so before then the two pages answered "until pay day" from two different
+  // amounts. A figure of one's own is still there, as a "what if".
+  const { opening: balanceFrom, source: balanceSource, isLoading: openingLoading } = useOpeningBalance();
+  const available = useMemo(() => currentBalance(transactions, balanceFrom), [transactions, balanceFrom]);
   // When the banks were last read: pay that came early and is only in that
   // reading must not be planned a second time — see `mayBeInReading`.
   const { latest: lastReading } = useMoneyAccounts();
   const lastReadingAt = lastReading?.at;
+  // For the line under the figure: "Banks 1.200 − 200 in goals", as on the Overview.
+  const inGoals = useMemo(() => goalHeldTotal(transactions), [transactions]);
+  const banksNow = useMemo(() => (lastReading ? projectedTotal(lastReading, transactions) : undefined), [lastReading, transactions]);
   const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
   const { data: bills = [], isLoading: billLoading } = useBills();
   const { data: allDebts = [] } = useDebts();
@@ -98,6 +111,7 @@ export function PlannerPage() {
   // 1st", "no bonus this year". Keyed by item and expected day; see plannerActuals.
   const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>(PLANNER_KEYS.occurrences, {});
   const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
+  const [editingSalary, setEditingSalary] = useState(false);
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
   const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
@@ -140,52 +154,67 @@ export function PlannerPage() {
   // The records the plan checks each salary, instalment and one-off against, so
   // one that came early is not counted again and one that is late is not lost.
   const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
-  const fromBanks = openingSource !== "manual" && available !== undefined;
+  const fromBanks = openingSource !== "manual";
   const openingBalance = fromBanks ? available : parseFloat(plannedOpening) || 0;
 
-  const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, openingBalance, skipIds, horizon, now, actuals }),
-    [bills, goals, lines, oneOffs, debts, plannedSalary, openingBalance, skipIds, horizon, now, actuals],
+  // Everything the plan is built from except where it starts and how far it looks.
+  const inputs = useMemo(
+    () => ({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, skipIds, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, plannedSalary, skipIds, now, actuals],
   );
+  const plan = useMemo(() => buildPlan({ ...inputs, openingBalance, horizon }), [inputs, openingBalance, horizon]);
+  // "Until pay day" is read off a plan exactly like the Overview's: the same
+  // inputs, the same two months. Not off the one above, whose points thin out
+  // to a week apart from four months on — and a weekly line has no point on
+  // the eve of pay day, so a year's view would have answered from the wrong
+  // evening. A day's balance does not depend on how far ahead a plan looks,
+  // so the two agree on every day they share.
+  const cardPlan = useMemo(() => buildPlan({ ...inputs, openingBalance, horizon: PAYDAY_HORIZON }), [inputs, openingBalance]);
+  const outlook = useMemo(() => paydayOutlook(cardPlan, now), [cardPlan, now]);
+  // With a figure of your own, what the Overview says from the money you have.
+  const realLeft = useMemo(
+    () => (fromBanks ? undefined : paydayOutlook(buildPlan({ ...inputs, openingBalance: available, horizon: PAYDAY_HORIZON }), now).left),
+    [fromBanks, inputs, available, now],
+  );
+  const cycles = useMemo(() => payCycles(plan), [plan]);
+  const months = useMemo(() => planMonths(plan), [plan]);
+
+  // The list behind the card's figure: the first stretch of the card's plan,
+  // which ends on the eve of pay day — or, with the pay held on today, nothing
+  // comes between, and the list is the money now and the pay.
+  const cardSteps = useMemo((): PaydaySteps => {
+    const [first, second] = payCycles(cardPlan);
+    if (first.pay > 0) return { steps: [{ kind: "carried", amount: outlook.start, date: first.start }], days: 1, close: { date: first.start, amount: outlook.left }, nextPay: first.payEvents[0] };
+    return { steps: sliceSteps(first), days: first.days, close: { date: first.end, amount: first.close }, nextPay: second?.kind === "pay" ? second.payEvents[0] : undefined };
+  }, [cardPlan, outlook]);
+
   const settled = useMemo(() => plan.occurrences.filter((o) => o.status === "received" || o.status === "skipped"), [plan.occurrences]);
-  // Left out of the plan until answered, so asked where the plan is read.
-  const unconfirmed = useMemo(() => plan.occurrences.filter((o) => o.status === "unconfirmed"), [plan.occurrences]);
-  const occurrence = openOccurrence ? plan.occurrences.find((o) => o.key === openOccurrence) : undefined;
+  // Left out of the plan until answered, so asked where the plan is read —
+  // from the card's plan, which is the one the question changes.
+  const unconfirmed = useMemo(() => cardPlan.occurrences.filter((o) => o.status === "unconfirmed"), [cardPlan.occurrences]);
+  // The card's list can open a pay just past the horizon's end, so both plans are asked.
+  const occurrence = openOccurrence ? (plan.occurrences.find((o) => o.key === openOccurrence) ?? cardPlan.occurrences.find((o) => o.key === openOccurrence)) : undefined;
   const saveOverride = (key: string, value: OccurrenceOverride | undefined) => {
     setOverrides((previous) => withOverride(previous, key, value, now));
     setOpenOccurrence(null);
   };
+  const answer = (o: ResolvedOccurrence, arrived: boolean) => saveOverride(o.key, answerUnconfirmed(o, arrived, now));
+
+  // The strip over the page while the first card is out of sight. Watched by
+  // the card's own element, which only exists once the data has loaded — hence
+  // a ref that is state, so the watch starts when the card does.
+  const [cardElement, setCardElement] = useState<HTMLDivElement | null>(null);
+  const [cardOutOfSight, setCardOutOfSight] = useState(false);
+  useEffect(() => {
+    if (!cardElement || typeof IntersectionObserver === "undefined") return;
+    // Only once it has gone off the top: below the fold, on a short screen, it has not been read yet.
+    const observer = new IntersectionObserver(([entry]) => setCardOutOfSight(!entry.isIntersecting && entry.boundingClientRect.top < 0));
+    observer.observe(cardElement);
+    return () => observer.disconnect();
+  }, [cardElement]);
+  const backToCard = useCallback(() => cardElement?.scrollIntoView({ behavior: "smooth", block: "start" }), [cardElement]);
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
-  // Greek inflects month names: `{ month: "long" }` alone yields the genitive
-  // ("Αυγούστου"), which is right inside a date and wrong as a heading. Adding
-  // the year switches Intl to the standalone nominative, so the month part is
-  // pulled back out of that rather than formatted on its own.
-  const monthNameFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }), [lang]);
-  const monthName = useMemo(() => (date: Date) => monthNameFmt.formatToParts(date).find((part) => part.type === "month")?.value ?? "", [monthNameFmt]);
-
-  // Grouped by calendar month, so a multi-month window reads as months rather
-  // than one long undivided list. Each header carries that month's outgoings —
-  // the figure you would otherwise be adding up by eye.
-  const eventMonths = useMemo(() => {
-    const groups: { key: string; label: string; outgoing: number; events: PlannerEvent[] }[] = [];
-
-    for (const event of plan.events) {
-      const key = `${event.date.getFullYear()}-${event.date.getMonth()}`;
-      const label = event.date.getFullYear() === now.getFullYear() ? monthName(event.date) : `${monthName(event.date)} ${event.date.getFullYear()}`;
-      const last = groups[groups.length - 1];
-
-      if (last?.key === key) last.events.push(event);
-      else groups.push({ key, label, outgoing: 0, events: [event] });
-
-      if (event.amount < 0) groups[groups.length - 1].outgoing -= event.amount;
-    }
-
-    return groups;
-  }, [plan.events, monthName, now]);
-
-  // The budget lines accrue by the day rather than landing on a date, so the
-  // "nothing happens here" days still have a figure to show.
 
   // Two decimals would read as noise; one says "not quite a whole month". The
   // plural is chosen from the same rounded figure that is printed, so 1.03
@@ -218,11 +247,6 @@ export function PlannerPage() {
   // nothing on its own.
   const seasonYearFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }), [lang]);
 
-  // Only the lines running *today*: a ski budget that starts in December has
-  // nothing to say about what a day in September costs.
-  const monthlyLineNet = lines
-    .filter((l) => !skipIds.has(l.id) && lineRanges(l, startOfToday, 0).length > 0)
-    .reduce((sum, l) => sum + (l.kind === "income" ? l.amount : -l.amount), 0);
   // A one-off can sit in another year, so the short "20 Sep" is not enough.
   const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
 
@@ -299,7 +323,7 @@ export function PlannerPage() {
     setEditor(null);
   };
 
-  if (txLoading || goalLoading || billLoading) {
+  if (txLoading || goalLoading || billLoading || openingLoading) {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -415,42 +439,76 @@ export function PlannerPage() {
   const sweep = (rows: PlanRow[]) =>
     rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
 
+  // The salary as a row like every other — its switch, and "1.450,00 € · on
+  // the 30th · ×3" under it — opening its own dialog for the amount and day.
+  const salaryRow = incomeRows.find((r) => r.source === "salary");
+  const salaryHint =
+    salaryRow && salary
+      ? !salaryRow.enabled
+        ? t("planner.offRow")
+        : `${formatCurrency(salary.amount)} · ${t("planner.salaryOnDay", { day: salary.dayOfMonth })} · ${t("planner.timesCount", { times: salaryRow.occurrences ?? 0 })}`
+      : undefined;
+  const lineIncomeRows = incomeRows.filter((r) => r.source !== "salary");
+
   return (
     <PageShell>
+      {cardOutOfSight && (
+        <AnswerStrip
+          outlook={outlook}
+          endingBalance={plan.endingBalance}
+          end={plan.end}
+          scenario={!fromBanks}
+          onOpen={backToCard}
+          now={now}
+          formatCurrency={formatCurrency}
+          locale={lang}
+        />
+      )}
+
+      {/* The day, as on the Overview: a date is what a page about the weeks
+          ahead is opened to learn. */}
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
-        <p className="small text-body-secondary mb-0">{t("planner.subtitle")}</p>
+        <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
       </div>
 
       <Row className="g-3">
         <Col xs={12} lg={7}>
-          <PlannerHero
-            plan={plan}
-            horizon={horizon}
-            onHorizon={setHorizon}
-            monthlyLineNet={monthlyLineNet}
+          <PlannerPaydayCard
+            cardRef={setCardElement}
+            outlook={outlook}
+            steps={cardSteps}
+            fromBanks={fromBanks}
+            available={available}
+            source={balanceSource}
+            banks={banksNow}
+            inGoals={inGoals}
+            opening={balanceFrom}
+            realLeft={realLeft}
             openingInput={openingInput}
             onOpening={setOpeningInput}
-            available={available}
-            fromBanks={fromBanks}
             onOpeningSource={setOpeningSource}
+            unconfirmed={unconfirmed}
+            onAnswer={answer}
+            onOccurrence={setOpenOccurrence}
+            onSetPayday={() => setEditingSalary(true)}
             baseCurrency={baseCurrency}
+            now={now}
             formatCurrency={formatCurrency}
-            dateFmt={dateFmt}
+            locale={lang}
           />
 
-          {/* Pay with no record that the last bank reading may already hold.
-              The plan leaves it out until it is answered; a plain line for
-              now, above both panes so a phone sees it whichever is open. */}
-          {unconfirmed.map((o) => (
-            <UnconfirmedQuestion
-              key={o.key}
-              occurrence={o}
-              dateFmt={dateFmt}
-              className="d-flex flex-wrap align-items-center gap-2 small mb-2"
-              onAnswer={(arrived) => saveOverride(o.key, answerUnconfirmed(o, arrived))}
-            />
-          ))}
+          <PeriodCard
+            plan={plan}
+            cycles={cycles}
+            horizon={horizon}
+            onHorizon={setHorizon}
+            scenario={!fromBanks}
+            now={now}
+            formatCurrency={formatCurrency}
+            locale={lang}
+            onOccurrence={setOpenOccurrence}
+          />
 
           {/* Stacked on a phone, the levers sat below the whole timeline, so
               changing a number meant scrolling past every month to reach it.
@@ -469,11 +527,13 @@ export function PlannerPage() {
 
           <div className={pane === "months" ? "" : "d-none d-lg-block"}>
             <PlannerTimeline
-              months={eventMonths}
+              months={months}
               bills={bills}
               breakingEvent={plan.breakingEvent}
               formatCurrency={formatCurrency}
               dateFmt={dateFmt}
+              locale={lang}
+              today={now}
               settled={settled}
               onOccurrence={setOpenOccurrence}
             />
@@ -481,9 +541,11 @@ export function PlannerPage() {
         </Col>
 
         <Col xs={12} lg={5} className={pane === "numbers" ? "" : "d-none d-lg-block"}>
+          {/* On a phone the switch above names this pane; side by side it needs its own. */}
+          <div className={`${styles.label} d-none d-lg-block mb-2`}>{t("planner.paneNumbers")}</div>
           {/* Every lever, folded. Each group says what it costs before it says
               what it is made of. */}
-          <div className={`${styles.chartCard} px-3 px-lg-4`}>
+          <div className="card px-3 px-lg-4">
             <LeverGroup
               title={t("planner.moneyIn")}
               total={plan.incomeTotal}
@@ -494,56 +556,21 @@ export function PlannerPage() {
               addLabel={t("planner.addIncomeLine")}
               {...sweep(incomeRows)}
             >
-              {/* Salary is the one row the app can only guess at, so it stays
-                  editable rather than merely switchable. */}
-              <div className={styles.salaryRow}>
-                <span className={styles.assumptionLabel}>
-                  {t("planner.salaryLabel")}
-                  <span className={styles.assumptionHint}>
-                    {salaryIsManual ? t("planner.salaryHintSet") : detectedSalary ? t("planner.salaryHintDetected") : t("planner.salaryHintNone")}
-                  </span>
-                </span>
-                <div className={styles.salaryFields}>
-                  <InputGroup size="sm">
-                    <InputGroupText>{baseCurrency}</InputGroupText>
-                    <Input
-                      type="number"
-                      min={0}
-                      inputMode="decimal"
-                      placeholder={detectedSalary ? String(detectedSalary.amount) : "0"}
-                      value={salaryInput.amount}
-                      onChange={(e) => setSalaryInput({ ...salaryInput, amount: e.target.value })}
-                      aria-label={t("planner.salaryAmount")}
-                    />
-                  </InputGroup>
-                  <InputGroup size="sm">
-                    <InputGroupText>{t("planner.salaryDayPrefix")}</InputGroupText>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={31}
-                      inputMode="numeric"
-                      placeholder={detectedSalary ? String(detectedSalary.dayOfMonth) : "1"}
-                      value={salaryInput.day}
-                      onChange={(e) => setSalaryInput({ ...salaryInput, day: e.target.value })}
-                      aria-label={t("planner.salaryDay")}
-                    />
-                  </InputGroup>
+              {/* Salary is the one row the app can only guess at, so it opens
+                  its amount and day rather than being merely switchable. */}
+              {salaryRow ? (
+                renderRow(salaryRow, () => setEditingSalary(true), salaryHint)
+              ) : (
+                <div className={styles.rowLine}>
+                  <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={() => setEditingSalary(true)}>
+                    <span className={styles.rowTitle}>{t("planner.salaryLabel")}</span>
+                    <span className={styles.rowHint}>{t("planner.salaryMissing")}</span>
+                  </button>
+                  <FiChevronRight size={15} className="text-body-secondary flex-shrink-0" aria-hidden />
                 </div>
-              </div>
-              {salaryIsManual && detectedSalary && (
-                <button type="button" className={styles.salaryReset} onClick={() => setSalaryInput({ amount: "", day: "" })}>
-                  {t("planner.salaryReset", { amount: formatCurrency(detectedSalary.amount), day: detectedSalary.dayOfMonth })}
-                </button>
               )}
 
-              {incomeRows.length === 0 ? (
-                <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
-                  {t("planner.noSalaryYet")}
-                </p>
-              ) : (
-                incomeRows.map((row) => renderRow(row, editHandler(row)))
-              )}
+              {lineIncomeRows.map((row) => renderRow(row, editHandler(row)))}
 
               {/* Extra pay lives with the pay, not in a section of its own: it
                   is the same question — what arrives — asked about a date
@@ -683,6 +710,17 @@ export function PlannerPage() {
           onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
           onSave={(draft) => saveEntry(editor, draft)}
           onClose={() => setEditor(null)}
+        />
+      )}
+      {editingSalary && (
+        <SalaryEditor
+          input={salaryInput}
+          onInput={setSalaryInput}
+          detected={detectedSalary}
+          isManual={salaryIsManual}
+          baseCurrency={baseCurrency}
+          formatCurrency={formatCurrency}
+          onClose={() => setEditingSalary(false)}
         />
       )}
       {occurrence && (

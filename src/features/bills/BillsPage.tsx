@@ -10,14 +10,16 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
-  amountDueNext,
+  amountOwedNow,
   arrears,
   billMonthStrip,
+  billOverdue,
   billUrgency,
   cadenceTone,
   groupByCadence,
   cashRunway,
   daysUntilDeadline,
+  earliestDeadline,
   expectedAmount,
   getFrequencyLabel,
   groupBills,
@@ -363,12 +365,13 @@ function QuickStats({
   const avgMonthly = active.reduce((s, b) => s + b.monthlyEquivalent, 0);
   const approximate = totalsAreApproximate(active);
 
-  // Soonest unpaid bill, measured by when the money is actually needed.
+  // Soonest unpaid bill, measured by when the money is actually needed — for a
+  // bill behind on earlier periods, the oldest one it still owes.
   const nextBill = grouped.overdue[0] ?? grouped.upcoming.find((b) => b.deadline);
   const nextDays = nextBill ? daysUntilDeadline(nextBill) : undefined;
+  const nextDeadline = nextBill ? earliestDeadline(nextBill) : undefined;
 
-  const nextValue =
-    nextBill && nextBill.deadline ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextBill.deadline) : "—";
+  const nextValue = nextDeadline ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextDeadline) : "—";
   const nextSub = nextBill ? nextBill.name : t("bills.allSettled");
   const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--color-expense)" : nextDays <= 5 ? "var(--color-goal)" : "var(--color-text-primary)";
 
@@ -451,10 +454,27 @@ const isStoppedNow = (bill: BillWithStatus) => {
   return state === "paused" || state === "ended";
 };
 
-function StatusChip({ bill }: { bill: BillWithStatus }) {
+function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; formatCurrency: (n: number) => string; now: Date }) {
   const { t, i18n } = useTranslation();
-  const urgency = billUrgency(bill);
+  const urgency = billUrgency(bill, now);
   const color = `var(${urgencyToken(urgency)})`;
+
+  // Anything overdue says so first, from whichever period it is: water with
+  // July to September unpaid and October not due yet used to read a grey
+  // "Unpaid", or "due in 5 days", as if the three before did not exist. One
+  // payment late is how late it is; several are how many and what they come
+  // to — the same figure the late tile adds up.
+  const overdue = billOverdue(bill, now);
+  if (overdue.count > 0) {
+    const late = `var(${urgencyToken("late")})`;
+    return (
+      <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${late} 15%, transparent)`, color: late }}>
+        {overdue.count > 1
+          ? t("bills.chipOverdue", { count: overdue.count, amount: formatCurrency(overdue.total) })
+          : t("bills.lateByDays", { count: Math.abs(daysUntilDeadline(bill, now) ?? 0) })}
+      </span>
+    );
+  }
 
   // Measured in days, a paused bill reads "due in 170 days", which is true and
   // says nothing. What the reader needs is that it is off, and until when.
@@ -480,12 +500,13 @@ function StatusChip({ bill }: { bill: BillWithStatus }) {
     );
   }
 
-  const days = daysUntilDeadline(bill);
+  // Nothing overdue, so this is this period's own deadline, still ahead.
+  const days = daysUntilDeadline(bill, now);
   if (days === undefined) {
     return <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>{t("bills.unpaid")}</span>;
   }
 
-  const label = days < 0 ? t("bills.lateByDays", { count: Math.abs(days) }) : days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
+  const label = days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
 
   return (
     <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
@@ -500,7 +521,13 @@ function StatusChip({ bill }: { bill: BillWithStatus }) {
  * label/value pair so it can sit in the card's figure row rather than trailing
  * the status chip as an afterthought.
  */
-function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTimeFormat): { label: string; value: string; color?: string } {
+function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTimeFormat, now: Date): { label: string; value: string; color?: string } {
+  // Behind on anything, the date that matters is the one the oldest of it was
+  // owed by — gone, so in red. "Pay by 30 Oct" beside three unpaid months says
+  // there is time when there is not.
+  const overdue = billOverdue(bill, now);
+  if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--color-expense)" };
+
   const pause = currentPause(bill);
   if (!bill.isPaidThisPeriod && pause?.state === "ended") return { label: t("bills.labelStopped"), value: dateFmt.format(pause.from) };
   if (!bill.isPaidThisPeriod && pause?.state === "paused") return { label: t("bills.labelResumes"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
@@ -511,12 +538,11 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
 
   // Inside the grace window the two dates differ, and the later one is the one
   // that matters — say so explicitly rather than showing a date that has passed.
-  const grace = isInGracePeriod(bill);
-  const days = daysUntilDeadline(bill);
+  // Nothing is overdue by now, so this deadline is still ahead.
+  const grace = isInGracePeriod(bill, now);
   return {
     label: grace ? t("bills.labelGraceUntil") : t("bills.labelPayBy"),
     value: dateFmt.format(bill.deadline),
-    color: days !== undefined && days < 0 ? "var(--color-expense)" : undefined,
   };
 }
 
@@ -661,26 +687,38 @@ function BillLine({
   category,
   formatCurrency,
   onOpenDetails,
+  now,
 }: {
   bill: BillWithStatus;
   category: Category | undefined;
   formatCurrency: (n: number) => string;
   onOpenDetails: (b: BillWithStatus) => void;
+  now: Date;
 }) {
   const { t, i18n } = useTranslation();
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
 
+  // Overdue comes first, whatever else is true: a bill paid for October or off
+  // for the winter is still behind if July was never paid.
+  const overdue = billOverdue(bill, now);
+  const late = overdue.count > 0;
+  const settled = bill.isPaidThisPeriod && !late;
   const pause = currentPause(bill);
-  const stopped = !bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended");
-  const late = !bill.isPaidThisPeriod && !stopped && billUrgency(bill) === "late";
+  const stopped = !bill.isPaidThisPeriod && !late && (pause?.state === "paused" || pause?.state === "ended");
 
   // A variable bill carries an estimate until the charge arrives, so its figure
   // is marked as one rather than printed like a fact.
-  const amount = expectedAmount(bill);
+  //
+  // Behind, it is what the bill asks for today rather than the price of one
+  // period: everything overdue, plus this period's if its day has come. Dated
+  // by the oldest of it, so "€180" never sits beside October's date as if it
+  // were October's bill.
+  const amount = late ? amountOwedNow(bill, now) : expectedAmount(bill);
+  const when = late ? overdue.oldestDue : bill.nextDueDate;
 
   return (
-    <button type="button" className={`${styles.billLine} ${bill.isPaidThisPeriod || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
+    <button type="button" className={`${styles.billLine} ${settled || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
       <span className={styles.lineIcon} aria-hidden>
         {category?.icon ?? "🧾"}
       </span>
@@ -690,12 +728,12 @@ function BillLine({
         {/* Status first, from the left edge, so it lines up down the list
             instead of sliding with the width of the amount beside it. */}
         <span className={styles.lineTags}>
-          {bill.isPaidThisPeriod ? (
+          {late ? (
+            <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
+          ) : settled ? (
             <span className={`${styles.linePill} ${styles.linePillPaid}`}>{t("bills.linePaid")}</span>
           ) : stopped ? (
             <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
-          ) : late ? (
-            <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
           ) : (
             <span className={`${styles.linePill} ${styles.linePillDue}`}>{t("bills.lineUnpaid")}</span>
           )}
@@ -708,9 +746,7 @@ function BillLine({
           {bill.isVariableAmount ? "~" : ""}
           {formatCurrency(amount)}
         </strong>
-        <span className={styles.lineWhen}>
-          {pause?.state === "ended" ? "—" : bill.nextDueDate ? (stopped ? monthFmt.format(bill.nextDueDate) : dateFmt.format(bill.nextDueDate)) : "—"}
-        </span>
+        <span className={styles.lineWhen}>{!late && pause?.state === "ended" ? "—" : when ? (stopped ? monthFmt.format(when) : dateFmt.format(when)) : "—"}</span>
       </span>
     </button>
   );
@@ -758,15 +794,19 @@ function BillCard({
   now: Date;
 }) {
   const { t, i18n } = useTranslation();
-  const paid = bill.isPaidThisPeriod;
-  const urgency = billUrgency(bill);
+  // Settled means this period paid and nothing earlier still owed. A card paid
+  // for October with July open is behind, and must not fade into the paid ones.
+  const behind = billOverdue(bill, now).count > 0;
+  const paid = bill.isPaidThisPeriod && !behind;
+  const urgency = billUrgency(bill, now);
   const strict = isHardDeadline(bill);
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const lastPaidAmount = bill.payments[0]?.amount;
-  const deadline = deadlineFact(bill, t, dateFmt);
-  // Recedes like a settled card: nothing to do about it until it comes back.
-  const stopped = !paid && isStoppedNow(bill);
+  const deadline = deadlineFact(bill, t, dateFmt, now);
+  // Recedes like a settled card: nothing to do about it until it comes back —
+  // unless something from before the pause is still owed.
+  const stopped = !bill.isPaidThisPeriod && !behind && isStoppedNow(bill);
 
   return (
     <div
@@ -806,7 +846,7 @@ function BillCard({
               title they were pushed about by whatever sat before them, so no
               two cards had them in the same place. */}
           <div className={styles.cardTags}>
-            <StatusChip bill={bill} />
+            <StatusChip bill={bill} formatCurrency={formatCurrency} now={now} />
             <CadenceBadge bill={bill} />
             {/* Paid ahead is the one state the chip can't express: this period
                 is settled AND so is the next, which is not the same as paid. */}
@@ -1008,20 +1048,31 @@ export default function BillsPage() {
   const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
 
   const sections = useMemo(() => {
-    const byDeadline = (a: BillWithStatus, b: BillWithStatus) => (daysUntilDeadline(a) ?? Number.MAX_SAFE_INTEGER) - (daysUntilDeadline(b) ?? Number.MAX_SAFE_INTEGER);
-    const outstanding = bills.filter((b) => !b.isPaidThisPeriod).sort(byDeadline);
+    // Each bill's days worked out once — they walk its arrears — and counted
+    // from the oldest payment it owes, so four periods behind sorts above one.
+    const days = new Map(bills.map((b) => [b, daysUntilDeadline(b, now) ?? Number.MAX_SAFE_INTEGER]));
+    const byDeadline = (a: BillWithStatus, b: BillWithStatus) => days.get(a)! - days.get(b)!;
+    // Anything still owed is still to pay — including a bill paid for this
+    // period that is behind on an earlier one. Listing that under "Paid"
+    // buried exactly the bill the owner was looking for.
+    const owes = (b: BillWithStatus) => !b.isPaidThisPeriod || billOverdue(b, now).count > 0;
+    const outstanding = bills.filter(owes).sort(byDeadline);
     // Most recently settled first — the useful order for a section you scan
     // only to confirm something went through.
-    const settled = bills.filter((b) => b.isPaidThisPeriod).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
+    const settled = bills.filter((b) => !owes(b)).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
 
     // What is left on each period, not its price: a part-paid gym owes the parts
     // still to come, a paused or stopped bill owes nothing, and one switched off
     // is not counted. And every part paid, not only the latest, on the other side.
+    //
+    // The current periods only — `outstandingTotal` leaves earlier ones to the
+    // late tile, so a bill paid this period adds nothing here however far
+    // behind it is, and a late current period is never counted twice.
     return [
       { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstandingTotal(outstanding), tone: "var(--color-expense)" },
       { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + paidThisPeriod(b), 0), tone: "var(--color-income)" },
     ].filter((section) => section.bills.length > 0);
-  }, [bills, t]);
+  }, [bills, t, now]);
 
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
@@ -1220,7 +1271,7 @@ export default function BillsPage() {
                             </div>
                             <div className={styles.billLines}>
                               {group.bills.map((bill) => (
-                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} />
+                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
                               ))}
                             </div>
                           </div>
@@ -1281,12 +1332,20 @@ export default function BillsPage() {
           formatCurrency={formatCurrency}
           summary={{ left: t("bills.billsInCategory", { count: late.bills.length }), right: t("bills.owedTotal", { amount: formatCurrency(late.total) }), tone: "var(--color-expense-text)" }}
           describeRow={(bill) => {
+            // How late is counted from the oldest payment still owed, and the
+            // amount is all of it — the same figure the total above is made of,
+            // so the rows add up to it.
+            const overdue = billOverdue(bill);
             const days = daysUntilDeadline(bill) ?? 0;
             return {
               meta: t("bills.lateByDays", { count: Math.abs(days) }),
-              // The same figure the total above is made of, so the rows add up to it.
-              amount: `${bill.isVariableAmount ? "~" : ""}${formatCurrency(amountDueNext(bill))}`,
-              sub: bill.deadline ? t("bills.wasDueOn", { date: shortDateFmt.format(bill.deadline) }) : "",
+              amount: `${bill.isVariableAmount ? "~" : ""}${formatCurrency(overdue.total)}`,
+              sub:
+                overdue.count > 1 && overdue.oldestDue
+                  ? t("bills.unpaidSince", { count: overdue.count, date: shortDateFmt.format(overdue.oldestDue) })
+                  : overdue.oldestDeadline
+                    ? t("bills.wasDueOn", { date: shortDateFmt.format(overdue.oldestDeadline) })
+                    : "",
               tone: "var(--color-expense-text)",
             };
           }}
@@ -1364,7 +1423,8 @@ export default function BillsPage() {
           // month" is not, and listing it here buried the two lines that
           // answer the question; the page carries its own overdue figure. A
           // plan for next month, though, is not honest while an earlier one
-          // is still outstanding.
+          // is still outstanding. Listed under the late tile's own name, and
+          // the same items it counts: one walk, `arrears`, behind both.
           arrears={breakdownMonth === 1 ? owed : []}
           categoryFor={categoryFor}
           formatCurrency={formatCurrency}

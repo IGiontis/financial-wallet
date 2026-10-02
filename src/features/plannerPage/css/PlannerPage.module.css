@@ -1,76 +1,754 @@
-/* Planner — the verdict card, the balance line, and what's still coming.
-   Bootstrap covers the page chrome; everything here is a genuine gap.
+/* Planner — the two answer cards, the pay-cycle chart, month by month and the
+   levers. Bootstrap covers the page chrome and the cards themselves;
+   everything here is a genuine gap.
 
-   Nothing here is smaller than 11.5px. Nine rules sat at 10.5 and 11, which is
-   where a hint stops being quiet and starts being unread — and no amount of
-   contrast fixes a size problem. */
+   Nothing here is smaller than 11px, and only the chart's axis goes that
+   small. Hints sat at 10.5 once, which is where a hint stops being quiet and
+   starts being unread — and no amount of contrast fixes a size problem. */
 
-/* ── Verdict ──────────────────────────────────────────────────────────────── */
-/* The answer comes first and in one colour, because the whole page exists to
-   deliver it. Tinted with color-mix off the semantic token so it stays right in
-   both themes without a second palette. */
+/* ── Shared ───────────────────────────────────────────────────────────────── */
 
-/* ── Balance line ─────────────────────────────────────────────────────────── */
-
-.chartCard {
-  /* Primary, not tertiary: this is the edge of a card against the page, which
-     at 1.29:1 was a boundary you had to know was there to see. */
-  border: 1px solid var(--color-border-primary);
-  border-radius: var(--border-radius-lg);
-  background: var(--color-surface);
-}
-
-/* Fixed height in CSS rather than on the SVG, so the phone gets a shorter plot
-   without the component having to know the breakpoint. */
-/* The plot sits on the plain surface rather than on the hero's wash. The dots
-   are drawn with a halo of `--color-surface` to lift them off the area fill,
-   and on a tinted ground that halo measured 1.10:1 — a white ring on cream,
-   which is no ring at all. Giving the chart its own ground also means the grid
-   lines have one known colour to be legible against. */
-/* Taller than it was on a phone (150px): it now carries its own amounts and
-   dates, and a plot squeezed under them would be all labels. */
-.chartBox {
-  background: var(--color-surface);
-  border-radius: var(--border-radius-md);
-  height: 190px;
-}
-
-@media (min-width: 768px) {
-  .chartBox {
-    height: 230px;
-  }
-}
-
-/* A sideways drag reads the line; an up-and-down one still scrolls the page,
-   so the chart is never a patch of screen that swallows scrolling. */
-.chartSvg {
+/* The small capitals over each block, the same as the Overview's card label. */
+.label {
   display: block;
-  overflow: visible;
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  cursor: crosshair;
-  outline: none;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.chartSvg:focus-visible {
-  box-shadow: 0 0 0 2px var(--bs-primary);
-  border-radius: var(--border-radius-md);
+/* A link that does something on this page rather than going somewhere. */
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
 }
 
-.chartTick {
+.linkButton:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cardHint {
   font-size: 11.5px;
-  fill: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
 }
 
-.chartPill {
-  font-size: 11.5px;
+/* ── The first card: where the money comes from, and the "what if" ────────── */
+
+.sourceToggle {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* A figure of your own is a scenario, and looks like one: a dashed frame in
+   the colour the page keeps for "not real money", which nothing else here
+   uses. The doubled class outranks Bootstrap's `.card` without !important. */
+.scenarioCard.scenarioCard {
+  border: 1.5px dashed var(--color-invest);
+}
+
+.scenarioChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px 2px 10px;
+  border: 1px dashed var(--color-invest);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-invest) 14%, var(--color-surface));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 28px rather than the 14px of the cross itself: it is the one way back. */
+.scenarioClose {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.scenarioClose:hover {
+  background: color-mix(in srgb, var(--color-invest) 20%, transparent);
+}
+
+.scenarioInput {
+  max-width: 240px;
+  margin: 2px 0 6px;
+}
+
+/* The typed figure stands where the real one stands, at nearly its size. */
+.scenarioInput input {
+  font-size: 20px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Upcoming list ────────────────────────────────────────────────────────── */
+/* ── A figure written out as a sum ────────────────────────────────────────── */
+/* Under the first card's "how it adds up", and under the chart for the cycle
+   tapped. Date, what, how much — and the row it lands on, tinted. */
+
+.steps {
+  margin-top: 6px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 34px;
+  padding: 3px 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 13px;
+}
+
+.stepButton {
+  width: 100%;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepButton:hover {
+  background: var(--color-background-secondary);
+}
+
+.stepDate {
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.stepName {
+  min-width: 0;
+}
+
+.stepTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chart's colour for the kind, so a row reads as the segment it is. */
+.stepKey {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.stepChevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.stepNote {
+  display: block;
+  color: var(--color-goal-text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.stepAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Where the sum lands. Pulled out to the edges by the padding it adds back,
+   so the columns stay in line with the rows above. */
+.stepClose {
+  margin: 0 -8px;
+  padding: 3px 8px;
+  border-radius: var(--border-radius-sm);
+  background: color-mix(in srgb, var(--color-income) 10%, var(--color-surface));
+  font-weight: 700;
+}
+
+.stepClose .stepAmount {
+  font-weight: 700;
+}
+
+.stepCloseShort {
+  background: color-mix(in srgb, var(--color-expense) 10%, var(--color-surface));
+  color: var(--color-expense-text);
+}
+
+/* ── The second card: the whole period ────────────────────────────────────── */
+
+.endLabel {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.endFigure {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.periodVerdict {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  font-size: 13.5px;
+}
+
+.verdictOk {
+  color: var(--color-income-text);
+}
+
+.verdictTight {
+  color: var(--color-goal-text);
+}
+
+.verdictShort {
+  color: var(--color-expense-text);
+}
+
+.periodSubline {
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Pills rather than the segmented control: five small choices beside the
+   figure they change, where a full-width control would read as navigation. */
+.horizonRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 8px;
+}
+
+.horizonPill {
+  min-width: 40px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.horizonPill:hover {
+  color: var(--color-text-primary);
+}
+
+/* The selected one is carried by the chip, not by the lettering: tinting both
+   from the same hue put them 3.69:1 apart, a chip legible as a shape with a
+   label inside it that was not. */
+.horizonOn {
+  background: color-mix(in srgb, var(--bs-primary) 18%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* The subtraction behind "you end with", quiet under the chart. */
+.ledger {
+  margin-top: 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.ledgerRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.ledgerValue {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ledgerParts {
+  margin: 0 0 2px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The sum closes the block, so it takes a rule above it. */
+.ledgerEnd {
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ── The pay-cycle chart ──────────────────────────────────────────────────── */
+/* One row per pay. Laid out so the bars, the grid behind them and the axis
+   under them share one horizontal frame: the track starts after `--lead` and
+   stops before `--tail`, which are nothing on a full row and the date and
+   figure columns on a compact one. */
+
+.cycles {
+  --lead: 0px;
+  --tail: 0px;
+  margin: 14px 0 4px;
+}
+
+.cyclesCompact {
+  --lead: 50px;
+  --tail: 72px;
+}
+
+.cycleHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+}
+
+.cycleRows {
+  position: relative;
+}
+
+.cycleGrid {
+  position: absolute;
+  top: 0;
+  right: var(--tail);
+  bottom: 0;
+  left: var(--lead);
+  pointer-events: none;
+}
+
+.cycleGrid span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-border-tertiary);
+}
+
+/* Zero is what every bar is measured from, so it is the one rule you see. */
+.cycleGrid .cycleZero {
+  border-left-color: var(--color-border-primary);
+}
+
+/* A button styled back into a row, pulled 6px past each edge by the padding
+   it adds back — so the hit area is wider than the drawing and the drawing
+   still lines up with the grid. */
+.cycleRow {
+  position: relative;
+  display: block;
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  padding: 5px 6px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* See-through, so the grid still shows across the row that is open. */
+.cycleSelected {
+  border-color: var(--color-border-tertiary);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.cycleRow:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -1px;
+}
+
+.cycleTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.cycleWhen {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cyclePay {
+  color: var(--color-income-text);
+  font-weight: 600;
+}
+
+.cycleValue {
+  color: var(--color-text-primary);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cycleValue.cycleNegative,
+.cycleNegative {
+  color: var(--color-expense-text);
+}
+
+.cycleTrack {
+  position: relative;
+  display: block;
+  height: 24px;
+  margin-top: 2px;
+}
+
+/* The pay, as a rule over the stretch of the bar it paid for. */
+.cyclePayRule {
+  position: absolute;
+  top: 1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-income-text);
+}
+
+.cycleBar {
+  position: absolute;
+  top: 5px;
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.cycleBar i {
+  display: block;
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-width: 2px;
+}
+
+/* Under zero is never told by colour alone: hatched over the bar, and
+   underlined, as well as the ⚠ and the words. */
+.cycleUnder {
+  position: absolute;
+  top: 5px;
+  height: 14px;
+  border-radius: 4px 0 0 4px;
+  background-image: repeating-linear-gradient(45deg, var(--color-expense) 0 2px, transparent 2px 5px);
+}
+
+.cycleUnder::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -5px;
+  left: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-expense);
+}
+
+.cycleCaption,
+.cycleWarn {
+  display: block;
+  margin-top: 1px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.cycleWarn {
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+
+/* A year or more: one line a row, the eve's date, the bar, the figure. */
+.cyclesCompact .cycleRow {
+  display: grid;
+  grid-template-columns: var(--lead) minmax(0, 1fr) var(--tail);
+  align-items: center;
+  min-height: 26px;
+  padding-block: 2px;
+}
+
+.cyclesCompact .cycleWhen {
+  font-size: 11.5px;
+}
+
+.cyclesCompact .cycleTrack {
+  height: 12px;
+  margin: 0;
+}
+
+.cyclesCompact .cycleBar,
+.cyclesCompact .cycleUnder {
+  top: 1px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.cyclesCompact .cycleUnder::after {
+  bottom: -3px;
+  height: 2px;
+}
+
+.cyclesCompact .cycleValue {
+  font-size: 12px;
+  text-align: right;
+}
+
+.cycleAxis {
+  position: relative;
+  height: 16px;
+  margin: 2px var(--tail) 0 var(--lead);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cycleAxis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.cycleMore {
+  display: block;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.cycleReadout {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.cycleReadoutHead {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.cycleReadoutMain {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.cycleReadoutMain strong {
+  color: var(--color-text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── The strip over the page ──────────────────────────────────────────────── */
+/* Zero height and sticky, with the strip hung off it: it stays at the top of
+   the scrolling page without taking a line of the page for itself, so
+   nothing under it moves when it appears. */
+
+.stripDock {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  height: 0;
+}
+
+.strip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-top: 0;
+  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  animation: strip-in 0.18s ease-out;
+}
+
+.stripScenario {
+  border: 1.5px dashed var(--color-invest);
+}
+
+@keyframes strip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strip {
+    animation: none;
+  }
+}
+
+.stripCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+}
+
+.stripCol b {
+  color: var(--color-text-primary);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stripCol small {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stripHeading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+/* ── Month by month ───────────────────────────────────────────────────────── */
+
+/* A button, so a month opens on a tap — and plain again when it has nothing
+   to open, rather than greyed as if it were broken. */
+.monthRow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto 16px;
+  align-items: baseline;
+  gap: 0 8px;
+  width: 100%;
+  padding: 9px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.monthRow:disabled {
+  color: inherit;
+  cursor: default;
+}
+
+.label + .monthRow {
+  margin-top: 4px;
+}
+
+.monthName {
+  font-weight: 700;
+}
+
+.monthName small {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.monthFlow {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.monthFlow small {
+  display: block;
+  font-size: 11.5px;
+}
+
+.monthEnd {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.monthChevron {
+  align-self: center;
+  color: var(--color-text-secondary);
+  line-height: 0;
+}
+
+/* The month's payments, set in from the month that holds them. */
+.monthEvents {
+  margin: 0 0 8px 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border-tertiary);
+}
+
+.doneHeader {
+  padding: 6px 0 2px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── One payment ──────────────────────────────────────────────────────────── */
 
 .eventRow {
   display: grid;
@@ -80,6 +758,10 @@
   padding: 0.625rem 0;
   border-top: 1px solid var(--color-border-tertiary);
   font-size: 13px;
+}
+
+.monthEvents .eventRow:first-child {
+  border-top: 0;
 }
 
 .eventDate {
@@ -153,428 +835,6 @@
   white-space: nowrap;
 }
 
-/* ── Assumption rows (income, goals, burn) ────────────────────────────────── */
-/* Every figure the verdict rests on is listed and adjustable, so the answer is
-   never a number the user can't interrogate. */
-
-.assumptionLabel {
-  font-size: 13px;
-  min-width: 0;
-}
-
-.assumptionHint {
-  display: block;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-/* ── Plan rows ────────────────────────────────────────────────────────────── */
-/* One line of the budget: a switch, what it is, and what it costs over the whole
-   window. Every row is switchable, because the question the page exists to
-   answer is usually "and if I dropped this?". */
-
-/* Wider and taller than the tick it holds, and pulled back by its own padding
-   so the extra size is hit area rather than indent. */
-/* ── Section headings inside a card ───────────────────────────────────────── */
-
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-bottom: 0.125rem;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.sectionToggle {
-  border: 0;
-  padding: 0;
-  background: none;
-  font: inherit;
-  letter-spacing: 0;
-  color: var(--color-link);
-  cursor: pointer;
-}
-
-/* ── Editing a budget line ────────────────────────────────────────────────── */
-/* Sits under its own row rather than beside it: a name field, an amount and a
-   delete do not fit one line beside a total on a phone. */
-
-.addLine {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  width: 100%;
-  min-height: 32px;
-  padding: 0.25rem 0;
-  border: 0;
-  background: none;
-  font-size: 12px;
-  color: var(--color-link);
-  cursor: pointer;
-}
-
-/* ── Ledger ───────────────────────────────────────────────────────────────── */
-/* The sum closes its group, so it takes a rule above rather than the hairline
-   the ordinary rows use. */
-
-/* ── Salary ───────────────────────────────────────────────────────────────── */
-/* Always the first row in the panel, so it carries no rule of its own. Wraps
-   rather than squeezing: two number fields plus a label do not fit one line in
-   the narrow column on a phone. */
-
-.salaryRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-  padding: 0 0 0.625rem;
-}
-
-/* Two fields, because "how much" and "which day" are separate facts and the
-   projection needs both to place a payday on the line. */
-.salaryFields {
-  display: flex;
-  gap: 0.375rem;
-  flex: 1 1 210px;
-  max-width: 250px;
-}
-
-.salaryFields > * {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.salaryReset {
-  border: 0;
-  padding: 0 0 0.625rem;
-  background: none;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* ── Goal toggles ─────────────────────────────────────────────────────────── */
-
-.goalRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--color-border-tertiary);
-  font-size: 13px;
-}
-
-/* ── Expandable assumption rows ───────────────────────────────────────────── */
-/* Each headline figure opens onto the transactions behind it, so no number on
-   the page is one the user simply has to take on trust. */
-
-.assumptionButton {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.625rem 0;
-  border: 0;
-  border-top: 1px solid var(--color-border-tertiary);
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-/* ── Category rollup ──────────────────────────────────────────────────────── */
-/* The rows behind the daily average. On the spending side they are switches, so
-   they carry a 32px row rather than the tighter breakdown row — a target you
-   can hit on a phone without zooming. */
-
-.catRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 32px;
-  padding: 0.25rem 0;
-  font-size: 12px;
-  text-align: left;
-}
-
-/* The 30-day total sits behind the per-day figure: the per-day one is what the
-   projection actually multiplies, so it gets the emphasis. */
-.catShare {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* ── Selected day ─────────────────────────────────────────────────────────── */
-/* Above the chart, where the hand on it does not cover it. A fixed minimum
-   height, so moving between a quiet day and a busy one does not bounce the
-   chart up and down under the finger. */
-
-.readout {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-height: 60px;
-  margin-bottom: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
-  color: var(--color-text-primary);
-}
-
-.readoutMain {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.readoutDate {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.readoutValue {
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.readoutEvents {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: 0;
-  font-size: 12px;
-  text-align: right;
-}
-
-.readoutEvent {
-  display: flex;
-  gap: 0.375rem;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.readoutMore {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--bs-link-color);
-  font-size: 12px;
-}
-
-/* ── Month dividers ───────────────────────────────────────────────────────── */
-/* Only drawn when the window spans more than one month. The heavier top rule
-   makes the break read as a section rather than as one more row. */
-
-/* A button now: past the first couple of months it is a heading that unrolls,
-   not a heading over rows that are always there. */
-.monthHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.5rem 0 0.25rem;
-  border: 0;
-  border-top: 2px solid var(--color-border-primary);
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.monthTotal {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* The first row after a heading already has the heading's rule above it. */
-.monthHeader + .eventRow {
-  border-top: 0;
-}
-
-.monthLabel {
-  white-space: nowrap;
-}
-
-.monthCount {
-  flex: 1;
-  min-width: 0;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* ── One-off meta line ────────────────────────────────────────────────────── */
-/* Sits tight under its row and indented to the label above it, so the date
-   reads as belonging to that row rather than as a row of its own. */
-
-.oneOffTag {
-  /* It used to sit in a flex row with a gap; inline after the date it needs its
-     own space, or the two run together as "Dec 20, 2026not in range". */
-  margin-left: 0.375rem;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--color-background-secondary);
-  white-space: nowrap;
-}
-
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
-/* The verdict, the figure, the line and the arithmetic, as one block.
-   Previously three cards of equal weight to the editors below them, which left
-   nothing on the page looking more important than anything else. The tint is
-   the only colour on the screen that carries meaning at this size, so the rest
-   of the page stays plain and this reads first. */
-
-.hero {
-  border-radius: var(--border-radius-lg);
-  border: 1px solid transparent;
-  padding: 1rem 1.125rem 0.875rem;
-  margin-bottom: 0.75rem;
-  background: var(--color-surface);
-}
-
-.heroOk {
-  --hero-accent: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) var(--tint-strength), var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-income-text) var(--tint-border), transparent);
-  color: var(--color-income-text);
-}
-
-.heroTight {
-  --hero-accent: var(--color-goal);
-  background: color-mix(in srgb, var(--color-goal) var(--tint-strength), var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-goal-text) var(--tint-border), transparent);
-  color: var(--color-goal-text);
-}
-
-.heroShort {
-  --hero-accent: var(--color-expense);
-  background: color-mix(in srgb, var(--color-expense) var(--tint-strength), var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-expense-text) var(--tint-border), transparent);
-  color: var(--color-expense-text);
-}
-
-/* Pills rather than the segmented control: it sits inside a tinted card now,
-   and the segmented group's own surface fought the tint. */
-.horizonRow {
-  display: flex;
-  /* Six pills and "…" fill a phone; a typed horizon adds a seventh, which
-     pushed "…" off the card. It wraps instead. */
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.horizonPill {
-  padding: 3px 11px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.horizonPill:hover {
-  color: var(--color-text-primary);
-}
-
-/* The selected one is carried by the chip, not by the lettering. Tinting both
-   the text and its background from the same hue put them 3.69:1 apart — the
-   chip was legible as a shape and the label inside it was not. The accent
-   comes from a variable rather than `currentColor`, which would resolve to the
-   text colour set on this very rule. */
-.horizonOn {
-  background: color-mix(in srgb, var(--hero-accent, var(--bs-primary)) 22%, transparent);
-  color: var(--color-text-primary);
-}
-
-.heroVerdict {
-  display: flex;
-  align-items: center;
-  gap: 0.4375rem;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.heroAmount {
-  font-size: 2.25rem;
-  line-height: 1.1;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-  margin-top: 0.125rem;
-}
-
-.heroSub {
-  font-size: 12.5px;
-  margin-bottom: 0.625rem;
-}
-
-.heroAxis {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.tapHint {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin: 0;
-  align-self: center;
-}
-
-/* ── The arithmetic under the headline ────────────────────────────────────── */
-
-.heroLedger {
-  margin-top: 0.875rem;
-  padding-top: 0.625rem;
-  border-top: 1px solid color-mix(in srgb, var(--hero-accent, var(--color-border-primary)) 22%, transparent);
-}
-
-.ledgerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 30px;
-  font-size: 12.5px;
-  color: var(--color-text-secondary);
-}
-
-.ledgerValue {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.ledgerEnd {
-  color: var(--color-text-primary);
-  font-weight: 600;
-}
-
 /* ── Folded groups ────────────────────────────────────────────────────────── */
 /* A group says what it is, how many, and what it costs, without unrolling
    every row of it first. */
@@ -633,24 +893,41 @@
   padding-bottom: 0.625rem;
 }
 
-/* ── Card headings, shared ────────────────────────────────────────────────── */
-
-.cardTitle {
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.cardHint {
+.sectionToggle {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
   font-size: 11.5px;
-  color: var(--color-text-secondary);
-  margin: 0 0 0.5rem;
+  font-weight: 700;
+  color: var(--color-link);
+  cursor: pointer;
 }
 
-/* ── Rows, second pass ────────────────────────────────────────────────────── */
-/* The switch moved to the right and the tick went away. A checkbox says "pick
-   from a list"; this is "in or out of the plan", which is a switch. With the
-   control off the left edge the column reads as a list of names, which is what
-   the eye is actually scanning for. */
+/* A square + in the group header, where the group it adds to is named —
+   rather than a text link at the foot of a list that may be folded shut. */
+.groupAdd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.groupAdd:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────────────── */
+/* What it is, what it costs, and a switch for whether it is in the plan. The
+   switch is on the right and the tick went away: a checkbox says "pick from a
+   list", this is "in or out of the plan". */
 
 .rowLine {
   display: flex;
@@ -701,11 +978,8 @@
   color: var(--color-text-secondary);
 }
 
-/* Tinted, not painted. Full-strength red on every row of a list of bills is a
-   texture rather than a signal — but no colour at all costs the one thing
-   colour is good at here, which is telling money in from money out without
-   reading the sign. Mixed most of the way back to the body colour, it survives
-   a glance and disappears into the page when you are reading names. */
+/* Tinted, not painted: full-strength red on every row of a list of bills is a
+   texture rather than a signal. */
 .rowIncome {
   color: var(--figure-income);
 }
@@ -728,12 +1002,10 @@
   color: var(--color-text-secondary);
 }
 
-/* Bootstrap's own switch, so it inherits the theme rather than being a second
-   opinion about what a control looks like — but not its layout. `.form-check`
-   is built for a control with a label beside it: it pads 1.5em on the left and
-   pulls the input back into that padding with a negative margin, which here
-   put the switch on top of the amount and clipped it to "+€5,40". Doubling the
-   class beats Bootstrap's two-class selector without an `!important`. */
+/* Bootstrap's own switch, but not its layout: `.form-check` pads 1.5em on the
+   left and pulls the input back into it, which here put the switch on top of
+   the amount. Doubling the class beats Bootstrap's two-class selector without
+   an `!important`. */
 .rowSwitch {
   flex-shrink: 0;
   margin: 0;
@@ -747,37 +1019,34 @@
   cursor: pointer;
 }
 
-/* Outside the window, not switched off. Struck through it read as something
-   the reader had excluded, which is a different fact about a different row. */
-/* Only the name steps back. The figure stays in the body colour like every
-   other figure on the page: the "not in range" tag beside the date already
-   says it is not counted, and greying the amount as well made an entry the
-   user had deliberately typed look like something the app had lost. */
+/* Outside the window, not switched off: only the name steps back, and the
+   "not in range" tag beside the date says it is not counted. */
 .rowMuted .rowTitle {
   color: var(--color-text-secondary);
 }
 
-/* ── Adding ───────────────────────────────────────────────────────────────── */
-/* A round + in the group header, where the group it adds to is named — rather
-   than a blue text link at the bottom of a list that may be folded shut. */
-
-.groupAdd {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-border-primary);
-  border-radius: 50%;
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
+/* Sits inline after the date, so it needs its own space or the two run
+   together as "Dec 20, 2026not in range". */
+.oneOffTag {
+  margin-left: 0.375rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  white-space: nowrap;
 }
 
-.groupAdd:hover {
-  border-color: var(--color-border-secondary);
-  color: var(--color-text-primary);
+.addLine {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-height: 32px;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--color-link);
+  cursor: pointer;
 }
 
 /* ── Dialog fields ────────────────────────────────────────────────────────── */

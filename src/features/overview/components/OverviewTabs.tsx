@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Badge, Button, Card, CardBody } from "reactstrap";
+import { Badge, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCheckCircle, FiChevronRight } from "react-icons/fi";
 import { Sparkline } from "./Sparkline";
@@ -8,7 +8,6 @@ import type { AttentionItem } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
 import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActuals";
 import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
-import { UnconfirmedQuestion } from "../../plannerPage/components/UnconfirmedQuestion";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -37,18 +36,13 @@ export function Panel({ title, action, children }: { title?: string; action?: Re
 // ─── Today ──────────────────────────────────────────────────────────────────
 
 /**
- * Only what wants doing, most urgent first — and done from here.
+ * What wants you, most urgent first — to look at, not to act on.
  *
- * Each row used to be a link to the Bills page, where the bill had to be found
- * again before it could be marked paid. Now the button is on the row: a bill
- * opens the same payment dialog the Bills page uses, and a salary or instalment
- * the Planner is waiting for is confirmed with the same word its own sheet
- * records. When nothing wants doing it says so in one line and gets out of the
- * way — on a quiet day there is nothing to read.
- *
- * Pay the plan could not confirm comes first: until it is answered the
- * pay-day outlook above leaves it out, so it is the one row that changes a
- * figure on this screen.
+ * The Overview is for seeing what has been entered; the doing happens on the
+ * page each thing belongs to. So every row is a way there: a bill to Πάγια, a
+ * debt to Χρέη, a late or unconfirmed pay to the Προγραμματισμός, where its
+ * own buttons are. When nothing wants doing it says so in one line and gets
+ * out of the way — on a quiet day there is nothing to read.
  */
 export function AttentionList({
   items,
@@ -56,9 +50,6 @@ export function AttentionList({
   unconfirmed = [],
   now,
   formatCurrency,
-  onPay,
-  onSettle,
-  onAnswer,
 }: {
   items: AttentionItem[];
   /** Planner occurrences overdue: a salary not in yet, an instalment not seen. */
@@ -67,16 +58,11 @@ export function AttentionList({
   unconfirmed?: ResolvedOccurrence[];
   now: Date;
   formatCurrency: Money;
-  onPay?: (billId: string) => void;
-  onSettle?: (occurrence: ResolvedOccurrence) => void;
-  /** "It came" (true) or "not yet" (false) to an unconfirmed one. */
-  onAnswer?: (occurrence: ResolvedOccurrence, arrived: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
-  const asked = onAnswer ? unconfirmed : [];
 
-  if (items.length === 0 && late.length === 0 && asked.length === 0) {
+  if (items.length === 0 && late.length === 0 && unconfirmed.length === 0) {
     return (
       <Panel>
         <div className="d-flex align-items-center gap-2" style={{ color: "var(--color-income-text)" }}>
@@ -99,57 +85,37 @@ export function AttentionList({
       </Badge>
     );
 
+  const row = (key: string, to: string, name: ReactNode, tag: ReactNode, amount: number) => (
+    <Link key={key} to={to} className={styles.attentionRow}>
+      <span className={styles.attentionName}>
+        <span className="text-truncate">{name}</span>
+        {tag}
+      </span>
+      <span className={styles.attentionAmount}>{formatCurrency(amount)}</span>
+      <FiChevronRight size={16} className="text-body-secondary flex-shrink-0" aria-hidden />
+    </Link>
+  );
+
+  const nameOf = (occurrence: ResolvedOccurrence) => (occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label);
+
   return (
-    <Panel title={t("overview.needsYou", { count: items.length + late.length + asked.length })}>
+    <Panel title={t("overview.needsYou", { count: items.length + late.length + unconfirmed.length })}>
       <div className={styles.attention}>
-        {asked.map((occurrence) => (
-          <UnconfirmedQuestion
-            key={occurrence.key}
-            occurrence={occurrence}
-            dateFmt={dateFmt}
-            className={styles.attentionRow}
-            textClassName={styles.attentionName}
-            amount={<span className={styles.attentionAmount}>{formatCurrency(Math.abs(occurrence.amount))}</span>}
-            onAnswer={(arrived) => onAnswer?.(occurrence, arrived)}
-          />
-        ))}
-        {late.map((occurrence) => (
-          <div key={occurrence.key} className={styles.attentionRow}>
-            <Link to="/planner" className={styles.attentionName}>
-              <span className="text-truncate">{occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label}</span>
-              {badge(Math.max(1, daysLate(occurrence, now)), 0)}
-            </Link>
-            <span className={styles.attentionAmount}>{formatCurrency(Math.abs(occurrence.amount))}</span>
-            {onSettle && (
-              <Button size="sm" color="success" outline className="flex-shrink-0" onClick={() => onSettle(occurrence)}>
-                {t(occurrence.amount > 0 ? "overview.itArrived" : "overview.markPaid")}
-              </Button>
-            )}
-          </div>
-        ))}
-        {items.map((item) =>
-          item.kind === "bill" && onPay ? (
-            <div key={`${item.kind}-${item.id}`} className={styles.attentionRow}>
-              <Link to="/bills" className={styles.attentionName}>
-                <span className="text-truncate">{item.name}</span>
-                {badge(item.late ? Math.abs(item.days) : undefined, item.days)}
-              </Link>
-              <span className={styles.attentionAmount}>{formatCurrency(item.amount)}</span>
-              <Button size="sm" color="success" outline className="flex-shrink-0" onClick={() => onPay(item.id)}>
-                {t("overview.markPaid")}
-              </Button>
-            </div>
-          ) : (
-            <Link key={`${item.kind}-${item.id}`} to={item.kind === "bill" ? "/bills" : "/debts"} className={styles.attentionRow}>
-              <span className={styles.attentionName}>
-                <span className="text-truncate">{item.name}</span>
-                {badge(item.late ? Math.abs(item.days) : undefined, item.days)}
-              </span>
-              <span className={styles.attentionAmount}>{formatCurrency(item.amount)}</span>
-              <FiChevronRight size={16} className="text-body-secondary flex-shrink-0" aria-hidden />
-            </Link>
+        {unconfirmed.map((occurrence) =>
+          row(
+            occurrence.key,
+            "/planner",
+            occurrence.label === SALARY_ROW_ID
+              ? t("planner.unconfirmedSalary", { date: dateFmt.format(occurrence.date) })
+              : t("planner.unconfirmedOther", { label: nameOf(occurrence), date: dateFmt.format(occurrence.date) }),
+            <Badge pill color="warning-subtle" className="text-warning-emphasis">
+              {t("overview.waitsForAnswer")}
+            </Badge>,
+            Math.abs(occurrence.amount),
           ),
         )}
+        {late.map((occurrence) => row(occurrence.key, "/planner", nameOf(occurrence), badge(Math.max(1, daysLate(occurrence, now)), 0), Math.abs(occurrence.amount)))}
+        {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount))}
       </div>
     </Panel>
   );

@@ -36,11 +36,17 @@ describe("en and el say the same things", () => {
 });
 
 describe("counts in the Planner's words", () => {
-  it("says 1 month and 3 months, «1 μήνας» and «3 μήνες»", () => {
-    expect(tEn("planner.untilDate", { date: "31 Oct", count: 1 })).toBe("to 31 Oct · 1 month");
-    expect(tEn("planner.untilDate", { date: "31 Dec", count: 3 })).toBe("to 31 Dec · 3 months");
-    expect(tEl("planner.untilDate", { date: "31 Οκτ", count: 1 })).toBe("έως 31 Οκτ · 1 μήνας");
-    expect(tEl("planner.untilDate", { date: "31 Δεκ", count: 3 })).toBe("έως 31 Δεκ · 3 μήνες");
+  it("says 1 salary and 3 salaries, «1 μισθός» and «3 μισθοί»", () => {
+    expect(tEn("planner.salaries", { count: 1 })).toBe("1 salary");
+    expect(tEn("planner.salaries", { count: 3 })).toBe("3 salaries");
+    expect(tEl("planner.salaries", { count: 1 })).toBe("1 μισθός");
+    expect(tEl("planner.salaries", { count: 3 })).toBe("3 μισθοί");
+  });
+
+  it("counts the days a budget line runs over, «1 μέρα» and «30 μέρες»", () => {
+    expect(tEl("planner.stepDays", { count: 1 })).toBe("1 μέρα");
+    expect(tEl("planner.stepDays", { count: 30 })).toBe("30 μέρες");
+    expect(tEn("planner.stepDays", { count: 30 })).toBe("30 days");
   });
 
   it("picks the plural from the rounded figure it prints, fractions included", () => {
@@ -59,7 +65,7 @@ describe("counts in the Planner's words", () => {
   it("leaves no bare key behind for a call that now passes a count", () => {
     // i18next falls back to the bare key when a plural form is missing, so a
     // stale one would quietly win over the plural.
-    for (const key of ["untilDate", "timesMonths", "canWaitUntil"]) {
+    for (const key of ["salaries", "stepDays", "timesMonths", "canWaitUntil"]) {
       expect((en.planner as Record<string, string>)[key]).toBeUndefined();
       expect((el.planner as Record<string, string>)[key]).toBeUndefined();
     }
@@ -104,7 +110,7 @@ describe("the line under a tight verdict", () => {
   const money = (n: number) => `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(2).replace(".", ",")} €`;
   const render = (t: typeof tEl, fmt: Intl.DateTimeFormat) => {
     const line = heroSubline(plan);
-    if (line.key === "planner.untilDate") throw new Error("expected a dip line");
+    if (line.key === "planner.lowestPoint") throw new Error("expected a dip line");
     return t(line.key, { date: fmt.format(line.date), name: line.name, amount: money(line.lowest), lowDate: fmt.format(line.lowestOn) });
   };
 
@@ -124,15 +130,22 @@ describe("the line under a tight verdict", () => {
     const greek = render(tEl, dateFmt.el);
     const oct1 = dateFmt.el.format(new Date(2026, 9, 1));
     const oct29 = dateFmt.el.format(new Date(2026, 9, 29));
-    expect(greek).toBe(`πέφτεις κάτω από το μηδέν στις ${oct1}, στο «Card» · στο χαμηλότερο −489,15 € στις ${oct29}`);
+    // The mockup's wording: «Κάτω από το μηδέν από την Πέμ 1 Οκτ, στο «Ενοίκιο» · πιο χαμηλά −489,15 € την Πέμ 29 Οκτ».
+    expect(greek).toBe(`Κάτω από το μηδέν από την ${oct1}, στο «Card» · πιο χαμηλά −489,15 € την ${oct29}`);
     // The figure the owner saw paired with the wrong day can no longer be printed.
     expect(greek).not.toContain(`489,15 € κάτω στις ${oct1}`);
-    expect(render(tEn, dateFmt.en)).toBe(`you go under on ${dateFmt.en.format(new Date(2026, 9, 1))}, on Card · at the lowest −489,15 € on ${dateFmt.en.format(new Date(2026, 9, 29))}`);
+    expect(render(tEn, dateFmt.en)).toBe(`Below zero from ${dateFmt.en.format(new Date(2026, 9, 1))}, at “Card” · lowest −489,15 € on ${dateFmt.en.format(new Date(2026, 9, 29))}`);
   });
 
-  it("says the window and its months when the line never goes under", () => {
-    const calm = { ...plan, verdict: "ok" as const, breaksOn: undefined };
-    expect(heroSubline(calm)).toEqual({ key: "planner.untilDate", date: plan.end, count: 1 });
-    expect(tEl("planner.untilDate", { date: dateFmt.el.format(plan.end), count: 1 })).toBe(`έως ${dateFmt.el.format(new Date(2026, 9, 31))} · 1 μήνας`);
+  it("says the same two facts for a plan that ends under zero", () => {
+    // Short is no longer told by the window's dates: it went under on a day, at something.
+    const short = { ...plan, verdict: "short" as const };
+    expect(heroSubline(short).key).toBe("planner.dipsOnBill");
+  });
+
+  it("names the lowest point and its day when the line never goes under", () => {
+    const calm = { ...plan, verdict: "ok" as const, breaksOn: undefined, lowestBalance: 94.35, lowestOn: new Date(2026, 9, 29) };
+    expect(heroSubline(calm)).toEqual({ key: "planner.lowestPoint", lowest: 94.35, lowestOn: new Date(2026, 9, 29) });
+    expect(tEl("planner.lowestPoint", { amount: "94,35 €", date: "Πέμ 29 Οκτ" })).toBe("Χαμηλότερο σημείο 94,35 € · Πέμ 29 Οκτ");
   });
 });

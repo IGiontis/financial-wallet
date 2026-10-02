@@ -36,6 +36,15 @@ const make = (bill: Partial<Bill>, payments: BillPayment[] = []): BillWithStatus
 const part = (billId: string, periodKey: string, index: number, amount: number, paidDate: Date): BillPayment =>
   ({ id: `${billId}-${index}`, userId: "u1", billId, periodKey, installmentIndex: index, amount, paidDate, createdAt: paidDate }) as BillPayment;
 
+/**
+ * Every month of 2026 paid from January through `lastMonth` (0-based). The
+ * flat and the house were kept up to date until their pauses began, so the
+ * pause is all these tests see of them — unpaid, every month since January
+ * would be overdue, and rightly.
+ */
+const paidUntil = (billId: string, amount: number, lastMonth: number): BillPayment[] =>
+  Array.from({ length: lastMonth + 1 }, (_, m) => ({ id: `${billId}-m${m}`, userId: "u1", billId, periodKey: `2026-${String(m + 1).padStart(2, "0")}`, amount, paidDate: new Date(2026, m, 1), createdAt: new Date(2026, m, 1) }) as BillPayment);
+
 const page = vi.hoisted(() => ({ bills: [] as BillWithStatus[], idle: () => ({ mutate: () => {}, mutateAsync: async () => {}, isPending: false }) }));
 
 vi.mock("./useBills", () => ({
@@ -60,12 +69,12 @@ beforeAll(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   page.bills = [
-    // Late since the 10th.
-    make({ id: "netflix", name: "Netflix", amount: 15, dueDay: 10 }),
-    // Gone for good since August.
-    make({ id: "flat", name: "Flat", amount: 40, dueDay: 10, pause: { from: "2026-08" } }),
-    // Off for the winter.
-    make({ id: "house", name: "House", amount: 60, dueDay: 10, pause: { from: "2026-11", to: "2027-02" } }),
+    // Late since the 10th — added this month, so November is all it owes.
+    make({ id: "netflix", name: "Netflix", amount: 15, dueDay: 10, anchorDate: new Date(2026, 10, 1), createdAt: new Date(2026, 10, 1) }),
+    // Gone for good since August, paid up to then.
+    make({ id: "flat", name: "Flat", amount: 40, dueDay: 10, pause: { from: "2026-08" } }, paidUntil("flat", 40, 6)),
+    // Off for the winter, paid up to then.
+    make({ id: "house", name: "House", amount: 60, dueDay: 10, pause: { from: "2026-11", to: "2027-02" } }, paidUntil("house", 60, 9)),
     // €360 in three from 5 October: October's paid, November's late, December's to come.
     make({ id: "gym", name: "Gym", amount: 360, frequency: "yearly", dueMonth: 9, dueDay: 5, installmentCount: 3 }, [part("gym", "2026", 0, 120, new Date(2026, 9, 5))]),
     // €300 in two, March and April, both paid.

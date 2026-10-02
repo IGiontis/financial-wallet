@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import i18n from "../../i18n";
 import BillsPage from "./BillsPage";
 import { computeBillStatus } from "./billsUtils";
-import type { Bill, BillWithStatus } from "../../shared/types/IndexTypes";
+import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 
 // The two tiles at the top of the Bills page that open something.
 //
@@ -14,6 +14,14 @@ import type { Bill, BillWithStatus } from "../../shared/types/IndexTypes";
 // real tiles on the real page, which is the only place that bug could be seen.
 
 const NOW = new Date(2026, 8, 16, 10, 0); // 16 September 2026
+
+/**
+ * January to August paid: each bill kept up to date until this month, so
+ * September is all that can be late. Added in January with nothing paid they
+ * would be eight months behind — overdue counts every period.
+ */
+const upToDate = (billId: string, amount: number): BillPayment[] =>
+  Array.from({ length: 8 }, (_, m) => ({ id: `${billId}-${m}`, userId: "u1", billId, periodKey: `2026-${String(m + 1).padStart(2, "0")}`, amount, paidDate: new Date(2026, m, 1), createdAt: new Date(2026, m, 1) }) as BillPayment);
 
 const bill = (id: string, name: string, amount: number, dueDay: number): BillWithStatus =>
   computeBillStatus(
@@ -30,7 +38,7 @@ const bill = (id: string, name: string, amount: number, dueDay: number): BillWit
       createdAt: new Date(2026, 0, 1),
       updatedAt: new Date(2026, 0, 1),
     } as Bill,
-    [],
+    upToDate(id, amount),
     NOW,
   );
 
@@ -132,7 +140,7 @@ describe("status and cadence under each bill's name", () => {
     render(<BillsPage />);
 
     const rows = [...document.querySelectorAll("[class*=_lineTags_]")];
-    expect(rows.map((row) => row.children[0].textContent)).toEqual(expect.arrayContaining(["late", "unpaid"]));
+    expect(rows.map((row) => row.children[0].textContent)).toEqual(expect.arrayContaining(["overdue", "unpaid"]));
     for (const row of rows) expect(row.children[1]).toHaveClass("badge");
     localStorage.removeItem("bills-view");
   });

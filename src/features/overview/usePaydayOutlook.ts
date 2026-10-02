@@ -10,7 +10,7 @@ import { buildPlan, type BudgetLine, type OneOff } from "../plannerPage/plannerU
 import type { OccurrenceOverride, ResolvedOccurrence } from "../plannerPage/plannerActuals";
 import { toISODay } from "../../shared/utils/dates";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "../plannerPage/plannerInputs";
-import { paydayOutlook } from "./overviewTabs";
+import { PAYDAY_HORIZON, paydayOutlook } from "./overviewTabs";
 
 /**
  * The Planner's answer to "will I make it to pay day?", for the Overview.
@@ -51,7 +51,7 @@ export function usePaydayOutlook(now: Date, balance: number, lastReadingAt?: Dat
   const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
 
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: balance, skipIds, horizon: 2, now, actuals }),
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, salary, openingBalance: balance, skipIds, horizon: PAYDAY_HORIZON, now, actuals }),
     [bills, goals, lines, oneOffs, debts, salary, balance, skipIds, now, actuals],
   );
   const outlook = useMemo(() => paydayOutlook(plan, now), [plan, now]);
