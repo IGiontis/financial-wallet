@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
-import { billsNeedingAttention, computeBillStatus } from "./billsUtils";
+import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, markBillPeriodsSettled, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
+import { billsNeedingAttention, computeBillStatus, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
 import { billKeys, byUrgency, editBills, editPayments } from "./billCache";
 import { insertTransaction, setTransactionFields, transactionKeys } from "../transactions/hooks/useTransactions";
 import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
@@ -228,6 +228,72 @@ export function useMarkBillPaid() {
       if (!context) return;
       confirmList(queryClient, billKeys.all(userId), editPayments(upsertById(context.payment)));
       confirmList(queryClient, transactionKeys.all(userId), insertTransaction(context.expense));
+    },
+  });
+}
+
+// ─── useSettleOverdue ─────────────────────────────────────────────────────────
+// "I've paid these": overdue periods marked paid without a transaction.
+//
+// Bills only. The money left the bank outside the app, and the balance is read
+// from the transactions: writing an expense for each month would take it out a
+// second time. So the transactions cache is not touched at all, and the bills
+// cache gets the payments like any other — every figure re-derived through
+// `computeBillStatus`, so the months stop being overdue everywhere at once.
+
+export interface SettleOverdueVars {
+  bill: BillWithStatus;
+  /** The overdue periods or parts to mark — `billOverdue(bill).items`, less any unticked. */
+  items: MonthForecastItem[];
+}
+
+const settledIds = new WeakMap<SettleOverdueVars, string[]>();
+
+export function useSettleOverdue() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+  const key = billKeys.all(userId);
+
+  /**
+   * One payment per item, as the bills cache and the batch both hold it: at
+   * what it was owed for, dated the day it fell due — when it was paid is not
+   * known, and "today" would make a July bill look paid in October.
+   */
+  const rowsFor = (vars: SettleOverdueVars): BillPayment[] => {
+    const ids = idsFor(settledIds, vars, () => vars.items.map(() => newDocId("billPayments")));
+    const split = getInstallmentCount(vars.bill) > 1;
+    const now = new Date();
+    return vars.items.map(
+      (item, i) =>
+        withoutUndefined({
+          id: ids[i],
+          userId,
+          billId: vars.bill.id,
+          periodKey: item.periodKey,
+          // Filed like `markBillPaid` files them: an instalment by its index, a
+          // bill paid in one go with none.
+          installmentIndex: split ? item.installmentIndex : undefined,
+          amount: item.amount,
+          paidDate: item.date,
+          createdAt: now,
+        }) as BillPayment,
+    );
+  };
+  const addAll = (payments: BillPayment[]) => editPayments((list) => payments.reduce((rows, payment) => upsertById(payment)(rows), list));
+
+  return useMutation<void, Error, SettleOverdueVars, Rollback & { payments: BillPayment[] }>({
+    mutationFn: (vars) => markBillPeriodsSettled(userId, rowsFor(vars).map(({ id, billId, periodKey, installmentIndex, amount, paidDate }) => ({ id, billId, periodKey, installmentIndex, amount, paidDate }))),
+
+    onMutate: async (vars) => {
+      const payments = rowsFor(vars);
+      return { payments, bills: await editList(queryClient, key, addAll(payments)) };
+    },
+
+    onError: (_error, _vars, context) => restoreList(queryClient, context?.bills),
+
+    onSuccess: (_void, _vars, context) => {
+      if (context) confirmList(queryClient, key, addAll(context.payments));
     },
   });
 }

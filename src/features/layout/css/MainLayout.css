@@ -33,12 +33,12 @@
 /* Desktop expanded (default) */
 @media (min-width: 992px) {
   .main-content {
-    margin-left: var(--sidebar-width); /* 250px */
+    margin-left: var(--sidebar-width); /* per menu style — navStyles.css */
   }
 
   /* Desktop collapsed — parent gets the class, child reacts */
   .main-layout.sidebar-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed-width); /* 64px */
+    margin-left: var(--sidebar-collapsed-width);
   }
 }
 
@@ -68,4 +68,20 @@
   .main-content {
     padding-top: 0;
   }
+}
+
+/* ── Γ: the page runs under the frosted top bar ─────────────────────────────── */
+/* The bar is laid over the scrolling page instead of above it, and the page is
+   padded down by the bar's height: it starts in the same place, and what
+   scrolls up passes behind the glass. The padding is on the scroll container
+   itself, so a `position: sticky; top: 0` inside a page — the transactions
+   header, the goals and allocation side panels — still stops below the bar
+   rather than sliding underneath it. */
+[data-nav-style="c"] .main-content {
+  position: relative;
+}
+
+[data-nav-style="c"] .page-content {
+  padding-top: var(--topbar-height);
+  scroll-padding-top: var(--topbar-height);
 }

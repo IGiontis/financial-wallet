@@ -6,6 +6,7 @@ import { isLockedOffline, type OfflineAction } from "../utils/offlinePolicy";
 const REASON: Record<OfflineAction, string> = {
   delete: "common.offlineDelete",
   settings: "common.offlineSettings",
+  bulk: "common.offlineBulk",
   entry: "",
 };
 

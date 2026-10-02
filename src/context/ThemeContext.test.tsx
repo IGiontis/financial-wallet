@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import i18n from "../i18n";
 import { ThemeProvider } from "./ThemeContext";
 import { ThemeCycleButton, ThemeSwitch } from "../shared/components/ThemeSwitch";
+import { NavStylePicker } from "../features/settings/components/NavStylePicker";
 
 // Light, Dark and Auto — and Auto meaning the device's own setting, live: when
 // the phone goes dark at sunset, the app goes with it.
@@ -36,7 +37,11 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
-beforeEach(() => localStorage.removeItem("theme-preference"));
+beforeEach(() => {
+  localStorage.removeItem("theme-preference");
+  localStorage.removeItem("nav-style");
+  document.documentElement.removeAttribute("data-nav-style");
+});
 afterEach(() => {
   window.matchMedia = original;
 });
@@ -106,5 +111,68 @@ describe("the theme", () => {
     await userEvent.click(screen.getByRole("button", { name: "Theme: Dark. Switch to Auto" }));
     expect(screen.getByRole("button", { name: "Theme: Auto. Switch to Light" })).toBeInTheDocument();
     expect(shown()).toBe("light");
+  });
+});
+
+// The menu's finish — Α, Β or Γ — kept on the device beside the theme, and
+// applied to the shell the moment it is pressed.
+const navStyle = () => document.documentElement.getAttribute("data-nav-style");
+
+describe("the menu style", () => {
+  it("is Α until one is chosen, and the choice shows as pressed", () => {
+    fakeColourScheme(false);
+    render(
+      <ThemeProvider>
+        <NavStylePicker />
+      </ThemeProvider>,
+    );
+    expect(navStyle()).toBe("a");
+    expect(pressed()).toEqual(["A Classic"]);
+  });
+
+  it("changes the shell at once and remembers it, whatever the theme", async () => {
+    const device = fakeColourScheme(false);
+    render(
+      <ThemeProvider>
+        <ThemeSwitch />
+        <NavStylePicker />
+      </ThemeProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "C Glass" }));
+    expect(navStyle()).toBe("c");
+    expect(localStorage.getItem("nav-style")).toBe(JSON.stringify("c"));
+
+    // Independent of the theme, in either direction.
+    await userEvent.click(screen.getByRole("button", { name: "Dark" }));
+    device.set(true);
+    expect(navStyle()).toBe("c");
+    await userEvent.click(screen.getByRole("button", { name: "B Blue tone" }));
+    expect(shown()).toBe("dark");
+    expect(navStyle()).toBe("b");
+    expect(pressed()).toEqual(["Dark", "B Blue tone"]);
+  });
+
+  it("keeps what was saved on this device", () => {
+    fakeColourScheme(false);
+    localStorage.setItem("nav-style", JSON.stringify("b"));
+    render(
+      <ThemeProvider>
+        <NavStylePicker />
+      </ThemeProvider>,
+    );
+    expect(navStyle()).toBe("b");
+    expect(pressed()).toEqual(["B Blue tone"]);
+  });
+
+  it("falls back to Α for a value it does not know", () => {
+    fakeColourScheme(false);
+    localStorage.setItem("nav-style", JSON.stringify("glass"));
+    render(
+      <ThemeProvider>
+        <NavStylePicker />
+      </ThemeProvider>,
+    );
+    expect(navStyle()).toBe("a");
+    expect(pressed()).toEqual(["A Classic"]);
   });
 });

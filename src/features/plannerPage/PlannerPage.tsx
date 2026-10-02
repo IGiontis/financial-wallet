@@ -176,7 +176,6 @@ export function PlannerPage() {
     () => (fromBanks ? undefined : paydayOutlook(buildPlan({ ...inputs, openingBalance: available, horizon: PAYDAY_HORIZON }), now).left),
     [fromBanks, inputs, available, now],
   );
-  const cycles = useMemo(() => payCycles(plan), [plan]);
   const months = useMemo(() => planMonths(plan), [plan]);
 
   // The list behind the card's figure: the first stretch of the card's plan,
@@ -500,14 +499,11 @@ export function PlannerPage() {
 
           <PeriodCard
             plan={plan}
-            cycles={cycles}
             horizon={horizon}
             onHorizon={setHorizon}
             scenario={!fromBanks}
-            now={now}
             formatCurrency={formatCurrency}
             locale={lang}
-            onOccurrence={setOpenOccurrence}
           />
 
           {/* Stacked on a phone, the levers sat below the whole timeline, so

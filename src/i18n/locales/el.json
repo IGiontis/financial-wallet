@@ -41,7 +41,8 @@
     "updateTitle": "Νέα έκδοση",
     "updateBody": "Ανανέωσε για να πάρεις τις τελευταίες αλλαγές. Τα δεδομένα σου δεν επηρεάζονται.",
     "updating": "Ανανέωση…",
-    "allRightsReserved": "Με επιφύλαξη παντός δικαιώματος."
+    "allRightsReserved": "Με επιφύλαξη παντός δικαιώματος.",
+    "offlineBulk": "Η μαζική καταχώριση περιμένει σύνδεση — δεν κρίνεται πάνω σε αντίγραφο εκτός σύνδεσης."
   },
   "nav": {
     "groupStanding": "Πού είσαι",
@@ -69,8 +70,9 @@
     "themeNow": "Θέμα: {{theme}}. Αλλαγή σε {{next}}",
     "darkMode": "Σκοτεινό θέμα",
     "groupDaily": "Καθημερινά",
-    "hideBar": "Απόκρυψη μπάρας",
-    "lightMode": "Φωτεινό θέμα"
+    "lightMode": "Φωτεινό θέμα",
+    "mainNavigation": "Κύριο μενού",
+    "closeMenu": "Κλείσιμο μενού"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",
@@ -483,7 +485,17 @@
     "chipOverdue_one": "{{count}} απλήρωτος · {{amount}}",
     "chipOverdue_other": "{{count}} απλήρωτοι · {{amount}}",
     "unpaidSince_one": "{{count}} απλήρωτος από {{date}}",
-    "unpaidSince_other": "{{count}} απλήρωτοι από {{date}}"
+    "unpaidSince_other": "{{count}} απλήρωτοι από {{date}}",
+    "payingOldestOverdue": "Πρώτα το παλαιότερο ληξιπρόθεσμο: {{period}}. Διάλεξε άλλη περίοδο πιο κάτω αν πληρώνεις άλλη.",
+    "settleOverdue": "Τα έχω πληρώσει",
+    "settleOverdueTitle": "Ήδη πληρωμένα — {{name}}",
+    "settleOverdueBody": "Σημειώνονται ως πληρωμένα χωρίς να γραφτεί συναλλαγή — τα λεφτά έχουν ήδη φύγει από την τράπεζα.",
+    "settleOverdueTotal": "Σημειώνονται {{amount}}",
+    "settleOverdueConfirm_one": "Σημείωσε {{count}} ως πληρωμένο",
+    "settleOverdueConfirm_other": "Σημείωσε {{count}} ως πληρωμένα",
+    "settleOverdueFailed": "Δεν αποθηκεύτηκε. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.",
+    "noTransaction": "χωρίς συναλλαγή",
+    "deletePaymentNoTxConfirm": "Διαγραφή της πληρωμής; Δεν έγραψε έξοδο, οπότε μόνο η περίοδος ξαναγίνεται απλήρωτη."
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -1129,7 +1141,11 @@
     "scenarioChip": "Σενάριο: δικό σου ποσό",
     "scenarioIf": "Αν είχες",
     "scenarioOverview": "Η Επισκόπηση δείχνει {{amount}}, με τα λεφτά που έχεις.",
-    "scenarioBack": "Πίσω στο «{{source}}»"
+    "scenarioBack": "Πίσω στο «{{source}}»",
+    "tapHint": "Πάτα ή σύρε το δάχτυλο πάνω στη γραμμή για να δεις κάθε μέρα.",
+    "justBudget": "Μόνο ο μηνιαίος προϋπολογισμός σου, περίπου {{amount}} τη μέρα.",
+    "weekTo": "Εβδομάδα έως {{date}}",
+    "balanceTitle": "Τι μένει, μέρα με μέρα"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -1211,7 +1227,15 @@
     "tabData": "Δεδομένα",
     "tabAccount": "Λογαριασμός",
     "themeSubtitle": "Το «Αυτόματο» ακολουθεί τη ρύθμιση της συσκευής σου. Ισχύει αμέσως, σε αυτή τη συσκευή.",
-    "signOutSubtitle": "Αποσυνδέσου από το MyFiWallet σε αυτή τη συσκευή."
+    "signOutSubtitle": "Αποσυνδέσου από το MyFiWallet σε αυτή τη συσκευή.",
+    "navStyle": "Στυλ μενού",
+    "navStyleSubtitle": "Πώς φαίνονται το πλαϊνό μενού και η πάνω μπάρα. Ισχύει αμέσως, σε αυτή τη συσκευή.",
+    "navStyleA": "Κλασικό",
+    "navStyleB": "Μπλε τόνος",
+    "navStyleC": "Γυαλί",
+    "navStyleLetterA": "Α",
+    "navStyleLetterB": "Β",
+    "navStyleLetterC": "Γ"
   },
   "validation": {
     "required": "Το πεδίο είναι υποχρεωτικό",

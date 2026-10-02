@@ -24,6 +24,8 @@ interface BillDetailModalProps {
   onDeletePayment: (payment: BillPayment) => void;
   /** Settle a specific month, chosen from the year grid. */
   onPayPeriod: (bill: BillWithStatus, cell: MonthCell) => void;
+  /** "I've paid these": mark the overdue periods paid without a transaction. */
+  onSettleOverdue: (bill: BillWithStatus) => void;
   onEdit: (bill: BillWithStatus) => void;
   onDelete: (bill: BillWithStatus) => void;
 }
@@ -48,7 +50,7 @@ function Fact({ label, value, accent, sub }: { label: string; value: string; acc
   );
 }
 
-export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onEdit, onDelete }: BillDetailModalProps) {
+export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onSettleOverdue, onEdit, onDelete }: BillDetailModalProps) {
   const { t, i18n } = useTranslation();
   const freq = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
@@ -153,8 +155,16 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
           {/* What is overdue, before this period's own line: how many, since
               when, and what they come to — the late tile's figure for it. */}
           {behind && overdue.oldestDue && (
-            <div className="fw-semibold mb-1" style={{ fontSize: 13, color: "var(--color-expense)" }}>
-              ⚠ {t("bills.unpaidSince", { count: overdue.count, date: dateFmt.format(overdue.oldestDue) })} · {formatCurrency(overdue.total)}
+            <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">
+              <span className="fw-semibold" style={{ fontSize: 13, color: "var(--color-expense)" }}>
+                ⚠ {t("bills.unpaidSince", { count: overdue.count, date: dateFmt.format(overdue.oldestDue) })} · {formatCurrency(overdue.total)}
+              </span>
+              {/* For months the bank paid and the app was never told: marks them
+                  paid without writing a transaction, so the balance does not
+                  lose the money a second time. Beside the debt it clears. */}
+              <Button color="danger" outline size="sm" onClick={() => onSettleOverdue(bill)} disabled={isBusy} className="text-nowrap">
+                {t("bills.settleOverdue")}
+              </Button>
             </div>
           )}
           {paid && paidDate ? (
@@ -269,7 +279,9 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                      deletes the expense the payment wrote, so it deserves a
                      stop - but not a modal stacked on a modal. */
                   <div key={p.id} id={`payment-${p.id}`} className={styles.paymentRow}>
-                    <span className={styles.paymentWarn}>{t("bills.deletePaymentConfirm")}</span>
+                    {/* A payment with no expense behind it deletes nothing else —
+                        say so, since the usual warning names an expense. */}
+                    <span className={styles.paymentWarn}>{t(p.transactionId ? "bills.deletePaymentConfirm" : "bills.deletePaymentNoTxConfirm")}</span>
                     <Button
                       color="danger"
                       size="sm"
@@ -290,6 +302,13 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               return (
                 <div key={p.id} id={`payment-${p.id}`} className={`${styles.paymentRow} ${focusedPayment === p.id ? styles.paymentRowFocused : ""}`}>
                   <span className={styles.paymentDate}>{format(firestoreToDate(p.paidDate), "dd MMM yyyy", { locale: dateFnsLocale(i18n.resolvedLanguage) })}</span>
+                  {/* Marked paid with no transaction — "I've paid these" — so the
+                      history says why no expense matches it. */}
+                  {!p.transactionId && (
+                    <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: 10 }}>
+                      {t("bills.noTransaction")}
+                    </Badge>
+                  )}
                   <span className={styles.paymentAmount}>{formatCurrency(p.amount)}</span>
                   <button type="button" className={styles.paymentAction} onClick={() => startEdit(p)} aria-label={t("common.edit")} title={t("common.edit")}>
                     <FiEdit2 size={14} />

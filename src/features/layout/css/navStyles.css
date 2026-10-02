@@ -1,0 +1,65 @@
+/* The three menu styles' sidebar colours — Α «Κλασικό», Β «Μπλε τόνος»,
+   Γ «Γυαλί».
+
+   Only the background changes with the theme: the sidebar is dark in both, so
+   the white-on-dark text, icon and hover tints above it stay the same and live
+   with the rules in Sidebar.css. Each set is declared twice over — for the
+   shell, keyed on `data-nav-style` on <html>, and for a `.nav-style-x` class,
+   so the previews in Settings can show all three side by side whichever one
+   the shell is wearing. */
+
+/* Α — the sidebar's own token from index.css, unchanged: the same colour the
+   app always had, in both themes. */
+:root,
+.nav-style-a {
+  --nav-bg: var(--sidebar-bg);
+  --nav-bg-2: var(--sidebar-bg);
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
+  --drawer-width: 288px;
+  --topbar-height: 56px;
+}
+
+/* Β — a deep navy, a touch lighter at the top. The dark theme's is deeper
+   still, so it does not glow against the dark page beside it. */
+:root[data-nav-style="b"],
+.nav-style-b {
+  --nav-bg: #10224a;
+  --nav-bg-2: #0b1733;
+  --sidebar-width: 256px;
+  --sidebar-collapsed-width: 72px;
+  --drawer-width: 300px;
+  --topbar-height: 60px;
+}
+
+:root[data-bs-theme="dark"][data-nav-style="b"],
+[data-bs-theme="dark"] .nav-style-b {
+  --nav-bg: #0c1834;
+  --nav-bg-2: #070f22;
+}
+
+/* Γ — a softer slate than Α, so the frosted top bar beside it is the heavier
+   of the two. */
+:root[data-nav-style="c"],
+.nav-style-c {
+  --nav-bg: #2c3544;
+  --nav-bg-2: #232a36;
+  --sidebar-width: 252px;
+  --sidebar-collapsed-width: 76px;
+  --drawer-width: 292px;
+  --topbar-height: 60px;
+}
+
+:root[data-bs-theme="dark"][data-nav-style="c"],
+[data-bs-theme="dark"] .nav-style-c {
+  --nav-bg: #20262f;
+  --nav-bg-2: #181d24;
+}
+
+/* Γ's frosted bar is a little lower on a phone, where height is scarcer; Α and
+   Β keep theirs, so their ☰ stays the same size target at every width. */
+@media (max-width: 991.98px) {
+  :root[data-nav-style="c"] {
+    --topbar-height: 56px;
+  }
+}

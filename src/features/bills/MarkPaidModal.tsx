@@ -7,7 +7,7 @@ import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { parseISODay } from "../../shared/utils/dates";
-import { getInstallmentCount, getPeriodOptions, installmentAmount, paidInstallments, type PeriodOption } from "./billsUtils";
+import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
 
 interface MarkPaidModalProps {
   bill: BillWithStatus;
@@ -32,8 +32,13 @@ const today = () => new Date().toISOString().split("T")[0];
 /** How many periods forward the user may settle in one go. */
 const PERIOD_CHOICES = 4;
 
-/** How many periods back can still be filed against — for recording history. */
-const PERIOD_LOOKBACK = 6;
+/**
+ * How many periods back can still be filed against — for recording history,
+ * and for paying what is overdue. As far as the late figure itself looks back:
+ * at six, water unpaid since ten months ago was counted as owed and could not
+ * be chosen here, so the one thing that clears it was out of reach.
+ */
+const PERIOD_LOOKBACK = MAX_ARREARS_LOOKBACK;
 
 /**
  * "September 2026", "2027", "Week of 14 Sep" — and a range when one period
@@ -76,13 +81,21 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   const periodLabel = usePeriodLabel(bill);
 
   const periods = useMemo(() => getPeriodOptions(bill, bill.payments, new Date(), PERIOD_CHOICES, PERIOD_LOOKBACK), [bill]);
-  // Land on the first period that still owes something — for a bill already
+  // Behind on anything, the oldest of it comes first. Utilities are settled
+  // oldest first, and a payment filed against this month instead left July
+  // to September overdue while the bill read as paid — the Overview's "€180
+  // late" row opened onto a form for October's €60. Only what is actually
+  // overdue is chosen for you this way: a past period that is merely unpaid
+  // and not late is still never picked.
+  const oldestOverdue = useMemo(() => (presetPeriodKey ? undefined : billOverdue(bill).items[0]), [bill, presetPeriodKey]);
+  // Otherwise the first period that still owes something — for a bill already
   // settled this month that is next month, which is the whole point of opening
   // this modal a second time.
   // Only from the current period on: past ones are offered for back-filling,
   // never chosen for you, or an unpaid month from March would quietly become
   // the default in August.
-  const defaultPeriodKey = presetPeriodKey ?? (periods.find((p) => p.offset >= 0 && !p.isPaid) ?? periods.find((p) => p.offset === 0) ?? periods[0]).key;
+  const defaultPeriodKey =
+    presetPeriodKey ?? oldestOverdue?.periodKey ?? (periods.find((p) => p.offset >= 0 && !p.isPaid) ?? periods.find((p) => p.offset === 0) ?? periods[0]).key;
 
   const isVariable = !!bill.isVariableAmount;
   // Suggest the average of past payments for variable bills — it's a better
@@ -95,9 +108,14 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   const installmentTotal = getInstallmentCount(bill);
   const settledForPeriod = paidInstallments(bill.payments, defaultPeriodKey);
   const installmentIndex =
-    presetInstallmentIndex ?? Array.from({ length: installmentTotal }, (_, i) => i).find((i) => !settledForPeriod.has(i)) ?? installmentTotal - 1;
+    presetInstallmentIndex ??
+    oldestOverdue?.installmentIndex ??
+    Array.from({ length: installmentTotal }, (_, i) => i).find((i) => !settledForPeriod.has(i)) ??
+    installmentTotal - 1;
 
-  const suggestedBase = installmentAmount(bill, periodTotal, installmentIndex);
+  // The overdue one at what it is owed for — the figure the late list showed
+  // for it, which is the part's price unless an earlier part was overpaid.
+  const suggestedBase = oldestOverdue ? oldestOverdue.amount : installmentAmount(bill, periodTotal, installmentIndex);
   const suggestedInDisplay = Number(convert(suggestedBase).toFixed(2));
 
   const validationSchema = useMemo(
@@ -242,6 +260,14 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               >
                 {dateBelongsElsewhere.isPaid ? t("bills.periodAlreadyPaid") : t("bills.usePeriod", { period: periodLabel(dateBelongsElsewhere) })}
               </Button>
+            </Alert>
+          )}
+
+          {/* Say why a past period is already chosen, so it is not mistaken for
+              a slip — and that it can be changed. */}
+          {oldestOverdue && formik.values.periodKey === oldestOverdue.periodKey && selectedPeriod && (
+            <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+              {t("bills.payingOldestOverdue", { period: periodLabel(selectedPeriod) })}
             </Alert>
           )}
 

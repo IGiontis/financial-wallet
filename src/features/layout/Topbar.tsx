@@ -1,128 +1,87 @@
+import type { RefObject } from "react";
 import { Navbar, Container, Button } from "reactstrap";
 import { useNavigate } from "react-router-dom";
 import styles from "./css/Topbar.module.css";
 import { FiSettings, FiLogOut, FiMenu, FiSun, FiMoon } from "react-icons/fi";
 import { IoChevronDown } from "react-icons/io5";
-import { useAuth } from "../../shared/hooks/useAuth";
 import { useTheme } from "../../shared/hooks/useTheme";
 import { useTranslation } from "react-i18next";
-import { logout } from "../../firebase/auth";
-import { getUser } from "../../firebase/firestore";
-import { useQuery } from "@tanstack/react-query";
-import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
 import { MENU_DIVIDER, RowMenu } from "../../shared/components/RowMenu";
 import { useBillsNeedingAttention } from "../bills/useBills";
+import { useProfile, useSignOut } from "./useProfile";
 
 interface TopbarProps {
   toggleSidebar: () => void;
+  /** ☰, so the layout can hand focus back to it when the drawer is dismissed. */
+  menuButtonRef: RefObject<HTMLButtonElement | null>;
+  isDrawerOpen: boolean;
 }
 
-export function Topbar({ toggleSidebar }: TopbarProps) {
+export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarProps) {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
-
-  // Use same query key as useCurrencyConverter so cache is shared
-  // When Settings saves and invalidates — Topbar updates instantly
-  const { data: firestoreUser } = useQuery({
-    queryKey: exchangeRateKeys.user(currentUser?.uid ?? ""),
-    queryFn: () => getUser(currentUser!.uid),
-    enabled: !!currentUser?.uid,
-    staleTime: 0,
-  });
-
-  const isGoogle = currentUser?.providerData?.[0]?.providerId === "google.com";
-
-  const displayName = isGoogle
-    ? firestoreUser?.firstName
-      ? `${firestoreUser.firstName} ${firestoreUser.lastName ?? ""}`.trim()
-      : (currentUser?.displayName ?? "")
-    : (firestoreUser?.username ?? currentUser?.email?.split("@")[0] ?? "User");
-
-  const email = currentUser?.email ?? "";
-
-  const getUserInitials = (): string => {
-    if (firestoreUser?.firstName) {
-      return `${firestoreUser.firstName[0]}${firestoreUser.lastName?.[0] ?? ""}`.toUpperCase();
-    }
-    if (currentUser?.displayName) {
-      return currentUser.displayName
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    return (currentUser?.email?.[0] ?? "U").toUpperCase();
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/login", { replace: true });
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-  };
-
-  const avatarStyle: React.CSSProperties = {
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 600,
-    color: "#fff",
-    flexShrink: 0,
-  };
+  // The same cached user document the sidebar reads — one read, two places.
+  const { displayName, email, initials, loaded } = useProfile();
+  const signOut = useSignOut();
 
   return (
-    <Navbar className={`border-bottom shadow-sm ${styles.topbar}`}>
-      <Container fluid className={`${styles.topbarContainer} d-flex align-items-center justify-content-between`}>
+    // `container={false}`: reactstrap otherwise wraps the bar in a second
+    // container-fluid, and its gutter doubled the inset ☰ sits at on a phone.
+    <Navbar container={false} className={`border-bottom ${styles.topbar}`}>
+      <Container fluid className={`${styles.topbarContainer} d-flex align-items-center flex-nowrap`}>
         <Button
-          color="light"
-          className={`d-lg-none me-2 ${styles.menuButton}`}
+          innerRef={menuButtonRef}
+          color="link"
+          className={`d-lg-none ${styles.iconButton} ${styles.menuButton}`}
           onClick={toggleSidebar}
+          aria-expanded={isDrawerOpen}
+          aria-controls="app-sidebar"
           aria-label={billsDue ? `${t("nav.menu")} — ${t("bills.dueCount", { count: billsDue })}` : t("nav.menu")}
         >
-          <FiMenu size={24} />
+          <FiMenu aria-hidden />
           {!!billsDue && <span className={styles.menuDot} aria-hidden />}
         </Button>
 
         <div className={styles.rightContent}>
           <Button
             color="link"
-            className={styles.themeToggle}
+            className={`${styles.iconButton} ${styles.themeToggle}`}
             onClick={toggleTheme}
             aria-label={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
             title={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
           >
-            {theme === "dark" ? <FiSun size={19} /> : <FiMoon size={19} />}
+            {theme === "dark" ? <FiSun aria-hidden /> : <FiMoon aria-hidden />}
           </Button>
 
+          {/* Α parts the account from the controls with a hairline; the other
+              styles draw the account as a shape of its own and hide this. */}
+          <span className={`${styles.divider} d-none d-md-block`} aria-hidden />
+
+          {/* Γ moves the account into the sidebar's foot on a wide screen and
+              hides this one there; on a phone it stays up here for every style. */}
           <RowMenu
             label={displayName || email || t("nav.settings")}
             className={styles.userButton}
             menuClassName={styles.userDropdown}
             header={
               <div className={styles.userInfo}>
-                <div style={{ ...avatarStyle, width: 36, height: 36, fontSize: 13, marginBottom: 8 }}>{getUserInitials()}</div>
-                {displayName && <div style={{ fontWeight: 500, fontSize: 13, color: "var(--color-text-primary)" }}>{displayName}</div>}
+                <div className={`${styles.userAvatar} ${styles.userInfoAvatar}`}>{initials}</div>
+                {displayName && <div className={styles.userInfoName}>{displayName}</div>}
                 <div className={styles.userInfoEmail}>{email}</div>
               </div>
             }
             entries={[
               { label: t("nav.settings"), onSelect: () => navigate("/settings"), icon: <FiSettings size={18} /> },
               MENU_DIVIDER,
-              { label: t("nav.signOut"), onSelect: handleLogout, icon: <FiLogOut size={18} />, danger: true },
+              { label: t("nav.signOut"), onSelect: signOut, icon: <FiLogOut size={18} />, danger: true },
             ]}
           >
-            <div className={styles.userAvatar}>{getUserInitials()}</div>
+            <div className={styles.userAvatar}>{initials}</div>
             {/* Only show name once Firestore has loaded — prevents flash */}
-            {firestoreUser && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
-            <IoChevronDown size={16} className="d-none d-md-inline" />
+            {loaded && displayName && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
+            <IoChevronDown className={`${styles.userChevron} d-none d-md-inline`} aria-hidden />
           </RowMenu>
         </div>
       </Container>

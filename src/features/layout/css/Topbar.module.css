@@ -1,68 +1,96 @@
 /* Topbar — only what Bootstrap can't express. All colours come from tokens
-   so the bar themes automatically in light and dark mode. */
+   so the bar themes automatically in light and dark mode.
+
+   Style Α «Κλασικό» first, then Β «Μπλε τόνος» and Γ «Γυαλί» as overrides
+   keyed on `data-nav-style` on <html> (set by ThemeProvider). The height is the
+   style's `--topbar-height`, shared with the sidebar's header so the two lines
+   meet. */
 
 .topbar {
+  /* Not a flex item that gives way: in the shell's fixed-height column a tall
+     page would otherwise squeeze the bar below its height. */
+  flex: none;
+  height: var(--topbar-height);
+  padding: 0;
   background-color: var(--color-surface);
   border-color: var(--color-border-tertiary) !important;
 }
 
 .topbarContainer {
-  padding: 0.1rem 1rem;
+  height: 100%;
+  gap: 4px;
+  padding: 0 16px 0 20px;
 }
 
 .rightContent {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 4px;
   margin-left: auto;
 }
 
-/* ── Menu button ──────────────────────────────────────────────────────────── */
-/* On a phone the navigation is behind this button, so the badge on the Bills
-   item is invisible until the drawer is opened — which is exactly when the
-   reader has already decided what they came to do. A dot on the button itself
-   is the part that has to be seen without opening anything. No number: the
-   count belongs on the item it counts, and this only has to say "in here". */
+/* ── Icon buttons: ☰ and the theme ─────────────────────────────────────────── */
 
-.menuButton {
+.iconButton {
   position: relative;
-}
-
-.menuDot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-expense);
-  /* Against the button's own colour, so it reads as a dot rather than as part
-     of the icon whatever the theme is doing. */
-  box-shadow: 0 0 0 2px var(--color-surface);
-}
-
-/* ── Theme toggle ─────────────────────────────────────────────────────────── */
-
-.themeToggle {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 50%;
-  border: none;
+  border-radius: 10px;
+  border: 0;
   color: var(--color-text-secondary);
+  font-size: 18px;
   text-decoration: none;
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
 }
 
-.themeToggle:hover,
-.themeToggle:focus {
+.iconButton:hover,
+.iconButton:focus-visible {
   background-color: var(--color-background-secondary);
   color: var(--color-text-primary);
+}
+
+/* ☰ gets an outline rather than the grey block it had: it is the way into the
+   whole menu on a phone, and it should look like a control, not a patch. */
+.menuButton {
+  border: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-primary);
+  font-size: 20px;
+}
+
+/* ── The dot on ☰ ──────────────────────────────────────────────────────────── */
+/* On a phone the navigation is behind this button, so the badge on the Bills
+   item is invisible until the drawer is opened — which is exactly when the
+   reader has already decided what they came to do. A dot on the button itself
+   is the part that has to be seen without opening anything. No number: the
+   count belongs on the item it counts, and this only has to say "in here". */
+
+.menuDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-expense);
+  /* Against the bar's own colour, so it reads as a dot rather than as part of
+     the icon whatever the theme is doing. */
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+/* Α's hairline between the controls and the account. */
+.divider {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 8px;
+  background: var(--color-border-tertiary);
 }
 
 /* ── User button ──────────────────────────────────────────────────────────── */
@@ -70,12 +98,12 @@
 .userButton {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
   background: transparent;
   border: none;
-  padding: 0.25rem 0.5rem;
-  min-height: 44px; /* comfortable touch target */
-  border-radius: var(--border-radius-md);
+  height: 44px; /* comfortable touch target */
+  padding: 4px 10px 4px 4px;
+  border-radius: 12px;
   cursor: pointer;
   color: var(--color-text-primary);
   transition: background-color 0.2s ease;
@@ -86,8 +114,8 @@
 }
 
 .userAvatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -96,13 +124,34 @@
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 12.5px;
+  line-height: 1;
 }
 
 .userName {
-  font-weight: 500;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: 14px;
   color: var(--color-text-primary);
+}
+
+.userChevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* A phone shows the avatar alone, so the button hugs it. */
+@media (max-width: 767.98px) {
+  .userButton {
+    padding: 4px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .topbarContainer {
+    padding: 0 12px;
+  }
 }
 
 /* ── User dropdown ────────────────────────────────────────────────────────── */
@@ -122,38 +171,190 @@
   background-color: var(--color-background-secondary);
 }
 
+.userInfoAvatar {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.userInfoName {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
 .userInfoEmail {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
   word-break: break-all;
 }
 
-.dropdownItem {
-  display: flex !important;
-  align-items: center;
-  padding: 0.75rem 1rem !important;
-  cursor: pointer;
-  color: var(--color-text-primary);
-}
-
-.dropdownItemIcon {
-  margin-right: 0.75rem;
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-}
-
-.logoutItem {
-  color: var(--bs-danger) !important;
-}
-
-.logoutItem .dropdownItemIcon {
-  color: var(--bs-danger);
-}
-
-/* ── Mobile ───────────────────────────────────────────────────────────────── */
-
 @media (max-width: 768px) {
   .userDropdown {
     min-width: 280px;
+  }
+}
+
+/* ══ Β — Μπλε τόνος ═══════════════════════════════════════════════════════════
+   Rounder: the theme switch is a disc, the account a capsule with its name
+   inside, ☰ a soft square — each with a hairline ring instead of a border. */
+
+:global([data-nav-style="b"]) .topbar {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+:global([data-nav-style="b"]) .topbarContainer {
+  gap: 10px;
+  padding: 0 20px;
+}
+
+:global([data-nav-style="b"]) .rightContent {
+  gap: 10px;
+}
+
+:global([data-nav-style="b"]) .divider {
+  display: none !important;
+}
+
+:global([data-nav-style="b"]) .themeToggle {
+  border-radius: 50%;
+  background: var(--color-background-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
+}
+
+:global([data-nav-style="b"]) .menuButton {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-background-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
+}
+
+/* Off the corner rather than inside it: bigger, and clear of the icon. */
+:global([data-nav-style="b"]) .menuDot {
+  top: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  box-shadow: 0 0 0 2.5px var(--color-surface);
+}
+
+:global([data-nav-style="b"]) .userButton {
+  height: 42px;
+  padding: 3px 12px 3px 3px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
+}
+
+:global([data-nav-style="b"]) .userButton .userAvatar {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 991.98px) {
+  :global([data-nav-style="b"]) .topbarContainer {
+    padding: 0 14px;
+  }
+}
+
+/* The capsule is for the name; around the avatar alone it is just a ring. */
+@media (max-width: 767.98px) {
+  :global([data-nav-style="b"]) .userButton {
+    padding: 0;
+    box-shadow: none;
+  }
+}
+
+/* ══ Γ — Γυαλί ════════════════════════════════════════════════════════════════
+   Frosted: laid over the page (MainLayout.css pads the page down to match), so
+   what scrolls up blurs behind it. Where `backdrop-filter` is missing the bar
+   falls back to the plain surface — see the @supports block. On a wide screen
+   the account lives in the sidebar's foot card, so it leaves the bar there. */
+
+:global([data-nav-style="c"]) .topbar {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  z-index: 1020; /* over the page and its sticky headers, under the sidebar */
+  background-color: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  border-color: rgba(15, 23, 42, 0.07) !important;
+  box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.45);
+}
+
+:global([data-nav-style="c"][data-bs-theme="dark"]) .topbar {
+  background-color: rgba(31, 38, 47, 0.55);
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, 0.9);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-nav-style="c"]) .topbar,
+  :global([data-nav-style="c"][data-bs-theme="dark"]) .topbar {
+    background-color: var(--color-surface);
+  }
+}
+
+:global([data-nav-style="c"]) .topbarContainer {
+  gap: 8px;
+  padding: 0 20px;
+}
+
+:global([data-nav-style="c"]) .rightContent {
+  gap: 8px;
+}
+
+:global([data-nav-style="c"]) .divider {
+  display: none !important;
+}
+
+:global([data-nav-style="c"]) .iconButton {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  color: var(--color-text-primary);
+  font-size: 17px;
+}
+
+:global([data-nav-style="c"][data-bs-theme="dark"]) .iconButton {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+:global([data-nav-style="c"]) .iconButton:hover,
+:global([data-nav-style="c"]) .iconButton:focus-visible {
+  background: var(--color-surface);
+}
+
+:global([data-nav-style="c"]) .menuButton {
+  font-size: 19px;
+}
+
+:global([data-nav-style="c"]) .menuDot {
+  top: 7px;
+  right: 7px;
+}
+
+:global([data-nav-style="c"]) .userButton {
+  height: auto;
+  padding: 3px;
+}
+
+@media (min-width: 992px) {
+  :global([data-nav-style="c"]) .userButton {
+    display: none;
+  }
+}
+
+@media (max-width: 991.98px) {
+  :global([data-nav-style="c"]) .topbarContainer {
+    padding: 0 12px;
   }
 }

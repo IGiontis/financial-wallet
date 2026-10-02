@@ -17,11 +17,11 @@ import type { Bill, BillPayment, BillWithStatus } from "../../shared/types/Index
 
 const NOW = new Date(2026, 9, 5, 10, 0); // 5 October 2026
 
-/** One payment per month key, each on the 8th of its month. */
+/** One payment per month key, each on the 8th of its month, with the expense the form writes. */
 const paidMonths = (keys: string[]): BillPayment[] =>
   keys.map((key) => {
     const [y, m] = key.split("-").map(Number);
-    return { id: `water-${key}`, userId: "u1", billId: "water", periodKey: key, amount: 60, paidDate: new Date(y, m - 1, 8), createdAt: new Date(y, m - 1, 8) } as BillPayment;
+    return { id: `water-${key}`, userId: "u1", billId: "water", periodKey: key, amount: 60, paidDate: new Date(y, m - 1, 8), transactionId: `t-${key}`, createdAt: new Date(y, m - 1, 8) } as BillPayment;
   });
 
 /** October 2025 to June 2026. */
@@ -46,7 +46,7 @@ const water = (now: Date, payments: BillPayment[] = KEPT): BillWithStatus =>
     now,
   );
 
-const page = vi.hoisted(() => ({ bills: [] as BillWithStatus[], idle: () => ({ mutate: () => {}, mutateAsync: async () => {}, isPending: false }) }));
+const page = vi.hoisted(() => ({ bills: [] as BillWithStatus[], settle: vi.fn(), idle: () => ({ mutate: () => {}, mutateAsync: async () => {}, isPending: false }) }));
 
 vi.mock("./useBills", () => ({
   useBills: () => ({ data: page.bills, isLoading: false, isError: false }),
@@ -56,6 +56,7 @@ vi.mock("./useBills", () => ({
   useMarkBillPaid: () => page.idle(),
   useUnmarkBillPaid: () => page.idle(),
   useUpdateBillPayment: () => page.idle(),
+  useSettleOverdue: () => ({ ...page.idle(), mutate: page.settle }),
 }));
 vi.mock("../transactions/hooks/useTransactions", () => ({
   useCategories: () => ({ data: [] }),
@@ -206,5 +207,89 @@ describe("the same water after the 10th, and in its other states", () => {
     expect(sections[0]).toContain("€0.00");
     expect(chip()).toHaveTextContent("3 unpaid · €180.00");
     expect(screen.getByRole("button", { name: /overdue/i })).toHaveTextContent("€180.00");
+  });
+});
+
+// ─── Paying it, and saying it was paid ───────────────────────────────────────
+
+describe("paying the water from the bill's own dialog", () => {
+  const openDialog = async () => {
+    // The card — "Water" is also the "next up" tile's name.
+    await userEvent.click(chip()!.closest("[role=button]")!);
+    return screen.findByRole("dialog");
+  };
+
+  it("opens the payment form on July, the oldest overdue, at €60", async () => {
+    render(<BillsPage />);
+    const dialog = await openDialog();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") }));
+    const form = await screen.findByRole("dialog");
+    // Was October: the current period, which is not even late yet.
+    expect((within(form).getByRole("combobox") as HTMLSelectElement).value).toBe("2026-07");
+    expect((within(form).getByRole("spinbutton") as HTMLInputElement).value).toBe("60");
+  });
+
+  it("marks the ticked months paid without a transaction, and leaves an unticked one", async () => {
+    page.settle.mockClear();
+    render(<BillsPage />);
+    const dialog = await openDialog();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
+    const confirm = await screen.findByRole("dialog");
+    expect(confirm).toHaveTextContent("Marked as paid without writing a transaction — the money has already left the bank.");
+    const boxes = within(confirm).getAllByRole("checkbox");
+    // July, August, September — all ticked, at €60 each. By hand: 3 × 60.
+    expect(boxes).toHaveLength(3);
+    expect(boxes.every((b) => (b as HTMLInputElement).checked)).toBe(true);
+    expect(confirm).toHaveTextContent("Jul 10, 2026");
+    expect(confirm).toHaveTextContent("Marking €180.00");
+
+    // August left as it was.
+    await userEvent.click(boxes[1]);
+    expect(confirm).toHaveTextContent("Marking €120.00");
+    await userEvent.click(within(confirm).getByRole("button", { name: "Mark 2 as paid" }));
+
+    expect(page.settle).toHaveBeenCalledTimes(1);
+    const [{ bill, items }] = page.settle.mock.calls[0] as [{ bill: BillWithStatus; items: { periodKey: string; amount: number }[] }];
+    expect(bill.id).toBe("water");
+    expect(items.map((i) => [i.periodKey, i.amount])).toEqual([
+      ["2026-07", 60],
+      ["2026-09", 60],
+    ]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("holds the marking back with no connection, and says why", async () => {
+    // Online only: the list is a decision taken against this screen.
+    const online = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      render(<BillsPage />);
+      const dialog = await openDialog();
+      await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
+      const confirm = await screen.findByRole("dialog");
+
+      expect(within(confirm).getByRole("button", { name: "Mark 3 as paid" })).toBeDisabled();
+      expect(confirm).toHaveTextContent(i18n.t("common.offlineBulk"));
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).onLine;
+      if (online) Object.defineProperty(Navigator.prototype, "onLine", online);
+    }
+  });
+
+  it("shows a month marked that way as paid with no transaction, and says so before deleting it", async () => {
+    const marked = { id: "settled-jul", userId: "u1", billId: "water", periodKey: "2026-07", amount: 60, paidDate: new Date(2026, 6, 10), createdAt: new Date(2026, 9, 5) } as BillPayment;
+    page.bills = [water(NOW, [...KEPT, marked])];
+    render(<BillsPage />);
+    // Two left, August and September: €120.
+    expect(chip()).toHaveTextContent("2 unpaid · €120.00");
+    const dialog = await openDialog();
+
+    const tag = within(dialog).getByText("no transaction");
+    const row = tag.closest("[class*=_paymentRow_]")!;
+    expect(row).toHaveTextContent("€60.00");
+    await userEvent.click(within(row as HTMLElement).getByRole("button", { name: i18n.t("common.delete") }));
+    expect(within(dialog).getByText(/It wrote no expense/)).toBeInTheDocument();
   });
 });

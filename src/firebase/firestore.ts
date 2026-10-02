@@ -582,6 +582,33 @@ export const updateBillPayment = async (payment: { id: string; transactionId?: s
   await batch.commit();
 };
 
+/**
+ * Marks periods paid that were paid outside the app, writing the payments and
+ * nothing else — no transaction.
+ *
+ * The case: water three months behind on the screen, though the bank paid
+ * every one of them. Recording them through `markBillPaid` would write three
+ * expenses for money already gone from the account the balance is read from,
+ * and push that balance down a second time. A payment with no `transactionId`
+ * is the honest record: the period is settled, and nothing left today.
+ *
+ * One batch, so the months are marked together or not at all; and only online
+ * — see `offlinePolicy` — since the list was judged against the screen. Ids
+ * come from the caller, who has already shown the rows under them.
+ */
+export const markBillPeriodsSettled = async (
+  userId: string,
+  payments: { id: string; billId: string; periodKey: string; installmentIndex?: number; amount: number; paidDate: Date }[],
+) => {
+  requireConnection("bulk");
+  const batch = writeBatch(db);
+  for (const { id, ...payment } of payments) {
+    const record: CreateBillPaymentDTO = payment;
+    batch.set(doc(db, "billPayments", id), { ...clean({ ...record, userId }), createdAt: serverTimestamp() });
+  }
+  await batch.commit();
+};
+
 export const unmarkBillPaid = async (payment: { id: string; transactionId?: string }) => {
   const batch = writeBatch(db);
   if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));

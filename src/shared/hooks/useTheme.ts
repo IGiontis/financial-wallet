@@ -1,7 +1,8 @@
 import { useContext } from "react";
 import { ThemeContext, type ThemePreference } from "../../context/themeContextValue";
 
-export type { ResolvedTheme, ThemePreference } from "../../context/themeContextValue";
+export type { NavStyle, ResolvedTheme, ThemePreference } from "../../context/themeContextValue";
+export { NAV_STYLES } from "../../context/themeContextValue";
 
 /** Read and control the active colour theme. */
 export const useTheme = () => useContext(ThemeContext);

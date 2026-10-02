@@ -243,41 +243,30 @@ describe("the whole period", () => {
     expect(1000 + 4350 - 2755).toBe(2595);
   });
 
-  it("draws one row per pay cycle, and a tap opens that cycle's items", async () => {
+  it("draws the balance as a line you scrub, and names the day under the finger", async () => {
     renderPage();
-    const rows = () => within(screen.getByRole("list", { name: "What there is at each pay, and where it goes" })).getAllByRole("button");
+    const chart = screen.getByRole("img", { name: "What is left, day by day" });
+    // Nothing chosen yet: the readout says how to use it.
+    expect(screen.getByText("Tap or drag along the line to see any day.")).toBeInTheDocument();
 
-    // The mockup's eves, and the end.
-    expect(rows().map((row) => row.textContent)).toEqual([
-      expect.stringContaining("94.35"),
-      expect.stringContaining("620.00"),
-      expect.stringContaining("1,164.35"),
-      expect.stringContaining("end 2,595.00"),
-    ]);
-    expect(rows()[0]).toHaveAttribute("aria-pressed", "true");
-
-    await userEvent.click(rows()[1]);
-    expect(rows()[1]).toHaveAttribute("aria-pressed", "true");
-    const short = en({ day: "numeric", month: "short" });
-    const cycle = screen.getByRole("group", { name: `${short.format(new Date(2026, 9, 30))} → ${short.format(new Date(2026, 10, 29))}` });
-    const amounts = within(cycle)
-      .getAllByText(money)
-      .map((el) => el.textContent ?? "");
-    // From before, the pay, November's bills and goal, and the budget lines — to 620,00.
-    expect(amounts).toEqual(["€94.35", "+€1450.00", "−€400.00", "−€100.00", "−€65.00", "−€20.00", "−€30.00", "−€309.35"]);
-    expect(sumOf(amounts)).toBe(620);
+    // Today first, then step to the eve of October's pay with the keyboard.
+    chart.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.queryByText("Tap or drag along the line to see any day.")).toBeNull();
+    // The readout above the line, where the day under the finger is named.
+    const readout = () => document.querySelector('[aria-live="polite"]') as HTMLElement;
+    // 30 Σεπ: 1.000 − 10 of one's own = 990.
+    expect(within(readout()).getByText("€990.00")).toBeInTheDocument();
+    for (let i = 0; i < 29; i++) await userEvent.keyboard("{ArrowRight}");
+    // 29 Οκτ, the day before the pay — the same figure as the card above.
+    expect(within(readout()).getByText("€94.35")).toBeInTheDocument();
   });
 
-  it("goes to one line a row from a year up, and marks none backwards in a steady year", () => {
+  it("keeps one line for a year, from today to the window's end", () => {
     settings.set("planner-horizon", 12);
     renderPage();
-    const rows = within(screen.getByRole("list", { name: "What there is at each pay, and where it goes" })).getAllByRole("button");
-    expect(rows).toHaveLength(13);
-    expect(rows[0]).toHaveTextContent(/^Oct 29.*94$/);
-    // 1.000 + 12 × 1.450 − 12 × (515 + 100) − 3.610 of one's own: the mockup's
-    // 6.290 without its two extras, 320 and 800.
-    expect(1000 + 12 * 1450 - 12 * (515 + 100) - 3610).toBe(6290 + 320 + 800);
-    expect(rows.at(-1)).toHaveTextContent(/end 7,410$/);
-    expect(rows.some((row) => row.textContent?.includes("▼"))).toBe(false);
+    expect(screen.getByRole("img", { name: "What is left, day by day" })).toBeInTheDocument();
+    // 1.000 + 12 × 1.450 − 12 × (515 + 100) − 3.610 of one's own = 7.410 at the end.
+    expect(1000 + 12 * 1450 - 12 * (515 + 100) - 3610).toBe(7410);
   });
 });

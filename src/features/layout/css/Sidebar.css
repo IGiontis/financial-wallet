@@ -1,10 +1,27 @@
-/* Sidebar.css */
+/* Sidebar.css
 
-/* ─── Widths as CSS variables — easy to tweak in one place ─── */
-:root {
-  --sidebar-width: 250px;
-  --sidebar-collapsed-width: 64px;
+   One sidebar, three finishes. The rules up to "Β" are style Α «Κλασικό» — the
+   default, and what anyone gets who never opened Settings. Β «Μπλε τόνος» and
+   Γ «Γυαλί» follow as overrides keyed on `data-nav-style` on <html>. The
+   markup is the same for all three: the same groups, links, badges and
+   behaviour, with a few pieces (the drawer's profile header, the profile card
+   at the foot) present for every style and drawn only by the one that uses
+   them. Widths and the bar colours live in navStyles.css. */
+
+/* ── Colours that do not change with the theme ─────────────────────────────── */
+/* The sidebar is dark in both themes, so the text and tints above it are the
+   same white-on-dark in both. Only the background (navStyles.css) moves. */
+
+.sidebar {
+  --nav-text: rgba(232, 237, 244, 0.9);
+  --nav-icon: rgba(232, 237, 244, 0.6);
+  --nav-group: rgba(255, 255, 255, 0.6);
+  --nav-rule: rgba(255, 255, 255, 0.07);
+  --nav-hover: rgba(255, 255, 255, 0.06);
+  --nav-focus: #7fb0ff;
 }
+
+/* ── The bar ───────────────────────────────────────────────────────────────── */
 
 .sidebar {
   width: var(--sidebar-width);
@@ -16,257 +33,525 @@
      phone does not leave the foot of the menu cut off either. */
   height: 100vh;
   height: 100dvh;
-  background-color: var(--sidebar-bg);
-  color: var(--sidebar-text);
+  background: linear-gradient(180deg, var(--nav-bg), var(--nav-bg-2));
+  color: var(--nav-text);
   display: flex;
   flex-direction: column;
   position: fixed;
   z-index: 1050;
-  /* Animate both transform (mobile slide) AND width (desktop collapse) */
+  /* Animate both transform (mobile slide) AND width (desktop collapse). */
   transition:
     transform 0.3s ease-in-out,
     width 0.3s ease-in-out;
-
-  /* Mobile: hidden off-screen by default */
-  transform: translateX(-100%);
 }
 
-/* Mobile: slide in when open */
-.sidebar.open {
-  transform: translateX(0);
-}
-
-/* Desktop: always visible, width transition handles collapse */
-@media (min-width: 992px) {
+/* A phone: a drawer, off-screen until ☰ opens it. Hidden as well as moved, once
+   it has slid out, so its links are not in the Tab order and a screen reader
+   does not walk through a menu nobody can see. Visible again the moment it
+   opens — the delay is only on the way out. */
+@media (max-width: 991.98px) {
   .sidebar {
-    transform: translateX(0) !important;
+    width: min(var(--drawer-width), 85vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.3s ease-in-out,
+      visibility 0s linear 0.3s;
   }
 
-  /* Collapsed state: shrink to icon-only width */
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.28);
+    transition: transform 0.3s ease-in-out;
+  }
+}
+
+/* A wide screen: always there; the width transition handles collapsing. */
+@media (min-width: 992px) {
   .sidebar.collapsed {
     width: var(--sidebar-collapsed-width);
   }
 }
 
-/* ─── Header ─── */
+/* Focus rings in the bar's own light blue. The app's `--bs-primary` ring is
+   3:1 on the dark bar — legal, and easy to lose. */
+.sidebar :focus-visible {
+  outline: 2px solid var(--nav-focus);
+  outline-offset: 2px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+/* As tall as the top bar beside it, so the two bottom edges meet in one line. */
+
 .sidebar-header {
-  padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  min-height: 64px; /* Stable height during collapse */
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--topbar-height);
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid var(--nav-rule);
+  white-space: nowrap;
 }
 
-/* Collapse toggle button */
-.sidebar-collapse-btn {
-  background: none;
-  border: none;
-  box-shadow: none !important;
-  line-height: 1;
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+.sidebar-logo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 16px;
 }
 
-.sidebar-collapse-btn:hover {
-  opacity: 1;
+.sidebar-brand {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-/* ─── Nav ─── */
-.sidebar-nav {
-  flex-grow: 1;
+/* Who is signed in — drawn by Β's drawer only; see there. */
+.sidebar-profile {
+  display: none;
+}
+
+/* The drawer's ✕. A drawer that only closes by tapping beside it is a drawer
+   people do not know how to close. */
+.sidebar-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 18px;
+}
+
+.sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ── The list ──────────────────────────────────────────────────────────────── */
+
+.sidebar-body {
+  position: relative;
+  flex: 1 1 auto;
   min-height: 0; /* A flex child will not shrink below its content without this */
-  /* Bootstrap's `.nav` wraps. In a column with a bounded height that means the
-     list breaks into a second column beside the first rather than overflowing
-     downward — so nothing ever scrolled, and the overspill was clipped
-     sideways instead. */
-  flex-wrap: nowrap;
-  padding: 0.5rem;
-  /* Horizontally clipped, as before, so labels do not spill while the panel
-     animates its width. Vertically it scrolls: a phone in landscape, or a
-     shorter list on a small screen, has more items than fit. */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 12px 8px;
+  /* Horizontally clipped, so labels do not spill while the panel animates its
+     width. Vertically it scrolls: a phone in landscape has more items than
+     fit. */
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+/* "There is more below." A fade over the last rows while the list carries on
+   past the foot, and only then — Sidebar.tsx sets `has-more` from the scroll
+   position. It sits on the wrapper rather than inside the scrolling list, where
+   it would scroll away with the rows it is meant to cover. */
+.sidebar-body::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--nav-bg-2));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sidebar.has-more .sidebar-body::after {
+  opacity: 1;
+}
+
 /* A flex column squashes its children before it overflows. Left to itself the
-   list quietly shrank every row below its 44px touch target instead of
-   scrolling — the items were all "visible" and none of them were tappable. */
-.sidebar-nav .nav-item {
+   list quietly shrank every row below its touch target instead of scrolling. */
+.sidebar .nav-item {
   flex-shrink: 0;
 }
 
 /* ── Groups ────────────────────────────────────────────────────────────────── */
 /* Ten equal rows made the reader scan the whole column every time. Four short
    groups, each named for the question its screens answer, let them go straight
-   to the part of their money they came for. */
+   to the part of their money they came for.
 
-.sidebar-group + .sidebar-group {
-  margin-top: 0.5rem;
-}
-
-/* Quieter than the items they head — a group name is scenery — but quiet here
-   is spacing and weight, not fading the text out. At 45% white these measured
-   4.17:1 on the sidebar and at 38% they were 3.39:1; ten-pixel uppercase needs
-   4.5:1, so the alpha is set where it clears it (5.9:1 light, 6.4:1 dark) and
-   the letter-spacing does the softening instead. */
+   Larger and plainer than the 10px capitals they were: Greek capitals drop
+   their accents, and at 10px the words were harder to read than the items they
+   were meant to sort. At 60% white on the bar they measure 6:1. */
 .sidebar-group-label {
-  padding: 0.75rem 1rem 0.3rem;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.58);
+  padding: 14px 10px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--nav-group);
   white-space: nowrap;
 }
 
-/* Collapsed to icons there is no room for a word, so the grouping is carried by
-   a rule instead of losing it altogether. */
-.sidebar-group-rule {
-  height: 1px;
-  margin: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.12);
+.sidebar-group:first-child .sidebar-group-label {
+  padding-top: 8px;
 }
 
-.sidebar-group:first-child .sidebar-group-rule {
-  display: none;
-}
+/* ── Items ─────────────────────────────────────────────────────────────────── */
+/* 36px rows on a wide screen, so the whole list — and the «Έσοδα» still to
+   come — fits a laptop without scrolling. A phone keeps 44px for the thumb. */
 
-/* ── Foot ──────────────────────────────────────────────────────────────────── */
-/* Settings and the collapse control sit apart from the four groups: they change
-   the app rather than show the money, and they stay put while the list above
-   scrolls. */
-
-/* Settings sits at the very bottom of a full-height panel, which on a phone is
-   the very bottom of the screen — hard against the home indicator on an
-   installed PWA, and against the browser's own bar otherwise. The safe-area
-   inset is what the device says it needs; the half-rem underneath it is so the
-   row is not touching the edge even on a phone that reports none. */
-.sidebar-foot {
-  flex-shrink: 0;
-  padding: 0.5rem;
-  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
-  margin-bottom: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.sidebar-foot .nav-item {
-  flex-shrink: 0;
-}
-
-.sidebar-nav .nav-link,
-.sidebar-foot .nav-link {
-  padding: 0.75rem 1rem;
-  min-height: 44px; /* comfortable touch target */
-  color: var(--sidebar-text);
+.sidebar .sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--nav-text);
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
   transition:
-    background-color 0.2s,
-    color 0.2s;
-  white-space: nowrap; /* Prevent text wrap during animation */
+    background-color 0.15s,
+    color 0.15s;
 }
 
-.sidebar-nav .nav-link:hover,
-.sidebar-foot .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+@media (max-width: 991.98px) {
+  .sidebar .sidebar-link {
+    height: 44px;
+  }
+}
+
+.sidebar .nav-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--nav-icon);
+  transition: color 0.15s;
+}
+
+.sidebar .nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar .sidebar-link:hover {
+  background-color: var(--nav-hover);
   color: #fff;
 }
 
-/* The current page.
- *
- * This was `.bg-primary` — a solid blue block, the loudest thing on a rail
- * nobody is looking at. A quiet fill says the same thing, and the bar down the
- * left edge is what the eye actually finds: it is the only vertical line in the
- * list, so it reads before any of the words do. */
-.sidebar-nav .nav-link.nav-link-current,
-.sidebar-foot .nav-link.nav-link-current {
-  position: relative;
-  background-color: rgba(255, 255, 255, 0.12);
+.sidebar .sidebar-link:hover .nav-icon {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Bootstrap's own nav-link ring is a pale blue haze on the dark bar; an inset
+   line in the bar's blue is unmistakable and does not spill onto neighbours. */
+.sidebar .sidebar-link:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--nav-focus);
+  color: #fff;
+}
+
+/* The current page: a quiet fill, a blue icon, and a bar on the very edge of
+   the panel. Not `bg-primary` — a solid blue block is the loudest thing on a
+   rail nobody is looking at, and the bar is what the eye finds anyway: it is
+   the only vertical line in the list. */
+.sidebar .sidebar-link.nav-link-current {
+  background-color: rgba(255, 255, 255, 0.09);
   color: #fff;
   font-weight: 600;
 }
 
-.sidebar-nav .nav-link.nav-link-current::before,
-.sidebar-foot .nav-link.nav-link-current::before {
+.sidebar .sidebar-link.nav-link-current .nav-icon {
+  color: #7fb0ff;
+}
+
+.sidebar .sidebar-link.nav-link-current::before {
   content: "";
   position: absolute;
-  left: 0;
+  left: -12px; /* the list's padding: flush with the panel's edge */
   top: 8px;
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--bs-primary);
+  background: #4d8dff;
 }
 
-/* Tighter padding when collapsed so icon stays centered */
-.sidebar.collapsed .sidebar-nav .nav-link,
-.sidebar.collapsed .sidebar-foot .nav-link {
-  padding: 0.75rem 0;
-  justify-content: center;
-}
-
-.nav-icon {
-  font-size: 1.25rem;
-}
-
-/* ─── Attention badge ─── */
+/* ── Badges ────────────────────────────────────────────────────────────────── */
 /* How many bills are late or due this week. Absent the rest of the time, which
    is the only reason it gets looked at when it turns up. */
 
 .nav-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  /* Deliberately not `--color-expense`, which is the one thing that would look
-     like the right answer here. That token lightens in dark mode so it can hold
-     its own against a light background — but this sidebar is dark in *both*
-     themes, so the badge would go pale exactly where nothing around it did, and
-     white on it dropped to 2.8:1. Pinned to the darker red instead, which keeps
-     the number at 4.8:1 whichever theme is on. */
+  flex: none;
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  /* Deliberately not `--color-expense`, which lightens in dark mode to hold its
+     own against a light page. This bar is dark in *both* themes, so that badge
+     would go pale exactly where nothing around it did, and white on it dropped
+     to 2.8:1. Pinned to the darker red, which keeps the number at 4.8:1. */
   background: #dc2626;
   color: #fff;
   font-size: 11px;
   font-weight: 700;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
-/* Expanded: pushed to the end of the row, past the label. */
-.sidebar-nav .nav-link .nav-badge {
-  margin-left: auto;
+/* Amber, with dark text — white on amber is under 2:1. */
+.nav-badge.nav-badge-warning {
+  background: #f59e0b;
+  color: #2b1a00;
 }
 
-/* Collapsed: nothing but icons, so it rides the icon's top-right corner. The
-   link is the positioning context, and the count would not fit in 20px beside
-   a centred icon anyway. */
-.sidebar.collapsed .sidebar-nav .nav-link {
-  position: relative;
+/* ── Foot ──────────────────────────────────────────────────────────────────── */
+/* Settings and the collapse control share one row, apart from the four groups:
+   they change the app rather than show the money, and they stay put while the
+   list above scrolls. On an installed PWA the row would sit hard against the
+   home indicator, so the safe-area inset is added underneath. */
+
+.sidebar-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--nav-rule);
 }
 
-/* Smaller here than in the expanded row: at full size it covered two thirds of
-   the icon it was meant to annotate, which loses the one thing that says which
-   item this is. Sized and placed to start where the icon ends. */
-.sidebar.collapsed .sidebar-nav .nav-link .nav-badge {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+.sidebar-foot > .nav {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sidebar-foot .sidebar-link {
+  margin-top: 0;
+}
+
+/* The avatar and name that Γ's foot card shows. */
+.sidebar-foot .sidebar-avatar,
+.sidebar-foot .sidebar-who {
+  display: none;
+}
+
+.sidebar-collapse {
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
-  font-size: 10px;
-  line-height: 16px;
-  margin-left: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 18px;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 
-/* ─── Mobile overlay ─── */
+.sidebar-collapse:hover {
+  background: var(--nav-hover);
+  color: #fff;
+}
+
+/* ── Avatar (Β's drawer, Γ's foot) ─────────────────────────────────────────── */
+
+.sidebar-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sidebar-who {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.sidebar-who-name,
+.sidebar-who-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-who-name {
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.sidebar-who-email {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+/* ── Collapsed rail (wide screens only) ────────────────────────────────────── */
+/* Icons alone, each with a label beside it on hover or Tab (Sidebar.tsx). The
+   drawer on a phone never collapses — the setting is a desktop one, and a phone
+   that inherited it from a resized window used to get a 250px drawer of bare
+   icons. */
+
+@media (min-width: 992px) {
+  .sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar.collapsed .sidebar-brand {
+    display: none;
+  }
+
+  .sidebar.collapsed .sidebar-nav {
+    padding: 4px 14px;
+  }
+
+  /* The group survives as a rule: no room for the word, but the four parts of
+     the list are still four parts. The text stays in the document as the
+     list's name for a screen reader. */
+  .sidebar.collapsed .sidebar-group-label {
+    height: 1px;
+    margin: 10px 8px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar.collapsed .sidebar-group:first-child .sidebar-group-label {
+    display: none;
+  }
+
+  .sidebar.collapsed .sidebar-link {
+    justify-content: center;
+    gap: 0;
+    width: 44px;
+    padding: 0;
+  }
+
+  /* Out of sight, not out of the document: still the link's name. */
+  .sidebar.collapsed .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .sidebar.collapsed .sidebar-link.nav-link-current::before {
+    left: -14px;
+  }
+
+  /* Rides the icon's top-right corner, smaller than in the row — at full size
+     it hid two thirds of the icon it was meant to annotate. The ring in the
+     bar's colour keeps it from merging into the icon. */
+  .sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 10px;
+    line-height: 16px;
+    box-shadow: 0 0 0 2px var(--nav-bg);
+  }
+
+  .sidebar.collapsed .sidebar-foot {
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 14px;
+  }
+
+  .sidebar.collapsed .sidebar-foot > .nav {
+    flex: none;
+  }
+}
+
+/* ── Rail tooltip ──────────────────────────────────────────────────────────── */
+/* Portalled to <body>, so these are keyed on <html> rather than the bar. */
+
+.sidebar-tip {
+  z-index: 1070; /* above the sidebar (1050) and its drawer backdrop */
+  max-width: 260px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  background: #0e131a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.sidebar-tip::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.sidebar-tip small {
+  display: block;
+  margin-top: 2px;
+  color: #ff9b9b;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* ── Drawer backdrop ───────────────────────────────────────────────────────── */
+
 .sidebar-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background-color: rgba(8, 12, 18, 0.5);
   z-index: 1040;
   opacity: 0;
   visibility: hidden;
@@ -278,4 +563,504 @@
 .sidebar-overlay.show {
   opacity: 1;
   visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar.open,
+  .sidebar-overlay {
+    transition: none;
+  }
+}
+
+/* ══ Β — Μπλε τόνος ═══════════════════════════════════════════════════════════
+   The same bar in deep navy. The current page is a soft blue capsule rather
+   than a solid one — the solid blue block is what this sidebar moved away from
+   on purpose — and the groups are parted by hairlines. */
+
+[data-nav-style="b"] .sidebar {
+  --nav-text: #c9d6ec;
+  --nav-icon: #7f95bd;
+  --nav-group: #8fa4c9;
+  --nav-rule: rgba(160, 190, 255, 0.1);
+  --nav-focus: #a9c6ff;
+}
+
+[data-nav-style="b"] .sidebar-header {
+  gap: 11px;
+  padding: 0 14px 0 18px;
+  border-bottom: 0;
+}
+
+[data-nav-style="b"] .sidebar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #5b95ff, #2a5fe0);
+  box-shadow: 0 6px 14px -4px rgba(47, 107, 255, 0.7);
+  font-size: 17px;
+}
+
+[data-nav-style="b"] .sidebar-close {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c9d6ec;
+}
+
+[data-nav-style="b"] .sidebar-nav {
+  padding: 2px 14px 10px;
+}
+
+[data-nav-style="b"] .sidebar-group-label {
+  margin: 8px 6px 4px;
+  padding: 10px 8px 0;
+  border-top: 1px solid var(--nav-rule);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+[data-nav-style="b"] .sidebar-group:first-child .sidebar-group-label {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 0;
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link {
+  padding: 0 14px;
+  border-radius: 999px;
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link:hover .nav-icon {
+  color: #c3d3f0;
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--nav-focus);
+  outline-offset: 1px;
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link.nav-link-current {
+  background-color: rgba(79, 140, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(125, 170, 255, 0.38);
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link.nav-link-current .nav-icon {
+  color: #a9c6ff;
+}
+
+[data-nav-style="b"] .sidebar .sidebar-link.nav-link-current::before {
+  content: none;
+}
+
+[data-nav-style="b"] .nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  line-height: 20px;
+}
+
+[data-nav-style="b"] .nav-badge.nav-badge-warning {
+  background: #fbbf24;
+  color: #3a2500;
+}
+
+[data-nav-style="b"] .sidebar-foot {
+  padding: 10px 14px 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+[data-nav-style="b"] .sidebar-collapse {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: #8fa4c9;
+  font-size: 17px;
+}
+
+[data-nav-style="b"] .sidebar-tip {
+  padding: 8px 12px;
+  border: 1px solid rgba(150, 180, 255, 0.22);
+  border-radius: 10px;
+  background: #1a2c57;
+  box-shadow: 0 10px 26px rgba(3, 8, 20, 0.45);
+}
+
+[data-nav-style="b"] .sidebar-tip::before {
+  content: none;
+}
+
+[data-nav-style="b"] .sidebar-tip small {
+  color: #ffaaaa;
+}
+
+[data-nav-style="b"] .sidebar-overlay {
+  background-color: rgba(5, 12, 28, 0.55);
+}
+
+/* The drawer opens on who you are: avatar, name and email, with the ✕ — the
+   phone's top bar shows only an avatar, so this is where the name is. */
+@media (max-width: 991.98px) {
+  [data-nav-style="b"] .sidebar.open {
+    box-shadow: 12px 0 32px rgba(3, 8, 20, 0.35);
+  }
+
+  [data-nav-style="b"] .sidebar-header {
+    height: auto;
+    gap: 12px;
+    padding: 20px 14px 18px 18px;
+    background: radial-gradient(130% 160% at 0 0, rgba(91, 149, 255, 0.3), transparent 62%);
+    border-bottom: 1px solid var(--nav-rule);
+  }
+
+  [data-nav-style="b"] .sidebar-logo,
+  [data-nav-style="b"] .sidebar-brand {
+    display: none;
+  }
+
+  [data-nav-style="b"] .sidebar-profile {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  [data-nav-style="b"] .sidebar-profile .sidebar-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+  }
+
+  [data-nav-style="b"] .sidebar-profile .sidebar-who {
+    display: flex;
+    line-height: 1.3;
+  }
+
+  [data-nav-style="b"] .sidebar-profile .sidebar-who-name {
+    font-size: 15px;
+  }
+
+  [data-nav-style="b"] .sidebar-profile .sidebar-who-email {
+    color: #8fa4c9;
+    font-size: 12px;
+  }
+
+  [data-nav-style="b"] .sidebar-close {
+    align-self: flex-start;
+  }
+}
+
+@media (min-width: 992px) {
+  [data-nav-style="b"] .sidebar.collapsed .sidebar-nav {
+    padding: 2px 14px;
+  }
+
+  [data-nav-style="b"] .sidebar.collapsed .sidebar-group-label {
+    height: 0;
+    margin: 10px 8px;
+    padding: 0;
+    background: none;
+    border-top: 1px solid rgba(160, 190, 255, 0.14);
+  }
+
+  /* Restated: the row padding above is as specific as the collapsed rule and
+     comes later, and would push the icon off-centre in a 44px square. */
+  [data-nav-style="b"] .sidebar.collapsed .sidebar-link {
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  [data-nav-style="b"] .sidebar.collapsed .nav-badge {
+    top: 1px;
+    right: 0;
+  }
+
+  [data-nav-style="b"] .sidebar.collapsed .sidebar-foot {
+    padding: 10px 14px;
+  }
+}
+
+/* ══ Γ — Γυαλί ════════════════════════════════════════════════════════════════
+   Lighter: a softer slate, a lit current row with the icon on a blue tile, the
+   account in a card at the foot, and collapsing from a round button on the
+   bar's edge. The frosted top bar is in Topbar.module.css. */
+
+[data-nav-style="c"] .sidebar {
+  --nav-text: rgba(236, 241, 247, 0.88);
+  --nav-icon: rgba(236, 241, 247, 0.62);
+  --nav-group: rgba(255, 255, 255, 0.58);
+  --nav-focus: #8fb8ff;
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-nav-style="c"] .sidebar-header {
+  padding: 0 12px 0 16px;
+  border-bottom: 0;
+}
+
+[data-nav-style="c"] .sidebar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+[data-nav-style="c"] .sidebar-close {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-nav-style="c"] .sidebar-nav {
+  padding: 4px 12px;
+}
+
+[data-nav-style="c"] .sidebar-group-label {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+[data-nav-style="c"] .sidebar-group:first-child .sidebar-group-label {
+  padding-top: 6px;
+}
+
+/* The icon sits in a 28px box (18px plus 5px each side), the size of the blue
+   tile the current row puts behind it. */
+[data-nav-style="c"] .sidebar .sidebar-link {
+  gap: 8px;
+  padding: 0 4px;
+  border-radius: 12px;
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link .nav-icon {
+  margin: 0 5px;
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link:hover .nav-icon {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--nav-focus);
+  outline-offset: 2px;
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link.nav-link-current {
+  isolation: isolate;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link.nav-link-current .nav-icon {
+  color: #fff;
+}
+
+[data-nav-style="c"] .sidebar .sidebar-link.nav-link-current::before {
+  left: 4px;
+  top: 50%;
+  bottom: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #4d8dff, #2f6bed);
+  box-shadow: 0 4px 10px -3px rgba(47, 107, 237, 0.8);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+
+[data-nav-style="c"] .nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 7px;
+  line-height: 20px;
+}
+
+[data-nav-style="c"] .sidebar-foot {
+  padding: 8px 12px 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  border-top: 0;
+}
+
+/* Settings becomes the account card: avatar, name and email, the gear on its
+   end. The whole card is the link, so it is a bigger target than the gear the
+   mockup drew, and the word "Settings" is still its name for a screen reader. */
+[data-nav-style="c"] .sidebar-foot .sidebar-link {
+  height: auto;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-link.nav-link-current {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(143, 184, 255, 0.45);
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-link.nav-link-current::before {
+  content: none;
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-avatar {
+  display: grid;
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-who {
+  display: flex;
+}
+
+[data-nav-style="c"] .sidebar-foot .nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-link .nav-icon {
+  order: 1;
+  box-sizing: content-box;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  padding: 7.5px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-nav-style="c"] .sidebar-foot .sidebar-link.nav-link-current .nav-icon {
+  background: linear-gradient(135deg, #4d8dff, #2f6bed);
+  color: #fff;
+}
+
+/* Collapsing from the bar's edge, level with the header, where it reads as
+   "fold this edge in" instead of as one more row in the list. */
+[data-nav-style="c"] .sidebar-collapse {
+  position: absolute;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + (var(--topbar-height) - 24px) / 2);
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  box-shadow:
+    0 0 0 1px var(--color-border-tertiary),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+[data-nav-style="c"] .sidebar-collapse:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+[data-nav-style="c"] .sidebar-collapse:focus-visible {
+  outline-color: var(--bs-primary);
+}
+
+[data-nav-style="c"] .sidebar-tip {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(28, 34, 44, 0.86);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+[data-nav-style="c"] .sidebar-tip::before {
+  content: none;
+}
+
+[data-nav-style="c"] .sidebar-tip small {
+  color: #ffaaaa;
+}
+
+/* A lighter backdrop with a little blur: the page is still there, just out of
+   focus. */
+[data-nav-style="c"] .sidebar-overlay {
+  background-color: rgba(15, 20, 28, 0.28);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+@media (max-width: 991.98px) {
+  [data-nav-style="c"] .sidebar.open {
+    border-radius: 0 20px 20px 0;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (min-width: 992px) {
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-nav {
+    padding: 4px 16px;
+  }
+
+  /* No line here: a gap is enough for a list this light. */
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-group-label {
+    height: 12px;
+    margin: 0;
+    background: none;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-link {
+    gap: 0;
+    padding: 0;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-link .nav-icon {
+    margin: 0;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-link.nav-link-current::before {
+    left: 8px;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .nav-badge {
+    top: -2px;
+    right: -3px;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px var(--nav-bg-2);
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-foot {
+    padding: 8px 16px 12px;
+  }
+
+  /* Collapsed, the card is just the avatar — still the link to Settings, and
+     named so by its tooltip. */
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-foot .sidebar-link {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-foot .sidebar-who,
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-foot .nav-icon {
+    display: none;
+  }
+
+  [data-nav-style="c"] .sidebar.collapsed .sidebar-foot .sidebar-link.nav-link-current .sidebar-avatar {
+    box-shadow: 0 0 0 2px #4d8dff;
+  }
 }

@@ -21,6 +21,7 @@ import { validationMessage } from "../../../shared/utils/validationMessage";
 import { SUPPORTED_LANGUAGES } from "../../../i18n";
 import { PageShell } from "../../../shared/components/PageShell";
 import { ThemeSwitch } from "../../../shared/components/ThemeSwitch";
+import { NavStylePicker } from "../components/NavStylePicker";
 import { useSignOut } from "../../layout/useProfile";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
@@ -505,6 +506,14 @@ export function SettingsPage() {
                   is pressed — the same switch as in the menu and the sidebar. */}
               <Section title={t("nav.theme")} subtitle={t("settings.themeSubtitle")} fill>
                 <ThemeSwitch className="w-100" />
+              </Section>
+            </Col>
+            <Col xs={12}>
+              {/* ── Menu style ────────────────────────────────────────────────── */}
+              {/* Like the theme: on this device, and applied as it is pressed —
+                  the sidebar and top bar change behind the card. */}
+              <Section title={t("settings.navStyle")} subtitle={t("settings.navStyleSubtitle")} fill>
+                <NavStylePicker />
               </Section>
             </Col>
           </Row>

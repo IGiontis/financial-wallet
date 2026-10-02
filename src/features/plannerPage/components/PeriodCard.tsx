@@ -3,10 +3,9 @@ import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiClock } from "react-icons/fi";
 
 import { heroSubline, planPeriods, SALARY_ROW_ID, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
-import type { PlanSlice } from "../payCycles";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
-import PayCycleChart from "./PayCycleChart";
+import { BalanceScrub } from "./BalanceScrub";
 import PlanFlowChart from "./PlanFlowChart";
 import styles from "../css/PlannerPage.module.css";
 
@@ -17,19 +16,15 @@ const VERDICT = {
 } as const;
 
 /** From a year up, the chart's rows go to one line each. */
-const COMPACT_FROM_MONTHS = 12;
 
 interface PeriodCardProps {
   plan: PlannerPlan;
-  cycles: PlanSlice[];
   horizon: PlannerHorizon;
   onHorizon: (horizon: PlannerHorizon) => void;
   /** Counting from a figure of your own: the ledger's first line says so. */
   scenario: boolean;
-  now: Date;
   formatCurrency: (n: number) => string;
   locale: string;
-  onOccurrence?: (key: string) => void;
 }
 
 /**
@@ -46,7 +41,7 @@ interface PeriodCardProps {
  * if it does, from which day, for what, and how deep. Then the chart, and the
  * subtraction that gives the figure, line by line.
  */
-export function PeriodCard({ plan, cycles, horizon, onHorizon, scenario, now, formatCurrency, locale, onOccurrence }: PeriodCardProps) {
+export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency, locale }: PeriodCardProps) {
   const { t } = useTranslation();
   const [zoomed, setZoomed] = useState(false);
   const periods = useMemo(() => planPeriods(plan), [plan]);
@@ -105,7 +100,8 @@ export function PeriodCard({ plan, cycles, horizon, onHorizon, scenario, now, fo
           <span className={styles.periodSubline}>{subline}</span>
         </div>
 
-        <PayCycleChart key={`${plan.months}-${cycles[0]?.kind}`} slices={cycles} compact={plan.months >= COMPACT_FROM_MONTHS} today={now} formatCurrency={formatCurrency} locale={locale} onOccurrence={onOccurrence} />
+        {/* Keyed by the window: a selected day was an index into the old one. */}
+        <BalanceScrub key={`${plan.months}-${plan.end.getTime()}`} plan={plan} formatCurrency={formatCurrency} locale={locale} />
 
         {/* The subtraction behind the figure, quiet under the chart. */}
         <div className={styles.ledger}>

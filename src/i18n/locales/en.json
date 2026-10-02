@@ -41,7 +41,8 @@
     "updateTitle": "New version",
     "updateBody": "Refresh to get the latest changes. Your data isn't affected.",
     "updating": "Refreshing…",
-    "allRightsReserved": "All rights reserved."
+    "allRightsReserved": "All rights reserved.",
+    "offlineBulk": "Marking several at once waits for a connection — it cannot be judged against an offline copy."
   },
   "nav": {
     "groupStanding": "Where you stand",
@@ -69,8 +70,9 @@
     "themeNow": "Theme: {{theme}}. Switch to {{next}}",
     "darkMode": "Dark mode",
     "groupDaily": "Day to day",
-    "hideBar": "Hide Bar",
-    "lightMode": "Light mode"
+    "lightMode": "Light mode",
+    "mainNavigation": "Main navigation",
+    "closeMenu": "Close menu"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -483,7 +485,17 @@
     "chipOverdue_one": "{{count}} unpaid · {{amount}}",
     "chipOverdue_other": "{{count}} unpaid · {{amount}}",
     "unpaidSince_one": "{{count}} unpaid since {{date}}",
-    "unpaidSince_other": "{{count}} unpaid since {{date}}"
+    "unpaidSince_other": "{{count}} unpaid since {{date}}",
+    "payingOldestOverdue": "The oldest overdue first: {{period}}. Pick another period below if this pays a different one.",
+    "settleOverdue": "I've paid these",
+    "settleOverdueTitle": "Already paid — {{name}}",
+    "settleOverdueBody": "Marked as paid without writing a transaction — the money has already left the bank.",
+    "settleOverdueTotal": "Marking {{amount}}",
+    "settleOverdueConfirm_one": "Mark {{count}} as paid",
+    "settleOverdueConfirm_other": "Mark {{count}} as paid",
+    "settleOverdueFailed": "Not saved. Check your connection and try again.",
+    "noTransaction": "no transaction",
+    "deletePaymentNoTxConfirm": "Delete this payment? It wrote no expense, so only the period goes back to unpaid."
   },
   "transactions": {
     "title": "Transactions",
@@ -1129,7 +1141,11 @@
     "occReset": "Undo what I said",
     "occOnlyThisTime": "Only this time. The ones after it stay as they are.",
     "occArrivedNote": "If it is not recorded yet, add it as income or update your banks, so it shows in “money you have”.",
-    "occPaidNote": "If it is not recorded yet, add the payment or update your banks, so it shows in “money you have”."
+    "occPaidNote": "If it is not recorded yet, add the payment or update your banks, so it shows in “money you have”.",
+    "tapHint": "Tap or drag along the line to see any day.",
+    "justBudget": "Your monthly budget only, about {{amount}} a day.",
+    "weekTo": "Week to {{date}}",
+    "balanceTitle": "What is left, day by day"
   },
   "settings": {
     "title": "Settings",
@@ -1211,7 +1227,15 @@
     "tabData": "Data",
     "tabAccount": "Account",
     "themeSubtitle": "Auto follows your device's setting. Applies straight away, on this device.",
-    "signOutSubtitle": "Sign out of MyFiWallet on this device."
+    "signOutSubtitle": "Sign out of MyFiWallet on this device.",
+    "navStyle": "Menu style",
+    "navStyleSubtitle": "How the sidebar and the top bar look. Applies straight away, on this device.",
+    "navStyleA": "Classic",
+    "navStyleB": "Blue tone",
+    "navStyleC": "Glass",
+    "navStyleLetterA": "A",
+    "navStyleLetterB": "B",
+    "navStyleLetterC": "C"
   },
   "validation": {
     "required": "This field is required",

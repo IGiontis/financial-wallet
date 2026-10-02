@@ -8,7 +8,7 @@ import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
-import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
+import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useSettleOverdue, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
   amountOwedNow,
   arrears,
@@ -56,6 +56,7 @@ import BillDetailModal from "./BillDetailModal";
 import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
+import SettleOverdueModal from "./SettleOverdueModal";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
@@ -985,6 +986,7 @@ export default function BillsPage() {
   const markPaid = useMarkBillPaid();
   const unmarkPaid = useUnmarkBillPaid();
   const updatePayment = useUpdateBillPayment();
+  const settleOverdue = useSettleOverdue();
 
   const [showModal, setShowModal] = useState(false);
   const [editBill, setEditBill] = useState<Bill | null>(null);
@@ -996,6 +998,8 @@ export default function BillsPage() {
   const [payingPeriod, setPayingPeriod] = useState<string | undefined>();
   // And which instalment of it, for a bill paid in parts.
   const [payingInstallment, setPayingInstallment] = useState<number | undefined>();
+  // The bill whose overdue periods are being marked paid without a transaction.
+  const [settlingBill, setSettlingBill] = useState<BillWithStatus | null>(null);
   // Which month's breakdown is open, if any.
   // An offset in months from today: 0 is this one, 1 the next, and the year
   // view can ask for any of the twelve.
@@ -1391,6 +1395,11 @@ export default function BillsPage() {
           onEditPayment={handleEditPayment}
           onDeletePayment={handleDeletePayment}
           onPayPeriod={handlePayPeriod}
+          onSettleOverdue={(b) => {
+            // Same hand-off as Mark Paid — never stack two modals.
+            setDetailBill(null);
+            setSettlingBill(b);
+          }}
           onEdit={(b) => {
             setDetailBill(null);
             openEdit(b);
@@ -1399,6 +1408,20 @@ export default function BillsPage() {
             // Same hand-off as Edit and Mark Paid — never stack two modals.
             setDetailBill(null);
             setDeleteTarget(b);
+          }}
+        />
+      )}
+
+      {/* Closes at once, like every payment here: the cache already shows the
+          months paid, and a write that fails rolls itself back and says so. */}
+      {settlingBill && (
+        <SettleOverdueModal
+          bill={settlingBill}
+          formatCurrency={formatCurrency}
+          onClose={() => setSettlingBill(null)}
+          onConfirm={(items) => {
+            settleOverdue.mutate({ bill: settlingBill, items }, { onError: () => toast.error(t("bills.settleOverdueFailed")) });
+            setSettlingBill(null);
           }}
         />
       )}

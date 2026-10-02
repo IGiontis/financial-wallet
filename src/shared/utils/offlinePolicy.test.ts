@@ -43,4 +43,10 @@ describe("requireConnection", () => {
   it("refuses a settings change too", () => {
     expect(() => requireConnection("settings", false)).toThrow(OfflineActionError);
   });
+
+  it("refuses a batch decided against an offline copy, and allows it online", () => {
+    expect(() => requireConnection("bulk", false)).toThrow(OfflineActionError);
+    expect(() => requireConnection("bulk", true)).not.toThrow();
+    expect(isLockedOffline("bulk", false)).toBe(true);
+  });
 });

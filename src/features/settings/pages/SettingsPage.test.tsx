@@ -76,11 +76,15 @@ describe("settings tabs", () => {
     expect(await screen.findByText(/First name/)).toBeInTheDocument();
   });
 
-  it("shows currency, language and the theme under Preferences", async () => {
+  it("shows currency, language, the theme and the menu style under Preferences", async () => {
     renderAt("/settings/preferences");
     expect(await within(panel()).findByText("Currency")).toBeInTheDocument();
     expect(within(panel()).getByText("Language")).toBeInTheDocument();
     expect(within(panel()).getByRole("group", { name: "Theme" })).toHaveTextContent(/Light.*Dark.*Auto/);
+    // The menu's three styles, each with its preview, Α chosen until another is.
+    const menuStyle = within(panel()).getByRole("group", { name: "Menu style" });
+    expect(within(menuStyle).getAllByRole("button").map((b) => b.textContent)).toEqual(["A Classic", "B Blue tone", "C Glass"]);
+    expect(within(menuStyle).getByRole("button", { name: "A Classic" })).toHaveAttribute("aria-pressed", "true");
     expect(within(panel()).queryByText(/First name/)).not.toBeInTheDocument();
   });
 

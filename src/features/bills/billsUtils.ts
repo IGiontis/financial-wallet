@@ -504,7 +504,11 @@ export interface PeriodOption {
  */
 export function getPeriodOptions(bill: Bill, payments: BillPayment[], now: Date = new Date(), count = 4, back = 0): PeriodOption[] {
   const currentStart = getPeriodStart(bill, now);
-  const paidKeys = new Set(payments.filter((p) => p.billId === bill.id).map((p) => p.periodKey));
+  const mine = payments.filter((p) => p.billId === bill.id);
+  // Paid means settled — every instalment in. A gym year with one part paid
+  // used to read "already paid" and could not be chosen, so its late parts
+  // could not be paid from the form at all.
+  const paidKeys = new Set(mine.filter((p) => isPeriodSettled(bill, mine, p.periodKey)).map((p) => p.periodKey));
   const earliest = -Math.max(0, back);
 
   return Array.from({ length: Math.max(1, count) + Math.max(0, back) }, (_, i) => {
@@ -1121,6 +1125,11 @@ export interface MonthForecastItem {
   isPaid: boolean;
   isVariable: boolean;
   /**
+   * Which instalment of the period this is, 0-based — what a payment for it
+   * is filed under. Always 0 for a bill paid in one go.
+   */
+  installmentIndex?: number;
+  /**
    * When the money actually left, for something already settled.
    *
    * Separate from `date` because the two genuinely differ: September's rent
@@ -1198,6 +1207,7 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
           bill,
           periodKey,
           date,
+          installmentIndex: index,
           // A settled occurrence is worth what was actually paid; an unpaid one
           // can only be the expectation.
           amount: paid ? round2(paid.reduce((sum, p) => sum + p.amount, 0)) : installmentAmount(bill, total, index),
@@ -1246,8 +1256,14 @@ export function monthForecast(bills: BillWithStatus[], now: Date = new Date(), m
 // Now the tile, the card, the overview, the badge and the breakdown all read
 // `billOverdue` below, which is this walk.
 
-/** How far back to look for unpaid periods. A year of monthly bills. */
-const MAX_ARREARS_LOOKBACK = 12;
+/**
+ * How far back to look for unpaid periods. A year of monthly bills.
+ *
+ * Exported so the payment form reaches exactly as far: a period the late
+ * figure counts has to be one a payment can be filed against, or the debt
+ * could be seen and never cleared.
+ */
+export const MAX_ARREARS_LOOKBACK = 12;
 
 /**
  * The walk behind `arrears` and `amountOwedNow`: every unpaid period — or, for
@@ -1304,7 +1320,7 @@ function unpaidItems(bills: BillWithStatus[], now: Date, maxPeriodsBack: number,
 
           const amount = round2(Math.min(installmentAmount(bill, total, index), left));
           left = round2(left - amount);
-          if (amount > 0) items.push({ bill, periodKey, date, amount, isPaid: false, isVariable: !!bill.isVariableAmount });
+          if (amount > 0) items.push({ bill, periodKey, date, installmentIndex: index, amount, isPaid: false, isVariable: !!bill.isVariableAmount });
         });
       }
 
@@ -1359,7 +1375,7 @@ export function billOverdue(bill: BillWithStatus, now: Date = new Date()): BillO
   let items = arrears([bill], now);
 
   if (items.length === 0 && !bill.isPaidThisPeriod && bill.deadline && bill.deadline < startOfDay(now)) {
-    items = [{ bill, periodKey: bill.currentPeriodKey, date: bill.nextDueDate ?? bill.deadline, amount: amountDueNext(bill, now), isPaid: false, isVariable: !!bill.isVariableAmount }];
+    items = [{ bill, periodKey: bill.currentPeriodKey, date: bill.nextDueDate ?? bill.deadline, installmentIndex: bill.nextInstallmentIndex ?? 0, amount: amountDueNext(bill, now), isPaid: false, isVariable: !!bill.isVariableAmount }];
   }
 
   const oldest = items[0];

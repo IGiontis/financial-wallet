@@ -1,0 +1,222 @@
+/* «Στυλ μενού»: three cards, each a thumbnail of the shell in that style.
+
+   The thumbnails are drawn, not screenshots, so they follow the light and dark
+   theme like the real thing: the page and top bar from the app's tokens, the
+   sidebar from the style's own colours in navStyles.css (the `.nav-style-x`
+   class on each preview). */
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  /* Past this the thumbnails only get bigger, not clearer. */
+  max-width: 540px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 8px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+
+.choice:hover {
+  border-color: var(--color-border-primary);
+  color: var(--color-text-primary);
+}
+
+/* The chosen one: the brand blue round the card, not a fill — the thumbnail
+   inside is the part worth seeing. */
+.choice.on {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 1px var(--bs-primary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.caption {
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.letter {
+  font-weight: 700;
+}
+
+/* ── The thumbnail ─────────────────────────────────────────────────────────── */
+
+.preview {
+  position: relative;
+  display: flex;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--color-background-primary);
+  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
+}
+
+.bar {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 34%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 5px;
+  background: linear-gradient(180deg, var(--nav-bg), var(--nav-bg-2));
+}
+
+.logo {
+  width: 9px;
+  height: 9px;
+  margin-bottom: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.row {
+  position: relative;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.row::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  width: 55%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.foot {
+  margin-top: auto;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.page {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 13px;
+  padding: 0 5px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+.avatar {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.card {
+  height: 18px;
+  margin: 0 6px;
+  border-radius: 4px;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-border-tertiary);
+}
+
+/* Α — a quiet fill and a blue edge on the current row. */
+.a .current {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 2px 0 0 #4d8dff;
+}
+
+/* Β — the blue logo, rounded rows, the current one a soft blue capsule; a
+   hairline between the groups; the account a capsule up top. */
+.b .logo {
+  background: linear-gradient(135deg, #5b95ff, #2a5fe0);
+}
+
+.b .row {
+  border-radius: 999px;
+}
+
+.b .current {
+  background: rgba(79, 140, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(125, 170, 255, 0.55);
+}
+
+.b .row:nth-child(4) {
+  margin-top: 3px;
+  box-shadow: 0 -4px 0 -3px rgba(160, 190, 255, 0.25);
+}
+
+.b .avatar {
+  width: 14px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--color-border-tertiary);
+}
+
+/* Γ — the icon on a blue tile, the account card at the foot, and a frosted bar
+   with the first card running underneath it. */
+.c .current {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+}
+
+.c .current::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  background: #4d8dff;
+}
+
+.c .current::after {
+  left: 9px;
+  width: 45%;
+}
+
+.c .foot {
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.c .top {
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  border-bottom-color: transparent;
+  box-shadow: 0 4px 8px -6px rgba(15, 23, 42, 0.45);
+}
+
+.c .avatar {
+  visibility: hidden;
+}
+
+.c .top + .card {
+  margin-top: -10px;
+  height: 27px;
+}
