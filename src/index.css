@@ -101,6 +101,10 @@
   --color-accent-strong: #1e293b;
   --color-accent-soft: #e3e8f2;
   --color-accent-on-strong: #ffffff;
+
+  /* Scrollbar thumb, at rest and under the pointer — see "Scrollbars" below. */
+  --scrollbar-thumb: rgba(63, 76, 96, 0.32);
+  --scrollbar-thumb-hover: rgba(63, 76, 96, 0.55);
 }
 
 /* ── Dark theme ───────────────────────────────────────────────────────────── */
@@ -159,6 +163,9 @@
   --color-accent-strong: #dbe4f0;
   --color-accent-soft: #2c3949;
   --color-accent-on-strong: #10161f;
+
+  --scrollbar-thumb: rgba(173, 187, 202, 0.26);
+  --scrollbar-thumb-hover: rgba(173, 187, 202, 0.48);
 }
 
 /* ── Shared (theme-independent) ───────────────────────────────────────────── */
@@ -753,5 +760,58 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .react-loading-skeleton::after {
     animation: none;
+  }
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+/* A thin rounded thumb on a clear track, in place of the browser's grey slab
+   with arrow buttons. Its colour is a token, so each theme — and the sidebar,
+   which is dark in both — sets its own and every scrolling box follows.
+
+   Only where there is a mouse. A phone draws its own overlay bar that fades
+   when you stop, which is already what this imitates; giving Android Chrome a
+   ::-webkit-scrollbar would swap that for a bar that stays on screen.
+
+   Two routes, never both: once Chromium sees `scrollbar-width` or
+   `scrollbar-color` on an element it ignores the ::-webkit-scrollbar rules for
+   it, and those are the only ones that can round the thumb or inset it from
+   the edge. So the standard properties go only to browsers without the
+   pseudo-elements (Firefox). A box that hides its bar with
+   `scrollbar-width: none` still does, in both. */
+@media (hover: hover) and (pointer: fine) {
+  @supports selector(::-webkit-scrollbar) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    /* The transparent border, clipped out of the background, is what keeps the
+       pill off the edge: a 6px thumb in a 10px gutter, easy to see and still
+       wide enough to grab. */
+    ::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb);
+      background-clip: padding-box;
+      border: 2px solid transparent;
+      border-radius: 999px;
+      min-height: 32px;
+      min-width: 32px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover,
+    ::-webkit-scrollbar-thumb:active {
+      background-color: var(--scrollbar-thumb-hover);
+    }
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
   }
 }

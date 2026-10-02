@@ -163,6 +163,13 @@
   overscroll-behavior: contain;
 }
 
+/* The sidebar is dark in every theme and style, so its scrollbar is light
+   whatever the page around it uses (the rules are in index.css). */
+.sidebar {
+  --scrollbar-thumb: rgba(232, 237, 244, 0.22);
+  --scrollbar-thumb-hover: rgba(232, 237, 244, 0.42);
+}
+
 /* "There is more below." A fade over the last rows while the list carries on
    past the foot, and only then — Sidebar.tsx sets `has-more` from the scroll
    position. It sits on the wrapper rather than inside the scrolling list, where
