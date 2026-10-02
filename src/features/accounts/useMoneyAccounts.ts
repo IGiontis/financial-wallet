@@ -22,10 +22,11 @@ export function useAccountList(): MoneyAccount[] {
 }
 
 /** The accounts, their readings, and everything worked out from them. */
-export function useMoneyAccounts() {
+export function useMoneyAccounts({ fetch = true }: { fetch?: boolean } = {}) {
   const [storedAccounts, setAccounts] = useWorkspaceSetting<MoneyAccount[]>(ACCOUNTS_KEY, []);
   const [storedCheckIns, setCheckIns] = useWorkspaceSetting<BalanceCheckIn[]>(CHECK_INS_KEY, []);
-  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
+  // `fetch: false` — see `useTransactions`.
+  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions({ fetch });
   const { opening: legacy, isLoading: openingLoading } = useSettingsOpening();
 
   // Whatever the document holds is checked before it is trusted: it is typed

@@ -154,7 +154,10 @@
 .sidebar-nav {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 4px 12px 8px;
+  /* The bottom is roomier than the top: on a screen too short for the whole
+     list, the last row ends up just above the foot, and at 8px it sat pressed
+     against Settings as if the two belonged together. */
+  padding: 4px 12px 18px;
   /* Horizontally clipped, so labels do not spill while the panel animates its
      width. Vertically it scrolls: a phone in landscape has more items than
      fit. */
@@ -345,8 +348,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--nav-rule);
 }
 
@@ -446,7 +449,7 @@
   }
 
   .sidebar.collapsed .sidebar-nav {
-    padding: 4px 14px;
+    padding: 4px 14px 16px;
   }
 
   /* The group survives as a rule: no room for the word, but the four parts of
@@ -615,7 +618,7 @@
 }
 
 [data-nav-style="b"] .sidebar-nav {
-  padding: 2px 14px 10px;
+  padding: 2px 14px 18px;
 }
 
 [data-nav-style="b"] .sidebar-group-label {
@@ -761,7 +764,7 @@
 
 @media (min-width: 992px) {
   [data-nav-style="b"] .sidebar.collapsed .sidebar-nav {
-    padding: 2px 14px;
+    padding: 2px 14px 16px;
   }
 
   [data-nav-style="b"] .sidebar.collapsed .sidebar-group-label {
@@ -822,7 +825,8 @@
 }
 
 [data-nav-style="c"] .sidebar-nav {
-  padding: 4px 12px;
+  /* No rule above Γ's foot, so the gap alone has to set the card apart. */
+  padding: 4px 12px 22px;
 }
 
 [data-nav-style="c"] .sidebar-group-label {
@@ -890,7 +894,7 @@
 }
 
 [data-nav-style="c"] .sidebar-foot {
-  padding: 8px 12px 12px;
+  padding: 10px 12px 12px;
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   border-top: 0;
 }
@@ -1018,7 +1022,7 @@
 
 @media (min-width: 992px) {
   [data-nav-style="c"] .sidebar.collapsed .sidebar-nav {
-    padding: 4px 16px;
+    padding: 4px 16px 18px;
   }
 
   /* No line here: a gap is enough for a list this light. */

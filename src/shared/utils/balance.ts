@@ -44,11 +44,17 @@ const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.
  * gone from the bank when Sunday's reading was taken. On the reading's own day,
  * the time the record was written decides; a record the server has not stamped
  * yet was written moments ago, so it is newer.
+ *
+ * Except a record marked `inReading`: the answer "yes, it was already in the
+ * bank" to the Incomes page's question about that reading. It is written after
+ * the reading by definition, so on the reading's own day the time would count
+ * it a second time on top of a balance that already holds it.
  */
 export function isAfterReading(tx: Transaction, at: Date): boolean {
   const txDay = startOfDay(firestoreToDate(tx.date)).getTime();
   const readingDay = startOfDay(at).getTime();
   if (txDay !== readingDay) return txDay > readingDay;
+  if (tx.inReading) return false;
   const created = tx.createdAt ? firestoreToDate(tx.createdAt) : undefined;
   if (!created || Number.isNaN(created.getTime())) return true;
   return created.getTime() > at.getTime();
@@ -67,6 +73,8 @@ export function isAfterReading(tx: Transaction, at: Date): boolean {
  */
 export function recordReadingKey(tx: Transaction): [day: number, time: number] {
   const day = startOfDay(firestoreToDate(tx.date)).getTime();
+  // Before every reading on its own day, as `isAfterReading` has it.
+  if (tx.inReading) return [Number.isNaN(day) ? -Infinity : day, -Infinity];
   const created = tx.createdAt ? firestoreToDate(tx.createdAt).getTime() : Number.NaN;
   return [Number.isNaN(day) ? -Infinity : day, Number.isNaN(created) ? Infinity : created];
 }

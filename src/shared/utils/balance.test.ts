@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { affectsBalance, balanceDelta, currentBalance, excludedByOpeningDate } from "./balance";
+import { affectsBalance, balanceDelta, currentBalance, excludedByOpeningDate, isAfterReading, readingTimeKey, recordReadingKey } from "./balance";
+import { readCheckIns, type BalanceCheckIn, type MoneyAccount } from "../../features/accounts/accountsUtils";
 import type { Transaction } from "../types/IndexTypes";
 
 const tx = (overrides: Partial<Transaction> = {}): Transaction =>
@@ -166,5 +167,48 @@ describe("currentBalance to the cent", () => {
     expect(currentBalance([income(10), spend(10.01)])).toBe(-0.01);
     expect(currentBalance([spend(0.1), spend(0.2)])).toBe(-0.3);
     expect(currentBalance([], { amount: -50, date: new Date("2026-09-01") })).toBe(-50);
+  });
+});
+
+// «Ήταν ήδη στην τράπεζα;» — «Ναι» on the reading's own day.
+//
+// The record is written after the reading, so the time on it would count the
+// salary again on top of a reading that already holds it. `inReading` puts it
+// before the reading, which is what the answer said.
+describe("a record marked inReading", () => {
+  const at = new Date(2026, 8, 28, 19, 0);
+  const salary = (over: Partial<Transaction> = {}) =>
+    tx({ type: "income", amount: 1450, date: new Date(2026, 8, 28), createdAt: new Date(2026, 8, 30, 9, 0), incomeId: "sal", incomeDue: "2026-09-30", ...over });
+
+  it("counts before a reading on its own day, though written after it", () => {
+    expect(isAfterReading(salary(), at)).toBe(true);
+    expect(isAfterReading(salary({ inReading: true }), at)).toBe(false);
+  });
+
+  it("changes nothing on any other day", () => {
+    expect(isAfterReading(salary({ inReading: true, date: new Date(2026, 8, 29) }), at)).toBe(true);
+    expect(isAfterReading(salary({ inReading: true, date: new Date(2026, 8, 27) }), at)).toBe(false);
+  });
+
+  it("sorts the same way as it compares", () => {
+    const key = recordReadingKey(salary({ inReading: true }));
+    const reading = readingTimeKey(at);
+    expect(key[0]).toBe(reading[0]);
+    expect(key[1]).toBeLessThan(reading[1]);
+  });
+
+  it("closes the «χωρίς εγγραφή» gap by the salary instead of counting it twice", () => {
+    const accounts: MoneyAccount[] = [{ id: "eb", name: "Eurobank", kind: "bank", main: true }];
+    const readings: BalanceCheckIn[] = [
+      { id: "r1", at: new Date(2026, 8, 21, 18, 0).toISOString(), amounts: { eb: 2000 } },
+      // The salary landed before this reading and nothing was written.
+      { id: "r2", at: at.toISOString(), amounts: { eb: 3450 } },
+    ];
+    const before = readCheckIns(readings, accounts, []);
+    expect(before[1].unlogged).toBe(1450);
+    // Answered with a record on the reading's day: the gap is gone.
+    expect(readCheckIns(readings, accounts, [salary({ inReading: true })])[1].unlogged).toBe(0);
+    // A second way: without the mark the record falls after the reading, and the gap stays.
+    expect(readCheckIns(readings, accounts, [salary()])[1].unlogged).toBe(1450);
   });
 });

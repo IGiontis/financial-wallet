@@ -95,6 +95,25 @@ export interface Transaction {
   metadata?: FuelMetadata;
   recurringTransactionId?: string;
   billId?: string; // set when this expense was logged by paying a recurring bill
+  /**
+   * Set when this income was logged with «Ήρθε» on the Incomes page — the
+   * mirror of `billId`. The record is the proof that the income came, so
+   * deleting it takes the «Ήρθε» back everywhere with it.
+   */
+  incomeId?: string;
+  /**
+   * The day that income was expected, "YYYY-MM-DD". Ties the record to one
+   * occurrence (`income:{id}:{incomeDue}`), so an October salary paid on 28
+   * September counts for October, and nothing has to guess which time it was.
+   */
+  incomeDue?: string;
+  /**
+   * Already inside the bank reading taken on its own day. Only ever set when
+   * answering «Ήταν ήδη στην τράπεζα;» with a date equal to the reading's: the
+   * record is written after the reading, so without this it would be counted
+   * on top of a balance that already holds it. See `isAfterReading`.
+   */
+  inReading?: boolean;
   /** Which of the Banks & cash accounts it came out of or went into. Optional — see `AccountPicker`. */
   accountId?: string;
 
@@ -120,6 +139,10 @@ export interface CreateTransactionDTO {
   isGoalTransaction?: boolean;
   contributionType?: "deposit" | "withdrawal";
   billId?: string;
+  /** See `Transaction.incomeId`, `incomeDue` and `inReading`. */
+  incomeId?: string;
+  incomeDue?: string;
+  inReading?: boolean;
   accountId?: string;
 }
 

@@ -3,11 +3,12 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { FloatingPortal, autoUpdate, offset, shift, useFloating } from "@floating-ui/react";
 import { useBillsNeedingAttention } from "../bills/useBills";
+import { useIncomesNeedingAttention } from "../incomes/useIncomes";
 import { useProfile } from "./useProfile";
 import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -28,9 +29,11 @@ interface NavItemProp {
   icon: IconType;
   /** Shown as a count on the item. Zero draws nothing. */
   badge?: number;
-  /** Red for something to pay; amber for something on its way — the future
-   *  «Έσοδα» link's expected income is what this is kept for. */
+  /** Red for something to pay; amber for something on its way — an income
+   *  that is late or waits for an answer. */
   badgeTone?: "danger" | "warning";
+  /** What the count means, read out with the link's name. Bills' wording when left out. */
+  badgeLabel?: (count: number) => string;
 }
 
 /**
@@ -115,7 +118,7 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
   const Icon = item.icon;
   // Read out as part of the link's name rather than left as a bare number,
   // which a screen reader would announce as "Bills, 2".
-  const badgeLabel = item.badge ? t("bills.dueCount", { count: item.badge }) : undefined;
+  const badgeLabel = item.badge ? (item.badgeLabel?.(item.badge) ?? t("bills.dueCount", { count: item.badge })) : undefined;
 
   return (
     <li className="nav-item">
@@ -153,6 +156,7 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
 export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesktop }: SidebarProps) {
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
+  const incomesWaiting = useIncomesNeedingAttention();
   const profile = useProfile();
   const closeRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
@@ -207,10 +211,16 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
       label: t("nav.groupDaily"),
       items: [
         { path: "/transactions", label: t("nav.transactions"), icon: FiCreditCard },
-        // «Έσοδα» goes here, between Transactions and Bills, once its page
-        // exists — e.g. { path: "/incomes", label: t("nav.incomes"), icon:
-        // FiTrendingUp, badge: incomesExpected, badgeTone: "warning" }. The
-        // amber badge is already styled in all three menu styles.
+        // Money in before money out. Amber rather than red: a late income is
+        // something to look into, not a debt.
+        {
+          path: "/incomes",
+          label: t("nav.incomes"),
+          icon: FiTrendingUp,
+          badge: incomesWaiting,
+          badgeTone: "warning",
+          badgeLabel: (count) => t("nav.incomesWaiting", { count }),
+        },
         { path: "/bills", label: t("nav.bills"), icon: FiRepeat, badge: billsDue },
       ],
     },

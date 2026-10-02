@@ -31,13 +31,22 @@ export const transactionKeys = {
 
 // ─── useTransactions ──────────────────────────────────────────────────────────
 
-export function useTransactions() {
+/**
+ * Every transaction of the signed-in user.
+ *
+ * `fetch: false` only listens: it returns what the cache already holds — or
+ * `undefined` — and never asks Firestore itself. For the menu's badges, which
+ * are on every screen: a screen that shows money has loaded the list anyway,
+ * and one that does not (Settings, Debts) should not pay for the whole
+ * collection just to light a number in the menu.
+ */
+export function useTransactions({ fetch = true }: { fetch?: boolean } = {}) {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid ?? "";
 
   return useQuery<Transaction[]>({
     queryKey: transactionKeys.all(userId),
-    enabled: !!userId,
+    enabled: !!userId && fetch,
     queryFn: () => getTransactions(userId),
   });
 }
