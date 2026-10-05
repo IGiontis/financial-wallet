@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, SALARY_ROW_ID, type BudgetLine, type PlanInput, type PlannerPlan } from "./plannerUtils";
+import { buildPlan, type BudgetLine, type PlanInput, type PlannerPlan } from "./plannerUtils";
+import type { Actuals } from "./plannerActuals";
+import { monthlySalary, undatedIncome } from "../../test/incomes";
 import { payCycles, planMonths, sliceBar, sliceScale, sliceSteps, type PlanSlice } from "./payCycles";
 import { paydayOutlook } from "../overview/overviewTabs";
 import { computeBillStatus } from "../bills/billsUtils";
@@ -46,14 +48,19 @@ const GOAL = {
   updatedAt: JAN,
 } as unknown as InvestmentGoalWithStats;
 const OWN: BudgetLine = { id: "own", label: "Mine", amount: 300, kind: "expense" };
-const SALARY = { amount: 1450, dayOfMonth: 30, occurrences: 3 };
-
-const sample = (over: Partial<PlanInput> = {}) => buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], salary: SALARY, openingBalance: 1000, horizon: 3, now: NOW, ...over });
+const SALARY = monthlySalary(1450, 30);
 
 const income = (id: string, amount: number, date: Date): Transaction =>
   ({ id, userId: "u", type: "income", amount, categoryId: "c", description: id, date, createdAt: date, updatedAt: date }) as Transaction;
 
 const day = (month: number, date: number, year = 2026) => new Date(year, month, date);
+
+// The mockup's records: September's pay, due today, came on the 25th. The
+// salary is an income on «Έσοδα» now, checked against the records like every
+// income, so the plan is told so rather than skipping today's pay day blind.
+const CAME_EARLY: Actuals = { transactions: [income("pay-sep", 1450, day(8, 25))], debts: [], overrides: {} };
+
+const sample = (over: Partial<PlanInput> = {}) => buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], incomes: [SALARY], openingBalance: 1000, horizon: 3, now: NOW, actuals: CAME_EARLY, ...over });
 const pointOn = (plan: PlannerPlan, date: Date) => plan.points.find((p) => p.date.getTime() === date.getTime())?.balance;
 const walkOn = (plan: PlannerPlan, date: Date) => Math.round(plan.daily.balance[Math.round((date.getTime() - plan.start.getTime()) / 864e5)] * 100) / 100;
 const cents = (n: number) => Math.round(n * 100) / 100;
@@ -180,10 +187,11 @@ describe("a cycle under zero", () => {
     bills: [...BILLS, monthly("fees", "Building fees", 183.5, 1)],
     goals: [{ ...GOAL, monthlyRequired: 250, currentPeriodSaved: 250 }],
     lines: [OWN],
-    salary: SALARY,
+    incomes: [SALARY],
     openingBalance: 750,
     horizon: 1,
     now: NOW,
+    actuals: CAME_EARLY,
   });
   const cycles = payCycles(plan);
 
@@ -250,7 +258,7 @@ describe("twelve months, with the mockup's two extras", () => {
 
 describe("pay that is not where the calendar says", () => {
   it("came early: September's arrived on the 25th, so the cycles are the mockup's", () => {
-    const plan = sample({ actuals: { transactions: [income("pay-sep", 1450, day(8, 25))], debts: [], overrides: {} } });
+    const plan = sample({ actuals: CAME_EARLY });
     expect(plan.occurrences.find((o) => o.date.getTime() === day(8, 30).getTime())?.status).toBe("received");
     expect(payCycles(plan).map((c) => c.close)).toEqual([94.35, 620, 1164.35, 2595]);
     expect(paydayOutlook(plan, NOW).left).toBe(94.35);
@@ -259,7 +267,7 @@ describe("pay that is not where the calendar says", () => {
   it("is late: held on today, so the first cycle opens with it", () => {
     // Paid on the 25th, seen in August, not yet in September.
     const plan = sample({
-      salary: { ...SALARY, dayOfMonth: 25 },
+      incomes: [{ ...SALARY, day: 25 }],
       actuals: { transactions: [income("pay-aug", 1450, day(7, 25))], debts: [], overrides: {} },
     });
     const cycles = payCycles(plan);
@@ -279,13 +287,13 @@ describe("pay that is not where the calendar says", () => {
 
   it("may already be in the bank reading: left out, not counted twice", () => {
     const plan = sample({ actuals: { transactions: [], debts: [], overrides: {}, lastReadingAt: new Date(2026, 8, 29, 20) } });
-    expect(plan.occurrences.find((o) => o.label === SALARY_ROW_ID && o.date.getDate() === 30 && o.date.getMonth() === 8)?.status).toBe("unconfirmed");
+    expect(plan.occurrences.find((o) => o.pay && o.date.getDate() === 30 && o.date.getMonth() === 8)?.status).toBe("unconfirmed");
     expect(payCycles(plan).map((c) => c.close)).toEqual([94.35, 620, 1164.35, 2595]);
   });
 });
 
 describe("no pay at all", () => {
-  const plan = sample({ salary: undefined });
+  const plan = sample({ incomes: [] });
   const cycles = payCycles(plan);
 
   it("falls back to calendar months", () => {
@@ -302,7 +310,7 @@ describe("no pay at all", () => {
   });
 
   it("ends the first month where the Overview's 'until the month's end' does", () => {
-    const overview = paydayOutlook(sample({ salary: undefined, horizon: 2 }), NOW);
+    const overview = paydayOutlook(sample({ incomes: [], horizon: 2 }), NOW);
     expect(overview.known).toBe(false);
     expect(cycles[0].close).toBe(overview.left);
   });
@@ -319,8 +327,8 @@ describe("the list behind each figure", () => {
   const plans = {
     "three months": sample(),
     "twelve months": sample({ bills: [...BILLS, ...EXTRAS], horizon: 12 }),
-    "no pay": sample({ salary: undefined, horizon: 6 }),
-    "an odd opening and a line of income": sample({ openingBalance: 1234.56, lines: [OWN, { id: "room", label: "Room", amount: 250, kind: "income" }], horizon: 6 }),
+    "no pay": sample({ incomes: [], horizon: 6 }),
+    "an odd opening and an income with no day": sample({ openingBalance: 1234.56, incomes: [SALARY, undatedIncome("room", "Room", 250)], horizon: 6 }),
   };
 
   it("is the mockup's subtraction for the first cycle: 1.000 − 400 − 100 − 65 − 20 − 30 − 290,65", () => {

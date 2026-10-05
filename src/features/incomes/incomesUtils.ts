@@ -4,7 +4,7 @@ import { firestoreToDate, parseISODay, parseISOMonth, toISODay, toISOMonth } fro
 import { categoryAliases, normalizeCategoryName } from "../../shared/utils/categoryNames";
 import { isPausedOn } from "../bills/billsUtils";
 import { AMOUNT_TOLERANCE, EARLY_DAYS, LATE_DAYS, LOOKBACK_DAYS, type OccurrenceOverride } from "../plannerPage/plannerActuals";
-import { detectSalary, type SalaryPattern } from "../plannerPage/plannerUtils";
+import { detectSalary, type SalaryPattern } from "./detectSalary";
 
 // The regular money in: the salary, a rent you collect, an allowance, a
 // pension, a steady second job.
@@ -376,6 +376,49 @@ export function expectedAmount(income: Income, transactions: Transaction[]): Exp
     .map((a) => a.amount);
   if (recent.length < VARIABLE_MEAN_COUNT) return { amount: income.amount, estimated: true, recent };
   return { amount: round2(recent.reduce((sum, n) => sum + n, 0) / recent.length), estimated: false, recent };
+}
+
+/** «Ο μισθός μου»: the one active income marked as the salary, if there is one. */
+export function salaryIncome(incomes: Income[]): Income | undefined {
+  return incomes.find((i) => i.isSalary && isActiveIncome(i));
+}
+
+/**
+ * When an income comes in the month `date` falls in, and what it brings —
+ * the first time, for a month laid out day by day (the Bills page's and the
+ * Overview's month). Undefined when it does not come that month, or has no
+ * day to put it on.
+ */
+export function incomeInMonth(income: Income, transactions: Transaction[], date: Date): { amount: number; dayOfMonth: number } | undefined {
+  const first = incomeOccurrences(income, startOfMonth(date), endOfMonth(date))[0];
+  if (!first || first.undated) return undefined;
+  return { amount: expectedAmount(income, transactions).amount, dayOfMonth: first.date.getDate() };
+}
+
+/** Weeks in an average month: 52 a year over 12 months. */
+const WEEKS_PER_MONTH = 52 / 12;
+
+/**
+ * What one income brings in an average month, at its own rate: a monthly
+ * income its figure, «every 2 months» half of it, a weekly one 52 ⁄ 12 of it,
+ * a yearly one a twelfth.
+ *
+ * For the screens that set one month's pay against one month's costs — the
+ * Bills page's «τι αφήνουν τα πάγια» and the Allocation page — which used to
+ * read the Planner's salary field and now read the salary from here. Pauses
+ * are not spread into it: a month's rate, not a year's average.
+ */
+export function monthlyEquivalent(income: Income, transactions: Transaction[]): number {
+  const each = expectedAmount(income, transactions).amount;
+  const every = everyOf(income);
+  switch (income.frequency) {
+    case "weekly":
+      return round2((each * WEEKS_PER_MONTH) / every);
+    case "yearly":
+      return round2(each / (12 * every));
+    case "monthly":
+      return round2(each / every);
+  }
 }
 
 // ─── Has it come? ────────────────────────────────────────────────────────────

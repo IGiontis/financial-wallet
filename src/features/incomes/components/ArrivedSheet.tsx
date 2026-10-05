@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Alert, Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { FiCheck } from "react-icons/fi";
 import { addMonths, startOfDay } from "date-fns";
 import type { Category } from "../../../shared/types/IndexTypes";
 import { DateField } from "../../../shared/components/DateField";
@@ -25,6 +26,11 @@ import styles from "../css/IncomesPage.module.css";
 //
 // It writes an ordinary income transaction (see `arrivalTransaction`), so
 // there is nothing here that the Transactions page cannot show or undo.
+//
+// Two steps: the fields, then what will be written — amount, day, account,
+// which time it settles — and only «Καταχώριση» there writes it. A figure
+// different from the usual one is said so on the check, since this is where
+// "the salary was 1.380 this time" gets typed.
 
 export interface ArrivedSheetProps {
   income: Income;
@@ -88,15 +94,21 @@ export default function ArrivedSheet({ income, status, options, expected, readin
   const ownAccount = income.accountId && accounts.some((a) => a.id === income.accountId) ? income.accountId : undefined;
   const [accountId, setAccountId] = useState(ownAccount ?? mainAccountId ?? "");
   const [touched, setTouched] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const typed = Number(amount.replace(",", "."));
   const amountError = !Number.isFinite(typed) || amount.trim() === "" ? "validation.amountRequired" : typed <= 0 ? "validation.amountPositive" : typed > 1_000_000 ? "validation.amountTooLarge" : undefined;
   const day = parseISODay(date);
   const dateError = !day ? "validation.dateRequired" : readingDay && day > readingDay ? "incomes.arrived.afterReading" : undefined;
 
+  // The fields first; the check after; the write only from the check.
   const submit = () => {
     setTouched(true);
     if (amountError || dateError || !day) return;
+    if (!reviewing) {
+      setReviewing(true);
+      return;
+    }
     onConfirm(chosen, {
       amount: baseCurrency === displayCurrency ? typed : convertToBase(typed),
       date: day,
@@ -127,6 +139,39 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           submit();
         }}
       >
+        {reviewing && day ? (
+          <ModalBody>
+            <div className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+              {t("incomes.arrived.reviewTitle")}
+            </div>
+            <div className={styles.readCard}>
+              {[
+                { label: t("incomes.arrived.amount"), value: display },
+                { label: t("incomes.arrived.when"), value: f.weekdayDate.format(day) },
+                ...(accounts.length > 0 ? [{ label: t("incomes.arrived.where"), value: accounts.find((a) => a.id === accountId)?.name ?? t("incomes.card.noAccount") }] : []),
+                {
+                  label: income.frequency === "monthly" ? t("incomes.arrived.forMonth") : t("incomes.arrived.forTime"),
+                  value: income.frequency === "monthly" ? `${f.monthName(chosen.date)} ${chosen.date.getFullYear()}` : f.dayMonth.format(chosen.date),
+                },
+                { label: t("common.category"), value: category ? categoryLabel(category.name, t) : t("incomes.arrived.noCategory") },
+              ].map((row) => (
+                <div key={row.label} className={styles.readRow}>
+                  <span className={styles.readLabel}>{row.label}</span>
+                  <span className={styles.readValue}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+            {/* A figure other than the usual is the one worth a second look. */}
+            {Math.abs(convert(chosen.expected) - typed) >= 0.01 && (
+              <p className="mb-0 mt-2" style={{ fontSize: 12.5, color: "var(--color-goal-text)" }}>
+                {t("incomes.arrived.differs", { amount: format(chosen.expected) })}
+              </p>
+            )}
+            <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 11.5 }}>
+              {t("incomes.arrived.reviewNote")}
+            </p>
+          </ModalBody>
+        ) : (
         <ModalBody>
           <FormGroup>
             <Label for="arrived-amount" className="small fw-medium">
@@ -220,13 +265,27 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             {t("incomes.arrived.willLog", { category: category ? categoryLabel(category.name, t) : t("incomes.arrived.noCategory") })}
           </p>
         </ModalBody>
-        <ModalFooter>
-          <Button type="button" color="secondary" outline onClick={onClose}>
-            {t("common.cancel")}
-          </Button>
-          <Button type="submit" color="success">
-            {display ? t("incomes.arrived.submit", { amount: display }) : t("incomes.arrived.submitPlain")}
-          </Button>
+        )}
+        <ModalFooter className="justify-content-between">
+          {reviewing ? (
+            <Button type="button" color="secondary" outline onClick={() => setReviewing(false)}>
+              ‹ {t("incomes.arrived.change")}
+            </Button>
+          ) : (
+            <Button type="button" color="secondary" outline onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+          )}
+          {reviewing ? (
+            <Button type="submit" color="success">
+              <FiCheck className="me-1" aria-hidden />
+              {display ? t("incomes.arrived.submit", { amount: display }) : t("incomes.arrived.submitPlain")}
+            </Button>
+          ) : (
+            <Button type="submit" color="primary">
+              {t("common.next")} ›
+            </Button>
+          )}
         </ModalFooter>
       </form>
     </Modal>

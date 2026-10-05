@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getDaysInMonth } from "date-fns";
 import { BalanceLine } from "../BalanceLine";
-import { SALARY_ROW_ID, type PlannerPlan } from "../plannerUtils";
+import type { PlannerPlan } from "../plannerUtils";
 import styles from "../css/BalanceScrub.module.css";
 
 /**
@@ -51,7 +51,6 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
   // Biggest first, since only a couple fit above the line.
   const events = point ? [...point.events].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)) : [];
   const SHOWN = 2;
-  const label = (name: string) => (name === SALARY_ROW_ID ? t("planner.salaryLabel") : name);
   // A day with nothing dated on it still moved: the budget lines run by the day.
   const lineSpend = point && plan.pointStep === "day" ? point.accruedOut - point.accruedIn : 0;
 
@@ -72,7 +71,7 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
               ) : (
                 (allEvents ? events : events.slice(0, SHOWN)).map((event, i) => (
                   <span key={i} className={styles.readoutEvent}>
-                    <span className="text-truncate">{label(event.label)}</span>
+                    <span className="text-truncate">{event.label}</span>
                     <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
                       {event.amount > 0 ? "+" : "−"}
                       {formatCurrency(Math.abs(event.amount))}

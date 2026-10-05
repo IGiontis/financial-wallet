@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, planPeriods, SALARY_ROW_ID, type BudgetLine, type OneOff, type PlannerHorizon } from "./plannerUtils";
+import { buildPlan, planPeriods, type BudgetLine, type OneOff, type PlannerHorizon } from "./plannerUtils";
+import { monthlySalary, SALARY_ID, undatedIncome } from "../../test/incomes";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 // The planner lists every figure on the left and draws one line on the right.
@@ -77,7 +78,6 @@ const everything = {
   debts: [debt({ person: "Maria", remaining: 655, dueDate: new Date(2027, 5, 10) }), debt({ person: "Kostas", remaining: 200 })],
   lines: [
     { id: "food", label: "Food", amount: 450, kind: "expense" },
-    { id: "rent-in", label: "Room rent", amount: 300, kind: "income" },
     { id: "ski", label: "Ski", amount: 200, kind: "expense", from: "2026-12", to: "2027-04", yearly: true },
     { id: "trip", label: "Trip", amount: 900, kind: "expense", from: "2027-08", yearly: true },
   ] as BudgetLine[],
@@ -85,7 +85,9 @@ const everything = {
     { id: "bonus", label: "14th", amount: 1400, date: "2026-12-20" },
     { id: "coupon", label: "Coupon", amount: 250, date: "2026-09-15", every: 3 },
   ] as OneOff[],
-  salary: { amount: 1800, dayOfMonth: 25, occurrences: 4 },
+  // The salary, and the room rent that was an income line: an income with no
+  // day, spread over each month as the line was.
+  incomes: [monthlySalary(1800, 25), undatedIncome("rent-in", "Room rent", 300)],
   openingBalance: 1500,
   now,
 };
@@ -264,8 +266,8 @@ describe("the salary row is the salary, and only the salary", () => {
   it("counts one payday per month and totals them", () => {
     for (const horizon of [1, 3, 12, 24] as PlannerHorizon[]) {
       const plan = buildPlan({ ...everything, horizon });
-      const row = plan.rows.find((r) => r.id === SALARY_ROW_ID)!;
-      const paydays = plan.events.filter((e) => e.label === SALARY_ROW_ID);
+      const row = plan.rows.find((r) => r.id === SALARY_ID)!;
+      const paydays = plan.events.filter((e) => e.pay);
 
       expect(paydays).toHaveLength(row.occurrences!);
       expect(round(paydays.reduce((sum, e) => sum + e.amount, 0))).toBe(round(row.total));

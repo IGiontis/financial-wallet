@@ -31,7 +31,8 @@ import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/OverviewPage.module.css";
 import { useBills } from "../../bills/useBills";
 import { useDebts } from "../../debts/useDebts";
-import { useSalary } from "../../../shared/hooks/useSalary";
+import { useIncomes } from "../../incomes/useIncomes";
+import { incomeInMonth, salaryIncome } from "../../incomes/incomesUtils";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
 import { daysSince, goalHeldTotal, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
@@ -113,7 +114,9 @@ export const OverviewPage = () => {
   const { data: debts = [] } = useDebts();
   const { opening, anchors, source: openingSource, isLoading: openingLoading } = useOpeningBalance();
   const { accounts, readings, latest: lastReading } = useMoneyAccounts();
-  const { salary } = useSalary(now);
+  // The incomes on «Έσοδα»: the ones late or waiting for the bank question go
+  // on the list below, and the salary marks pay day on the month's timeline.
+  const { incomes, attention: incomeAttention } = useIncomes(now);
 
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
   const inGoals = useMemo(() => goalHeldTotal(transactions), [transactions]);
@@ -127,6 +130,10 @@ export const OverviewPage = () => {
 
   // ── Today ──
   const attention = useMemo(() => attentionItems(bills, debts, now), [bills, debts, now]);
+  const incomeItems = useMemo(() => {
+    const names = new Map(incomes.map((income) => [income.id, income.name]));
+    return incomeAttention.map((status) => ({ status, name: names.get(status.incomeId) ?? "" }));
+  }, [incomes, incomeAttention]);
   const monthTransactions = useMemo(() => filterTransactions(transactions, getDateRange("current_month", appliedRange, now)), [transactions, appliedRange, now]);
   const thisMonth = useMemo(() => calculateMetrics(monthTransactions), [monthTransactions]);
   const investedThisMonth = useMemo(() => sumInvestments(monthTransactions), [monthTransactions]);
@@ -145,10 +152,11 @@ export const OverviewPage = () => {
   }, [monthTransactions, categories, t]);
 
   // ── The month ──
-  const timeline = useMemo(
-    () => monthTimeline(bills, now, salary ? { amount: salary.amount, dayOfMonth: salary.dayOfMonth, label: t("bills.timelineIncome") } : undefined),
-    [bills, now, salary, t],
-  );
+  const timeline = useMemo(() => {
+    const salary = salaryIncome(incomes);
+    const pay = salary ? incomeInMonth(salary, transactions, now) : undefined;
+    return monthTimeline(bills, now, pay ? { ...pay, label: t("bills.timelineIncome") } : undefined);
+  }, [bills, now, incomes, transactions, t]);
 
   // ── Position ── the same series Analytics draws, over the last six months.
   const position = useMemo(() => netWorthSeries(transactions, debts, anchors, new Date(now.getFullYear(), now.getMonth() - 5, 1), now), [transactions, debts, anchors, now]);
@@ -314,6 +322,7 @@ export const OverviewPage = () => {
   const attentionList = (
     <AttentionList
       items={attention}
+      incomes={incomeItems}
       late={lateOccurrences}
       unconfirmed={unconfirmed}
       now={now}

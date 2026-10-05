@@ -3,7 +3,7 @@ import { FiChevronRight } from "react-icons/fi";
 
 import { OUTGOING_COLOURS } from "../../overview/components/paydayParts";
 import { daysLate } from "../plannerActuals";
-import { SALARY_ROW_ID, type PlannerEvent } from "../plannerUtils";
+import type { PlannerEvent } from "../plannerUtils";
 import type { SliceStep } from "../payCycles";
 import styles from "../css/PlannerPage.module.css";
 
@@ -57,7 +57,6 @@ export function CycleSteps({
   const isToday = (date?: Date) => !!date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
   const when = (date?: Date) => (!date ? "" : isToday(date) ? t("planner.today") : dayDate.format(date));
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
-  const nameOf = (event: PlannerEvent) => (event.label === SALARY_ROW_ID ? t("planner.salaryLabel") : event.label);
 
   const row = (key: string, date: string, label: string, amount: string, colour?: string, event?: PlannerEvent, note?: string) => {
     const tappable = !!event?.occurrenceKey && !!onOccurrence;
@@ -89,7 +88,7 @@ export function CycleSteps({
         const event = step.event!;
         // Late pay sits on today; it says how late, as the list under the months does.
         const note = event.late && event.expected ? t("planner.lateBy", { count: daysLate({ date: event.expected }, today), date: dayDate.format(event.expected) }) : undefined;
-        return row(key, when(step.date), nameOf(event), signed(step.amount), keyColour(step), event, note);
+        return row(key, when(step.date), event.label, signed(step.amount), keyColour(step), event, note);
       })}
 
       {close && (
@@ -105,7 +104,7 @@ export function CycleSteps({
         </div>
       )}
 
-      {nextPay && row("next-pay", when(nextPay.date), nameOf(nextPay), signed(nextPay.amount), OUTGOING_COLOURS.left, nextPay)}
+      {nextPay && row("next-pay", when(nextPay.date), nextPay.label, signed(nextPay.amount), OUTGOING_COLOURS.left, nextPay)}
     </div>
   );
 }

@@ -28,11 +28,14 @@ export interface IncomeCardProps {
   f: IncomeFormats;
   now: Date;
   onClose: () => void;
-  onEdit: (income: Income) => void;
+  /** Left out where the income is not changed from here — no button then. */
+  onEdit?: (income: Income) => void;
+  /** The edit button's words, where it leads elsewhere («Αλλαγή στα Έσοδα»). */
+  editLabel?: string;
   onArrive: (income: Income, status: IncomeStatus) => void;
-  onRestore: (income: Income) => void;
-  /** Asks first. */
-  onDelete: (income: Income) => void;
+  onRestore?: (income: Income) => void;
+  /** Asks first. Left out where nothing is deleted from here. */
+  onDelete?: (income: Income) => void;
 }
 
 function pauseText(income: Income, t: TFunction, f: IncomeFormats): string | undefined {
@@ -99,7 +102,7 @@ function Fact({ icon: Icon, label, value, sub }: { icon: IconType; label: string
   );
 }
 
-export default function IncomeCard({ income, statuses, expected, arrivals, accountName, formatCurrency, f, now, onClose, onEdit, onArrive, onRestore, onDelete }: IncomeCardProps) {
+export default function IncomeCard({ income, statuses, expected, arrivals, accountName, formatCurrency, f, now, onClose, onEdit, editLabel, onArrive, onRestore, onDelete }: IncomeCardProps) {
   const { t } = useTranslation();
   const mine = useMemo(() => statuses.filter((s) => s.incomeId === income.id), [statuses, income.id]);
   const chips = useMemo(() => incomeHistory(income, mine, now), [income, mine, now]);
@@ -108,8 +111,11 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
   const archived = income.active === false;
 
   const focus = row?.focus;
-  // The time «Ήρθε» would record: this one while it is open, else nothing to do.
-  const open = focus && !isSettled(focus) && focus.canArrive ? focus : undefined;
+  // The time «Ήρθε» records: this one while it is open, else the next one —
+  // always there, so a salary paid early can be marked the day it lands. The
+  // sheet it opens asks for the day and the figure and shows them before
+  // anything is written.
+  const open = archived ? undefined : focus && !isSettled(focus) && focus.state !== "skipped" ? focus : row?.next && !isSettled(row.next) ? row.next : undefined;
   const upcoming = focus && !isSettled(focus) && focus.state !== "skipped" && focus.state !== "missed" ? focus : row?.next;
   const tag = focus ? statusTag(focus, t, f) : undefined;
 
@@ -212,22 +218,30 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
 
       <ModalFooter className="justify-content-between">
         {/* The word only where it fits: on a phone the three would not share a row. */}
-        <Button color="danger" outline onClick={() => onDelete(income)} aria-label={t("common.delete")} title={t("common.delete")}>
-          <FiTrash2 aria-hidden />
-          <span className="d-none d-sm-inline ms-1">{t("common.delete")}</span>
-        </Button>
+        {onDelete ? (
+          <Button color="danger" outline onClick={() => onDelete(income)} aria-label={t("common.delete")} title={t("common.delete")}>
+            <FiTrash2 aria-hidden />
+            <span className="d-none d-sm-inline ms-1">{t("common.delete")}</span>
+          </Button>
+        ) : (
+          <span />
+        )}
         <div className="d-flex gap-2">
           {archived ? (
-            <Button color="primary" onClick={() => onRestore(income)}>
-              <FiRotateCcw className="me-1" aria-hidden />
-              {t("incomes.card.restore")}
-            </Button>
+            onRestore && (
+              <Button color="primary" onClick={() => onRestore(income)}>
+                <FiRotateCcw className="me-1" aria-hidden />
+                {t("incomes.card.restore")}
+              </Button>
+            )
           ) : (
             <>
-              <Button color="secondary" outline onClick={() => onEdit(income)}>
-                <FiEdit2 className="me-1" aria-hidden />
-                {t("common.edit")}
-              </Button>
+              {onEdit && (
+                <Button color="secondary" outline onClick={() => onEdit(income)}>
+                  <FiEdit2 className="me-1" aria-hidden />
+                  {editLabel ?? t("common.edit")}
+                </Button>
+              )}
               {open && (
                 <Button color="success" onClick={() => onArrive(income, open)}>
                   <FiCheck className="me-1" aria-hidden />

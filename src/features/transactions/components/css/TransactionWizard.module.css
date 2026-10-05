@@ -32,6 +32,29 @@
   cursor: pointer;
 }
 
+/* Three steps leave room for bigger circles. Every size here is the base one
+   scaled up, so the rail between them still meets the circles' middles. */
+.stepsLarge {
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.stepsLarge .stepDot {
+  width: 38px;
+  height: 38px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stepsLarge .stepLabel {
+  font-size: 12.5px;
+}
+
+.stepsLarge .stepBar {
+  width: 28px;
+  margin-top: 19px;
+}
+
 .stepDot {
   display: flex;
   align-items: center;

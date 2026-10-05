@@ -7,7 +7,7 @@ import { Sparkline } from "./Sparkline";
 import type { AttentionItem } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
 import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActuals";
-import { SALARY_ROW_ID } from "../../plannerPage/plannerUtils";
+import type { IncomeStatus } from "../../incomes/incomesUtils";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -40,21 +40,26 @@ export function Panel({ title, action, children }: { title?: string; action?: Re
  *
  * The Overview is for seeing what has been entered; the doing happens on the
  * page each thing belongs to. So every row is a way there: a bill to Πάγια, a
- * debt to Χρέη, a late or unconfirmed pay to the Προγραμματισμός, where its
- * own buttons are. When nothing wants doing it says so in one line and gets
- * out of the way — on a quiet day there is nothing to read.
+ * debt to Χρέη, a late income — or one waiting for «ήταν ήδη στην τράπεζα;» —
+ * to Έσοδα, a late or unconfirmed one-off or instalment to the
+ * Προγραμματισμός, where its own buttons are. When nothing wants doing it says
+ * so in one line and gets out of the way — on a quiet day there is nothing to
+ * read.
  */
 export function AttentionList({
   items,
+  incomes = [],
   late = [],
   unconfirmed = [],
   now,
   formatCurrency,
 }: {
   items: AttentionItem[];
-  /** Planner occurrences overdue: a salary not in yet, an instalment not seen. */
+  /** Incomes late, or waiting for the bank question — `useIncomes().attention`, each with its name. */
+  incomes?: { status: IncomeStatus; name: string }[];
+  /** Planner occurrences overdue: an instalment not seen, a one-off not in. */
   late?: ResolvedOccurrence[];
-  /** Money in with no record that the last bank reading may already hold. */
+  /** A one-off with no record that the last bank reading may already hold. */
   unconfirmed?: ResolvedOccurrence[];
   now: Date;
   formatCurrency: Money;
@@ -62,7 +67,7 @@ export function AttentionList({
   const { t, i18n } = useTranslation();
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
 
-  if (items.length === 0 && late.length === 0 && unconfirmed.length === 0) {
+  if (items.length === 0 && incomes.length === 0 && late.length === 0 && unconfirmed.length === 0) {
     return (
       <Panel>
         <div className="d-flex align-items-center gap-2" style={{ color: "var(--color-income-text)" }}>
@@ -96,25 +101,35 @@ export function AttentionList({
     </Link>
   );
 
-  const nameOf = (occurrence: ResolvedOccurrence) => (occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label);
-
   return (
-    <Panel title={t("overview.needsYou", { count: items.length + late.length + unconfirmed.length })}>
+    <Panel title={t("overview.needsYou", { count: items.length + incomes.length + late.length + unconfirmed.length })}>
       <div className={styles.attention}>
+        {/* The incomes first, as «Έσοδα» words them; answered there. */}
+        {incomes.map(({ status, name }) =>
+          status.state === "ask"
+            ? row(
+                status.key,
+                "/incomes",
+                t("incomes.ask.title", { name }),
+                <Badge pill color="warning-subtle" className="text-warning-emphasis">
+                  {t("overview.waitsForAnswer")}
+                </Badge>,
+                status.expected,
+              )
+            : row(status.key, "/incomes", name, badge(Math.max(1, status.lateDays ?? 1), 0), status.expected),
+        )}
         {unconfirmed.map((occurrence) =>
           row(
             occurrence.key,
             "/planner",
-            occurrence.label === SALARY_ROW_ID
-              ? t("planner.unconfirmedSalary", { date: dateFmt.format(occurrence.date) })
-              : t("planner.unconfirmedOther", { label: nameOf(occurrence), date: dateFmt.format(occurrence.date) }),
+            t("planner.unconfirmedOther", { label: occurrence.label, date: dateFmt.format(occurrence.date) }),
             <Badge pill color="warning-subtle" className="text-warning-emphasis">
               {t("overview.waitsForAnswer")}
             </Badge>,
             Math.abs(occurrence.amount),
           ),
         )}
-        {late.map((occurrence) => row(occurrence.key, "/planner", nameOf(occurrence), badge(Math.max(1, daysLate(occurrence, now)), 0), Math.abs(occurrence.amount)))}
+        {late.map((occurrence) => row(occurrence.key, "/planner", occurrence.label, badge(Math.max(1, daysLate(occurrence, now)), 0), Math.abs(occurrence.amount)))}
         {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount))}
       </div>
     </Panel>

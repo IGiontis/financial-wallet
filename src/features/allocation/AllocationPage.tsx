@@ -14,6 +14,7 @@ import { useCategories, useTransactions } from "../transactions/hooks/useTransac
 import { seriesColor } from "../analytics/components/chartTheme";
 import { categoryLabel } from "../../shared/utils/categories";
 import type { OneOff } from "../plannerPage/plannerUtils";
+import { useSalaryIncome } from "../incomes/useSalaryIncome";
 import {
   allocate,
   assignRemainder,
@@ -64,17 +65,17 @@ export function AllocationPage() {
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
   const { data: categories = [] } = useCategories();
 
-  // Reads the planner's pay figures; writes nothing the planner reads. Dragging
-  // a slider here to see how a month could go should not quietly rewrite the
-  // plan relied on there.
-  const [storedSalary] = useWorkspaceSetting("planner-salary", { amount: "", day: "" });
+  const [now] = useState(() => new Date());
+  // Reads the pay — the salary on «Έσοδα», what it brings in a month — and the
+  // planner's extra pay; writes nothing either reads. Dragging a slider here to
+  // see how a month could go should not quietly rewrite the plan relied on there.
+  const { monthly: salary, isLoading: salaryLoading } = useSalaryIncome(now);
   const [storedOneOffs] = useWorkspaceSetting<OneOff[]>("planner-oneoffs", []);
   const [storedLines, setLines] = useWorkspaceSetting<Bucket[]>("allocation-buckets", []);
   const [storedExtra, setExtra] = useWorkspaceSetting<ExtraThisMonth | null>("allocation-extra", null);
   const [payMode, setPayMode] = useWorkspaceSetting<ExtraPayMode>("allocation-pay-mode", "when");
   const [storedRollover, setRollover] = useWorkspaceSetting<RolloverState | null>("allocation-rollover", null);
 
-  const [now] = useState(() => new Date());
   const [linking, setLinking] = useState<string | null>(null);
 
   const lines = useMemo(
@@ -83,7 +84,6 @@ export function AllocationPage() {
   );
   const oneOffs = useMemo(() => (Array.isArray(storedOneOffs) ? storedOneOffs.filter((o) => !!o && typeof o.date === "string" && Number.isFinite(o.amount)) : []), [storedOneOffs]);
 
-  const salary = parseFloat(String(storedSalary?.amount ?? "")) || 0;
   const extraPay = useMemo(() => extraPayForMonth(oneOffs, payMode === "spread" ? "spread" : "when", now), [oneOffs, payMode, now]);
   const income = salary + extraPay;
 
@@ -154,7 +154,7 @@ export function AllocationPage() {
     return category ? categoryLabel(category.name, t) : t("analytics.unknownCategory");
   };
 
-  if (billsLoading || goalsLoading || txLoading) {
+  if (billsLoading || goalsLoading || txLoading || salaryLoading) {
     return (
       <PageShell>
         <SkeletonPageHeader />

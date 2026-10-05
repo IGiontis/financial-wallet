@@ -4,7 +4,7 @@ import { FiChevronDown, FiChevronRight, FiLock } from "react-icons/fi";
 import { daysLate, type ResolvedOccurrence } from "../plannerActuals";
 
 import { isHardDeadline } from "../../bills/billsUtils";
-import { SALARY_ROW_ID, type PlannerEvent } from "../plannerUtils";
+import type { PlannerEvent } from "../plannerUtils";
 import type { PlanSlice } from "../payCycles";
 import type { BillWithStatus } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
@@ -75,7 +75,7 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
         </span>
         <span className={styles.eventName}>
           <span className={styles.eventTitle} style={{ color: tone }}>
-            {event.label === SALARY_ROW_ID ? t("planner.salaryLabel") : event.label}
+            {event.label}
             {source && isHardDeadline(source) && <FiLock size={11} className="ms-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} title={t("bills.strictHint")} />}
             {tappable && <FiChevronRight size={12} className="ms-1" style={{ verticalAlign: "-1px" }} aria-hidden />}
           </span>
@@ -101,7 +101,6 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
   // Came, paid, or not coming this time — kept on the list, struck through, so
   // the plan shows it knows and the one tap that undoes it stays in reach.
   const renderSettled = (occurrence: ResolvedOccurrence) => {
-    const name = occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label;
     const outgoing = occurrence.amount < 0;
     const m = occurrence.matched;
     const note = occurrence.status === "skipped" ? t("planner.skippedShort") : m ? t(outgoing ? "planner.paidOn" : "planner.arrivedOn", { date: dateFmt.format(m.date) }) : "";
@@ -115,7 +114,7 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
       >
         <span className={styles.eventDate}>{dateFmt.format(occurrence.date)}</span>
         <span className={styles.eventName}>
-          <span className={styles.eventTitle}>{name}</span>
+          <span className={styles.eventTitle}>{occurrence.label}</span>
           <span className={`${styles.eventNote} ${occurrence.status === "skipped" ? "" : styles.doneNote}`}>
             {note}
             {differs && ` · ${t("planner.amountWas", { amount: formatCurrency(Math.abs(m!.amount)) })}`}

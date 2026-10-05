@@ -6,12 +6,12 @@ import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { parseISODay, standaloneMonthName, toISODay, toISOMonth } from "../../../shared/utils/dates";
+import { parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "../../../shared/utils/dates";
 import NewCategoryButton from "../../categories/NewCategoryButton";
 import type { MoneyAccount } from "../../accounts/accountsUtils";
 import { INCOME_KINDS, KIND_ICON, incomeOccurrences, incomeYear, suggestIncomeCategory, type Income, type IncomeKind } from "../incomesUtils";
 import { draftToIncome, validateAll, validateDraft, type DraftErrors, type DraftStep, type IncomeDraft } from "../incomeForm";
-import { weekdayName, type IncomeFormats } from "../incomeText";
+import { scheduleText, weekdayName, type IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
 import styles from "../css/IncomesPage.module.css";
@@ -22,8 +22,10 @@ import styles from "../css/IncomesPage.module.css";
 // and «ο μισθός μου».
 //
 // The steps are the Transactions wizard's rail: numbered circles, back and
-// forward. A change can jump to any step from the rail — everything is filled
-// in already — and save from any of them.
+// forward. The fourth is the check — everything typed, row by row, each row a
+// way back to its step — and it is the only place «Αποθήκευση» is: one button
+// forward at a time, never Save beside Next. A change can jump along the rail,
+// since everything is filled in already.
 
 export interface IncomeFormModalProps {
   draft: IncomeDraft;
@@ -40,9 +42,10 @@ export interface IncomeFormModalProps {
   onClose: () => void;
 }
 
-type View = DraftStep;
+/** The three steps that ask, then the check. */
+type View = DraftStep | 4;
 
-const STEPS = ["1", "2", "3"] as const;
+const STEPS = ["1", "2", "3", "4"] as const;
 
 export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onClose }: IncomeFormModalProps) {
   const { t } = useTranslation();
@@ -81,10 +84,15 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const pauseYear = useMemo(() => (preview && draft.hasPause && Number(draft.amount) > 0 ? incomeYear([preview], [], now) : undefined), [preview, draft.hasPause, draft.amount, now]);
 
   const goTo = (target: View) => {
-    if (target > view) {
-      const found = validateDraft(draft, view);
-      setErrors(found);
-      if (Object.keys(found).length > 0) return;
+    // Forward only over steps that are complete: jumping from the first to the
+    // check stops at the first step with something missing, and says what.
+    for (let step = view; step < target && step <= 3; step++) {
+      const found = validateDraft(draft, step as DraftStep);
+      if (Object.keys(found).length > 0) {
+        setErrors(found);
+        setView(step as DraftStep);
+        return;
+      }
     }
     setErrors({});
     setView(target);
@@ -105,34 +113,81 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(f.lang, new Date(2020, m, 1))), [f.lang]);
   const unit = draft.frequency === "weekly" ? "incomes.form.unitWeeks" : draft.frequency === "yearly" ? "incomes.form.unitYears" : "incomes.form.unitMonths";
-  const stepTitle = view === 1 ? t("incomes.form.step1") : view === 2 ? t("incomes.form.step2") : t("incomes.form.step3");
+  const stepTitle = view === 1 ? t("incomes.form.step1") : view === 2 ? t("incomes.form.step2") : view === 3 ? t("incomes.form.step3") : t("incomes.form.step4");
 
+
+  // Every answer of the three steps, said back in words — each row a way back
+  // to the step that asked it.
+  const savedAs = view === 4 ? draftToIncome(draft, toBase) : undefined;
+  const categoryName = (() => {
+    const category = categories.find((c) => c.id === draft.categoryId);
+    return category ? categoryLabel(category.name, t) : t("incomes.form.categoryAuto");
+  })();
+  const monthLabel = (value: string) => {
+    const month = parseISOMonth(value);
+    return month ? f.monthYearShort.format(month) : value;
+  };
+  const startLabel = (() => {
+    const date = draft.frequency === "weekly" ? parseISODay(draft.start) : parseISOMonth(draft.start);
+    return date ? (draft.frequency === "weekly" ? f.dayMonth.format(date) : f.monthYearShort.format(date)) : "—";
+  })();
+  const reviewRows: { step: DraftStep; label: string; value: string }[] = [
+    { step: 1, label: t("incomes.form.kind"), value: `${KIND_ICON[draft.kind]} ${t(`incomes.kind.${draft.kind}`)}` },
+    { step: 1, label: t("common.name"), value: draft.name.trim() || "—" },
+    { step: 1, label: t("common.amount"), value: `${draft.variable ? "≈ " : ""}${format(toBase(Number(draft.amount) || 0))} · ${draft.variable ? t("incomes.form.reviewVariable") : t("incomes.form.reviewFixed")}` },
+    { step: 1, label: t("common.category"), value: categoryName },
+    { step: 2, label: t("incomes.card.howOften"), value: savedAs ? scheduleText(savedAs, t, f) : "—" },
+    { step: 2, label: t("incomes.form.reviewFrom"), value: startLabel },
+    ...(nextDates.length > 0 ? [{ step: 2 as DraftStep, label: t("incomes.form.reviewNext"), value: nextDates.map((o) => f.dayMonth.format(o.date)).join(" · ") }] : []),
+    { step: 3, label: t("incomes.card.where"), value: accounts.find((a) => a.id === draft.accountId)?.name ?? t("incomes.card.noAccount") },
+    {
+      step: 3,
+      label: t("incomes.card.pause"),
+      value: draft.hasPause
+        ? `${monthLabel(draft.pauseFrom)} – ${draft.pauseTo ? monthLabel(draft.pauseTo) : t("incomes.form.pauseForever")}${draft.pauseYearly ? ` · ${t("incomes.form.reviewYearly")}` : ""}`
+        : t("incomes.form.reviewNoPause"),
+    },
+    { step: 3, label: t("incomes.form.reviewEnds"), value: draft.hasEnd && draft.end ? monthLabel(draft.end) : t("incomes.form.reviewNoEnd") },
+    { step: 3, label: t("incomes.form.reviewSalary"), value: draft.isSalary ? t("incomes.form.reviewSalaryYes") : t("incomes.form.reviewSalaryNo") },
+  ];
 
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose} tag="div" className="w-100">
-        <div className="h6 mb-2 fw-semibold">{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</div>
-        <WizardSteps
-          steps={STEPS}
-          current={String(view) as (typeof STEPS)[number]}
-          onGo={(step) => goTo(Number(step) as DraftStep)}
-          label={(step) => t(`incomes.form.stepShort${step}`)}
-          open={isEdit}
-        />
-        <div className="text-body-secondary mt-2" style={{ fontSize: 12.5 }}>
-          {stepTitle}
-        </div>
-      </ModalHeader>
+      <ModalHeader toggle={onClose}>{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</ModalHeader>
 
       <form
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (view === 3) save();
-          else goTo((view + 1) as DraftStep);
+          if (view === 4) save();
+          else goTo((view + 1) as View);
         }}
       >
         <ModalBody>
+          {/* Across the whole sheet, as on the Transactions form: in the
+              header it shrank to the title's width. */}
+          <WizardSteps
+            steps={STEPS}
+            current={String(view) as (typeof STEPS)[number]}
+            onGo={(step) => goTo(Number(step) as View)}
+            label={(step) => t(`incomes.form.stepShort${step}`)}
+            open={isEdit}
+            large
+          />
+          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+            {stepTitle}
+          </div>
+          {view === 4 && (
+            <div className={styles.readCard}>
+              {reviewRows.map((row) => (
+                <button key={row.label} type="button" className={`${styles.readRow} ${styles.readRowButton}`} onClick={() => goTo(row.step)}>
+                  <span className={styles.readLabel}>{row.label}</span>
+                  <span className={styles.readValue}>{row.value}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {view === 1 && (
             <>
               <FormGroup>
@@ -407,20 +462,19 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               {t("common.cancel")}
             </Button>
           ) : (
-            <Button type="button" color="secondary" outline onClick={() => goTo((view - 1) as DraftStep)}>
+            <Button type="button" color="secondary" outline onClick={() => goTo((view - 1) as View)}>
               ‹ {t("common.back")}
             </Button>
           )}
-          <div className="d-flex gap-2">
-            {isEdit && view !== 3 && (
-              <Button type="button" color="primary" outline onClick={save}>
-                {t("common.save")}
-              </Button>
-            )}
-            <Button type="submit" color="primary">
-              {view === 3 ? t("common.save") : `${t("common.next")} ›`}
+          {view === 4 ? (
+            <Button type="submit" color="success">
+              {t("common.save")}
             </Button>
-          </div>
+          ) : (
+            <Button type="submit" color="primary">
+              {t("common.next")} ›
+            </Button>
+          )}
         </ModalFooter>
       </form>
     </Modal>

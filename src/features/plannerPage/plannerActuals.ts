@@ -18,7 +18,11 @@ import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates
 // kept per occurrence.
 //
 // Bills and goals are not handled here: they already know what has been paid,
-// through the bill's own payments and the goal's deposits.
+// through the bill's own payments and the goal's deposits. Nor are the incomes
+// of the «Έσοδα» page — the salary among them: they have their own resolver
+// (`createIncomeResolver`), the one that page answers "has it come?" with, so
+// the two screens cannot answer it differently. `planIncomes` turns its
+// answers into the occurrences below.
 
 // The windows are the ones YNAB and Quicken Simplifi settled on for the same
 // job: ten days either side of the expected day. Actual Budget's two days would
@@ -47,18 +51,21 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY);
 
-export type OccurrenceSource = "salary" | "oneoff" | "loan";
+/** "income": one time of an income from «Έσοδα» — resolved by `planIncomes`, not here. */
+export type OccurrenceSource = "income" | "oneoff" | "loan";
 
 /** One expected arrival or payment, on the day the plan expects it. */
 export interface PlannedOccurrence {
   key: string;
   source: OccurrenceSource;
-  /** The salary row id, the one-off's id, or the debt's id. */
+  /** The income's id, the one-off's id, or the debt's id. */
   refId: string;
   label: string;
   /** Signed: positive arrives, negative leaves. */
   amount: number;
   date: Date;
+  /** A time of the income marked «ο μισθός μου» — the pay day the plan is cut at. */
+  pay?: boolean;
 }
 
 /** What the user said about one occurrence, overriding what the records suggest. */
@@ -83,8 +90,12 @@ export interface ResolvedOccurrence extends PlannedOccurrence {
   plannedDate?: Date;
   /** Signed, like `amount`. */
   plannedAmount: number;
-  /** The record that settled it, or the user's word for it. */
-  matched?: { date: Date; amount: number; label: string; manual: boolean };
+  /**
+   * The record that settled it, or the user's word for it. `recorded`: a record
+   * written for this very time with «Ήρθε» — only undoing that record on
+   * «Έσοδα» takes it back, so "that wasn't it" is not offered.
+   */
+  matched?: { date: Date; amount: number; label: string; manual: boolean; recorded?: boolean };
   overridden: boolean;
 }
 
@@ -119,10 +130,16 @@ interface Candidate {
  *
  * Stateful on purpose: a record settles one occurrence at most, so a bonus the
  * size of a salary cannot be counted as both.
+ *
+ * `settled` are records already accounted for before this resolver starts —
+ * the ones the incomes found as theirs — so a one-off cannot claim the
+ * salary's record a second time. A record written with «Ήρθε» for an income
+ * (`incomeId`) is never a match either: the user has already said what it was.
  */
-export function createResolver(actuals: Actuals, now: Date = new Date()) {
+export function createResolver(actuals: Actuals, now: Date = new Date(), settled: Iterable<string> = []) {
   const today = startOfDay(now);
-  const used = new Set<string>();
+  const used = new Set<string>(settled);
+  for (const tx of actuals.transactions) if (tx.incomeId) used.add(tx.id);
 
   const incomes: Candidate[] = actuals.transactions.filter(isPlainIncome).map((tx) => ({ id: tx.id, date: startOfDay(firestoreToDate(tx.date)), amount: tx.amount, label: tx.description }));
   const repayments = new Map<string, Candidate[]>();
@@ -143,9 +160,9 @@ export function createResolver(actuals: Actuals, now: Date = new Date()) {
   const isRecorded = (occurrence: PlannedOccurrence) => {
     const since = addDays(today, -EVIDENCE_DAYS);
     const recent = candidatesFor(occurrence).filter((c) => c.date >= since && c.date <= today);
-    // A salary must have been seen at its own size; a one-off is irregular, so
-    // any recorded income will do; a loan, any repayment of that loan.
-    return occurrence.source === "salary" ? recent.some((c) => close(c.amount, occurrence.amount)) : recent.length > 0;
+    // A one-off is irregular, so any recorded income will do; a loan, any
+    // repayment of that loan.
+    return recent.length > 0;
   };
 
   const findMatch = (occurrence: PlannedOccurrence): Candidate | undefined => {

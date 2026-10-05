@@ -1,15 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { createResolver, daysLate, occurrenceKey, type Actuals, type PlannedOccurrence } from "./plannerActuals";
-import { buildPlan, SALARY_ROW_ID, type OneOff } from "./plannerUtils";
+import { buildPlan, type OneOff } from "./plannerUtils";
 import { answerUnconfirmed } from "./plannerInputs";
+import { incomeOccurrenceKey } from "../incomes/incomesUtils";
+import { toISODay } from "../../shared/utils/dates";
+import { monthlySalary, SALARY_ID } from "../../test/incomes";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
 // The scenario on the mockup. Today is Saturday 26 September 2026. Pay is set
 // for the 30th and arrived on the 25th; the room rent, due on the 22nd, has not
 // come; the car loan's instalment on the 14th was repaid on the 13th.
+//
+// The salary is an income on «Έσοδα» now, resolved by the Incomes page's own
+// resolver inside the plan (`planIncomes`). `createResolver` is left with the
+// one-offs and the loans, so its own tests below ask about a dated income of
+// 1,700 entered as a one-off — the same arithmetic the salary had there.
 
 const NOW = new Date(2026, 8, 26, 10);
-const salary = { amount: 1700, dayOfMonth: 30, occurrences: 4 };
+const incomes = [monthlySalary(1700, 30)];
+/** The plan's key for one time of the salary — what `planner-occurrences` holds it under. */
+const salaryKey = (date: Date) => incomeOccurrenceKey(SALARY_ID, toISODay(date));
 
 let n = 0;
 const income = (amount: number, month: number, day: number, description = "Μισθός"): Transaction =>
@@ -18,9 +28,9 @@ const income = (amount: number, month: number, day: number, description = "Μι�
 const rent: OneOff = { id: "rent", label: "Ενοίκιο δωματίου", amount: 250, date: "2026-06-22", every: 1 };
 
 const occurrence = (over: Partial<PlannedOccurrence> & { date: Date }): PlannedOccurrence => {
-  const source = over.source ?? "salary";
-  const refId = over.refId ?? SALARY_ROW_ID;
-  return { key: occurrenceKey(source, refId, over.date), source, refId, label: over.label ?? SALARY_ROW_ID, amount: over.amount ?? 1700, ...over };
+  const source = over.source ?? "oneoff";
+  const refId = over.refId ?? "pay";
+  return { key: occurrenceKey(source, refId, over.date), source, refId, label: over.label ?? "Μισθός", amount: over.amount ?? 1700, ...over };
 };
 
 const actuals = (over: Partial<Actuals> = {}): Actuals => ({ transactions: [], debts: [], overrides: {}, ...over });
@@ -91,7 +101,7 @@ describe("createResolver", () => {
 
   describe("the user's word on one occurrence", () => {
     const at = new Date(2026, 8, 30);
-    const key = occurrenceKey("salary", SALARY_ROW_ID, at);
+    const key = occurrenceKey("oneoff", "pay", at);
 
     it("skips it", () => {
       const r = createResolver(actuals({ overrides: { [key]: { state: "skipped" } } }), NOW)(occurrence({ date: at }));
@@ -131,7 +141,7 @@ describe("createResolver", () => {
 });
 
 describe("the plan, checked against the records", () => {
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, oneOffs: [rent], openingBalance: 2420, horizon: 2, now: NOW };
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, oneOffs: [rent], openingBalance: 2420, horizon: 2, now: NOW };
   const records = actuals({ transactions: [august, early, income(250, 7, 22, "Ενοίκιο")] });
 
   it("neither counts the early salary twice nor forgets the late rent", () => {
@@ -143,18 +153,18 @@ describe("the plan, checked against the records", () => {
 
     // Two months from 26 Sep close on 30 Nov (25 Nov, rounded out): the 30th
     // of September is settled by the 25th's record, October's and November's remain.
-    const salaryEvents = checked.events.filter((e) => e.label === SALARY_ROW_ID);
+    const salaryEvents = checked.events.filter((e) => e.pay);
     expect(salaryEvents.map((e) => e.date)).toEqual([new Date(2026, 9, 30), new Date(2026, 10, 30)]);
-    expect(blind.events.filter((e) => e.label === SALARY_ROW_ID)).toHaveLength(salaryEvents.length + 1);
+    expect(blind.events.filter((e) => e.pay)).toHaveLength(salaryEvents.length + 1);
     const lateRent = checked.events.find((e) => e.label === "Ενοίκιο δωματίου" && e.late);
     expect(lateRent).toMatchObject({ amount: 250, date: new Date(2026, 8, 26), expected: new Date(2026, 8, 22) });
   });
 
   it("keeps each row's total equal to the events it put in the plan", () => {
     const plan = buildPlan({ ...base, actuals: records });
-    for (const id of [SALARY_ROW_ID, "rent"]) {
+    for (const id of [SALARY_ID, "rent"]) {
       const row = plan.rows.find((r) => r.id === id)!;
-      const events = plan.events.filter((e) => (id === SALARY_ROW_ID ? e.label === SALARY_ROW_ID : e.label === "Ενοίκιο δωματίου"));
+      const events = plan.events.filter((e) => (id === SALARY_ID ? e.pay : e.label === "Ενοίκιο δωματίου"));
       expect(events).toHaveLength(row.occurrences!);
       expect(Math.round(events.reduce((s, e) => s + e.amount, 0) * 100) / 100).toBe(row.total);
     }
@@ -163,7 +173,7 @@ describe("the plan, checked against the records", () => {
   it("reports what became of each one near today", () => {
     const plan = buildPlan({ ...base, actuals: records });
     const bySource = (key: string) => plan.occurrences.find((o) => o.key === key)?.status;
-    expect(bySource(occurrenceKey("salary", SALARY_ROW_ID, new Date(2026, 8, 30)))).toBe("received");
+    expect(bySource(salaryKey(new Date(2026, 8, 30)))).toBe("received");
     expect(bySource(occurrenceKey("oneoff", "rent", new Date(2026, 8, 22)))).toBe("late");
     expect(bySource(occurrenceKey("oneoff", "rent", new Date(2026, 9, 22)))).toBe("due");
   });
@@ -218,7 +228,7 @@ describe("the plan, checked against the records", () => {
       createdAt: new Date(2026, 2, 28),
       updatedAt: new Date(2026, 2, 28),
     } as unknown as DebtWithStatus;
-    const plan = buildPlan({ ...base, oneOffs: [], salary: undefined, debts: [loan], now: today, actuals: actuals({ debts: [loan] }) });
+    const plan = buildPlan({ ...base, oneOffs: [], incomes: [], debts: [loan], now: today, actuals: actuals({ debts: [loan] }) });
     const late = plan.events.find((e) => e.label === "Αυτοκίνητο" && e.late);
     expect(late).toMatchObject({ date: new Date(2026, 9, 3), expected: new Date(2026, 8, 28) });
     expect(late?.amount).toBeCloseTo(-198.01, 2);
@@ -239,13 +249,16 @@ describe("the plan, checked against the records", () => {
 
 describe("pay a bank reading may already hold", () => {
   const today = new Date(2026, 8, 30, 9);
-  const firstOfMonth = { amount: 1700, dayOfMonth: 1, occurrences: 4 };
+  const firstOfMonth = [monthlySalary(1700, 1)];
   const october1 = new Date(2026, 9, 1);
-  const key = occurrenceKey("salary", SALARY_ROW_ID, october1);
+  // The resolver's key for the dated income of the unit checks, and the plan's
+  // for the salary itself: an answer is kept under each.
+  const key = occurrenceKey("oneoff", "pay", october1);
+  const planKey = salaryKey(october1);
   const readOn = (day: Date) => actuals({ transactions: [august], lastReadingAt: day });
   // Two months from the 30th run to 30 November: pay on 1 October and 1 November.
-  const plan = (records: Actuals | undefined, horizon = 2) => buildPlan({ bills: [], goals: [], salary: firstOfMonth, openingBalance: 1200, horizon, now: today, actuals: records });
-  const status = (p: ReturnType<typeof plan>, at = october1) => p.occurrences.find((o) => o.key === occurrenceKey("salary", SALARY_ROW_ID, at))?.status;
+  const plan = (records: Actuals | undefined, horizon = 2) => buildPlan({ bills: [], goals: [], incomes: firstOfMonth, openingBalance: 1200, horizon, now: today, actuals: records });
+  const status = (p: ReturnType<typeof plan>, at = october1) => p.occurrences.find((o) => o.key === salaryKey(at))?.status;
 
   it("asks rather than counts it, when the reading was taken after it could have come", () => {
     const r = createResolver(readOn(new Date(2026, 8, 29, 20)), today)(occurrence({ date: october1 }));
@@ -257,8 +270,8 @@ describe("pay a bank reading may already hold", () => {
     expect(status(checked)).toBe("unconfirmed");
     expect(status(blind)).toBe("due");
     // Not in the plan: no event on the 1st, and the row counts November's pay only.
-    expect(checked.events.filter((e) => e.label === SALARY_ROW_ID).map((e) => e.date)).toEqual([new Date(2026, 10, 1)]);
-    expect(checked.rows.find((r) => r.id === SALARY_ROW_ID)).toMatchObject({ occurrences: 1, total: 1700 });
+    expect(checked.events.filter((e) => e.pay).map((e) => e.date)).toEqual([new Date(2026, 10, 1)]);
+    expect(checked.rows.find((r) => r.id === SALARY_ID)).toMatchObject({ occurrences: 1, total: 1700 });
     // Reconciled a second way: exactly one salary less, on every total that holds it.
     expect(blind.incomeTotal - checked.incomeTotal).toBe(1700);
     expect(blind.endingBalance - checked.endingBalance).toBe(1700);
@@ -267,7 +280,8 @@ describe("pay a bank reading may already hold", () => {
   });
 
   it("takes «it came» as received — still not counted again", () => {
-    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, true, today) } });
+    const came = answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, true, today);
+    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: came, [planKey]: came } });
     const r = createResolver(answered, today)(occurrence({ date: october1 }));
     expect(r).toMatchObject({ status: "received", plannedAmount: 0, overridden: true });
     expect(r.matched).toMatchObject({ date: new Date(2026, 8, 30), amount: 1700, manual: true });
@@ -275,7 +289,8 @@ describe("pay a bank reading may already hold", () => {
   });
 
   it("takes «not yet» as waiting — counted on its day again", () => {
-    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, false, today) } });
+    const notYet = answerUnconfirmed({ amount: 1700, plannedAmount: 0 }, false, today);
+    const answered = actuals({ transactions: [august], lastReadingAt: new Date(2026, 8, 29, 20), overrides: { [key]: notYet, [planKey]: notYet } });
     expect(answered.overrides[key]).toEqual({ state: "waiting" });
     const r = createResolver(answered, today)(occurrence({ date: october1 }));
     expect(r).toMatchObject({ status: "due", plannedDate: october1, plannedAmount: 1700 });
@@ -310,7 +325,7 @@ describe("pay a bank reading may already hold", () => {
   it("asks about a past one the reading may hold, and keeps it late once told it has not come", () => {
     // Pay due the 25th, not recorded; read on the 26th, today the 30th.
     const at = new Date(2026, 8, 25);
-    const k = occurrenceKey("salary", SALARY_ROW_ID, at);
+    const k = occurrenceKey("oneoff", "pay", at);
     const read = { transactions: [august], lastReadingAt: new Date(2026, 8, 26, 12) };
     expect(createResolver(actuals(read), today)(occurrence({ date: at })).status).toBe("unconfirmed");
     // Without the reading it was late, from today.

@@ -82,8 +82,9 @@ export default function OverviewHero({
       // where it pushed the verdict onto two lines on a phone.
       footer={
         <div className="d-flex justify-content-between align-items-baseline gap-2 mt-2">
+          {/* No pay day: the salary is set on «Έσοδα», where every screen reads it from. */}
           {!outlook.known ? (
-            <Link to="/planner" className="small text-decoration-none">
+            <Link to="/incomes" className="small text-decoration-none">
               {t("overview.setPayday")}
             </Link>
           ) : (

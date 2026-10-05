@@ -50,7 +50,7 @@ import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRow
 import BillYearAhead from "./BillYearAhead";
 import BillMonthTimeline from "./BillMonthTimeline";
 import { monthTimeline } from "./monthTimeline";
-import { useSalary } from "../../shared/hooks/useSalary";
+import { useSalaryIncome } from "../incomes/useSalaryIncome";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
 import CategoryBillsModal from "./CategoryBillsModal";
@@ -267,18 +267,19 @@ function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast
  * The monthly bills set against the pay they come out of.
  *
  * "€640 a month" answers nothing on its own. Beside the pay it is a decision:
- * a third of it gone before anything else is bought. The pay comes from the
- * figure already typed into the planner rather than from an average of past
- * income — a forecast belongs to the person making it.
+ * a third of it gone before anything else is bought. The pay is the salary
+ * the user typed on «Έσοδα» — what it brings in a month — rather than an
+ * average of past income: a forecast belongs to the person making it.
  */
 function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
   const { t, i18n } = useTranslation();
-  const [storedSalary] = useLocalStorage<{ amount?: string | number }>("planner-salary", { amount: "" });
+  const [now] = useState(() => new Date());
+  const { monthly: salary } = useSalaryIncome(now);
 
   // This month, not the twelve-month average. The pay arriving this month meets
   // the bills falling in this month; an average of a year is the wrong figure to
   // set against it, and in a month with a quarterly bill in it, badly wrong.
-  const month = useMemo(() => monthForecast(bills, new Date(), 0), [bills]);
+  const month = useMemo(() => monthForecast(bills, now, 0), [bills, now]);
   // What the month owes in full: still to pay, plus whatever has already gone.
   const monthlyBills = Math.round((month.total + month.prepaid) * 100) / 100;
   const approximate = month.variableCount > 0;
@@ -286,7 +287,6 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
   // ("Σεπτεμβρίου"), which reads as a fragment of a sentence rather than a label.
   const monthName = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(month.monthStart);
 
-  const salary = parseFloat(String(storedSalary?.amount ?? ""));
   const share = salaryShare(salary, monthlyBills);
 
   if (!share) {
@@ -1046,13 +1046,10 @@ export default function BillsPage() {
 
   const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
 
-  // The same pay day the planner works from — a second guess here would be a
-  // second answer to "when do I get paid".
-  const { salary } = useSalary(now);
-  const timeline = useMemo(
-    () => monthTimeline(bills, now, salary ? { amount: salary.amount, dayOfMonth: salary.dayOfMonth, label: t("bills.timelineIncome") } : undefined),
-    [bills, now, salary, t],
-  );
+  // The same pay day the planner works from — the salary on «Έσοδα» — since
+  // a second guess here would be a second answer to "when do I get paid".
+  const { thisMonth: pay } = useSalaryIncome(now);
+  const timeline = useMemo(() => monthTimeline(bills, now, pay ? { ...pay, label: t("bills.timelineIncome") } : undefined), [bills, now, pay, t]);
   const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
 
   const sections = useMemo(() => {

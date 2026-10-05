@@ -1,11 +1,12 @@
-import { addDays, addMonths, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
+import { addDays, addMonths, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth } from "date-fns";
 import { createResolver, lookbackStart, occurrenceKey, type Actuals, type PlannedOccurrence, type ResolvedOccurrence } from "./plannerActuals";
+import { planIncomes } from "./plannerIncomes";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { isEarning } from "../../shared/utils/moneyModel";
+import type { Income } from "../incomes/incomesUtils";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
 import { deadlinePace } from "../budget/investmentsUtils";
 import { currentPause, getDeadline, getGraceDays, getInstallmentCount, getPeriodDueDate, getPeriodKey, getPeriodStart, installmentAmount, installmentDueDates, isPausedOn, paidInstallments, shiftPeriodStart } from "../bills/billsUtils";
-import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 // The planner is a forward budget: what is going to arrive, what is going to
 // leave, over the next one to twelve months.
@@ -19,94 +20,14 @@ import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transacti
 // lines are theirs to write and every row is theirs to switch off.
 //
 // Bills and goals are still read from the app's own data, because those are
-// already commitments rather than guesses.
+// already commitments rather than guesses. So is the money in: the salary and
+// every other regular income come from «Έσοδα», where the user typed them —
+// see `planIncomes`. The Planner keeps no copy of its own.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 /** Rounded and negated, without turning a zero row into `-0` and "−0,00 €". */
 const negate = (n: number) => (n === 0 ? 0 : -round2(n));
 const clampDay = (year: number, month: number, day: number) => new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()));
-
-// ─── Salary detection ────────────────────────────────────────────────────────
-
-export interface SalaryPattern {
-  /** Median of the recent occurrences — resistant to one unusual month. */
-  amount: number;
-  /** Day of month it usually lands on. */
-  dayOfMonth: number;
-  /** How many separate months it was seen in. Two is the minimum to call it a pattern. */
-  occurrences: number;
-}
-
-const median = (values: number[]): number => {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-};
-
-/**
- * Finds the recurring salary by taking the largest income in each recent month
- * and checking it repeats.
- *
- * "Largest per month" rather than "anything that looks regular" on purpose: a
- * salary is almost always the biggest thing that arrives, and that rule needs
- * no threshold to tune. Returns undefined rather than guessing from a single
- * month — one payment is a payment, not a pattern.
- *
- * This is only ever a suggestion for the salary field: the figure the plan uses
- * is whatever the user leaves in it.
- */
-export function detectSalary(transactions: Transaction[], now: Date = new Date(), lookbackMonths = 4): SalaryPattern | undefined {
-  const earliest = startOfMonth(subMonths(now, lookbackMonths));
-
-  const biggestPerMonth = new Map<string, { amount: number; day: number }>();
-  for (const tx of transactions.filter(isEarning)) {
-    const date = firestoreToDate(tx.date);
-    if (date < earliest || date > now) continue;
-
-    const key = `${date.getFullYear()}-${date.getMonth()}`;
-    const amount = Math.abs(tx.amount);
-    const current = biggestPerMonth.get(key);
-    if (!current || amount > current.amount) biggestPerMonth.set(key, { amount, day: date.getDate() });
-  }
-
-  const found = Array.from(biggestPerMonth.values());
-  if (found.length < 2) return undefined;
-
-  return {
-    amount: round2(median(found.map((f) => f.amount))),
-    dayOfMonth: Math.round(median(found.map((f) => f.day))),
-    occurrences: found.length,
-  };
-}
-
-/** The next payday strictly after today. Falls back to the 1st when unknown. */
-export function nextSalaryDate(dayOfMonth: number | undefined, now: Date = new Date()): Date {
-  const day = dayOfMonth ?? 1;
-  const today = startOfDay(now);
-
-  const thisMonth = clampDay(today.getFullYear(), today.getMonth(), day);
-  if (thisMonth > today) return thisMonth;
-  return clampDay(today.getFullYear(), today.getMonth() + 1, day);
-}
-
-/**
- * Every payday between now and `end`.
- *
- * Stepped from the month index rather than by adding months to the last date,
- * so a salary on the 31st does not walk itself back to the 28th after February.
- */
-export function salaryDates(dayOfMonth: number | undefined, end: Date, now: Date = new Date()): Date[] {
-  const first = nextSalaryDate(dayOfMonth, now);
-  const dates: Date[] = [];
-
-  for (let i = 0; i < 400; i++) {
-    const date = clampDay(first.getFullYear(), first.getMonth() + i, dayOfMonth ?? 1);
-    if (date > end) break;
-    dates.push(date);
-  }
-
-  return dates;
-}
 
 // ─── Goals ───────────────────────────────────────────────────────────────────
 
@@ -296,7 +217,14 @@ export function billOccurrences(bill: BillWithStatus, from: Date, to: Date): { d
 
 // ─── The plan ────────────────────────────────────────────────────────────────
 
-/** A figure the user has written themselves: "food, €200 a month". */
+/**
+ * A figure the user has written themselves: "food, €200 a month".
+ *
+ * Costs only, now. A line of kind "income" is what an older Planner stored for
+ * money in; those were carried over to «Έσοδα» once (`migratePlannerIncomes`)
+ * and are left in storage untouched, but nothing plans with them any more —
+ * `buildPlan` passes them by, and the page neither shows nor offers them.
+ */
 export interface BudgetLine {
   id: string;
   label: string;
@@ -565,6 +493,14 @@ export interface PlannerEvent {
   amount: number;
   date: Date;
   billId?: string;
+  /** The income from «Έσοδα» this is a time of. */
+  incomeId?: string;
+  /**
+   * A time of the salary — the income marked «ο μισθός μου». Pay day is where
+   * the plan is cut (`payCycles`) and what "until pay day" runs to
+   * (`paydayOutlook`); every other income is money in like any other.
+   */
+  pay?: boolean;
   /**
    * Days of slack this bill actually has. Zero means the due date is the hard
    * limit — a strict subscription that merely happens to fall after payday can
@@ -584,7 +520,8 @@ export interface PlannerEvent {
   expected?: Date;
 }
 
-export type PlanRowSource = "salary" | "bill" | "goal" | "line" | "debt" | "oneoff";
+/** "income": an income from «Έσοδα», the salary among them. */
+export type PlanRowSource = "income" | "bill" | "goal" | "line" | "debt" | "oneoff";
 
 /** One line of the plan as the page lists it: what it is, and what it costs over the window. */
 export interface PlanRow {
@@ -607,6 +544,10 @@ export interface PlanRow {
    * from having been deleted.
    */
   kind?: BudgetLine["kind"];
+  /** An income: what one time of it brings — its figure, or a variable one's mean. */
+  each?: number;
+  /** The income marked «ο μισθός μου». */
+  pay?: boolean;
   /**
    * Why a row costs nothing in this window.
    *
@@ -710,7 +651,6 @@ export interface PlannerPlan {
   days: number;
   /** Months of budget the window actually contains — the current one is part-spent. */
   monthsCovered: number;
-  nextSalary?: Date;
   /** What the user says is in hand at the start. Nothing derives it. */
   openingBalance: number;
   rows: PlanRow[];
@@ -745,9 +685,9 @@ export interface PlannerPlan {
   /** The outgoing that tipped it under, when one thing did it. */
   breakingEvent?: PlannerEvent;
   /**
-   * Every salary, loan instalment and one-off near today, with what became of
-   * it — arrived, late, still to come. Empty when the plan was built without
-   * the records to check against.
+   * Every time an income is expected, every loan instalment and one-off near
+   * today, with what became of it — arrived, late, still to come. Empty when
+   * the plan was built without the records to check against.
    */
   occurrences: ResolvedOccurrence[];
   /**
@@ -773,13 +713,19 @@ export interface PlannerPlan {
 export interface PlanInput {
   bills: BillWithStatus[];
   goals: InvestmentGoalWithStats[];
+  /** The user's monthly costs. A line of kind "income" left by an older Planner is passed by. */
   lines?: BudgetLine[];
   /** Dated arrivals — a fourteenth salary, a coupon every three months. */
   oneOffs?: OneOff[];
   /** Only what the user owes — see `plannableDebts`. */
   debts?: DebtWithStatus[];
-  salary?: SalaryPattern;
+  /**
+   * The regular money in, as «Έσοδα» keeps it: the salary (the one marked
+   * «ο μισθός μου») and every other income. Archived ones count nowhere.
+   */
+  incomes?: Income[];
   openingBalance?: number;
+  /** Rows switched off: a bill's, goal's, debt's, line's or one-off's id, or an income's. */
   skipIds?: ReadonlySet<string>;
   horizon?: PlannerHorizon;
   now?: Date;
@@ -792,16 +738,22 @@ export interface PlanInput {
   actuals?: Actuals;
 }
 
-/** Row id for the salary, which has no document of its own to be keyed by. */
-export const SALARY_ROW_ID = "__salary__";
-
-export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], salary, openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date(), actuals }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], incomes = [], openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date(), actuals }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
+  const end = horizonEnd(horizon, now);
+  const days = Math.max(differenceInCalendarDays(end, today), 0);
+
+  // ── Incomes ───────────────────────────────────────────────────────────────
+  // First, and through the Incomes page's own resolver — see `planIncomes`.
+  // What they find as theirs is handed to the resolver below as already
+  // settled, so a one-off cannot claim the salary's record as well.
+  const incomePlan = planIncomes(incomes, { today, end, days, skipIds, now, actuals });
+
   // Checking against the records looks back a little: something due last week
   // that has not come is still owed, and the plan has to see it to say so.
-  const resolve = actuals ? createResolver(actuals, now) : undefined;
+  const resolve = actuals ? createResolver(actuals, now, incomePlan.claimed) : undefined;
   const lookFrom = resolve ? lookbackStart(now) : today;
-  const occurrences: ResolvedOccurrence[] = [];
+  const occurrences: ResolvedOccurrence[] = [...incomePlan.occurrences];
   /** Each expected item, checked when there is something to check it against; what is left to plan. */
   const settle = (planned: PlannedOccurrence[]): { date: Date; amount: number; key?: string; late?: boolean; expected?: Date }[] => {
     if (!resolve) return planned.map((o) => ({ date: o.date, amount: o.amount }));
@@ -809,8 +761,6 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     occurrences.push(...resolved);
     return resolved.flatMap((r) => (r.plannedDate ? [{ date: r.plannedDate, amount: r.plannedAmount, key: r.key, late: r.status === "late", expected: r.date }] : []));
   };
-  const end = horizonEnd(horizon, now);
-  const days = Math.max(differenceInCalendarDays(end, today), 0);
 
   // How much of a month's budget the window really holds. The current month is
   // already part spent, so charging a full €200 of food for the eleven days
@@ -827,37 +777,11 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     if (last >= first) monthsCovered += (last - first + 1) / inMonth;
   }
 
-  const rows: PlanRow[] = [];
-  const events: PlannerEvent[] = [];
+  // The incomes lead the rows, the salary first: what arrives is read before
+  // what leaves.
+  const rows: PlanRow[] = [...incomePlan.rows];
+  const events: PlannerEvent[] = [...incomePlan.events];
   const isOn = (id: string) => !skipIds.has(id);
-
-  // ── Salary ────────────────────────────────────────────────────────────────
-
-  const paydays = salary ? salaryDates(salary.dayOfMonth, end, now) : [];
-  if (salary) {
-    const enabled = isOn(SALARY_ROW_ID);
-    // From the look-back when checking, so a payday that has just gone by is
-    // seen — and found to have come, or not.
-    const expected = resolve ? salaryDates(salary.dayOfMonth, end, addDays(lookFrom, -1)) : paydays;
-    const placed = enabled
-      ? settle(expected.map((date) => ({ key: occurrenceKey("salary", SALARY_ROW_ID, date), source: "salary" as const, refId: SALARY_ROW_ID, label: SALARY_ROW_ID, amount: salary.amount, date })))
-      : [];
-    rows.push({
-      id: SALARY_ROW_ID,
-      source: "salary",
-      label: SALARY_ROW_ID,
-      total: enabled ? round2(placed.reduce((sum, p) => sum + p.amount, 0)) : 0,
-      occurrences: enabled ? placed.length : paydays.length,
-      perMonth: salary.amount,
-      enabled,
-    });
-    // Labelled with the row id rather than a word: the page translates this one
-    // and prints every other income event's own name. Marking it by `kind`
-    // instead meant a fourteenth salary, a room rent and every other line the
-    // user had named were all relabelled "Salary" on the chart and the
-    // timeline.
-    for (const p of placed) events.push({ kind: "income", label: SALARY_ROW_ID, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
-  }
 
   // ── Bills ─────────────────────────────────────────────────────────────────
 
@@ -1045,33 +969,40 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   const rateIn = new Float64Array(days + 2);
   const rateOut = new Float64Array(days + 2);
 
-  for (const line of lines) {
+  // An income with no day yet — one carried over from the old income lines —
+  // runs the same way: its month's figure spread over the month's days.
+  for (const spread of incomePlan.spreads) {
+    rateIn[spread.from] += spread.amount;
+    rateIn[spread.to + 1] -= spread.amount;
+  }
+
+  // Money in is the incomes' now; an income line an older Planner stored is
+  // passed by rather than counted a second time beside the income it became.
+  for (const line of lines.filter((l) => l.kind !== "income")) {
     const enabled = isOn(line.id);
-    const sign = line.kind === "income" ? 1 : -1;
     // One stretch, or one per winter for a season that comes back every year.
     const seasons = lineRanges(line, today, days);
     // A season entirely outside the horizon costs nothing here, and says so
     // with a note rather than vanishing from the list.
     const months = seasons.reduce((sum, season) => sum + monthsBetween(today, season.from, season.to), 0);
 
-    const total = enabled ? (line.kind === "income" ? round2(line.amount * months) : negate(line.amount * months)) : 0;
+    const total = enabled ? negate(line.amount * months) : 0;
 
     rows.push({
       id: line.id,
       source: "line",
       label: line.label,
       total,
-      perMonth: line.amount * sign,
-      kind: line.kind,
+      perMonth: -line.amount,
+      kind: "expense",
       note: seasons.length ? undefined : "outofseason",
       enabled,
     });
     if (!enabled) continue;
 
-    const rate = line.kind === "income" ? rateIn : rateOut;
     for (const season of seasons) {
-      rate[season.from] += line.amount;
-      rate[season.to + 1] -= line.amount;
+      rateOut[season.from] += line.amount;
+      rateOut[season.to + 1] -= line.amount;
     }
   }
 
@@ -1244,7 +1175,6 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     months: horizonMonths(horizon),
     days,
     monthsCovered: Math.round(monthsCovered * 100) / 100,
-    nextSalary: paydays[0],
     openingBalance: round2(openingBalance),
     rows,
     events,

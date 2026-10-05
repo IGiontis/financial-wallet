@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Category } from "../../shared/types/IndexTypes";
 import { toISODay } from "../../shared/utils/dates";
-import { MIGRATED_SALARY_ID, migratePlannerIncomes } from "./incomeMigration";
+import { MIGRATED_SALARY_ID, hasPlannerIncomes, migratePlannerIncomes, migrationStep, needsDetection } from "./incomeMigration";
 import { incomeOccurrences, incomeYear } from "./incomesUtils";
 
 // The one-off move of the Planner's incomes into the Incomes page. Phase 2
@@ -91,5 +91,47 @@ describe("migratePlannerIncomes — the income lines", () => {
   it("puts the salary first and never lets a line overwrite it", () => {
     const { incomes } = migratePlannerIncomes({ amount: "1450", day: "30" }, [{ id: "salary", label: "Clash", amount: 1, kind: "income" }, { id: "l2", label: "Rent", amount: 400, kind: "income" }], [], {}, { now: NOW });
     expect(incomes.map((i) => `${i.id}:${i.name}`)).toEqual(["salary:Μισθός", "l2:Rent"]);
+  });
+});
+
+describe("when the move runs", () => {
+  const typed = { amount: "1450", day: "30" };
+  const state = (over: Partial<Parameters<typeof migrationStep>[0]> = {}) =>
+    migrationStep({ workspaceLoaded: true, incomesExist: false, plannerSalary: typed, plannerLines: [], transactionsLoaded: true, ...over });
+
+  it("runs once the account's copy is in, with no incomes and something to move", () => {
+    expect(state()).toBe("run");
+    expect(state({ plannerSalary: undefined, plannerLines: [{ id: "l", label: "Room", amount: 250, kind: "income" }] })).toBe("run");
+  });
+
+  it("never before the account's copy has arrived — a new device's empty cache is not an empty account", () => {
+    expect(state({ workspaceLoaded: false })).toBe("idle");
+  });
+
+  it("never once an incomes list exists, even an empty one", () => {
+    expect(state({ incomesExist: true })).toBe("idle");
+  });
+
+  it("not when the old Planner holds nothing to move — a cleared salary, cost lines only", () => {
+    expect(state({ plannerSalary: { amount: "", day: "" } })).toBe("idle");
+    expect(state({ plannerSalary: undefined, plannerLines: [{ id: "f", label: "Food", amount: 300, kind: "expense" }] })).toBe("idle");
+    expect(hasPlannerIncomes(undefined, "rubbish")).toBe(false);
+  });
+
+  it("waits for the records when half the salary has to come from the detected one", () => {
+    expect(needsDetection({ amount: "", day: "25" })).toBe(true);
+    expect(needsDetection({ amount: 1600, day: "" })).toBe(true);
+    expect(needsDetection(typed)).toBe(false);
+    expect(state({ plannerSalary: { amount: "", day: "25" }, transactionsLoaded: false })).toBe("wait");
+    expect(state({ plannerSalary: { amount: "", day: "25" } })).toBe("run");
+    // A fully typed one does not wait for anything.
+    expect(state({ transactionsLoaded: false })).toBe("run");
+  });
+
+  it("is the same move twice: run again on its own result, nothing changes", () => {
+    const said = { "salary:__salary__:2026-09-30": { state: "skipped" as const } };
+    const first = migratePlannerIncomes(typed, [], ["__salary__"], said, { now: NOW });
+    const again = migratePlannerIncomes(typed, [], first.skip, first.occurrences, { now: NOW });
+    expect(again).toEqual(first);
   });
 });

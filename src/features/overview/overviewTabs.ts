@@ -1,5 +1,6 @@
 import { amountDueNext, billOverdue, billUrgency, daysUntilDeadline } from "../bills/billsUtils";
-import { SALARY_ROW_ID, type PlannerPlan } from "../plannerPage/plannerUtils";
+import type { PlannerPlan } from "../plannerPage/plannerUtils";
+import { isPay } from "../plannerPage/payCycles";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isPlainExpense } from "./overviewUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
@@ -69,7 +70,8 @@ export function attentionItems(bills: BillWithStatus[], debts: DebtWithStatus[],
  * pair. Now there is one walk: the plan's day-by-day balance, read up to the
  * last day before the pay arrives, and taken apart into what made it.
  *
- * Pay day is the plan's next salary, wherever the plan has put it — a salary
+ * Pay day is the plan's next salary — a time of the income marked «ο μισθός
+ * μου» on «Έσοδα» — wherever the plan has put it: a salary
  * already in early is gone from the plan, so the answer runs to the next one,
  * and a late one sits on today. With no salary planned the window runs to the
  * end of the month, and `known` says so.
@@ -112,7 +114,7 @@ type PlanWalk = Pick<PlannerPlan, "openingBalance" | "points" | "events">;
 export function paydayOutlook(plan: PlanWalk, now: Date): PaydayOutlook {
   const today = startOfDay(now);
   const nextPay = plan.events
-    .filter((e) => e.label === SALARY_ROW_ID && e.amount > 0)
+    .filter(isPay)
     .map((e) => startOfDay(e.date))
     .filter((d) => d.getTime() >= today.getTime())
     .sort((a, b) => a.getTime() - b.getTime())[0];

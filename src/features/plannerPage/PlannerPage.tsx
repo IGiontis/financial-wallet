@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import IncomeQuickView from "../incomes/components/IncomeQuickView";
 import { Alert, Col, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
-import { FiChevronRight, FiPlus } from "react-icons/fi";
+import { FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
@@ -16,7 +18,8 @@ import { plannableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
-import { useSalary } from "../../shared/hooks/useSalary";
+import { useDeclinedSalaries, useIncomeList } from "../incomes/useIncomes";
+import { isActiveIncome, salarySuggestion } from "../incomes/incomesUtils";
 import { useDebounce } from "../../shared/hooks/useDebounce";
 import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
 import {
@@ -31,7 +34,6 @@ import {
   type OneOff,
   type PlannerHorizon,
   type PlanRow,
-  SALARY_ROW_ID,
 } from "./plannerUtils";
 import { payCycles, planMonths, sliceSteps } from "./payCycles";
 import PlannerPaydayCard, { type PaydaySteps } from "./components/PlannerPaydayCard";
@@ -39,7 +41,6 @@ import PeriodCard from "./components/PeriodCard";
 import AnswerStrip from "./components/AnswerStrip";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
-import SalaryEditor from "./components/SalaryEditor";
 import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import LeverGroup from "./components/LeverGroup";
@@ -50,7 +51,7 @@ import { PageShell } from "../../shared/components/PageShell";
 
 const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Which groups start unrolled. Income holds the salary, which is the one thing most visits come to change. */
+/** Which groups start unrolled. Income holds the salary, and every income's switch. */
 const DEFAULT_OPEN: Record<string, boolean> = { income: true };
 
 /**
@@ -58,7 +59,8 @@ const DEFAULT_OPEN: Record<string, boolean> = { income: true };
  * months — and whether the first covers the second.
  *
  * Nothing here is inferred from what has already been spent. Bills and goals
- * come from the app because they are commitments already made; everything else
+ * come from the app because they are commitments already made; the money in is
+ * the incomes the user typed on «Έσοδα», each on its own days; everything else
  * is the user's own estimate of the months ahead, and every row can be switched
  * off to ask "and if I dropped this?".
  *
@@ -111,7 +113,9 @@ export function PlannerPage() {
   // 1st", "no bonus this year". Keyed by item and expected day; see plannerActuals.
   const [storedOverrides, setOverrides] = useWorkspaceSetting<Record<string, OccurrenceOverride>>(PLANNER_KEYS.occurrences, {});
   const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
-  const [editingSalary, setEditingSalary] = useState(false);
+  // An income tapped in the list: its card, with «Ήρθε» on it.
+  const [openIncome, setOpenIncome] = useState<string | null>(null);
+  const navigate = useNavigate();
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
   const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
@@ -123,35 +127,44 @@ export function PlannerPage() {
   // Memoised because it feeds the plan: a fresh object each render would
   // rebuild the whole projection on every keystroke anywhere on the page. The
   // checks themselves are shared with the Overview — see `plannerInputs`.
-  const lines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  const allLines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  // Costs only. An income line an older Planner stored stays in storage, as
+  // it was, but became an income on «Έσοδα» and is neither shown nor planned
+  // here — see `migratePlannerIncomes`.
+  const lines = useMemo(() => allLines.filter((l) => l.kind !== "income"), [allLines]);
   const oneOffs = useMemo(() => cleanOneOffs(storedOneOffs), [storedOneOffs]);
   const skipped = useMemo(() => cleanSkipped(storedSkipped), [storedSkipped]);
   const open = useMemo(() => (storedOpen && typeof storedOpen === "object" ? storedOpen : DEFAULT_OPEN), [storedOpen]);
 
   // One dialog for every figure the user owns, rather than an inline editor
   // permanently unrolled under each row.
-  const [editor, setEditor] = useState<{ mode: "line" | "oneoff"; kind?: "income" | "expense"; draft: EntryDraft } | null>(null);
+  const [editor, setEditor] = useState<{ mode: "line" | "oneoff"; draft: EntryDraft } | null>(null);
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
-  // Shared with the bills timeline, so the two screens cannot end up planning
-  // against different pay days.
-  const { salary, input: salaryInput, setInput: setSalaryInput, detected: detectedSalary, isManual: salaryIsManual } = useSalary(now);
+  // The money in: every income on «Έσοδα», the salary among them — the list
+  // the Overview, the Bills page and the Allocation page read too, so no two
+  // screens plan with different pay. Changed there, never here.
+  const { incomes, isLoading: incomesLoading } = useIncomeList();
+  const activeIncomes = useMemo(() => incomes.filter(isActiveIncome), [incomes]);
+  // With no incomes, what the records suggest — only ever said, never planned
+  // with — unless it was already turned down on «Έσοδα».
+  const [declinedSalaries] = useDeclinedSalaries();
+  const suggestion = useMemo(() => (activeIncomes.length === 0 ? salarySuggestion(transactions, now, declinedSalaries) : undefined), [activeIncomes.length, transactions, now, declinedSalaries]);
 
   // Only what is owed: money owed *to* you is not income until it turns up, and
   // a plan that spent it in advance would be promising an unmade sale.
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
 
-  // The two things that are *typed* are held back a moment before the
+  // The one thing that is *typed* here is held back a moment before the
   // projection is rebuilt. Every other input — a switch, a horizon pill — is a
   // single discrete change, but a text box fires per character, and rebuilding
-  // three years of plan on each one cost about 150ms a keystroke. The fields
-  // themselves stay immediate; only the answer waits for you to finish.
+  // three years of plan on each one cost about 150ms a keystroke. The field
+  // itself stays immediate; only the answer waits for you to finish.
   const plannedOpening = useDebounce(openingInput, 250);
-  const plannedSalary = useDebounce(salary, 250);
 
   const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
-  // The records the plan checks each salary, instalment and one-off against, so
+  // The records the plan checks each income, instalment and one-off against, so
   // one that came early is not counted again and one that is late is not lost.
   const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
   const fromBanks = openingSource !== "manual";
@@ -159,8 +172,8 @@ export function PlannerPage() {
 
   // Everything the plan is built from except where it starts and how far it looks.
   const inputs = useMemo(
-    () => ({ bills, goals, lines, oneOffs, debts, salary: plannedSalary, skipIds, now, actuals }),
-    [bills, goals, lines, oneOffs, debts, plannedSalary, skipIds, now, actuals],
+    () => ({ bills, goals, lines, oneOffs, debts, incomes, skipIds, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, incomes, skipIds, now, actuals],
   );
   const plan = useMemo(() => buildPlan({ ...inputs, openingBalance, horizon }), [inputs, openingBalance, horizon]);
   // "Until pay day" is read off a plan exactly like the Overview's: the same
@@ -226,7 +239,7 @@ export function PlannerPage() {
   // list — so clearing the box to type a new number made the whole row
   // disappear mid-keystroke, exactly as if it had been deleted.
   const rowsOf = (match: (row: PlanRow) => boolean) => plan.rows.filter(match);
-  const incomeRows = rowsOf((r) => r.source === "salary" || (r.source === "line" && r.kind === "income"));
+  const incomeRows = rowsOf((r) => r.source === "income");
   const billRows = rowsOf((r) => r.source === "bill");
   const goalRows = rowsOf((r) => r.source === "goal");
   const budgetRows = rowsOf((r) => r.source === "line" && r.kind === "expense");
@@ -261,7 +274,7 @@ export function PlannerPage() {
   };
   const toggleGroup = (key: string) => setOpen({ ...open, [key]: !open[key] });
 
-  type Editor = { mode: "line" | "oneoff"; kind?: "income" | "expense"; draft: EntryDraft };
+  type Editor = { mode: "line" | "oneoff"; draft: EntryDraft };
 
   /** Opens the editor for a row the user owns; undefined for rows the app keeps. */
   const editHandler = (row: PlanRow) => {
@@ -271,7 +284,6 @@ export function PlannerPage() {
       ? () =>
           setEditor({
             mode: "line",
-            kind: line.kind,
             draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until },
           })
       : undefined;
@@ -301,7 +313,7 @@ export function PlannerPage() {
         id: draft.id ?? newId(),
         label,
         amount,
-        kind: editor.kind ?? "expense",
+        kind: "expense",
         ...(draft.from ? { from: draft.from } : {}),
         ...(draft.to ? { to: draft.to } : {}),
         // A repeat needs a month to repeat from, and an end with nothing
@@ -309,7 +321,9 @@ export function PlannerPage() {
         ...(draft.from && draft.yearly ? { yearly: true } : {}),
         ...(draft.from && draft.yearly && draft.until ? { until: draft.until } : {}),
       };
-      setLines(draft.id ? lines.map((l) => (l.id === draft.id ? entry : l)) : [...lines, entry]);
+      // Through the whole stored list, so the old income lines kept there are
+      // written back as they were.
+      setLines(draft.id ? allLines.map((l) => (l.id === draft.id ? entry : l)) : [...allLines, entry]);
     }
     setEditor(null);
   };
@@ -318,11 +332,11 @@ export function PlannerPage() {
     const id = editor.draft.id;
     if (!id) return;
     if (editor.mode === "oneoff") setOneOffs(oneOffs.filter((o) => o.id !== id));
-    else setLines(lines.filter((l) => l.id !== id));
+    else setLines(allLines.filter((l) => l.id !== id));
     setEditor(null);
   };
 
-  if (txLoading || goalLoading || billLoading || openingLoading) {
+  if (txLoading || goalLoading || billLoading || openingLoading || incomesLoading) {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -379,11 +393,12 @@ export function PlannerPage() {
     return stop ? `${yearly} ${t("planner.seasonToOnly", { month: seasonYearFmt.format(stop) })}` : yearly;
   };
 
-  const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string) => {
+  /** Where a row leads instead of an editor here. */
+  type RowLink = { to: string; label: string };
+
+  const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string, link?: RowLink, editLabel?: string) => {
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
-    // The salary row has no document behind it, so its label is an internal id
-    // rather than something a screen reader should ever read out.
-    const title = row.source === "salary" ? t("planner.salaryLabel") : row.label;
+    const title = row.label;
     // A zero row says why it is zero. "×0" would be true and useless.
     // A monthly figure is charged pro rata, so €400 a month lands as €360 with
     // twenty-seven days of the month left. Printing the rate alone made that
@@ -414,8 +429,12 @@ export function PlannerPage() {
 
     return (
       <div key={row.id} className={`${styles.rowLine} ${tone} ${row.enabled ? "" : styles.rowOff}`}>
-        {onEdit ? (
-          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={onEdit} aria-label={t("planner.editEntry")}>
+        {link ? (
+          <Link to={link.to} className={`${styles.rowName} ${styles.rowEditable} text-decoration-none`} aria-label={link.label}>
+            {name}
+          </Link>
+        ) : onEdit ? (
+          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={onEdit} aria-label={editLabel ?? t("planner.editEntry")}>
             {name}
           </button>
         ) : (
@@ -438,16 +457,16 @@ export function PlannerPage() {
   const sweep = (rows: PlanRow[]) =>
     rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
 
-  // The salary as a row like every other — its switch, and "1.450,00 € · on
-  // the 30th · ×3" under it — opening its own dialog for the amount and day.
-  const salaryRow = incomeRows.find((r) => r.source === "salary");
-  const salaryHint =
-    salaryRow && salary
-      ? !salaryRow.enabled
-        ? t("planner.offRow")
-        : `${formatCurrency(salary.amount)} · ${t("planner.salaryOnDay", { day: salary.dayOfMonth })} · ${t("planner.timesCount", { times: salaryRow.occurrences ?? 0 })}`
-      : undefined;
-  const lineIncomeRows = incomeRows.filter((r) => r.source !== "salary");
+  // Each income as a row like every other — its switch, and "1.450,00 € · ×3 ·
+  // next 30 Oct" under it — leading to «Έσοδα», where its figures are kept.
+  const incomeHint = (row: PlanRow) => {
+    if (!row.enabled) return t("planner.offRow");
+    const each = row.each !== undefined ? `${formatCurrency(row.each)} · ` : "";
+    // The next time the plan has it landing on its own day; a late one, held
+    // on today, says so on the timeline instead.
+    const next = plan.events.find((e) => e.incomeId === row.id && !e.late);
+    return `${each}${t("planner.timesCount", { times: row.occurrences ?? 0 })}${next ? ` · ${t("planner.incomeNext", { date: dateFmt.format(next.date) })}` : ""}`;
+  };
 
   return (
     <PageShell>
@@ -490,7 +509,6 @@ export function PlannerPage() {
             unconfirmed={unconfirmed}
             onAnswer={answer}
             onOccurrence={setOpenOccurrence}
-            onSetPayday={() => setEditingSalary(true)}
             baseCurrency={baseCurrency}
             now={now}
             formatCurrency={formatCurrency}
@@ -548,25 +566,32 @@ export function PlannerPage() {
               formatCurrency={formatCurrency}
               open={!!open.income}
               onToggle={() => toggleGroup("income")}
-              onAdd={() => setEditor({ mode: "line", kind: "income", draft: { label: "", amount: "" } })}
-              addLabel={t("planner.addIncomeLine")}
               {...sweep(incomeRows)}
             >
-              {/* Salary is the one row the app can only guess at, so it opens
-                  its amount and day rather than being merely switchable. */}
-              {salaryRow ? (
-                renderRow(salaryRow, () => setEditingSalary(true), salaryHint)
-              ) : (
-                <div className={styles.rowLine}>
-                  <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={() => setEditingSalary(true)}>
-                    <span className={styles.rowTitle}>{t("planner.salaryLabel")}</span>
-                    <span className={styles.rowHint}>{t("planner.salaryMissing")}</span>
-                  </button>
-                  <FiChevronRight size={15} className="text-body-secondary flex-shrink-0" aria-hidden />
-                </div>
-              )}
+              {/* Every income on «Έσοδα», in by itself, the salary first. Each
+                  can be switched off here to ask "and without it?"; its
+                  figures and days are changed there, which is where the row
+                  leads. */}
+              {incomeRows.map((row) => renderRow(row, () => setOpenIncome(row.id), incomeHint(row), undefined, t("incomes.list.openCard", { name: row.label })))}
 
-              {lineIncomeRows.map((row) => renderRow(row, editHandler(row)))}
+              {activeIncomes.length === 0 ? (
+                // No incomes, no money in: said, with where to add it — and
+                // the salary the records suggest, as a suggestion only. The
+                // plan is never built on a guess.
+                <div className={`${styles.rowLine} flex-column align-items-start py-2`}>
+                  <span className={styles.rowTitle}>{t("planner.noIncomes")}</span>
+                  {suggestion && (
+                    <span className={styles.rowHint}>{t("planner.foundSalary", { amount: formatCurrency(suggestion.pattern.amount), day: suggestion.pattern.dayOfMonth })}</span>
+                  )}
+                  <Link to="/incomes" className={`${styles.linkButton} mt-1`}>
+                    {t("planner.addOnIncomes")}
+                  </Link>
+                </div>
+              ) : (
+                <Link to="/incomes" className={`${styles.linkButton} my-1`}>
+                  {t("planner.changeOnIncomes")}
+                </Link>
+              )}
 
               {/* Extra pay lives with the pay, not in a section of its own: it
                   is the same question — what arrives — asked about a date
@@ -683,7 +708,7 @@ export function PlannerPage() {
               formatCurrency={formatCurrency}
               open={!!open.mine}
               onToggle={() => toggleGroup("mine")}
-              onAdd={() => setEditor({ mode: "line", kind: "expense", draft: { label: "", amount: "" } })}
+              onAdd={() => setEditor({ mode: "line", draft: { label: "", amount: "" } })}
               addLabel={t("planner.addExpenseLine")}
               {...sweep(budgetRows)}
             >
@@ -708,21 +733,12 @@ export function PlannerPage() {
           onClose={() => setEditor(null)}
         />
       )}
-      {editingSalary && (
-        <SalaryEditor
-          input={salaryInput}
-          onInput={setSalaryInput}
-          detected={detectedSalary}
-          isManual={salaryIsManual}
-          baseCurrency={baseCurrency}
-          formatCurrency={formatCurrency}
-          onClose={() => setEditingSalary(false)}
-        />
-      )}
+      {/* The income's own card, «Ήρθε» on it — the same as on «Έσοδα». */}
+      {openIncome && <IncomeQuickView incomeId={openIncome} onClose={() => setOpenIncome(null)} onEdit={() => navigate("/incomes")} />}
       {occurrence && (
         <OccurrenceSheet
           occurrence={occurrence}
-          label={occurrence.label === SALARY_ROW_ID ? t("planner.salaryLabel") : occurrence.label}
+          label={occurrence.label}
           override={overrides[occurrence.key]}
           baseCurrency={baseCurrency}
           formatCurrency={formatCurrency}

@@ -1,7 +1,7 @@
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiInfo, FiPauseCircle, FiRepeat, FiRotateCcw, FiSliders, FiTrash2 } from "react-icons/fi";
+import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiInfo, FiPauseCircle, FiRepeat, FiRotateCcw, FiShuffle, FiSliders, FiTrash2 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { MENU_DIVIDER, RowMenu, type RowMenuEntry } from "../../../shared/components/RowMenu";
 import { currentPause } from "../../bills/billsUtils";
@@ -75,9 +75,13 @@ function lineMenu(income: Income, t: TFunction, actions: IncomeListActions, opti
   ];
 }
 
+/** What a chip says, which sets its colour: the same kind of fact is the same colour on every row. */
+type TagKind = "when" | "schedule" | "account" | "variable" | "pause" | "more";
+
 interface Tag {
   icon: IconType;
   text: string;
+  kind: TagKind;
 }
 
 /** A row's facts as small chips rather than one run of grey text. */
@@ -85,8 +89,8 @@ function Tags({ pill, tags }: { pill?: { text: string; tone: string }; tags: Tag
   return (
     <span className={styles.tags}>
       {pill && <span className={`${styles.pill} ${styles[`pill_${pill.tone}`]}`}>{pill.text}</span>}
-      {tags.map(({ icon: Icon, text }) => (
-        <span key={text} className={styles.tag}>
+      {tags.map(({ icon: Icon, text, kind }) => (
+        <span key={text} className={`${styles.tag} ${styles[`tag_${kind}`]}`}>
           <Icon aria-hidden />
           {text}
         </span>
@@ -168,7 +172,7 @@ export function IncomeList(props: ListProps) {
                     </span>
                     <span className={styles.lineMain}>
                       <span className={styles.lineName}>{income.name}</span>
-                      <Tags tags={[{ icon: FiRepeat, text: shortSchedule(income, t, f) }]} />
+                      <Tags tags={[{ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" }]} />
                     </span>
                     <span className={styles.lineAmount}>{formatCurrency(income.amount)}</span>
                   </button>
@@ -196,27 +200,27 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   let amount: string;
   if (section === "arrived") {
     amount = formatCurrency(sum(row.settled.map((s) => s.arrival?.amount ?? 0)));
-    tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
-    if (next) tags.push({ icon: FiCalendar, text: t("incomes.list.next", { date: f.dayMonth.format(next.expectedDate) }) });
+    tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
+    if (next) tags.push({ icon: FiCalendar, text: t("incomes.list.next", { date: f.dayMonth.format(next.expectedDate) }), kind: "when" });
   } else if (section === "waiting" && focus) {
     amount = `${approx}${formatCurrency(focus.expected)}`;
     // Asked about one not due yet — next month's rent inside its ten days — is
     // "for" its day, not "was for" it.
     if (focus.state === "late" || focus.state === "ask") {
-      tags.push({ icon: FiCalendar, text: t(focus.date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.dayMonth.format(focus.date) }) });
+      tags.push({ icon: FiCalendar, text: t(focus.date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.dayMonth.format(focus.date) }), kind: "when" });
     } else {
-      tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
+      tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
     }
-    if (income.variable) tags.push({ icon: FiRepeat, text: t("incomes.list.variableMean", { amount: formatCurrency(focus.expected) }) });
-    if (account) tags.push({ icon: FiCreditCard, text: account });
-    if (row.open.length > 1) tags.push({ icon: FiCalendar, text: t("incomes.list.moreOpen", { count: row.open.length - 1 }) });
+    if (income.variable) tags.push({ icon: FiShuffle, text: t("incomes.list.variableMean", { amount: formatCurrency(focus.expected) }), kind: "variable" });
+    if (account) tags.push({ icon: FiCreditCard, text: account, kind: "account" });
+    if (row.open.length > 1) tags.push({ icon: FiCalendar, text: t("incomes.list.moreOpen", { count: row.open.length - 1 }), kind: "more" });
   } else {
     amount = `${income.variable ? "≈" : ""}${formatCurrency(focus?.expected ?? income.amount)}`;
     const upcoming = focus && !isSettled(focus) && focus.state !== "skipped" && focus.state !== "missed" ? focus : next;
-    if (pause?.state === "paused" && pause.to) tags.push({ icon: FiPauseCircle, text: t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }) });
-    else if (pause?.state === "ended") tags.push({ icon: FiPauseCircle, text: t("incomes.list.stopped") });
-    else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.dayMonth.format(upcoming.expectedDate) }) });
-    else tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
+    if (pause?.state === "paused" && pause.to) tags.push({ icon: FiPauseCircle, text: t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }), kind: "pause" });
+    else if (pause?.state === "ended") tags.push({ icon: FiPauseCircle, text: t("incomes.list.stopped"), kind: "pause" });
+    else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.dayMonth.format(upcoming.expectedDate) }), kind: "when" });
+    else tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
   }
   // The time «Αυτή τη φορά…» speaks about: this one while it is open (a "not
   // this time" included, so it can be taken back), else the next.

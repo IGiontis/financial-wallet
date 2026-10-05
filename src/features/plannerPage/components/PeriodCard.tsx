@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiClock } from "react-icons/fi";
 
-import { heroSubline, planPeriods, SALARY_ROW_ID, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import { heroSubline, planPeriods, type PlannerHorizon, type PlannerPlan } from "../plannerUtils";
+import { isPay } from "../payCycles";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
 import { BalanceScrub } from "./BalanceScrub";
@@ -53,9 +54,9 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
   const subline =
     line.key === "planner.lowestPoint"
       ? t(line.key, { amount: formatCurrency(line.lowest), date: dayDate.format(line.lowestOn) })
-      : t(line.key, { date: dayDate.format(line.date), name: line.name === SALARY_ROW_ID ? t("planner.salaryLabel") : line.name, amount: formatCurrency(line.lowest), lowDate: dayDate.format(line.lowestOn) });
+      : t(line.key, { date: dayDate.format(line.date), name: line.name, amount: formatCurrency(line.lowest), lowDate: dayDate.format(line.lowestOn) });
 
-  const salaries = plan.events.filter((e) => e.label === SALARY_ROW_ID && e.amount > 0);
+  const salaries = plan.events.filter(isPay);
   const salaryTotal = Math.round(salaries.reduce((sum, e) => sum + e.amount, 0) * 100) / 100;
   const otherIncome = Math.round((plan.incomeTotal - salaryTotal) * 100) / 100;
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;

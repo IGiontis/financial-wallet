@@ -8,6 +8,7 @@ import {
   createIncomeResolver,
   expectedAmount,
   incomeHistory,
+  incomeInMonth,
   incomeOccurrences,
   incomeRows,
   incomeStatus,
@@ -15,8 +16,10 @@ import {
   incomeYear,
   isOnReadingDay,
   lateCount,
+  monthlyEquivalent,
   monthSummary,
   resolveIncomes,
+  salaryIncome,
   salarySuggestion,
   suggestIncomeCategory,
   upsertIncome,
@@ -510,5 +513,58 @@ describe("the salary found in the records", () => {
   it("ignores records already written by «Ήρθε»", () => {
     const tagged = months.map((t) => ({ ...t, incomeId: "sal" }));
     expect(salarySuggestion(tagged, NOW)).toBeUndefined();
+  });
+});
+
+// ─── The salary, for the screens that set a month's pay against its costs ────
+// The Bills page («τι αφήνουν τα πάγια», pay day on the month) and the
+// Allocation page read the salary from here since it left the Planner.
+
+describe("salaryIncome", () => {
+  it("is the active income marked as the salary — never an archived one", () => {
+    const pay = income({ id: "pay", isSalary: true });
+    expect(salaryIncome([income({ id: "rent" }), pay])).toBe(pay);
+    expect(salaryIncome([income({ id: "rent" }), { ...pay, active: false }])).toBeUndefined();
+    expect(salaryIncome([])).toBeUndefined();
+  });
+});
+
+describe("monthlyEquivalent", () => {
+  it("is the figure itself for a monthly income", () => {
+    expect(monthlyEquivalent(income({ amount: 1450 }), [])).toBe(1450);
+  });
+
+  it("spreads every N months, weeks and years over one month, worked a second way", () => {
+    // Every 2 months: 1.200 / 2. A year of it is six times 1.200 = 7.200, a month 600.
+    expect(monthlyEquivalent(income({ amount: 1200, every: 2 }), [])).toBe(600);
+    expect((6 * 1200) / 12).toBe(600);
+    // Weekly 50: 52 a year, 2.600, so 216,67 a month.
+    expect(monthlyEquivalent(income({ amount: 50, frequency: "weekly", day: 5 }), [])).toBe(216.67);
+    expect(Math.round(((52 * 50) / 12) * 100) / 100).toBe(216.67);
+    // Every two weeks: half of it.
+    expect(monthlyEquivalent(income({ amount: 50, frequency: "weekly", day: 5, every: 2 }), [])).toBe(108.33);
+    // Yearly 1.400: a twelfth; every two years, a twenty-fourth.
+    expect(monthlyEquivalent(income({ amount: 1400, frequency: "yearly", month: 11 }), [])).toBe(116.67);
+    expect(monthlyEquivalent(income({ amount: 1400, frequency: "yearly", month: 11, every: 2 }), [])).toBe(58.33);
+  });
+
+  it("uses a variable income's mean once it has three «Ήρθε», as the plan does", () => {
+    const tutoring = income({ id: "tut", amount: 300, variable: true });
+    const records = [tx(320, d(2026, 7, 15), { incomeId: "tut", incomeDue: "2026-07-15" }), tx(340, d(2026, 8, 15), { incomeId: "tut", incomeDue: "2026-08-15" }), tx(300, d(2026, 9, 15), { incomeId: "tut", incomeDue: "2026-09-15" })];
+    expect(monthlyEquivalent(tutoring, records)).toBe(320);
+    expect(monthlyEquivalent(tutoring, records.slice(0, 2))).toBe(300);
+  });
+});
+
+describe("incomeInMonth", () => {
+  it("says when it comes in a month, the 31st clamped to a short one", () => {
+    expect(incomeInMonth(income({ amount: 1450, day: 31 }), [], d(2027, 2, 10))).toEqual({ amount: 1450, dayOfMonth: 28 });
+    expect(incomeInMonth(income({ amount: 1450, day: 30 }), [], d(2026, 9, 10))).toEqual({ amount: 1450, dayOfMonth: 30 });
+  });
+
+  it("is nothing in a month it does not come, or with no day to put it on", () => {
+    expect(incomeInMonth(income({ pause: { from: "2026-07", to: "2026-08", yearly: true } }), [], d(2026, 8, 10))).toBeUndefined();
+    expect(incomeInMonth(income({ day: undefined }), [], d(2026, 9, 10))).toBeUndefined();
+    expect(incomeInMonth(income({ every: 2, start: "2026-01" }), [], d(2026, 2, 10))).toBeUndefined();
   });
 });

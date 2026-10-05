@@ -134,8 +134,10 @@ export default function OccurrenceSheet({
             </ListGroupItem>
           )}
 
-          {/* The records said it came, and they were wrong. */}
-          {occurrence.status === "received" && occurrence.matched && !occurrence.matched.manual && (
+          {/* The records said it came, and they were wrong. Not for a record
+              written with «Ήρθε» for this very time: that is undone on «Έσοδα»,
+              by undoing the record. */}
+          {occurrence.status === "received" && occurrence.matched && !occurrence.matched.manual && !occurrence.matched.recorded && (
             <ListGroupItem action tag="button" type="button" className="d-flex align-items-center gap-2 py-3" onClick={() => onSave({ state: "waiting" })}>
               <FiRotateCcw size={18} className="text-body-secondary flex-shrink-0" aria-hidden />
               <span className="fw-semibold">{t("planner.occNotThis")}</span>

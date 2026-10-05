@@ -137,6 +137,9 @@ describe("the Incomes page", () => {
 
     await userEvent.clear(amount);
     await userEvent.type(amount, "330");
+    // The fields, then the check: nothing is written before it.
+    await userEvent.click(within(sheet).getByRole("button", { name: /Επόμενο/ }));
+    expect(api.createTransaction).not.toHaveBeenCalled();
     await userEvent.click(within(sheet).getByRole("button", { name: /Καταχώριση/ }));
 
     expect(api.createTransaction).toHaveBeenCalledTimes(1);
@@ -169,6 +172,9 @@ describe("the Incomes page", () => {
     await userEvent.click(within(question).getByRole("button", { name: "Ναι, ήταν μέσα" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText(/Μπαίνει πριν από την ενημέρωση/)).toBeInTheDocument();
+    // The fields, then the check: nothing is written before it.
+    await userEvent.click(within(sheet).getByRole("button", { name: /Επόμενο/ }));
+    expect(api.createTransaction).not.toHaveBeenCalled();
     await userEvent.click(within(sheet).getByRole("button", { name: /Καταχώριση/ }));
 
     const [, data] = api.createTransaction.mock.calls[0];
@@ -291,6 +297,27 @@ describe("the form", () => {
     expect(step(3)).toHaveAttribute("aria-current", "step");
     await userEvent.click(within(form).getByRole("button", { name: "‹ Πίσω" }));
     expect(step(2)).toHaveAttribute("aria-current", "step");
+  });
+
+  it("saves only from the fourth step, the check, which says every answer back", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
+    const form = screen.getByRole("dialog");
+
+    // One way forward at a time: no Save beside Next.
+    expect(within(form).queryByRole("button", { name: "Αποθήκευση" })).toBeNull();
+    await userEvent.click(within(form).getByRole("button", { name: /^4/ }));
+    expect(within(form).getByText("Έλεγχος: όλα όσα έβαλες")).toBeInTheDocument();
+    const answer = (label: string) => within(form).getByText(label).nextElementSibling;
+    expect(answer("Όνομα")).toHaveTextContent("Επίδομα");
+    expect(answer("Ποσό")).toHaveTextContent(/70,00\s?€ · σταθερό/);
+    expect(answer("Κάθε πότε")).toHaveTextContent("κάθε μήνα στις 20");
+    expect(answer("Ο μισθός μου")).toHaveTextContent("Όχι");
+    expect(within(form).queryByRole("button", { name: /Επόμενο/ })).toBeNull();
+
+    await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ id: "allow", amount: 70, day: 20 })])), { timeout: 2000 });
   });
 
   it("does not let a new income skip ahead before its first step is filled in", async () => {

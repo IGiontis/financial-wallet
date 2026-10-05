@@ -3,7 +3,6 @@ import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle } from "react-icons/fi";
 
-import { SALARY_ROW_ID } from "../plannerUtils";
 import type { ResolvedOccurrence } from "../plannerActuals";
 import styles from "../css/UnconfirmedQuestion.module.css";
 
@@ -44,9 +43,9 @@ export function UnconfirmedQuestion({
   amount?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const isSalary = occurrence.label === SALARY_ROW_ID;
-  // The salary's own label is a row id, never something to print.
-  const label = isSalary ? t("planner.salaryLabel") : occurrence.label;
+  // The salary is asked about as "your salary"; every other income by its name.
+  const isSalary = !!occurrence.pay;
+  const label = occurrence.label;
   const date = dateFmt.format(occurrence.date);
   const arrived = t("planner.unconfirmedArrived");
   const notYet = t("planner.unconfirmedNotYet");

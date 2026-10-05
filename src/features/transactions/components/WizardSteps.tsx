@@ -24,18 +24,21 @@ export function WizardSteps<Step extends string>({
   onGo,
   label,
   open = false,
+  large = false,
 }: {
   steps: readonly Step[];
   current: Step;
   onGo: (step: Step) => void;
   label?: (step: Step) => string;
   open?: boolean;
+  /** Bigger circles, for a form with only a few steps and room to show them. */
+  large?: boolean;
 }) {
   const { t } = useTranslation();
   const index = steps.indexOf(current);
 
   return (
-    <div className={styles.steps} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: steps.length })}>
+    <div className={`${styles.steps} ${large ? styles.stepsLarge : ""}`} aria-label={t("transactions.wizard.stepOf", { current: index + 1, total: steps.length })}>
       {steps.map((step, i) => (
         <Fragment key={step}>
           {i > 0 && <span className={`${styles.stepBar} ${i <= index ? styles.stepBarDone : ""}`} aria-hidden />}

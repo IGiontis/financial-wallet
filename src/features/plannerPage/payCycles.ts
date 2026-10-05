@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays } from "date-fns";
-import { SALARY_ROW_ID, type PlannerEvent, type PlannerPlan } from "./plannerUtils";
+import type { PlannerEvent, PlannerPlan } from "./plannerUtils";
 
 // The plan, cut where a person's money is actually cut: at pay day.
 //
@@ -22,8 +22,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 /** Rounded to the cent, and never −0, which would print as "−0,00 €". */
 const cents = (n: number) => round2(n) + 0;
 
-/** The salary, as the plan marks it — the same test `paydayOutlook` uses. */
-const isPay = (event: PlannerEvent) => event.label === SALARY_ROW_ID && event.amount > 0;
+/** A time of the salary income, as the plan marks it — the same test `paydayOutlook` uses. */
+export const isPay = (event: Pick<PlannerEvent, "pay" | "amount">) => !!event.pay && event.amount > 0;
 
 export type SliceKind = "pay" | "month";
 

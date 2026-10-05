@@ -8,6 +8,7 @@ import { computeBillStatus } from "../../bills/billsUtils";
 import { computeDebtStatus } from "../../debts/debtsUtils";
 import type { Bill, Debt, Transaction } from "../../../shared/types/IndexTypes";
 import { readCheckIns, type CheckInReading } from "../../accounts/accountsUtils";
+import { monthlyIncome, monthlySalary } from "../../../test/incomes";
 
 // The overview's four tabs, on the real page.
 //
@@ -30,12 +31,16 @@ vi.mock("../../transactions/hooks/useTransactions", () => ({
 }));
 vi.mock("../../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [], isLoading: false }) }));
 vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: data.bills }), useMarkBillPaid: () => ({ mutate: vi.fn() }) }));
-// The planner's saved figures: none — the salary alone, from the mock below.
-// What the page writes back is kept, so an answer can be read off it.
+// The account's saved figures: none of the planner's — only the salary on
+// «Έσοδα», 1,700 on the 28th. What the page writes back is kept, so a test can
+// see that it wrote nothing.
 const saved = vi.hoisted(() => new Map<string, unknown>());
-vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({ useWorkspaceSetting: (key: string, initial: unknown) => [initial, (value: unknown) => saved.set(key, value)] }));
+const stored = vi.hoisted(() => ({ incomes: [] as unknown[] }));
+vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({
+  useWorkspace: () => ({ data: { incomes: stored.incomes }, isSuccess: true, isLoading: false }),
+  useWorkspaceSetting: (key: string, initial: unknown) => [key === "incomes" ? stored.incomes : initial, (value: unknown) => saved.set(key, value)],
+}));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: data.debts }) }));
-vi.mock("../../../shared/hooks/useSalary", () => ({ useSalary: () => ({ salary: { amount: 1700, dayOfMonth: 28, occurrences: 3 } }) }));
 vi.mock("../../../shared/hooks/useOpeningBalance", () => ({ useOpeningBalance: () => ({ opening: undefined, anchors: [], source: undefined, isLoading: false }) }));
 vi.mock("../../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ accounts: data.accounts, readings: data.readings, latest: data.readings.at(-1), setCheckIns: vi.fn() }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
@@ -67,6 +72,7 @@ afterAll(() => vi.useRealTimers());
 beforeEach(() => {
   localStorage.removeItem("overview-tab");
   saved.clear();
+  stored.incomes = [monthlySalary(1700, 28)];
   // August: 3000 in, 500 out. September so far: 150 in, 309,45 out. Balance 2340,55.
   data.transactions = [
     tx("salary-aug", "income", 3000, new Date(2026, 7, 28)),
@@ -228,22 +234,39 @@ describe("the overview", () => {
     expect(line).toHaveAttribute("href", "/accounts");
   });
 
-  it("shows pay the last bank reading may already hold, and points to the Planner to answer", () => {
-    // Pay is due on the 28th (the salary mocked above) and is not written down.
+  it("shows pay the last bank reading may already hold, and points to «Έσοδα» to answer", () => {
+    // Pay is due on the 28th (the salary on «Έσοδα» above) and is not written down.
     // The banks were read on the 20th — on or after the 18th, the earliest it
     // could have come — so it may already be in the money the plan starts from.
     const accounts = [{ id: "eb", name: "Eurobank", kind: "bank" as const, main: true }];
     data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 20, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
     data.accounts = accounts;
-    const day = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(2026, 8, 28));
 
     renderPage();
     const panel = screen.getByRole("tabpanel");
-    const row = within(panel).getByRole("link", { name: new RegExp(`Your salary of ${day} wasn’t found in your transactions — has it come already\\?`) });
-    expect(row).toHaveAttribute("href", "/planner");
+    // In «Έσοδα»'s own words, and answered there.
+    const row = within(panel).getByRole("link", { name: /Salary: was it already in the bank?/ });
+    expect(row).toHaveAttribute("href", "/incomes");
     expect(row).toHaveTextContent("Needs an answer");
-    // Answered there, not here: nothing is written from the Overview.
-    expect(saved.has("planner-occurrences")).toBe(false);
+    expect(row).toHaveTextContent("€1700.00");
+    // Nothing is written from the Overview.
+    expect(saved.size).toBe(0);
+  });
+
+  it("lists a late income as a row to «Έσοδα», and counts it in the answer as the Planner does", () => {
+    // The allowance of the 20th has not come: six days late. The plan holds it
+    // on today, so the eve of pay day has it: 2.340,55 + 70 − the water 68,40.
+    stored.incomes = [monthlySalary(1700, 28), monthlyIncome("allow", "Allowance", 70, 20)];
+    renderPage();
+    const panel = screen.getByRole("tabpanel");
+    const row = within(panel).getByRole("link", { name: /Allowance/ });
+    expect(row).toHaveAttribute("href", "/incomes");
+    expect(row).toHaveTextContent("6 days late");
+    expect(row).toHaveTextContent("€70.00");
+    expect(2340.55 + 70 - 68.4).toBeCloseTo(2342.15, 2);
+    expect(screen.getByText("€2342.15")).toBeInTheDocument();
+    // Still nothing to press.
+    expect(within(panel).queryAllByRole("button")).toHaveLength(0);
   });
 
   it("does not ask when the banks were read before the pay could have come", () => {
@@ -251,6 +274,6 @@ describe("the overview", () => {
     data.readings = readCheckIns([{ id: "a", at: new Date(2026, 8, 17, 20).toISOString(), amounts: { eb: 1800 } }], accounts, data.transactions) as CheckInReading[];
     data.accounts = accounts;
     renderPage();
-    expect(screen.queryByText(/wasn’t found in your transactions — has it come already/)).toBeNull();
+    expect(screen.queryByText(/was it already in the bank/)).toBeNull();
   });
 });

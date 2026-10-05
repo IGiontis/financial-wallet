@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { attentionItems, goalsProgress, paydayOutlook, spendingByCategory } from "./overviewTabs";
-import { buildPlan, SALARY_ROW_ID, type BudgetLine, type PlannerPlan } from "../plannerPage/plannerUtils";
+import { buildPlan, type BudgetLine, type PlannerPlan } from "../plannerPage/plannerUtils";
+import { monthlySalary } from "../../test/incomes";
 import { calculateMetrics } from "./overviewUtils";
 import { billsNeedingAttention, computeBillStatus, overdueBills } from "../bills/billsUtils";
 import { computeDebtStatus } from "../debts/debtsUtils";
@@ -95,7 +96,7 @@ describe("paydayOutlook", () => {
   const bills = [billOn("water", "Water", 68.4, 12), billOn("phone", "Phone", 25, 15), billOn("net", "Internet", 30, 25)];
   const food: BudgetLine = { id: "food", label: "Food", amount: 300, kind: "expense" };
   const plan = (openingBalance: number, withSalary = true) =>
-    buildPlan({ bills, goals: [], lines: [food], debts: [], salary: withSalary ? { amount: 1450, dayOfMonth: 20, occurrences: 3 } : undefined, openingBalance, horizon: 2, now: TODAY });
+    buildPlan({ bills, goals: [], lines: [food], debts: [], incomes: withSalary ? [monthlySalary(1450, 20)] : [], openingBalance, horizon: 2, now: TODAY });
 
   /** The second route: the same ten days walked by hand. */
   const byHand = (opening: number, lastDay: number) => {
@@ -133,10 +134,13 @@ describe("paydayOutlook", () => {
     // The banks were read on the 10th, on or after the 10th (the 20th less ten
     // days), with no record of the pay: it may be in the 1,000 already, so the
     // plan leaves it out and the outlook runs on to 20 October.
-    const read = buildPlan({ bills, goals: [], lines: [food], debts: [], salary: { amount: 1450, dayOfMonth: 20, occurrences: 3 }, openingBalance: 1000, horizon: 2, now: TODAY, actuals: { transactions: [], debts: [], overrides: {}, lastReadingAt: new Date(2026, 8, 10, 8) } });
+    const read = buildPlan({ bills, goals: [], lines: [food], debts: [], incomes: [monthlySalary(1450, 20)], openingBalance: 1000, horizon: 2, now: TODAY, actuals: { transactions: [], debts: [], overrides: {}, lastReadingAt: new Date(2026, 8, 10, 8) } });
     const outlook = paydayOutlook(read, TODAY);
 
-    expect(read.occurrences.find((o) => o.status === "unconfirmed")?.date).toEqual(new Date(2026, 8, 20));
+    // Asked about, both: September's, and August's too — the reading may hold
+    // that one as well, and with no record of it «Έσοδα» asks the same. Neither
+    // is counted until answered; August's was not counted before either.
+    expect(read.occurrences.filter((o) => o.status === "unconfirmed").map((o) => o.date)).toEqual([new Date(2026, 7, 20), new Date(2026, 8, 20)]);
     expect(outlook.date).toEqual(new Date(2026, 9, 20));
     expect(outlook.incoming).toBe(0);
     // By hand, to 19 October: 1,000 less September's three bills, October's
@@ -171,7 +175,7 @@ describe("paydayOutlook", () => {
 
   it("starts nothing when the pay is due today, and runs to the next one when it came early", () => {
     const empty = (events: PlannerPlan["events"]): Pick<PlannerPlan, "openingBalance" | "points" | "events"> => ({ openingBalance: 420, points: [], events });
-    const salary = (date: Date) => ({ kind: "income" as const, label: SALARY_ROW_ID, amount: 1450, date });
+    const salary = (date: Date) => ({ kind: "income" as const, label: "Salary", amount: 1450, date, pay: true });
 
     // Late, and so placed on today by the plan: nothing stands between now and it.
     const today = paydayOutlook(empty([salary(new Date(2026, 8, 10))]), TODAY);

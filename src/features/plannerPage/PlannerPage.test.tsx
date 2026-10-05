@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
 import { PlannerPage } from "./PlannerPage";
 import { buildPlan, type BudgetLine } from "./plannerUtils";
-import { occurrenceKey } from "./plannerActuals";
-import { SALARY_ROW_ID } from "./plannerUtils";
+import { incomeOccurrenceKey } from "../incomes/incomesUtils";
+import { monthlyIncome, monthlySalary, SALARY_ID } from "../../test/incomes";
 import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
 import { computeBillStatus } from "../bills/billsUtils";
 import type { CheckInReading } from "../accounts/accountsUtils";
@@ -24,28 +24,32 @@ import type { Bill, InvestmentGoalWithStats, Transaction } from "../../shared/ty
 const NOW = new Date(2026, 8, 30, 12);
 const JAN = new Date(2026, 0, 1);
 
-const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown }));
+const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown, created: [] as unknown[] }));
 // What the page saves, kept so it is read back on the next render and so a
 // test can look at what an answer wrote.
 const settings = vi.hoisted(() => new Map<string, unknown>());
 
-vi.mock("../transactions/hooks/useTransactions", () => ({ useTransactions: () => ({ data: data.transactions, isLoading: false, isError: false }) }));
+vi.mock("../transactions/hooks/useTransactions", () => ({
+  useTransactions: () => ({ data: data.transactions, isLoading: false, isError: false, isSuccess: true }),
+  useCategories: () => ({ data: [] }),
+  // «Ήρθε» from an income's card writes through this.
+  useCreateTransaction: () => ({ mutate: (dto: unknown) => data.created.push(dto) }),
+}));
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [GOAL], isLoading: false }) }));
 vi.mock("../bills/useBills", () => ({ useBills: () => ({ data: BILLS, isLoading: false }) }));
 vi.mock("../debts/useDebts", () => ({ useDebts: () => ({ data: [] }) }));
-vi.mock("../../shared/hooks/useSalary", () => ({
-  useSalary: () => ({ salary: SALARY, input: { amount: "", day: "" }, setInput: vi.fn(), detected: SALARY, isManual: false }),
-}));
 vi.mock("../../shared/hooks/useOpeningBalance", () => ({
   useOpeningBalance: () => ({ opening: { amount: 1000, date: new Date(2026, 8, 29), at: new Date(2026, 8, 29, 20) }, anchors: [], source: "readings", isLoading: false }),
 }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ latest: data.latest }) }));
+vi.mock("../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ latest: data.latest }), useAccountList: () => [] }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));
 vi.mock("../../shared/hooks/useWorkspaceSetting", async () => {
   const { useState } = await import("react");
   return {
+    // The account's copy, already here: what the page saved is what it reads.
+    useWorkspace: () => ({ data: Object.fromEntries(settings), isSuccess: true, isLoading: false }),
     useWorkspaceSetting: (key: string, initial: unknown) => {
       const [value, setValue] = useState(() => (settings.has(key) ? settings.get(key) : initial));
       const set = (next: unknown) =>
@@ -68,7 +72,8 @@ const paidBill = (id: string, name: string, amount: number, dueDay: number) =>
 const BILLS = [paidBill("rent", "Rent", 400, 1), paidBill("power", "Power", 65, 5), paidBill("phone", "Phone", 20, 8), paidBill("net", "Internet", 30, 10)];
 const GOAL = { id: "goal", userId: "u", name: "Savings", goalType: "targeted", targetPeriod: "monthly", monthlyRequired: 100, currentPeriodSaved: 100, isActive: true, isCompleted: false, createdAt: JAN, updatedAt: JAN } as unknown as InvestmentGoalWithStats;
 const OWN: BudgetLine = { id: "own", label: "Mine", amount: 300, kind: "expense" };
-const SALARY = { amount: 1450, dayOfMonth: 30, occurrences: 3 };
+// The salary, as «Έσοδα» keeps it: 1,450 on the 30th.
+const SALARY = monthlySalary(1450, 30);
 
 const payOnThe25th = { id: "pay-sep", userId: "u", type: "income", amount: 1450, categoryId: "c", description: "Salary", date: new Date(2026, 8, 25), createdAt: new Date(2026, 8, 25), updatedAt: new Date(2026, 8, 25) } as Transaction;
 const READING = { at: new Date(2026, 8, 29, 20), total: 1000, added: [], checkIn: {} } as unknown as CheckInReading;
@@ -76,7 +81,7 @@ const READING = { at: new Date(2026, 8, 29, 20), total: 1000, added: [], checkIn
 /** The Overview's answer, worked out as `usePaydayOutlook` works it, from the same inputs. */
 const overviewAnswer = () =>
   paydayOutlook(
-    buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], debts: [], salary: SALARY, openingBalance: 1000, horizon: PAYDAY_HORIZON, now: NOW, actuals: { transactions: data.transactions, debts: [], overrides: {}, lastReadingAt: READING.at } }),
+    buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], debts: [], incomes: [SALARY], openingBalance: 1000, horizon: PAYDAY_HORIZON, now: NOW, actuals: { transactions: data.transactions, debts: [], overrides: {}, lastReadingAt: READING.at } }),
     NOW,
   );
 
@@ -114,6 +119,7 @@ beforeEach(() => {
   localStorage.clear();
   settings.clear();
   settings.set("planner-lines", [OWN]);
+  settings.set("incomes", [SALARY]);
   settings.set("planner-horizon", 3);
   data.transactions = [payOnThe25th];
   data.latest = READING;
@@ -180,7 +186,8 @@ describe("the Planner's first card", () => {
 
 describe("pay that may already be in the bank reading", () => {
   const day = en({ day: "numeric", month: "short" }).format(new Date(2026, 8, 30));
-  const key = occurrenceKey("salary", SALARY_ROW_ID, new Date(2026, 8, 30));
+  // The salary's time is kept under the key «Έσοδα» reads too.
+  const key = incomeOccurrenceKey(SALARY_ID, "2026-09-30");
 
   beforeEach(() => {
     // Not written down: the reading of the 29th may already hold it.
@@ -268,5 +275,97 @@ describe("the whole period", () => {
     expect(screen.getByRole("img", { name: "What is left, day by day" })).toBeInTheDocument();
     // 1.000 + 12 × 1.450 − 12 × (515 + 100) − 3.610 of one's own = 7.410 at the end.
     expect(1000 + 12 * 1450 - 12 * (515 + 100) - 3610).toBe(7410);
+  });
+});
+
+describe("the incomes, from «Έσοδα»", () => {
+  // Its own id: `planner-skip` holds bills', goals' and incomes' ids side by side, and the bill here is "rent".
+  const RENT = monthlyIncome("rent-in", "Rent I collect", 400, 5);
+  // September's rent came on its day, written with «Ήρθε»; no bank reading to ask about.
+  const rentRecord = { id: "rent-sep", userId: "u", type: "income", amount: 400, categoryId: "c", description: "Rent", date: new Date(2026, 8, 5), createdAt: new Date(2026, 8, 5), updatedAt: new Date(2026, 8, 5), incomeId: "rent-in", incomeDue: "2026-09-05" } as Transaction;
+
+  beforeEach(() => {
+    settings.set("incomes", [SALARY, RENT]);
+    data.transactions = [payOnThe25th, rentRecord];
+    data.latest = undefined;
+  });
+
+  it("marks the rent «Arrived» from its row: the card, the figures, a check, and only then the transaction", async () => {
+    data.created = [];
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Rent I collect: details" }));
+    let sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("button", { name: "Change on Income" })).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Arrived" }));
+
+    // October's rent, 400 by default — 380 this time.
+    sheet = screen.getByRole("dialog");
+    const amount = within(sheet).getByLabelText(/How much arrived/);
+    expect(amount).toHaveValue(400);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "380");
+    await userEvent.click(within(sheet).getByRole("button", { name: /Next/ }));
+    expect(data.created).toEqual([]);
+
+    // The check says it back, and that it is not the usual figure.
+    sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText("Check before it goes into Transactions")).toBeInTheDocument();
+    expect(within(sheet).getByText(/Not the usual €400\.00/)).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: /€380\.00/ }));
+    expect(data.created).toEqual([expect.objectContaining({ amount: 380, type: "income", incomeId: "rent-in", incomeDue: "2026-10-05" })]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("lists each one with its switch, the salary first, each opening its card", () => {
+    renderPage();
+    const salary = screen.getByRole("button", { name: "Salary: details" });
+    const rent = screen.getByRole("button", { name: "Rent I collect: details" });
+    expect(salary.compareDocumentPosition(rent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // September's salary and rent are in already: three of each still to come.
+    expect(salary).toHaveTextContent("€1450.00 · ×3 · next Oct 30");
+    expect(rent).toHaveTextContent("€400.00 · ×3 · next Oct 5");
+    expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes");
+    // Nothing to type here any more: no salary dialog, no income lines.
+    expect(screen.queryByRole("button", { name: "Add monthly income" })).toBeNull();
+    // 1.000 + 3 × 1.450 + 3 × 400 − 2.755.
+    expect(screen.getByText("The months leave +€2795.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
+    expect(3 * 1450 + 3 * 400 - 2755).toBe(2795);
+  });
+
+  it("switches one off the way the salary always was — kept in planner-skip under its id", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("switch", { name: "Rent I collect" }));
+    expect(settings.get("planner-skip")).toEqual(["rent-in"]);
+    // Exactly its 1.200 less.
+    expect(screen.getByText("The months leave +€1595.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
+    expect(2795 - 1200).toBe(1595);
+  });
+
+  it("shows no old income line, and keeps it stored when a cost line is changed", async () => {
+    const room = { id: "room", label: "Room", amount: 250, kind: "income" };
+    settings.set("planner-lines", [OWN, room]);
+    renderPage();
+    expect(screen.queryByText("Room")).toBeNull();
+
+    const mine = screen.getAllByRole("button").find((b) => b.getAttribute("aria-expanded") !== null && b.textContent?.startsWith("Mine"))!;
+    await userEvent.click(mine);
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const amount = screen.getByLabelText("Amount per month");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "350");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(settings.get("planner-lines")).toEqual([{ ...OWN, amount: 350 }, room]);
+  });
+
+  it("with no incomes, plans no money in and says where to add it — the found salary only as a suggestion", () => {
+    settings.set("incomes", []);
+    data.transactions = [7, 8, 9].map((month) => ({ ...payOnThe25th, id: `pay-${month}`, date: new Date(2026, month - 1, 28) }) as Transaction);
+    renderPage();
+    expect(screen.getByText("No income yet — nothing is coming in to the plan.")).toBeInTheDocument();
+    expect(screen.getByText("I found a salary of €1450.00 around the 28 — add it on Income")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add on Income ›" })).toHaveAttribute("href", "/incomes");
+    expect(screen.getByRole("link", { name: "Add your salary on Income for a sharper answer ›" })).toHaveAttribute("href", "/incomes");
+    // Not planned with: the months bring nothing in.
+    expect(screen.getByText("The months leave −€2755.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
   });
 });

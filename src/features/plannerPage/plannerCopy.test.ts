@@ -3,7 +3,8 @@ import i18next from "i18next";
 import { buildPlan, heroSubline } from "./plannerUtils";
 import en from "../../i18n/locales/en.json";
 import el from "../../i18n/locales/el.json";
-import type { BillWithStatus } from "../../shared/types/IndexTypes";
+import type { BillWithStatus, Transaction } from "../../shared/types/IndexTypes";
+import { monthlySalary } from "../../test/incomes";
 
 // The words the Planner puts beside its figures, run through i18next itself so
 // the plural rules are the library's, not a guess at them.
@@ -101,10 +102,12 @@ describe("the line under a tight verdict", () => {
   const plan = buildPlan({
     bills: [paidSeptember("card", "Card", 169.68, 1), paidSeptember("ins", "Insurance", 419.47, 29)],
     goals: [],
-    salary: { amount: 1000, dayOfMonth: 30, occurrences: 4 },
+    incomes: [monthlySalary(1000, 30)],
     openingBalance: 100,
     horizon: 1,
     now: new Date(2026, 8, 30, 21),
+    // Today's pay is in already — recorded this morning — so the next is 30 October.
+    actuals: { transactions: [{ id: "pay", userId: "u1", type: "income", amount: 1000, categoryId: "c", description: "Pay", date: new Date(2026, 8, 30, 9), createdAt: new Date(2026, 8, 30, 9), updatedAt: new Date(2026, 8, 30, 9) } as Transaction], debts: [], overrides: {} },
   });
   const dateFmt = { el: new Intl.DateTimeFormat("el", { day: "numeric", month: "short" }), en: new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }) };
   const money = (n: number) => `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(2).replace(".", ",")} €`;

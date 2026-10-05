@@ -1,4 +1,5 @@
 import { useState, type Ref } from "react";
+import { Link } from "react-router-dom";
 import { DropdownItem, DropdownMenu, DropdownToggle, Input, InputGroup, InputGroupText, UncontrolledDropdown } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronRight, FiX } from "react-icons/fi";
@@ -41,8 +42,6 @@ interface PlannerPaydayCardProps {
   unconfirmed: ResolvedOccurrence[];
   onAnswer: (occurrence: ResolvedOccurrence, arrived: boolean) => void;
   onOccurrence: (key: string) => void;
-  /** No pay day known: the way to set one, on this page rather than a link to it. */
-  onSetPayday: () => void;
   baseCurrency: string;
   now: Date;
   formatCurrency: (n: number) => string;
@@ -83,7 +82,6 @@ export function PlannerPaydayCard({
   unconfirmed,
   onAnswer,
   onOccurrence,
-  onSetPayday,
   baseCurrency,
   now,
   formatCurrency,
@@ -161,10 +159,11 @@ export function PlannerPaydayCard({
               {t("planner.howItAddsUp")}
               {open ? <FiChevronDown size={14} aria-hidden /> : <FiChevronRight size={14} aria-hidden />}
             </button>
+            {/* No pay day: the salary is set on «Έσοδα», which every screen reads it from. */}
             {!outlook.known && (
-              <button type="button" className={styles.linkButton} onClick={onSetPayday}>
+              <Link to="/incomes" className={styles.linkButton}>
                 {t("planner.setPayday")}
-              </button>
+              </Link>
             )}
           </div>
           {open && (

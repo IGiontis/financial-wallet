@@ -314,20 +314,47 @@
   margin-top: 2px;
 }
 
+/* Each kind of fact in its own colour, the same on every row, so the eye
+   finds "which bank" or "when" without reading: when sky blue, how often
+   violet, the account teal, a changing amount pink, a pause grey. The text is
+   the colour mixed into the page's own text colour, which keeps it readable
+   on both themes. */
 .tag {
+  --tag: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
   max-width: 100%;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--color-background-secondary);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--tag) 15%, transparent);
+  color: color-mix(in srgb, var(--tag) 55%, var(--color-text-primary));
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 18px;
   /* A long date wraps inside its chip rather than being cut to «30 Ο…». */
   white-space: normal;
+}
+
+.tag_when {
+  --tag: #0ea5e9;
+}
+
+.tag_schedule {
+  --tag: #8b5cf6;
+}
+
+.tag_account {
+  --tag: #14b8a6;
+}
+
+.tag_variable {
+  --tag: #ec4899;
+}
+
+.tag_pause,
+.tag_more {
+  --tag: var(--color-text-secondary);
 }
 
 /* The status pill, among the chips, wraps the same way. */
@@ -883,6 +910,21 @@
 .recordRow {
   align-items: center;
   justify-content: space-between;
+}
+
+/* The check's rows go back to the step that asked them. */
+.readRowButton {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.readRowButton:hover {
+  background: var(--color-surface);
 }
 
 .readIcon {

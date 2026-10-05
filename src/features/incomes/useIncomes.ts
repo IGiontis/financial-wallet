@@ -22,13 +22,35 @@ import {
   type IncomeOccurrence,
   type IncomeStatus,
 } from "./incomesUtils";
+import { useIncomesMigration } from "./useIncomesMigration";
+
+/**
+ * The list itself, checked — what the Planner, the Bills page and the
+ * Allocation page read the money in from.
+ *
+ * Every screen that reads the incomes comes through here, which is why the
+ * one-time move of the old Planner's salary and income lines starts here too
+ * (`useIncomesMigration`): whichever screen is opened first after the update,
+ * the salary is already in the list it reads.
+ *
+ * `isLoading` while the list may only look empty: the account's copy has not
+ * arrived and this device has none, or the move is about to write it.
+ */
+export function useIncomeList() {
+  const [stored] = useWorkspaceSetting<Income[]>(INCOMES_KEY, []);
+  const incomes = useMemo(() => cleanIncomes(stored), [stored]);
+  const { isLoading: workspaceLoading } = useWorkspace();
+  const { pending } = useIncomesMigration();
+  return { incomes, isLoading: (workspaceLoading && incomes.length === 0) || pending };
+}
 
 /**
  * The incomes, where each one stands, and the ways to change them.
  *
- * This is what the Planner and the Overview will read in phase 2 instead of
- * `useSalary` and the Planner's income lines — one copy of the list and one
- * answer to "has it come?", so the three screens cannot disagree.
+ * What the Incomes page and the Overview read; the Planner reads the list
+ * (`useIncomeList`) and puts it through the same resolver inside its plan
+ * (`planIncomes`) — one copy of the list and one answer to "has it come?", so
+ * the three screens cannot disagree.
  *
  * Reads cost nothing new: the list and the words said per occurrence sit on
  * the user document (`useWorkspaceSetting`), and the records are the
@@ -42,14 +64,13 @@ export function useIncomes(now?: Date) {
   const [visit] = useState(() => new Date());
   const today = now ?? visit;
 
-  const [stored, setStored] = useWorkspaceSetting<Income[]>(INCOMES_KEY, []);
-  const incomes = useMemo(() => cleanIncomes(stored), [stored]);
-
-  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
+  const [, setStored] = useWorkspaceSetting<Income[]>(INCOMES_KEY, []);
   // Until the account's copy arrives the list is this device's cache, which
   // may be empty on a new device: say "loading" rather than "no incomes yet".
-  const { isLoading: workspaceLoading } = useWorkspace();
-  const isLoading = transactionsLoading || (workspaceLoading && incomes.length === 0);
+  const { incomes, isLoading: listLoading } = useIncomeList();
+
+  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
+  const isLoading = transactionsLoading || listLoading;
   const { latest } = useMoneyAccounts();
   const lastReadingAt = latest?.at;
 

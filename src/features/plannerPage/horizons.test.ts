@@ -13,8 +13,8 @@ import {
   type OneOff,
   pointStepFor,
   planPeriods,
-  SALARY_ROW_ID,
 } from "./plannerUtils";
+import { monthlySalary, SALARY_ID } from "../../test/incomes";
 import { differenceInCalendarDays } from "date-fns";
 import { getPeriodDueDate, getPeriodKey } from "../bills/billsUtils";
 import { computeDebtStatus, loanPayoff, loanState } from "../debts/debtsUtils";
@@ -22,7 +22,7 @@ import type { Actuals } from "./plannerActuals";
 import type { BillWithStatus, Debt, DebtPayment, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 7, 14); // 14 Aug 2026
-const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
+const incomes = [monthlySalary(2000, 20)];
 
 const bill = (overrides: Partial<BillWithStatus> = {}): BillWithStatus =>
   ({
@@ -43,7 +43,7 @@ const bill = (overrides: Partial<BillWithStatus> = {}): BillWithStatus =>
     ...overrides,
   }) as BillWithStatus;
 
-const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 const round = (n: number) => Math.round(n * 100) / 100;
 
 /** The last instant of a local calendar day — what `horizonEnd` returns. */
@@ -333,11 +333,15 @@ describe("the user's own budget lines", () => {
     expect(row).toMatchObject({ id: "l1", kind: "expense", total: 0 });
   });
 
-  it("names the side for both kinds, switched on or off", () => {
+  it("names the side of a cost line, and passes by an income line an older Planner stored", () => {
+    // Money in is the incomes' now: an income line left in storage became an
+    // income on «Έσοδα», so it is neither a row nor money here — on or off.
     const lines = [food(), food({ id: "l2", label: "Ενοίκιο σπιτιού", amount: 300, kind: "income" })];
-    const plan = buildPlan({ ...base, horizon: 1, lines, skipIds: new Set(["l2"]) });
-
-    expect(plan.rows.filter((r) => r.source === "line").map((r) => r.kind)).toEqual(["expense", "income"]);
+    for (const skipIds of [new Set<string>(), new Set(["l2"])]) {
+      const plan = buildPlan({ ...base, horizon: 1, lines, skipIds });
+      expect(plan.rows.filter((r) => r.source === "line").map((r) => r.kind)).toEqual(["expense"]);
+      expect(plan.incomeTotal).toBe(buildPlan({ ...base, horizon: 1, lines: [food()] }).incomeTotal);
+    }
   });
 });
 
@@ -480,8 +484,8 @@ describe("extra pay that keeps coming back", () => {
 });
 
 describe("how finely the line is sampled", () => {
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   it("keeps a point per day only while the window is short", () => {
     expect(pointStepFor(30)).toBe("day");
@@ -544,7 +548,7 @@ describe("how finely the line is sampled", () => {
     // rents — 5 Sep, Oct and Nov, and August's, unpaid and pulled onto today.
     expect(daily.endingBalance).toBe(4 * 2000 - 4 * 400);
     // Same monthly arithmetic: 37 paydays over 14 Aug 2026 – 31 Aug 2029, 2,000 each.
-    expect(monthly.incomeTotal / monthly.rows.find((r) => r.id === SALARY_ROW_ID)!.occurrences!).toBe(daily.incomeTotal / 4);
+    expect(monthly.incomeTotal / monthly.rows.find((r) => r.id === SALARY_ID)!.occurrences!).toBe(daily.incomeTotal / 4);
   });
 
   it("keeps every event, folded into the period it happened in", () => {
@@ -565,8 +569,8 @@ describe("how finely the line is sampled", () => {
 });
 
 describe("planPeriods", () => {
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   it("splits each month into what arrived and what left", () => {
     // Netted into one line, a month where the same pay met twice the outgoings
@@ -622,7 +626,7 @@ describe("planPeriods", () => {
   it("carries the balance through a period nothing happens in", () => {
     // Without this the line drops to zero in a quiet stretch, which reads as
     // the money having gone.
-    const plan = buildPlan({ ...base, horizon: 3, salary: undefined, openingBalance: 400 });
+    const plan = buildPlan({ ...base, horizon: 3, incomes: [], openingBalance: 400 });
     const periods = planPeriods(plan);
 
     expect(periods.every((p) => p.balance === 400)).toBe(true);
@@ -630,8 +634,8 @@ describe("planPeriods", () => {
 });
 
 describe("a budget line that runs for part of the year", () => {
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   // €200 a month for skiing, December to April. Today is 14 Aug 2026.
   const ski = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "ski", label: "Σκι", amount: 200, kind: "expense", from: "2026-12", to: "2027-04", ...over });
@@ -696,24 +700,26 @@ describe("a budget line that runs for part of the year", () => {
 });
 
 describe("naming an income event", () => {
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
-  it("marks the salary by its row id, leaving every other income its own name", () => {
+  it("marks the salary's times as pay, leaving every other income its own name", () => {
     // Matching on `kind === "income"` relabelled a fourteenth salary, a room
     // rent and every other named line as "Salary" on the chart and timeline.
+    // The salary now carries its own name from «Έσοδα», and `pay` says which
+    // events are pay day.
     const plan = buildPlan({ ...base, horizon: 12, oneOffs: [{ id: "o1", label: "Δώρο Χριστουγέννων", amount: 1400, date: "2026-12-20" }] });
     const income = plan.events.filter((e) => e.kind === "income");
 
-    expect(income.some((e) => e.label === SALARY_ROW_ID)).toBe(true);
-    expect(income.some((e) => e.label === "Δώρο Χριστουγέννων")).toBe(true);
-    expect(income.filter((e) => e.label === SALARY_ROW_ID).length).toBeLessThan(income.length);
+    expect(income.some((e) => e.pay && e.label === "Salary")).toBe(true);
+    expect(income.some((e) => e.label === "Δώρο Χριστουγέννων" && !e.pay)).toBe(true);
+    expect(income.filter((e) => e.pay).length).toBeLessThan(income.length);
   });
 });
 
 describe("a season that comes back every year", () => {
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   // Skiing: 200 a month, December to April, every year. Today is 14 Aug 2026.
   const ski = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "ski", label: "Ski", amount: 200, kind: "expense", from: "2026-12", to: "2027-04", yearly: true, ...over });
@@ -782,10 +788,10 @@ describe("a season that comes back every year", () => {
 describe("the same date reads the same however far ahead you look", () => {
   // Bills early in the month, pay late in it: the shape that makes a month dip
   // under and recover, which is the case a monthly sample hides.
-  const salary = { amount: 1800, dayOfMonth: 25, occurrences: 4 };
+  const incomes = [monthlySalary(1800, 25)];
   const tight = [bill({ name: "Rent", amount: 700, dueDay: 5 }), bill({ name: "Power", amount: 180, dueDay: 8 }), bill({ name: "Card", amount: 400, dueDay: 10 })];
   const lines: BudgetLine[] = [{ id: "food", label: "Food", amount: 450, kind: "expense" }];
-  const input = { bills: tight, goals: [] as InvestmentGoalWithStats[], lines, salary, openingBalance: 900, now };
+  const input = { bills: tight, goals: [] as InvestmentGoalWithStats[], lines, incomes, openingBalance: 900, now };
 
   it("gives a date the same balance at every horizon", () => {
     // A day can only be affected by what happened before it, so looking
@@ -861,8 +867,8 @@ describe("the same date reads the same however far ahead you look", () => {
 });
 
 describe("a loan in the plan is a monthly instalment, not a lump", () => {
-  const salary = { amount: 2000, dayOfMonth: 25, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 25)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   // 10,000 at 7% over five years, taken out today: €198.01 a month.
   const carLoan = (over: Partial<DebtWithStatus> = {}): DebtWithStatus =>

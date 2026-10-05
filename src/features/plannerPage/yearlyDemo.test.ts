@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { differenceInCalendarDays } from "date-fns";
 import { buildPlan, lineRanges, monthsBetween, planPeriods, type BudgetLine } from "./plannerUtils";
 import type { BillWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import { monthlySalary } from "../../test/incomes";
 
 /**
  * A demonstration, in figures, that a yearly cost is charged once a year.
@@ -18,7 +19,7 @@ import type { BillWithStatus, InvestmentGoalWithStats } from "../../shared/types
  */
 
 const TODAY = new Date(2026, 8, 9); // 9 September 2026
-const salary = { amount: 1800, dayOfMonth: 25, occurrences: 4 };
+const incomes = [monthlySalary(1800, 25)];
 
 /** The plan as described: three trips a year, a ski season, and the food budget. */
 const lines: BudgetLine[] = [
@@ -33,7 +34,7 @@ const base = {
   bills: [] as BillWithStatus[],
   goals: [] as InvestmentGoalWithStats[],
   lines,
-  salary,
+  incomes,
   openingBalance: 2000,
   now: TODAY,
 };

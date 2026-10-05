@@ -305,7 +305,7 @@ describe("the planner", () => {
     const now = new Date(2026, 9, 20);
     const status = computeBillStatus(makeBill({ pause: MOVED }), [], now);
 
-    const plan = buildPlan({ bills: [status], goals: [], salary: undefined, horizon: 3, now });
+    const plan = buildPlan({ bills: [status], goals: [], incomes: [], horizon: 3, now });
     expect(plan.rows.find((row) => row.id === "b1")?.note).toBe("paused");
     expect(plan.rows.find((row) => row.id === "b1")?.total).toBe(0);
   });

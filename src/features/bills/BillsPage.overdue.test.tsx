@@ -62,7 +62,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   useCategories: () => ({ data: [] }),
   useCreateCategoryScope: () => ({ mutateAsync: vi.fn() }),
 }));
-vi.mock("../../shared/hooks/useSalary", () => ({ useSalary: () => ({ salary: undefined }) }));
+// No salary on «Έσοδα»: the page shows what it shows without one.
+vi.mock("../incomes/useSalaryIncome", () => ({ useSalaryIncome: () => ({ monthly: 0, thisMonth: undefined, isLoading: false }) }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, convertToBase: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));

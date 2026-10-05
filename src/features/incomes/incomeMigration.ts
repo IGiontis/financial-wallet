@@ -1,7 +1,8 @@
 import type { Category } from "../../shared/types/IndexTypes";
 import { parseISOMonth, toISOMonth } from "../../shared/utils/dates";
 import type { OccurrenceOverride } from "../plannerPage/plannerActuals";
-import type { BudgetLine, SalaryPattern } from "../plannerPage/plannerUtils";
+import type { BudgetLine } from "../plannerPage/plannerUtils";
+import type { SalaryPattern } from "./detectSalary";
 import { cleanIncome, incomeOccurrenceKey, suggestIncomeCategory, type Income } from "./incomesUtils";
 
 // Moving the Planner's incomes into the Incomes page — once, in one write.
@@ -24,9 +25,17 @@ import { cleanIncome, incomeOccurrenceKey, suggestIncomeCategory, type Income } 
 //
 // The old keys are left exactly as they were, for one version, so going back to
 // the old Planner still finds its plan; nothing new reads them.
+//
+// Phase 2 runs it from `useIncomesMigration`, once per account: the first time
+// a screen that reads the incomes finds the account's copy has no `incomes`
+// at all but does have something the old Planner typed. When to run is decided
+// by `migrationStep` below, which is pure for the same reason.
 
-/** The Planner's row id for the salary — see `SALARY_ROW_ID`. Restated so this file reads nothing from the page being rebuilt. */
+/** The old Planner's salary row id. Restated so this file reads nothing from the page that dropped it. */
 const PLANNER_SALARY_ROW = "__salary__";
+
+/** Where the old Planner kept its salary field. Read by the migration alone; nothing writes it any more. */
+export const PLANNER_SALARY_KEY = "planner-salary";
 
 /**
  * The salary's id once it is an income.
@@ -54,6 +63,57 @@ export interface MigrationResult {
 }
 
 const text = (value: unknown) => (value === undefined || value === null ? "" : String(value).trim());
+
+const salaryFields = (stored: unknown) => {
+  const input = stored && typeof stored === "object" ? (stored as { amount?: unknown; day?: unknown }) : {};
+  return { amount: text(input.amount), day: text(input.day) };
+};
+
+const isIncomeLine = (l: unknown): l is BudgetLine =>
+  !!l && typeof l === "object" && typeof (l as BudgetLine).id === "string" && (l as BudgetLine).kind === "income" && Number.isFinite((l as BudgetLine).amount);
+
+/** Something the old Planner holds that would come over: a salary with anything typed in it, or a line of income. */
+export function hasPlannerIncomes(plannerSalary: unknown, plannerLines: unknown): boolean {
+  const salary = salaryFields(plannerSalary);
+  return salary.amount !== "" || salary.day !== "" || (Array.isArray(plannerLines) && plannerLines.some(isIncomeLine));
+}
+
+/**
+ * A salary typed by half — an amount without a day, or a day without an
+ * amount. The Planner filled the other half from the detected salary, so the
+ * migration has to see the records before it can carry the same figure over.
+ */
+export function needsDetection(plannerSalary: unknown): boolean {
+  const salary = salaryFields(plannerSalary);
+  return (salary.amount === "") !== (salary.day === "");
+}
+
+export interface MigrationState {
+  /** The account's copy has arrived — until then the device's cache stands in, and it may be empty only because it is new. */
+  workspaceLoaded: boolean;
+  /** `incomes` exists, on the account or waiting on this device to go up — even `[]`. */
+  incomesExist: boolean;
+  plannerSalary: unknown;
+  plannerLines: unknown;
+  transactionsLoaded: boolean;
+}
+
+/**
+ * Whether to move the old Planner's incomes now.
+ *
+ *   • "idle" — nothing to do: the account's copy has not arrived (a new
+ *     device's empty cache must not pass for an account without incomes), an
+ *     `incomes` key already exists (the move has happened, or the user has
+ *     started a list of their own — even an empty one), or the old Planner
+ *     holds nothing to move.
+ *   • "wait" — it will run, once the records are in: a half-typed salary is
+ *     completed from the detected one, as the Planner did.
+ *   • "run" — now.
+ */
+export function migrationStep(state: MigrationState): "idle" | "wait" | "run" {
+  if (!state.workspaceLoaded || state.incomesExist || !hasPlannerIncomes(state.plannerSalary, state.plannerLines)) return "idle";
+  return needsDetection(state.plannerSalary) && !state.transactionsLoaded ? "wait" : "run";
+}
 
 /** The typed salary, or undefined when nothing was typed — the guess alone does not count. */
 function migrateSalary(stored: unknown, options: MigrationOptions, month: string): Income | undefined {
@@ -122,9 +182,7 @@ function migrateLine(line: BudgetLine, options: MigrationOptions, month: string)
 export function migratePlannerIncomes(plannerSalary: unknown, plannerLines: unknown, skip: unknown, occurrences: unknown, options: MigrationOptions = {}): MigrationResult {
   const month = toISOMonth(options.now ?? new Date());
 
-  const lines = Array.isArray(plannerLines)
-    ? plannerLines.filter((l): l is BudgetLine => !!l && typeof l === "object" && typeof (l as BudgetLine).id === "string" && (l as BudgetLine).kind === "income" && Number.isFinite((l as BudgetLine).amount))
-    : [];
+  const lines = Array.isArray(plannerLines) ? plannerLines.filter(isIncomeLine) : [];
 
   const salary = migrateSalary(plannerSalary, options, month);
   const incomes: Income[] = [];

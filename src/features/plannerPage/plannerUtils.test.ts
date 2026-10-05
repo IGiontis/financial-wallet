@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildPlan, detectSalary, goalMonthlyNeed, goalMonthlyTarget, goalMonthsAhead, nextSalaryDate, repeatLabel, REPEAT_CHOICES, salaryDates, SALARY_ROW_ID } from "./plannerUtils";
+import { buildPlan, goalMonthlyNeed, goalMonthlyTarget, goalMonthsAhead, repeatLabel, REPEAT_CHOICES } from "./plannerUtils";
+import { detectSalary } from "../incomes/detectSalary";
+import { monthlySalary, SALARY_ID, undatedIncome } from "../../test/incomes";
 import en from "../../i18n/locales/en.json";
 import el from "../../i18n/locales/el.json";
 import type { BillWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
@@ -94,31 +96,6 @@ describe("detectSalary", () => {
   });
 });
 
-describe("nextSalaryDate / salaryDates", () => {
-  it("moves to next month once the day has passed", () => {
-    expect(nextSalaryDate(5, new Date(2026, 7, 14))).toEqual(new Date(2026, 8, 5));
-  });
-
-  it("keeps this month's day when it is still ahead", () => {
-    expect(nextSalaryDate(25, new Date(2026, 7, 14))).toEqual(new Date(2026, 7, 25));
-  });
-
-  it("clamps to the last day of a short month", () => {
-    expect(nextSalaryDate(31, new Date(2026, 1, 10))).toEqual(new Date(2026, 1, 28));
-  });
-
-  it("falls back to the 1st when the day is unknown", () => {
-    expect(nextSalaryDate(undefined, new Date(2026, 7, 14))).toEqual(new Date(2026, 8, 1));
-  });
-
-  it("does not let a short month drag every later payday backwards", () => {
-    // Stepping by month index rather than by adding a month to the last date:
-    // 31 Jan → 28 Feb → 31 Mar, not 28 Mar and then 28 for ever after.
-    const dates = salaryDates(31, new Date(2026, 3, 30), new Date(2026, 0, 5));
-    expect(dates).toEqual([new Date(2026, 0, 31), new Date(2026, 1, 28), new Date(2026, 2, 31), new Date(2026, 3, 30)]);
-  });
-});
-
 // ─── Goals ───────────────────────────────────────────────────────────────────
 
 describe("goalMonthlyNeed", () => {
@@ -154,8 +131,8 @@ describe("goalMonthlyNeed", () => {
 
 describe("buildPlan", () => {
   const now = new Date(2026, 7, 14); // 14 Aug 2026
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   it("runs to the end of the month holding the day before today plus the horizon", () => {
     // 14 Aug + 1 month − 1 day = 13 Sep → 30 Sep; + 3 → 13 Nov → 30 Nov; + 12 → 13 Aug 2027 → 31 Aug 2027.
@@ -166,7 +143,7 @@ describe("buildPlan", () => {
 
   it("counts one payday per month in the window", () => {
     const plan = buildPlan({ ...base, horizon: 3 });
-    const row = plan.rows.find((r) => r.id === SALARY_ROW_ID);
+    const row = plan.rows.find((r) => r.id === SALARY_ID);
 
     expect(row?.occurrences).toBe(4); // 20 Aug, 20 Sep, 20 Oct, 20 Nov — the window closes 30 Nov
     expect(plan.incomeTotal).toBe(4 * 2000);
@@ -207,11 +184,18 @@ describe("buildPlan", () => {
     expect(plan.budgetTotal).toBeCloseTo(200 * (18 / 31 + 3), 1);
   });
 
-  it("adds a monthly income line to the income side", () => {
-    const plan = buildPlan({ ...base, horizon: 3, lines: [{ id: "l1", label: "Side work", amount: 300, kind: "income" }] });
+  it("spreads an income with no day over its months, as the income line it came from was", () => {
+    const plan = buildPlan({ ...base, horizon: 3, incomes: [...incomes, undatedIncome("l1", "Side work", 300)] });
 
-    // Four paydays of 2,000, and the line over the same 18/31 + 3 months.
+    // Four paydays of 2,000, and the 300 over the same 18/31 + 3 months.
     expect(plan.incomeTotal).toBeCloseTo(4 * 2000 + 300 * (18 / 31 + 3), 1);
+    expect(plan.rows.find((r) => r.id === "l1")?.total).toBeCloseTo(300 * (18 / 31 + 3), 2);
+  });
+
+  it("passes by an income line an older Planner stored — the income it became counts instead", () => {
+    const withLine = buildPlan({ ...base, horizon: 3, lines: [{ id: "l1", label: "Side work", amount: 300, kind: "income" }] });
+    expect(withLine.incomeTotal).toBe(4 * 2000);
+    expect(withLine.rows.some((r) => r.id === "l1")).toBe(false);
   });
 
   it("lets any row be switched off, and frees exactly its money", () => {
@@ -230,7 +214,7 @@ describe("buildPlan", () => {
 
   it("switching the salary off is what shows whether it is carrying the month", () => {
     const on = buildPlan({ ...base, horizon: 1 });
-    const off = buildPlan({ ...base, horizon: 1, skipIds: new Set([SALARY_ROW_ID]) });
+    const off = buildPlan({ ...base, horizon: 1, skipIds: new Set([SALARY_ID]) });
 
     expect(on.incomeTotal).toBe(2 * 2000); // 20 Aug and 20 Sep
     expect(off.incomeTotal).toBe(0);
@@ -284,7 +268,7 @@ describe("buildPlan", () => {
   });
 
   it("calls it short when the line ends under zero", () => {
-    const plan = buildPlan({ ...base, horizon: 1, salary: undefined, openingBalance: 200, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })] });
+    const plan = buildPlan({ ...base, horizon: 1, incomes: [], openingBalance: 200, bills: [bill({ name: "Ρεύμα", amount: 300, dueDay: 24 })] });
 
     // 200 in hand, 300 on 24 Aug and 300 on 24 Sep, nothing coming in.
     expect(plan.endingBalance).toBe(200 - 2 * 300);
@@ -344,8 +328,8 @@ describe("buildPlan", () => {
 
 describe("a goal stops at its deadline", () => {
   const now = new Date(2026, 7, 14); // 14 Aug 2026
-  const salary = { amount: 2000, dayOfMonth: 20, occurrences: 4 };
-  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], salary, now };
+  const incomes = [monthlySalary(2000, 20)];
+  const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, now };
 
   // €900 left, due 4 October: August is this month, then September and October.
   const october = () => goal({ name: "Ταξίδι", remaining: 900, deadline: new Date(2026, 9, 4) });
@@ -440,7 +424,7 @@ describe("the verdict reads the running balance, money in hand included", () => 
   // 5th and power 407 on the 8th; pay of 1,800 on the 25th — 393 to the good.
   const october = new Date(2026, 9, 1, 9);
   const bills = [bill({ name: "Rent", amount: 1000, dueDay: 5 }), bill({ name: "Power", amount: 407, dueDay: 8 })];
-  const run = (openingBalance: number, pay = 1800) => buildPlan({ bills, goals: [], salary: { amount: pay, dayOfMonth: 25, occurrences: 4 }, openingBalance, horizon: 1, now: october });
+  const run = (openingBalance: number, pay = 1800) => buildPlan({ bills, goals: [], incomes: [monthlySalary(pay, 25)], openingBalance, horizon: 1, now: october });
 
   /** The verdict worked out from the drawn line itself — a daily line at one month. */
   const fromPoints = (plan: ReturnType<typeof buildPlan>) => {
@@ -521,9 +505,9 @@ describe("the verdict reads the running balance, money in hand included", () => 
   });
 
   it("finds the lowest day on a month's own last day — leap February, plain February, the year end", () => {
-    const pay = { amount: 1000, dayOfMonth: 1, occurrences: 4 };
+    const pay = [monthlySalary(1000, 1)];
     const card = [bill({ name: "Card", amount: 900, dueDay: 31 })];
-    const at = (now: Date, openingBalance: number) => buildPlan({ bills: card, goals: [], salary: pay, openingBalance, horizon: 1, now });
+    const at = (now: Date, openingBalance: number) => buildPlan({ bills: card, goals: [], incomes: pay, openingBalance, horizon: 1, now });
 
     // 15 Feb 2028, one month → 31 Mar. 100 − 900 (29 Feb) = −800; +1,000 (1 Mar)
     // = 200; − 900 (31 Mar) = −700. Ends under: short, deepest on the 29th.
