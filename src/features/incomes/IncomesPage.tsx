@@ -39,6 +39,7 @@ import ArrivedSheet from "./components/ArrivedSheet";
 import IncomeCard from "./components/IncomeCard";
 import IncomeFormModal from "./components/IncomeFormModal";
 import { ConfirmSheet } from "./components/ConfirmSheet";
+import ThisTimeSheet from "./components/ThisTimeSheet";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/IncomesPage.module.css";
 
@@ -100,6 +101,7 @@ export default function IncomesPage() {
   const [cardId, setCardId] = useState<string | null>(null);
   const [arriving, setArriving] = useState<ArrivingState | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
+  const [thisTime, setThisTime] = useState<{ incomeId: string; status: IncomeStatus } | null>(null);
 
   const byId = useMemo(() => new Map(incomes.map((i) => [i.id, i])), [incomes]);
   const archived = useMemo(() => incomes.filter((i) => !isActiveIncome(i)), [incomes]);
@@ -147,14 +149,13 @@ export default function IncomesPage() {
     setConfirming({ kind: "delete", income, back });
   };
 
-  const askUndo = (income: Income, arrival: IncomeArrival) => {
+  // From the row's ⋮: the latest «Ήρθε» of that income, named with its date
+  // on the question so it is clear which one goes.
+  const askUndo = (income: Income) => {
+    const arrival = incomeArrivals(income, transactions)[0];
+    if (!arrival) return;
     setCardId(null);
-    setConfirming({ kind: "undo", income, arrival, back: income.id });
-  };
-
-  const archive = (income: Income) => {
-    setCardId(null);
-    saveIncome({ ...income, active: false });
+    setConfirming({ kind: "undo", income, arrival });
   };
 
   const closeConfirm = (reopen: boolean) => {
@@ -170,8 +171,7 @@ export default function IncomesPage() {
       return;
     }
     confirming.arrival.transactions.forEach((tx) => deleteTransaction.mutate({ id: tx.id }, { onError: () => toast.error(t("incomes.card.undoFailed")) }));
-    // Back to the card, which now shows the time as waiting again.
-    closeConfirm(true);
+    closeConfirm(false);
   };
 
   const acceptSuggestion = () => {
@@ -279,9 +279,11 @@ export default function IncomesPage() {
                 onBankAnswer={handleBankAnswer}
                 onSetDay={(income) => openEdit(income, 2)}
                 onEdit={(income) => openEdit(income)}
-                onArchive={archive}
                 onRestore={(income) => saveIncome({ ...income, active: undefined })}
                 onDelete={(income) => askDelete(income)}
+                onThisTime={(income, status) => setThisTime({ incomeId: income.id, status })}
+                canUndoArrival={(income) => incomeArrivals(income, transactions).length > 0}
+                onUndoArrival={askUndo}
               />
             )}
 
@@ -322,14 +324,10 @@ export default function IncomesPage() {
           formatCurrency={formatCurrency}
           f={f}
           now={now}
-          deleteLockedReason={deleteGuard.locked ? deleteGuard.reason : undefined}
           onClose={() => setCardId(null)}
-          onEdit={openEdit}
+          onEdit={(income) => openEdit(income)}
           onArrive={(income, status) => openArrive(income, status)}
-          onSetOverride={setOverride}
-          onUndoArrival={askUndo}
           onRestore={(income) => saveIncome({ ...income, active: undefined })}
-          onArchive={archive}
           onDelete={(income) => askDelete(income, income.id)}
         />
       )}
@@ -369,16 +367,18 @@ export default function IncomesPage() {
             saveIncome(income);
             setForm(null);
           }}
-          onDelete={() => {
-            const income = form.draft.id ? byId.get(form.draft.id) : undefined;
-            if (income) askDelete(income, income.id);
-            else setForm(null);
-          }}
-          onArchive={() => {
-            const income = form.draft.id ? byId.get(form.draft.id) : undefined;
-            if (income) archive(income);
-            setForm(null);
-          }}
+        />
+      )}
+
+      {thisTime && byId.get(thisTime.incomeId) && (
+        <ThisTimeSheet
+          income={byId.get(thisTime.incomeId)!}
+          status={thisTime.status}
+          formatCurrency={formatCurrency}
+          f={f}
+          onClose={() => setThisTime(null)}
+          onArrive={(income, status) => openArrive(income, status)}
+          onSay={setOverride}
         />
       )}
 

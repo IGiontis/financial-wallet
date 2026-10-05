@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiArchive, FiTrash2 } from "react-icons/fi";
 import type { Category } from "../../../shared/types/IndexTypes";
 import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -12,20 +11,24 @@ import NewCategoryButton from "../../categories/NewCategoryButton";
 import type { MoneyAccount } from "../../accounts/accountsUtils";
 import { INCOME_KINDS, KIND_ICON, incomeOccurrences, incomeYear, suggestIncomeCategory, type Income, type IncomeKind } from "../incomesUtils";
 import { draftToIncome, validateAll, validateDraft, type DraftErrors, type DraftStep, type IncomeDraft } from "../incomeForm";
-import { scheduleText, weekdayName, type IncomeFormats } from "../incomeText";
+import { weekdayName, type IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
+import { WizardSteps } from "../../transactions/components/WizardSteps";
 import styles from "../css/IncomesPage.module.css";
 
 // One sheet for a new income and for changing one, in three steps, in the
 // order of the Bills form — name, amount, «αλλάζει» → how often, which day,
 // from when → pause — plus the two that are new here: where the money lands,
-// and «ο μισθός μου». A change opens on a summary and goes straight to the step
-// that is wanted, rather than walking all three to fix a day.
+// and «ο μισθός μου».
+//
+// The steps are the Transactions wizard's rail: numbered circles, back and
+// forward. A change can jump to any step from the rail — everything is filled
+// in already — and save from any of them.
 
 export interface IncomeFormModalProps {
   draft: IncomeDraft;
   isEdit: boolean;
-  /** Open on this step; a change otherwise opens on its summary. */
+  /** Open on this step rather than the first. */
   startStep?: DraftStep;
   categories: Category[];
   accounts: MoneyAccount[];
@@ -34,18 +37,18 @@ export interface IncomeFormModalProps {
   f: IncomeFormats;
   now: Date;
   onSave: (income: Income) => void;
-  onDelete: () => void;
-  onArchive: () => void;
   onClose: () => void;
 }
 
-type View = DraftStep | "summary";
+type View = DraftStep;
 
-export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onDelete, onArchive, onClose }: IncomeFormModalProps) {
+const STEPS = ["1", "2", "3"] as const;
+
+export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onClose }: IncomeFormModalProps) {
   const { t } = useTranslation();
   const { convertToBase, baseCurrency, displayCurrency, format } = useCurrencyConverter();
   const [draft, setDraft] = useState<IncomeDraft>(initial);
-  const [view, setView] = useState<View>(startStep ?? (isEdit ? "summary" : 1));
+  const [view, setView] = useState<View>(startStep ?? 1);
   const [errors, setErrors] = useState<DraftErrors>({});
   // Whether the category was chosen by hand: until it is, it follows the kind.
   const [categoryTouched, setCategoryTouched] = useState(isEdit || !!initial.categoryId);
@@ -78,7 +81,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const pauseYear = useMemo(() => (preview && draft.hasPause && Number(draft.amount) > 0 ? incomeYear([preview], [], now) : undefined), [preview, draft.hasPause, draft.amount, now]);
 
   const goTo = (target: View) => {
-    if (typeof view === "number" && typeof target === "number" && target > view) {
+    if (target > view) {
       const found = validateDraft(draft, view);
       setErrors(found);
       if (Object.keys(found).length > 0) return;
@@ -102,26 +105,21 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(f.lang, new Date(2020, m, 1))), [f.lang]);
   const unit = draft.frequency === "weekly" ? "incomes.form.unitWeeks" : draft.frequency === "yearly" ? "incomes.form.unitYears" : "incomes.form.unitMonths";
-  const stepTitle = view === 1 ? t("incomes.form.step1") : view === 2 ? t("incomes.form.step2") : view === 3 ? t("incomes.form.step3") : t("incomes.form.summary");
+  const stepTitle = view === 1 ? t("incomes.form.step1") : view === 2 ? t("incomes.form.step2") : t("incomes.form.step3");
 
-  const summaryIncome = view === "summary" ? draftToIncome(draft, toBase) : undefined;
-  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name;
 
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose} tag="div" className="w-100">
-        {typeof view === "number" && (
-          <div className={styles.steps} aria-hidden>
-            {[1, 2, 3].map((s) => (
-              <span key={s} className={`${styles.stepBar} ${s <= view ? styles.stepBarOn : ""}`} />
-            ))}
-          </div>
-        )}
-        <div className="d-flex justify-content-between align-items-baseline gap-2">
-          <span className="h6 mb-0 fw-semibold">{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</span>
-          {typeof view === "number" && <span className="text-body-secondary" style={{ fontSize: 12 }}>{t("incomes.form.stepOf", { step: view })}</span>}
-        </div>
-        <div className="text-body-secondary" style={{ fontSize: 12.5 }}>
+        <div className="h6 mb-2 fw-semibold">{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</div>
+        <WizardSteps
+          steps={STEPS}
+          current={String(view) as (typeof STEPS)[number]}
+          onGo={(step) => goTo(Number(step) as DraftStep)}
+          label={(step) => t(`incomes.form.stepShort${step}`)}
+          open={isEdit}
+        />
+        <div className="text-body-secondary mt-2" style={{ fontSize: 12.5 }}>
           {stepTitle}
         </div>
       </ModalHeader>
@@ -130,47 +128,11 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (view === 3 || view === "summary" || isEdit) save();
+          if (view === 3) save();
           else goTo((view + 1) as DraftStep);
         }}
       >
         <ModalBody>
-          {view === "summary" && (
-            <div>
-              {[
-                { step: 1 as DraftStep, label: t("incomes.form.sumWhat"), value: `${t(`incomes.kind.${draft.kind}`)} · ${draft.variable ? `${t("incomes.form.variableShort")} ≈` : ""}${format(toBase(Number(draft.amount) || 0))}` },
-                { step: 2 as DraftStep, label: t("incomes.form.sumWhen"), value: summaryIncome ? scheduleText(summaryIncome, t, f) : t("incomes.form.sumIncomplete") },
-                {
-                  step: 3 as DraftStep,
-                  label: t("incomes.form.sumWhere"),
-                  value: [accountName(draft.accountId) ?? t("incomes.form.noAccount"), draft.hasPause ? t("incomes.form.sumPause") : undefined, draft.isSalary ? t("incomes.card.mySalary") : undefined]
-                    .filter(Boolean)
-                    .join(" · "),
-                },
-              ].map((row) => (
-                <button key={row.step} type="button" className={styles.summaryRow} onClick={() => goTo(row.step)}>
-                  <span className={styles.summaryLabel}>{row.label}</span>
-                  <span className={styles.summaryValue}>{row.value}</span>
-                  <span className="text-body-secondary" aria-hidden>
-                    ›
-                  </span>
-                </button>
-              ))}
-
-              {/* The delete asks on a sheet of its own, as everywhere else. */}
-              <div className="d-flex flex-wrap gap-2 mt-3">
-                <Button type="button" color="secondary" outline size="sm" onClick={onArchive}>
-                  <FiArchive className="me-1" aria-hidden />
-                  {t("incomes.form.archive")}
-                </Button>
-                <Button type="button" color="danger" outline size="sm" onClick={onDelete}>
-                  <FiTrash2 className="me-1" aria-hidden />
-                  {t("common.delete")}
-                </Button>
-              </div>
-            </div>
-          )}
-
           {view === 1 && (
             <>
               <FormGroup>
@@ -440,24 +402,25 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
         </ModalBody>
 
         <ModalFooter className="justify-content-between">
-          {view === "summary" || view === 1 ? (
+          {view === 1 ? (
             <Button type="button" color="secondary" outline onClick={onClose}>
               {t("common.cancel")}
             </Button>
           ) : (
-            <Button type="button" color="secondary" outline onClick={() => goTo(isEdit ? "summary" : ((view - 1) as DraftStep))}>
-              ‹ {isEdit ? t("incomes.form.toSummary") : t("common.back")}
+            <Button type="button" color="secondary" outline onClick={() => goTo((view - 1) as DraftStep)}>
+              ‹ {t("common.back")}
             </Button>
           )}
-          {view === 3 || isEdit ? (
+          <div className="d-flex gap-2">
+            {isEdit && view !== 3 && (
+              <Button type="button" color="primary" outline onClick={save}>
+                {t("common.save")}
+              </Button>
+            )}
             <Button type="submit" color="primary">
-              {t("common.save")}
+              {view === 3 ? t("common.save") : `${t("common.next")} ›`}
             </Button>
-          ) : (
-            <Button type="submit" color="primary">
-              {t("common.next")} ›
-            </Button>
-          )}
+          </div>
         </ModalFooter>
       </form>
     </Modal>

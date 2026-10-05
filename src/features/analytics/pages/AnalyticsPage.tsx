@@ -5,6 +5,10 @@ import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
 import { useDebts } from "../../debts/useDebts";
+import { useBills } from "../../bills/useBills";
+import { useWorkspaceSetting } from "../../../shared/hooks/useWorkspaceSetting";
+import { PLANNER_KEYS, cleanLines } from "../../plannerPage/plannerInputs";
+import type { BudgetLine } from "../../plannerPage/plannerUtils";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { TransactionInsights } from "../../transactions/components/TransactionInsights";
@@ -42,9 +46,23 @@ import {
 import { ChartCard } from "../components/ChartCard";
 import { Legend } from "../components/Legend";
 import { seriesColor, seriesDash, weekdayNames } from "../components/chartTheme";
-import NetPositionChart from "../components/NetPositionChart";
-import SavingsRateChart from "../components/SavingsRateChart";
-import IncomeExpenseChart from "../components/IncomeExpenseChart";
+import { DashboardKpis } from "../components/DashboardKpis";
+import { LineKey } from "../components/DashboardKeys";
+import MonthTrioChart, { type TrioRow } from "../components/MonthTrioChart";
+import LabelledFlowChart from "../components/LabelledFlowChart";
+import PlanActualChart, { type PlanActualRow } from "../components/PlanActualChart";
+import SavingsGoalChart, { SavingsGoalControl } from "../components/SavingsGoalChart";
+import {
+  SAVINGS_GOAL_KEY,
+  cleanSavingsGoal,
+  firstRecordMonth,
+  goalMonths,
+  hasLastYear,
+  lastYearWindow,
+  periodTotals,
+  planByMonth,
+  type SavingsGoal,
+} from "../dashboardUtils";
 import CategoryTrendChart, { type TrendRow } from "../components/CategoryTrendChart";
 import WeekdayChart from "../components/WeekdayChart";
 import MonthPaceChart from "../components/MonthPaceChart";
@@ -103,7 +121,6 @@ export function AnalyticsPage() {
   // ── Flow & saving ──────────────────────────────────────────────────────────
 
   const netData = useMemo(() => cumulativeNet(flows).map((p) => ({ label: monthFmt.format(p.start), cumulative: p.cumulative, net: p.net })), [flows, monthFmt]);
-  const netTotal = netData.length > 0 ? netData[netData.length - 1].cumulative : 0;
 
   const savingsData = useMemo(
     () => savingsRateSeries(flows).map((p) => ({ label: monthFmt.format(p.start), rate: p.rate, income: p.income, net: p.net })),
@@ -112,9 +129,55 @@ export function AnalyticsPage() {
   const avgRate = useMemo(() => averageSavingsRate(flows), [flows]);
 
   const flowData = useMemo(() => flows.map((f) => ({ label: monthFmt.format(f.start), income: f.income, expenses: f.expenses, net: f.net })), [flows, monthFmt]);
+  const trioRows = useMemo<TrioRow[]>(() => flowData.map((row, i) => ({ ...row, cumulative: netData[i]?.cumulative ?? 0 })), [flowData, netData]);
   const totalExpenses = useMemo(() => flows.reduce((s, f) => s + f.expenses, 0), [flows]);
 
   const sankey = useMemo(() => moneyFlow(scoped), [scoped]);
+
+  // ── At a glance ────────────────────────────────────────────────────────────
+  //
+  // The dashboard at the top: four totals with last year beside them, and the
+  // months drawn four ways. All of it from the same `flows` as the charts
+  // below, so a total up here is the same number as the line it sums.
+
+  const totals = useMemo(() => periodTotals(flows), [flows]);
+
+  // Last year's same stretch — only when the records reach back to its first
+  // month, or every figure would read as a rise from nothing.
+  const firstMonth = useMemo(() => firstRecordMonth(transactions), [transactions]);
+  const yearBefore = useMemo(() => lastYearWindow(from, now), [from, now]);
+  const comparable = hasLastYear(yearBefore, firstMonth);
+  const lastYearFlows = useMemo(
+    () => (yearBefore ? monthlyFlows(withinRange(transactions, yearBefore.from, yearBefore.to), yearBefore.from, yearBefore.to) : []),
+    [transactions, yearBefore],
+  );
+  const lastYearTotals = useMemo(() => (comparable ? periodTotals(lastYearFlows) : undefined), [comparable, lastYearFlows]);
+
+  const kpiMonths = useMemo(() => flows.map((f) => ({ income: f.income, expenses: f.expenses, net: f.net, rate: f.income > 0 ? (f.net / f.income) * 100 : null })), [flows]);
+
+  // The plan: bills plus the Planner's expense lines, as they stand today. The
+  // bills are the query the menu's badge already holds, so no new read.
+  const { data: bills = [] } = useBills();
+  const [storedLines] = useWorkspaceSetting<BudgetLine[]>(PLANNER_KEYS.lines, []);
+  const planLines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  const plan = useMemo(() => planByMonth(bills, planLines, flows.map((f) => f.start), now), [bills, planLines, flows, now]);
+  const hasPlan = plan.some((month) => month.amount > 0);
+
+  const planRows = useMemo<PlanActualRow[]>(
+    () =>
+      flows.map((f, i) => {
+        const before = lastYearFlows[i];
+        // A month before the records begin is "not using the app yet", not zero.
+        const known = !!before && !!firstMonth && before.start.getTime() >= firstMonth.getTime();
+        return { label: monthFmt.format(f.start), actual: f.expenses, plan: hasPlan ? plan[i].amount : null, lastYear: known ? before.expenses : null };
+      }),
+    [flows, lastYearFlows, firstMonth, hasPlan, plan, monthFmt],
+  );
+  const showLastYearLine = planRows.some((row) => row.lastYear !== null);
+  const planGap = hasPlan ? Math.round((totals.expenses - plan.reduce((sum, month) => sum + month.amount, 0)) * 100) / 100 : undefined;
+
+  const [storedGoal, setStoredGoal] = useWorkspaceSetting<SavingsGoal | null>(SAVINGS_GOAL_KEY, null);
+  const goal = useMemo(() => cleanSavingsGoal(storedGoal), [storedGoal]);
 
   // ── What you are worth ─────────────────────────────────────────────────────
   //
@@ -296,6 +359,7 @@ export function AnalyticsPage() {
   }
 
   const noData = t("analytics.noData");
+  const reached = goal ? goalMonths(savingsData.map((p) => p.rate), goal) : undefined;
 
   return (
     <PageShell>
@@ -320,6 +384,83 @@ export function AnalyticsPage() {
         </Alert>
       ) : (
         <div style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
+          {/* ── At a glance ── */}
+          <h2 className={styles.sectionTitle}>{t("analytics.dashboard.group")}</h2>
+
+          <DashboardKpis
+            current={totals}
+            lastYear={lastYearTotals}
+            months={kpiMonths}
+            rangeLabel={t(`analytics.range.${range}`)}
+            formatCurrency={formatCurrency}
+            locale={lang}
+          />
+
+          <div className={`${styles.grid} mb-4`}>
+            <ChartCard auto title={t("analytics.dashboard.trioTitle")} hint={t("analytics.dashboard.trioHint")} empty={flows.length === 0 ? noData : undefined}>
+              <MonthTrioChart data={trioRows} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.flow.title")}
+              hint={t("analytics.dashboard.linesHint")}
+              footer={
+                <Legend
+                  items={[
+                    { color: "var(--chart-income)", label: t("analytics.flow.income") },
+                    { color: "var(--chart-expense)", label: t("analytics.flow.expenses") },
+                  ]}
+                />
+              }
+            >
+              <LabelledFlowChart data={flowData} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.dashboard.planTitle")}
+              // The gap is the figure; the words for it go under the title, so a
+              // long phrase does not squeeze the title into a column.
+              hint={planGap === undefined ? t("analytics.dashboard.noPlan") : t(planGap > 0 ? "analytics.dashboard.overPlan" : planGap < 0 ? "analytics.dashboard.underPlan" : "analytics.dashboard.onPlan")}
+              value={planGap === undefined ? undefined : `${planGap > 0 ? "+" : planGap < 0 ? "−" : ""}${formatCurrency(Math.abs(planGap))}`}
+              valueTone={planGap === undefined || planGap === 0 ? "neutral" : planGap > 0 ? "expense" : "income"}
+              footer={
+                <LineKey
+                  items={[
+                    { color: "var(--chart-expense)", label: t("analytics.dashboard.actual") },
+                    ...(hasPlan ? [{ color: "var(--chart-expense)", label: t("analytics.dashboard.plan"), dash: "6 4", opacity: 0.8 }] : []),
+                    ...(showLastYearLine ? [{ color: "var(--chart-expense)", label: t("analytics.dashboard.lastYear"), dash: "1.5 4", opacity: 0.5 }] : []),
+                  ]}
+                />
+              }
+            >
+              <PlanActualChart data={planRows} formatCurrency={formatCurrency} />
+            </ChartCard>
+
+            <ChartCard
+              tall
+              title={t("analytics.savingsRate.title")}
+              hint={goal && reached ? t("analytics.dashboard.goalHint", { reached: reached.reached, count: reached.counted, min: goal.min }) : t("analytics.savingsRate.hint")}
+              value={avgRate === undefined ? "—" : `${Math.round(avgRate)}%`}
+              valueTone={avgRate !== undefined && avgRate < 0 ? "expense" : "income"}
+              empty={avgRate === undefined ? noData : undefined}
+              footer={
+                <>
+                  <Legend
+                    items={[
+                      { color: "var(--chart-net)", label: t("analytics.dashboard.monthRate") },
+                      ...(goal ? [{ color: "color-mix(in srgb, var(--chart-income) 35%, transparent)", label: t("analytics.dashboard.goalBand") }] : []),
+                    ]}
+                  />
+                  <SavingsGoalControl goal={goal} onSave={(next) => setStoredGoal(next ?? null)} />
+                </>
+              }
+            >
+              <SavingsGoalChart data={savingsData} goal={goal} average={avgRate} formatCurrency={formatCurrency} />
+            </ChartCard>
+          </div>
+
           {/* Moved off the Transactions screen, which had become a table
               wearing a dashboard. The figures belong with the other charts,
               and the range picker above already scopes them. */}
@@ -452,43 +593,9 @@ export function AnalyticsPage() {
           <h2 className={styles.sectionTitle}>{t("analytics.groups.flow")}</h2>
 
           <div className={styles.grid}>
-            <ChartCard
-              wide
-              tall
-              title={t("analytics.netPosition.title")}
-              hint={t("analytics.netPosition.hint")}
-              value={formatCurrency(netTotal)}
-              valueTone={netTotal >= 0 ? "income" : "expense"}
-            >
-              <NetPositionChart data={netData} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
-              title={t("analytics.savingsRate.title")}
-              hint={t("analytics.savingsRate.hint")}
-              value={avgRate === undefined ? "—" : `${Math.round(avgRate)}%`}
-              valueTone={avgRate !== undefined && avgRate < 0 ? "expense" : "income"}
-              empty={avgRate === undefined ? noData : undefined}
-            >
-              <SavingsRateChart data={savingsData} average={avgRate} formatCurrency={formatCurrency} />
-            </ChartCard>
-
-            <ChartCard
-              title={t("analytics.flow.title")}
-              hint={t("analytics.flow.hint")}
-              footer={
-                <Legend
-                  items={[
-                    { color: "var(--color-income)", label: t("analytics.flow.income") },
-                    { color: "var(--color-expense)", label: t("analytics.flow.expenses") },
-                    { color: "var(--color-text-primary)", label: t("analytics.flow.net") },
-                  ]}
-                />
-              }
-            >
-              <IncomeExpenseChart data={flowData} formatCurrency={formatCurrency} />
-            </ChartCard>
-
+            {/* The running net position, the savings rate and income against
+                spending moved up into the dashboard; what stays here is where
+                the money went. */}
             {/* The ribbons crowd as categories pile up, and on a phone the card is
                 far too small to follow one through — the card's own magnify
                 button opens the same drawing at the size it needs. */}

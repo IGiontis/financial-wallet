@@ -1,0 +1,202 @@
+/* The dashboard at the top of the Analytics page: four figure cards, then the
+   four month-by-month charts in the page's own chart cards. The figure cards
+   are the only new shell — the charts reuse ChartCard. */
+
+/* ── The four figures ─────────────────────────────────────────────────────── */
+/* Two by two on a phone, one row of four from a laptop up. */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 992px) {
+  .kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.kpi {
+  /* The tile's own colour — the icon, the sparkline — set inline per figure. */
+  --kpi: var(--bs-primary);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.85rem 0.9rem 0.6rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.kpiTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kpiLabel {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.kpiIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kpi) 16%, transparent);
+  color: var(--kpi);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.kpiValue {
+  margin: 0.35rem 0 0.15rem;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 576px) {
+  .kpiValue {
+    font-size: 21px;
+  }
+}
+
+.kpiDelta {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.kpiGood {
+  color: var(--color-income-text);
+}
+
+.kpiBad {
+  color: var(--color-expense-text);
+}
+
+.kpiQuiet {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.kpiSpark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 0.4rem;
+  overflow: visible;
+}
+
+/* ── Month by month: three small charts on one axis ───────────────────────── */
+
+.trio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.trioHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 12px;
+}
+
+.trioName {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.trioDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.trioTotal {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trioChart {
+  height: 78px;
+}
+
+/* The last of the three carries the month axis for all of them. */
+.trioChartAxis {
+  height: 96px;
+}
+
+@media (min-width: 768px) {
+  .trioChart {
+    height: 86px;
+  }
+
+  .trioChartAxis {
+    height: 104px;
+  }
+}
+
+/* ── The savings goal under its chart ─────────────────────────────────────── */
+
+.goalRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 12px;
+}
+
+.goalForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.goalField {
+  width: 84px;
+}
+
+.goalField label {
+  margin-bottom: 2px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+}
+
+.goalError {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-expense-text);
+  font-size: 12px;
+}

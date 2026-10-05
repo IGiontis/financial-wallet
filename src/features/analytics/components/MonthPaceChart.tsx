@@ -40,7 +40,7 @@ export default function MonthPaceChart({ data, formatCurrency }: { data: PacePoi
         <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={18} />
         <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<PaceTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
-        <Line type="monotone" dataKey="previous" stroke="var(--color-text-secondary)" strokeWidth={1.75} strokeDasharray="4 3" dot={false} connectNulls={false} />
+        <Line type="monotone" dataKey="previous" stroke="var(--color-text-secondary)" strokeWidth={1.75} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
         <Line type="monotone" dataKey="current" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} connectNulls={false} />
       </LineChart>
     </ResponsiveContainer>

@@ -649,12 +649,6 @@
       "estimate_one": "An estimate until it has arrived 3 times · so far {{count}}.",
       "estimate_other": "An estimate until it has arrived 3 times · so far {{count}}.",
       "mean": "avg of the last 3: ({{list}}) / 3 = {{amount}}",
-      "came": "Arrived",
-      "expected": "Expecting",
-      "next": "Next",
-      "thisTime": "This time",
-      "saidThisTime": "changed for this time",
-      "undoSaid": "Undo",
       "otherDay": "It will come on another day",
       "otherAmount": "A different amount this time",
       "notThisTime": "It won't come this time",
@@ -662,9 +656,23 @@
       "records": "«Arrived» records",
       "recordFor": "for {{month}}",
       "undoRecord": "Undo",
-      "undoRecordFor": "Undo the record of {{date}}",
-      "recordsHint": "Undo deletes the transaction. You can also change it from Transactions.",
-      "undoFailed": "The transaction wasn't deleted. Try again."
+      "undoFailed": "The transaction wasn't deleted. Try again.",
+      "howOften": "How often",
+      "howMuch": "How much",
+      "where": "Lands in",
+      "nextTime": "Next",
+      "pause": "Pause",
+      "noAccount": "You haven’t said which account",
+      "fixed": "the same amount every time",
+      "chipLate": "late",
+      "chipMissed": "no",
+      "chipSkipped": "off",
+      "legend": {
+        "arrived": "arrived",
+        "late": "late",
+        "missed": "didn’t come",
+        "coming": "coming"
+      }
     },
     "empty": {
       "title": "No income yet",
@@ -684,16 +692,13 @@
     },
     "form": {
       "newTitle": "New income",
-      "stepOf": "{{step}} of 3",
       "step1": "What comes in",
       "step2": "When it comes",
       "step3": "Where, and until when",
-      "summary": "Tap what you want to change",
       "kind": "Kind",
       "namePlaceholder": "e.g. Private lessons",
       "variable": "The amount changes every time",
       "variableHint": "You'll write what arrived in «Arrived». The Planner uses the average of the last 3.",
-      "variableShort": "variable",
       "estimatedAmount": "Estimated amount",
       "categoryAuto": "Automatic, from the kind",
       "categoryHint": "The category «Arrived» records it under in Transactions.",
@@ -732,17 +737,15 @@
       "isSalary": "This is my salary",
       "isSalaryHint": "The Overview counts «until payday» from it. Only one income can have it.",
       "isSalaryMoves": "It moves from «{{name}}» — only one income can have it.",
-      "sumWhat": "What",
-      "sumWhen": "When",
-      "sumWhere": "Where",
-      "sumIncomplete": "the day is missing",
-      "sumPause": "with a pause",
-      "toSummary": "Summary",
-      "archive": "Archive"
+      "stepShort1": "What",
+      "stepShort2": "When",
+      "stepShort3": "Where"
     },
     "actions": {
       "details": "Details",
-      "menu": "{{name}}: actions"
+      "menu": "{{name}}: actions",
+      "thisTime": "This time…",
+      "undoArrival": "Undo «Arrived»"
     },
     "confirm": {
       "deleteTitle": "Delete income",
@@ -750,6 +753,10 @@
       "deleteHint": "The transactions written with «Arrived» stay in Transactions. To stop counting it but keep its history, archive it instead.",
       "undoTitle": "Undo «Arrived»",
       "undoBody": "This deletes the {{amount}} transaction of {{date}}, and «{{name}}» goes back to waiting."
+    },
+    "thisTime": {
+      "title": "{{name}} · this time",
+      "undo": "Forget what I said for this time"
     }
   },
   "transactions": {
@@ -906,10 +913,7 @@
       "income": "Your income"
     },
     "netPosition": {
-      "title": "Net position",
-      "hint": "Running total of what you kept, month by month",
-      "running": "Running total",
-      "thatMonth": "That month"
+      "title": "Net position"
     },
     "savingsRate": {
       "title": "Savings rate",
@@ -920,7 +924,6 @@
     },
     "flow": {
       "title": "Income vs expenses",
-      "hint": "Both sides as bars, what survived as a line",
       "income": "Income",
       "expenses": "Expenses",
       "net": "Net"
@@ -1007,6 +1010,37 @@
       "sourcesHint": "Largest first, with each one against the biggest",
       "shareOfAll": "{{percent}}% of income",
       "noNames": "Income needs a description before it can be grouped by source"
+    },
+    "dashboard": {
+      "group": "At a glance",
+      "vsLastYear": "{{change}} vs last year",
+      "points": "{{value}} pts",
+      "noLastYear": "no last year to compare",
+      "total": "Total {{amount}}",
+      "end": "End {{amount}}",
+      "trioTitle": "Month by month",
+      "trioHint": "Three charts, the same months: point at one and it lights up in all three",
+      "linesHint": "Values on the highest, the lowest and the latest point",
+      "planTitle": "Spending: actual, plan, last year",
+      "noPlan": "No plan yet: add bills or expense lines in the Planner to compare",
+      "actual": "Actual",
+      "plan": "Plan",
+      "lastYear": "Last year",
+      "difference": "Difference",
+      "overPlan": "Over the plan: your bills and the Planner’s expense lines, as they stand today",
+      "underPlan": "Under the plan: your bills and the Planner’s expense lines, as they stand today",
+      "onPlan": "Right on the plan: your bills and the Planner’s expense lines, as they stand today",
+      "monthRate": "Month’s rate",
+      "goalBand": "Goal band",
+      "goalHint": "{{reached}} of {{count}} months reached {{min}}%",
+      "goalLabel": "Goal {{min}}–{{max}}%",
+      "goalNone": "No savings goal yet",
+      "goalSet": "Set a goal",
+      "goalChange": "Change",
+      "goalFrom": "From %",
+      "goalTo": "To %",
+      "goalRemove": "Remove",
+      "goalInvalid": "Two numbers from 0 to 100, the first one smaller."
     }
   },
   "investments": {

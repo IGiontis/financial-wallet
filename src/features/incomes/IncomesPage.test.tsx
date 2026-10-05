@@ -121,7 +121,7 @@ describe("the Incomes page", () => {
     expect(within(waiting).getByText("Ιδιαίτερα μαθήματα")).toBeInTheDocument();
     expect(within(waiting).getByText("αργεί 2 μέρες")).toBeInTheDocument();
     const arrived = screen.getByRole("region", { name: "Ήρθαν" });
-    expect(within(arrived).getByText("✓ 25/9 · 5 μέρες νωρίς")).toBeInTheDocument();
+    expect(within(arrived).getByText("✓ 25 Σεπ 2026 · 5 μέρες νωρίς")).toBeInTheDocument();
   });
 
   it("writes «Ήρθε» as an income transaction tied to the lessons of 28 September", async () => {
@@ -221,28 +221,87 @@ describe("what cannot be taken back asks first", () => {
     );
   });
 
-  it("undoes an «Ήρθε» — deleting its transaction — only after a yes, and goes back to the card either way", async () => {
+  it("undoes an «Ήρθε» from the row's ⋮ — deleting its transaction — only after a yes", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Μισθός: λεπτομέρειες" }));
-    const undo = () => within(screen.getByRole("dialog")).getByRole("button", { name: /^Αναίρεση της καταχώρισης της .*25\/9$/ });
+    const undo = async () => {
+      await userEvent.click(await screen.findByRole("button", { name: "Μισθός: ενέργειες" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Αναίρεση «Ήρθε»" }));
+      return screen.getByRole("dialog");
+    };
 
-    await userEvent.click(undo());
-    let sheet = screen.getByRole("dialog");
+    let sheet = await undo();
     expect(within(sheet).getByRole("heading", { name: "Αναίρεση του «Ήρθε»" })).toBeInTheDocument();
-    expect(within(sheet).getByText(/Θα σβηστεί η συναλλαγή των 1\.450,00\s?€/)).toBeInTheDocument();
+    // Which one goes is named: 1.450 of Friday 25 September.
+    expect(within(sheet).getByText(/Θα σβηστεί η συναλλαγή των 1\.450,00\s?€ της .*25 Σεπ 2026/)).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: "Ακύρωση" }));
     expect(api.deleteTransaction).not.toHaveBeenCalled();
-    // The card again, the record still on it.
-    expect(undo()).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    await userEvent.click(undo());
-    sheet = screen.getByRole("dialog");
+    sheet = await undo();
     await userEvent.click(within(sheet).getByRole("button", { name: "Αναίρεση" }));
     await waitFor(() => expect(api.deleteTransaction).toHaveBeenCalledTimes(1));
     expect(api.deleteTransaction.mock.calls[0][0]).toBe(salaryRecord.id);
-    // Back on the card, and the record is gone from it.
-    await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Επεξεργασία" })).toBeInTheDocument());
-    await waitFor(() => expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /^Αναίρεση της καταχώρισης/ })).not.toBeInTheDocument());
+  });
+});
+
+describe("an income's card", () => {
+  it("is for reading — how often, how much, where — with delete on its own and edit beside «Ήρθε»", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Ιδιαίτερα μαθήματα: λεπτομέρειες" }));
+    const card = screen.getByRole("dialog");
+
+    expect(within(card).getByText("Κάθε πότε").nextElementSibling).toHaveTextContent("κάθε μήνα στις 28");
+    // A variable income: its mean, and the sum it comes from.
+    expect(within(card).getByText("Πόσο").nextElementSibling).toHaveTextContent(/≈ 320,00\s?€/);
+    expect(within(card).getByText("Πού μπαίνουν").nextElementSibling).toHaveTextContent("Μετρητά");
+
+    // Nothing in the body is a control; the footer has the three.
+    const buttons = within(card)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim() || b.getAttribute("aria-label"));
+    expect(buttons).toEqual(["Close", "Διαγραφή", "Επεξεργασία", "Ήρθε"]);
+  });
+});
+
+describe("«Αυτή τη φορά…»", () => {
+  it("says «δεν θα έρθει» for one time only, from the row's ⋮, into the Planner's store", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Ιδιαίτερα μαθήματα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Αυτή τη φορά…" }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText(/28 Σεπ 2026/)).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: /Δεν θα έρθει αυτή τη φορά/ }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-occurrences", { "income:tut:2026-09-28": { state: "skipped" } }), { timeout: 2000 });
+  });
+});
+
+describe("the form", () => {
+  it("walks the numbered steps back and forth, and a change can jump straight to any of them", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
+    const form = screen.getByRole("dialog");
+
+    const step = (n: number) => within(form).getByRole("button", { name: new RegExp(`^${n}`) });
+    expect(step(1)).toHaveAttribute("aria-current", "step");
+    // A change: every step is filled in, so the third is a tap away.
+    await userEvent.click(step(3));
+    expect(step(3)).toHaveAttribute("aria-current", "step");
+    await userEvent.click(within(form).getByRole("button", { name: "‹ Πίσω" }));
+    expect(step(2)).toHaveAttribute("aria-current", "step");
+  });
+
+  it("does not let a new income skip ahead before its first step is filled in", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Νέο έσοδο" }));
+    const form = screen.getByRole("dialog");
+    expect(within(form).getByRole("button", { name: /^3/ })).toBeDisabled();
+    await userEvent.clear(within(form).getByLabelText(/Όνομα/));
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    // Still on the first step, the name asked for.
+    expect(within(form).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
   });
 });
 

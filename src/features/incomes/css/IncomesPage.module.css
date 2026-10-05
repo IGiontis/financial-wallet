@@ -305,6 +305,37 @@
   gap: 4px;
 }
 
+/* A row's facts as small chips under the name, instead of one grey run of
+   text: the status first, then when, how and where. */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag svg {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
 .lineSub {
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -725,30 +756,166 @@
   text-overflow: ellipsis;
 }
 
-.chipArrived .chipValue {
+/* Each time filled with its colour: the six months read at a glance before a
+   figure is — green came, amber late, red never came, blue still to come. */
+.chipArrived {
+  border-color: color-mix(in srgb, var(--color-income) 60%, transparent);
+  background: color-mix(in srgb, var(--color-income) 22%, var(--color-surface));
+}
+
+.chipArrived .chipValue,
+.chipArrived .chipLabel {
   color: var(--color-income-text);
 }
 
 .chipLate {
-  background: color-mix(in srgb, var(--color-goal) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-goal) 70%, transparent);
+  background: color-mix(in srgb, var(--color-goal) 26%, var(--color-surface));
 }
 
-.chipLate .chipValue {
+.chipLate .chipValue,
+.chipLate .chipLabel {
   color: var(--color-goal-text);
 }
 
-.chipLatest {
-  border-color: var(--color-income);
+.chipAsk {
+  border-color: color-mix(in srgb, var(--color-invest) 65%, transparent);
+  background: color-mix(in srgb, var(--color-invest) 22%, var(--color-surface));
 }
 
-.chipQuiet .chipValue {
+.chipAsk .chipValue,
+.chipAsk .chipLabel {
+  color: var(--color-invest-text);
+}
+
+.chipMissed {
+  border-color: color-mix(in srgb, var(--color-expense) 60%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 20%, var(--color-surface));
+}
+
+.chipMissed .chipValue,
+.chipMissed .chipLabel {
+  color: var(--color-expense-text);
+}
+
+.chipComing {
+  border-color: color-mix(in srgb, var(--bs-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--bs-primary) 14%, var(--color-surface));
+}
+
+.chipComing .chipValue,
+.chipComing .chipLabel {
+  color: var(--color-link);
+}
+
+.chipSkipped .chipValue,
+.chipPaused .chipValue {
   color: var(--color-text-secondary);
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 16.8px; /* the 14px figures' line, so every chip is one height */
 }
 
 .chipPaused {
-  background: transparent;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--color-text-secondary) 12%, transparent) 5px 7px);
   border: 1px dashed var(--color-border-primary);
+}
+
+.chipNone {
+  background: transparent;
+  border: 1px dashed var(--color-border-tertiary);
+}
+
+.chipLate .chipValue,
+.chipMissed .chipValue {
+  font-size: 11.5px;
+  line-height: 16.8px;
+}
+
+.chipLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+}
+
+.chipSwatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  vertical-align: -2px;
+}
+
+/* ── The card, to read ────────────────────────────────────────────────────── */
+/* Label on the left, the answer on the right, one fact a row — how often, how
+   much, where it lands, when next. */
+
+.readCard {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.readRow,
+.recordRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  font-size: 14px;
+}
+
+.readRow:last-child,
+.recordRow:last-child {
+  border-bottom: none;
+}
+
+.recordRow {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.readIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.readLabel {
+  flex: 0 0 34%;
+  padding-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.readValue {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.readSub {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .fact {
@@ -846,53 +1013,6 @@
   border-color: var(--bs-primary);
   background: color-mix(in srgb, var(--bs-primary) 12%, var(--color-surface));
   font-weight: 600;
-}
-
-.steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-.stepBar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-background-secondary);
-}
-
-.stepBarOn {
-  background: var(--bs-primary);
-}
-
-.summaryRow {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 0;
-  border: none;
-  border-top: 1px solid var(--color-border-tertiary);
-  background: none;
-  color: var(--color-text-primary);
-  text-align: left;
-  font-size: 13.5px;
-}
-
-.summaryRow:hover .summaryValue {
-  text-decoration: underline;
-}
-
-.summaryLabel {
-  width: 52px;
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-}
-
-.summaryValue {
-  flex: 1;
-  min-width: 0;
 }
 
 .suggestion {

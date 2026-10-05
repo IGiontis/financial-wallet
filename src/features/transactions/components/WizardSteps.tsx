@@ -13,8 +13,24 @@ import styles from "./css/TransactionWizard.module.css";
  * A finished step stays clickable: going back to change the category is the
  * correction people actually make, and making them tap Back twice for it would
  * be the whole reason wizards get a bad name.
+ *
+ * Other forms walk the same rail with their own steps: `label` names them, and
+ * `open` lets an edit, where every step is already filled in, jump forward as
+ * well as back.
  */
-export function WizardSteps<Step extends string>({ steps, current, onGo }: { steps: readonly Step[]; current: Step; onGo: (step: Step) => void }) {
+export function WizardSteps<Step extends string>({
+  steps,
+  current,
+  onGo,
+  label,
+  open = false,
+}: {
+  steps: readonly Step[];
+  current: Step;
+  onGo: (step: Step) => void;
+  label?: (step: Step) => string;
+  open?: boolean;
+}) {
   const { t } = useTranslation();
   const index = steps.indexOf(current);
 
@@ -28,12 +44,12 @@ export function WizardSteps<Step extends string>({ steps, current, onGo }: { ste
           <button
             type="button"
             className={`${styles.step} ${i === index ? styles.stepCurrent : ""} ${i < index ? styles.stepDone : ""}`}
-            disabled={i >= index}
+            disabled={open ? i === index : i >= index}
             aria-current={i === index ? "step" : undefined}
             onClick={() => onGo(step)}
           >
             <span className={styles.stepDot}>{i + 1}</span>
-            <span className={styles.stepLabel}>{t(`transactions.wizard.${step}`)}</span>
+            <span className={styles.stepLabel}>{label ? label(step) : t(`transactions.wizard.${step}`)}</span>
           </button>
         </Fragment>
       ))}

@@ -98,6 +98,14 @@
      green and the late red, and off the cadence badges' blue beside it. */
   --color-pending: #ea580c;
   --color-pending-text: #9a3412;
+
+  /* The dashboard's charts: money in, money out, what is kept. Teal, coral and
+     indigo rather than the green and red of the figures elsewhere — those two
+     sit 5 ΔE apart for the most common colour blindness, where a chart that
+     is all lines needs 8 or more. Text keeps green and red. */
+  --chart-income: #0e9f8b;
+  --chart-expense: #e4573d;
+  --chart-net: #5560d8;
   --color-tooltip-bg: #1e293b;
   --color-tooltip-text: #ffffff;
 
@@ -162,6 +170,10 @@
   --color-goal-text: #fbbf24;
   --color-pending: #fb923c;
   --color-pending-text: #fdba74;
+
+  --chart-income: #16a08b;
+  --chart-expense: #e05e48;
+  --chart-net: #7881ea;
   --color-tooltip-bg: #263141;
   --color-tooltip-text: #f1f5f9;
 

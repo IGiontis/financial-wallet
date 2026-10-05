@@ -7,10 +7,11 @@ import { EARLY_LABEL_DAYS, everyOf, type Income, type IncomeStatus } from "./inc
 // same way, and so the formats are built once per language rather than per row.
 
 export interface IncomeFormats {
+  /** The locale every date here is written in — day first, in English too. */
   lang: string;
-  /** "Δευ 28/9" — the day, as the design writes it everywhere. */
+  /** "Δευ 28 Σεπ 2026". */
   weekdayDate: Intl.DateTimeFormat;
-  /** "28/9". */
+  /** "28 Σεπ 2026" — a date with its year, the way the date fields show it. */
   dayMonth: Intl.DateTimeFormat;
   /** "28 Σεπ". */
   dayMonthShort: Intl.DateTimeFormat;
@@ -24,11 +25,19 @@ export interface IncomeFormats {
   monthYearShort: Intl.DateTimeFormat;
 }
 
-export function makeFormats(lang: string): IncomeFormats {
+/**
+ * Day before month, always. The app writes dates as dd/mm/yyyy and its date
+ * fields as "10 Οκτ 2026"; plain "en" would print "Oct 10" and "9/25", so
+ * English takes the British order.
+ */
+export const dayFirstLocale = (lang: string) => (lang.toLowerCase().startsWith("en") ? "en-GB" : lang);
+
+export function makeFormats(language: string): IncomeFormats {
+  const lang = dayFirstLocale(language);
   return {
     lang,
-    weekdayDate: new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "numeric" }),
-    dayMonth: new Intl.DateTimeFormat(lang, { day: "numeric", month: "numeric" }),
+    weekdayDate: new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
+    dayMonth: new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }),
     dayMonthShort: new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }),
     monthShort: new Intl.DateTimeFormat(lang, { month: "short" }),
     weekdayLong: new Intl.DateTimeFormat(lang, { weekday: "long" }),
