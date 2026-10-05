@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Alert, Button, Input, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { FiCheck } from "react-icons/fi";
+import { FiArchive, FiCalendar, FiCheck, FiChevronDown, FiChevronUp, FiEdit2, FiRotateCcw, FiSlash, FiSliders, FiTrash2 } from "react-icons/fi";
 import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { parseISOMonth, toISODay } from "../../../shared/utils/dates";
@@ -32,8 +32,12 @@ export interface IncomeCardProps {
   onEdit: (income: Income, step?: 1 | 2 | 3) => void;
   onArrive: (income: Income, status: IncomeStatus) => void;
   onSetOverride: (key: string, value: OccurrenceOverride | undefined) => void;
-  onDeleteArrival: (transactionId: string) => void;
+  /** «Αναίρεση» of one «Ήρθε» — asks first, since it deletes the transaction. */
+  onUndoArrival: (income: Income, arrival: IncomeArrival) => void;
   onRestore: (income: Income) => void;
+  onArchive: (income: Income) => void;
+  /** Asks first. */
+  onDelete: (income: Income) => void;
 }
 
 function pauseText(income: Income, t: TFunction, f: IncomeFormats): string | undefined {
@@ -85,8 +89,10 @@ export default function IncomeCard({
   onEdit,
   onArrive,
   onSetOverride,
-  onDeleteArrival,
+  onUndoArrival,
   onRestore,
+  onArchive,
+  onDelete,
 }: IncomeCardProps) {
   const { t } = useTranslation();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
@@ -151,8 +157,9 @@ export default function IncomeCard({
     return (
       <div className={`${styles.choices} mt-2`}>
         {status.canArrive && (
-          <button type="button" className={styles.choice} onClick={() => onArrive(income, status)}>
-            ✓ {t("incomes.arrive")}
+          <button type="button" className={`${styles.choice} ${styles.choiceArrive}`} onClick={() => onArrive(income, status)}>
+            <FiCheck aria-hidden className={styles.choiceIcon} />
+            {t("incomes.arrive")}
           </button>
         )}
         <button
@@ -163,6 +170,7 @@ export default function IncomeCard({
             setSaying({ key: status.key, mode: "date" });
           }}
         >
+          <FiCalendar aria-hidden className={styles.choiceIcon} />
           {t("incomes.card.otherDay")}
         </button>
         <button
@@ -173,9 +181,13 @@ export default function IncomeCard({
             setSaying({ key: status.key, mode: "amount" });
           }}
         >
+          <span aria-hidden className={styles.choiceIcon}>
+            €
+          </span>
           {t("incomes.card.otherAmount")}
         </button>
-        <button type="button" className={styles.choice} onClick={() => say(status, { state: "skipped" })}>
+        <button type="button" className={`${styles.choice} ${styles.choiceSkip}`} onClick={() => say(status, { state: "skipped" })}>
+          <FiSlash aria-hidden className={styles.choiceIcon} />
           {t("incomes.card.notThisTime")}
         </button>
         <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
@@ -204,14 +216,23 @@ export default function IncomeCard({
             </button>
           )}
           {!settled && !archived && (
-            <div className="d-flex gap-3 mt-1" style={{ fontSize: 12.5 }}>
-              <button type="button" className={styles.linkButton} onClick={() => setSaying(saying?.key === status.key ? undefined : { key: status.key, mode: "menu" })}>
+            <div className="d-flex flex-wrap gap-2 mt-2">
+              <Button
+                color="secondary"
+                outline
+                size="sm"
+                aria-expanded={saying?.key === status.key}
+                onClick={() => setSaying(saying?.key === status.key ? undefined : { key: status.key, mode: "menu" })}
+              >
+                <FiSliders className="me-1" aria-hidden />
                 {t("incomes.card.thisTime")}
-              </button>
+                {saying?.key === status.key ? <FiChevronUp className="ms-1" aria-hidden /> : <FiChevronDown className="ms-1" aria-hidden />}
+              </Button>
               {status.overridden && (
-                <button type="button" className={styles.linkButton} onClick={() => say(status, undefined)}>
+                <Button color="warning" outline size="sm" onClick={() => say(status, undefined)}>
+                  <FiRotateCcw className="me-1" aria-hidden />
                   {t("incomes.card.undoSaid")}
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -222,7 +243,7 @@ export default function IncomeCard({
             {settled ? formatCurrency(status.arrival!.amount) : `${status.approximate ? "≈" : ""}${formatCurrency(status.expected)}`}
           </span>
           {!settled && status.canArrive && status.state !== "ask" && !archived && (
-            <Button color="success" outline size="sm" onClick={() => onArrive(income, status)}>
+            <Button color="success" size="sm" onClick={() => onArrive(income, status)}>
               <FiCheck className="me-1" aria-hidden />
               {t("incomes.arrive")}
             </Button>
@@ -238,11 +259,6 @@ export default function IncomeCard({
         <div className="d-flex align-items-center gap-2">
           <span aria-hidden>{KIND_ICON[income.kind]}</span>
           <span className="fw-semibold h6 mb-0">{income.name}</span>
-          {!archived && (
-            <Button color="link" size="sm" className="p-0 ms-2" onClick={() => onEdit(income)}>
-              {t("incomes.card.edit")}
-            </Button>
-          )}
         </div>
         <div className="text-body-secondary fw-normal mt-1" style={{ fontSize: 12.5 }}>
           {facts.join(" · ")}
@@ -320,14 +336,15 @@ export default function IncomeCard({
                 <div className="d-flex align-items-center gap-2">
                   <span className={`${styles.factAmount} ${styles.amountArrived}`}>{formatCurrency(arrival.amount)}</span>
                   <Button
-                    color="secondary"
+                    color="warning"
                     outline
                     size="sm"
                     disabled={!!deleteLockedReason}
                     title={deleteLockedReason}
-                    onClick={() => arrival.transactions.forEach((tx) => onDeleteArrival(tx.id))}
+                    onClick={() => onUndoArrival(income, arrival)}
                     aria-label={t("incomes.card.undoRecordFor", { date: f.weekdayDate.format(arrival.date) })}
                   >
+                    <FiRotateCcw className="me-1" aria-hidden />
                     {t("incomes.card.undoRecord")}
                   </Button>
                 </div>
@@ -339,10 +356,31 @@ export default function IncomeCard({
           </div>
         )}
       </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
-          {t("common.close")}
-        </Button>
+      {/* As on a bill: what changes the income, the delete quieter than the
+          rest as an icon of its own. Leaving is the ✕ above — a Close here
+          pushed the row onto two lines on a phone. */}
+      <ModalFooter className="justify-content-start">
+        <div className="d-flex flex-wrap gap-2">
+          {archived ? (
+            <Button color="primary" outline onClick={() => onRestore(income)}>
+              <FiRotateCcw className="me-1" aria-hidden />
+              {t("incomes.card.restore")}
+            </Button>
+          ) : (
+            <>
+              <Button color="secondary" outline onClick={() => onEdit(income)}>
+                <FiEdit2 className="me-1" aria-hidden />
+                {t("common.edit")}
+              </Button>
+              <Button color="secondary" outline onClick={() => onArchive(income)} aria-label={t("incomes.form.archive")} title={t("incomes.form.archive")}>
+                <FiArchive aria-hidden />
+              </Button>
+            </>
+          )}
+          <Button color="danger" outline onClick={() => onDelete(income)} aria-label={t("common.delete")} title={t("common.delete")}>
+            <FiTrash2 aria-hidden />
+          </Button>
+        </div>
       </ModalFooter>
     </Modal>
   );

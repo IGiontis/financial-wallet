@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { FiArchive, FiTrash2 } from "react-icons/fi";
 import type { Category } from "../../../shared/types/IndexTypes";
 import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -46,7 +47,6 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const [draft, setDraft] = useState<IncomeDraft>(initial);
   const [view, setView] = useState<View>(startStep ?? (isEdit ? "summary" : 1));
   const [errors, setErrors] = useState<DraftErrors>({});
-  const [confirmDelete, setConfirmDelete] = useState(false);
   // Whether the category was chosen by hand: until it is, it follows the kind.
   const [categoryTouched, setCategoryTouched] = useState(isEdit || !!initial.categoryId);
 
@@ -157,25 +157,17 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 </button>
               ))}
 
+              {/* The delete asks on a sheet of its own, as everywhere else. */}
               <div className="d-flex flex-wrap gap-2 mt-3">
                 <Button type="button" color="secondary" outline size="sm" onClick={onArchive}>
+                  <FiArchive className="me-1" aria-hidden />
                   {t("incomes.form.archive")}
                 </Button>
-                {confirmDelete ? (
-                  <Button type="button" color="danger" size="sm" onClick={onDelete}>
-                    {t("incomes.form.deleteConfirm")}
-                  </Button>
-                ) : (
-                  <Button type="button" color="danger" outline size="sm" onClick={() => setConfirmDelete(true)}>
-                    {t("common.delete")}
-                  </Button>
-                )}
+                <Button type="button" color="danger" outline size="sm" onClick={onDelete}>
+                  <FiTrash2 className="me-1" aria-hidden />
+                  {t("common.delete")}
+                </Button>
               </div>
-              {confirmDelete && (
-                <p className="text-body-secondary mt-2 mb-0" style={{ fontSize: 12 }}>
-                  {t("incomes.form.deleteHint")}
-                </p>
-              )}
             </div>
           )}
 

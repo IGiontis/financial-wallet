@@ -283,6 +283,20 @@
   overflow-wrap: anywhere;
 }
 
+/* The ⋮ at the end of a row: a full touch target, pulled into the row's
+   padding so it does not take the name's width. */
+.lineMenu {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin-right: -8px;
+  border-radius: var(--border-radius-sm);
+}
+
+.lineMenu:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
 .lineAside {
   flex-shrink: 0;
   display: flex;
@@ -343,8 +357,8 @@
 }
 
 .pill_due {
-  background: var(--color-background-secondary);
-  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--bs-primary) 15%, transparent);
+  color: var(--color-link);
 }
 
 .pill_muted {
@@ -464,9 +478,82 @@
   opacity: 0.55;
 }
 
-.calToday {
-  border-color: var(--bs-primary);
+.calNum {
+  align-self: flex-start;
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.calToday .calNum {
+  background: var(--bs-primary);
+  color: #fff;
   font-weight: 700;
+}
+
+/* ── A day lit by what happened on it ───────────────────────────────────────
+   The fill is mixed into the surface rather than laid over the grey of an
+   empty day, so it is the same colour on both themes' grounds; the edge is
+   the colour at full strength, which is what separates two lit days side by
+   side. */
+/* The legend's small days: declared before the colours, so those draw them too. */
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 4px;
+  background: var(--color-background-secondary);
+  vertical-align: -2px;
+}
+
+.dayArrived {
+  background: color-mix(in srgb, var(--color-income) 20%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-income) 65%, transparent);
+}
+
+.dayLate {
+  background: color-mix(in srgb, var(--color-goal) 24%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-goal) 75%, transparent);
+}
+
+.dayAsk {
+  background: color-mix(in srgb, var(--color-invest) 20%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-invest) 70%, transparent);
+}
+
+.dayDue {
+  background: color-mix(in srgb, var(--bs-primary) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--bs-primary) 55%, transparent);
+}
+
+/* Its own day, when the money came on another: only an outline, so it is not
+   read as a second arrival. */
+.dayExpected {
+  background: color-mix(in srgb, var(--color-income) 6%, var(--color-surface));
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-income) 65%, transparent);
+}
+
+.dayArrived .calNum,
+.dayExpected .calNum {
+  color: var(--color-income-text);
+}
+
+.dayLate .calNum {
+  color: var(--color-goal-text);
+}
+
+.dayAsk .calNum {
+  color: var(--color-invest-text);
+}
+
+.dayDue .calNum {
+  color: var(--color-link);
 }
 
 .calSelected {
@@ -488,7 +575,7 @@
 }
 
 .markArrived {
-  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+  background: color-mix(in srgb, var(--color-income) 32%, transparent);
   color: var(--color-income-text);
 }
 
@@ -500,20 +587,18 @@
 }
 
 .markLate {
-  background: color-mix(in srgb, var(--color-goal) 24%, transparent);
+  background: color-mix(in srgb, var(--color-goal) 36%, transparent);
   color: var(--color-goal-text);
 }
 
 .markAsk {
-  border: 1px dashed var(--color-invest);
+  background: color-mix(in srgb, var(--color-invest) 30%, transparent);
   color: var(--color-invest-text);
-  line-height: 14px;
 }
 
 .markDue {
-  border: 1px dashed var(--color-border-primary);
-  color: var(--color-text-secondary);
-  line-height: 14px;
+  background: color-mix(in srgb, var(--bs-primary) 24%, transparent);
+  color: var(--color-link);
 }
 
 .calLegend {
@@ -525,13 +610,6 @@
   color: var(--color-text-secondary);
 }
 
-.calLegend .mark {
-  display: inline-block;
-  width: 18px;
-  height: 12px;
-  margin-right: 4px;
-  vertical-align: -1px;
-}
 
 .dayPanel {
   margin-top: 10px;
@@ -696,6 +774,9 @@
 }
 
 .choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -709,6 +790,32 @@
 
 .choice:hover {
   background: var(--color-background-secondary);
+}
+
+.choiceIcon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.choiceArrive {
+  border-color: color-mix(in srgb, var(--color-income) 55%, transparent);
+  color: var(--color-income-text);
+  font-weight: 600;
+}
+
+.choiceArrive .choiceIcon {
+  color: var(--color-income-text);
+}
+
+.choiceSkip {
+  color: var(--color-goal-text);
+}
+
+.choiceSkip .choiceIcon {
+  color: var(--color-goal-text);
 }
 
 /* ── «Ήρθε» and the form ──────────────────────────────────────────────────── */

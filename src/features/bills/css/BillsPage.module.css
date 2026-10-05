@@ -1406,9 +1406,11 @@
   font-weight: 600;
 }
 
+/* Unpaid but not late: orange, between the paid green and the late red. Not
+   blue — the monthly cadence badge right beside it is blue. */
 .linePillDue {
-  background: var(--color-background-secondary);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-pending) 16%, transparent);
+  color: var(--color-pending-text);
 }
 
 .linePill {

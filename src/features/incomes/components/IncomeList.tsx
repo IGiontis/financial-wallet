@@ -1,8 +1,10 @@
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiCheck, FiChevronRight } from "react-icons/fi";
+import type { TFunction } from "i18next";
+import { FiArchive, FiCheck, FiEdit2, FiInfo, FiRotateCcw, FiTrash2 } from "react-icons/fi";
+import { MENU_DIVIDER, RowMenu, type RowMenuEntry } from "../../../shared/components/RowMenu";
 import { currentPause } from "../../bills/billsUtils";
-import { KIND_ICON, isSettled, type Income, type IncomeRow, type IncomeStatus, type MonthSummary, type RowSection } from "../incomesUtils";
+import { KIND_ICON, isActiveIncome, isSettled, type Income, type IncomeRow, type IncomeStatus, type MonthSummary, type RowSection } from "../incomesUtils";
 import { shortSchedule, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
@@ -17,6 +19,11 @@ export interface IncomeListActions {
   onBankAnswer: (income: Income, status: IncomeStatus, yes: boolean) => void;
   /** «Βάλε μέρα» on an income carried over without one. */
   onSetDay: (income: Income) => void;
+  onEdit: (income: Income) => void;
+  onArchive: (income: Income) => void;
+  onRestore: (income: Income) => void;
+  /** Asks first. */
+  onDelete: (income: Income) => void;
 }
 
 interface ListProps extends IncomeListActions {
@@ -39,6 +46,26 @@ const SECTIONS: { key: RowSection; title: string; tone: string }[] = [
 ];
 
 const sum = (list: number[]) => Math.round(list.reduce((a, b) => a + b, 0) * 100) / 100;
+
+/**
+ * The ⋮ on a row: everything that can be done to the income without opening
+ * its card first, delete last and in red — as on a goal.
+ */
+function lineMenu(income: Income, t: TFunction, actions: IncomeListActions, arrive?: () => void): RowMenuEntry[] {
+  const archived = !isActiveIncome(income);
+  return [
+    ...(arrive ? [{ label: t("incomes.arrive"), icon: <FiCheck aria-hidden />, onSelect: arrive }] : []),
+    { label: t("incomes.actions.details"), icon: <FiInfo aria-hidden />, onSelect: () => actions.onOpen(income) },
+    ...(archived
+      ? [{ label: t("incomes.card.restore"), icon: <FiRotateCcw aria-hidden />, onSelect: () => actions.onRestore(income) }]
+      : [
+          { label: t("common.edit"), icon: <FiEdit2 aria-hidden />, onSelect: () => actions.onEdit(income) },
+          { label: t("incomes.form.archive"), icon: <FiArchive aria-hidden />, onSelect: () => actions.onArchive(income) },
+        ]),
+    MENU_DIVIDER,
+    { label: t("common.delete"), icon: <FiTrash2 aria-hidden />, onSelect: () => actions.onDelete(income), danger: true },
+  ];
+}
 
 export function IncomeList(props: ListProps) {
   const { t } = useTranslation();
@@ -117,6 +144,7 @@ export function IncomeList(props: ListProps) {
                     </span>
                     <span className={styles.lineAmount}>{formatCurrency(income.amount)}</span>
                   </button>
+                  <RowMenu label={t("incomes.actions.menu", { name: income.name })} className={styles.lineMenu} entries={lineMenu(income, t, props)} />
                 </div>
               </div>
             ))}
@@ -127,7 +155,8 @@ export function IncomeList(props: ListProps) {
   );
 }
 
-function IncomeLine({ row, formatCurrency, accountName, lastReadingAt, f, now, onOpen, onArrive, onBankAnswer, onSetDay }: ListProps & { row: IncomeRow }) {
+function IncomeLine(props: ListProps & { row: IncomeRow }) {
+  const { row, formatCurrency, accountName, lastReadingAt, f, now, onOpen, onArrive, onBankAnswer, onSetDay } = props;
   const { t } = useTranslation();
   const { income, focus, section, next } = row;
   const tag = focus ? statusTag(focus, t, f) : undefined;
@@ -189,13 +218,17 @@ function IncomeLine({ row, formatCurrency, accountName, lastReadingAt, f, now, o
         {canArrive && focus && (
           <span className={styles.lineAside}>
             <span className={styles.lineAmount}>{amount}</span>
-            <Button color="success" outline size="sm" className={styles.arriveButton} onClick={() => onArrive(income, focus)} aria-label={t("incomes.list.arriveFor", { name: income.name })}>
+            <Button color="success" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, focus)} aria-label={t("incomes.list.arriveFor", { name: income.name })}>
               <FiCheck aria-hidden className="me-1" />
               {t("incomes.arrive")}
             </Button>
           </span>
         )}
-        {!canArrive && !asking && <FiChevronRight className="text-body-secondary flex-shrink-0" aria-hidden />}
+        <RowMenu
+          label={t("incomes.actions.menu", { name: income.name })}
+          className={styles.lineMenu}
+          entries={lineMenu(income, t, props, canArrive && focus ? () => onArrive(income, focus) : undefined)}
+        />
       </div>
 
       {asking && focus && (

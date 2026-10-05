@@ -94,6 +94,10 @@
   --color-income-text: #166534;
   --color-expense-text: #991b1b;
   --color-goal-text: #92400e;
+  /* Owed but not late yet — a bill still to pay. Orange, between the paid
+     green and the late red, and off the cadence badges' blue beside it. */
+  --color-pending: #ea580c;
+  --color-pending-text: #9a3412;
   --color-tooltip-bg: #1e293b;
   --color-tooltip-text: #ffffff;
 
@@ -156,6 +160,8 @@
   --color-income-text: #4ade80;
   --color-expense-text: #f87171;
   --color-goal-text: #fbbf24;
+  --color-pending: #fb923c;
+  --color-pending-text: #fdba74;
   --color-tooltip-bg: #263141;
   --color-tooltip-text: #f1f5f9;
 

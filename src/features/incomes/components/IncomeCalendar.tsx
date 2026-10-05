@@ -35,6 +35,14 @@ interface Mark {
 
 const MARK_CLASS: Record<MarkKind, string> = { arrived: styles.markArrived, expected: styles.markExpected, late: styles.markLate, ask: styles.markAsk, due: styles.markDue };
 
+// The whole day is lit in the colour of what happened on it, so the month reads
+// at a glance — green where money came, amber where it is late, blue where it
+// is on its way — before a single figure is read. A day with two things on it
+// takes the one that most needs you.
+const DAY_CLASS: Record<MarkKind, string> = { arrived: styles.dayArrived, expected: styles.dayExpected, late: styles.dayLate, ask: styles.dayAsk, due: styles.dayDue };
+const PRIORITY: MarkKind[] = ["late", "ask", "due", "arrived", "expected"];
+const dayTone = (marks: Mark[]): MarkKind | undefined => PRIORITY.find((kind) => marks.some((m) => m.kind === kind));
+
 export function IncomeCalendar({
   statuses,
   incomes,
@@ -140,17 +148,18 @@ export function IncomeCalendar({
           const dayMarks = inside ? (marks.get(`${date.getDate()}`) ?? []) : [];
           const isToday = isSameDay(date, now);
           const isSelected = !!selected && isSameDay(date, selected);
+          const tone = dayTone(dayMarks);
           return (
             <button
               key={date.toISOString()}
               type="button"
               disabled={!inside}
-              className={`${styles.calDay} ${inside ? "" : styles.calOutside} ${isToday ? styles.calToday : ""} ${isSelected ? styles.calSelected : ""}`}
+              className={`${styles.calDay} ${tone ? DAY_CLASS[tone] : ""} ${inside ? "" : styles.calOutside} ${isToday ? styles.calToday : ""} ${isSelected ? styles.calSelected : ""}`}
               onClick={() => setSelected(isSelected ? undefined : date)}
               aria-pressed={isSelected}
               aria-label={`${dayTitle.format(date)}${dayMarks.length ? ` · ${dayMarks.map((m) => `${name(m.status.incomeId)} ${markText(m)}`).join(", ")}` : ""}`}
             >
-              <span>{date.getDate()}</span>
+              <span className={styles.calNum}>{date.getDate()}</span>
               {dayMarks.slice(0, 2).map((mark) => (
                 <span key={`${mark.status.key}-${mark.kind}`} className={`${styles.mark} ${MARK_CLASS[mark.kind]}`}>
                   <span className={styles.markName}>{name(mark.status.incomeId)}</span>
@@ -164,22 +173,20 @@ export function IncomeCalendar({
       </div>
 
       <div className={styles.calLegend} aria-hidden>
-        <span>
-          <span className={`${styles.mark} ${styles.markArrived}`} />
-          {t("incomes.calendar.legendArrived")}
-        </span>
-        <span>
-          <span className={`${styles.mark} ${styles.markExpected}`} />
-          {t("incomes.calendar.legendExpected")}
-        </span>
-        <span>
-          <span className={`${styles.mark} ${styles.markLate}`} />
-          {t("incomes.calendar.legendLate")}
-        </span>
-        <span>
-          <span className={`${styles.mark} ${styles.markDue}`} />
-          {t("incomes.calendar.legendDue")}
-        </span>
+        {(
+          [
+            ["arrived", "legendArrived"],
+            ["late", "legendLate"],
+            ["ask", "legendAsk"],
+            ["due", "legendDue"],
+            ["expected", "legendExpected"],
+          ] as const
+        ).map(([kind, label]) => (
+          <span key={kind}>
+            <span className={`${styles.swatch} ${DAY_CLASS[kind]}`} />
+            {t(`incomes.calendar.${label}`)}
+          </span>
+        ))}
       </div>
 
       {selected && (
@@ -223,7 +230,7 @@ export function IncomeCalendar({
                   <div className="d-flex align-items-center gap-2">
                     <span className={styles.factAmount}>{markText(mark)}</span>
                     {mark.status.canArrive && mark.kind !== "expected" && mark.kind !== "arrived" && (
-                      <Button color="success" outline size="sm" onClick={() => onArrive(income, mark.status)}>
+                      <Button color="success" size="sm" onClick={() => onArrive(income, mark.status)}>
                         <FiCheck className="me-1" aria-hidden />
                         {t("incomes.arrive")}
                       </Button>
@@ -258,7 +265,7 @@ export function IncomeCalendar({
                         <span className={styles.lineSub}>{t("incomes.list.wasFor", { date: f.weekdayDate.format(status.date) })}</span>
                       </span>
                     </button>
-                    <Button color="success" outline size="sm" className={styles.arriveButton} onClick={() => onArrive(income, status)}>
+                    <Button color="success" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, status)}>
                       <FiCheck className="me-1" aria-hidden />
                       {t("incomes.arrive")}
                     </Button>

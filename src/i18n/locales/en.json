@@ -623,6 +623,7 @@
       "legendArrived": "arrived",
       "legendExpected": "its day (arrived)",
       "legendLate": "late",
+      "legendAsk": "needs an answer",
       "legendDue": "coming",
       "emptyDay": "Nothing on that day.",
       "newOnDay": "New income on the {{day}}?",
@@ -634,7 +635,6 @@
       "expectedCame": "expected {{expected}} · arrived {{arrived}}"
     },
     "card": {
-      "edit": "Change",
       "mySalary": "my salary",
       "pauseYearly": "paused {{from}}–{{to}} every year",
       "pauseOnce": "paused {{from}}–{{to}}",
@@ -652,7 +652,7 @@
       "came": "Arrived",
       "expected": "Expecting",
       "next": "Next",
-      "thisTime": "This time ›",
+      "thisTime": "This time",
       "saidThisTime": "changed for this time",
       "undoSaid": "Undo",
       "otherDay": "It will come on another day",
@@ -738,9 +738,18 @@
       "sumIncomplete": "the day is missing",
       "sumPause": "with a pause",
       "toSummary": "Summary",
-      "archive": "Archive",
-      "deleteConfirm": "Yes, delete",
-      "deleteHint": "Transactions recorded with «Arrived» stay in Transactions."
+      "archive": "Archive"
+    },
+    "actions": {
+      "details": "Details",
+      "menu": "{{name}}: actions"
+    },
+    "confirm": {
+      "deleteTitle": "Delete income",
+      "deleteBody": "Delete «{{name}}»?",
+      "deleteHint": "The transactions written with «Arrived» stay in Transactions. To stop counting it but keep its history, archive it instead.",
+      "undoTitle": "Undo «Arrived»",
+      "undoBody": "This deletes the {{amount}} transaction of {{date}}, and «{{name}}» goes back to waiting."
     }
   },
   "transactions": {

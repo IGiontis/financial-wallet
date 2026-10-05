@@ -108,7 +108,12 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           {bill.name}
-          <Badge color={behind ? "danger" : paid ? "success" : "secondary"} pill style={{ fontSize: 10 }}>
+          <Badge
+            color={behind ? "danger" : paid ? "success" : "none"}
+            pill
+            // Unpaid in the same orange as its pill on the page.
+            style={{ fontSize: 10, ...(behind || paid ? {} : { background: "color-mix(in srgb, var(--color-pending) 18%, transparent)", color: "var(--color-pending-text)" }) }}
+          >
             {behind
               ? overdue.count > 1
                 ? t("bills.chipOverdue", { count: overdue.count, amount: formatCurrency(overdue.total) })

@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   transactions: [] as unknown[],
   categories: [] as unknown[],
   createTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
   saveWorkspaceValue: vi.fn(),
   ids: 0,
 }));
@@ -36,7 +37,10 @@ vi.mock("../../firebase/firestore", () => ({
     return Promise.resolve(args[2]);
   },
   newDocId: () => `new-${++api.ids}`,
-  deleteTransaction: () => Promise.resolve(),
+  deleteTransaction: (...args: unknown[]) => {
+    api.deleteTransaction(...args);
+    return Promise.resolve();
+  },
   updateTransaction: () => Promise.resolve(),
   createCategories: () => Promise.resolve({}),
 }));
@@ -98,6 +102,7 @@ afterAll(() => {
 beforeEach(() => {
   localStorage.clear();
   api.createTransaction.mockClear();
+  api.deleteTransaction.mockClear();
   api.saveWorkspaceValue.mockClear();
   api.categories = categories;
   api.transactions = [salaryRecord, ...others];
@@ -184,6 +189,60 @@ describe("the Incomes page", () => {
     expect(screen.getByRole("button", { name: "Ήρθε: Μισθός" })).toBeInTheDocument();
     await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-occurrences", { "income:sal:2026-09-30": { state: "waiting" } }), { timeout: 2000 });
     expect(api.createTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("what cannot be taken back asks first", () => {
+  it("deletes an income from its ⋮ only after a yes, and «Ακύρωση» keeps it", async () => {
+    renderPage();
+    const openMenu = async () => userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Διαγραφή" }));
+    let sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("Σίγουρα θες να διαγράψεις το «Επίδομα»;")).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Ακύρωση" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Επίδομα: λεπτομέρειες" })).toBeInTheDocument();
+
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Διαγραφή" }));
+    sheet = await screen.findByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Διαγραφή" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Επίδομα: λεπτομέρειες" })).not.toBeInTheDocument());
+    await waitFor(
+      () =>
+        expect(api.saveWorkspaceValue).toHaveBeenCalledWith(
+          "u1",
+          "incomes",
+          incomes.filter((i) => i.id !== "allow"),
+        ),
+      { timeout: 2000 },
+    );
+  });
+
+  it("undoes an «Ήρθε» — deleting its transaction — only after a yes, and goes back to the card either way", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Μισθός: λεπτομέρειες" }));
+    const undo = () => within(screen.getByRole("dialog")).getByRole("button", { name: /^Αναίρεση της καταχώρισης της .*25\/9$/ });
+
+    await userEvent.click(undo());
+    let sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("heading", { name: "Αναίρεση του «Ήρθε»" })).toBeInTheDocument();
+    expect(within(sheet).getByText(/Θα σβηστεί η συναλλαγή των 1\.450,00\s?€/)).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Ακύρωση" }));
+    expect(api.deleteTransaction).not.toHaveBeenCalled();
+    // The card again, the record still on it.
+    expect(undo()).toBeInTheDocument();
+
+    await userEvent.click(undo());
+    sheet = screen.getByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Αναίρεση" }));
+    await waitFor(() => expect(api.deleteTransaction).toHaveBeenCalledTimes(1));
+    expect(api.deleteTransaction.mock.calls[0][0]).toBe(salaryRecord.id);
+    // Back on the card, and the record is gone from it.
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Επεξεργασία" })).toBeInTheDocument());
+    await waitFor(() => expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /^Αναίρεση της καταχώρισης/ })).not.toBeInTheDocument());
   });
 });
 

@@ -26,6 +26,7 @@ import {
   salarySuggestion,
   suggestIncomeCategory,
   type Income,
+  type IncomeArrival,
   type IncomeStatus,
 } from "./incomesUtils";
 import { emptyDraft, incomeToDraft, type DraftStep, type IncomeDraft } from "./incomeForm";
@@ -37,6 +38,7 @@ import { IncomeYearCard } from "./components/IncomeYearCard";
 import ArrivedSheet from "./components/ArrivedSheet";
 import IncomeCard from "./components/IncomeCard";
 import IncomeFormModal from "./components/IncomeFormModal";
+import { ConfirmSheet } from "./components/ConfirmSheet";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/IncomesPage.module.css";
 
@@ -60,6 +62,12 @@ interface FormState {
   /** A fresh sheet every time it opens, rather than one remembering the last. */
   key: number;
 }
+
+/**
+ * What waits for a yes. `back` is the income whose card the question was asked
+ * from: the card makes way for the question, and comes back after it.
+ */
+type Confirming = { kind: "delete"; income: Income; back?: string } | { kind: "undo"; income: Income; arrival: IncomeArrival; back?: string };
 
 interface ArrivingState {
   incomeId: string;
@@ -91,6 +99,7 @@ export default function IncomesPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
   const [arriving, setArriving] = useState<ArrivingState | null>(null);
+  const [confirming, setConfirming] = useState<Confirming | null>(null);
 
   const byId = useMemo(() => new Map(incomes.map((i) => [i.id, i])), [incomes]);
   const archived = useMemo(() => incomes.filter((i) => !isActiveIncome(i)), [incomes]);
@@ -128,6 +137,41 @@ export default function IncomesPage() {
   const openArrive = (income: Income, status: IncomeStatus, readingAt?: Date) => {
     setCardId(null);
     setArriving({ incomeId: income.id, status, readingAt });
+  };
+
+  // One sheet at a time here too: the question replaces the card or form it
+  // was asked from.
+  const askDelete = (income: Income, back?: string) => {
+    setCardId(null);
+    setForm(null);
+    setConfirming({ kind: "delete", income, back });
+  };
+
+  const askUndo = (income: Income, arrival: IncomeArrival) => {
+    setCardId(null);
+    setConfirming({ kind: "undo", income, arrival, back: income.id });
+  };
+
+  const archive = (income: Income) => {
+    setCardId(null);
+    saveIncome({ ...income, active: false });
+  };
+
+  const closeConfirm = (reopen: boolean) => {
+    if (reopen && confirming?.back && byId.has(confirming.back)) setCardId(confirming.back);
+    setConfirming(null);
+  };
+
+  const confirm = () => {
+    if (!confirming) return;
+    if (confirming.kind === "delete") {
+      removeIncome(confirming.income.id);
+      closeConfirm(false);
+      return;
+    }
+    confirming.arrival.transactions.forEach((tx) => deleteTransaction.mutate({ id: tx.id }, { onError: () => toast.error(t("incomes.card.undoFailed")) }));
+    // Back to the card, which now shows the time as waiting again.
+    closeConfirm(true);
   };
 
   const acceptSuggestion = () => {
@@ -234,6 +278,10 @@ export default function IncomesPage() {
                 onArrive={(income, status) => openArrive(income, status)}
                 onBankAnswer={handleBankAnswer}
                 onSetDay={(income) => openEdit(income, 2)}
+                onEdit={(income) => openEdit(income)}
+                onArchive={archive}
+                onRestore={(income) => saveIncome({ ...income, active: undefined })}
+                onDelete={(income) => askDelete(income)}
               />
             )}
 
@@ -279,8 +327,10 @@ export default function IncomesPage() {
           onEdit={openEdit}
           onArrive={(income, status) => openArrive(income, status)}
           onSetOverride={setOverride}
-          onDeleteArrival={(id) => deleteTransaction.mutate({ id }, { onError: () => toast.error(t("incomes.card.undoFailed")) })}
+          onUndoArrival={askUndo}
           onRestore={(income) => saveIncome({ ...income, active: undefined })}
+          onArchive={archive}
+          onDelete={(income) => askDelete(income, income.id)}
         />
       )}
 
@@ -320,14 +370,37 @@ export default function IncomesPage() {
             setForm(null);
           }}
           onDelete={() => {
-            if (form.draft.id) removeIncome(form.draft.id);
-            setForm(null);
+            const income = form.draft.id ? byId.get(form.draft.id) : undefined;
+            if (income) askDelete(income, income.id);
+            else setForm(null);
           }}
           onArchive={() => {
             const income = form.draft.id ? byId.get(form.draft.id) : undefined;
-            if (income) saveIncome({ ...income, active: false });
+            if (income) archive(income);
             setForm(null);
           }}
+        />
+      )}
+
+      {confirming?.kind === "delete" && (
+        <ConfirmSheet
+          title={t("incomes.confirm.deleteTitle")}
+          body={t("incomes.confirm.deleteBody", { name: confirming.income.name })}
+          hint={t("incomes.confirm.deleteHint")}
+          confirmLabel={t("common.delete")}
+          onConfirm={confirm}
+          onClose={() => closeConfirm(true)}
+        />
+      )}
+
+      {confirming?.kind === "undo" && (
+        <ConfirmSheet
+          title={t("incomes.confirm.undoTitle")}
+          body={t("incomes.confirm.undoBody", { amount: formatCurrency(confirming.arrival.amount), date: f.weekdayDate.format(confirming.arrival.date), name: confirming.income.name })}
+          confirmLabel={t("incomes.card.undoRecord")}
+          lockedReason={deleteGuard.locked ? deleteGuard.reason : undefined}
+          onConfirm={confirm}
+          onClose={() => closeConfirm(true)}
         />
       )}
     </PageShell>

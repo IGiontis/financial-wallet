@@ -504,7 +504,11 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   // Nothing overdue, so this is this period's own deadline, still ahead.
   const days = daysUntilDeadline(bill, now);
   if (days === undefined) {
-    return <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>{t("bills.unpaid")}</span>;
+    return (
+      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-pending) 16%, transparent)", color: "var(--color-pending-text)" }}>
+        {t("bills.unpaid")}
+      </span>
+    );
   }
 
   const label = days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });

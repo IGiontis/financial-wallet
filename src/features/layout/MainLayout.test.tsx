@@ -12,9 +12,10 @@ import { MainLayout } from "./MainLayout";
 // the styles must not change: the same links in the same groups and order, the
 // same badge, the same drawer behaviour, whichever one is chosen.
 
-const state = vi.hoisted(() => ({ billsDue: 0, narrow: false }));
+const state = vi.hoisted(() => ({ billsDue: 0, incomesWaiting: 0, narrow: false }));
 
 vi.mock("../bills/useBills", () => ({ useBillsNeedingAttention: () => state.billsDue }));
+vi.mock("../incomes/useIncomes", () => ({ useIncomesNeedingAttention: () => state.incomesWaiting }));
 vi.mock("../../shared/hooks/useAuth", () => ({
   useAuth: () => ({ currentUser: { uid: "u1", email: "ilias@example.com", displayName: null, providerData: [{ providerId: "password" }] }, loading: false }),
 }));
@@ -48,7 +49,7 @@ const sidebar = () => screen.getByRole("navigation", { name: "Main navigation" }
 const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 
 // Every destination, in the order the sidebar lists them.
-const ALL_PATHS = ["/", "/analytics", "/transactions", "/bills", "/planner", "/allocation", "/goals", "/accounts", "/investments", "/debts", "/settings"];
+const ALL_PATHS = ["/", "/analytics", "/transactions", "/incomes", "/bills", "/planner", "/allocation", "/goals", "/accounts", "/investments", "/debts", "/settings"];
 
 const original = window.matchMedia;
 
@@ -73,6 +74,7 @@ afterAll(() => {
 
 beforeEach(() => {
   state.billsDue = 0;
+  state.incomesWaiting = 0;
   state.narrow = false;
   localStorage.removeItem("sidebar-collapsed");
   localStorage.removeItem("nav-style");
@@ -87,7 +89,7 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
     expect(document.documentElement).toHaveAttribute("data-nav-style", style);
   });
 
-  it("lists the same eleven links, in the same four groups and the same order", () => {
+  it("lists the same twelve links, in the same four groups and the same order", () => {
     renderAt("/");
     const hrefs = within(sidebar())
       .getAllByRole("link")
@@ -99,7 +101,7 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"));
     expect(group("Where you stand")).toEqual(["/", "/analytics"]);
-    expect(group("Day to day")).toEqual(["/transactions", "/bills"]);
+    expect(group("Day to day")).toEqual(["/transactions", "/incomes", "/bills"]);
     expect(group("Plan")).toEqual(["/planner", "/allocation", "/goals"]);
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
@@ -119,6 +121,14 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
     expect(bills).toHaveAttribute("href", "/bills");
     expect(within(bills).getByText("2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Menu — 2 bills need paying" })).toBeInTheDocument();
+  });
+
+  it("puts the incomes that need a look on Income, in amber rather than the bills' red", () => {
+    state.incomesWaiting = 1;
+    renderAt("/");
+    const incomes = within(sidebar()).getByRole("link", { name: "Income — 1 income needs a look" });
+    expect(incomes).toHaveAttribute("href", "/incomes");
+    expect(within(incomes).getByText("1")).toHaveClass("nav-badge", "nav-badge-warning");
   });
 
   it("draws nothing on Bills when nothing is due", () => {
