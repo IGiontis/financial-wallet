@@ -672,7 +672,8 @@
         "late": "late",
         "missed": "didn’t come",
         "coming": "coming"
-      }
+      },
+      "wasDue": "Was due"
     },
     "empty": {
       "title": "No income yet",

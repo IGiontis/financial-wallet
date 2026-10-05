@@ -101,7 +101,7 @@ export function statusTag(status: IncomeStatus, t: TFunction, f: IncomeFormats):
     case "upcoming": {
       if (status.undated) return { text: t("incomes.status.undated"), tone: "due" };
       if (status.daysUntil === 0) return { text: t("incomes.status.today"), tone: "due" };
-      return { text: t("incomes.status.inDays", { count: status.daysUntil ?? 0, date: f.weekdayDate.format(status.expectedDate) }), tone: status.state === "due" ? "due" : "muted" };
+      return { text: t("incomes.status.inDays", { count: status.daysUntil ?? 0, date: f.dayMonth.format(status.expectedDate) }), tone: status.state === "due" ? "due" : "muted" };
     }
   }
 }

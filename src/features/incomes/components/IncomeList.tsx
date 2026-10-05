@@ -197,13 +197,13 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   if (section === "arrived") {
     amount = formatCurrency(sum(row.settled.map((s) => s.arrival?.amount ?? 0)));
     tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
-    if (next) tags.push({ icon: FiCalendar, text: t("incomes.list.next", { date: f.weekdayDate.format(next.expectedDate) }) });
+    if (next) tags.push({ icon: FiCalendar, text: t("incomes.list.next", { date: f.dayMonth.format(next.expectedDate) }) });
   } else if (section === "waiting" && focus) {
     amount = `${approx}${formatCurrency(focus.expected)}`;
     // Asked about one not due yet — next month's rent inside its ten days — is
     // "for" its day, not "was for" it.
     if (focus.state === "late" || focus.state === "ask") {
-      tags.push({ icon: FiCalendar, text: t(focus.date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.weekdayDate.format(focus.date) }) });
+      tags.push({ icon: FiCalendar, text: t(focus.date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.dayMonth.format(focus.date) }) });
     } else {
       tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
     }
@@ -215,7 +215,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
     const upcoming = focus && !isSettled(focus) && focus.state !== "skipped" && focus.state !== "missed" ? focus : next;
     if (pause?.state === "paused" && pause.to) tags.push({ icon: FiPauseCircle, text: t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }) });
     else if (pause?.state === "ended") tags.push({ icon: FiPauseCircle, text: t("incomes.list.stopped") });
-    else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.weekdayDate.format(upcoming.expectedDate) }) });
+    else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.dayMonth.format(upcoming.expectedDate) }) });
     else tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f) });
   }
   // The time «Αυτή τη φορά…» speaks about: this one while it is open (a "not

@@ -326,9 +326,13 @@
   font-size: 11px;
   font-weight: 500;
   line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* A long date wraps inside its chip rather than being cut to «30 Ο…». */
+  white-space: normal;
+}
+
+/* The status pill, among the chips, wraps the same way. */
+.tags .pill {
+  white-space: normal;
 }
 
 .tag svg {

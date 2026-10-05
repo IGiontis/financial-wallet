@@ -152,7 +152,15 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
           <Fact icon={FiRepeat} label={t("incomes.card.howOften")} value={scheduleText(income, t, f)} />
           <Fact icon={FiCheck} label={t("incomes.card.howMuch")} value={amount} sub={amountSub} />
           <Fact icon={FiCreditCard} label={t("incomes.card.where")} value={accountName ?? t("incomes.card.noAccount")} />
-          {upcoming && !archived && <Fact icon={FiCalendar} label={t("incomes.card.nextTime")} value={f.weekdayDate.format(upcoming.expectedDate)} sub={statusTag(upcoming, t, f).text} />}
+          {upcoming && !archived && (
+            <Fact
+              icon={FiCalendar}
+              // A late one is not "next": it is the one still owed.
+              label={upcoming.state === "late" || upcoming.state === "ask" ? t("incomes.card.wasDue") : t("incomes.card.nextTime")}
+              value={f.weekdayDate.format(upcoming.expectedDate)}
+              sub={statusTag(upcoming, t, f).text}
+            />
+          )}
           {pause && <Fact icon={FiPauseCircle} label={t("incomes.card.pause")} value={pause} />}
         </div>
 
@@ -203,9 +211,10 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
       </ModalBody>
 
       <ModalFooter className="justify-content-between">
-        <Button color="danger" outline onClick={() => onDelete(income)}>
-          <FiTrash2 className="me-1" aria-hidden />
-          {t("common.delete")}
+        {/* The word only where it fits: on a phone the three would not share a row. */}
+        <Button color="danger" outline onClick={() => onDelete(income)} aria-label={t("common.delete")} title={t("common.delete")}>
+          <FiTrash2 aria-hidden />
+          <span className="d-none d-sm-inline ms-1">{t("common.delete")}</span>
         </Button>
         <div className="d-flex gap-2">
           {archived ? (
