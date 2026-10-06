@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
@@ -96,6 +96,11 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
+/** The tiles open the working behind them; these open it the way a tap does. */
+const openPayday = () => userEvent.click(screen.getByRole("button", { name: /^Until payday: / }));
+const openPeriod = () => userEvent.click(screen.getByRole("button", { name: /^You end with: / }));
+const closeSheet = () => userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+
 // The strip watches the first card; jsdom has no layout, so the watch is driven by hand.
 let watching: ((entries: { isIntersecting: boolean; boundingClientRect: { top: number } }[]) => void) | undefined;
 
@@ -126,9 +131,36 @@ beforeEach(() => {
   watching = undefined;
 });
 
-describe("the Planner's first card", () => {
-  it("gives the Overview's answer: 94,35 left on the eve of pay, ≈3,14 a day", () => {
+describe("the four tiles", () => {
+  it("say the four answers, each the same figure as the working behind it", async () => {
     renderPage();
+    // 1.000 now; 94,35 on the eve of pay, the Overview's figure; the lowest
+    // the line goes is that same evening; 1.000 + 4.350 − 2.755 at the end.
+    expect(screen.getByRole("button", { name: "You have: €1000.00, details" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Until payday: €${overviewAnswer().left.toFixed(2)}, details` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lowest point: €94.35, details" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "You end with: €2595.00, details" })).toBeInTheDocument();
+    expect(1000 + 4350 - 2755).toBe(2595);
+
+    // The second way: the sheet's own subtraction lands on the tile's figure.
+    await openPeriod();
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getAllByText("€2595.00").length).toBeGreaterThan(0);
+    expect(within(sheet).getByText("−€2755.00")).toBeInTheDocument();
+  });
+
+  it("keep the words out of the page: no sentence under the figures until a tile is opened", () => {
+    renderPage();
+    expect(screen.queryByText(/The months leave/)).toBeNull();
+    expect(screen.queryByText("You make it to payday")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("the pay-day sheet", () => {
+  it("gives the Overview's answer: 94,35 left on the eve of pay, ≈3,14 a day", async () => {
+    renderPage();
+    await openPayday();
     const overview = overviewAnswer();
     // Second route: the mockup's own sum, 1.000 − 515 − 100 − 290,65.
     expect(overview.left).toBe(94.35);
@@ -144,16 +176,17 @@ describe("the Planner's first card", () => {
     expect(screen.queryByText(/a day spare/)).toBeNull();
   });
 
-  it("gives the same answer on a year's view, though that plan is sampled by the week", () => {
+  it("gives the same answer on a year's view, though that plan is sampled by the week", async () => {
     settings.set("planner-horizon", 12);
     renderPage();
+    await openPayday();
     expect(screen.getByText("Left €94.35 · ≈€3.14/day")).toBeInTheDocument();
     expect(overviewAnswer().left).toBe(94.35);
   });
 
-  it("writes out the figure as a sum that lands on it", async () => {
+  it("writes out the figure as a sum that lands on it, already open in the sheet", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: "How it adds up" }));
+    await openPayday();
     const list = screen.getByRole("group", { name: "How it adds up" });
     const amounts = within(list)
       .getAllByText(money)
@@ -169,6 +202,9 @@ describe("the Planner's first card", () => {
     settings.set("planner-opening-source", "manual");
     settings.set("planner-opening", "1500");
     renderPage();
+    // The tile says it is a figure of your own before anything is opened.
+    expect(screen.getByRole("button", { name: "If you had: €1500.00, details" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "If you had: €1500.00, details" }));
 
     expect(screen.getByText("Scenario: your own figure")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "If you had" })).toHaveValue(1500);
@@ -185,6 +221,7 @@ describe("the Planner's first card", () => {
 });
 
 describe("pay that may already be in the bank reading", () => {
+  const openQuestions = () => userEvent.click(screen.getByRole("button", { name: /1 income needs an answer/ }));
   const day = en({ day: "numeric", month: "short" }).format(new Date(2026, 8, 30));
   // The salary's time is kept under the key «Έσοδα» reads too.
   const key = incomeOccurrenceKey(SALARY_ID, "2026-09-30");
@@ -194,21 +231,26 @@ describe("pay that may already be in the bank reading", () => {
     data.transactions = [];
   });
 
-  it("is asked about in the card, and not counted twice meanwhile", async () => {
+  it("is asked about in one line that opens the question, and not counted twice meanwhile", async () => {
     renderPage();
+    await openQuestions();
     expect(screen.getByText(`Your salary of ${day} wasn’t found in your transactions — has it come already?`)).toBeInTheDocument();
     expect(screen.getByText("Until you answer, it isn’t counted a second time.")).toBeInTheDocument();
     // Left out: the answer runs to October's pay, as the Overview's does.
     expect(overviewAnswer().left).toBe(94.35);
-    expect(screen.getByText("Left €94.35 · ≈€3.14/day")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Until payday: €94.35, details" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: `Salary · ${day}: It came` }));
     expect(settings.get("planner-occurrences")).toEqual({ [key]: { state: "received", date: "2026-09-30", amount: 1450 } });
     expect(screen.queryByText(/wasn’t found in your transactions/)).toBeNull();
+    // Nothing left to ask: the line and its sheet are gone.
+    expect(screen.queryByRole("button", { name: /needs an answer/ })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("records «not yet» as waiting", async () => {
     renderPage();
+    await openQuestions();
     await userEvent.click(screen.getByRole("button", { name: `Salary · ${day}: Not yet` }));
     expect(settings.get("planner-occurrences")).toEqual({ [key]: { state: "waiting" } });
   });
@@ -238,8 +280,9 @@ describe("the strip", () => {
 });
 
 describe("the whole period", () => {
-  it("names what you end with, and what the months add without the money you have", () => {
+  it("names what you end with, and what the months add without the money you have", async () => {
     renderPage();
+    await openPeriod();
     expect(screen.getAllByText("€2595.00").length).toBeGreaterThan(0);
     expect(screen.getByText("The months leave +€1595.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
     expect(screen.getByText("You never go below zero")).toBeInTheDocument();
@@ -248,6 +291,22 @@ describe("the whole period", () => {
     expect(screen.getAllByText("+€4350.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText("−€2755.00").length).toBeGreaterThan(0);
     expect(1000 + 4350 - 2755).toBe(2595);
+  });
+
+  it("lists the months as columns, each ending where the next begins", async () => {
+    renderPage();
+    await openPeriod();
+    const rows = within(screen.getByRole("dialog"))
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell").map((cell) => cell.textContent ?? ""));
+    // Each month: in, out, balance at its end. Walked again here from the 1.000 there is.
+    let balance = 1000;
+    for (const [inText, outText, endText] of rows) {
+      balance = Math.round((balance + sumOf([inText, outText])) * 100) / 100;
+      expect(endText).toBe(`€${balance.toFixed(2)}`);
+    }
+    expect(balance).toBe(2595);
   });
 
   it("draws the balance as a line you scrub, and names the day under the finger", async () => {
@@ -316,18 +375,19 @@ describe("the incomes, from «Έσοδα»", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("lists each one with its switch, the salary first, each opening its card", () => {
+  it("lists each one with its switch, the salary first, each opening its card", async () => {
     renderPage();
     const salary = screen.getByRole("button", { name: "Salary: details" });
     const rent = screen.getByRole("button", { name: "Rent I collect: details" });
     expect(salary.compareDocumentPosition(rent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // September's salary and rent are in already: three of each still to come.
-    expect(salary).toHaveTextContent("€1450.00 · ×3 · next Oct 30");
-    expect(rent).toHaveTextContent("€400.00 · ×3 · next Oct 5");
+    // A name, an amount and a switch: the "×3 · next" is in the income's card now.
+    expect(salary).toHaveTextContent(/^Salary$/);
+    expect(rent).toHaveTextContent(/^Rent I collect$/);
     expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes");
     // Nothing to type here any more: no salary dialog, no income lines.
     expect(screen.queryByRole("button", { name: "Add monthly income" })).toBeNull();
     // 1.000 + 3 × 1.450 + 3 × 400 − 2.755.
+    await openPeriod();
     expect(screen.getByText("The months leave +€2795.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
     expect(3 * 1450 + 3 * 400 - 2755).toBe(2795);
   });
@@ -337,6 +397,7 @@ describe("the incomes, from «Έσοδα»", () => {
     await userEvent.click(screen.getByRole("switch", { name: "Rent I collect" }));
     expect(settings.get("planner-skip")).toEqual(["rent-in"]);
     // Exactly its 1.200 less.
+    await openPeriod();
     expect(screen.getByText("The months leave +€1595.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
     expect(2795 - 1200).toBe(1595);
   });
@@ -357,15 +418,40 @@ describe("the incomes, from «Έσοδα»", () => {
     expect(settings.get("planner-lines")).toEqual([{ ...OWN, amount: 350 }, room]);
   });
 
-  it("with no incomes, plans no money in and says where to add it — the found salary only as a suggestion", () => {
+  it("with no incomes, plans no money in and says where to add it — the found salary only as a suggestion", async () => {
     settings.set("incomes", []);
     data.transactions = [7, 8, 9].map((month) => ({ ...payOnThe25th, id: `pay-${month}`, date: new Date(2026, month - 1, 28) }) as Transaction);
     renderPage();
     expect(screen.getByText("No income yet — nothing is coming in to the plan.")).toBeInTheDocument();
     expect(screen.getByText("I found a salary of €1450.00 around the 28 — add it on Income")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add on Income ›" })).toHaveAttribute("href", "/incomes");
+    // No pay day: the tile reads to the month's end, and its sheet says where to set one.
+    await userEvent.click(screen.getByRole("button", { name: /^Until the month ends: / }));
     expect(screen.getByRole("link", { name: "Add your salary on Income for a sharper answer ›" })).toHaveAttribute("href", "/incomes");
+    await closeSheet();
     // Not planned with: the months bring nothing in.
+    await openPeriod();
     expect(screen.getByText("The months leave −€2755.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
+  });
+});
+
+describe("a row the app keeps", () => {
+  it("opens its facts as columns, with its switch, instead of carrying them under its name", async () => {
+    renderPage();
+    const bills = screen.getAllByRole("button").find((b) => b.getAttribute("aria-expanded") !== null && b.textContent?.startsWith("Bills"))!;
+    await userEvent.click(bills);
+    const power = screen.getByRole("button", { name: "Power: details" });
+    expect(power).toHaveTextContent(/^Power$/);
+
+    await userEvent.click(power);
+    const sheet = screen.getByRole("dialog");
+    // 65 on the 5th of October, November and December: three times, 195.
+    expect(within(sheet).getByRole("row", { name: /A month/ })).toHaveTextContent("€65.00");
+    expect(within(sheet).getByRole("row", { name: /Times/ })).toHaveTextContent("3");
+    expect(within(sheet).getByRole("row", { name: /Over the window/ })).toHaveTextContent("−€195.00");
+    expect(3 * 65).toBe(195);
+
+    await userEvent.click(within(sheet).getByRole("switch", { name: "Count it in the plan" }));
+    expect(settings.get("planner-skip")).toEqual(["power"]);
   });
 });

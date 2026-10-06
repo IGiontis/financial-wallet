@@ -79,7 +79,8 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
     <section className={inSheet ? undefined : "card mb-3"} aria-label={t("planner.wholePeriod")}>
       <div className={inSheet ? undefined : "card-body p-3 p-sm-4"}>
         <div className="d-flex justify-content-between align-items-center gap-2">
-          <span className={styles.label}>{t("planner.wholePeriod")}</span>
+          {/* In the sheet the dialog's own title already says it. */}
+          {!inSheet && <span className={styles.label}>{t("planner.wholePeriod")}</span>}
           <span className="d-flex align-items-center gap-1 small text-body-secondary">
             {shortDate.format(plan.start)} – {dayDate.format(plan.end)}
             {/* Not the same drawing enlarged: given the room, the months' two
