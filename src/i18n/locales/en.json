@@ -1037,7 +1037,8 @@
       "sourcesHint": "Largest first, with each one against the biggest",
       "shareOfAll": "{{percent}}% of income",
       "noNames": "Income needs a description before it can be grouped by source",
-      "sourcesShort": "The biggest first"
+      "sourcesShort": "The biggest first",
+      "averageFinished": "The average counts finished months only."
     },
     "dashboard": {
       "group": "At a glance",

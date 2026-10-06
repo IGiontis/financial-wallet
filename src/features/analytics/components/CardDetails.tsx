@@ -404,17 +404,45 @@ export function TrendDetails({ data, series, legend, formatCurrency }: { data: T
 
 // ── How steady the income is ─────────────────────────────────────────────────
 
-export function IncomeMonthsDetails({ data, average, note, legend, formatCurrency }: { data: { label: string; income: number }[]; average: number; note: string; legend: ReactNode; formatCurrency: Format }) {
+export function IncomeMonthsDetails({
+  data,
+  average,
+  note,
+  legend,
+  formatCurrency,
+}: {
+  data: { label: string; income: number; running?: boolean }[];
+  /** Per finished month; undefined while the only month is the running one. */
+  average?: number;
+  note: string;
+  legend: ReactNode;
+  formatCurrency: Format;
+}) {
   const { t } = useTranslation();
   const signed = signedWith(formatCurrency);
+  // The month under way is not set against the average it is not part of.
+  const gap = (r: (typeof data)[number]) => (average === undefined || r.running ? undefined : round2(r.income - average));
   const columns: DetailsColumn<(typeof data)[number]>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => r.label },
-    { key: "income", label: t("analytics.flow.income"), numeric: true, cell: (r) => formatCurrency(r.income), foot: formatCurrency(round2(average)) },
-    { key: "gap", label: t("analytics.income.vsAverage"), numeric: true, tone: (r) => round2(r.income - average), cell: (r) => signed(round2(r.income - average)) },
+    { key: "month", label: t("analytics.details.month"), cell: (r) => (r.running ? `${r.label} · ${t("analytics.ledger.running")}` : r.label) },
+    { key: "income", label: t("analytics.flow.income"), numeric: true, cell: (r) => formatCurrency(r.income), foot: average === undefined ? "—" : formatCurrency(average) },
+    {
+      key: "gap",
+      label: t("analytics.income.vsAverage"),
+      numeric: true,
+      tone: gap,
+      cell: (r) => {
+        const g = gap(r);
+        return g === undefined ? "—" : signed(g);
+      },
+    },
   ];
   return (
     <ChartDetails
-      note={note}
+      note={
+        <>
+          {note} {t("analytics.income.averageFinished")}
+        </>
+      }
       chart={<IncomeMonthsChart data={data} average={average} formatCurrency={formatCurrency} />}
       legend={legend}
       tableTitle={t("analytics.details.table")}

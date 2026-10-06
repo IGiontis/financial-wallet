@@ -362,17 +362,21 @@ export function AnalyticsPage() {
   // The two questions it does answer — where it comes from, and whether it can
   // be relied on — are these.
   const incomeSources = useMemo(() => topPayees(scoped, "income"), [scoped]);
-  const incomeMonths = useMemo(() => flows.map((flow) => ({ label: monthFmt.format(flow.start), income: flow.income })), [flows, monthFmt]);
+  const incomeMonths = useMemo(() => ledger.rows.map((row) => ({ label: monthFmt.format(row.start), income: row.income, running: row.running })), [ledger, monthFmt]);
   const incomeTotal = useMemo(() => flows.reduce((sum, flow) => sum + flow.income, 0), [flows]);
-  const incomeAverage = flows.length > 0 ? incomeTotal / flows.length : 0;
+  // Per finished month, the same figure as the month-by-month sheet: the
+  // month under way, a few days old, would drag it down with income still to
+  // come. Undefined while the only month on screen is the running one.
+  const incomeAverage = ledger.average?.income;
 
   // How lumpy it is: the average gap from the average, as a share of it. A
   // salary sits near zero; work invoiced in bursts runs high.
   const incomeSpread = useMemo(() => {
-    if (flows.length < 2 || incomeAverage <= 0) return undefined;
-    const spread = flows.reduce((sum, flow) => sum + Math.abs(flow.income - incomeAverage), 0) / flows.length;
+    const finished = ledger.rows.filter((row) => !row.running);
+    if (finished.length < 2 || incomeAverage === undefined || incomeAverage <= 0) return undefined;
+    const spread = finished.reduce((sum, row) => sum + Math.abs(row.income - incomeAverage), 0) / finished.length;
     return Math.round((spread / incomeAverage) * 100);
-  }, [flows, incomeAverage]);
+  }, [ledger, incomeAverage]);
   const paceGap = pace.currentTotal - pace.previousToDate;
 
 
@@ -755,7 +759,7 @@ export function AnalyticsPage() {
                 <ChartCard
                   title={t("analytics.income.stabilityTitle")}
                   hint={t("analytics.income.stabilityHint")}
-                  value={formatCurrency(incomeAverage)}
+                  value={incomeAverage === undefined ? "—" : formatCurrency(incomeAverage)}
                   valueTone="income"
                   empty={incomeMonths.length === 0 ? noData : undefined}
                   details={{
