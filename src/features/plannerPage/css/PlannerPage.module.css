@@ -1220,7 +1220,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 15px;
+  /* Three across a phone: "+12.840,00 €" still fits at the narrow end. */
+  font-size: clamp(12.5px, 3.6vw, 15px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
