@@ -433,6 +433,20 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
           <ReviewCard
             accountId={formik.values.accountId}
             income={formik.values.type === "income"}
+            // The record as it will be: what the card holds after the change.
+            editing={
+              formik.values.amount === ""
+                ? undefined
+                : {
+                    original: transaction,
+                    changed: {
+                      ...transaction,
+                      amount: baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)),
+                      date: new Date(formik.values.date),
+                      accountId: formik.values.accountId || undefined,
+                    },
+                  }
+            }
           />
         )}
       </ModalBody>

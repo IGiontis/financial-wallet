@@ -2005,6 +2005,8 @@
     "cardsDivider": "Cards",
     "reviewFromLabel": "Paid from",
     "reviewIntoLabel": "Goes into",
-    "afterThis": "After this:"
+    "afterThis": "After this:",
+    "afterEdit": "After the change:",
+    "editInReading": "Already in the bank reading taken after it — the figure stays what the bank said."
   }
 }
