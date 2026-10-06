@@ -50,10 +50,17 @@ describe("the review card", () => {
     expect(screen.getByText("€1000.00")).toBeInTheDocument();
   });
 
-  it("for an edit of a record the last reading already holds: says the bank's figure stands", () => {
+  it("for an edit of a record the last reading already holds: corrects that reading too, unless switched off", () => {
     const before = { ...spent, date: new Date(2026, 9, 4), createdAt: new Date(2026, 9, 4, 10) };
     state.transactions = [before];
-    render(<ReviewCard accountId="revolut" income={false} editing={{ original: before, changed: { ...before, amount: 110 } }} />);
-    expect(screen.getByText(/the figure stays what the bank said/)).toBeInTheDocument();
+    const editing = { original: before, changed: { ...before, amount: 80 } };
+    const { unmount } = render(<ReviewCard accountId="revolut" income={false} editing={editing} adjust={{ on: true, onChange: () => {} }} />);
+    // The reading said 1.000 with the 100 in it: with 80 instead, 1.020.
+    expect(screen.getByText("€1020.00")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /Correct the .* bank update too/ })).toBeChecked();
+    unmount();
+
+    render(<ReviewCard accountId="revolut" income={false} editing={editing} adjust={{ on: false, onChange: () => {} }} />);
+    expect(screen.getByText(/the balance doesn’t move/)).toBeInTheDocument();
   });
 });

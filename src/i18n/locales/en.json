@@ -2007,6 +2007,8 @@
     "reviewIntoLabel": "Goes into",
     "afterThis": "After this:",
     "afterEdit": "After the change:",
-    "editInReading": "Already in the bank reading taken after it — the figure stays what the bank said."
+    "editInReading": "Before the last bank update, which stays as it was: the balance doesn’t move.",
+    "adjustReading": "Correct the {{date}} bank update too",
+    "adjustReadingHint": "Turn off only if that update’s balances came straight from the bank and were already right."
   }
 }

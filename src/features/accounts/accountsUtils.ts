@@ -299,6 +299,36 @@ export function expectedByAccount(accounts: MoneyAccount[], latest: CheckInReadi
   return result;
 }
 
+/**
+ * Readings corrected for an edited record, as the owner reads an edit: a 100
+ * expense changed to 80 gives the card its 20 back, changed to 140 takes 40
+ * more — even when a bank reading was taken after the record.
+ *
+ * Every reading that already counted the record (taken after it, by
+ * `isAfterReading`) has the old version taken out of the account it went
+ * against and the new one put into its account, if that reading counts the
+ * new one too. Readings taken before the record are what the bank said
+ * before it existed and stay as they are, as does an account a reading never
+ * held. Returns the same array when nothing changes.
+ */
+export function adjustCheckInsForEdit(checkIns: BalanceCheckIn[], accounts: MoneyAccount[], original: Transaction, changed: Transaction): BalanceCheckIn[] {
+  const main = mainAccount(accounts);
+  const from = accountOf(original, accounts, main);
+  const to = accountOf(changed, accounts, main);
+  let touched = false;
+  const next = checkIns.map((checkIn) => {
+    const at = new Date(checkIn.at);
+    if (isAfterReading(original, at)) return checkIn;
+    const amounts = { ...checkIn.amounts };
+    if (from && from in amounts) amounts[from] = round2(amounts[from] - realDelta(original));
+    if (to && to in amounts && !isAfterReading(changed, at)) amounts[to] = round2(amounts[to] + realDelta(changed));
+    if (Object.keys(amounts).every((id) => amounts[id] === checkIn.amounts[id])) return checkIn;
+    touched = true;
+    return { ...checkIn, amounts };
+  });
+  return touched ? next : checkIns;
+}
+
 /** How many records since the last reading each account carries. */
 export function recordsSinceByAccount(accounts: MoneyAccount[], latest: CheckInReading | undefined, transactions: Transaction[]): Record<string, number> {
   const result: Record<string, number> = {};

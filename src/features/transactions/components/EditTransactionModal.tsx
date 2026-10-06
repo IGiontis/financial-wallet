@@ -12,7 +12,8 @@ import { validationMessage } from "../../../shared/utils/validationMessage";
 import { PayeeInput } from "./PayeeInput";
 import AccountPicker from "../../accounts/AccountPicker";
 import ReviewCard from "../../accounts/ReviewCard";
-import { useAccountList } from "../../accounts/useMoneyAccounts";
+import { useAccountList, useMoneyAccounts } from "../../accounts/useMoneyAccounts";
+import { adjustCheckInsForEdit } from "../../accounts/accountsUtils";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
@@ -144,6 +145,10 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  // An edit is read as a correction of the money too: 100 made 80 gives the
+  // card 20 back, even past a bank reading — see `adjustCheckInsForEdit`.
+  const { accounts: moneyAccounts, checkIns, setCheckIns } = useMoneyAccounts();
+  const [adjustReading, setAdjustReading] = useState(true);
   // The card step is there only when there are cards on the Banks & cash page.
   const accounts = useAccountList();
   const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
@@ -192,6 +197,14 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         };
 
         await onSubmit(transaction.id, data);
+        // Once the record is saved: the readings that already counted it,
+        // corrected with it — unless switched off on the check step.
+        if (adjustReading) {
+          const amount = baseCurrency === displayCurrency ? Number(values.amount) : convertToBase(Number(values.amount));
+          const changed = { ...transaction, amount, date: new Date(values.date), accountId: values.accountId || undefined };
+          const corrected = adjustCheckInsForEdit(checkIns, moneyAccounts, transaction, changed);
+          if (corrected !== checkIns) setCheckIns(corrected);
+        }
         toast.success(t("transactions.updatedSuccess", { name: values.description }));
         resetForm();
         setStep("category");
@@ -433,6 +446,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
           <ReviewCard
             accountId={formik.values.accountId}
             income={formik.values.type === "income"}
+            adjust={{ on: adjustReading, onChange: setAdjustReading }}
             // The record as it will be: what the card holds after the change.
             editing={
               formik.values.amount === ""
