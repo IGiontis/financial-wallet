@@ -1526,7 +1526,14 @@
     "factTimes": "Times",
     "factSeason": "Season",
     "factNote": "Note",
-    "factNext": "Next"
+    "factNext": "Next",
+    "monthEndsOn": "Month ends on",
+    "monthCarried": "From the month before",
+    "monthLines": "Mine, through the month",
+    "monthLinesIn": "Coming in, through the month",
+    "monthMoves": "Every move",
+    "monthBeforePayOn": "The evening before pay ({{date}}): {{amount}}",
+    "monthOpen": "{{month}}: ends on {{amount}}, details"
   },
   "settings": {
     "title": "Settings",

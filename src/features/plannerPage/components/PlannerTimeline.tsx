@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
+import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiChevronDown, FiChevronRight, FiLock } from "react-icons/fi";
+import { FiChevronRight, FiLock } from "react-icons/fi";
 import { daysLate, type ResolvedOccurrence } from "../plannerActuals";
 
 import { isHardDeadline } from "../../bills/billsUtils";
@@ -30,28 +31,34 @@ interface PlannerTimelineProps {
 }
 
 /**
- * Month by month: the balance each month ends on, and its payments on a tap.
+ * Month by month: the balance each month ends on, and its working on a tap.
  *
  * It was a dated list of every payment, grouped under month headings that gave
  * only the month's outgoings — so where a month left you was in the chart and
- * nowhere else. Each month is now one row that answers that first: what came
- * in, what went out, what it ends on, and what was left the evening before its
- * pay. The payments themselves are one tap down, in the same rows as before —
- * a salary or an instalment still opens its sheet.
+ * nowhere else. Then each month became a row of everything at once: in, out,
+ * the evening before pay, the end. At a glance that was a column of figures
+ * to decode, so the row now says the one thing — where the month ends — and a
+ * tap opens the rest in a sheet: what came in and went out, the evening
+ * before pay, and every payment in columns from what it started with to what
+ * it ends on. A salary or an instalment there still opens its own sheet.
+ *
+ * What already happened near today folds the same way, to one line.
  */
 function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dateFmt, locale, today, settled = [], onOccurrence }: PlannerTimelineProps) {
   const { t } = useTranslation();
-  const [opened, setOpened] = useState<Record<number, boolean>>({});
+  // The month whose sheet is open, by its first day's offset — or the list of what already happened.
+  const [opened, setOpened] = useState<number | "done" | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const formats = useMemo(
     () => ({
-      number: new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       month: new Intl.DateTimeFormat(locale, { month: "short" }),
+      monthLong: new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }),
+      day: new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }),
     }),
     [locale],
   );
-  const signed = (n: number) => `${n > 0 ? "+" : "−"}${formats.number.format(Math.abs(n))}`;
+  const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
 
   const renderEvent = (event: PlannerEvent, index: number) => {
     const source = event.billId ? bills.find((b) => b.id === event.billId) : undefined;
@@ -129,62 +136,99 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
   };
 
   const shown = showAll || months.length <= FOLD_ABOVE ? months : months.slice(0, FIRST_MONTHS);
+  const month = typeof opened === "number" ? months.find((m) => m.from === opened) : undefined;
+
+  /** A line of the month's sheet that is not a payment: where it starts, the budget lines, where it ends. */
+  const summaryRow = (key: string, date: string, label: string, amount: string, strong = false) => (
+    <div key={key} className={`${styles.eventRow} ${strong ? styles.eventStrong : ""}`}>
+      <span className={styles.eventDate}>{date}</span>
+      <span className={styles.eventName}>
+        <span className={styles.eventTitle}>{label}</span>
+      </span>
+      <span className={styles.eventAmount}>{amount}</span>
+    </div>
+  );
+
+  const renderSheet = () => {
+    if (!month) return null;
+    const events = [...month.payEvents, ...month.items].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const came = month.pay + month.incoming;
+    const went = month.bills + month.commitments + month.lines;
+    const first = month.from === 0;
+    const stats: [string, string, string | undefined][] = [
+      [t("planner.moneyIn"), signed(came), came > 0 ? "var(--color-income-text)" : undefined],
+      [t("planner.moneyOut"), signed(-went), went > 0 ? "var(--color-expense-text)" : undefined],
+      [t("planner.monthEndsOn"), formatCurrency(month.close), month.close < 0 ? "var(--color-expense-text)" : undefined],
+    ];
+
+    return (
+      <>
+        <div className={styles.monthStats}>
+          {stats.map(([label, value, color]) => (
+            <div key={label} className={styles.monthStat}>
+              <span className={styles.tileLabel}>{label}</span>
+              <span className={styles.monthStatValue} style={{ color }}>
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+        {month.beforePay && (
+          <p className="small text-body-secondary mt-2 mb-0">
+            {t("planner.monthBeforePayOn", { date: formats.day.format(month.beforePay.on), amount: formatCurrency(month.beforePay.balance) })}
+          </p>
+        )}
+
+        <div className={`${styles.label} mt-3`}>{t("planner.monthMoves")}</div>
+        {/* From what it starts with to what it ends on: the rows add up to the last. */}
+        {summaryRow("carried", dateFmt.format(month.start), t(first ? "planner.openingBalance" : "planner.monthCarried"), formatCurrency(month.carried))}
+        {events.map(renderEvent)}
+        {month.linesIn > 0 && summaryRow("lines-in", "—", t("planner.monthLinesIn"), signed(month.linesIn))}
+        {month.lines > 0 && summaryRow("lines", "—", t("planner.monthLines"), signed(-month.lines))}
+        {summaryRow("close", dateFmt.format(month.end), t("planner.monthEndsOn"), formatCurrency(month.close), true)}
+        {onOccurrence && <p className={`${styles.cardHint} mt-2 mb-0`}>{t("planner.tapToFix")}</p>}
+      </>
+    );
+  };
 
   return (
     <div className="card p-3 mb-3">
       <span className={styles.label}>{t("planner.monthsTitle")}</span>
 
+      {/* What already happened near today, folded to one line. */}
       {settled.length > 0 && (
-        <div className="mt-2 mb-1">
-          <div className={styles.doneHeader}>{t("planner.doneTitle")}</div>
-          {settled.map(renderSettled)}
-        </div>
+        <button type="button" className={styles.monthRow} onClick={() => setOpened("done")}>
+          <span className={`${styles.monthName} ${styles.monthDone}`}>{t("planner.doneTitle")}</span>
+          <b className={styles.monthEnd}>{settled.length}</b>
+          <span className={styles.monthChevron} aria-hidden>
+            <FiChevronRight size={15} />
+          </span>
+        </button>
       )}
 
-      {shown.map((month) => {
-        const events = [...month.payEvents, ...month.items].sort((a, b) => a.date.getTime() - b.date.getTime());
-        const open = !!opened[month.from];
-        const came = month.pay + month.incoming;
-        const went = month.bills + month.commitments + month.lines;
-        // Another year's month carries its year under it: "Jan 27" beside it
+      {shown.map((m) => {
+        // Another year's month carries its year beside it: "Jan 27" alone
         // reads as the 27th of January.
-        const otherYear = month.start.getFullYear() !== today.getFullYear();
-        // A month that is only today has nothing to add up but today.
-        const onlyToday = month.from === 0 && month.days === 1;
-
+        const otherYear = m.start.getFullYear() !== today.getFullYear();
         return (
-          <div key={month.from}>
-            <button
-              type="button"
-              className={styles.monthRow}
-              aria-expanded={events.length > 0 ? open : undefined}
-              disabled={events.length === 0}
-              onClick={() => setOpened((state) => ({ ...state, [month.from]: !open }))}
-            >
-              <b className={styles.monthName}>
-                {formats.month.format(month.start)}
-                {otherYear && <small>{month.start.getFullYear()}</small>}
-              </b>
-              <span className={styles.monthFlow}>
-                {onlyToday ? (
-                  `${t("planner.today")} ${came > 0 ? `${signed(came)} ` : ""}${went > 0 ? signed(-went) : ""}`.trim()
-                ) : (
-                  <>
-                    {came > 0 && `${signed(came)} `}
-                    {went > 0 && signed(-went)}
-                  </>
-                )}
-                {month.beforePay && <small>{t("planner.monthBeforePay", { amount: formatCurrency(month.beforePay.balance) })}</small>}
-              </span>
-              <b className={styles.monthEnd} style={{ color: month.close < 0 ? "var(--color-expense-text)" : undefined }}>
-                {formatCurrency(month.close)}
-              </b>
-              <span className={styles.monthChevron} aria-hidden>
-                {events.length > 0 && (open ? <FiChevronDown size={15} /> : <FiChevronRight size={15} />)}
-              </span>
-            </button>
-            {open && <div className={styles.monthEvents}>{events.map(renderEvent)}</div>}
-          </div>
+          <button
+            key={m.from}
+            type="button"
+            className={styles.monthRow}
+            onClick={() => setOpened(m.from)}
+            aria-label={t("planner.monthOpen", { month: formats.monthLong.format(m.start), amount: formatCurrency(m.close) })}
+          >
+            <b className={styles.monthName}>
+              {formats.month.format(m.start)}
+              {otherYear && <small>{m.start.getFullYear()}</small>}
+            </b>
+            <b className={styles.monthEnd} style={{ color: m.close < 0 ? "var(--color-expense-text)" : undefined }}>
+              {formatCurrency(m.close)}
+            </b>
+            <span className={styles.monthChevron} aria-hidden>
+              <FiChevronRight size={15} />
+            </span>
+          </button>
         );
       })}
 
@@ -194,7 +238,22 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
         </button>
       )}
 
-      {onOccurrence && <p className={`${styles.cardHint} mt-2 mb-0`}>{t("planner.tapToFix")}</p>}
+      <Modal isOpen={month !== undefined} toggle={() => setOpened(null)} centered scrollable>
+        <ModalHeader toggle={() => setOpened(null)}>
+          <span style={{ fontSize: 15, textTransform: "capitalize" }}>{month ? formats.monthLong.format(month.start) : ""}</span>
+        </ModalHeader>
+        <ModalBody>{renderSheet()}</ModalBody>
+      </Modal>
+
+      <Modal isOpen={opened === "done" && settled.length > 0} toggle={() => setOpened(null)} centered scrollable>
+        <ModalHeader toggle={() => setOpened(null)}>
+          <span style={{ fontSize: 15 }}>{t("planner.doneTitle")}</span>
+        </ModalHeader>
+        <ModalBody>
+          {settled.map(renderSettled)}
+          {onOccurrence && <p className={`${styles.cardHint} mt-2 mb-0`}>{t("planner.tapToFix")}</p>}
+        </ModalBody>
+      </Modal>
     </div>
   );
 }

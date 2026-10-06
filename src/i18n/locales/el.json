@@ -1526,7 +1526,14 @@
     "factTimes": "Φορές",
     "factSeason": "Εποχή",
     "factNote": "Σημείωση",
-    "factNext": "Επόμενο"
+    "factNext": "Επόμενο",
+    "monthEndsOn": "Τέλος μήνα",
+    "monthCarried": "Από τον προηγούμενο μήνα",
+    "monthLines": "Δικά μου, μέσα στον μήνα",
+    "monthLinesIn": "Μπαίνουν, μέσα στον μήνα",
+    "monthMoves": "Κάθε κίνηση",
+    "monthBeforePayOn": "Το βράδυ πριν τον μισθό ({{date}}): {{amount}}",
+    "monthOpen": "{{month}}: τέλος μήνα {{amount}}, λεπτομέρειες"
   },
   "settings": {
     "title": "Ρυθμίσεις",

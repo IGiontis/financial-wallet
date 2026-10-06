@@ -675,7 +675,7 @@
    to open, rather than greyed as if it were broken. */
 .monthRow {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto 16px;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
   align-items: baseline;
   gap: 0 8px;
   width: 100%;
@@ -1192,4 +1192,41 @@
 
 .sheetCard:not(.scenarioCard) > :global(.card-body) {
   padding: 0 !important;
+}
+
+/* ── A month's sheet ─────────────────────────────────────────────────────── */
+
+.monthDone {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.monthStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.monthStat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.monthStatValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the month ends: the line the rows above add up to. */
+.eventStrong {
+  border-top-width: 2px;
+  font-weight: 700;
 }
