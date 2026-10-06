@@ -945,7 +945,8 @@
       "title": "Income vs expenses",
       "income": "Income",
       "expenses": "Expenses",
-      "net": "Net"
+      "net": "Net",
+      "short": "What came in and what went out each month"
     },
     "moneyFlow": {
       "title": "Where the money went",
@@ -960,7 +961,9 @@
       "title": "Categories against each other",
       "hint": "One line each on a shared scale — who is climbing, and who overtook whom",
       "other_one": "{{count}} other",
-      "other_other": "{{count}} others"
+      "other_other": "{{count}} others",
+      "short_one": "Your biggest category, month by month",
+      "short_other": "Your {{count}} biggest categories, month by month"
     },
     "weekday": {
       "title": "Spending by weekday",
@@ -973,7 +976,8 @@
       "thisMonth": "This month",
       "lastMonth": "Last month",
       "difference": "Difference",
-      "day": "Day {{day}}"
+      "day": "Day {{day}}",
+      "short": "Against the same day last month"
     },
     "movers": {
       "title": "What changed",
@@ -981,12 +985,14 @@
       "now": "This window",
       "before": "Previous",
       "change": "Change",
-      "needsHistory": "Pick a range shorter than all time to compare against."
+      "needsHistory": "Pick a range shorter than all time to compare against.",
+      "short": "Against the same stretch before"
     },
     "sparklines": {
       "title": "Each category on its own",
       "hint": "One line per category over the months shown — scan for the ones going up",
-      "lastMonth": "Latest month: {{amount}}"
+      "lastMonth": "Latest month: {{amount}}",
+      "short": "Which way each category is going"
     },
     "waterfall": {
       "title": "Where the month went",
@@ -995,7 +1001,8 @@
       "leftShort": "{{amount}} left",
       "leftover": "Left over",
       "otherCategories": "Everything else",
-      "shortBy": "Short by"
+      "shortBy": "Short by",
+      "short": "From income to what was left"
     },
     "committed": {
       "title": "Committed vs free",
@@ -1003,7 +1010,8 @@
       "committed": "Committed",
       "free": "Free",
       "share": "Committed share",
-      "headline": "{{percent}}% already spoken for"
+      "headline": "{{percent}}% already spoken for",
+      "short": "Bills and goals against the rest"
     },
     "expandChart": "See it bigger",
     "netWorth": {
@@ -1028,7 +1036,8 @@
       "sourcesTitle": "Where it comes from",
       "sourcesHint": "Largest first, with each one against the biggest",
       "shareOfAll": "{{percent}}% of income",
-      "noNames": "Income needs a description before it can be grouped by source"
+      "noNames": "Income needs a description before it can be grouped by source",
+      "sourcesShort": "The biggest first"
     },
     "dashboard": {
       "group": "At a glance",
@@ -1038,7 +1047,8 @@
       "total": "Total {{amount}}",
       "end": "End {{amount}}",
       "trioTitle": "Month by month",
-      "trioHint": "Three charts, the same months: point at one and it lights up in all three",
+      "trioHint": "What each month kept. Tap for the details",
+      "trioChartsHint": "Three charts, the same months: point at one and it lights up in all three",
       "linesHint": "Values on the highest, the lowest and the latest point",
       "planTitle": "Spending: actual, plan, last year",
       "noPlan": "No plan yet: add bills or expense lines in the Planner to compare",
@@ -1059,7 +1069,51 @@
       "goalFrom": "From %",
       "goalTo": "To %",
       "goalRemove": "Remove",
-      "goalInvalid": "Two numbers from 0 to 100, the first one smaller."
+      "goalInvalid": "Two numbers from 0 to 100, the first one smaller.",
+      "noPlanShort": "No plan to compare yet",
+      "overPlanShort": "Over the plan",
+      "underPlanShort": "Under the plan",
+      "onPlanShort": "Right on the plan"
+    },
+    "openDetails": "{{title}}: details",
+    "ledger": {
+      "average": "Average month",
+      "finishedMonths_one": "over {{count}} finished month",
+      "finishedMonths_other": "over {{count}} finished months",
+      "noFinished": "no finished month yet",
+      "best": "Best month",
+      "worst": "Worst month",
+      "positive": "Months in the black",
+      "positiveValue": "{{count}} of {{of}}",
+      "positiveSub": "kept something",
+      "chartsTitle": "In, out and where you stand",
+      "tableTitle": "Every month",
+      "month": "Month",
+      "net": "Kept",
+      "rate": "Saved",
+      "running": "in progress",
+      "bestTag": "best",
+      "worstTag": "worst",
+      "averageRow": "Average",
+      "finishedNote": "The average, the best and the worst month count finished months only: the month in progress is not over yet."
+    },
+    "details": {
+      "table": "In detail",
+      "month": "Month",
+      "category": "Category",
+      "day": "Day",
+      "weekday": "Weekday",
+      "step": "Step",
+      "amount": "Amount",
+      "ofIncome": "Of income",
+      "share": "Share",
+      "from": "From",
+      "to": "To",
+      "source": "Source",
+      "count": "Times",
+      "lastMonth": "Last month",
+      "trend": "Trend",
+      "lastMonthTotal": "Last month ended on {{amount}}."
     }
   },
   "investments": {
@@ -1448,7 +1502,30 @@
     "tapHint": "Tap or drag along the line to see any day.",
     "justBudget": "Your monthly budget only, about {{amount}} a day.",
     "weekTo": "Week to {{date}}",
-    "balanceTitle": "What is left, day by day"
+    "balanceTitle": "What is left, day by day",
+    "glance": "At a glance",
+    "tileHave": "You have",
+    "tileHaveBanks": "banks and cash",
+    "tileHaveMine": "your own figure",
+    "tilePayday": "Until payday",
+    "tileMonthEnd": "Until the month ends",
+    "tileLowest": "Lowest point",
+    "tileOpen": "{{label}}: {{value}}, details",
+    "questionsWaiting_one": "{{count}} income needs an answer",
+    "questionsWaiting_other": "{{count}} incomes need an answer",
+    "questionsTitle": "Has it come already?",
+    "periodsTitle": "Month by month",
+    "colPeriod": "Month",
+    "colBalance": "Balance at the end",
+    "rowInPlan": "Count it in the plan",
+    "rowDetails": "{{name}}: details",
+    "factTotal": "Over the window ({{months}} mo.)",
+    "factEach": "Each time",
+    "factPerMonth": "A month",
+    "factTimes": "Times",
+    "factSeason": "Season",
+    "factNote": "Note",
+    "factNext": "Next"
   },
   "settings": {
     "title": "Settings",

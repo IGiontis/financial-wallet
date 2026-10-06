@@ -50,22 +50,22 @@ function pointLabel(marked: Set<number>, color: string, below: boolean) {
 }
 
 /** Money in and money out on one axis, each point a ring, a few of them named. */
-export default function LabelledFlowChart({ data, formatCurrency }: { data: Row[]; formatCurrency: (n: number) => string }) {
+export default function LabelledFlowChart({ data, formatCurrency, compact }: { data: Row[]; formatCurrency: (n: number) => string; compact?: boolean }) {
   const incomeMarks = useMemo(() => keyPoints(data.map((row) => row.income)), [data]);
   const expenseMarks = useMemo(() => keyPoints(data.map((row) => row.expenses)), [data]);
 
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
-      <LineChart data={data} margin={{ top: 18, right: 14, left: 0, bottom: 4 }}>
-        <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+      <LineChart data={data} margin={{ top: compact ? 8 : 18, right: 14, left: compact ? 14 : 0, bottom: 4 }}>
+        {!compact && <CartesianGrid stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
         <Tooltip content={<FlowTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         <Line type="monotone" dataKey="income" stroke="var(--chart-income)" strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: "var(--color-surface)" }} activeDot={{ r: 5 }}>
-          <LabelList dataKey="income" content={pointLabel(incomeMarks, "var(--chart-income)", false)} />
+          {!compact && <LabelList dataKey="income" content={pointLabel(incomeMarks, "var(--chart-income)", false)} />}
         </Line>
         <Line type="monotone" dataKey="expenses" stroke="var(--chart-expense)" strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: "var(--color-surface)" }} activeDot={{ r: 5 }}>
-          <LabelList dataKey="expenses" content={pointLabel(expenseMarks, "var(--chart-expense)", true)} />
+          {!compact && <LabelList dataKey="expenses" content={pointLabel(expenseMarks, "var(--chart-expense)", true)} />}
         </Line>
       </LineChart>
     </ResponsiveContainer>

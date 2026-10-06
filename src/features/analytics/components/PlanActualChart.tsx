@@ -37,16 +37,16 @@ function PlanTooltip({ active, payload, formatCurrency }: { active?: boolean; pa
  * animating its dash pattern, and the one given here never came back — the
  * plan was drawn solid.
  */
-export default function PlanActualChart({ data, formatCurrency }: { data: PlanActualRow[]; formatCurrency: (n: number) => string }) {
+export default function PlanActualChart({ data, formatCurrency, compact }: { data: PlanActualRow[]; formatCurrency: (n: number) => string; compact?: boolean }) {
   const hasPlan = data.some((row) => row.plan !== null);
   const hasLastYear = data.some((row) => row.lastYear !== null);
 
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-        <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
         <Tooltip content={<PlanTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         {hasLastYear && <Line type="monotone" dataKey="lastYear" stroke="var(--chart-expense)" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="2 4" strokeLinecap="round" dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} />}
         {hasPlan && <Line type="monotone" dataKey="plan" stroke="var(--chart-expense)" strokeOpacity={0.8} strokeWidth={2} strokeDasharray="7 5" dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} />}

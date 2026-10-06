@@ -32,13 +32,13 @@ function PaceTooltip({ active, payload, label, formatCurrency }: { active?: bool
  * This month's line simply stops at today; it isn't carried flat to the end of
  * the month, which would read as a spending freeze.
  */
-export default function MonthPaceChart({ data, formatCurrency }: { data: PacePoint[]; formatCurrency: (n: number) => string }) {
+export default function MonthPaceChart({ data, formatCurrency, compact }: { data: PacePoint[]; formatCurrency: (n: number) => string; compact?: boolean }) {
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={18} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<PaceTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         <Line type="monotone" dataKey="previous" stroke="var(--color-text-secondary)" strokeWidth={1.75} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
         <Line type="monotone" dataKey="current" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} connectNulls={false} />

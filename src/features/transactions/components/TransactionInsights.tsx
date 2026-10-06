@@ -19,6 +19,7 @@ import {
   type Bucket,
 } from "../transactionInsights";
 import SliceTransactionsModal from "./SliceTransactionsModal";
+import { DetailsTable } from "../../analytics/components/DetailsTable";
 import styles from "./css/TransactionInsights.module.css";
 
 /** Slice colours reuse the semantic accents so the panel matches the app. */
@@ -164,7 +165,8 @@ export function TransactionInsights({ transactions, allTransactions, categories,
         {/* A title attribute is a desktop hover, which on a phone leaves
             the bars carrying no information at all. Tapping one names it
             instead, and the reading sits above the chart rather than
-            under the finger. */}
+            under the finger — in the sheet; the card is only a glance. */}
+        {zoomed && (
         <div className={styles.barReadout} aria-live="polite">
           {pickedBucket ? (
             <>
@@ -177,23 +179,35 @@ export function TransactionInsights({ transactions, allTransactions, categories,
             <span className={styles.barReadoutHint}>{t("transactions.tapBarHint")}</span>
           )}
         </div>
+        )}
 
         <div className={styles.bars}>
-          {buckets.map((b, i) => (
-            <button
-              key={b.key}
-              type="button"
-              className={`${styles.barCol} ${picked === b.key ? styles.barColActive : ""}`}
-              aria-pressed={picked === b.key}
-              aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
-              onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
-            >
-              <div className={styles.bar} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
-              {/* A month of daily bars would collide, so only every nth
-                  label is drawn — the rest are reachable by tap. */}
-              <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
-            </button>
-          ))}
+          {buckets.map((b, i) => {
+            const bar = (
+              <>
+                <div className={styles.bar} style={{ height: maxBucket > 0 ? `${(b.amount / maxBucket) * 100}%` : "2px" }} />
+                {/* A month of daily bars would collide, so only every nth
+                    label is drawn — the rest are reachable by tap. */}
+                <span className={styles.barLabel}>{i % labelEvery === 0 ? b.label : " "}</span>
+              </>
+            );
+            return zoomed ? (
+              <button
+                key={b.key}
+                type="button"
+                className={`${styles.barCol} ${picked === b.key ? styles.barColActive : ""}`}
+                aria-pressed={picked === b.key}
+                aria-label={`${b.label} · ${formatCurrency(b.amount)}`}
+                onClick={() => setPicked((current) => (current === b.key ? null : b.key))}
+              >
+                {bar}
+              </button>
+            ) : (
+              <div key={b.key} className={styles.barCol} aria-hidden>
+                {bar}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -271,7 +285,6 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                 <div className="d-flex justify-content-between align-items-start gap-2">
                   <div style={{ minWidth: 0 }}>
                     <div className={styles.cardTitle}>{splitTitle}</div>
-                    <div className={styles.cardHint}>{t("transactions.tapSliceToOpen")}</div>
                   </div>
                   {/* Headline sits here rather than inside the ring — a five- or
                       six-figure total simply doesn't fit in the hole. */}
@@ -291,13 +304,26 @@ export function TransactionInsights({ transactions, allTransactions, categories,
               <div className={styles.card}>
                 <div className="d-flex justify-content-between align-items-start gap-2">
                   <div style={{ minWidth: 0 }}>
-                    <div className={styles.cardTitle}>{t("transactions.overTime")}</div>
-                    <div className={`${styles.cardHint} mb-3`}>{timeHint}</div>
+                    <div className={`${styles.cardTitle} mb-3`}>{t("transactions.overTime")}</div>
                   </div>
-                  <ZoomButton onClick={() => setZoom("time")} />
+                  <ZoomButton onClick={() => setZoom("time")} label={t("analytics.openDetails", { title: t("transactions.overTime") })} />
                 </div>
 
-                {renderTime(false)}
+                {/* The bars are a way into their figures, like every card on the page. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={styles.openable}
+                  aria-label={t("analytics.openDetails", { title: t("transactions.overTime") })}
+                  onClick={() => setZoom("time")}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    setZoom("time");
+                  }}
+                >
+                  {renderTime(false)}
+                </div>
               </div>
             </div>
 
@@ -335,8 +361,20 @@ export function TransactionInsights({ transactions, allTransactions, categories,
         </ZoomModal>
       )}
       {zoom === "time" && (
-        <ZoomModal open onClose={() => setZoom(null)} title={t("transactions.overTime")} hint={timeHint}>
+        <ZoomModal open fit onClose={() => setZoom(null)} title={t("transactions.overTime")} hint={timeHint}>
           {renderTime(true)}
+          <div className="mt-3">
+            <DetailsTable
+              rows={[...buckets].reverse()}
+              rowKey={(b) => b.key}
+              footLabel={t("common.total")}
+              columns={[
+                { key: "when", label: timeHint, cell: (b) => b.label },
+                { key: "amount", label: t("analytics.details.amount"), numeric: true, cell: (b) => formatCurrency(b.amount), foot: formatCurrency(stats.total) },
+                { key: "share", label: t("analytics.details.share"), numeric: true, cell: (b) => (stats.total > 0 ? `${Math.round((b.amount / stats.total) * 100)}%` : "—") },
+              ]}
+            />
+          </div>
         </ZoomModal>
       )}
 

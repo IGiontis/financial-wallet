@@ -36,13 +36,13 @@ function IncomeTooltip({ active, payload, average, formatCurrency }: { active?: 
  * different plans behind them, and the only thing that separates them is how
  * far the bars stray from the line.
  */
-export default function IncomeMonthsChart({ data, average, formatCurrency }: { data: IncomeMonth[]; average: number; formatCurrency: (n: number) => string }) {
+export default function IncomeMonthsChart({ data, average, formatCurrency, compact }: { data: IncomeMonth[]; average: number; formatCurrency: (n: number) => string; compact?: boolean }) {
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<IncomeTooltip average={average} formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
         <Bar dataKey="income" fill="var(--color-income)" fillOpacity={0.85} maxBarSize={34} radius={[3, 3, 0, 0]} />
         {/* Drawn after the bars so it reads on top of them — it is the thing

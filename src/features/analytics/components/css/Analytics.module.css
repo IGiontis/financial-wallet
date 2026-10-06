@@ -155,6 +155,18 @@
   }
 }
 
+/* A card whose drawing is the way into its details: the whole box is the
+   button, so it says so on hover and shows where focus is. */
+.chartArea.openable {
+  cursor: pointer;
+  border-radius: var(--border-radius-md);
+}
+
+.chartArea.openable:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
 /* Some cards draw a list rather than a plot: their height is however many rows
    there are, and a fixed box would either clip them or leave a gap. */
 .chartArea.auto {

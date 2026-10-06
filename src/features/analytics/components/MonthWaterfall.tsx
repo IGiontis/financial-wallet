@@ -18,7 +18,7 @@ import type { WaterfallStep } from "../analyticsUtils";
  * running total falling — the thing a waterfall exists to show — while the
  * figures stay readable as a list.
  */
-export default function MonthWaterfall({ steps, nameFor, formatCurrency }: { steps: WaterfallStep[]; nameFor: (id: string) => string; formatCurrency: (n: number) => string }) {
+export default function MonthWaterfall({ steps, nameFor, formatCurrency, compact }: { steps: WaterfallStep[]; nameFor: (id: string) => string; formatCurrency: (n: number) => string; compact?: boolean }) {
   const { t } = useTranslation();
 
   const rows = useMemo(() => {
@@ -57,7 +57,7 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency }: { ste
             {row.takesFrom ? "−" : row.amount < 0 ? "−" : "+"}
             {formatCurrency(Math.abs(row.amount))}
           </span>
-          {row.takesFrom && (
+          {row.takesFrom && !compact && (
             <span className={styles.left}>{t("analytics.waterfall.leftShort", { amount: formatCurrency(row.balance) })}</span>
           )}
         </div>

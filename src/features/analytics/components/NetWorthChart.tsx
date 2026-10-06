@@ -44,15 +44,15 @@ function NetWorthTooltip({ active, payload, formatCurrency }: { active?: boolean
  * the line running across is the difference. Where the line sits relative to
  * zero is the question the chart exists to answer, so zero is always drawn.
  */
-export default function NetWorthChart({ data, formatCurrency }: { data: NetWorthRow[]; formatCurrency: (n: number) => string }) {
+export default function NetWorthChart({ data, formatCurrency, compact }: { data: NetWorthRow[]; formatCurrency: (n: number) => string; compact?: boolean }) {
   const { t } = useTranslation();
 
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <ComposedChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }} stackOffset="sign">
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <ReferenceLine y={0} stroke={GRID_STROKE} strokeWidth={1.5} />
         <Tooltip content={<NetWorthTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
 

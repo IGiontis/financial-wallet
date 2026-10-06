@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import styles from "./css/Analytics.module.css";
 
@@ -24,6 +25,12 @@ interface ChartCardProps {
   zoomable?: boolean;
   /** Sits below the chart box — legends, scales. Outside the fixed height. */
   footer?: ReactNode;
+  /**
+   * A fuller view the sheet shows in place of the card's drawing. With it the
+   * card keeps to a glance, and its whole drawing is the way in: a tap
+   * anywhere on it opens the figures, so it must not answer taps of its own.
+   */
+  details?: { content: ReactNode; hint?: string };
   children: ReactNode;
 }
 
@@ -41,7 +48,8 @@ interface ChartCardProps {
  * there is. The modal renders the very same `children`, so a card never has to
  * describe itself twice.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, details, children }: ChartCardProps) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
   // defer against, so start visible rather than never rendering the chart.
@@ -66,6 +74,12 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
 
   const toneColor = valueTone === "income" ? "var(--color-income)" : valueTone === "expense" ? "var(--color-expense)" : "var(--color-text-primary)";
   const canZoom = zoomable && !empty;
+  const openable = canZoom && !!details;
+  const openOnKey = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    setZoomed(true);
+  };
 
   return (
     <section ref={ref} className={`${styles.card} ${wide ? styles.wide : ""}`}>
@@ -92,12 +106,15 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
             {/* A button rather than making the whole card clickable: several
                 cards already answer taps inside the plot, and a card that
                 swallowed them would take the tap meant for a bar. */}
-            {canZoom && <ZoomButton onClick={() => setZoomed(true)} />}
+            {canZoom && <ZoomButton onClick={() => setZoomed(true)} label={openable ? t("analytics.openDetails", { title }) : undefined} />}
           </div>
         )}
       </div>
 
-      <div className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""}`}>
+      <div
+        className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""} ${openable ? styles.openable : ""}`}
+        {...(openable && { role: "button", tabIndex: 0, "aria-label": t("analytics.openDetails", { title }), onClick: () => setZoomed(true), onKeyDown: openOnKey })}
+      >
         {empty ? <p className={styles.emptyNote}>{empty}</p> : visible ? children : null}
       </div>
 
@@ -106,8 +123,8 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
       {/* Mounted only while open, so the page never carries two copies of a
           chart it isn't showing. */}
       {canZoom && zoomed && (
-        <ZoomModal open onClose={() => setZoomed(false)} title={title} hint={hint} footer={footer}>
-          {children}
+        <ZoomModal open onClose={() => setZoomed(false)} title={title} hint={details ? details.hint : hint} footer={details ? undefined : footer} fit={!!details}>
+          {details ? details.content : children}
         </ZoomModal>
       )}
     </section>

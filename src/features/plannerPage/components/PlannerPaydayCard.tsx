@@ -47,6 +47,8 @@ interface PlannerPaydayCardProps {
   formatCurrency: (n: number) => string;
   locale: string;
   cardRef?: Ref<HTMLDivElement>;
+  /** In the sheet behind the tiles: no frame of its own, and "how it adds up" already open. */
+  inSheet?: boolean;
 }
 
 /**
@@ -87,9 +89,10 @@ export function PlannerPaydayCard({
   formatCurrency,
   locale,
   cardRef,
+  inSheet,
 }: PlannerPaydayCardProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!inSheet);
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
   const fromLabel = t(source === "readings" ? "planner.openingFromBanks" : "planner.openingFromRecords");
 
@@ -123,7 +126,7 @@ export function PlannerPaydayCard({
   return (
     <PaydayCard
       cardRef={cardRef}
-      className={fromBanks ? "" : styles.scenarioCard}
+      className={`${fromBanks ? "" : styles.scenarioCard} ${inSheet ? styles.sheetCard : ""}`}
       top={fromBanks ? undefined : scenarioChip}
       label={t(fromBanks ? "overview.currentBalance" : "planner.scenarioIf")}
       figure={available}

@@ -36,7 +36,7 @@ function RateTooltip({ active, payload, formatCurrency }: { active?: boolean; pa
  * Months without income carry no rate and the line breaks there: no income is
  * not the same claim as having saved nothing.
  */
-export default function SavingsGoalChart({ data, goal, average, formatCurrency }: { data: Point[]; goal?: SavingsGoal; average?: number; formatCurrency: (n: number) => string }) {
+export default function SavingsGoalChart({ data, goal, average, formatCurrency, compact }: { data: Point[]; goal?: SavingsGoal; average?: number; formatCurrency: (n: number) => string; compact?: boolean }) {
   const { t } = useTranslation();
   const rates = data.map((p) => p.rate).filter((r): r is number => r !== null);
   // Round tens, so the goal's 20 and 30 sit on gridlines rather than between
@@ -51,9 +51,9 @@ export default function SavingsGoalChart({ data, goal, average, formatCurrency }
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-        <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis domain={[low, high]} ticks={ticks} tickFormatter={(v: number) => `${Math.round(v)}%`} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
+        <YAxis hide={compact} domain={[low, high]} ticks={ticks} tickFormatter={(v: number) => `${Math.round(v)}%`} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} />
         {goal && <ReferenceArea y1={goal.min} y2={goal.max} fill="var(--chart-income)" fillOpacity={0.14} stroke="none" ifOverflow="extendDomain" />}
         <ReferenceLine y={0} stroke={GRID_STROKE} strokeWidth={1.5} />
         {!goal && average !== undefined && (
@@ -61,7 +61,7 @@ export default function SavingsGoalChart({ data, goal, average, formatCurrency }
             y={average}
             stroke="var(--color-text-secondary)"
             strokeDasharray="4 4"
-            label={{ value: t("analytics.savingsRate.average", { value: Math.round(average) }), position: "insideTopRight", fontSize: 10.5, fill: "var(--color-text-secondary)" }}
+            label={compact ? undefined : { value: t("analytics.savingsRate.average", { value: Math.round(average) }), position: "insideTopRight", fontSize: 10.5, fill: "var(--color-text-secondary)" }}
           />
         )}
         <Tooltip content={<RateTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />

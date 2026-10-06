@@ -19,12 +19,14 @@ type Field = "income" | "expenses" | "cumulative";
 
 const SYNC_ID = "analytics-month-trio";
 
-function MiniTooltip({ active, payload, field, color, label, formatCurrency }: { active?: boolean; payload?: { payload?: TrioRow }[]; field: Field; color: string; label: string; formatCurrency: (n: number) => string }) {
+// `series`, not `label`: recharts hands its content the hovered axis label
+// under that name, which overwrote the series name with the month.
+function MiniTooltip({ active, payload, field, color, series, formatCurrency }: { active?: boolean; payload?: { payload?: TrioRow }[]; field: Field; color: string; series: string; formatCurrency: (n: number) => string }) {
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
   return (
     <TooltipShell title={row.label}>
-      <TooltipRow color={color} label={label} value={formatCurrency(row[field])} />
+      <TooltipRow color={color} label={series} value={formatCurrency(row[field])} />
     </TooltipShell>
   );
 }
@@ -39,7 +41,7 @@ const activeRing = (color: string) => ({ r: 5, strokeWidth: 2, stroke: "var(--co
  * all three, so "the month the bonus came" and "the month the holiday cost"
  * are one look, not three charts to line up by eye.
  */
-export default function MonthTrioChart({ data, formatCurrency }: { data: TrioRow[]; formatCurrency: (n: number) => string }) {
+export default function MonthTrioChart({ data, formatCurrency, large }: { data: TrioRow[]; formatCurrency: (n: number) => string; large?: boolean }) {
   const { t } = useTranslation();
   const gradient = `trio-net-${useId().replace(/:/g, "")}`;
   const sum = (field: "income" | "expenses") => data.reduce((s, row) => s + row[field], 0);
@@ -62,7 +64,7 @@ export default function MonthTrioChart({ data, formatCurrency }: { data: TrioRow
             </span>
             <span className={styles.trioTotal}>{chart.total}</span>
           </div>
-          <div className={chart.axis ? styles.trioChartAxis : styles.trioChart}>
+          <div className={`${chart.axis ? styles.trioChartAxis : styles.trioChart} ${large ? styles.trioLarge : ""}`}>
             <ResponsiveContainer width="100%" height="100%" debounce={200}>
               {chart.field === "cumulative" ? (
                 <AreaChart data={data} syncId={SYNC_ID} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
@@ -75,7 +77,7 @@ export default function MonthTrioChart({ data, formatCurrency }: { data: TrioRow
                   <CartesianGrid stroke={GRID_STROKE} vertical={false} />
                   <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
                   <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} tickCount={3} />
-                  <Tooltip content={<MiniTooltip field={chart.field} color={chart.color} label={chart.label} formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
+                  <Tooltip content={<MiniTooltip field={chart.field} color={chart.color} series={chart.label} formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
                   <Area type="monotone" dataKey={chart.field} stroke={chart.color} strokeWidth={2} fill={`url(#${gradient})`} dot={ring(chart.color)} activeDot={activeRing(chart.color)} />
                 </AreaChart>
               ) : (
@@ -84,7 +86,7 @@ export default function MonthTrioChart({ data, formatCurrency }: { data: TrioRow
                   {/* No ticks of its own: the last chart's axis is the months for all three. */}
                   <XAxis dataKey="label" hide />
                   <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={40} tickCount={3} />
-                  <Tooltip content={<MiniTooltip field={chart.field} color={chart.color} label={chart.label} formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
+                  <Tooltip content={<MiniTooltip field={chart.field} color={chart.color} series={chart.label} formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
                   <Line type="monotone" dataKey={chart.field} stroke={chart.color} strokeWidth={2} dot={ring(chart.color)} activeDot={activeRing(chart.color)} />
                 </LineChart>
               )}

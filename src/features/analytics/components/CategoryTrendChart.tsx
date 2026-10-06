@@ -73,11 +73,13 @@ export default function CategoryTrendChart({
   series,
   formatCurrency,
   totalLabel,
+  compact,
 }: {
   data: TrendRow[];
   series: TrendSeries[];
   formatCurrency: (n: number) => string;
   totalLabel: string;
+  compact?: boolean;
 }) {
   // Scaled to the biggest single figure on the chart, not to the month's total:
   // these are separate lines now, so nothing stacks and the tallest point is
@@ -90,9 +92,9 @@ export default function CategoryTrendChart({
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+        {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} ticks={ticks} domain={[0, ticks[ticks.length - 1]]} />
+        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} ticks={ticks} domain={[0, ticks[ticks.length - 1]]} />
         <Tooltip content={<TrendTooltip series={series} formatCurrency={formatCurrency} totalLabel={totalLabel} />} cursor={{ stroke: GRID_STROKE }} />
         {series.map((s) => (
           <Line

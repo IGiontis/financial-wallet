@@ -137,3 +137,6 @@ export function alignedZeroDomains(
   const scale = Math.max(balMax / above, -balMin / (1 - above), 1);
   return { flow: [flowMin, flowMax], balance: [-scale * (1 - above), scale * above] };
 }
+
+/** "+12,00 €" / "−12,00 €" — a change, signed with a true minus. */
+export const signedWith = (format: (n: number) => string) => (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${format(Math.abs(n))}`;

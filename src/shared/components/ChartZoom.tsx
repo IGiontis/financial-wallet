@@ -35,10 +35,12 @@ interface ZoomModalProps {
   hint?: ReactNode;
   /** Legends and scales, kept below the drawing exactly as in the card. */
   footer?: ReactNode;
+  /** As tall as its content, for a page of figures rather than one plot to stretch. */
+  fit?: boolean;
   children: ReactNode;
 }
 
-export function ZoomModal({ open, onClose, title, hint, footer, children }: ZoomModalProps) {
+export function ZoomModal({ open, onClose, title, hint, footer, fit, children }: ZoomModalProps) {
   return (
     // A dialog over the page rather than a screen instead of it. Full-screen
     // read as having navigated somewhere: nothing of the page was left to say
@@ -54,7 +56,7 @@ export function ZoomModal({ open, onClose, title, hint, footer, children }: Zoom
             {hint}
           </p>
         )}
-        <div className={styles.zoomBody}>{children}</div>
+        <div className={fit ? undefined : styles.zoomBody}>{children}</div>
         {footer}
       </ModalBody>
     </Modal>

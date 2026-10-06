@@ -164,6 +164,105 @@
   }
 }
 
+/* In the sheet the three charts have the room to be read. */
+.trioChart.trioLarge {
+  height: 120px;
+}
+
+.trioChartAxis.trioLarge {
+  height: 142px;
+}
+
+/* ── Month by month, in full (the sheet behind the card) ──────────────────── */
+
+.ledgerStat {
+  height: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.ledgerStatLabel {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerStatValue {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ledgerStatSub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledgerHeading {
+  margin: 0 0 0.15rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ledgerNote {
+  margin: 0 0 0.5rem;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerTable {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledgerTable thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ledgerTable td {
+  white-space: nowrap;
+}
+
+/* A row's name: long category names wrap rather than push the figures off. */
+.ledgerName {
+  min-width: 7rem;
+  white-space: normal;
+}
+
+/* The chart in a card's sheet: room to read it, not the whole screen — the
+   table under it is half of what the sheet is for. */
+.detailsChart {
+  height: 260px;
+}
+
+@media (min-width: 768px) {
+  .detailsChart {
+    height: 340px;
+  }
+}
+
+.ledgerTable tfoot th,
+.ledgerTable tfoot td {
+  background: var(--color-background-secondary);
+}
+
+.ledgerFootFirst th,
+.ledgerFootFirst td {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.ledgerTag {
+  font-size: 9.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
 /* ── The savings goal under its chart ─────────────────────────────────────── */
 
 .goalRow {

@@ -195,3 +195,81 @@ export function goalMonths(rates: (number | null)[], goal: SavingsGoal): GoalMon
   result.reached = result.inBand + result.above;
   return result;
 }
+
+// ─── Month by month, in full ─────────────────────────────────────────────────
+
+export interface LedgerRow {
+  key: string;
+  start: Date;
+  income: number;
+  expenses: number;
+  net: number;
+  /** Share of the month's income kept. Undefined in a month with no income. */
+  rate?: number;
+  /** Running total of `net` — where the period stands at the month's end. */
+  cumulative: number;
+  /** The month still under way: its figures are not final. */
+  running: boolean;
+}
+
+export interface MonthLedger {
+  rows: LedgerRow[];
+  /** Every month, the running one included — the same four figures as the tiles. */
+  total: PeriodTotals;
+  /** Per finished month. A month five days old would drag every average down. */
+  average?: { income: number; expenses: number; net: number; months: number };
+  /** Keys of the finished months that kept the most and the least. */
+  best?: string;
+  worst?: string;
+  /** Finished months that kept something, of how many. */
+  positive: { count: number; of: number };
+}
+
+/**
+ * The months behind the "month by month" card, as a table: each month's
+ * figures and where the period stood after it, the totals, and an average,
+ * best and worst read over finished months only.
+ */
+export function monthLedger(flows: MonthlyFlow[], now: Date): MonthLedger {
+  const runningStart = startOfMonth(now).getTime();
+  let cumulative = 0;
+  const rows: LedgerRow[] = flows.map((f) => {
+    cumulative = round2(cumulative + f.net);
+    return {
+      key: f.key,
+      start: f.start,
+      income: f.income,
+      expenses: f.expenses,
+      net: f.net,
+      rate: f.income > 0 ? round2((f.net / f.income) * 100) : undefined,
+      cumulative,
+      running: f.start.getTime() === runningStart,
+    };
+  });
+
+  const finished = rows.filter((r) => !r.running);
+  const sum = (field: "income" | "expenses" | "net") => finished.reduce((s, r) => s + r[field], 0);
+  const average =
+    finished.length > 0
+      ? { income: round2(sum("income") / finished.length), expenses: round2(sum("expenses") / finished.length), net: round2(sum("net") / finished.length), months: finished.length }
+      : undefined;
+
+  // Two finished months at least, and a real difference between them: with
+  // one month, or every month alike, "best" and "worst" would be the same.
+  let best: LedgerRow | undefined;
+  let worst: LedgerRow | undefined;
+  for (const r of finished) {
+    if (!best || r.net > best.net) best = r;
+    if (!worst || r.net < worst.net) worst = r;
+  }
+  const ranked = finished.length >= 2 && best && worst && best.net !== worst.net;
+
+  return {
+    rows,
+    total: periodTotals(flows),
+    average,
+    best: ranked ? best!.key : undefined,
+    worst: ranked ? worst!.key : undefined,
+    positive: { count: finished.filter((r) => r.net > 0).length, of: finished.length },
+  };
+}

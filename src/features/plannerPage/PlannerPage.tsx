@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import IncomeQuickView from "../incomes/components/IncomeQuickView";
-import { Alert, Col, Row } from "reactstrap";
+import { Alert, Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiPlus } from "react-icons/fi";
@@ -39,6 +39,9 @@ import { payCycles, planMonths, sliceSteps } from "./payCycles";
 import PlannerPaydayCard, { type PaydaySteps } from "./components/PlannerPaydayCard";
 import PeriodCard from "./components/PeriodCard";
 import AnswerStrip from "./components/AnswerStrip";
+import PlannerTiles, { type PlannerSheet } from "./components/PlannerTiles";
+import PlanRowSheet, { type RowFact } from "./components/PlanRowSheet";
+import UnconfirmedQuestion from "./components/UnconfirmedQuestion";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
 import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
@@ -115,6 +118,10 @@ export function PlannerPage() {
   const [openOccurrence, setOpenOccurrence] = useState<string | null>(null);
   // An income tapped in the list: its card, with «Ήρθε» on it.
   const [openIncome, setOpenIncome] = useState<string | null>(null);
+  // Which tile's working is open, and which row's facts — see `PlannerTiles`
+  // and `PlanRowSheet`. The page shows the figures; these hold the words.
+  const [sheet, setSheet] = useState<PlannerSheet | null>(null);
+  const [rowSheet, setRowSheet] = useState<string | null>(null);
   const navigate = useNavigate();
   // Which groups are folded is a habit of this screen on this device, not part
   // of the plan — it stays local while everything above it syncs.
@@ -396,32 +403,15 @@ export function PlannerPage() {
   /** Where a row leads instead of an editor here. */
   type RowLink = { to: string; label: string };
 
-  const renderRow = (row: PlanRow, onEdit?: () => void, hintOverride?: string, link?: RowLink, editLabel?: string) => {
-    const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
+  const renderRow = (row: PlanRow, onEdit?: () => void, link?: RowLink, editLabel?: string) => {
     const title = row.label;
-    // A zero row says why it is zero. "×0" would be true and useless.
-    // A monthly figure is charged pro rata, so €400 a month lands as €360 with
-    // twenty-seven days of the month left. Printing the rate alone made that
-    // look like a mistake; the multiplier is what makes the row add up.
-    const monthly = t("planner.perMonthShort", { amount: formatCurrency(Math.abs(row.perMonth ?? 0)) });
-    const hint = hintOverride
-      ? hintOverride
-      : !row.enabled
-      ? t("planner.offRow")
-      : row.note
-        ? t(`planner.note_${row.note}`)
-        : row.occurrences !== undefined
-          ? t("planner.timesCount", { times: row.occurrences })
-          : season
-            ? `${monthly} · ${season}`
-            : `${monthly} ${t("planner.timesMonths", { months: monthsLabel, count: monthsShown })}`;
-
-    const name = (
-      <>
-        <span className={styles.rowTitle}>{title}</span>
-        <span className={styles.rowHint}>{hint}</span>
-      </>
-    );
+    // The name alone. What used to run under it — per month, how many times,
+    // the season, why a row is zero — is one tap away, in the row's sheet or
+    // its editor; at a glance the list is names, amounts and switches.
+    const name = <span className={styles.rowTitle}>{title}</span>;
+    // A row the app keeps (a bill, a goal, an instalment) has no editor here:
+    // it opens the facts it is made of instead.
+    const open = onEdit ?? (link ? undefined : () => setRowSheet(row.id));
 
     // Off rows keep the muted treatment instead: a struck-through row tinted
     // green would be saying two things at once.
@@ -433,8 +423,8 @@ export function PlannerPage() {
           <Link to={link.to} className={`${styles.rowName} ${styles.rowEditable} text-decoration-none`} aria-label={link.label}>
             {name}
           </Link>
-        ) : onEdit ? (
-          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={onEdit} aria-label={editLabel ?? t("planner.editEntry")}>
+        ) : open ? (
+          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={open} aria-label={editLabel ?? (onEdit ? t("planner.editEntry") : t("planner.rowDetails", { name: title }))}>
             {name}
           </button>
         ) : (
@@ -457,16 +447,22 @@ export function PlannerPage() {
   const sweep = (rows: PlanRow[]) =>
     rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
 
-  // Each income as a row like every other — its switch, and "1.450,00 € · ×3 ·
-  // next 30 Oct" under it — leading to «Έσοδα», where its figures are kept.
-  const incomeHint = (row: PlanRow) => {
-    if (!row.enabled) return t("planner.offRow");
-    const each = row.each !== undefined ? `${formatCurrency(row.each)} · ` : "";
-    // The next time the plan has it landing on its own day; a late one, held
-    // on today, says so on the timeline instead.
-    const next = plan.events.find((e) => e.incomeId === row.id && !e.late);
-    return `${each}${t("planner.timesCount", { times: row.occurrences ?? 0 })}${next ? ` · ${t("planner.incomeNext", { date: dateFmt.format(next.date) })}` : ""}`;
+  /** What a row is made of, for its sheet: the words the list no longer carries. */
+  const rowFacts = (row: PlanRow): RowFact[] => {
+    const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
+    const facts: RowFact[] = [[t("planner.factTotal", { months: monthsLabel }), row.enabled ? signed(row.total) : t("planner.offRow")]];
+    if (row.each !== undefined) facts.push([t("planner.factEach"), formatCurrency(row.each)]);
+    else if (row.perMonth !== undefined) facts.push([t("planner.factPerMonth"), formatCurrency(Math.abs(row.perMonth))]);
+    if (row.occurrences !== undefined) facts.push([t("planner.factTimes"), String(row.occurrences)]);
+    const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
+    if (season) facts.push([t("planner.factSeason"), season]);
+    // A zero row says why it is zero. "×0" would be true and useless.
+    if (row.note) facts.push([t("planner.factNote"), t(`planner.note_${row.note}`)]);
+    const next = plan.events.find((e) => (e.incomeId === row.id || e.billId === row.id) && !e.late && e.date >= startOfToday);
+    if (next) facts.push([t("planner.factNext"), dateFmt.format(next.date)]);
+    return facts;
   };
+  const sheetRow = rowSheet ? plan.rows.find((r) => r.id === rowSheet) : undefined;
 
   return (
     <PageShell>
@@ -492,34 +488,16 @@ export function PlannerPage() {
 
       <Row className="g-3">
         <Col xs={12} lg={7}>
-          <PlannerPaydayCard
+          <PlannerTiles
             cardRef={setCardElement}
-            outlook={outlook}
-            steps={cardSteps}
-            fromBanks={fromBanks}
-            available={available}
-            source={balanceSource}
-            banks={banksNow}
-            inGoals={inGoals}
-            opening={balanceFrom}
-            realLeft={realLeft}
-            openingInput={openingInput}
-            onOpening={setOpeningInput}
-            onOpeningSource={setOpeningSource}
-            unconfirmed={unconfirmed}
-            onAnswer={answer}
-            onOccurrence={setOpenOccurrence}
-            baseCurrency={baseCurrency}
-            now={now}
-            formatCurrency={formatCurrency}
-            locale={lang}
-          />
-
-          <PeriodCard
             plan={plan}
+            outlook={outlook}
             horizon={horizon}
             onHorizon={setHorizon}
             scenario={!fromBanks}
+            questions={unconfirmed.length}
+            onOpen={setSheet}
+            now={now}
             formatCurrency={formatCurrency}
             locale={lang}
           />
@@ -572,7 +550,7 @@ export function PlannerPage() {
                   can be switched off here to ask "and without it?"; its
                   figures and days are changed there, which is where the row
                   leads. */}
-              {incomeRows.map((row) => renderRow(row, () => setOpenIncome(row.id), incomeHint(row), undefined, t("incomes.list.openCard", { name: row.label })))}
+              {incomeRows.map((row) => renderRow(row, () => setOpenIncome(row.id), undefined, t("incomes.list.openCard", { name: row.label })))}
 
               {activeIncomes.length === 0 ? (
                 // No incomes, no money in: said, with where to add it — and
@@ -620,12 +598,7 @@ export function PlannerPage() {
                 // A repeat says its cadence and how many times the window
                 // catches it, because the amount beside it is the total of
                 // those rather than one payment.
-                if (row)
-                  return (
-                    <div key={source.id}>
-                      {renderRow(row, edit, cadenceText ? `${cadenceText} · ${t("planner.timesCount", { times: row.occurrences })}` : longDateFmt.format(date))}
-                    </div>
-                  );
+                if (row) return <div key={source.id}>{renderRow(row, edit)}</div>;
 
                 // Nothing in this window to include or skip, so no switch: a
                 // control that changes no figure is furniture.
@@ -723,6 +696,57 @@ export function PlannerPage() {
           </div>
         </Col>
       </Row>
+
+      {/* The working behind the tiles. */}
+      <Modal isOpen={sheet === "payday"} toggle={() => setSheet(null)} centered scrollable size="lg">
+        <ModalHeader toggle={() => setSheet(null)}>
+          <span style={{ fontSize: 15 }}>{t(outlook.known ? "planner.tilePayday" : "planner.tileMonthEnd")}</span>
+        </ModalHeader>
+        <ModalBody>
+          <PlannerPaydayCard
+            inSheet
+            outlook={outlook}
+            steps={cardSteps}
+            fromBanks={fromBanks}
+            available={available}
+            source={balanceSource}
+            banks={banksNow}
+            inGoals={inGoals}
+            opening={balanceFrom}
+            realLeft={realLeft}
+            openingInput={openingInput}
+            onOpening={setOpeningInput}
+            onOpeningSource={setOpeningSource}
+            unconfirmed={unconfirmed}
+            onAnswer={answer}
+            onOccurrence={setOpenOccurrence}
+            baseCurrency={baseCurrency}
+            now={now}
+            formatCurrency={formatCurrency}
+            locale={lang}
+          />
+        </ModalBody>
+      </Modal>
+      <Modal isOpen={sheet === "period"} toggle={() => setSheet(null)} centered scrollable size="lg">
+        <ModalHeader toggle={() => setSheet(null)}>
+          <span style={{ fontSize: 15 }}>{t("planner.wholePeriod")}</span>
+        </ModalHeader>
+        <ModalBody>
+          <PeriodCard inSheet plan={plan} horizon={horizon} onHorizon={setHorizon} scenario={!fromBanks} formatCurrency={formatCurrency} locale={lang} />
+        </ModalBody>
+      </Modal>
+      {/* Answered one by one; with none left there is nothing to show. */}
+      <Modal isOpen={sheet === "questions" && unconfirmed.length > 0} toggle={() => setSheet(null)} centered scrollable>
+        <ModalHeader toggle={() => setSheet(null)}>
+          <span style={{ fontSize: 15 }}>{t("planner.questionsTitle")}</span>
+        </ModalHeader>
+        <ModalBody className="d-flex flex-column gap-2">
+          {unconfirmed.map((o) => (
+            <UnconfirmedQuestion key={o.key} variant="block" occurrence={o} dateFmt={dateFmt} onAnswer={(arrived) => answer(o, arrived)} />
+          ))}
+        </ModalBody>
+      </Modal>
+      {sheetRow && <PlanRowSheet row={sheetRow} facts={rowFacts(sheetRow)} onToggle={() => toggleRow(sheetRow.id)} onClose={() => setRowSheet(null)} />}
 
       {editor && (
         <EntryEditor
