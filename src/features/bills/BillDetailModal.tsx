@@ -321,7 +321,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                   <button type="button" className={styles.paymentAction} onClick={() => startEdit(p)} aria-label={t("common.edit")} title={t("common.edit")}>
                     <FiEdit2 size={14} />
                   </button>
-                  <DeleteButton
+                  <DeleteButton opensConfirm
                     iconOnly
                     size="sm"
                     onClick={() => {
@@ -346,7 +346,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             {t("common.edit")}
           </Button>
           {/* The word from `sm` up; on a phone the bin alone keeps it beside Edit. */}
-          <DeleteButton wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />
+          <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />
         </div>
 
         {paid ? (

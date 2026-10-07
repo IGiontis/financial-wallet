@@ -220,7 +220,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
       <ModalFooter className="justify-content-between">
         {/* The word only where it fits: on a phone the three would not share a row. */}
         {onDelete ? (
-          <DeleteButton wordFromSm onClick={() => onDelete(income)} />
+          <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(income)} />
         ) : (
           <span />
         )}

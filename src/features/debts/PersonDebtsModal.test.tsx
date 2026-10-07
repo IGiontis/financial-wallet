@@ -238,6 +238,10 @@ describe("correcting a payment", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Apr 10.*€120\.00/ }));
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    // Not on one tap: it asks first, and only the red button in the question deletes.
+    expect(spies.remove).not.toHaveBeenCalled();
+    const question = screen.getByText("Delete?").closest(".modal-content") as HTMLElement;
+    await userEvent.click(within(question).getByRole("button", { name: "Delete" }));
 
     expect(spies.remove).toHaveBeenCalledWith("r1", expect.anything());
   });

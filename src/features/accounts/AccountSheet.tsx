@@ -123,7 +123,7 @@ export default function AccountSheet({
         )}
       </ModalBody>
       <ModalFooter className="justify-content-between">
-        <DeleteButton onClick={onDelete} disabled={deleteLocked} />
+        <DeleteButton opensConfirm onClick={onDelete} disabled={deleteLocked} />
         <Button color="primary" onClick={onEdit}>
           <FiEdit2 size={15} className="me-1" aria-hidden />
           {t("accounts.edit")}

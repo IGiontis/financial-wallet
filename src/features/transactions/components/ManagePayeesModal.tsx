@@ -175,7 +175,7 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
                   >
                     <FiEdit2 size={13} />
                   </Button>
-                  <DeleteButton
+                  <DeleteButton opensConfirm
                     iconOnly
                     size="sm"
                     ariaLabel={t("transactions.deletePayee", { name })}

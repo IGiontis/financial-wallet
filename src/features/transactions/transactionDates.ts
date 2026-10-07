@@ -28,6 +28,11 @@ export function formatDisplay(d: Date, lang: string): string {
   return d.toLocaleDateString(lang, { month: "short", day: "2-digit", year: "numeric" });
 }
 
+/** Greek months as they are shortened in writing — "Σεπτ", where Intl gives "Σεπ". */
+const GREEK_MONTHS = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μαΐ", "Ιουν", "Ιουλ", "Αυγ", "Σεπτ", "Οκτ", "Νοε", "Δεκ"];
+
+/** A record's date: "12, Σεπτ 2026" — the day, then the month and year. */
 export function formatTable(d: Date, lang: string): string {
-  return d.toLocaleDateString(lang, { day: "2-digit", month: "short", year: "numeric" });
+  const month = lang.startsWith("el") ? GREEK_MONTHS[d.getMonth()] : d.toLocaleDateString(lang, { month: "short" });
+  return `${d.getDate()}, ${month} ${d.getFullYear()}`;
 }

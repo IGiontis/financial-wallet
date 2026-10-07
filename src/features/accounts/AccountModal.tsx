@@ -151,7 +151,7 @@ export default function AccountModal({
                 </div>
               </>
             ) : (
-              <DeleteButton size="sm" label={t("accounts.delete")} onClick={() => setConfirming(true)} />
+              <DeleteButton opensConfirm size="sm" label={t("accounts.delete")} onClick={() => setConfirming(true)} />
             )}
           </div>
         )}

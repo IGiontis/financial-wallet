@@ -179,7 +179,7 @@ export default function TransactionViewModal({
                 investment's mirror is changed and deleted from its goal: here it
                 would leave the contribution behind. */}
             {onDelete ? (
-              <DeleteButton
+              <DeleteButton opensConfirm
                 onClick={onDelete}
                 disabled={isGoal || !!tx.isInvestmentTransaction}
               />

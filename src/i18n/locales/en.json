@@ -42,7 +42,10 @@
     "updateBody": "Refresh to get the latest changes. Your data isn't affected.",
     "updating": "Refreshing…",
     "allRightsReserved": "All rights reserved.",
-    "offlineBulk": "Marking several at once waits for a connection — it cannot be judged against an offline copy."
+    "offlineBulk": "Marking several at once waits for a connection — it cannot be judged against an offline copy.",
+    "deleteConfirmTitle": "Delete?",
+    "deleteConfirmBody": "It will be deleted for good. This can't be undone.",
+    "deleteConfirmNamed": "“{{name}}” will be deleted for good. This can't be undone."
   },
   "nav": {
     "groupStanding": "Where you stand",

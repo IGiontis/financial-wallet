@@ -686,7 +686,7 @@ export function SettingsPage() {
                     <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
                       {t("settings.dangerZoneBody")}
                     </p>
-                    <DeleteButton label={t("settings.deleteAccount")} onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
+                    <DeleteButton opensConfirm label={t("settings.deleteAccount")} onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
                   </CardBody>
                 </Card>
               </Col>

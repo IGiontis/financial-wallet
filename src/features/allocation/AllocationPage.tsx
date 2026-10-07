@@ -345,7 +345,7 @@ export function AllocationPage() {
                           />
                           <span className={styles.pct}>{Math.round(bucket.share * 100)}%</span>
 
-                          <DeleteButton iconOnly size="sm" onClick={() => remove(bucket.id)} />
+                          <DeleteButton iconOnly size="sm" what={bucket.label || undefined} onClick={() => remove(bucket.id)} />
                         </div>
 
                         <div className={styles.rowBody}>

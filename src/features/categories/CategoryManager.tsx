@@ -95,7 +95,7 @@ export default function CategoryManager() {
               <Button color="secondary" outline size="sm" onClick={() => setEditing(group)} aria-label={t("common.edit")} title={t("common.edit")}>
                 <FiEdit2 size={13} />
               </Button>
-              <DeleteButton iconOnly size="sm" onClick={() => askDelete(group)} />
+              <DeleteButton opensConfirm iconOnly size="sm" onClick={() => askDelete(group)} />
             </div>
           ))}
         </div>

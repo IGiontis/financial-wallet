@@ -208,7 +208,7 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
         {/* Left, away from Save: the two buttons of a small dialog sitting side
             by side is how a delete gets pressed by accident. */}
         {onDelete ? (
-          <DeleteButton onClick={onDelete} />
+          <DeleteButton onClick={onDelete} what={draft.label || undefined} />
         ) : (
           <span />
         )}

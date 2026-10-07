@@ -709,7 +709,7 @@ export default function PersonDebtsModal({
                   <Button color="secondary" outline onClick={() => setEditing(debt)}>
                     <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
                   </Button>
-                  <DeleteButton label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
+                  <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
                 </div>
                 {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
               </>

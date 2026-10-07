@@ -70,12 +70,19 @@
   margin-top: 16px;
 }
 
+/* The day stays in sight, just under the held dates, until the next day's
+   heading takes its place. */
 .dayHead {
+  position: sticky;
+  top: var(--dates-height, 0px);
+  z-index: 4;
+  padding: 6px 4px;
+  background: var(--color-background-primary);
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  margin: 0 4px 6px;
+  margin: 0 0 2px;
   font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -225,4 +232,13 @@
 /* The navigation style that lays the top bar over the page: stick below it. */
 :global([data-nav-style="c"]) .stickyDates {
   top: var(--topbar-height);
+}
+
+.dayWeekday {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+:global([data-nav-style="c"]) .dayHead {
+  top: calc(var(--topbar-height) + var(--dates-height, 0px));
 }

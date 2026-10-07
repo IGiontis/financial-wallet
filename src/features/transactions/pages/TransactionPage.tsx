@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Row, Col, Card, CardBody, Table, Badge, Button, Alert, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { FiEdit2, FiUsers } from "react-icons/fi";
@@ -303,7 +303,9 @@ function MobileSummary({ transactions, formatCurrency }: { transactions: Transac
  */
 function DayGroups({ transactions, categories, formatCurrency, onView }: { transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string; onView: (tx: Transaction) => void }) {
   const { i18n } = useTranslation();
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { weekday: "short", day: "numeric", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
+  const lang = i18n.resolvedLanguage ?? "en";
+  const weekdayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short" }), [lang]);
+  const dayLabel = (date: Date) => `${weekdayFmt.format(date)} ${formatTable(date, lang)}`;
   const days = useMemo(() => {
     const groups: { key: string; date: Date; rows: Transaction[] }[] = [];
     for (const tx of transactions) {
@@ -321,9 +323,11 @@ function DayGroups({ transactions, categories, formatCurrency, onView }: { trans
       {days.map((day) => {
         const { net } = computeFilterTotals(day.rows);
         return (
-          <section key={day.key} className={styles.dayGroup} aria-label={dayFmt.format(day.date)}>
+          <section key={day.key} className={styles.dayGroup} aria-label={dayLabel(day.date)}>
             <div className={styles.dayHead}>
-              <span className={styles.dayName}>{dayFmt.format(day.date)}</span>
+              <span className={styles.dayName}>
+                <span className={styles.dayWeekday}>{weekdayFmt.format(day.date)}</span> {formatTable(day.date, lang)}
+              </span>
               <span style={{ color: net > 0 ? "var(--color-income-text)" : net < 0 ? "var(--color-expense-text)" : undefined }}>
                 {net > 0 ? "+" : net < 0 ? "−" : ""}
                 {formatCurrency(Math.abs(net))}
@@ -401,6 +405,19 @@ export function TransactionsPage() {
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  // A new page of records starts at the top of the page, not where the last
+  // one was left: "Next" at the foot of fifteen cards used to open the next
+  // fifteen at their foot. The page scrolls in the layout's `.page-content`.
+  const firstPage = useRef(true);
+  useEffect(() => {
+    if (firstPage.current) {
+      firstPage.current = false;
+      return;
+    }
+    const scroller = document.querySelector(".page-content");
+    if (scroller) scroller.scrollTop = 0;
+  }, [currentPage]);
+
   const [viewTransaction, setViewTransaction] = useState<Transaction | null>(null);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -525,6 +542,19 @@ export function TransactionsPage() {
   }, [filteredTransactions, currentPage]);
 
   const isLoading = txLoading || catLoading;
+
+  // How tall the held dates are, so each day's heading holds just under them
+  // — the card changes height with the screen and the language.
+  const datesRef = useRef<HTMLDivElement>(null);
+  const [datesHeight, setDatesHeight] = useState(0);
+  useEffect(() => {
+    const el = datesRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setDatesHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+    // The card exists once the records have loaded; that is when to watch it.
+  }, [isLoading]);
   const isError = txError || catError;
 
   const calendarProps = {
@@ -741,7 +771,7 @@ export function TransactionsPage() {
                                     >
                                       <FiEdit2 size={13} />
                                     </Button>
-                                    <DeleteButton iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction} onClick={() => setDeleteTransaction(tx)} />
+                                    <DeleteButton opensConfirm iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction} onClick={() => setDeleteTransaction(tx)} />
                                   </div>
                                 </td>
                               </tr>
@@ -762,7 +792,7 @@ export function TransactionsPage() {
       {/* ── Mobile ── */}
       {/* ── Mobile ── One scroll, the page's own. What the filter holds
           first, then the dates, the search, and the records by day. */}
-      <div className="d-lg-none">
+      <div className="d-lg-none" style={{ ["--dates-height" as string]: `${datesHeight}px` }}>
         {isError && (
           <Alert color="danger" className="mb-3">
             {t("transactions.loadFailed")}
@@ -777,7 +807,7 @@ export function TransactionsPage() {
         ) : (
           // Held at the top while the days scroll under it: which dates are on
           // screen is the one thing worth seeing from anywhere in the list.
-          <div className={styles.stickyDates}>
+          <div ref={datesRef} className={styles.stickyDates}>
             <MobileCalendar {...calendarProps} onRangeChange={handleRangeChange} />
           </div>
         )}
