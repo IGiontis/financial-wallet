@@ -14,7 +14,7 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonRows, SkeletonTable } from "../../../shared/components/Skeletons";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
-import { isSameDay, midnight, formatTable } from "../transactionDates";
+import { midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
 import { tapDay } from "../dateRanges";
 import ManagePayeesModal from "../components/ManagePayeesModal";
