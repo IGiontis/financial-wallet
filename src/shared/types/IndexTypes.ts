@@ -116,6 +116,21 @@ export interface Transaction {
   inReading?: boolean;
   /** Which of the Banks & cash accounts it came out of or went into. Optional — see `AccountPicker`. */
   accountId?: string;
+  /**
+   * Written by a loan, not typed: the money a debt moved through a card. Set
+   * with `debtPart`, and kept in step with the debt by `syncDebtCash` — it is
+   * changed and deleted on «Χρέη & δάνεια», never here.
+   */
+  debtId?: string;
+  /** The repayment it is part of, for "principal" and "interest". */
+  debtPaymentId?: string;
+  /**
+   * "loan": the money borrowed or lent; "principal": the part of a repayment
+   * that came off the debt — both a transfer, not income or spending.
+   * "interest": what a repayment paid for the loan, which is spending (or, on
+   * money lent, income). See `isDebtTransfer`.
+   */
+  debtPart?: DebtCashPart;
 
   // ── Investment transaction flags ──────────────────────────────────────────
   isInvestmentTransaction?: boolean;
@@ -686,9 +701,18 @@ export interface Debt {
   /** When the index was last entered. A floating rate read a year ago is a guess. */
   rateReviewedAt?: Date;
   notes?: string;
+  /**
+   * Where the money went or came from — a card, cash, or "" for no particular
+   * one (the main account). Its presence is what makes a debt move money: one
+   * saved before this existed has none, and moves nothing, as it always did.
+   */
+  accountId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** Which part of a debt's money a transaction is — see `Transaction.debtPart`. */
+export type DebtCashPart = "loan" | "principal" | "interest";
 
 /** One movement against a debt — a repayment, whole or partial. */
 export interface DebtPayment {
@@ -697,6 +721,8 @@ export interface DebtPayment {
   debtId: string;
   amount: number;
   date: Date;
+  /** The card or cash it moved through — see `Debt.accountId`. Absent on older repayments. */
+  accountId?: string;
   createdAt: Date;
 }
 
@@ -716,6 +742,8 @@ export interface CreateDebtDTO {
   margin?: number;
   rateReviewedAt?: Date;
   notes?: string;
+  /** See `Debt.accountId`. */
+  accountId?: string;
 }
 
 export interface UpdateDebtDTO {
@@ -739,6 +767,8 @@ export interface CreateDebtPaymentDTO {
   debtId: string;
   amount: number;
   date: Date;
+  /** The card or cash it was paid from or into; "" for the main account. Absent: moves nothing. */
+  accountId?: string;
 }
 
 export interface DebtWithStatus extends Debt {

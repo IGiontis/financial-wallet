@@ -31,6 +31,7 @@ import type {
   BillPayment,
   CreateBillPaymentDTO,
 } from "../shared/types/IndexTypes";
+import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // Firestore rejects undefined values — strip them before every write.
@@ -679,8 +680,8 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 };
 
 /** Correcting a repayment typed wrong: the amount, the day, or both. */
-export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date }) => {
-  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date });
+export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string }) => {
+  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...(data.accountId !== undefined ? { accountId: data.accountId } : {}) });
 };
 
 export const deleteDebtPayment = async (paymentId: string) => {
@@ -688,6 +689,21 @@ export const deleteDebtPayment = async (paymentId: string) => {
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   await deleteDoc(doc(db, "debtPayments", paymentId));
+};
+
+/**
+ * Makes the transactions a debt writes match what it should write — see
+ * `debtCashRecords`. Fixed ids, so this is writes only: the wanted ones set
+ * again whole, the rest deleted (deleting one that is not there is no error).
+ */
+export const syncDebtCash = async (userId: string, records: DebtCashRecord[], remove: string[]) => {
+  if (records.length === 0 && remove.length === 0) return;
+  const batch = writeBatch(db);
+  for (const { id, ...record } of records) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), updatedAt: serverTimestamp() });
+  }
+  for (const id of remove) batch.delete(doc(db, "transactions", id));
+  await batch.commit();
 };
 
 // ─── DATA RESET ───────────────────────────────────────────────────────────────

@@ -14,12 +14,21 @@ import type { Transaction } from "../types/IndexTypes";
 
 export const isTransfer = (tx: Transaction) => !!tx.isInvestmentTransaction || !!tx.isGoalTransaction;
 
+/**
+ * Money a debt moved through a card: the sum borrowed or lent, and the part of
+ * each repayment that came off the debt. It changes what the card holds and
+ * nothing else — borrowing 1.000 is not earning it, lending it is not spending
+ * it. Kept apart from `isTransfer`, which every report reads as a goal or an
+ * investment. A repayment's interest is not one of these: it is a cost.
+ */
+export const isDebtTransfer = (tx: Pick<Transaction, "debtId" | "debtPart">) => !!tx.debtId && tx.debtPart !== "interest";
+
 export const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
 
 export const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
 
 /** Real spending — what actually left your pocket for good. */
-export const isSpending = (tx: Transaction) => !isTransfer(tx) && tx.type === "expense";
+export const isSpending = (tx: Transaction) => !isTransfer(tx) && !isDebtTransfer(tx) && tx.type === "expense";
 
 /** Plain income plus anything pulled back out of a goal or investment. */
-export const isEarning = (tx: Transaction) => (!isTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal");
+export const isEarning = (tx: Transaction) => (!isTransfer(tx) && !isDebtTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal");

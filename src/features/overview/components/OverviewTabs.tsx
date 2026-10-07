@@ -13,6 +13,7 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { isPlainExpense } from "../overviewUtils";
 import styles from "../pages/css/OverviewPage.module.css";
+import { findCategory } from "../../../shared/utils/categories";
 
 type Money = (n: number) => string;
 
@@ -157,7 +158,7 @@ export function TodayPanel({ transactions, categories, now, formatCurrency }: { 
   const yesterday = transactions.filter((tx) => sameDay(firestoreToDate(tx.date), yesterdayDate)).sort(newestFirst)[0];
   const spent = Math.round(today.filter(isPlainExpense).reduce((sum, tx) => sum + Math.abs(tx.amount), 0) * 100) / 100;
 
-  const categoryOf = (tx: Transaction) => categories.find((c) => c.id === tx.categoryId);
+  const categoryOf = (tx: Transaction) => findCategory(categories, tx.categoryId);
   const nameOf = (tx: Transaction) => tx.description?.trim() || categoryLabel(categoryOf(tx)?.name, t) || "—";
 
   return (

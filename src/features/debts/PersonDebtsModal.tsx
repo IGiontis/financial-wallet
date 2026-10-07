@@ -14,6 +14,7 @@ import segmented from "../../shared/css/Segmented.module.css";
 import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
+import AccountPicker from "../accounts/AccountPicker";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -174,9 +175,17 @@ function PaymentPanel({
   onSave,
   onCancel,
   onDelete,
+  account,
+  onAccount,
+  income,
 }: {
   amount: string;
   date: string;
+  /** The card or cash it went through; "" for no particular one. Undefined: an older repayment that names none. */
+  account: string | undefined;
+  onAccount: (id: string) => void;
+  /** Money coming in (repaid to me) rather than going out — the picker words itself to match. */
+  income: boolean;
   /** Beside the amount — "of €300" while recording, nothing while correcting. */
   hint?: string;
   saving: boolean;
@@ -188,6 +197,7 @@ function PaymentPanel({
 }) {
   const { t } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
+  const accountLabelId = useId();
   const dateId = useId();
   const value = parseFloat(amount);
   const amountValid = Number.isFinite(value) && value > 0;
@@ -220,6 +230,15 @@ function PaymentPanel({
           </label>
           <DateField id={dateId} small value={date} onChange={onDate} placeholder={t("debts.when")} />
         </div>
+      </div>
+      {/* Which card it left or reached, as on any transaction — it moves that
+          card. An older repayment that names none moves nothing until one is
+          chosen here. */}
+      <div className={styles.paymentAccount} role="group" aria-labelledby={accountLabelId}>
+        <div id={accountLabelId} className={styles.paymentAccountLabel}>
+          {t(income ? "debts.paidInto" : "debts.paidFrom")}
+        </div>
+        <AccountPicker value={account ?? ""} onChoose={onAccount} income={income} />
       </div>
       <div className={styles.paymentButtons}>
         <Button color="primary" size="sm" onClick={onSave} disabled={saving || !valid}>
@@ -379,6 +398,9 @@ export default function PersonDebtsModal({
   const [panel, setPanel] = useState<{ kind: "record" } | { kind: "edit"; payment: DebtPayment } | null>(null);
   const [panelAmount, setPanelAmount] = useState("");
   const [panelDate, setPanelDate] = useState(today);
+  // Which card a repayment went through: "" (the main account) for a new one,
+  // and an older one's own — or none at all, which it keeps unless one is chosen.
+  const [panelAccount, setPanelAccount] = useState<string | undefined>("");
   const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
   const [editing, setEditing] = useState<DebtWithStatus | null>(null);
   const [adding, setAdding] = useState(false);
@@ -450,6 +472,9 @@ export default function PersonDebtsModal({
     // A part payment is one edit away from here; settling is the common case.
     setPanelAmount(String(instalmentDue ?? debt.remaining));
     setPanelDate(today());
+    // The card the debt itself went through, if it named one: a loan taken into
+    // Revolut is usually paid back from Revolut.
+    setPanelAccount(debt.accountId ?? "");
   };
 
   const openEdit = (payment: DebtPayment) => {
@@ -461,6 +486,7 @@ export default function PersonDebtsModal({
     setPanel({ kind: "edit", payment });
     setPanelAmount(String(payment.amount));
     setPanelDate(toISODay(payment.date));
+    setPanelAccount(payment.accountId);
   };
 
   const savePanel = () => {
@@ -468,13 +494,13 @@ export default function PersonDebtsModal({
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
 
-    if (panel.kind === "record") record.mutate({ debtId: debt.id, amount: value, date: when }, { onSuccess: () => setPanel(null) });
-    else updateRepayment.mutate({ paymentId: panel.payment.id, amount: value, date: when }, { onSuccess: () => setPanel(null) });
+    if (panel.kind === "record") record.mutate({ debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? "" }, { onSuccess: () => setPanel(null) });
+    else updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount }, { onSuccess: () => setPanel(null) });
   };
 
   const deletePanelPayment = () => {
     if (panel?.kind !== "edit") return;
-    removeRepayment.mutate(panel.payment.id, { onSuccess: () => setPanel(null) });
+    removeRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id }, { onSuccess: () => setPanel(null) });
   };
 
   const rateText = !loan
@@ -638,6 +664,9 @@ export default function PersonDebtsModal({
                     onDate={setPanelDate}
                     onSave={savePanel}
                     onCancel={() => setPanel(null)}
+                    account={panelAccount}
+                    onAccount={setPanelAccount}
+                    income={!borrowed}
                   />
                 )}
 
@@ -666,6 +695,9 @@ export default function PersonDebtsModal({
                             onSave={savePanel}
                             onCancel={() => setPanel(null)}
                             onDelete={deletePanelPayment}
+                            account={panelAccount}
+                            onAccount={setPanelAccount}
+                            income={!borrowed}
                           />
                         )}
                       </li>

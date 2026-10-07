@@ -1,5 +1,6 @@
 import { firestoreToDate } from "../../shared/utils/dates";
 import type { Transaction } from "../../shared/types/IndexTypes";
+import { isDebtTransfer } from "../../shared/utils/moneyModel";
 
 // Analytics for whatever the Transactions filter currently shows. Everything
 // here is derived from transactions the page has already fetched, so the whole
@@ -8,10 +9,10 @@ import type { Transaction } from "../../shared/types/IndexTypes";
 // Deposits into goals/investments are transfers, not spending — they're left
 // out of every "spent" figure, matching the model the Overview page uses.
 
-const isSpending = (tx: Transaction) => !tx.isInvestmentTransaction && !tx.isGoalTransaction && tx.type === "expense";
+const isSpending = (tx: Transaction) => !tx.isInvestmentTransaction && !tx.isGoalTransaction && !isDebtTransfer(tx) && tx.type === "expense";
 
 const isEarning = (tx: Transaction) =>
-  (!tx.isInvestmentTransaction && !tx.isGoalTransaction && tx.type === "income") ||
+  (!tx.isInvestmentTransaction && !tx.isGoalTransaction && !isDebtTransfer(tx) && tx.type === "income") ||
   // Pulling money back out of an investment is money returning to you.
   ((tx.isInvestmentTransaction || tx.isGoalTransaction) && tx.contributionType === "withdrawal");
 

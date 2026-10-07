@@ -23,6 +23,8 @@ const spies = vi.hoisted(() => ({
   createDebt: vi.fn(),
 }));
 
+// The card picker reads the accounts; which card is chosen is not what these check.
+vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
 vi.mock("./useDebts", () => ({
   useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),
@@ -243,7 +245,7 @@ describe("correcting a payment", () => {
     const question = screen.getByText("Delete?").closest(".modal-content") as HTMLElement;
     await userEvent.click(within(question).getByRole("button", { name: "Delete" }));
 
-    expect(spies.remove).toHaveBeenCalledWith("r1", expect.anything());
+    expect(spies.remove).toHaveBeenCalledWith({ paymentId: "r1", debtId: "rent" }, expect.anything());
   });
 });
 

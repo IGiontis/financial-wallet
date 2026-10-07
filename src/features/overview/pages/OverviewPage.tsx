@@ -47,6 +47,7 @@ import { useCategories } from "../../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { AttentionList, MonthInOut, Panel, PositionPanel, SpendingPanel, TileGrid, TodayPanel, type OverviewTile } from "../components/OverviewTabs";
 import { PageShell } from "../../../shared/components/PageShell";
+import { findCategory } from "../../../shared/utils/categories";
 
 // recharts is by far the heaviest thing on this page. Loading it separately lets
 // the metric cards and goal list paint first instead of waiting on the chart.
@@ -145,7 +146,7 @@ export const OverviewPage = () => {
     return {
       total,
       parts: parts.map((part) => {
-        const category = part.categoryId ? categories.find((c) => c.id === part.categoryId) : undefined;
+        const category = findCategory(categories, part.categoryId);
         return { label: part.categoryId ? `${category?.icon ?? ""} ${categoryLabel(category?.name, t) || "—"}`.trim() : t("overview.everythingElse"), amount: part.amount };
       }),
     };

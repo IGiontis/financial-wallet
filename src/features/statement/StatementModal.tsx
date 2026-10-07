@@ -10,6 +10,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { standaloneMonthName } from "../../shared/utils/dates";
 import { buildStatement, monthRange, yearRange, yearsWithRecords, type StatementLine } from "./statementUtils";
 import styles from "./css/Statement.module.css";
+import { findCategory } from "../../shared/utils/categories";
 
 const WHOLE_YEAR = "all";
 
@@ -49,7 +50,7 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
   const nameFor = useMemo(() => {
     const byId = new Map(categories.map((c) => [c.id, c]));
     return (categoryId: string) => {
-      const category = byId.get(categoryId);
+      const category = byId.get(categoryId) ?? findCategory([], categoryId);
       return category ? { label: categoryLabel(category.name, t), icon: category.icon ?? "🧾" } : { label: t("analytics.unknownCategory"), icon: "🧾" };
     };
   }, [categories, t]);

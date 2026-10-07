@@ -20,6 +20,7 @@ import {
   INVESTMENT_COLORS,
 } from "./reviewPalettes";
 import { formatTable } from "../transactionDates";
+import { findCategory } from "../../../shared/utils/categories";
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -30,7 +31,7 @@ function resolveCategory(tx: Transaction, categories: Category[]) {
         name: "Investments",
       }
     );
-  return categories.find((c) => c.id === tx.categoryId);
+  return findCategory(categories, tx.categoryId);
 }
 
 interface Props {
@@ -170,6 +171,8 @@ export default function TransactionViewModal({
           gradientFrom={gradientFrom}
           gradientTo={gradientTo}
         />
+        {/* A loan's money: written by the debt and kept in step with it. */}
+        {tx.debtId && <p className="small text-body-secondary mt-3 mb-0">{t("transactions.debtLocked")}</p>}
       </ModalBody>
       {(onEdit || onDelete) && (
         <>
@@ -181,7 +184,7 @@ export default function TransactionViewModal({
             {onDelete ? (
               <DeleteButton opensConfirm
                 onClick={onDelete}
-                disabled={isGoal || !!tx.isInvestmentTransaction}
+                disabled={isGoal || !!tx.isInvestmentTransaction || !!tx.debtId}
               />
             ) : (
               <span />
@@ -191,7 +194,7 @@ export default function TransactionViewModal({
                 <Button
                   color="primary"
                   onClick={onEdit}
-                  disabled={isGoal || !!tx.isInvestmentTransaction}
+                  disabled={isGoal || !!tx.isInvestmentTransaction || !!tx.debtId}
                 >
                   <FiEdit2 size={14} className="me-1" aria-hidden />
                   {t("common.edit")}

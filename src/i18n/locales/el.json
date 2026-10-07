@@ -928,7 +928,8 @@
     "rangeCustom": "Από–Έως…",
     "previousMonth": "Προηγούμενος μήνας",
     "nextMonth": "Επόμενος μήνας",
-    "rangeAllDates": "Όλες οι ημερομηνίες"
+    "rangeAllDates": "Όλες οι ημερομηνίες",
+    "debtLocked": "Γράφτηκε από ένα δάνειο. Αλλάζει και διαγράφεται από τα «Χρέη & δάνεια»."
   },
   "analytics": {
     "title": "Στατιστικά",
@@ -1780,7 +1781,9 @@
     "autoFillHint": "Διαλέγοντας αυτή την κατηγορία συμπληρώνονται αυτά, ώστε να γράφεις μόνο ό,τι αλλάζει.",
     "defaultPayeePlaceholder": "π.χ. Netflix",
     "filterPlaceholder": "Φιλτράρισμα κατηγοριών…",
-    "noneMatch": "Καμία κατηγορία δεν ταιριάζει."
+    "noneMatch": "Καμία κατηγορία δεν ταιριάζει.",
+    "loans": "Δάνεια",
+    "loanInterest": "Τόκοι δανείου"
   },
   "debts": {
     "title": "Χρέη & δάνεια",
@@ -1923,7 +1926,11 @@
     "totalBorrowed_one": "Όλα μαζί · {{count}} δάνειο",
     "totalBorrowed_other": "Όλα μαζί · {{count}} δάνεια",
     "totalLent_one": "Όσα δάνεισες · {{count}} δάνειο",
-    "totalLent_other": "Όσα δάνεισες · {{count}} δάνεια"
+    "totalLent_other": "Όσα δάνεισες · {{count}} δάνεια",
+    "paidFrom": "Από πού πληρώθηκε",
+    "paidInto": "Πού μπήκαν τα λεφτά",
+    "loanFrom": "Από πού βγήκαν τα λεφτά",
+    "loanInto": "Πού μπήκαν τα λεφτά"
   },
   "statement": {
     "title": "Κατάσταση",

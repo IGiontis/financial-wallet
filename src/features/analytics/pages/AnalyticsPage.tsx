@@ -103,6 +103,7 @@ const MoneyFlowSankey = lazy(() => import("../components/MoneyFlowSankey"));
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
 import { PageShell } from "../../../shared/components/PageShell";
+import { findCategory } from "../../../shared/utils/categories";
 
 // What a card shows before its sheet is opened: the few that matter.
 const CARD_ROWS = 6;
@@ -135,7 +136,7 @@ export function AnalyticsPage() {
 
   const nameFor = useCallback(
     (categoryId: string) => {
-      const category = categories.find((c) => c.id === categoryId);
+      const category = findCategory(categories, categoryId);
       return category ? categoryLabel(category.name, t) : t("analytics.unknownCategory");
     },
     [categories, t],

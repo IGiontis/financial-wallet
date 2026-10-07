@@ -1,6 +1,6 @@
 import { getDaysInMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { isGoalContribution, isInvestmentContribution, isSpending, isTransfer } from "../../shared/utils/moneyModel";
+import { isDebtTransfer, isGoalContribution, isInvestmentContribution, isSpending, isTransfer } from "../../shared/utils/moneyModel";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
 // Everything the Analytics page draws is derived here, from transactions the
@@ -94,6 +94,10 @@ export function monthlyFlows(transactions: Transaction[], from: Date | null, to:
     const month = byKey.get(monthKey(date));
     if (!month) continue;
     const amount = Math.abs(tx.amount);
+
+    // Borrowed or lent, or a repayment's principal: it moved a card, it did
+    // not come in or go out — see `isDebtTransfer`.
+    if (isDebtTransfer(tx)) continue;
 
     if (isGoalContribution(tx)) {
       if (tx.contributionType === "withdrawal") month.income += amount;
@@ -396,6 +400,7 @@ export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | u
 
   for (const tx of transactions) {
     const amount = Math.abs(tx.amount);
+    if (isDebtTransfer(tx)) continue;
     if (isTransfer(tx)) {
       if (tx.contributionType === "withdrawal") withdrawals += amount;
       else if (isGoalContribution(tx)) goals += amount;
@@ -608,7 +613,7 @@ export interface WaterfallStep {
  * counting the withdrawals as income would count the same euro twice.
  */
 export function spendingWaterfall(transactions: Transaction[], limit = 6): WaterfallStep[] {
-  const earned = transactions.filter((tx) => (!isTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal"));
+  const earned = transactions.filter((tx) => (!isTransfer(tx) && !isDebtTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal"));
   const income = round2(earned.reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
   const savings = round2(transactions.filter((tx) => isTransfer(tx) && tx.contributionType !== "withdrawal").reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
 

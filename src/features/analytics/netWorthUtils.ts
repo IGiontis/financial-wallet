@@ -228,7 +228,7 @@ export function netWorthSeries(
  */
 export function repaymentsOutsideCash(debts: DebtWithStatus[], transactions: Transaction[]): { matched: number; unmatched: number } {
   const spending = transactions
-    .filter((tx) => tx.type === "expense" && !tx.isGoalTransaction && !tx.isInvestmentTransaction)
+    .filter((tx) => tx.type === "expense" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !tx.debtId)
     .map((tx) => ({ amount: Math.abs(tx.amount), time: firestoreToDate(tx.date).getTime() }));
 
   const WINDOW = 3 * 24 * 60 * 60 * 1000;
@@ -239,6 +239,11 @@ export function repaymentsOutsideCash(debts: DebtWithStatus[], transactions: Tra
   for (const debt of debts) {
     if (debt.direction !== "owed_by_me") continue;
     for (const payment of debt.payments) {
+      // Paid from a card it names: the cash moved with it — see `syncDebtCash`.
+      if (payment.accountId !== undefined) {
+        matched += 1;
+        continue;
+      }
       const at = firestoreToDate(payment.date).getTime();
       // One expense can only account for one repayment, or a single rent
       // payment would vouch for a year of instalments.

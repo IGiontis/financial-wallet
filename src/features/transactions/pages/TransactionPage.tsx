@@ -27,6 +27,8 @@ import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
+import { isDebtTransfer } from "../../../shared/utils/moneyModel";
+import { findCategory } from "../../../shared/utils/categories";
 
 const PAGE_SIZE = 15;
 
@@ -75,6 +77,8 @@ function computeFilterTotals(transactions: Transaction[]): FilterTotals {
       if (tx.contributionType === "withdrawal") earned += tx.amount;
       continue;
     }
+    // A loan moved a card; it did not come in or go out.
+    if (isDebtTransfer(tx)) continue;
     if (tx.type === "income") earned += tx.amount;
     else spent += Math.abs(tx.amount);
   }
@@ -129,7 +133,7 @@ function resolveCategory(tx: Transaction, categories: Category[]): Category | un
     return { id: "__goal__", name: "Goal", icon: "🎯", type: "expense", isDefault: true, userId: null, createdAt: new Date(), updatedAt: new Date() } as Category;
   }
   if (tx.isInvestmentTransaction) return categories.find((c) => c.name === "Investments");
-  return categories.find((c) => c.id === tx.categoryId);
+  return findCategory(categories, tx.categoryId) as Category | undefined;
 }
 
 
@@ -758,20 +762,20 @@ export function TransactionsPage() {
                                     <Button
                                       size="sm"
                                       color="light"
-                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction}
+                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction || !!tx.debtId}
                                       style={{
                                         padding: "2px 8px",
                                         opacity: tx.isInvestmentTransaction || tx.isGoalTransaction ? 0.35 : 1,
                                         cursor: tx.isInvestmentTransaction || tx.isGoalTransaction ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => {
-                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction) setEditTransaction(tx);
+                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction && !tx.debtId) setEditTransaction(tx);
                                       }}
                                       title={t("common.edit")}
                                     >
                                       <FiEdit2 size={13} />
                                     </Button>
-                                    <DeleteButton opensConfirm iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction} onClick={() => setDeleteTransaction(tx)} />
+                                    <DeleteButton opensConfirm iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction || !!tx.debtId} onClick={() => setDeleteTransaction(tx)} />
                                   </div>
                                 </td>
                               </tr>

@@ -928,7 +928,8 @@
     "rangeCustom": "From–To…",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
-    "rangeAllDates": "All dates"
+    "rangeAllDates": "All dates",
+    "debtLocked": "Written by a loan. Change or delete it on Debts & loans."
   },
   "analytics": {
     "title": "Analytics",
@@ -1780,7 +1781,9 @@
     "autoFillHint": "Picking this category prefills these, so you only enter what actually varies.",
     "defaultPayeePlaceholder": "e.g. Netflix",
     "filterPlaceholder": "Filter categories…",
-    "noneMatch": "No category matches."
+    "noneMatch": "No category matches.",
+    "loans": "Loans",
+    "loanInterest": "Loan interest"
   },
   "debts": {
     "title": "Debts & loans",
@@ -1923,7 +1926,11 @@
     "totalBorrowed_one": "All together · {{count}} loan",
     "totalBorrowed_other": "All together · {{count}} loans",
     "totalLent_one": "All you lent · {{count}} loan",
-    "totalLent_other": "All you lent · {{count}} loans"
+    "totalLent_other": "All you lent · {{count}} loans",
+    "paidFrom": "Paid from",
+    "paidInto": "Paid into",
+    "loanFrom": "Where the money came out of",
+    "loanInto": "Where the money went in"
   },
   "statement": {
     "title": "Statement",

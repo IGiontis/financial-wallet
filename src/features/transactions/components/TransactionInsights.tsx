@@ -21,6 +21,7 @@ import {
 import SliceTransactionsModal from "./SliceTransactionsModal";
 import { DetailsTable } from "../../analytics/components/DetailsTable";
 import styles from "./css/TransactionInsights.module.css";
+import { findCategory } from "../../../shared/utils/categories";
 
 /** Slice colours reuse the semantic accents so the panel matches the app. */
 const SLICE_COLORS = ["var(--bs-primary)", "var(--color-expense)", "var(--color-income)", "var(--color-invest)", "var(--color-goal)", "var(--color-text-secondary)"];
@@ -69,7 +70,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   const nameFor = (categoryId: string): string => {
     if (categoryId === OTHER_CATEGORY_ID) return t("transactions.otherCategories", { count: slices.find((s) => s.categoryId === categoryId)?.count ?? 0 });
     if (categoryId === "__investment__") return categoryLabel("Investments", t);
-    const category = categories.find((c) => c.id === categoryId);
+    const category = findCategory(categories, categoryId);
     return category ? `${category.icon ?? ""} ${categoryLabel(category.name, t)}`.trim() : "—";
   };
 
@@ -77,7 +78,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   const categoryFor = useCallback(
     (tx: Transaction) => {
       if (tx.isInvestmentTransaction || tx.isGoalTransaction) return { icon: "\u{1F4C8}", name: categoryLabel("Investments", t) };
-      const category = categories.find((c) => c.id === tx.categoryId);
+      const category = findCategory(categories, tx.categoryId);
       return { icon: category?.icon ?? "\u{1F9FE}", name: category ? categoryLabel(category.name, t) : t("analytics.unknownCategory") };
     },
     [categories, t],

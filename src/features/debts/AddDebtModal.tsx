@@ -11,6 +11,7 @@ import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
 import { parseISODay, toISODay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
+import AccountPicker from "../accounts/AccountPicker";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -65,6 +66,10 @@ export default function AddDebtModal({
   const [term, setTerm] = useState(asInput(debt?.termMonths));
   const [free, setFree] = useState(asInput(debt?.interestFreeMonths));
   const [touched, setTouched] = useState(false);
+  // Where the money went or came from. A new debt starts on "no particular
+  // card" (the main account) and moves money; one saved before this existed
+  // names none, and keeps moving nothing until a card is chosen here.
+  const [account, setAccount] = useState<string | undefined>(debt ? debt.accountId : "");
 
   const value = parseFloat(amount);
   const termValue = parseInt(term, 10);
@@ -135,6 +140,7 @@ export default function AddDebtModal({
       baseRate: isLoanEntry && floating ? num(base) : undefined,
       margin: isLoanEntry && floating ? num(margin) : undefined,
       rateReviewedAt: isLoanEntry && floating ? reviewedAt : undefined,
+      accountId: account,
     };
 
     if (debt) edit.mutate({ debtId: debt.id, data }, { onSuccess: onClose });
@@ -297,6 +303,14 @@ export default function AddDebtModal({
           <FormGroup>
             <Label className="small fw-medium">{t("debts.when")}</Label>
             <DateField id="debt-date" name="debt-date" value={date} onChange={setDate} placeholder={t("common.date")} />
+          </FormGroup>
+
+          {/* Borrowed: which card it came into. Lent: which card it left. It
+              moves that card, as a transaction would — and, being a loan, is
+              neither income nor spending. */}
+          <FormGroup>
+            <Label className="small fw-medium">{t(direction === "owed_by_me" ? "debts.loanInto" : "debts.loanFrom")}</Label>
+            <AccountPicker value={account ?? ""} onChoose={setAccount} income={direction === "owed_by_me"} />
           </FormGroup>
 
           <FormGroup className="mb-0">

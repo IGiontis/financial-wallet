@@ -1,6 +1,7 @@
 import { startOfMonth, subMonths, startOfYear, endOfYear, endOfMonth, format, isWithinInterval, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import type { Transaction } from "../../shared/types/IndexTypes";
 import { firestoreToDate } from "../../shared/utils/dates";
+import { isDebtTransfer } from "../../shared/utils/moneyModel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,8 +78,8 @@ export const filterTransactions = (transactions: Transaction[], range: DateRange
 
 const signedContribution = (tx: Transaction) => (tx.contributionType === "deposit" ? tx.amount : -tx.amount);
 
-const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isInvestmentTransaction;
-export const isPlainExpense = (tx: Transaction) => tx.type === "expense" && !tx.isInvestmentTransaction;
+const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isInvestmentTransaction && !isDebtTransfer(tx);
+export const isPlainExpense = (tx: Transaction) => tx.type === "expense" && !tx.isInvestmentTransaction && !isDebtTransfer(tx);
 const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
 const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
 
@@ -137,6 +138,8 @@ export const groupByMonth = (transactions: Transaction[], monthLabel: (d: Date) 
       if (isDeposit(tx)) d.investments += tx.amount;
       else d.income += tx.amount; // withdrawal → income
       d.investmentsNet += signedContribution(tx);
+    } else if (isDebtTransfer(tx)) {
+      // A loan moved a card; it did not come in or go out.
     } else if (tx.type === "income") {
       d.income += tx.amount;
     } else {
