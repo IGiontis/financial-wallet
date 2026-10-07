@@ -16,6 +16,7 @@ import { firestoreToDate } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { isSameDay, midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
+import { tapDay } from "../dateRanges";
 import ManagePayeesModal from "../components/ManagePayeesModal";
 import { usePayees } from "../hooks/usePayees";
 import AddTransactionModal from "../components/AddTransactionModal";
@@ -220,112 +221,123 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
   );
 }
 
-function TransactionCard({
-  tx,
-  categories,
-  formatCurrency,
-  onEdit,
-  onDelete,
-  onView,
-}: {
-  tx: Transaction;
-  categories: Category[];
-  formatCurrency: (n: number) => string;
-  onEdit: () => void;
-  onDelete: () => void;
-  onView: () => void;
-}) {
-  const { t, i18n } = useTranslation();
+/**
+ * One record on the phone: its icon, name and category, and its amount — a
+ * card to tap, which opens it with its Edit and Delete. Two buttons on every
+ * row took a third of its width from the name and made a list of fifteen a
+ * column of thirty buttons.
+ */
+function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Transaction; categories: Category[]; formatCurrency: (n: number) => string; onView: () => void }) {
+  const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
   const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
-  const chipStyle = getAmountChipStyle(tx);
+  // A tag only where it says more than the amount's sign and colour already
+  // do: money into or out of a goal or an investment.
+  const kind =
+    tx.isGoalTransaction || isInvestment
+      ? { label: tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit"), style: tx.isGoalTransaction ? getGoalBadgeStyle(tx.contributionType) : getInvestmentBadgeStyle(tx.contributionType) }
+      : undefined;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-      <div
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: "50%",
-          flexShrink: 0,
-          background: isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 18,
-        }}
-      >
+    <button type="button" className={styles.txCard} onClick={onView}>
+      <span className={styles.txIcon} style={{ background: isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)" }} aria-hidden>
         {cat?.icon ?? "💳"}
-      </div>
-      <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onView}>
-        <p style={{ fontWeight: 500, fontSize: 14, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</p>
-        <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
-          {categoryLabel(cat?.name, t) || "—"} · <span style={{ whiteSpace: "nowrap" }}>{formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}</span>
-        </p>
-        {tx.isGoalTransaction && (
-          <span style={{ ...getGoalBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}>
-            {tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")}
-          </span>
-        )}
-        {isInvestment && !tx.isGoalTransaction && (
-          <span
-            style={{ ...getInvestmentBadgeStyle(tx.contributionType), display: "inline-block", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontSize: 10, marginTop: 2 }}
-          >
-            {tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")}
-          </span>
-        )}
-        {!isInvestment && !tx.isGoalTransaction && (
-          <span
-            style={{
-              display: "inline-block",
-              padding: "1px 6px",
-              borderRadius: 4,
-              fontWeight: 600,
-              fontSize: 10,
-              marginTop: 2,
-              background: `color-mix(in srgb, var(${tx.type === "income" ? "--color-income" : "--color-expense"}) 16%, transparent)`,
-              color: tx.type === "income" ? "var(--color-income)" : "var(--color-expense)",
-            }}
-          >
-            {tx.type === "income" ? t("transactions.income") : t("transactions.expense")}
-          </span>
-        )}
-      </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <span
-          style={{
-            display: "inline-block",
-            padding: "3px 9px",
-            borderRadius: 20,
-            fontSize: 13,
-            fontWeight: 500,
-            background: chipStyle.background,
-            color: chipStyle.color,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {isPositive ? "+" : "−"}
-          {formatCurrency(tx.amount)}
+      </span>
+      <span className={styles.txBody}>
+        <span className={styles.txName}>{tx.description}</span>
+        <span className={styles.txMeta}>
+          {kind && (
+            <span className={styles.txKind} style={kind.style}>
+              {kind.label}
+            </span>
+          )}
+          <span className="text-truncate">{categoryLabel(cat?.name, t) || "—"}</span>
         </span>
+      </span>
+      <span className={styles.txAmount} style={{ color: isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
+        {isPositive ? "+" : "−"}
+        {formatCurrency(tx.amount)}
+      </span>
+    </button>
+  );
+}
+
+/** What the filter holds, at the top of the phone's page: out and in, then the net and how many. */
+function MobileSummary({ transactions, formatCurrency }: { transactions: Transaction[]; formatCurrency: (n: number) => string }) {
+  const { t } = useTranslation();
+  const { earned, spent, net, count } = useMemo(() => computeFilterTotals(transactions), [transactions]);
+  return (
+    <div className="mb-3">
+      <div className={styles.sumBoxes}>
+        <div className={styles.sumBox}>
+          <span className={styles.sumLabel}>{t("transactions.totalSpent")}</span>
+          <span className={styles.sumValue} style={{ color: "var(--color-expense-text)" }}>
+            {formatCurrency(spent)}
+          </span>
+        </div>
+        <div className={styles.sumBox}>
+          <span className={styles.sumLabel}>{t("transactions.totalEarned")}</span>
+          <span className={styles.sumValue} style={{ color: "var(--color-income-text)" }}>
+            {formatCurrency(earned)}
+          </span>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-        <Button
-          size="sm"
-          color="light"
-          disabled={isInvestment || tx.isGoalTransaction}
-          style={{ padding: "4px 8px", opacity: isInvestment || tx.isGoalTransaction ? 0.35 : 1, cursor: isInvestment || tx.isGoalTransaction ? "not-allowed" : "pointer" }}
-          onClick={() => {
-            if (!isInvestment && !tx.isGoalTransaction) onEdit();
-          }}
-        >
-          <FiEdit2 size={13} />
-        </Button>
-        {/* A goal or investment mirror is deleted from its goal, like it is
-            edited there: deleting it here left the contribution behind. */}
-        <DeleteButton iconOnly size="sm" disabled={isInvestment || tx.isGoalTransaction} onClick={onDelete} />
+      <div className={styles.sumLine}>
+        <span>
+          {t("transactions.net")}{" "}
+          <b style={{ color: net > 0 ? "var(--color-income-text)" : net < 0 ? "var(--color-expense-text)" : undefined }}>
+            {net > 0 ? "+" : net < 0 ? "−" : ""}
+            {formatCurrency(Math.abs(net))}
+          </b>
+        </span>
+        <span>{t("transactions.transactionCount", { count })}</span>
       </div>
     </div>
+  );
+}
+
+/**
+ * The page's records under the day they happened, newest first, each day with
+ * what it came to — so "what did Saturday cost" is a heading, not a sum.
+ */
+function DayGroups({ transactions, categories, formatCurrency, onView }: { transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string; onView: (tx: Transaction) => void }) {
+  const { i18n } = useTranslation();
+  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { weekday: "short", day: "numeric", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
+  const days = useMemo(() => {
+    const groups: { key: string; date: Date; rows: Transaction[] }[] = [];
+    for (const tx of transactions) {
+      const date = firestoreToDate(tx.date);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) last.rows.push(tx);
+      else groups.push({ key, date, rows: [tx] });
+    }
+    return groups;
+  }, [transactions]);
+
+  return (
+    <>
+      {days.map((day) => {
+        const { net } = computeFilterTotals(day.rows);
+        return (
+          <section key={day.key} className={styles.dayGroup} aria-label={dayFmt.format(day.date)}>
+            <div className={styles.dayHead}>
+              <span className={styles.dayName}>{dayFmt.format(day.date)}</span>
+              <span style={{ color: net > 0 ? "var(--color-income-text)" : net < 0 ? "var(--color-expense-text)" : undefined }}>
+                {net > 0 ? "+" : net < 0 ? "−" : ""}
+                {formatCurrency(Math.abs(net))}
+              </span>
+            </div>
+            <div className={styles.dayCards}>
+              {day.rows.map((tx) => (
+                <TransactionCard key={tx.id} tx={tx} categories={categories} formatCurrency={formatCurrency} onView={() => onView(tx)} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </>
   );
 }
 
@@ -423,21 +435,22 @@ export function TransactionsPage() {
   };
 
   // These only move the filter — resetting to page 1 is handled centrally below.
+  // The first tap on a day starts a range, the second ends it — see `tapDay`.
+  // Held here so a range set any other way forgets a half-picked one.
+  const [dayAnchor, setDayAnchor] = useState<Date | null>(null);
   const handleDaySelect = useCallback(
     (date: Date) => {
-      if (isSameDay(date, fromDate) && isSameDay(date, toDate)) {
-        setFromDate(null);
-        setToDate(null);
-      } else {
-        setFromDate(date);
-        setToDate(date);
-      }
+      const next = tapDay(dayAnchor, date);
+      setFromDate(next.range.from);
+      setToDate(next.range.to);
+      setDayAnchor(next.anchor);
     },
-    [fromDate, toDate],
+    [dayAnchor],
   );
 
   const handleFromChange = useCallback(
     (d: Date | null) => {
+      setDayAnchor(null);
       setFromDate(d);
       if (d && toDate && midnight(d) > midnight(toDate)) setToDate(null);
     },
@@ -447,6 +460,7 @@ export function TransactionsPage() {
   const handleToChange = useCallback(
     (d: Date | null) => {
       if (d && fromDate && midnight(d) < midnight(fromDate)) return;
+      setDayAnchor(null);
       setToDate(d);
     },
     [fromDate],
@@ -524,6 +538,7 @@ export function TransactionsPage() {
   // Both ends at once: set one after the other, the second was checked against
   // the first's old value, and stepping back a month refused its own end.
   const handleRangeChange = useCallback((range: { from: Date | null; to: Date | null }) => {
+    setDayAnchor(null);
     setFromDate(range.from);
     setToDate(range.to);
   }, []);
@@ -745,81 +760,60 @@ export function TransactionsPage() {
       </div>
 
       {/* ── Mobile ── */}
-      <div className={`d-lg-none ${styles.mobileShell}`}>
+      {/* ── Mobile ── One scroll, the page's own. What the filter holds
+          first, then the dates, the search, and the records by day. */}
+      <div className="d-lg-none">
         {isError && (
-          <Alert color="danger" className="mb-3" style={{ flexShrink: 0 }}>
+          <Alert color="danger" className="mb-3">
             {t("transactions.loadFailed")}
           </Alert>
         )}
+        {!isLoading && <MobileSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />}
         {isLoading ? (
-          // The same block the desktop column uses one screen over: the shape
-          // of what is coming, rather than a wheel that says only "wait".
           <SkeletonCard>
             <SkeletonHeading />
-            <Skeleton height={230} style={{ borderRadius: "var(--border-radius-md)" }} />
+            <Skeleton height={120} style={{ borderRadius: "var(--border-radius-md)" }} />
           </SkeletonCard>
         ) : (
-          <MobileCalendar {...calendarProps} onRangeChange={handleRangeChange} />
+          // Held at the top while the days scroll under it: which dates are on
+          // screen is the one thing worth seeing from anywhere in the list.
+          <div className={styles.stickyDates}>
+            <MobileCalendar {...calendarProps} onRangeChange={handleRangeChange} />
+          </div>
         )}
-        {/* Search gets its own line: at 375px it was sharing a row with a
-            select and two buttons, which left every one of them too narrow to
-            read or hit comfortably. */}
-        <div className="mb-2" style={{ flexShrink: 0 }}>
-          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} size="sm" block />
-        </div>
-        <div className="d-flex gap-2 align-items-center mb-2" style={{ flexShrink: 0 }}>
+        <div className="d-flex gap-2 align-items-center mb-2">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <CategorySelect
-              value={selectedCategory}
-              onChange={setSelectedCategory}
-              categories={uniqueCategoriesByName}
-              size="sm"
-            />
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} block />
+          </div>
+          <Button color="primary" className="flex-shrink-0" onClick={() => setShowAddModal(true)} aria-label={t("transactions.addTransaction")}>
+            +
+          </Button>
+        </div>
+        <div className="d-flex gap-2 align-items-center mb-3">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <CategorySelect value={selectedCategory} onChange={setSelectedCategory} categories={uniqueCategoriesByName} />
           </div>
           <Button
             color="secondary"
             outline
-            size="sm"
-            style={{ flexShrink: 0 }}
+            className="flex-shrink-0"
             onClick={() => setShowPayeesModal(true)}
             disabled={!payeesReady}
             aria-label={t("transactions.managePayees")}
             title={t("transactions.managePayees")}
           >
-            <FiUsers size={14} />
-          </Button>
-          <Button color="primary" size="sm" style={{ whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setShowAddModal(true)}>
-            +
+            <FiUsers size={15} />
           </Button>
         </div>
 
-        {/* Totals for the active filter */}
-        {!isLoading && (
-          <div className="mb-2" style={{ flexShrink: 0 }}>
-            <FilterSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />
-          </div>
+        {isLoading ? (
+          <SkeletonRows count={8} />
+        ) : pagedTransactions.length === 0 ? (
+          <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
+        ) : (
+          <DayGroups transactions={pagedTransactions} categories={categories} formatCurrency={formatCurrency} onView={setViewTransaction} />
         )}
-
-        <Card className="border-0 shadow-sm" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <CardBody className={`p-0 ${styles.mobileScroll}`}>
-            {isLoading ? (
-              <SkeletonRows count={8} />
-            ) : pagedTransactions.length === 0 ? (
-              <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
-            ) : (
-              pagedTransactions.map((tx) => (
-                <TransactionCard
-                  key={tx.id}
-                  tx={tx}
-                  categories={categories}
-                  formatCurrency={formatCurrency}
-                  onEdit={() => setEditTransaction(tx)}
-                  onDelete={() => setDeleteTransaction(tx)}
-                  onView={() => setViewTransaction(tx)}
-                />
-              ))
-            )}
-          </CardBody>
+        <Card className="border-0 shadow-sm mt-3">
           <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
         </Card>
       </div>
@@ -833,7 +827,23 @@ export function TransactionsPage() {
       {deleteTransaction && (
         <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
       )}
-      {viewTransaction && <TransactionViewModal transaction={viewTransaction} categories={categories} formatCurrency={formatCurrency} onClose={() => setViewTransaction(null)} />}
+      {viewTransaction && (
+        <TransactionViewModal
+          transaction={viewTransaction}
+          categories={categories}
+          formatCurrency={formatCurrency}
+          onClose={() => setViewTransaction(null)}
+          // Handed on, not stacked: the record's own sheet gives way to the editor or the "are you sure".
+          onEdit={() => {
+            setEditTransaction(viewTransaction);
+            setViewTransaction(null);
+          }}
+          onDelete={() => {
+            setDeleteTransaction(viewTransaction);
+            setViewTransaction(null);
+          }}
+        />
+      )}
     </PageShell>
   );
 }

@@ -23,24 +23,146 @@
   white-space: nowrap;
 }
 
-/* ── Mobile list ──────────────────────────────────────────────────────────── */
-/* Fill the screen below the header. The subtraction covers only the chrome that
-   actually sits outside this shell — the topbar plus the two nested container
-   paddings and the footer line. The safe-area inset is NOT subtracted here:
-   .page-content already reserves it with padding-bottom, and counting it twice
-   was shrinking the list on notched phones. */
-.mobileShell {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: calc(100dvh - 6.5rem);
+/* ── Mobile: the summary, the days, the cards ─────────────────────────────── */
+
+.sumBoxes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.mobileScroll {
+.sumBox {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.sumLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.sumValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sumLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dayGroup + .dayGroup {
+  margin-top: 16px;
+}
+
+.dayHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 4px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dayName {
+  color: var(--color-text-secondary);
+}
+
+.dayName::first-letter {
+  text-transform: uppercase;
+}
+
+.dayCards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* One record: a card to tap. */
+.txCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-align: left;
+}
+
+.txCard:active {
+  background: var(--color-background-secondary);
+}
+
+.txIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+}
+
+.txBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  min-width: 0;
+}
+
+.txName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.txMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.txAmount {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.txKind {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 /* ── Category summary bar ─────────────────────────────────────────────────── */
@@ -83,4 +205,24 @@
     margin-left: 0;
     width: 100%;
   }
+}
+
+/* The dates stay at the top of the page's scroll on a phone. The strip of page
+   colour above and below the card hides the cards scrolling under it. */
+.stickyDates {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 -12px;
+  padding: 8px 12px 4px;
+  background: var(--color-background-primary);
+}
+
+.stickyDates > :global(.card) {
+  margin-bottom: 0.5rem !important;
+}
+
+/* The navigation style that lays the top bar over the page: stick below it. */
+:global([data-nav-style="c"]) .stickyDates {
+  top: var(--topbar-height);
 }

@@ -76,14 +76,13 @@ describe("deleting from the Transactions screen", () => {
     expect(deleteButtonFor("Power")).toBeEnabled();
   });
 
-  it("is disabled for mirrors on the phone list too", () => {
+  it("keeps the phone's cards free of buttons: they open the record, where Delete is", () => {
     const { container } = renderPage();
-    // The phone cards: the delete buttons that are not in the table.
     const table = container.querySelector("table")!;
-    const cardButtons = [...container.querySelectorAll("button")].filter((b) => !table.contains(b) && b.getAttribute("aria-label") === "Delete");
-
-    expect(cardButtons).toHaveLength(4);
-    expect(cardButtons.filter((b) => b.disabled)).toHaveLength(2);
+    const outside = [...container.querySelectorAll("button")].filter((b) => !table.contains(b));
+    expect(outside.filter((b) => b.getAttribute("aria-label") === "Delete")).toHaveLength(0);
+    // One card per record, each a button that opens it.
+    expect(outside.filter((b) => ["Bread", "Power", "Holiday", "ETF"].some((name) => b.textContent?.includes(name)))).toHaveLength(4);
   });
 
   it("hands the whole row to the delete, so a bill's payment goes with its expense", async () => {

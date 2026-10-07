@@ -69,3 +69,17 @@ export function stepMonth(range: DateRange, direction: -1 | 1, now: Date): DateR
   if (target > new Date(now.getFullYear(), now.getMonth(), 1)) return undefined;
   return monthRange(target.getFullYear(), target.getMonth(), now);
 }
+
+/**
+ * A tap on a day in the calendar. The first tap starts a range on that day;
+ * the second ends it there — in either order, so tapping the 20th and then
+ * the 3rd is the 3rd to the 20th. Tapping one day twice is that day alone.
+ *
+ * `anchor` is the day of a first tap still waiting for its second; the
+ * returned one is what to wait on next.
+ */
+export function tapDay(anchor: Date | null, day: Date): { range: DateRange; anchor: Date | null } {
+  if (!anchor) return { range: { from: day, to: day }, anchor: day };
+  const [from, to] = anchor.getTime() <= day.getTime() ? [anchor, day] : [day, anchor];
+  return { range: { from, to }, anchor: null };
+}
