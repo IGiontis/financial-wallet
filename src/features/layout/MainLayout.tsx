@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
@@ -18,6 +18,14 @@ export function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useLocalStorage("sidebar-collapsed", false);
   const isDrawer = useNarrowScreen(DRAWER_QUERY);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  // Each page opens at its top. The page scrolls inside `.page-content`, not
+  // the window, so the browser's own reset on navigation never reaches it and
+  // the next page used to open at the height the last one was left at.
+  const pageRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (pageRef.current) pageRef.current.scrollTop = 0;
+  }, [pathname]);
 
   // Open only means something where the bar is a drawer. Left to the raw flag,
   // a drawer opened on a phone-width window and then widened past `lg` would
@@ -65,7 +73,7 @@ export function MainLayout() {
       <div className="main-content" inert={drawerOpen}>
         <Topbar toggleSidebar={toggleSidebar} menuButtonRef={menuButtonRef} isDrawerOpen={drawerOpen} />
 
-        <main className="page-content">
+        <main className="page-content" ref={pageRef}>
           <Container
             fluid
             className="py-2"
