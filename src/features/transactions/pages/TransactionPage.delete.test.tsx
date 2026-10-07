@@ -78,9 +78,9 @@ describe("deleting from the Transactions screen", () => {
 
   it("is disabled for mirrors on the phone list too", () => {
     const { container } = renderPage();
-    // The phone cards carry no title; they are the delete buttons that are not in the table.
+    // The phone cards: the delete buttons that are not in the table.
     const table = container.querySelector("table")!;
-    const cardButtons = [...container.querySelectorAll("button")].filter((b) => !table.contains(b) && b.querySelector("svg") && b.style.color === "var(--bs-danger)");
+    const cardButtons = [...container.querySelectorAll("button")].filter((b) => !table.contains(b) && b.getAttribute("aria-label") === "Delete");
 
     expect(cardButtons).toHaveLength(4);
     expect(cardButtons.filter((b) => b.disabled)).toHaveLength(2);

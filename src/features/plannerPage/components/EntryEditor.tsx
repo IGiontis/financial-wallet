@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
 import { oneOffDate, REPEAT_CHOICES, repeatLabel } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 export interface EntryDraft {
   id?: string;
@@ -207,9 +208,7 @@ export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEdi
         {/* Left, away from Save: the two buttons of a small dialog sitting side
             by side is how a delete gets pressed by accident. */}
         {onDelete ? (
-          <Button color="link" className="text-danger px-0" onClick={onDelete}>
-            {t("common.delete")}
-          </Button>
+          <DeleteButton onClick={onDelete} />
         ) : (
           <span />
         )}

@@ -1101,17 +1101,20 @@
   background: var(--color-background-secondary);
   color: inherit;
   text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
 }
 
-.tile:hover {
-  border-color: var(--color-text-secondary);
+/* The label and the eye share the top line. */
+.tileHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  width: 100%;
 }
 
-.tile:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
+/* Pulled into the tile's corner, so it adds no height to the tile. */
+.tileEye {
+  margin: -6px -8px -6px 0;
 }
 
 /* A figure of your own, not the money you have: dashed, as the card it opens. */

@@ -39,6 +39,7 @@ import { DebtOrder, MonthFlow } from "./components/MoneyFlow";
 import CategoryLinkModal from "./CategoryLinkModal";
 import styles from "./css/Allocation.module.css";
 import { PageShell } from "../../shared/components/PageShell";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 const newId = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -344,9 +345,7 @@ export function AllocationPage() {
                           />
                           <span className={styles.pct}>{Math.round(bucket.share * 100)}%</span>
 
-                          <button type="button" className={styles.iconBtn} onClick={() => remove(bucket.id)} aria-label={t("common.delete")} title={t("common.delete")}>
-                            <FiX size={15} />
-                          </button>
+                          <DeleteButton iconOnly size="sm" onClick={() => remove(bucket.id)} />
                         </div>
 
                         <div className={styles.rowBody}>

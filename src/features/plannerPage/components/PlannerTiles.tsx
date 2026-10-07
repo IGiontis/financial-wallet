@@ -5,6 +5,7 @@ import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiClock, FiXCircle } fr
 import type { PaydayOutlook } from "../../overview/overviewTabs";
 import type { PlannerHorizon, PlannerPlan } from "../plannerUtils";
 import HorizonPicker from "./HorizonPicker";
+import { ZoomButton } from "../../../shared/components/ChartZoom";
 import { BalanceScrub } from "./BalanceScrub";
 import styles from "../css/PlannerPage.module.css";
 
@@ -33,7 +34,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
  * The Planner at a glance: four figures and the line between them.
  *
  * What you have, what is left on the eve of pay day, the lowest the balance
- * goes, and what you end with — each a tile, each opening the full working
+ * goes, and what you end with — each a tile, whose eye opens the full working
  * behind it. The sentences that used to sit around these figures (where the
  * money comes from, how the bar splits, what the months add without what you
  * have) are all still there, one tap in, as are the questions about pay that
@@ -116,22 +117,20 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
 
         <div className={styles.tiles}>
           {tiles.map((tile) => (
-            <button
-              key={tile.key}
-              type="button"
-              className={`${styles.tile} ${tile.scenario ? styles.tileScenario : ""}`}
-              onClick={() => onOpen(tile.sheet)}
-              aria-label={t("planner.tileOpen", { label: tile.label, value: tile.value })}
-            >
-              <span className={styles.tileLabel}>
-                {tile.icon && <span style={{ color: tile.iconColor }}>{tile.icon}</span>}
-                {tile.label}
+            // The eye opens the working, as on every chart: the tile itself is a figure to read.
+            <div key={tile.key} className={`${styles.tile} ${tile.scenario ? styles.tileScenario : ""}`}>
+              <span className={styles.tileHead}>
+                <span className={styles.tileLabel}>
+                  {tile.icon && <span style={{ color: tile.iconColor }}>{tile.icon}</span>}
+                  {tile.label}
+                </span>
+                <ZoomButton onClick={() => onOpen(tile.sheet)} label={t("planner.tileOpen", { label: tile.label, value: tile.value })} className={styles.tileEye} />
               </span>
               <span className={styles.tileValue} style={{ color: tile.color }}>
                 {tile.value}
               </span>
               <span className={styles.tileSub}>{tile.sub}</span>
-            </button>
+            </div>
           ))}
         </div>
 

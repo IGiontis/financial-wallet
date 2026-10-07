@@ -1,6 +1,6 @@
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2 } from "react-icons/fi";
 
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isAfterReading } from "../../shared/utils/balance";
@@ -9,6 +9,7 @@ import { BankCard } from "./BankCard";
 import type { CardColor } from "./accountTones";
 import type { MoneyAccount } from "./accountsUtils";
 import styles from "./css/AccountsPage.module.css";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 const SHOWN = 25;
 
@@ -122,10 +123,7 @@ export default function AccountSheet({
         )}
       </ModalBody>
       <ModalFooter className="justify-content-between">
-        <Button color="danger" outline onClick={onDelete} disabled={deleteLocked}>
-          <FiTrash2 size={15} className="me-1" aria-hidden />
-          {t("common.delete")}
-        </Button>
+        <DeleteButton onClick={onDelete} disabled={deleteLocked} />
         <Button color="primary" onClick={onEdit}>
           <FiEdit2 size={15} className="me-1" aria-hidden />
           {t("accounts.edit")}

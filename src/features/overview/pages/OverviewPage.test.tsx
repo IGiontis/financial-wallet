@@ -89,21 +89,47 @@ beforeEach(() => {
 });
 
 describe("the overview", () => {
-  it("opens on Everything, with what wants doing above the tiles", () => {
+  it("opens on Summary: the pay-day answer and the tiles, and nothing another tab shows", () => {
     renderPage();
 
-    expect(screen.getByRole("tab", { name: /Everything/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getAllByRole("tab")[0]).toHaveTextContent("Everything");
+    expect(screen.getByRole("tab", { name: /Summary/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("tab")[0]).toHaveTextContent("Summary");
     const panel = screen.getByRole("tabpanel");
-    expect(within(panel).getByText("Water")).toBeInTheDocument();
-    expect(within(panel).getByText("Rent loan")).toBeInTheDocument();
+    expect(within(panel).getByText("You make it to payday")).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: /Bills/ })).toHaveAttribute("href", "/bills");
+    // What wants doing is Today's, the month's figures the month's.
+    expect(within(panel).queryByText("Water")).toBeNull();
+    expect(within(panel).queryByText("In this month")).toBeNull();
   });
 
-  it("shows this month on Today, and where it went adds up to what went out", async () => {
+  it("puts the tabs first, above every figure", () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /Today/ }));
+    const tabs = screen.getByRole("tablist");
+    const answer = screen.getByText("You make it to payday");
+    expect(tabs.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows each part on one tab only", async () => {
+    renderPage();
+    const seen = new Map<string, string>();
+    for (const tab of screen.getAllByRole("tab")) {
+      await userEvent.click(tab);
+      const text = screen.getByRole("tabpanel").textContent ?? "";
+      for (const part of ["You make it to payday", "In this month", "Nothing is late", "Needs attention", "Today ·", "Where it went"]) {
+        if (!text.includes(part)) continue;
+        expect(seen.get(part) ?? tab.textContent).toBe(tab.textContent);
+        seen.set(part, tab.textContent ?? "");
+      }
+    }
+  });
+
+  it("shows what wants doing on Today, and on The month where it went, adding up to what went out", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
+    expect(within(screen.getByRole("tabpanel")).getByText("Water")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /^Month$/ }));
     const panel = screen.getByRole("tabpanel");
-    expect(within(panel).getByText("Water")).toBeInTheDocument();
     expect(within(panel).getByText("🛒 Groceries")).toBeInTheDocument();
     // This month only: 150 in, 309,45 out — August does not count.
     expect(within(panel).getByText("€150.00")).toBeInTheDocument();
@@ -112,7 +138,7 @@ describe("the overview", () => {
     expect(within(panel).getAllByText("€309.45")).toHaveLength(2);
   });
 
-  it("says above every tab whether the money lasts to pay day — the Planner's figure", async () => {
+  it("says on Summary whether the money lasts to pay day — the Planner's figure", async () => {
     renderPage();
     // Second route: 3000 − 500 + 150 − 309,45 = 2340,55 in hand, less the
     // water (20th, late, so owed now) before pay on the 28th; the phone on the 30th is after.
@@ -123,10 +149,10 @@ describe("the overview", () => {
     expect(screen.getByText("Bills €68.40")).toBeInTheDocument();
 
     // The month tab keeps the month, and no second answer of its own.
-    await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Month$/ }));
     const panel = screen.getByRole("tabpanel");
     const text = panel.textContent ?? "";
-    expect(text.indexOf("Came in")).toBeLessThan(text.lastIndexOf("Water"));
+    expect(text.indexOf("In this month")).toBeLessThan(text.lastIndexOf("Water"));
     expect(within(panel).queryByText("€2272.15")).not.toBeInTheDocument();
     expect(within(panel).queryByText("Total income")).not.toBeInTheDocument();
   });
@@ -142,8 +168,9 @@ describe("the overview", () => {
     expect(screen.getByText(/You need €68.40 and have €50.00\. You go below zero on .*, at “Water”\./)).toBeInTheDocument();
   });
 
-  it("is for looking: no actions, every row of the list leads to its page", () => {
+  it("is for looking: no actions, every row of the list leads to its page", async () => {
     renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
     const panel = screen.getByRole("tabpanel");
     // Nothing to press on the list itself — paying is done on Πάγια, and so on.
     expect(within(panel).queryAllByRole("button")).toHaveLength(0);
@@ -153,9 +180,10 @@ describe("the overview", () => {
     expect(screen.queryByRole("button", { name: "New transaction" })).toBeNull();
   });
 
-  it("lists what was written down today", () => {
+  it("lists what was written down today", async () => {
     data.transactions = [...data.transactions, { ...tx("Coffee", "expense", 3.4, new Date(2026, 8, 26, 9)), categoryId: "shop" } as Transaction];
     renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText("Today · 1 entry")).toBeInTheDocument();
     expect(within(panel).getByText("Coffee")).toBeInTheDocument();
@@ -163,7 +191,7 @@ describe("the overview", () => {
 
   it("keeps the period dashboard, with its range picker and chart, in its own tab", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /Flow/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /Period/ }));
 
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText("Total income")).toBeInTheDocument();
@@ -172,7 +200,7 @@ describe("the overview", () => {
 
   it("shows the net position: cash less what is owed", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /Position/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /Net worth/ }));
 
     // 2340,55 cash − 300 owed = 2040,55.
     expect(within(screen.getByRole("tabpanel")).getAllByText("€2040.55").length).toBeGreaterThan(0);
@@ -180,7 +208,7 @@ describe("the overview", () => {
 
   it("links every tile to its page", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /Everything/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /Summary/ }));
 
     const hrefs = within(screen.getByRole("tabpanel"))
       .getAllByRole("link")
@@ -190,21 +218,20 @@ describe("the overview", () => {
 
   it("remembers the tab last chosen", async () => {
     const first = renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /Position/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /Net worth/ }));
     first.unmount();
 
     renderPage();
-    expect(screen.getByRole("tab", { name: /Position/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Net worth/ })).toHaveAttribute("aria-selected", "true");
   });
 
   it("says all clear when nothing wants doing", async () => {
     data.bills = [];
     data.debts = [];
     renderPage();
-    // One line, on Everything and on Today alike.
-    expect(screen.queryByText(/Needs you/)).not.toBeInTheDocument();
-    expect(screen.getByText("Nothing is late or due in the next week.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: /Today/ }));
+    // One line, on Today.
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
+    expect(screen.queryByText(/Needs attention/)).not.toBeInTheDocument();
 
     expect(screen.getByText("Nothing is late or due in the next week.")).toBeInTheDocument();
   });
@@ -222,19 +249,19 @@ describe("the overview", () => {
     expect((data.readings as CheckInReading[])[1].unlogged).toBeCloseTo(1800 - (2000 + 150 - 309.45), 2);
 
     renderPage();
-    // Under the figure, on every tab: how old the reading is and what it found.
+    // Under the figure, on Summary: how old the reading is and what it found.
     // 20 Sep 20:00 to 26 Sep 12:00 is five whole days and sixteen hours.
     expect(screen.getByText("Banks: 5 days ago")).toBeInTheDocument();
     const found = screen.getByRole("link", { name: /found €40.55 not written down/ });
     expect(found).toHaveAttribute("href", "/accounts");
 
-    await userEvent.click(screen.getByRole("tab", { name: /The month/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Month$/ }));
     const line = within(screen.getByRole("tabpanel")).getByRole("link", { name: /not written down/ });
     expect(line).toHaveTextContent("€40.55");
     expect(line).toHaveAttribute("href", "/accounts");
   });
 
-  it("shows pay the last bank reading may already hold, and points to «Έσοδα» to answer", () => {
+  it("shows pay the last bank reading may already hold, and points to «Έσοδα» to answer", async () => {
     // Pay is due on the 28th (the salary on «Έσοδα» above) and is not written down.
     // The banks were read on the 20th — on or after the 18th, the earliest it
     // could have come — so it may already be in the money the plan starts from.
@@ -243,6 +270,7 @@ describe("the overview", () => {
     data.accounts = accounts;
 
     renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
     const panel = screen.getByRole("tabpanel");
     // In «Έσοδα»'s own words, and answered there.
     const row = within(panel).getByRole("link", { name: /Salary: was it already in the bank?/ });
@@ -253,18 +281,20 @@ describe("the overview", () => {
     expect(saved.size).toBe(0);
   });
 
-  it("lists a late income as a row to «Έσοδα», and counts it in the answer as the Planner does", () => {
+  it("lists a late income as a row to «Έσοδα», and counts it in the answer as the Planner does", async () => {
     // The allowance of the 20th has not come: six days late. The plan holds it
     // on today, so the eve of pay day has it: 2.340,55 + 70 − the water 68,40.
     stored.incomes = [monthlySalary(1700, 28), monthlyIncome("allow", "Allowance", 70, 20)];
     renderPage();
+    // The answer on Summary, the row on To do.
+    expect(screen.getByText("€2342.15")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
     const panel = screen.getByRole("tabpanel");
     const row = within(panel).getByRole("link", { name: /Allowance/ });
     expect(row).toHaveAttribute("href", "/incomes");
     expect(row).toHaveTextContent("6 days late");
     expect(row).toHaveTextContent("€70.00");
     expect(2340.55 + 70 - 68.4).toBeCloseTo(2342.15, 2);
-    expect(screen.getByText("€2342.15")).toBeInTheDocument();
     // Still nothing to press.
     expect(within(panel).queryAllByRole("button")).toHaveLength(0);
   });

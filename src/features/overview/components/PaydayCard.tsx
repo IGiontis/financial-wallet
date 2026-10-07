@@ -129,6 +129,7 @@ export function PaydayCard({
   locale,
   className,
   cardRef,
+  split = false,
 }: {
   label: ReactNode;
   figure: number;
@@ -150,37 +151,66 @@ export function PaydayCard({
   locale: string;
   className?: string;
   cardRef?: Ref<HTMLDivElement>;
+  /**
+   * Two cards side by side — the money, and whether it lasts — from `lg` up,
+   * one over the other below it. The Overview has the width for it; the
+   * Planner's sheet does not, and keeps the one card.
+   */
+  split?: boolean;
 }) {
+  const money = (
+    <>
+      {top}
+      {/* The action shares the label's line, not the figure's: beside the
+          figure, "From my banks ▾" squeezed 1.000,00 € onto two lines on a
+          phone, and the line under it into a column. */}
+      <div className="d-flex justify-content-between align-items-center gap-3">
+        <p className={styles.heroLabel}>{label}</p>
+        {action}
+      </div>
+      {figureSlot ??
+        (isLoading ? (
+          <Skeleton height={38} width={180} style={{ marginBottom: 4 }} />
+        ) : (
+          <p className={styles.heroFigure} style={{ color: figure < 0 ? "var(--color-expense-text)" : undefined }}>
+            {formatCurrency(figure)}
+          </p>
+        ))}
+      {origin !== undefined && <p className="text-body-secondary mb-0 small">{isLoading ? <Skeleton width={200} /> : origin}</p>}
+
+      {between}
+    </>
+  );
+  const answer = (
+    <>
+      <PaydayAnswer outlook={outlook} now={now} formatCurrency={formatCurrency} locale={locale} />
+      {footer}
+    </>
+  );
+
+  if (split) {
+    return (
+      <div ref={cardRef} className={`row g-3 mb-3 ${className ?? ""}`}>
+        <div className="col-12 col-lg-5 d-flex">
+          <Card className="mb-0 w-100">
+            <CardBody className="p-3 p-sm-4">{money}</CardBody>
+          </Card>
+        </div>
+        <div className="col-12 col-lg-7 d-flex">
+          <Card className="mb-0 w-100">
+            <CardBody className="p-3 p-sm-4">{isLoading ? <Skeleton height={60} /> : answer}</CardBody>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={cardRef}>
       <Card className={`mb-3 ${className ?? ""}`}>
         <CardBody className="p-3 p-sm-4">
-          {top}
-          {/* The action shares the label's line, not the figure's: beside the
-              figure, "From my banks ▾" squeezed 1.000,00 € onto two lines on a
-              phone, and the line under it into a column. */}
-          <div className="d-flex justify-content-between align-items-center gap-3">
-            <p className={styles.heroLabel}>{label}</p>
-            {action}
-          </div>
-          {figureSlot ??
-            (isLoading ? (
-              <Skeleton height={38} width={180} style={{ marginBottom: 4 }} />
-            ) : (
-              <p className={styles.heroFigure} style={{ color: figure < 0 ? "var(--color-expense-text)" : undefined }}>
-                {formatCurrency(figure)}
-              </p>
-            ))}
-          {origin !== undefined && <p className="text-body-secondary mb-0 small">{isLoading ? <Skeleton width={200} /> : origin}</p>}
-
-          {between}
-
-          {!isLoading && (
-            <div className={styles.heroVerdict}>
-              <PaydayAnswer outlook={outlook} now={now} formatCurrency={formatCurrency} locale={locale} />
-              {footer}
-            </div>
-          )}
+          {money}
+          {!isLoading && <div className={styles.heroVerdict}>{answer}</div>}
         </CardBody>
       </Card>
     </div>

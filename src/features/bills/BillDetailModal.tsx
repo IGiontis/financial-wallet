@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, InputGroup, Row, Col } from "reactstrap";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiTrash2, FiX } from "react-icons/fi";
+import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
 import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 interface BillDetailModalProps {
   bill: BillWithStatus;
@@ -318,18 +319,14 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                   <button type="button" className={styles.paymentAction} onClick={() => startEdit(p)} aria-label={t("common.edit")} title={t("common.edit")}>
                     <FiEdit2 size={14} />
                   </button>
-                  <button
-                    type="button"
-                    className={styles.paymentAction + " " + styles.paymentActionDanger}
+                  <DeleteButton
+                    iconOnly
+                    size="sm"
                     onClick={() => {
                       setEditing(null);
                       setConfirmingDelete(p.id);
                     }}
-                    aria-label={t("common.delete")}
-                    title={t("common.delete")}
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
+                  />
                 </div>
               );
             })}
@@ -346,11 +343,8 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
           <Button color="secondary" outline onClick={() => onEdit(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
             {t("common.edit")}
           </Button>
-          {/* Icon-only: this is the destructive, less-common action, so it stays
-              visually quieter than Edit rather than matching its weight. */}
-          <Button color="danger" outline onClick={() => onDelete(bill)} disabled={isBusy} aria-label={t("common.delete")} title={t("common.delete")} className="flex-shrink-0">
-            <FiTrash2 size={15} />
-          </Button>
+          {/* The word from `sm` up; on a phone the bin alone keeps it beside Edit. */}
+          <DeleteButton wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />
         </div>
 
         {paid ? (

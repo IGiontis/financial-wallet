@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Row, Col, Card, CardBody, Table, Badge, Button, Alert, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
-import { FiEdit2, FiTrash2, FiUsers } from "react-icons/fi";
+import { FiEdit2, FiUsers } from "react-icons/fi";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
@@ -25,6 +25,7 @@ import styles from "./css/TransactionPage.module.css";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 const PAGE_SIZE = 15;
 
@@ -322,17 +323,7 @@ function TransactionCard({
         </Button>
         {/* A goal or investment mirror is deleted from its goal, like it is
             edited there: deleting it here left the contribution behind. */}
-        <Button
-          size="sm"
-          color="light"
-          disabled={isInvestment || tx.isGoalTransaction}
-          style={{ padding: "4px 8px", color: "var(--bs-danger)", opacity: isInvestment || tx.isGoalTransaction ? 0.35 : 1, cursor: isInvestment || tx.isGoalTransaction ? "not-allowed" : "pointer" }}
-          onClick={() => {
-            if (!isInvestment && !tx.isGoalTransaction) onDelete();
-          }}
-        >
-          <FiTrash2 size={13} />
-        </Button>
+        <DeleteButton iconOnly size="sm" disabled={isInvestment || tx.isGoalTransaction} onClick={onDelete} />
       </div>
     </div>
   );
@@ -729,23 +720,7 @@ export function TransactionsPage() {
                                     >
                                       <FiEdit2 size={13} />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      color="light"
-                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction}
-                                      style={{
-                                        padding: "2px 8px",
-                                        color: "var(--bs-danger)",
-                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction ? 0.35 : 1,
-                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction ? "not-allowed" : "pointer",
-                                      }}
-                                      onClick={() => {
-                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction) setDeleteTransaction(tx);
-                                      }}
-                                      title={t("common.delete")}
-                                    >
-                                      <FiTrash2 size={13} />
-                                    </Button>
+                                    <DeleteButton iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction} onClick={() => setDeleteTransaction(tx)} />
                                   </div>
                                 </td>
                               </tr>

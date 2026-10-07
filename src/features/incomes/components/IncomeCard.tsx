@@ -2,12 +2,13 @@ import { useMemo } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, FiRotateCcw, FiTrash2 } from "react-icons/fi";
+import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, FiRotateCcw } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { parseISOMonth } from "../../../shared/utils/dates";
 import { KIND_ICON, incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeArrival, type IncomeStatus } from "../incomesUtils";
 import { scheduleText, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 // Option 4, «Κάρτα ανά έσοδο»: what an income is, to read. How often it comes,
 // how much, where the money lands and when next; then six months of it in
@@ -219,10 +220,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
       <ModalFooter className="justify-content-between">
         {/* The word only where it fits: on a phone the three would not share a row. */}
         {onDelete ? (
-          <Button color="danger" outline onClick={() => onDelete(income)} aria-label={t("common.delete")} title={t("common.delete")}>
-            <FiTrash2 aria-hidden />
-            <span className="d-none d-sm-inline ms-1">{t("common.delete")}</span>
-          </Button>
+          <DeleteButton wordFromSm onClick={() => onDelete(income)} />
         ) : (
           <span />
         )}

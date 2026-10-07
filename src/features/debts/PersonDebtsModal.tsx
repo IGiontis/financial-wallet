@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
@@ -13,6 +13,7 @@ import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
 import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -225,9 +226,7 @@ function PaymentPanel({
           {t("common.save")}
         </Button>
         {onDelete && (
-          <Button color="danger" outline size="sm" onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason}>
-            <FiTrash2 size={13} aria-hidden /> {t("common.delete")}
-          </Button>
+          <DeleteButton size="sm" onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />
         )}
         {/* A cross rather than a word: at 375px "Cancel" beside the other two
             fell onto a line of its own. Tapping the row again closes it too. */}
@@ -710,9 +709,7 @@ export default function PersonDebtsModal({
                   <Button color="secondary" outline onClick={() => setEditing(debt)}>
                     <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
                   </Button>
-                  <Button color="danger" outline onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason}>
-                    <FiTrash2 size={14} aria-hidden /> {t("debts.deleteLoan")}
-                  </Button>
+                  <DeleteButton label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
                 </div>
                 {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
               </>

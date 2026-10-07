@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "../../../shared/types/IndexTypes";
@@ -35,6 +35,7 @@ export default function OverviewHero({
   now,
   formatCurrency,
   locale,
+  bankStrip,
 }: {
   balance: number;
   transactions: Transaction[];
@@ -48,6 +49,8 @@ export default function OverviewHero({
   now: Date;
   formatCurrency: Money;
   locale: string;
+  /** How fresh the banks reading is, inside the card it corrects rather than on a line of its own. */
+  bankStrip?: ReactNode;
 }) {
   const { t } = useTranslation();
 
@@ -57,6 +60,7 @@ export default function OverviewHero({
 
   return (
     <PaydayCard
+      split
       label={t("overview.currentBalance")}
       figure={balance}
       origin={moneyOrigin(t, { source, banks, inGoals, opening, locale, formatCurrency })}
@@ -72,11 +76,14 @@ export default function OverviewHero({
       // The reassurance that makes backfilling safe: those older records are
       // in the charts, they are simply not deducted twice.
       between={
-        excluded > 0 ? (
-          <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
-            ⓘ {t("overview.currentBalanceExcluded", { count: excluded })}
-          </p>
-        ) : undefined
+        <>
+          {excluded > 0 && (
+            <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
+              ⓘ {t("overview.currentBalanceExcluded", { count: excluded })}
+            </p>
+          )}
+          {bankStrip}
+        </>
       }
       // The way to the full walk, after the answer rather than beside it,
       // where it pushed the verdict onto two lines on a phone.

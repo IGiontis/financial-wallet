@@ -383,23 +383,9 @@ export const OverviewPage = () => {
         <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
       </div>
 
-      {/* The money now and whether it lasts, above every tab. */}
-      <OverviewHero
-        balance={balance}
-        transactions={transactions}
-        opening={opening}
-        source={openingSource}
-        isLoading={openingLoading}
-        banks={banksNow}
-        inGoals={inGoals}
-        outlook={outlook}
-        now={now}
-        formatCurrency={formatCurrency}
-        locale={locale}
-      />
-      <BankStrip hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />
 
-      {/* Labelled and full width, so on a phone each is a real target. */}
+      {/* First, under the page's name: which view is the first thing chosen.
+          Labelled and full width, so on a phone each is a real target. */}
       <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")}>
         {TABS.map(({ id, labelKey, icon: Icon }) => (
           <button
@@ -416,10 +402,41 @@ export const OverviewPage = () => {
         ))}
       </div>
 
+      {/* Each tab its own: nothing is shown on two of them. "All" is the
+          answer and the way out to every page; "Today" what needs doing and
+          what moved today; "The month" its in and out, where it went and its
+          bills in order; "Position" what you are worth and your goals. */}
+      {tab === "all" && (
+        <div className={styles.allStack} role="tabpanel">
+          <div>
+            <OverviewHero
+              bankStrip={<BankStrip inCard hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />}
+              balance={balance}
+              transactions={transactions}
+              opening={opening}
+              source={openingSource}
+              isLoading={openingLoading}
+              banks={banksNow}
+              inGoals={inGoals}
+              outlook={outlook}
+              now={now}
+              formatCurrency={formatCurrency}
+              locale={locale}
+            />
+          </div>
+          <TileGrid tiles={tiles} />
+        </div>
+      )}
+
       {tab === "today" && (
         <div className={styles.stack} role="tabpanel">
           {attentionList}
           <TodayPanel transactions={transactions} categories={categories} now={now} formatCurrency={formatCurrency} />
+        </div>
+      )}
+
+      {tab === "month" && (
+        <div className={styles.stack} role="tabpanel">
           <MonthInOut
             income={thisMonth.totalIncome}
             expenses={thisMonth.totalExpenses}
@@ -428,42 +445,22 @@ export const OverviewPage = () => {
             sub={outlook.known ? t("overview.paydayOn", { date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(outlook.date) }) : undefined}
           />
           <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
-          {goalsGlance}
+
+          {/* The month in order, last: the figures above answer "how is it
+              going", this is the detail for whoever wants the dates. */}
+          {bills.length > 0 && (
+            <Panel>
+              <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={locale} onOpenBill={() => navigate("/bills")} />
+            </Panel>
+          )}
         </div>
       )}
 
       {tab === "position" && (
         <div className={styles.stack} role="tabpanel">
           <PositionPanel series={position} formatCurrency={formatCurrency} locale={locale} />
-          <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses}
-            unlogged={monthUnlogged} formatCurrency={formatCurrency} />
-          <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
+          {goalsGlance}
         </div>
-      )}
-
-      {tab === "all" && (
-        <div className={styles.allStack} role="tabpanel">
-          {attentionList}
-          <TodayPanel transactions={transactions} categories={categories} now={now} formatCurrency={formatCurrency} />
-          <TileGrid tiles={tiles} />
-          <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
-        </div>
-      )}
-
-      {tab === "month" && (
-      <div className={styles.stack} role="tabpanel">
-        <MonthInOut income={thisMonth.totalIncome} expenses={thisMonth.totalExpenses}
-            unlogged={monthUnlogged} formatCurrency={formatCurrency} />
-        <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
-
-        {/* The month in order, last: the figures above answer "how is it
-            going", this is the detail for whoever wants the dates. */}
-        {bills.length > 0 && (
-          <Panel>
-            <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={locale} onOpenBill={() => navigate("/bills")} />
-          </Panel>
-        )}
-      </div>
       )}
 
       {tab === "flow" && (

@@ -31,9 +31,31 @@
   gap: 10px;
 }
 
+/* On a phone, two to a row — each box starts at half the width, and only one
+   whose figure will not fit in half takes the whole row (a figure is never
+   wrapped: `min-width: min-content` with the value kept on one line). The
+   chart always takes the row. */
+@media (max-width: 575.98px) {
+  .bento {
+    display: flex;
+    flex-wrap: wrap;
+  }
 
-.bento > * {
-  min-width: 0;
+  .bento > * {
+    flex: 1 1 calc(50% - 5px);
+    min-width: min-content;
+  }
+
+  .bento > .full {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 576px) {
+  .bento > * {
+    min-width: 0;
+  }
 }
 
 @media (min-width: 576px) {
@@ -140,6 +162,7 @@
 }
 
 .statValue {
+  white-space: nowrap;
   font-size: 18px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -197,27 +220,30 @@
 /* ── Today ────────────────────────────────────────────────────────────────── */
 
 .attention {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
 }
 
+/* One thing that wants doing, as a small box: the name, then its amount and
+   how late or how soon. */
 .attentionRow {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 8px 2px;
-  border-top: 1px solid var(--color-border-tertiary);
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
   color: inherit;
   text-decoration: none;
-}
-
-.attentionRow:first-child {
-  border-top: 0;
+  transition: border-color 0.15s ease;
 }
 
 .attentionRow:hover {
-  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  border-color: var(--color-text-secondary);
 }
 
 .attentionRow:focus-visible,
@@ -226,19 +252,34 @@
   outline-offset: 2px;
 }
 
-.attentionName {
+.attentionTop {
   display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.attentionName {
   min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
+}
+
+.attentionBottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
 }
 
 .attentionAmount {
-  flex-shrink: 0;
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -252,6 +293,82 @@
   font-size: 20px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── The month's in and out, as one card ─────────────────────────────────── */
+
+.inOut {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.inOutSide {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.inOutIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.inOutText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.inOutLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.inOutValue {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.inOutNote {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.inOutBar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin: 14px 0 8px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.inOutBar > span {
+  border-radius: 3px;
+}
+
+.inOutNet {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 400px) {
+  .inOutValue {
+    font-size: 17px;
+  }
 }
 
 /* ── The month / position ─────────────────────────────────────────────────── */
@@ -492,6 +609,11 @@
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   font-size: 13px;
+}
+
+/* Under the figure inside the money card: it corrects that figure. */
+.stripInCard {
+  margin: 12px 0 0;
 }
 
 .stripText {

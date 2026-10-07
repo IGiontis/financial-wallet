@@ -14,11 +14,14 @@ import styles from "../pages/css/OverviewPage.module.css";
  * has been entered, so the whole strip is the way there rather than a button.
  */
 export default function BankStrip({
+  inCard = false,
   hasAccounts,
   latest,
   age,
   formatCurrency,
 }: {
+  /** Inside the money card, under its figure, rather than on a line of its own. */
+  inCard?: boolean;
   hasAccounts: boolean;
   latest?: CheckInReading;
   /** Whole days since the latest reading. */
@@ -29,7 +32,7 @@ export default function BankStrip({
 
   if (!hasAccounts || !latest || age === undefined) {
     return (
-      <Link to="/accounts" className={`${styles.strip} ${styles.stripNeutral} text-decoration-none`}>
+      <Link to="/accounts" className={`${styles.strip} ${styles.stripNeutral} ${inCard ? styles.stripInCard : ""} text-decoration-none`}>
         <span className={styles.stripText}>{t("overview.stripNone")}</span>
         <FiChevronRight size={16} className="flex-shrink-0" aria-hidden />
       </Link>
@@ -47,7 +50,7 @@ export default function BankStrip({
         : undefined;
 
   return (
-    <Link to="/accounts" className={`${styles.strip} ${stale ? styles.stripStale : styles.stripFresh} text-decoration-none`}>
+    <Link to="/accounts" className={`${styles.strip} ${stale ? styles.stripStale : styles.stripFresh} ${inCard ? styles.stripInCard : ""} text-decoration-none`}>
       <span className={styles.stripText}>
         <span className="fw-semibold">{age === 0 ? t("overview.stripToday") : t("overview.stripAgo", { count: age })}</span>
         {found && (

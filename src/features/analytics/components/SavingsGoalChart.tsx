@@ -6,6 +6,7 @@ import type { SavingsGoal } from "../dashboardUtils";
 import { AXIS_TICK, GRID_STROKE } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 import styles from "./css/Dashboard.module.css";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 interface Point {
   label: string;
@@ -149,18 +150,14 @@ export function SavingsGoalControl({ goal, onSave }: { goal?: SavingsGoal; onSav
         {t("common.cancel")}
       </Button>
       {goal && (
-        <Button
-          type="button"
-          color="danger"
-          outline
+        <DeleteButton
           size="sm"
+          label={t("analytics.dashboard.goalRemove")}
           onClick={() => {
             onSave(undefined);
             setEditing(false);
           }}
-        >
-          {t("analytics.dashboard.goalRemove")}
-        </Button>
+        />
       )}
       {error && <p className={styles.goalError}>{t("analytics.dashboard.goalInvalid")}</p>}
     </form>

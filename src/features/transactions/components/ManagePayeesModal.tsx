@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Input, InputGroup, FormFeedback } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiEdit2, FiTrash2, FiPlus, FiCheck, FiX } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiCheck, FiX } from "react-icons/fi";
 import { validatePayee, MAX_PAYEE_LENGTH, type PayeeError } from "../payeeStore";
 import styles from "./css/ManagePayeesModal.module.css";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 const ERROR_KEY: Record<PayeeError, string> = {
   empty: "validation.nameRequired",
@@ -174,19 +175,15 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
                   >
                     <FiEdit2 size={13} />
                   </Button>
-                  <Button
-                    color="light"
+                  <DeleteButton
+                    iconOnly
                     size="sm"
-                    className="text-danger"
-                    aria-label={t("transactions.deletePayee", { name })}
-                    title={t("common.delete")}
+                    ariaLabel={t("transactions.deletePayee", { name })}
                     onClick={() => {
                       setEditing(null);
                       setConfirmDelete(name);
                     }}
-                  >
-                    <FiTrash2 size={13} />
-                  </Button>
+                  />
                 </div>
               );
             })}

@@ -7,6 +7,7 @@ import { parseAmount, type MoneyAccount, type MoneyAccountKind } from "./account
 import { BankCard } from "./BankCard";
 import { CARD_COLORS, CARD_FINISH, type CardColor } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 export interface AccountDraft {
   name: string;
@@ -150,9 +151,7 @@ export default function AccountModal({
                 </div>
               </>
             ) : (
-              <Button size="sm" color="danger" outline onClick={() => setConfirming(true)}>
-                {t("accounts.delete")}
-              </Button>
+              <DeleteButton size="sm" label={t("accounts.delete")} onClick={() => setConfirming(true)} />
             )}
           </div>
         )}

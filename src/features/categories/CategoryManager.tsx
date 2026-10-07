@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2 } from "react-icons/fi";
 import { groupCategories, type CategoryGroup } from "../../shared/utils/categoryNames";
 import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useCategoryGroupUsage } from "../transactions/hooks/useTransactions";
 import CategoryModal from "./CategoryModal";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
+import { DeleteButton } from "../../shared/components/DeleteButton";
 
 /** Badge wording per scope — "both" is the one worth calling out. */
 const SCOPE_LABEL = { expense: "transactions.expense", income: "transactions.income", both: "categories.both" } as const;
@@ -94,9 +95,7 @@ export default function CategoryManager() {
               <Button color="secondary" outline size="sm" onClick={() => setEditing(group)} aria-label={t("common.edit")} title={t("common.edit")}>
                 <FiEdit2 size={13} />
               </Button>
-              <Button color="danger" outline size="sm" onClick={() => askDelete(group)} aria-label={t("common.delete")} title={t("common.delete")}>
-                <FiTrash2 size={13} />
-              </Button>
+              <DeleteButton iconOnly size="sm" onClick={() => askDelete(group)} />
             </div>
           ))}
         </div>

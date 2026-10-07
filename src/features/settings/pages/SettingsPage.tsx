@@ -26,6 +26,7 @@ import { useSignOut } from "../../layout/useProfile";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
 import { FiLogOut } from "react-icons/fi";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -685,9 +686,7 @@ export function SettingsPage() {
                     <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
                       {t("settings.dangerZoneBody")}
                     </p>
-                    <Button color="danger" outline onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason}>
-                      {t("settings.deleteAccount")}
-                    </Button>
+                    <DeleteButton label={t("settings.deleteAccount")} onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
                   </CardBody>
                 </Card>
               </Col>

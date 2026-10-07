@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiCheckCircle, FiChevronRight } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiCheckCircle, FiChevronRight } from "react-icons/fi";
 import { Sparkline } from "./Sparkline";
 import type { AttentionItem } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
@@ -90,14 +90,18 @@ export function AttentionList({
       </Badge>
     );
 
+  // A small box each: the name over the amount, the tag beside it. A full-width
+  // row for "Water · 2 days late · 60 €" left a wide screen mostly empty.
   const row = (key: string, to: string, name: ReactNode, tag: ReactNode, amount: number) => (
     <Link key={key} to={to} className={styles.attentionRow}>
-      <span className={styles.attentionName}>
-        <span className="text-truncate">{name}</span>
+      <span className={styles.attentionTop}>
+        <span className={styles.attentionName}>{name}</span>
+        <FiChevronRight size={15} className="text-body-secondary flex-shrink-0" aria-hidden />
+      </span>
+      <span className={styles.attentionBottom}>
+        <span className={styles.attentionAmount}>{formatCurrency(amount)}</span>
         {tag}
       </span>
-      <span className={styles.attentionAmount}>{formatCurrency(amount)}</span>
-      <FiChevronRight size={16} className="text-body-secondary flex-shrink-0" aria-hidden />
     </Link>
   );
 
@@ -208,31 +212,74 @@ export function TodayPanel({ transactions, categories, now, formatCurrency }: { 
  */
 export function MonthInOut({ income, expenses, formatCurrency, sub, unlogged = 0 }: { income: number; expenses: number; formatCurrency: Money; sub?: string; unlogged?: number }) {
   const { t } = useTranslation();
-  return (
-    <div className={styles.pair}>
-      <Panel title={t("overview.cameIn")}>
-        <div className={styles.pairValue} style={{ color: "var(--color-income-text)" }}>
-          {formatCurrency(income)}
-        </div>
-        {sub && <div className="small text-body-secondary">{sub}</div>}
-        {unlogged > 0 && (
-          <Link to="/accounts" className="small text-decoration-none d-block" style={{ color: "var(--color-income-text)" }}>
-            {t("overview.unloggedIn", { amount: formatCurrency(unlogged) })}
-          </Link>
-        )}
-      </Panel>
-      <Panel title={t("overview.wentOut")}>
-        <div className={styles.pairValue} style={{ color: "var(--color-expense-text)" }}>
-          {formatCurrency(expenses)}
-        </div>
-        <div className="small text-body-secondary">{t("overview.soFarThisMonth")}</div>
-        {unlogged < 0 && (
-          <Link to="/accounts" className="small text-decoration-none d-block" style={{ color: "var(--color-expense-text)" }}>
-            {t("overview.unloggedOut", { amount: formatCurrency(-unlogged) })}
-          </Link>
-        )}
-      </Panel>
+  const net = Math.round((income - expenses) * 100) / 100;
+  const whole = income + expenses;
+
+  // One side of the card: an arrow in its colour, and beside it what it is,
+  // how much, and the line under that — read across, not down a column.
+  const side = (tone: "income" | "expense", label: string, amount: number, note?: ReactNode) => (
+    <div className={styles.inOutSide}>
+      <span className={styles.inOutIcon} style={{ color: `var(--color-${tone}-text)`, background: `color-mix(in srgb, var(--color-${tone}) 14%, transparent)` }} aria-hidden>
+        {tone === "income" ? <FiArrowDownLeft size={18} /> : <FiArrowUpRight size={18} />}
+      </span>
+      <span className={styles.inOutText}>
+        <span className={styles.inOutLabel}>{label}</span>
+        <span className={styles.inOutValue} style={{ color: `var(--color-${tone}-text)` }}>
+          {formatCurrency(amount)}
+        </span>
+        {note}
+      </span>
     </div>
+  );
+
+  return (
+    <Card className="mb-0">
+      <CardBody className="p-3">
+        <div className={styles.inOut}>
+          {side(
+            "income",
+            t("overview.cameIn"),
+            income,
+            <>
+              {sub && <span className={styles.inOutNote}>{sub}</span>}
+              {unlogged > 0 && (
+                <Link to="/accounts" className={`${styles.inOutNote} text-decoration-none`} style={{ color: "var(--color-income-text)" }}>
+                  {t("overview.unloggedIn", { amount: formatCurrency(unlogged) })}
+                </Link>
+              )}
+            </>,
+          )}
+          {side(
+            "expense",
+            t("overview.wentOut"),
+            expenses,
+            <>
+              <span className={styles.inOutNote}>{t("overview.soFarThisMonth")}</span>
+              {unlogged < 0 && (
+                <Link to="/accounts" className={`${styles.inOutNote} text-decoration-none`} style={{ color: "var(--color-expense-text)" }}>
+                  {t("overview.unloggedOut", { amount: formatCurrency(-unlogged) })}
+                </Link>
+              )}
+            </>,
+          )}
+        </div>
+
+        {/* The two against each other, and what is left between them. */}
+        {whole > 0 && (
+          <div className={styles.inOutBar} aria-hidden>
+            <span style={{ width: `${(income / whole) * 100}%`, background: "var(--color-income)" }} />
+            <span style={{ width: `${(expenses / whole) * 100}%`, background: "var(--color-expense)" }} />
+          </div>
+        )}
+        <div className={styles.inOutNet}>
+          <span>{t("overview.monthNet")}</span>
+          <span style={{ color: net > 0 ? "var(--color-income-text)" : net < 0 ? "var(--color-expense-text)" : undefined }}>
+            {net > 0 ? "+" : net < 0 ? "−" : ""}
+            {formatCurrency(Math.abs(net))}
+          </span>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
