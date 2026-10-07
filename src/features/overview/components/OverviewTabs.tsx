@@ -348,6 +348,8 @@ export interface OverviewTile {
   value: string;
   sub: string;
   tone?: string;
+  /** Lines under the figure that add up to it — "you owe 300", "owed to you 500". */
+  rows?: { label: string; value: string; tone?: string }[];
 }
 
 /** One tile per part of the app, each with the one figure that matters there. */
@@ -364,6 +366,16 @@ export function TileGrid({ tiles }: { tiles: OverviewTile[] }) {
             {tile.value}
           </span>
           <span className={styles.tileSub}>{tile.sub}</span>
+          {tile.rows && (
+            <span className={styles.tileRows}>
+              {tile.rows.map((row) => (
+                <span key={row.label} className={styles.tileRow}>
+                  <span>{row.label}</span>
+                  <span style={{ color: row.tone }}>{row.value}</span>
+                </span>
+              ))}
+            </span>
+          )}
         </Link>
       ))}
     </div>

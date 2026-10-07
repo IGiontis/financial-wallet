@@ -233,7 +233,11 @@
     "yesterdayLast": "Yesterday · {{name}} · {{amount}}",
     "allEntries": "All ›",
     "waitsForAnswer": "Needs an answer",
-    "monthNet": "Difference"
+    "monthNet": "Difference",
+    "tileDebtOwe": "You owe",
+    "tileDebtLent": "Owed to you",
+    "tileDebtNetIn": "net in your favour",
+    "tileDebtNetOut": "net you owe"
   },
   "bills": {
     "title": "Bills",
@@ -929,7 +933,8 @@
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
     "rangeAllDates": "All dates",
-    "debtLocked": "Written by a loan. Change or delete it on Debts & loans."
+    "debtLocked": "Written by a loan. Change or delete it on Debts & loans.",
+    "loanMove": "Loan"
   },
   "analytics": {
     "title": "Analytics",

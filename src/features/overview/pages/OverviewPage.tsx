@@ -48,6 +48,7 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { AttentionList, MonthInOut, Panel, PositionPanel, SpendingPanel, TileGrid, TodayPanel, type OverviewTile } from "../components/OverviewTabs";
 import { PageShell } from "../../../shared/components/PageShell";
 import { findCategory } from "../../../shared/utils/categories";
+import { debtTotals, debtsByPerson } from "../../debts/debtsUtils";
 
 // recharts is by far the heaviest thing on this page. Loading it separately lets
 // the metric cards and goal list paint first instead of waiting on the chart.
@@ -113,6 +114,8 @@ export const OverviewPage = () => {
   const { format: formatCurrency } = useCurrencyConverter();
   const { data: bills = [] } = useBills();
   const { data: debts = [] } = useDebts();
+  // What is still open each way — the same figures the Debts page heads with.
+  const openDebts = useMemo(() => debtTotals(debtsByPerson(debts)), [debts]);
   const { opening, anchors, source: openingSource, isLoading: openingLoading } = useOpeningBalance();
   const { accounts, readings, latest: lastReading } = useMoneyAccounts();
   // The incomes on «Έσοδα»: the ones late or waiting for the bank question go
@@ -311,7 +314,24 @@ export const OverviewPage = () => {
       ? { to: "/bills", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)" }
       : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)" },
     { to: "/transactions", label: t("nav.transactions"), value: formatCurrency(thisMonth.totalExpenses), sub: t("overview.soFarThisMonth") },
-    { to: "/debts", label: t("nav.debts"), value: formatCurrency(lastPosition?.owedByMe ?? 0), sub: t("overview.tileOwed"), tone: (lastPosition?.owedByMe ?? 0) > 0 ? "var(--color-expense-text)" : undefined },
+    // Only with a debt still open: an empty "0,00 € you owe" was a tile about nothing.
+    // Both sides and what they come to — the net is what you would be left
+    // with if everything were settled today.
+    ...(openDebts.owedByMe > 0 || openDebts.owedToMe > 0
+      ? [
+          {
+            to: "/debts",
+            label: t("nav.debts"),
+            value: `${openDebts.net > 0 ? "+" : openDebts.net < 0 ? "−" : ""}${formatCurrency(Math.abs(openDebts.net))}`,
+            sub: t(openDebts.net >= 0 ? "overview.tileDebtNetIn" : "overview.tileDebtNetOut"),
+            tone: openDebts.net > 0 ? "var(--color-income-text)" : openDebts.net < 0 ? "var(--color-expense-text)" : undefined,
+            rows: [
+              { label: t("overview.tileDebtOwe"), value: formatCurrency(openDebts.owedByMe), tone: openDebts.owedByMe > 0 ? "var(--color-expense-text)" : undefined },
+              { label: t("overview.tileDebtLent"), value: formatCurrency(openDebts.owedToMe), tone: openDebts.owedToMe > 0 ? "var(--color-income-text)" : undefined },
+            ],
+          },
+        ]
+      : []),
     goalProgress.target > 0
       ? { to: "/goals", label: t("nav.goals"), value: `${goalProgress.percent}%`, sub: t("overview.tileGoalsOf", { saved: formatCurrency(goalProgress.saved), target: formatCurrency(goalProgress.target) }), tone: "var(--color-goal)" }
       : { to: "/goals", label: t("nav.goals"), value: formatCurrency(lastPosition?.saved ?? 0), sub: t("overview.tileSaved"), tone: "var(--color-invest)" },

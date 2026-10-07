@@ -728,7 +728,7 @@ export function TransactionsPage() {
                                           color: tx.type === "income" ? "var(--color-income)" : "var(--color-expense)",
                                         }}
                                       >
-                                        {tx.type === "income" ? t("transactions.income") : t("transactions.expense")}
+                                        {isDebtTransfer(tx) ? t("transactions.loanMove") : tx.type === "income" ? t("transactions.income") : t("transactions.expense")}
                                       </span>
                                     )}
                                     {tx.isGoalTransaction && (
@@ -765,8 +765,8 @@ export function TransactionsPage() {
                                       disabled={tx.isInvestmentTransaction || tx.isGoalTransaction || !!tx.debtId}
                                       style={{
                                         padding: "2px 8px",
-                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction ? 0.35 : 1,
-                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction ? "not-allowed" : "pointer",
+                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction || tx.debtId ? 0.35 : 1,
+                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction || tx.debtId ? "not-allowed" : "pointer",
                                       }}
                                       onClick={() => {
                                         if (!tx.isInvestmentTransaction && !tx.isGoalTransaction && !tx.debtId) setEditTransaction(tx);

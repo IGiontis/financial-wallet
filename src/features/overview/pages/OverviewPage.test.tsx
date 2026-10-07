@@ -306,4 +306,23 @@ describe("the overview", () => {
     renderPage();
     expect(screen.queryByText(/was it already in the bank/)).toBeNull();
   });
+
+  it("shows the debts tile only with a debt open, both sides and what they come to", async () => {
+    // Owed 300 to Nikos (the fixture), and 500 lent to Maria: +200 in my favour.
+    data.debts = [
+      ...data.debts,
+      computeDebtStatus({ id: "lent", userId: "u", person: "Maria", direction: "owed_to_me", amount: 500, date: new Date(2026, 7, 1), createdAt: new Date(2026, 7, 1), updatedAt: new Date(2026, 7, 1) } as Debt, [], NOW),
+    ];
+    const first = renderPage();
+    const tile = screen.getByRole("link", { name: /Debts/ });
+    expect(tile).toHaveTextContent("+€200.00");
+    expect(tile).toHaveTextContent("You owe€300.00");
+    expect(tile).toHaveTextContent("Owed to you€500.00");
+    expect(500 - 300).toBe(200);
+    first.unmount();
+
+    data.debts = [];
+    renderPage();
+    expect(screen.queryByRole("link", { name: /Debts/ })).toBeNull();
+  });
 });
