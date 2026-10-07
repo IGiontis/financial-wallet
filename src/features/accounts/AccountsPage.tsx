@@ -164,7 +164,7 @@ export function AccountsPage() {
   }
 
   const updateButton = (
-    <Button color="primary" size="lg" className="w-100 fw-semibold" onClick={() => setReading(true)}>
+    <Button color="primary" className="w-100 fw-semibold" onClick={() => setReading(true)}>
       <FiRefreshCw size={17} className="me-2" aria-hidden />
       {t("accounts.update")}
     </Button>
@@ -174,9 +174,10 @@ export function AccountsPage() {
     <PageShell>
       <Header
         action={
-          <Button color="primary" outline onClick={() => setEditing("new")} className="text-nowrap">
-            <FiPlus size={16} className="me-1" aria-hidden />
-            {t("accounts.add")}
+          // The app's one "add" button: solid, "+ name" — a bare "+" on a phone.
+          <Button color="primary" onClick={() => setEditing("new")} className="flex-shrink-0 text-nowrap" aria-label={t("accounts.add")}>
+            <span className="d-none d-sm-inline">+ {t("accounts.add")}</span>
+            <span className="d-sm-none">+</span>
           </Button>
         }
       />
@@ -276,7 +277,10 @@ export function AccountsPage() {
         </Col>
 
         <Col lg={5}>
-          <div className="d-none d-lg-block mb-3">{updateButton}</div>
+          {/* In the page, on every screen, at the size of every other button.
+              Docked to the foot of a phone it stayed over the page as it
+              scrolled and ran under the corner bubble. */}
+          <div className="mb-3">{updateButton}</div>
 
           <LatestFinding latest={latest} count={readings.length} formatCurrency={formatCurrency} dayFmt={dayFmt} />
 
@@ -342,11 +346,6 @@ export function AccountsPage() {
           </details>
         </Col>
       </Row>
-
-      {/* On a phone the button is docked under the thumb for the whole page.
-          Last in the page on purpose: a sticky element only sticks within its
-          parent, and this one's parent is the whole page. */}
-      <div className={`d-lg-none ${styles.dock}`}>{updateButton}</div>
 
       {reading && (
         <CheckInModal

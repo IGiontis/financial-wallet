@@ -16,6 +16,7 @@ import {
   billOverdue,
   billUrgency,
   cadenceTone,
+  type CashCheckpoint,
   groupByCadence,
   cashRunway,
   daysUntilDeadline,
@@ -57,6 +58,8 @@ import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
 import SettleOverdueModal from "./SettleOverdueModal";
+import ActiveBillsModal from "./ActiveBillsModal";
+import RunwaySheet from "./RunwaySheet";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
@@ -75,9 +78,8 @@ const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-
  * with three weeks of grace does not need the money today, and a subscription
  * due on the 15th absolutely does.
  */
-function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; formatCurrency: (n: number) => string }) {
+function CashRunway({ checkpoints, formatCurrency, onOpen }: { checkpoints: CashCheckpoint[]; formatCurrency: (n: number) => string; onOpen: (index: number) => void }) {
   const { t, i18n } = useTranslation();
-  const checkpoints = useMemo(() => cashRunway(bills), [bills]);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
 
@@ -85,7 +87,7 @@ function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; format
 
   return (
     <div className={styles.runway}>
-      {checkpoints.map((checkpoint) => {
+      {checkpoints.map((checkpoint, index) => {
         // Colour tracks time pressure, not strictness — nearly every list has a
         // strict bill somewhere in it, so keying off that would paint all three
         // amber and say nothing. The lock icon carries strictness instead.
@@ -93,7 +95,8 @@ function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; format
         const color = checkpoint.overdue ? "var(--color-expense)" : daysAway <= URGENT_DAYS ? "var(--color-goal)" : "var(--color-text-primary)";
 
         return (
-          <div key={checkpoint.date.toISOString()} className={styles.runwayBox}>
+          // A button: which bills make the figure, and how much each, is one tap away.
+          <button key={checkpoint.date.toISOString()} type="button" className={`${styles.runwayBox} ${styles.runwayBoxTappable}`} onClick={() => onOpen(index)}>
             <div className={styles.runwayDate}>{checkpoint.overdue ? t("bills.runwayNow") : t("bills.runwayBy", { date: dateFmt.format(checkpoint.date) })}</div>
             <div className={styles.runwayAmount} style={{ color }}>
               {formatCurrency(checkpoint.cumulative)}
@@ -102,7 +105,7 @@ function CashRunway({ bills, formatCurrency }: { bills: BillWithStatus[]; format
               {checkpoint.strictCount > 0 && <FiLock size={9} className="me-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} aria-hidden />}
               {t("bills.runwayBillCount", { count: checkpoint.cumulativeCount })}
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -348,11 +351,14 @@ function QuickStats({
   formatCurrency,
   onOpenActive,
   onOpenOverdue,
+  onOpenNext,
 }: {
   bills: BillWithStatus[];
   formatCurrency: (n: number) => string;
   onOpenActive: () => void;
   onOpenOverdue: () => void;
+  /** What the next payment's day holds: every bill on it, and what they come to. */
+  onOpenNext: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const active = bills.filter((b) => b.isActive);
@@ -385,7 +391,7 @@ function QuickStats({
       // "Three late" is a headline; which three is what you act on.
       onClick: overdueCount > 0 ? onOpenOverdue : undefined,
     },
-    { value: nextValue, label: t("bills.nextUp"), color: nextColor, sub: nextSub },
+    { value: nextValue, label: t("bills.nextUp"), color: nextColor, sub: nextSub, onClick: nextBill ? onOpenNext : undefined },
     {
       // A tilde, because neither figure is firm: variable bills carry an
       // estimate, and anything not billed monthly is an average spread over the
@@ -1009,6 +1015,9 @@ export default function BillsPage() {
   // view can ask for any of the twelve.
   const [breakdownMonth, setBreakdownMonth] = useState<number | null>(null);
   const [showActive, setShowActive] = useState(false);
+  // One of the "now / by …" figures opened, or the next payment's day: the
+  // first checkpoints through the one tapped.
+  const [runwayOpen, setRunwayOpen] = useState<{ upTo: number; title: string } | null>(null);
   const [showOverdue, setShowOverdue] = useState(false);
   // Below the desktop breakpoint the year sat under the whole list, which meant
   // scrolling past every bill to reach it. Two views, one at a time.
@@ -1081,6 +1090,8 @@ export default function BillsPage() {
 
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
+  const runway = useMemo(() => cashRunway(bills), [bills]);
+  const runwayDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const activeBills = useMemo(() => bills.filter((b) => b.isActive).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent), [bills]);
   const late = useMemo(() => overdueBills(bills), [bills]);
   const shortDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
@@ -1192,7 +1203,13 @@ export default function BillsPage() {
           <Col xs={12} lg={7} xl={8}>
             <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(0)} />
             {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(1)} />}
-            <QuickStats bills={bills} formatCurrency={formatCurrency} onOpenActive={() => setShowActive(true)} onOpenOverdue={() => setShowOverdue(true)} />
+            <QuickStats
+              bills={bills}
+              formatCurrency={formatCurrency}
+              onOpenActive={() => setShowActive(true)}
+              onOpenOverdue={() => setShowOverdue(true)}
+              onOpenNext={() => setRunwayOpen({ upTo: 0, title: t("bills.nextUp") })}
+            />
 
             {/* On a phone the two halves of this page take turns.
 
@@ -1231,7 +1248,13 @@ export default function BillsPage() {
               <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
             ) : (
               <>
-                <CashRunway bills={bills} formatCurrency={formatCurrency} />
+                <CashRunway
+                  checkpoints={runway}
+                  formatCurrency={formatCurrency}
+                  onOpen={(index) =>
+                    setRunwayOpen({ upTo: index, title: runway[index].overdue ? t("bills.runwayNow") : t("bills.runwayBy", { date: runwayDateFmt.format(runway[index].date) }) })
+                  }
+                />
 
                 {/* Full width on a phone, where three icon-sized targets side by
                     side are a game of chance; tucked to the right once there is
@@ -1311,20 +1334,28 @@ export default function BillsPage() {
       {/* Every active bill in one place, reached from the count that names
           them. The same component the yearly projection opens a category into —
           it is the same question asked of a different set. */}
-      {showActive && (
-        <CategoryBillsModal
-          label={t("bills.activeBillsTitle")}
-          icon="🧾"
-          bills={activeBills}
-          yearlyAmount={activeBills.reduce((sum, b) => sum + b.monthlyEquivalent * 12, 0)}
-          formatCurrency={formatCurrency}
-          onClose={() => setShowActive(false)}
-          onOpenBill={(bill) => {
-            setShowActive(false);
-            setDetailBill(bill);
-          }}
-        />
-      )}
+      <ActiveBillsModal
+        isOpen={showActive}
+        bills={activeBills}
+        formatCurrency={formatCurrency}
+        onClose={() => setShowActive(false)}
+        onOpenBill={(bill) => {
+          setShowActive(false);
+          setDetailBill(bill);
+        }}
+      />
+
+      {/* What a "now / by …" figure is made of, or the next payment's day. */}
+      <RunwaySheet
+        checkpoints={runwayOpen ? runway.slice(0, runwayOpen.upTo + 1) : []}
+        title={runwayOpen?.title ?? ""}
+        formatCurrency={formatCurrency}
+        onClose={() => setRunwayOpen(null)}
+        onOpenBill={(bill) => {
+          setRunwayOpen(null);
+          setDetailBill(bill);
+        }}
+      />
 
       {/* The late ones, from the count that says how many. Same list as the
           active bills, told what matters here instead: how late, and what it

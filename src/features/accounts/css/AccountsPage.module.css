@@ -138,25 +138,6 @@
   white-space: nowrap;
 }
 
-/* ── The update button ────────────────────────────────────────────────────── */
-/* On a phone it stays under the thumb while the page scrolls. On a wide screen
-   it sits in its column like any other button. */
-
-/* A solid bar, not a floating button. Floating, the text of the page showed
-   around it and under it as it scrolled past — in an installed PWA it read as
-   the button lying on top of the words. On the page's own colour, with a rule
-   above, the page scrolls cleanly underneath, and the padding keeps the button
-   clear of the home indicator. */
-.dock {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  margin-top: 0.25rem;
-  padding: 0.625rem 0 calc(0.625rem + env(safe-area-inset-bottom, 0px));
-  background: var(--color-background-primary);
-  border-top: 1px solid var(--color-border-tertiary);
-}
-
 /* ── The reading form ─────────────────────────────────────────────────────── */
 
 .readInput {

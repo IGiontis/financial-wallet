@@ -954,6 +954,8 @@ export interface CashCheckpoint {
   strictCount: number;
   /** True when this checkpoint carries bills whose deadline has already gone. */
   overdue: boolean;
+  /** What each bill brings to it — the rows its sheet lists, adding up to `amount`. */
+  items: { bill: BillWithStatus; amount: number; overdue: boolean }[];
 }
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -963,8 +965,9 @@ export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limi
 
   const byDate = new Map<string, CashCheckpoint>();
   const add = (date: Date, bill: BillWithStatus, amount: number, overdue: boolean) => {
-    const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false };
+    const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false, items: [] };
     if (!entry.bills.includes(bill)) entry.bills.push(bill);
+    entry.items.push({ bill, amount, overdue });
     entry.amount = round2(entry.amount + amount);
     if (overdue) entry.overdue = true;
     byDate.set(dayKey(date), entry);

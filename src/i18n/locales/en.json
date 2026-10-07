@@ -498,7 +498,11 @@
     "settleOverdueConfirm_other": "Mark {{count}} as paid",
     "settleOverdueFailed": "Not saved. Check your connection and try again.",
     "noTransaction": "no transaction",
-    "deletePaymentNoTxConfirm": "Delete this payment? It wrote no expense, so only the period goes back to unpaid."
+    "deletePaymentNoTxConfirm": "Delete this payment? It wrote no expense, so only the period goes back to unpaid.",
+    "runwayOverdueNow": "Now · overdue",
+    "runwayLate": "overdue",
+    "runwayHeroNote_one": "for {{count}} bill",
+    "runwayHeroNote_other": "for {{count}} bills"
   },
   "incomes": {
     "title": "Income",
@@ -1048,7 +1052,7 @@
       "total": "Total {{amount}}",
       "end": "End {{amount}}",
       "trioTitle": "Month by month",
-      "trioHint": "What each month kept. Tap for the details",
+      "trioHint": "What each month kept",
       "trioChartsHint": "Three charts, the same months: point at one and it lights up in all three",
       "linesHint": "Values on the highest, the lowest and the latest point",
       "planTitle": "Spending: actual, plan, last year",

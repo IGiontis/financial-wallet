@@ -1776,3 +1776,189 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+/* The "now / by …" boxes open what their figure is made of. */
+.runwayBoxTappable {
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.runwayBoxTappable:hover {
+  border-color: var(--color-text-secondary);
+}
+
+/* ── What a runway figure is made of ─────────────────────────────────────── */
+/* A narrow sheet: the figure, then each day as a dated group of bill rows. */
+
+.runwaySheet {
+  border-radius: var(--border-radius-lg);
+}
+
+.runwaySheetTitle {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.runwayHero {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.runwayHeroAmount {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.runwayHeroNote {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.runwayGroup + .runwayGroup {
+  margin-top: 1rem;
+}
+
+.runwayGroupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.runwayDateChip {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.runwayDateChip::first-letter {
+  text-transform: uppercase;
+}
+
+.runwayDateChipLate {
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
+  color: var(--color-expense-text);
+}
+
+.runwayGroupTotal {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.runwayRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.runwayRow:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.runwayRowName {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.runwayRowTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.runwayRowNote {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.runwayRowAmount {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.runwayRowChevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+/* ── Every active bill, as small cards ───────────────────────────────────── */
+
+.activeCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.activeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.activeCard:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.activeCardName {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.activeCardChip {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The heading of a group of bill cards: how often, as a chip. */
+.cadenceChip {
+  font-size: 12px;
+  font-weight: 700;
+}
