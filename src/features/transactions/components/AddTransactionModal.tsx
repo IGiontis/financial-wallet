@@ -5,7 +5,6 @@ import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
-import { format } from "date-fns";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
@@ -26,6 +25,7 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
+import { formatTable } from "../transactionDates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Tr
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={format(new Date(values.date), "dd/MM/yyyy")}
+      dateFormatted={formatTable(new Date(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
     />

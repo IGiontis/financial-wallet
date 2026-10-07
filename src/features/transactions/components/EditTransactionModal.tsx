@@ -17,7 +17,6 @@ import { adjustCheckInsForEdit } from "../../accounts/accountsUtils";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
-import { format } from "date-fns";
 import { FuelDetailsPanel } from "../../categories/FuelDetailsPanel";
 import { formatUnitPrice, fuelTypeLabelKey, getUnitLabel } from "../../categories/fuelTypes";
 import { intlLocale } from "../../../i18n";
@@ -27,6 +26,7 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
+import { formatTable } from "../transactionDates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Ed
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={format(new Date(values.date), "dd/MM/yyyy")}
+      dateFormatted={formatTable(new Date(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
     />

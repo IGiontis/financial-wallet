@@ -31,8 +31,8 @@ export function formatDisplay(d: Date, lang: string): string {
 /** Greek months as they are shortened in writing — "Σεπτ", where Intl gives "Σεπ". */
 const GREEK_MONTHS = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μαΐ", "Ιουν", "Ιουλ", "Αυγ", "Σεπτ", "Οκτ", "Νοε", "Δεκ"];
 
-/** A record's date: "12, Σεπτ 2026" — the day, then the month and year. */
+/** A record's date: "06, Οκτ 2026" — the day in two digits, then the month and year. */
 export function formatTable(d: Date, lang: string): string {
   const month = lang.startsWith("el") ? GREEK_MONTHS[d.getMonth()] : d.toLocaleDateString(lang, { month: "short" });
-  return `${d.getDate()}, ${month} ${d.getFullYear()}`;
+  return `${String(d.getDate()).padStart(2, "0")}, ${month} ${d.getFullYear()}`;
 }

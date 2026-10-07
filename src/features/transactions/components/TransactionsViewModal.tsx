@@ -1,7 +1,6 @@
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "reactstrap";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
@@ -20,6 +19,7 @@ import {
   GOAL_COLORS,
   INVESTMENT_COLORS,
 } from "./reviewPalettes";
+import { formatTable } from "../transactionDates";
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -163,7 +163,7 @@ export default function TransactionViewModal({
           colors={colors}
           amount={tx.amount}
           formatAmount={formatCurrency}
-          dateFormatted={format(firestoreToDate(tx.date), "dd/MM/yyyy")}
+          dateFormatted={formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
           notes={tx.notes}
           fuelCells={fuelCells}
           hideCategoryLabel={isGoal || isInvestment}
