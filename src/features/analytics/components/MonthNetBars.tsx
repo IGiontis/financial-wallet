@@ -11,13 +11,13 @@ export interface NetBar {
 /**
  * What each month kept, as one row of bars about a zero line — the glance
  * the "month by month" card gives. No scale, grid or tooltip: the card is a
- * way into the full figures, not where they are read, so the whole drawing
- * answers a tap by opening them (see `ChartCard`'s `details`).
+ * glance, and the eye in its corner opens the full figures (see `ChartCard`'s
+ * `details`).
  */
 export default function MonthNetBars({ data }: { data: NetBar[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
-      {/* No accessibility layer: the card around it is the one control. */}
+      {/* No accessibility layer: nothing in it answers a key — the eye in the card's corner does. */}
       <BarChart data={data} margin={{ top: 8, right: 4, left: 4, bottom: 0 }} accessibilityLayer={false}>
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={4} interval="preserveStartEnd" minTickGap={10} />
         <ReferenceLine y={0} stroke={GRID_STROKE} />

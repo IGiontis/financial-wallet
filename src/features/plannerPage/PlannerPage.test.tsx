@@ -455,3 +455,29 @@ describe("a row the app keeps", () => {
     expect(settings.get("planner-skip")).toEqual(["power"]);
   });
 });
+
+describe("month by month", () => {
+  it("lists each month as its end figure, and opens it as every move adding up to that figure", async () => {
+    renderPage();
+    const months = screen.getAllByRole("button", { name: /: ends on .*, details$/ });
+    expect(months.length).toBeGreaterThan(1);
+    // The last month ends where the whole period does.
+    expect(months.at(-1)).toHaveTextContent("€2595.00");
+
+    for (const month of months) {
+      const end = month.textContent!.match(/€[\d.]+/)![0];
+      await userEvent.click(month);
+      const sheet = screen.getByRole("dialog");
+      // The second way: what it starts with, plus every row, lands on its last row.
+      const amounts = within(sheet)
+        .getAllByText(money)
+        .map((el) => el.textContent ?? "")
+        // Past the three figures at the top: in, out, the end.
+        .slice(3);
+      expect(amounts.at(-1)).toBe(end);
+      expect(sumOf(amounts.slice(0, -1))).toBe(Number(end.slice(1)));
+      await closeSheet();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    }
+  });
+});

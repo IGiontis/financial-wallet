@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import styles from "./css/Analytics.module.css";
@@ -27,8 +27,8 @@ interface ChartCardProps {
   footer?: ReactNode;
   /**
    * A fuller view the sheet shows in place of the card's drawing. With it the
-   * card keeps to a glance, and its whole drawing is the way in: a tap
-   * anywhere on it opens the figures, so it must not answer taps of its own.
+   * card keeps to a glance; the eye in its corner opens the figures. Only the
+   * eye: a tap on the drawing itself is a tap on the chart.
    */
   details?: { content: ReactNode; hint?: string };
   children: ReactNode;
@@ -75,11 +75,6 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
   const toneColor = valueTone === "income" ? "var(--color-income)" : valueTone === "expense" ? "var(--color-expense)" : "var(--color-text-primary)";
   const canZoom = zoomable && !empty;
   const openable = canZoom && !!details;
-  const openOnKey = (e: KeyboardEvent) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    e.preventDefault();
-    setZoomed(true);
-  };
 
   return (
     <section ref={ref} className={`${styles.card} ${wide ? styles.wide : ""}`}>
@@ -112,8 +107,7 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
       </div>
 
       <div
-        className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""} ${openable ? styles.openable : ""}`}
-        {...(openable && { role: "button", tabIndex: 0, "aria-label": t("analytics.openDetails", { title }), onClick: () => setZoomed(true), onKeyDown: openOnKey })}
+        className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""}`}
       >
         {empty ? <p className={styles.emptyNote}>{empty}</p> : visible ? children : null}
       </div>

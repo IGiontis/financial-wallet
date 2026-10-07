@@ -309,21 +309,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                   <ZoomButton onClick={() => setZoom("time")} label={t("analytics.openDetails", { title: t("transactions.overTime") })} />
                 </div>
 
-                {/* The bars are a way into their figures, like every card on the page. */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className={styles.openable}
-                  aria-label={t("analytics.openDetails", { title: t("transactions.overTime") })}
-                  onClick={() => setZoom("time")}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter" && e.key !== " ") return;
-                    e.preventDefault();
-                    setZoom("time");
-                  }}
-                >
-                  {renderTime(false)}
-                </div>
+                {renderTime(false)}
               </div>
             </div>
 

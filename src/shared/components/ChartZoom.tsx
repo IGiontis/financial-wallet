@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiMaximize2 } from "react-icons/fi";
+import { FiEye } from "react-icons/fi";
 import styles from "../css/ChartZoom.module.css";
 
 /**
@@ -23,7 +23,8 @@ export function ZoomButton({ onClick, label, className }: { onClick: () => void;
 
   return (
     <button type="button" className={`${styles.expand} ${className ?? ""}`} onClick={onClick} aria-label={text} title={text}>
-      <FiMaximize2 size={14} aria-hidden />
+      {/* An eye, not "enlarge": what opens is the full working, not the same drawing bigger. */}
+      <FiEye size={15} aria-hidden />
     </button>
   );
 }

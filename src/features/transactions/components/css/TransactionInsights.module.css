@@ -244,17 +244,6 @@
   font-weight: 600;
 }
 
-/* The card's bars open their sheet: the whole drawing is the button. */
-.openable {
-  cursor: pointer;
-  border-radius: var(--border-radius-sm);
-}
-
-.openable:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
-}
-
 /* ── Bar readout ──────────────────────────────────────────────────────────── */
 /* Above the chart, not under the finger: on a phone the thing you are pressing
    is the thing you cannot see. */

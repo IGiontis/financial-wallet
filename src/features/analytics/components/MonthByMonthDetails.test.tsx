@@ -32,28 +32,22 @@ beforeAll(async () => {
 const details = <MonthByMonthDetails ledger={ledger} trio={[]} formatCurrency={format} monthLabel={label} />;
 
 describe("the month-by-month card", () => {
-  it("keeps the figures off the card and opens them on a tap anywhere on the drawing", () => {
+  it("keeps the figures off the card, and opens them only from the eye in its corner", () => {
     render(
       <ChartCard title="Month by month" details={{ content: details }}>
         <div>bars</div>
       </ChartCard>,
     );
     expect(screen.queryByText("Every month")).toBeNull();
-    // Two ways in: the drawing itself, and the button in the header.
-    expect(screen.getAllByRole("button", { name: "Month by month: details" })).toHaveLength(2);
 
+    // A tap on the drawing is a tap on the chart, not a way into the sheet.
     fireEvent.click(screen.getByText("bars"));
-    expect(screen.getByText("Every month")).toBeInTheDocument();
-  });
+    expect(screen.queryByText("Every month")).toBeNull();
 
-  it("opens from the keyboard too", () => {
-    render(
-      <ChartCard title="Month by month" details={{ content: details }}>
-        <div>bars</div>
-      </ChartCard>,
-    );
-    const drawing = screen.getAllByRole("button", { name: "Month by month: details" }).find((el) => el.tagName === "DIV")!;
-    fireEvent.keyDown(drawing, { key: "Enter" });
+    // One way in: the button in the header.
+    const eye = screen.getByRole("button", { name: "Month by month: details" });
+    expect(eye.tagName).toBe("BUTTON");
+    fireEvent.click(eye);
     expect(screen.getByText("Every month")).toBeInTheDocument();
   });
 });
