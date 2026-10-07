@@ -358,3 +358,23 @@
     padding: 0 12px;
   }
 }
+
+/* The language: a round flag, the same size as the theme button beside it. */
+.languageToggle {
+  padding: 0;
+}
+
+.languageToggle svg {
+  display: block;
+  border-radius: 50%;
+}
+
+/* Between light/dark and the language — on every screen and every navigation
+   style, unlike the divider before the account, which some styles hide. */
+.controlDivider {
+  flex: none;
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--color-border-tertiary);
+}

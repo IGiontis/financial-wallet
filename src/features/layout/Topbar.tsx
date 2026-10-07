@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { MENU_DIVIDER, RowMenu } from "../../shared/components/RowMenu";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import { useProfile, useSignOut } from "./useProfile";
+import { LanguageToggle } from "./LanguageToggle";
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -54,6 +55,10 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
           >
             {theme === "dark" ? <FiSun aria-hidden /> : <FiMoon aria-hidden />}
           </Button>
+
+          {/* The two display controls, kept apart: light/dark | language. */}
+          <span className={styles.controlDivider} aria-hidden />
+          <LanguageToggle />
 
           {/* Α parts the account from the controls with a hairline; the other
               styles draw the account as a shape of its own and hide this. */}

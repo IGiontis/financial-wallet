@@ -75,7 +75,9 @@
     "incomesWaiting_one": "{{count}} income needs a look",
     "incomesWaiting_other": "{{count}} incomes need a look",
     "mainNavigation": "Main navigation",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "switchToEnglish": "Switch to English",
+    "switchToGreek": "Switch to Greek"
   },
   "auth": {
     "welcomeBack": "Welcome back",

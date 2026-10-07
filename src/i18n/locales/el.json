@@ -75,7 +75,9 @@
     "incomesWaiting_one": "{{count}} έσοδο θέλει ματιά",
     "incomesWaiting_other": "{{count}} έσοδα θέλουν ματιά",
     "mainNavigation": "Κύριο μενού",
-    "closeMenu": "Κλείσιμο μενού"
+    "closeMenu": "Κλείσιμο μενού",
+    "switchToEnglish": "Αλλαγή σε Αγγλικά",
+    "switchToGreek": "Αλλαγή σε Ελληνικά"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",
