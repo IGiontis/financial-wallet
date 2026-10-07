@@ -914,7 +914,16 @@
     "payeeSuggested": "Frequent payees",
     "payeeAll": "All…",
     "payeeRecent": "Recent",
-    "payeeSearch": "Search payees…"
+    "payeeSearch": "Search payees…",
+    "rangeThisMonth": "This month",
+    "rangeLastMonth": "Last month",
+    "rangeThreeMonths": "3 months",
+    "rangeThisYear": "This year",
+    "rangeAll": "All",
+    "rangeCustom": "From–To…",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "rangeAllDates": "All dates"
   },
   "analytics": {
     "title": "Analytics",

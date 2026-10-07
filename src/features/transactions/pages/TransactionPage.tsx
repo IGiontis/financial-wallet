@@ -521,6 +521,12 @@ export function TransactionsPage() {
     onToChange: handleToChange,
     onDaySelect: handleDaySelect,
   };
+  // Both ends at once: set one after the other, the second was checked against
+  // the first's old value, and stepping back a month refused its own end.
+  const handleRangeChange = useCallback((range: { from: Date | null; to: Date | null }) => {
+    setFromDate(range.from);
+    setToDate(range.to);
+  }, []);
 
   return (
     <PageShell>
@@ -753,7 +759,7 @@ export function TransactionsPage() {
             <Skeleton height={230} style={{ borderRadius: "var(--border-radius-md)" }} />
           </SkeletonCard>
         ) : (
-          <MobileCalendar {...calendarProps} />
+          <MobileCalendar {...calendarProps} onRangeChange={handleRangeChange} />
         )}
         {/* Search gets its own line: at 375px it was sharing a row with a
             select and two buttons, which left every one of them too narrow to

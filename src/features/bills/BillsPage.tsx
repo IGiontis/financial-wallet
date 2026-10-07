@@ -1002,6 +1002,7 @@ export default function BillsPage() {
   const [editBill, setEditBill] = useState<Bill | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BillWithStatus | null>(null);
   const [detailBill, setDetailBill] = useState<BillWithStatus | null>(null);
+
   const [openCategory, setOpenCategory] = useState<{ id: string; label: string } | null>(null);
   const [payingBill, setPayingBill] = useState<BillWithStatus | null>(null);
   // The month chosen from the year grid, if the form was opened that way.
@@ -1339,10 +1340,9 @@ export default function BillsPage() {
         bills={activeBills}
         formatCurrency={formatCurrency}
         onClose={() => setShowActive(false)}
-        onOpenBill={(bill) => {
-          setShowActive(false);
-          setDetailBill(bill);
-        }}
+        // Opened over the list, which stays open under it: closing the bill
+        // leaves you where you were in the list, scroll and all.
+        onOpenBill={setDetailBill}
       />
 
       {/* What a "now / by …" figure is made of, or the next payment's day. */}
@@ -1351,10 +1351,7 @@ export default function BillsPage() {
         title={runwayOpen?.title ?? ""}
         formatCurrency={formatCurrency}
         onClose={() => setRunwayOpen(null)}
-        onOpenBill={(bill) => {
-          setRunwayOpen(null);
-          setDetailBill(bill);
-        }}
+        onOpenBill={setDetailBill}
       />
 
       {/* The late ones, from the count that says how many. Same list as the
@@ -1386,10 +1383,7 @@ export default function BillsPage() {
             };
           }}
           onClose={() => setShowOverdue(false)}
-          onOpenBill={(bill) => {
-            setShowOverdue(false);
-            setDetailBill(bill);
-          }}
+          onOpenBill={setDetailBill}
         />
       )}
 
@@ -1402,10 +1396,7 @@ export default function BillsPage() {
         yearlyAmount={categoryBills.reduce((sum, b) => sum + b.monthlyEquivalent * 12, 0)}
         formatCurrency={formatCurrency}
         onClose={() => setOpenCategory(null)}
-        onOpenBill={(bill) => {
-          setOpenCategory(null);
-          setDetailBill(bill);
-        }}
+        onOpenBill={setDetailBill}
       />
 
       {liveDetailBill && (

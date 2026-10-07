@@ -6,6 +6,9 @@ import type { Transaction } from "../../../shared/types/IndexTypes";
 import { firestoreToDate, parseISODay, standaloneMonthName, toISODay } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { isSameDay, midnight, toDateKey, formatDisplay } from "../transactionDates";
+import { FiCalendar, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { matchPreset, presetRange, rangeMonth, stepMonth, type DateRange, type RangePreset } from "../dateRanges";
+import styles from "./css/MobileDateFilter.module.css";
 
 export interface CalendarProps {
   allTransactions: Transaction[];
@@ -327,85 +330,81 @@ export function TransactionCalendar(props: {
   );
 }
 
-export function MobileCalendar(props: {
-  allTransactions: Transaction[];
-  fromDate: Date | null;
-  toDate: Date | null;
-  onFromChange: (d: Date | null) => void;
-  onToChange: (d: Date | null) => void;
-  onDaySelect: (d: Date) => void;
-}) {
+/**
+ * The phone's date filter: a month you step through, the usual spans one tap
+ * away, and any other From–To in a sheet.
+ *
+ * It was two narrow boxes, "From 01 Jan 2026" and "To 07 Oct 2026", each
+ * wrapped onto three lines, and a calendar of days behind them — so looking
+ * at September meant opening the calendar and tapping two days. Now ‹ › steps
+ * a whole month at a time, the chips set this month, last month, three
+ * months, the year or everything, and "From–To…" opens the calendar with its
+ * two date fields for anything else.
+ */
+export function MobileCalendar(props: CalendarProps & { onRangeChange: (range: DateRange) => void }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const [expanded, setExpanded] = useState(false);
-  const hasFilter = !!(props.fromDate || props.toDate);
+  const [now] = useState(() => new Date());
+  const range: DateRange = { from: props.fromDate, to: props.toDate };
+  const chosen = matchPreset(range, now);
+  const month = rangeMonth(range, now);
+  const back = stepMonth(range, -1, now);
+  const forward = stepMonth(range, 1, now);
+
+  // What the filter shows, said once: a month by its name, any other span by its ends.
+  const summary = month
+    ? `${standaloneMonthName(lang, new Date(month.year, month.month, 1))} ${month.year}`
+    : range.from || range.to
+      ? `${range.from ? formatDisplay(range.from, lang) : "…"} – ${range.to ? formatDisplay(range.to, lang) : "…"}`
+      : t("transactions.rangeAllDates");
+
+  const presets: { id: RangePreset; label: string }[] = [
+    { id: "thisMonth", label: t("transactions.rangeThisMonth") },
+    { id: "lastMonth", label: t("transactions.rangeLastMonth") },
+    { id: "threeMonths", label: t("transactions.rangeThreeMonths") },
+    { id: "thisYear", label: t("transactions.rangeThisYear") },
+    { id: "all", label: t("transactions.rangeAll") },
+  ];
+
   return (
     <Card className="border-0 shadow-sm mb-3" style={{ flexShrink: 0 }}>
       <CardBody className="p-3">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ display: "flex", gap: 8, flex: 1 }}>
-            {(["from", "to"] as const).map((which) => {
-              const date = which === "from" ? props.fromDate : props.toDate;
-              const label = which === "from" ? t("transactions.dateFrom") : t("transactions.dateTo");
-              return (
-                <div
-                  key={which}
-                  style={{
-                    flex: 1,
-                    border: `1px solid ${date ? "var(--color-accent-strong)" : "var(--color-border-primary)"}`,
-                    borderRadius: 8,
-                    padding: "6px 10px",
-                    background: date ? "var(--color-accent-strong)" : "var(--color-background-secondary)",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setExpanded(true)}
-                >
-                  <div style={{ fontSize: 9, color: date ? "color-mix(in srgb, var(--color-accent-on-strong) 70%, transparent)" : "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em" }}>{localeUpperCase(label, lang)}</div>
-                  <div style={{ fontSize: 12, color: date ? "var(--color-accent-on-strong)" : "var(--color-text-secondary)", fontWeight: date ? 500 : 400 }}>{date ? formatDisplay(date, lang) : t("transactions.anyDate")}</div>
-                </div>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            style={{
-              // The active fill is dark in BOTH themes, so its label must stay
-              // light — using the accent's on-colour turned it dark-on-dark.
-              background: expanded ? "var(--color-tooltip-bg)" : "var(--color-background-secondary)",
-              border: "none",
-              borderRadius: 8,
-              padding: "8px 12px",
-              cursor: "pointer",
-              fontSize: 13,
-              color: expanded ? "var(--color-tooltip-text)" : "var(--color-text-secondary)",
-              fontWeight: 500,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            {expanded ? t("transactions.hideCalendar") : t("transactions.showCalendar")}
+        <div className={styles.monthStepper}>
+          <button type="button" className={styles.stepButton} onClick={() => back && props.onRangeChange(back)} disabled={!back} aria-label={t("transactions.previousMonth")}>
+            <FiChevronLeft size={18} aria-hidden />
           </button>
-          {hasFilter && (
-            <button
-              onClick={() => {
-                props.onFromChange(null);
-                props.onToChange(null);
-              }}
-              style={{
-                background: "none",
-                border: "1px solid var(--color-border-tertiary)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                cursor: "pointer",
-                fontSize: 12,
-                color: "var(--color-text-secondary)",
-                flexShrink: 0,
-              }}
-            >
-              {t("transactions.clear")}
-            </button>
-          )}
+          <button type="button" className={styles.stepLabel} onClick={() => setExpanded(true)} aria-label={t("transactions.pickDates")}>
+            <span className={styles.stepLabelText}>{summary}</span>
+            <FiCalendar size={14} aria-hidden />
+          </button>
+          <button type="button" className={styles.stepButton} onClick={() => forward && props.onRangeChange(forward)} disabled={!forward} aria-label={t("transactions.nextMonth")}>
+            <FiChevronRight size={18} aria-hidden />
+          </button>
         </div>
+
+        <div className={styles.rangeChips} role="group" aria-label={t("transactions.pickDates")}>
+          {presets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              aria-pressed={chosen === preset.id}
+              className={`${styles.rangeChip} ${chosen === preset.id ? styles.rangeChipActive : ""}`}
+              onClick={() => props.onRangeChange(presetRange(preset.id, now))}
+            >
+              {preset.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={!chosen && !month}
+            className={`${styles.rangeChip} ${!chosen && !month ? styles.rangeChipActive : ""}`}
+            onClick={() => setExpanded(true)}
+          >
+            {t("transactions.rangeCustom")}
+          </button>
+        </div>
+
         {/* A sheet rather than an inline panel: the mobile screen is a fixed-
             height column, so expanding in place stole the room from the list
             below until it had none left — opening the calendar hid the very

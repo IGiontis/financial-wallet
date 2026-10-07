@@ -105,7 +105,9 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered size="md" scrollable>
+    // A step above the default: it opens over the lists of bills (active,
+    // late, a category, a "by …" figure), which stay open under it.
+    <Modal isOpen toggle={onClose} centered size="md" scrollable zIndex={1060}>
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           {bill.name}

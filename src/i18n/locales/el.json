@@ -914,7 +914,16 @@
     "payeeSuggested": "Συχνοί δικαιούχοι",
     "payeeAll": "Όλοι…",
     "payeeRecent": "Πρόσφατοι",
-    "payeeSearch": "Αναζήτηση δικαιούχου…"
+    "payeeSearch": "Αναζήτηση δικαιούχου…",
+    "rangeThisMonth": "Αυτός ο μήνας",
+    "rangeLastMonth": "Προηγούμενος",
+    "rangeThreeMonths": "3 μήνες",
+    "rangeThisYear": "Φέτος",
+    "rangeAll": "Όλα",
+    "rangeCustom": "Από–Έως…",
+    "previousMonth": "Προηγούμενος μήνας",
+    "nextMonth": "Επόμενος μήνας",
+    "rangeAllDates": "Όλες οι ημερομηνίες"
   },
   "analytics": {
     "title": "Στατιστικά",
