@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import { FiPlus } from "react-icons/fi";
 import type { Category, CreateTransactionDTO } from "../../shared/types/IndexTypes";
 import GapRecordSheet from "./GapRecordSheet";
-import { parseAmount, type MoneyAccount } from "./accountsUtils";
+import { parseAmount, type MoneyAccount, type PendingRecord } from "./accountsUtils";
+import { firestoreToDate } from "../../shared/utils/dates";
+
+/** How many records a row lists before it says how many more. */
+const PENDING_SHOWN = 3;
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 
@@ -23,10 +27,15 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * was while the person is here — see `GapRecordSheet`. Doing so moves what the
  * app expected by the same amount, so the difference closes by itself; leaving
  * it alone keeps it a difference.
+ *
+ * Under each account, the records its prefilled figure already counts — see
+ * `pendingByAccount`. A record with no card is counted on the main account and
+ * says so; when the bank's figure will not match, that line is usually why.
  */
 export default function CheckInModal({
   accounts,
   expected,
+  pending = {},
   tones,
   baseCurrency,
   formatCurrency,
@@ -38,6 +47,8 @@ export default function CheckInModal({
   accounts: MoneyAccount[];
   /** Account id → what the app expects now. Empty when there is nothing to expect. */
   expected: Record<string, number>;
+  /** Account id → the records since the last reading counted in its figure. */
+  pending?: Record<string, PendingRecord[]>;
   tones: Record<string, string>;
   baseCurrency: string;
   formatCurrency: (n: number) => string;
@@ -64,6 +75,7 @@ export default function CheckInModal({
   const total = round2(parsed.reduce((sum, p) => sum + (p.value ?? 0), 0));
   const difference = round2(total - expectedTotal);
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
+  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short" }), [i18n.resolvedLanguage]);
   const toneOf = (n: number) => (n < 0 ? "var(--color-expense-text)" : n > 0 ? "var(--color-income-text)" : undefined);
 
   const save = () => {
@@ -99,6 +111,20 @@ export default function CheckInModal({
                     </span>
                   ))}
               </label>
+              {(pending[account.id]?.length ?? 0) > 0 && (
+                <div className={styles.pending}>
+                  <span className={styles.pendingHead}>{t("accounts.pendingIncludes")}</span>
+                  <ul className={styles.pendingList}>
+                    {pending[account.id].slice(0, PENDING_SHOWN).map(({ tx, delta, assumed }) => (
+                      <li key={tx.id}>
+                        <span style={{ color: toneOf(delta) }}>{signed(delta)}</span> · {tx.description || t("accounts.pendingNoName")} · {dayFmt.format(firestoreToDate(tx.date))}
+                        {assumed && <span className={styles.pendingNoCard}>{t("accounts.pendingNoCard")}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                  {pending[account.id].length > PENDING_SHOWN && <span className={styles.pendingHead}>{t("accounts.pendingMore", { count: pending[account.id].length - PENDING_SHOWN })}</span>}
+                </div>
+              )}
               {change !== 0 && (
                 <button type="button" className={styles.gapAsk} onClick={() => setGap({ account, change })}>
                   <FiPlus size={13} aria-hidden /> {t(change < 0 ? "accounts.gap.askOut" : "accounts.gap.askIn")}

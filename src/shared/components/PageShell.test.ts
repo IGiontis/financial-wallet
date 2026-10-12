@@ -24,7 +24,9 @@ const routes = readFileSync(resolve(src, "lib/lazyRoutes.ts"), "utf8");
 /** Every page module the router can land on, straight from the route table. */
 const pageFiles = [...routes.matchAll(/import\("\.\.\/([^"]+)"\)/g)]
   .map((match) => match[1])
-  .filter((path) => !path.includes("/auth/"));
+  // Signing in and the legal pages stand outside the app's shell on purpose:
+  // they are reached signed out, where there is no menu to sit beside.
+  .filter((path) => !path.includes("/auth/") && !path.includes("/legal/"));
 
 describe("page width", () => {
   it("finds the pages to check", () => {

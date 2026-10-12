@@ -2190,6 +2190,28 @@
       "add": "Add",
       "skip": "Skip",
       "failed": "It was not saved. Try again."
-    }
+    },
+    "pendingIncludes": "Counted in this figure:",
+    "pendingNoName": "no description",
+    "pendingNoCard": "no card · counted here",
+    "pendingMore_one": "and {{count}} more",
+    "pendingMore_other": "and {{count}} more",
+    "fixReading": "Correct this update",
+    "acceptGap": "That's right, keep it",
+    "fixTitle": "Correct the update · {{date}}",
+    "fixHint": "The figures as you entered them that day. Change any that were wrong — money that was on another card than the one you typed, say.",
+    "fixWas": "you entered {{amount}}",
+    "fixGapLabel": "Difference after the correction"
+  },
+  "legal": {
+    "terms": "Terms of Use",
+    "privacy": "Privacy Policy",
+    "noTracking": "No tracking or advertising cookies.",
+    "back": "Back",
+    "updated": "Last updated: {{date}}",
+    "contact": "Contact:",
+    "consent": "I am 18 or over and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+    "consentNeeded": "Please confirm this to create an account.",
+    "signInNotice": "By continuing you confirm you are 18 or over and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>."
   }
 }

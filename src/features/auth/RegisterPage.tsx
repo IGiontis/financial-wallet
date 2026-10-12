@@ -9,6 +9,8 @@ import { createUser } from "../../firebase/firestore";
 import { ensureGoogleProfile } from "./googleProfile";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import styles from "./css/Auth.module.css";
+import { LegalLinks } from "../legal/LegalLinks";
+import { AgeTermsConsent } from "../legal/AgeTermsConsent";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -55,6 +57,14 @@ export default function RegisterPage() {
   const { t, i18n } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Ticked before either way of signing up goes ahead — see `AgeTermsConsent`.
+  const [accepted, setAccepted] = useState(false);
+  const [askedToAccept, setAskedToAccept] = useState(false);
+  /** False, and the box marked, when it is not ticked yet. */
+  const consentGiven = () => {
+    if (!accepted) setAskedToAccept(true);
+    return accepted;
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -68,6 +78,7 @@ export default function RegisterPage() {
     validationSchema,
     onSubmit: async (values) => {
       setError(null);
+      if (!consentGiven()) return;
       try {
         const firebaseUser = await registerWithEmail(values.email, values.password);
         await createUser(firebaseUser.uid, {
@@ -86,6 +97,7 @@ export default function RegisterPage() {
 
   const handleGoogleRegister = async () => {
     setError(null);
+    if (!consentGiven()) return;
     setGoogleLoading(true);
     try {
       const firebaseUser = await loginWithGoogle();
@@ -124,6 +136,15 @@ export default function RegisterPage() {
                     {t(error)}
                   </Alert>
                 )}
+
+                <AgeTermsConsent
+                  checked={accepted}
+                  invalid={askedToAccept && !accepted}
+                  onChange={(next) => {
+                    setAccepted(next);
+                    if (next) setAskedToAccept(false);
+                  }}
+                />
 
                 <Button
                   type="button"
@@ -249,6 +270,9 @@ export default function RegisterPage() {
                   <Link to="/login" className="fw-medium text-decoration-none">
                     {t("auth.signIn")}
                   </Link>
+                </p>
+                <p className="text-center mt-3 mb-0">
+                  <LegalLinks promise={false} />
                 </p>
               </CardBody>
             </Card>

@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { loginWithEmail, loginWithGoogle } from "../../firebase/auth";
 import { ensureGoogleProfile } from "./googleProfile";
 import styles from "./css/Auth.module.css";
+import { AgeTermsNotice } from "../legal/AgeTermsConsent";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -158,6 +159,7 @@ export default function LoginPage() {
                     {t("auth.createOne")}
                   </Link>
                 </p>
+                <AgeTermsNotice />
               </CardBody>
             </Card>
           </Col>

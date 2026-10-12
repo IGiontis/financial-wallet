@@ -6,6 +6,7 @@ import { lazy } from "react";
 
 export const OverviewPage = lazy(() => import("../features/overview/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })));
 export const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
+export const LegalPage = lazy(() => import("../features/legal/LegalPage"));
 export const NewTransactionPage = lazy(() => import("../features/transactions/pages/NewTransactionPage").then((m) => ({ default: m.NewTransactionPage })));
 export const AnalyticsPage = lazy(() => import("../features/analytics/pages/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })));
 export const GoalsPage = lazy(() => import("../features/goals/GoalsPage"));

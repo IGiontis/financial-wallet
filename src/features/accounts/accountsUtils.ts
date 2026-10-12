@@ -42,7 +42,18 @@ export interface BalanceCheckIn {
   at: string;
   /** Account id → balance read off the bank. */
   amounts: Record<string, number>;
+  /**
+   * The difference this reading found, as it stood when the owner said it was
+   * right ("Είναι σωστό"). The finding stays quiet while the difference is
+   * still exactly this; a record written since that changes it brings the
+   * finding back with the new figure.
+   */
+  acceptedGap?: number;
 }
+
+/** Whether a reading's difference is the one the owner already accepted. */
+export const gapAccepted = (reading: { checkIn: BalanceCheckIn; unlogged?: number }) =>
+  reading.unlogged !== undefined && typeof reading.checkIn.acceptedGap === "number" && Math.abs(reading.checkIn.acceptedGap - reading.unlogged) < 0.005;
 
 /** Kept on the user document with the rest of the workspace — see `useWorkspaceSetting`. */
 export const ACCOUNTS_KEY = "money-accounts";
@@ -288,14 +299,44 @@ export function expectedByAccount(accounts: MoneyAccount[], latest: CheckInReadi
   const result: Record<string, number> = {};
   if (!latest) return result;
   for (const account of accounts) result[account.id] = latest.checkIn.amounts[account.id] ?? 0;
-  const main = mainAccount(accounts);
-  if (!main) return result;
-  for (const tx of transactions) {
-    if (!isAfterReading(tx, latest.at)) continue;
-    const id = accountOf(tx, accounts, main)!;
-    result[id] = (result[id] ?? 0) + realDelta(tx);
+  for (const [id, records] of Object.entries(pendingByAccount(accounts, latest, transactions))) {
+    result[id] = (result[id] ?? 0) + records.reduce((sum, record) => sum + record.delta, 0);
   }
   for (const id of Object.keys(result)) result[id] = round2(result[id]);
+  return result;
+}
+
+/** One record a new reading's prefilled figure already counts. */
+export interface PendingRecord {
+  tx: Transaction;
+  /** What it does to the account: plus for money in, minus for money out. */
+  delta: number;
+  /** It names no card (or one since deleted), so it was put on the main account. */
+  assumed: boolean;
+}
+
+/**
+ * The records since the last reading, by the account each is counted on —
+ * what `expectedByAccount` adds to every account, item by item, newest first.
+ *
+ * Shown under each account while reading the banks. A figure that will not
+ * match is usually a record counted on the wrong account: 400 that landed in
+ * Revolut, recorded with no card and so counted on the main bank. Seeing
+ * "+400 Stoiximan, no card" under the main bank says so at once.
+ */
+export function pendingByAccount(accounts: MoneyAccount[], latest: CheckInReading | undefined, transactions: Transaction[]): Record<string, PendingRecord[]> {
+  const result: Record<string, PendingRecord[]> = {};
+  const main = mainAccount(accounts);
+  if (!latest || !main) return result;
+  for (const tx of transactions) {
+    if (!isAfterReading(tx, latest.at)) continue;
+    const delta = realDelta(tx);
+    if (delta === 0) continue;
+    const id = accountOf(tx, accounts, main)!;
+    const assumed = !tx.accountId || !accounts.some((a) => a.id === tx.accountId);
+    (result[id] ??= []).push({ tx, delta, assumed });
+  }
+  for (const records of Object.values(result)) records.sort((a, b) => firestoreToDate(b.tx.date).getTime() - firestoreToDate(a.tx.date).getTime());
   return result;
 }
 

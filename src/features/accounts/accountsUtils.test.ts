@@ -7,6 +7,8 @@ import {
   goalHeldAt,
   goalHeldDelta,
   parseAmount,
+  pendingByAccount,
+  gapAccepted,
   projectedTotal,
   readCheckIns,
   realDelta,
@@ -233,6 +235,52 @@ describe("records that name their account", () => {
   it("counts each account's records since the reading", () => {
     expect(recordsSinceByAccount(accounts, readings[0], rows)).toEqual({ eb: 2, rev: 2, cash: 1 });
   });
+
+  it("lists, under each account, exactly what its prefilled figure added — newest first, the guessed ones marked", () => {
+    const pending = pendingByAccount(accounts, readings[0], rows);
+    const expected = expectedByAccount(accounts, readings[0], rows);
+
+    // Second route to every prefilled figure: the reading plus the listed records.
+    for (const account of accounts) {
+      const listed = (pending[account.id] ?? []).reduce((sum, record) => sum + record.delta, 0);
+      expect(Math.round(((c1.amounts[account.id] ?? 0) + listed) * 100) / 100).toBe(expected[account.id]);
+    }
+    expect(pending.eb.map((r) => [r.delta, r.assumed])).toEqual([
+      [-20, true], // a deleted card: put on the main account
+      [-62.4, true], // no card: put on the main account
+    ]);
+    expect(pending.rev.map((r) => [r.delta, r.assumed])).toEqual([
+      [100, false],
+      [-45, false],
+    ]);
+  });
+});
+
+describe("a win recorded with no card, that landed in Revolut", () => {
+  // What happened on 11 October: +400 from Stoiximan, recorded with no card,
+  // so counted on the main bank. The banks were read with the 400 left out of
+  // Revolut's box — the box offered Revolut's old figure — and the reading
+  // reported 400 spent without a record.
+  const win = tx(400, 23, { type: "income", description: "Stoiximan" });
+  const read = (rev: number) => readCheckIns([c1, reading("c2", "2026-09-23T20:00:00", { eb: 1950, rev, cash: 120 })], accounts, [win])[1];
+
+  it("is listed under the main bank, marked as guessed, which is where the reading looks for it", () => {
+    const pending = pendingByAccount(accounts, readCheckIns([c1], accounts, [win])[0], [win]);
+    expect(pending.eb).toEqual([{ tx: win, delta: 400, assumed: true }]);
+    expect(pending.rev).toBeUndefined();
+  });
+
+  it("reads as 400 missing when Revolut keeps its old figure, and as nothing once the 400 is typed into it", () => {
+    expect(read(180).unlogged).toBe(-400);
+    expect(read(580).unlogged).toBe(0);
+  });
+
+  it("is listed under Revolut once the record names it", () => {
+    const named = { ...win, accountId: "rev" };
+    const pending = pendingByAccount(accounts, readCheckIns([c1], accounts, [named])[0], [named]);
+    expect(pending.rev).toEqual([{ tx: named, delta: 400, assumed: false }]);
+    expect(pending.eb).toBeUndefined();
+  });
 });
 
 describe("unloggedBetween", () => {
@@ -407,5 +455,37 @@ describe("readings from the sorted timeline", () => {
     const first = readCheckIns(checkIns, accounts, transactions).map((r) => r.unlogged);
     const again = readCheckIns(checkIns, accounts, transactions).map((r) => r.unlogged);
     expect(again).toEqual(first);
+  });
+});
+
+describe("putting a reading's difference to rest", () => {
+  // The 11 October reading again: +400 recorded with no card, Revolut read at its old figure.
+  const win = tx(400, 23, { type: "income", description: "Stoiximan" });
+  const wrong = reading("c2", "2026-09-23T20:00:00", { eb: 1950, rev: 180, cash: 120 });
+  const later = reading("c3", "2026-09-25T20:00:00", { eb: 1950, rev: 580, cash: 120 });
+
+  it("corrected figures make the difference go, and the next reading's with it", () => {
+    const before = readCheckIns([c1, wrong, later], accounts, [win]);
+    expect(before[1].unlogged).toBe(-400);
+    // Read right on the 25th, the next reading "finds" the 400 that was never missing.
+    expect(before[2].unlogged).toBe(400);
+
+    const fixed = readCheckIns([c1, { ...wrong, amounts: { ...wrong.amounts, rev: 580 } }, later], accounts, [win]);
+    expect(fixed[1].unlogged).toBe(0);
+    expect(fixed[2].unlogged).toBe(0);
+  });
+
+  it("an accepted difference stays quiet only while it is the same difference", () => {
+    const accepted = { ...wrong, acceptedGap: -400 };
+    expect(gapAccepted(readCheckIns([c1, accepted], accounts, [win])[1])).toBe(true);
+    // A forgotten 50 written afterwards changes what the reading found: it speaks again.
+    const forgotten = tx(50, 22, { createdDay: 26 });
+    const after = readCheckIns([c1, accepted], accounts, [win, forgotten])[1];
+    expect(after.unlogged).toBe(-350);
+    expect(gapAccepted(after)).toBe(false);
+  });
+
+  it("is never accepted without having been", () => {
+    expect(gapAccepted(readCheckIns([c1, wrong], accounts, [win])[1])).toBe(false);
   });
 });

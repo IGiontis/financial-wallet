@@ -9,11 +9,15 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { currentBalance, isAfterReading } from "../../shared/utils/balance";
 import { useMoneyAccounts } from "./useMoneyAccounts";
+import EditReadingModal from "./EditReadingModal";
 import {
   STALE_AFTER_DAYS,
   daysSince,
   accountOf,
   expectedByAccount,
+  pendingByAccount,
+  gapAccepted,
+  readCheckIns,
   goalHeldTotal,
   recordsSinceByAccount,
   mainAccount,
@@ -55,7 +59,7 @@ export function AccountsPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
-  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, isLoading } = useMoneyAccounts();
+  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, legacy, isLoading } = useMoneyAccounts();
   // For writing down what a difference turned out to be, from inside the reading.
   const { data: categories = [] } = useCategories();
   const createTransaction = useCreateTransaction();
@@ -68,9 +72,13 @@ export function AccountsPage() {
   const [viewing, setViewing] = useState<MoneyAccount | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
+  // A reading being corrected — see `EditReadingModal`.
+  const [fixing, setFixing] = useState<CheckInReading | null>(null);
 
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short" }), [lang]);
   const expected = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
+  // What each of those figures is made of, listed under the account while reading the banks.
+  const pending = useMemo(() => pendingByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   const tones = useMemo(() => accountTones(accounts), [accounts]);
   const touched = useMemo(() => recordsSinceByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   const finishes = useMemo(() => accountFinishes(accounts), [accounts]);
@@ -286,7 +294,14 @@ export function AccountsPage() {
               scrolled and ran under the corner bubble. */}
           <div className="mb-3">{updateButton}</div>
 
-          <LatestFinding latest={latest} count={readings.length} formatCurrency={formatCurrency} dayFmt={dayFmt} />
+          <LatestFinding
+            latest={latest}
+            count={readings.length}
+            formatCurrency={formatCurrency}
+            dayFmt={dayFmt}
+            onFix={() => setFixing(latest ?? null)}
+            onAccept={() => latest && setCheckIns((prev) => prev.map((c) => (c.id === latest.checkIn.id ? { ...c, acceptedGap: latest.unlogged } : c)))}
+          />
 
           {age !== undefined && age >= STALE_AFTER_DAYS && (
             <Alert color="warning" className="small py-2 d-flex gap-2 align-items-start">
@@ -355,6 +370,7 @@ export function AccountsPage() {
         <CheckInModal
           accounts={accounts}
           expected={expected}
+          pending={pending}
           tones={tones}
           baseCurrency={baseCurrency}
           formatCurrency={formatCurrency}
@@ -400,6 +416,32 @@ export function AccountsPage() {
           onSave={saveAccount}
           onDelete={editing === "new" ? undefined : () => deleteAccount(editing.id)}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {fixing && (
+        <EditReadingModal
+          accounts={accounts}
+          amounts={fixing.checkIn.amounts}
+          dateLabel={dayFmt.format(fixing.at)}
+          tones={tones}
+          baseCurrency={baseCurrency}
+          formatCurrency={formatCurrency}
+          // The page's own sum, run over the readings as they would be with
+          // these figures — what the finding will say once saved.
+          gapFor={(amounts) =>
+            readCheckIns(
+              readings.map((r) => (r.checkIn.id === fixing.checkIn.id ? { ...r.checkIn, amounts } : r.checkIn)),
+              accounts,
+              transactions,
+              legacy,
+            ).find((r) => r.checkIn.id === fixing.checkIn.id)?.unlogged
+          }
+          onSave={(amounts) => {
+            // Corrected figures are a new answer: an earlier "that is right" no longer applies.
+            setCheckIns((prev) => prev.map((c) => (c.id === fixing.checkIn.id ? { id: c.id, at: c.at, amounts } : c)));
+            setFixing(null);
+          }}
+          onClose={() => setFixing(null)}
         />
       )}
       {deleting && <DeleteAccountModal account={deleting} onConfirm={() => deleteAccount(deleting.id)} onClose={() => setDeleting(null)} />}
@@ -450,19 +492,28 @@ function LatestFinding({
   count,
   formatCurrency,
   dayFmt,
+  onFix,
+  onAccept,
 }: {
   latest: CheckInReading | undefined;
   count: number;
   formatCurrency: (n: number) => string;
   dayFmt: Intl.DateTimeFormat;
+  /** The figures were typed wrong: open them to correct. */
+  onFix: () => void;
+  /** The difference is real: keep it, and stop saying so. */
+  onAccept: () => void;
 }) {
   const { t } = useTranslation();
   if (!latest) return null;
   const date = dayFmt.format(latest.at);
-  const box = (color: string, Icon: typeof FiCheckCircle, text: string) => (
+  const box = (color: string, Icon: typeof FiCheckCircle, text: string, actions?: ReactNode) => (
     <Alert color={color} className="small py-2 d-flex gap-2 align-items-start">
       <Icon size={16} className="flex-shrink-0 mt-1" aria-hidden />
-      <span>{text}</span>
+      <span>
+        {text}
+        {actions}
+      </span>
     </Alert>
   );
 
@@ -476,9 +527,24 @@ function LatestFinding({
 
   if (latest.unlogged === undefined) return null;
   if (latest.unlogged === 0) return box("success", FiCheckCircle, t("accounts.findingClean", { date }));
+  // Said once; once accepted, quiet until the difference itself changes.
+  if (gapAccepted(latest)) return null;
+  // Two ways out, which mean different things: the figures were typed wrong
+  // (correct them, and nothing was missing), or the money really went (keep
+  // it, and it stays in the month as spent without a record).
+  const actions = (
+    <span className="d-flex flex-wrap gap-2 mt-2">
+      <Button size="sm" color="primary" outline onClick={onFix}>
+        {t("accounts.fixReading")}
+      </Button>
+      <Button size="sm" color="secondary" outline onClick={onAccept}>
+        {t("accounts.acceptGap")}
+      </Button>
+    </span>
+  );
   return latest.unlogged < 0
-    ? box("warning", FiAlertTriangle, t("accounts.findingMissing", { date, amount: formatCurrency(-latest.unlogged) }))
-    : box("info", FiTrendingUp, t("accounts.findingExtra", { date, amount: formatCurrency(latest.unlogged) }));
+    ? box("warning", FiAlertTriangle, t("accounts.findingMissing", { date, amount: formatCurrency(-latest.unlogged) }), actions)
+    : box("info", FiTrendingUp, t("accounts.findingExtra", { date, amount: formatCurrency(latest.unlogged) }), actions);
 }
 
 interface SetupRow {
