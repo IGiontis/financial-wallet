@@ -45,6 +45,7 @@ export function PlanLedger({
   inItems,
   outItems,
   months,
+  monthsLabel,
   formatCurrency,
   onToggle,
   onAddIn,
@@ -53,8 +54,9 @@ export function PlanLedger({
 }: {
   inItems: LedgerItem[];
   outItems: LedgerItem[];
-  /** How many months the window covers, for the line under the figures. */
+  /** How many months the window covers, for the line under the figures: the number for the plural, and as written. */
   months: number;
+  monthsLabel: string;
   formatCurrency: (n: number) => string;
   onToggle: (id: string) => void;
   onAddIn: () => void;
@@ -94,7 +96,7 @@ export function PlanLedger({
         <span className={styles.ledgerBarIn} style={{ width: `${scale > 0 ? (totalIn / scale) * 100 : 50}%` }} />
         <span className={styles.ledgerBarOut} style={{ width: `${scale > 0 ? (totalOut / scale) * 100 : 50}%` }} />
       </div>
-      <p className={styles.ledgerWindow}>{t("planner.ledgerWindow", { count: months })}</p>
+      <p className={styles.ledgerWindow}>{t("planner.ledgerWindow", { count: months, months: monthsLabel })}</p>
 
       <div className={styles.ledgerSides} role="tablist" aria-label={t("planner.paneNumbers")}>
         {(["in", "out"] as const).map((key) => (
@@ -106,44 +108,18 @@ export function PlanLedger({
 
       <div role="tabpanel">
         {items.length === 0 && side === "out" && <p className={styles.ledgerEmpty}>{t("planner.ledgerEmptyOut")}</p>}
-        {items.map((item) => (
-          <div key={item.id} className={`${styles.ledgerRow} ${item.enabled || !item.canToggle ? "" : styles.ledgerRowOff}`}>
-            {item.canToggle ? (
-              // The row is the switch: one tap in or out of the plan.
-              <button type="button" role="switch" aria-checked={item.enabled} aria-label={item.label} className={styles.ledgerToggle} onClick={() => onToggle(item.id)}>
-                <span className={styles.ledgerName}>
-                  {item.group && <span className={styles.ledgerGroup}>{item.group}</span>}
-                  {item.label}
-                </span>
-                <span className={`${styles.ledgerAmount} ${!item.enabled ? "" : item.total > 0 ? styles.ledgerIncome : item.total < 0 ? styles.ledgerExpense : ""}`}>
-                  {item.enabled ? signed(item.total) : t("planner.ledgerOffShort")}
-                </span>
-              </button>
-            ) : (
-              <span className={`${styles.ledgerToggle} ${styles.ledgerStatic}`}>
-                <span className={styles.ledgerName}>
-                  {item.label}
-                  {item.aside && (
-                    <span className={styles.oneOffTag} title={item.aside.hint}>
-                      {item.aside.tag}
-                    </span>
-                  )}
-                </span>
-                <span className={styles.ledgerAmount}>{item.aside?.amount}</span>
-              </span>
+        {groupsOf(items).map(({ group, rows }) => (
+          <section key={group ?? "-"} aria-label={group}>
+            {/* A title, a rule and the group's own total, then its rows: «Πάγια ─── −317,98 €». */}
+            {group && (
+              <div className={styles.ledgerHeading}>
+                <span>{group}</span>
+                <span className={styles.ledgerHeadingRule} aria-hidden />
+                <span className={styles.ledgerHeadingTotal}>{signed(sum(rows))}</span>
+              </div>
             )}
-            {item.link ? (
-              <Link to={item.link.to} className={styles.ledgerOpen} aria-label={item.link.label}>
-                <FiChevronRight aria-hidden />
-              </Link>
-            ) : item.onOpen ? (
-              <button type="button" className={styles.ledgerOpen} onClick={item.onOpen} aria-label={item.openLabel}>
-                <FiChevronRight aria-hidden />
-              </button>
-            ) : (
-              <span className={styles.ledgerOpen} aria-hidden />
-            )}
-          </div>
+            {rows.map(renderItem)}
+          </section>
         ))}
         {side === "in" && inFooter}
       </div>
@@ -153,6 +129,56 @@ export function PlanLedger({
       </button>
     </div>
   );
+
+  function renderItem(item: LedgerItem) {
+    return (
+      <div key={item.id} className={`${styles.ledgerRow} ${item.enabled || !item.canToggle ? "" : styles.ledgerRowOff}`}>
+        {item.canToggle ? (
+          // The row is the switch: one tap in or out of the plan.
+          <button type="button" role="switch" aria-checked={item.enabled} aria-label={item.label} className={styles.ledgerToggle} onClick={() => onToggle(item.id)}>
+            <span className={styles.ledgerName}>{item.label}</span>
+            <span className={`${styles.ledgerAmount} ${!item.enabled ? "" : item.total > 0 ? styles.ledgerIncome : item.total < 0 ? styles.ledgerExpense : ""}`}>
+              {item.enabled ? signed(item.total) : t("planner.ledgerOffShort")}
+            </span>
+          </button>
+        ) : (
+          <span className={`${styles.ledgerToggle} ${styles.ledgerStatic}`}>
+            <span className={styles.ledgerName}>
+              {item.label}
+              {item.aside && (
+                <span className={styles.oneOffTag} title={item.aside.hint}>
+                  {item.aside.tag}
+                </span>
+              )}
+            </span>
+            <span className={styles.ledgerAmount}>{item.aside?.amount}</span>
+          </span>
+        )}
+        {item.link ? (
+          <Link to={item.link.to} className={styles.ledgerOpen} aria-label={item.link.label}>
+            <FiChevronRight aria-hidden />
+          </Link>
+        ) : item.onOpen ? (
+          <button type="button" className={styles.ledgerOpen} onClick={item.onOpen} aria-label={item.openLabel}>
+            <FiChevronRight aria-hidden />
+          </button>
+        ) : (
+          <span className={styles.ledgerOpen} aria-hidden />
+        )}
+      </div>
+    );
+  }
+}
+
+/** Rows in runs of the same group, in the order the groups first appear. */
+function groupsOf(items: LedgerItem[]): { group?: string; rows: LedgerItem[] }[] {
+  const runs: { group?: string; rows: LedgerItem[] }[] = [];
+  for (const item of items) {
+    const run = runs.find((r) => r.group === item.group);
+    if (run) run.rows.push(item);
+    else runs.push({ group: item.group, rows: [item] });
+  }
+  return runs;
 }
 
 export default PlanLedger;

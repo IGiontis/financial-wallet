@@ -1585,8 +1585,8 @@
     "ledgerIn": "In",
     "ledgerOut": "Out",
     "ledgerLeft": "Left",
-    "ledgerWindow_one": "over the {{count}} month you are looking at",
-    "ledgerWindow_other": "over the {{count}} months you are looking at",
+    "ledgerWindow_one": "over the {{months}} month you are looking at",
+    "ledgerWindow_other": "over the {{months}} months you are looking at",
     "ledgerEmptyOut": "Nothing yet. Add a monthly cost below.",
     "ledgerOffShort": "off"
   },

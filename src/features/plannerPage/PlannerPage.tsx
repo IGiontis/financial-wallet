@@ -523,6 +523,7 @@ export function PlannerPage() {
               inItems={ledgerIn}
               outItems={ledgerOut}
               months={monthsShown}
+              monthsLabel={monthsLabel}
               formatCurrency={formatCurrency}
               onToggle={toggleRow}
               onAddIn={() => setEditor({ mode: "oneoff", draft: { label: "", amount: "", date: "" } })}

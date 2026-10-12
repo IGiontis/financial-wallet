@@ -1412,12 +1412,6 @@
   overflow-wrap: anywhere;
 }
 
-.ledgerGroup {
-  margin-right: 6px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
 .ledgerAmount {
   flex-shrink: 0;
   font-weight: 600;
@@ -1476,4 +1470,34 @@ span.ledgerOpen {
   color: var(--color-link);
   font-size: 13.5px;
   font-weight: 600;
+}
+
+/* A group's title on the money-out side: the name, a rule to the edge, its total. */
+.ledgerHeading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ledgerHeading:first-child {
+  margin-top: 2px;
+}
+
+.ledgerHeadingRule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-tertiary);
+}
+
+.ledgerHeadingTotal {
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
