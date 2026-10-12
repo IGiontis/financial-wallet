@@ -1292,20 +1292,20 @@
 /* Three figures, a bar of in against out, then one side at a time. A row is
    its own switch; the "›" at its end opens it. See PlanLedger. */
 
-.ledgerFigures {
+.scaleFigures {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   text-align: center;
 }
 
-.ledgerLabel {
+.scaleLabel {
   display: block;
   font-size: 11.5px;
   color: var(--color-text-secondary);
 }
 
-.ledgerValue {
+.scaleValue {
   display: block;
   font-size: 15px;
   font-weight: 700;
@@ -1313,15 +1313,15 @@
   white-space: nowrap;
 }
 
-.ledgerIncome {
+.scaleIncome {
   color: var(--color-income-text);
 }
 
-.ledgerExpense {
+.scaleExpense {
   color: var(--color-expense-text);
 }
 
-.ledgerBar {
+.scaleBar {
   display: flex;
   height: 8px;
   margin-top: 10px;
@@ -1330,22 +1330,22 @@
   background: var(--color-background-secondary);
 }
 
-.ledgerBarIn {
+.scaleBarIn {
   background: var(--color-income);
 }
 
-.ledgerBarOut {
+.scaleBarOut {
   background: var(--color-expense);
 }
 
-.ledgerWindow {
+.scaleWindow {
   margin: 6px 0 0;
   font-size: 11.5px;
   color: var(--color-text-secondary);
   text-align: center;
 }
 
-.ledgerSides {
+.scaleSides {
   display: flex;
   gap: 4px;
   margin: 12px 0 8px;
@@ -1354,7 +1354,7 @@
   background: var(--color-background-secondary);
 }
 
-.ledgerSides button {
+.scaleSides button {
   flex: 1;
   padding: 7px 6px;
   border: 0;
@@ -1365,20 +1365,20 @@
   font-weight: 600;
 }
 
-.ledgerSides .ledgerSideOn {
+.scaleSides .scaleSideOn {
   background: var(--color-surface);
   color: var(--color-text-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.ledgerCount {
+.scaleCount {
   margin-left: 4px;
   font-size: 11.5px;
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
-.ledgerRow {
+.scaleRow {
   display: flex;
   align-items: stretch;
   margin-bottom: 6px;
@@ -1387,7 +1387,7 @@
   background: var(--color-surface);
 }
 
-.ledgerToggle {
+.scaleToggle {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1403,16 +1403,16 @@
   text-align: left;
 }
 
-.ledgerStatic {
+.scaleStatic {
   color: var(--color-text-secondary);
 }
 
-.ledgerName {
+.scaleName {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.ledgerAmount {
+.scaleAmount {
   flex-shrink: 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1420,21 +1420,21 @@
 }
 
 /* Out of the plan: greyed and struck through, the figure replaced by a word. */
-.ledgerRowOff {
+.scaleRowOff {
   background: var(--color-background-secondary);
 }
 
-.ledgerRowOff .ledgerName {
+.scaleRowOff .scaleName {
   color: var(--color-text-secondary);
   text-decoration: line-through;
 }
 
-.ledgerRowOff .ledgerAmount {
+.scaleRowOff .scaleAmount {
   color: var(--color-text-secondary);
   font-weight: 500;
 }
 
-.ledgerOpen {
+.scaleOpen {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1446,17 +1446,17 @@
   color: var(--color-text-secondary);
 }
 
-span.ledgerOpen {
+span.scaleOpen {
   border-left: 0;
 }
 
-.ledgerEmpty {
+.scaleEmpty {
   margin: 4px 0 8px;
   font-size: 13px;
   color: var(--color-text-secondary);
 }
 
-.ledgerAdd {
+.scaleAdd {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1473,7 +1473,7 @@ span.ledgerOpen {
 }
 
 /* A group's title on the money-out side: the name, a rule to the edge, its total. */
-.ledgerHeading {
+.scaleHeading {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1485,19 +1485,42 @@ span.ledgerOpen {
   letter-spacing: 0.04em;
 }
 
-.ledgerHeading:first-child {
+.scaleHeading:first-child {
   margin-top: 2px;
 }
 
-.ledgerHeadingRule {
+.scaleHeadingRule {
   flex: 1;
   height: 1px;
   background: var(--color-border-tertiary);
 }
 
-.ledgerHeadingTotal {
+.scaleHeadingTotal {
   font-variant-numeric: tabular-nums;
   text-transform: none;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+/* In the dark theme the track and the chosen side were the card's own dark, a
+   shade apart: nothing said they were buttons. Lighter washes of white instead,
+   the chosen one clearly lit, the other still readable as a button. */
+:global([data-bs-theme="dark"]) .scaleSides {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+:global([data-bs-theme="dark"]) .scaleSides button {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+:global([data-bs-theme="dark"]) .scaleSides .scaleSideOn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  box-shadow: none;
+}
+
+:global([data-bs-theme="dark"]) .scaleSides .scaleCount {
+  color: inherit;
+  opacity: 0.8;
 }

@@ -76,46 +76,46 @@ export function PlanLedger({
   const items = side === "in" ? inItems : outItems;
 
   return (
-    <div className={styles.ledger}>
-      <div className={styles.ledgerFigures}>
+    <div className={styles.scale}>
+      <div className={styles.scaleFigures}>
         <div>
-          <span className={styles.ledgerLabel}>{t("planner.ledgerIn")}</span>
-          <span className={`${styles.ledgerValue} ${styles.ledgerIncome}`}>{signed(totalIn)}</span>
+          <span className={styles.scaleLabel}>{t("planner.ledgerIn")}</span>
+          <span className={`${styles.scaleValue} ${styles.scaleIncome}`}>{signed(totalIn)}</span>
         </div>
         <div>
-          <span className={styles.ledgerLabel}>{t("planner.ledgerOut")}</span>
-          <span className={`${styles.ledgerValue} ${styles.ledgerExpense}`}>{signed(-totalOut)}</span>
+          <span className={styles.scaleLabel}>{t("planner.ledgerOut")}</span>
+          <span className={`${styles.scaleValue} ${styles.scaleExpense}`}>{signed(-totalOut)}</span>
         </div>
         <div>
-          <span className={styles.ledgerLabel}>{t("planner.ledgerLeft")}</span>
-          <span className={`${styles.ledgerValue} ${net < 0 ? styles.ledgerExpense : ""}`}>{signed(net)}</span>
+          <span className={styles.scaleLabel}>{t("planner.ledgerLeft")}</span>
+          <span className={`${styles.scaleValue} ${net < 0 ? styles.scaleExpense : ""}`}>{signed(net)}</span>
         </div>
       </div>
       {/* In against out, as two lengths of one bar. */}
-      <div className={styles.ledgerBar} aria-hidden>
-        <span className={styles.ledgerBarIn} style={{ width: `${scale > 0 ? (totalIn / scale) * 100 : 50}%` }} />
-        <span className={styles.ledgerBarOut} style={{ width: `${scale > 0 ? (totalOut / scale) * 100 : 50}%` }} />
+      <div className={styles.scaleBar} aria-hidden>
+        <span className={styles.scaleBarIn} style={{ width: `${scale > 0 ? (totalIn / scale) * 100 : 50}%` }} />
+        <span className={styles.scaleBarOut} style={{ width: `${scale > 0 ? (totalOut / scale) * 100 : 50}%` }} />
       </div>
-      <p className={styles.ledgerWindow}>{t("planner.ledgerWindow", { count: months, months: monthsLabel })}</p>
+      <p className={styles.scaleWindow}>{t("planner.ledgerWindow", { count: months, months: monthsLabel })}</p>
 
-      <div className={styles.ledgerSides} role="tablist" aria-label={t("planner.paneNumbers")}>
+      <div className={styles.scaleSides} role="tablist" aria-label={t("planner.paneNumbers")}>
         {(["in", "out"] as const).map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={side === key} className={side === key ? styles.ledgerSideOn : ""} onClick={() => setSide(key)}>
-            {t(key === "in" ? "planner.ledgerIn" : "planner.ledgerOut")} <span className={styles.ledgerCount}>{(key === "in" ? inItems : outItems).length}</span>
+          <button key={key} type="button" role="tab" aria-selected={side === key} className={side === key ? styles.scaleSideOn : ""} onClick={() => setSide(key)}>
+            {t(key === "in" ? "planner.ledgerIn" : "planner.ledgerOut")} <span className={styles.scaleCount}>{(key === "in" ? inItems : outItems).length}</span>
           </button>
         ))}
       </div>
 
       <div role="tabpanel">
-        {items.length === 0 && side === "out" && <p className={styles.ledgerEmpty}>{t("planner.ledgerEmptyOut")}</p>}
+        {items.length === 0 && side === "out" && <p className={styles.scaleEmpty}>{t("planner.ledgerEmptyOut")}</p>}
         {groupsOf(items).map(({ group, rows }) => (
           <section key={group ?? "-"} aria-label={group}>
             {/* A title, a rule and the group's own total, then its rows: «Πάγια ─── −317,98 €». */}
             {group && (
-              <div className={styles.ledgerHeading}>
+              <div className={styles.scaleHeading}>
                 <span>{group}</span>
-                <span className={styles.ledgerHeadingRule} aria-hidden />
-                <span className={styles.ledgerHeadingTotal}>{signed(sum(rows))}</span>
+                <span className={styles.scaleHeadingRule} aria-hidden />
+                <span className={styles.scaleHeadingTotal}>{signed(sum(rows))}</span>
               </div>
             )}
             {rows.map(renderItem)}
@@ -124,7 +124,7 @@ export function PlanLedger({
         {side === "in" && inFooter}
       </div>
 
-      <button type="button" className={styles.ledgerAdd} onClick={side === "in" ? onAddIn : onAddOut}>
+      <button type="button" className={styles.scaleAdd} onClick={side === "in" ? onAddIn : onAddOut}>
         <FiPlus aria-hidden /> {t(side === "in" ? "planner.addOneOff" : "planner.addExpenseLine")}
       </button>
     </div>
@@ -132,18 +132,18 @@ export function PlanLedger({
 
   function renderItem(item: LedgerItem) {
     return (
-      <div key={item.id} className={`${styles.ledgerRow} ${item.enabled || !item.canToggle ? "" : styles.ledgerRowOff}`}>
+      <div key={item.id} className={`${styles.scaleRow} ${item.enabled || !item.canToggle ? "" : styles.scaleRowOff}`}>
         {item.canToggle ? (
           // The row is the switch: one tap in or out of the plan.
-          <button type="button" role="switch" aria-checked={item.enabled} aria-label={item.label} className={styles.ledgerToggle} onClick={() => onToggle(item.id)}>
-            <span className={styles.ledgerName}>{item.label}</span>
-            <span className={`${styles.ledgerAmount} ${!item.enabled ? "" : item.total > 0 ? styles.ledgerIncome : item.total < 0 ? styles.ledgerExpense : ""}`}>
+          <button type="button" role="switch" aria-checked={item.enabled} aria-label={item.label} className={styles.scaleToggle} onClick={() => onToggle(item.id)}>
+            <span className={styles.scaleName}>{item.label}</span>
+            <span className={`${styles.scaleAmount} ${!item.enabled ? "" : item.total > 0 ? styles.scaleIncome : item.total < 0 ? styles.scaleExpense : ""}`}>
               {item.enabled ? signed(item.total) : t("planner.ledgerOffShort")}
             </span>
           </button>
         ) : (
-          <span className={`${styles.ledgerToggle} ${styles.ledgerStatic}`}>
-            <span className={styles.ledgerName}>
+          <span className={`${styles.scaleToggle} ${styles.scaleStatic}`}>
+            <span className={styles.scaleName}>
               {item.label}
               {item.aside && (
                 <span className={styles.oneOffTag} title={item.aside.hint}>
@@ -151,19 +151,19 @@ export function PlanLedger({
                 </span>
               )}
             </span>
-            <span className={styles.ledgerAmount}>{item.aside?.amount}</span>
+            <span className={styles.scaleAmount}>{item.aside?.amount}</span>
           </span>
         )}
         {item.link ? (
-          <Link to={item.link.to} className={styles.ledgerOpen} aria-label={item.link.label}>
+          <Link to={item.link.to} className={styles.scaleOpen} aria-label={item.link.label}>
             <FiChevronRight aria-hidden />
           </Link>
         ) : item.onOpen ? (
-          <button type="button" className={styles.ledgerOpen} onClick={item.onOpen} aria-label={item.openLabel}>
+          <button type="button" className={styles.scaleOpen} onClick={item.onOpen} aria-label={item.openLabel}>
             <FiChevronRight aria-hidden />
           </button>
         ) : (
-          <span className={styles.ledgerOpen} aria-hidden />
+          <span className={styles.scaleOpen} aria-hidden />
         )}
       </div>
     );
