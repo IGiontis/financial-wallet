@@ -436,7 +436,9 @@ export function TransactionsPage() {
   const deleteMutation = useDeleteTransaction();
 
   // The dialog closes on the optimistic row, not on the server's answer — see
-  // `saveWithoutWaiting`. A rejection arrives as a toast instead.
+  // `saveWithoutWaiting`. A rejection arrives as a toast instead. The menu's
+  // «Νέα συναλλαγή» is the same wizard as a page; this + keeps the dialog,
+  // so adding from the list never leaves it.
   const handleCreate = (data: CreateTransactionDTO): Promise<void> =>
     saveWithoutWaiting(createMutation, data, () => toast.error(t("transactions.saveFailed")));
 

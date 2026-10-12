@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiCheck } from "react-icons/fi";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -91,7 +91,7 @@ const validationSchema = Yup.object({
 
 // ─── Review ───────────────────────────────────────────────────────────────────
 
-function ReviewStep({ values, categories, formatAmount, currency }: { values: TransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string }) {
+function ReviewStep({ values, categories, formatAmount, currency, subtitle }: { values: TransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string; subtitle?: string }) {
   const { t, i18n } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
@@ -111,7 +111,7 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Tr
 
   return (
     <TransactionReviewBody
-      subtitle={t("transactions.reviewBeforeSaving")}
+      subtitle={subtitle ?? t("transactions.reviewBeforeSaving")}
       description={values.description}
       categoryIcon={category?.icon ?? ""}
       categoryName={categoryLabel(category?.name, t) || "—"}
@@ -126,6 +126,34 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Tr
   );
 }
 
+// ─── Frame ────────────────────────────────────────────────────────────────────
+// The same wizard in two frames: a dialog over the list, or the whole of a
+// page of its own (`/transactions/new`, from the menu). Only the frame
+// differs; the steps, the check and the save are one piece of code.
+
+function Frame({ asPage, isOpen, onClose, children }: { asPage: boolean; isOpen: boolean; onClose: () => void; children: ReactNode }) {
+  return asPage ? (
+    <div className={styles.page}>{children}</div>
+  ) : (
+    <Modal isOpen={isOpen} toggle={onClose} centered size="md">
+      {children}
+    </Modal>
+  );
+}
+
+/** The dialog's title bar. A page has its own heading above it, so none here. */
+function FrameHeader({ asPage, onClose, children }: { asPage: boolean; onClose: () => void; children: ReactNode }) {
+  return asPage ? null : <ModalHeader toggle={onClose}>{children}</ModalHeader>;
+}
+
+function FrameBody({ asPage, className, children }: { asPage: boolean; className?: string; children: ReactNode }) {
+  return asPage ? <div className={`${styles.pageBody} ${className ?? ""}`}>{children}</div> : <ModalBody className={className}>{children}</ModalBody>;
+}
+
+function FrameFooter({ asPage, children }: { asPage: boolean; children: ReactNode }) {
+  return asPage ? <div className={styles.pageFooter}>{children}</div> : <ModalFooter>{children}</ModalFooter>;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AddTransactionModalProps {
@@ -133,12 +161,18 @@ interface AddTransactionModalProps {
   onClose: () => void;
   categories: Category[];
   onSubmit: (data: CreateTransactionDTO) => Promise<void>;
+  /** The whole of a page rather than a dialog. `onClose` is then "All transactions" on the saved panel. */
+  asPage?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit }: AddTransactionModalProps) {
+export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit, asPage = false }: AddTransactionModalProps) {
   const [step, setStep] = useState<Step>("type");
+  // On the page, what was just saved: shown as a confirmation, with its
+  // details, until "New transaction" clears it. The dialog has no such panel —
+  // it closes, and the toast says it went in.
+  const [saved, setSaved] = useState<TransactionFormValues | null>(null);
   const [isFuelCategory, setIsFuelCategory] = useState(false);
   const { t, i18n } = useTranslation();
   const { payees } = usePayees();
@@ -180,11 +214,12 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         };
 
         await onSubmit(dto);
-        toast.success(t("transactions.addedSuccess", { name: values.description }));
+        if (asPage) setSaved(values);
+        else toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
         setStep("type");
         setIsFuelCategory(false);
-        onClose();
+        if (!asPage) onClose();
       } catch {
         toast.error(t("transactions.saveFailed"));
       }
@@ -298,8 +333,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   const recentPayeeNames = useMemo(() => recentPayees(history), [history]);
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
-      <ModalHeader toggle={handleClose}>{t("transactions.addTransaction")}</ModalHeader>
+    <Frame asPage={asPage} isOpen={isOpen} onClose={handleClose}>
+      <FrameHeader asPage={asPage} onClose={handleClose}>
+        {t("transactions.addTransaction")}
+      </FrameHeader>
 
       {/* The same wash the debts dialog uses: the form takes the colour of
           the answer to the one question that changes everything else on it. */}
@@ -308,11 +345,25 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           anything — the form answering its own first question. A category is
           only ever set after the type step, so it is the signal that the choice
           is real. */}
-      <ModalBody className={formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
-        <WizardSteps steps={steps} current={step} onGo={setStep} />
+      {/* Back on step 1 the colour goes too: that step is where the choice
+          is made again, and it should not look already made. */}
+      <FrameBody asPage={asPage} className={!saved && step !== "type" && formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
+        {saved && (
+          <div className={styles.savedPanel} role="status">
+            <span className={styles.savedIcon} aria-hidden>
+              <FiCheck />
+            </span>
+            <h2 className={styles.savedTitle}>{t("transactions.savedTitle")}</h2>
+            <p className={styles.savedSub}>{t("transactions.savedSub")}</p>
+            <div className={styles.savedDetails}>
+              <ReviewStep values={saved} categories={categories} formatAmount={formatAmount} currency={displayCurrency} subtitle={t("transactions.savedDetails")} />
+            </div>
+          </div>
+        )}
+        {!saved && <WizardSteps steps={steps} current={step} onGo={setStep} />}
 
         {/* ── 1. Money in or money out ── */}
-        {step === "type" && (
+        {!saved && step === "type" && (
           <>
             <p className={styles.prompt}>{t("transactions.wizard.pickType")}</p>
             <div className={styles.typeGrid}>
@@ -335,8 +386,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         )}
 
         {/* ── 2. Which category ── */}
-        {step === "category" && (
-          <>
+        {!saved && step === "category" && (
+          <div className={asPage ? styles.stepFill : undefined}>
             {/* Step 1 settled the type and step 1 is where it gets changed, so
                 from here on the badge carries it rather than a control. */}
             <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
@@ -349,13 +400,14 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               type={formik.values.type}
               onChange={chooseCategory}
               invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
+              fill={asPage}
             />
             {/* Gated on `touched` like the picker's own invalid state. Ungated,
                 clearing the category — which is exactly what going back a step
                 and switching type does — printed the error before the reader
                 had done anything wrong. */}
             {formik.touched.categoryId && formik.errors.categoryId && <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>}
-          </>
+          </div>
         )}
 
         {/* ── Which card ── only when there are cards to choose from. */}
@@ -517,10 +569,23 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             }
           />
         )}
-      </ModalBody>
+      </FrameBody>
 
-      <ModalFooter>
-        {step === "type" ? (
+      {/* On the page, step 1 has no buttons at all: choosing a type is the
+          step, and there is no dialog to cancel out of. The dialog keeps its
+          Cancel. */}
+      {!(asPage && !saved && step === "type") && (
+      <FrameFooter asPage={asPage}>
+        {saved ? (
+          <>
+            <Button color="secondary" outline onClick={onClose}>
+              {t("nav.allTransactions")}
+            </Button>
+            <Button color="primary" onClick={() => setSaved(null)}>
+              + {t("nav.newTransaction")}
+            </Button>
+          </>
+        ) : step === "type" ? (
           <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
         ) : (
           <Button color="secondary" outline onClick={goBack} disabled={formik.isSubmitting}>{t("common.back")}</Button>
@@ -531,12 +596,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         )}
         {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
         {step === "details" && <Button color="primary" onClick={handleReview}>{t("transactions.reviewBtn")}</Button>}
-        {step === "review" && (
+        {!saved && step === "review" && (
           <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting}>
             {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
           </Button>
         )}
-      </ModalFooter>
-    </Modal>
+      </FrameFooter>
+      )}
+    </Frame>
   );
 }

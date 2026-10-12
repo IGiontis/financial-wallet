@@ -80,7 +80,9 @@
     "mainNavigation": "Κύριο μενού",
     "closeMenu": "Κλείσιμο μενού",
     "switchToEnglish": "Αλλαγή σε Αγγλικά",
-    "switchToGreek": "Αλλαγή σε Ελληνικά"
+    "switchToGreek": "Αλλαγή σε Ελληνικά",
+    "newTransaction": "Νέα συναλλαγή",
+    "allTransactions": "Όλες οι συναλλαγές"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",
@@ -934,7 +936,10 @@
     "nextMonth": "Επόμενος μήνας",
     "rangeAllDates": "Όλες οι ημερομηνίες",
     "debtLocked": "Γράφτηκε από ένα δάνειο. Αλλάζει και διαγράφεται από τα «Χρέη & δάνεια».",
-    "loanMove": "Δάνειο"
+    "loanMove": "Δάνειο",
+    "savedTitle": "Η συναλλαγή καταχωρήθηκε",
+    "savedSub": "Μπήκε στις συναλλαγές σου και μετράει ήδη στα σύνολα.",
+    "savedDetails": "Τι καταχωρήθηκε"
   },
   "analytics": {
     "title": "Στατιστικά",

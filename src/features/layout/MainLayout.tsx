@@ -84,7 +84,7 @@ export function MainLayout() {
               minHeight: "100%",
             }}
           >
-            <div style={{ flex: 1 }}>
+            <div className="page-outlet" style={{ flex: 1 }}>
               <Outlet />
             </div>
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", margin: 0 }}>

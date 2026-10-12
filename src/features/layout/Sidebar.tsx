@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FloatingPortal, autoUpdate, offset, shift, useFloating } from "@floating-ui/react";
+import { FloatingPortal, autoUpdate, offset, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import { useIncomesNeedingAttention } from "../incomes/useIncomes";
 import { useProfile } from "./useProfile";
 import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -34,7 +34,17 @@ interface NavItemProp {
   badgeTone?: "danger" | "warning";
   /** What the count means, read out with the link's name. Bills' wording when left out. */
   badgeLabel?: (count: number) => string;
+  /** Pages under this one. The item then opens and closes them rather than being a link itself. */
+  children?: NavChild[];
 }
+
+interface NavChild {
+  path: string;
+  label: string;
+}
+
+/** Whether a child is the page on screen: its own path exactly, or a page under it. */
+const isWithin = (pathname: string, path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
 /**
  * The tooltip a collapsed rail shows beside an icon.
@@ -153,6 +163,91 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
   );
 }
 
+/**
+ * An item with pages under it — «Συναλλαγές» with «Νέα συναλλαγή» and «Όλες».
+ *
+ * With room for words it opens in place: the item is a button with a chevron,
+ * the pages a short indented list under it. It opens by itself on one of its
+ * own pages, so the current one is always in sight, and a tap folds it away.
+ *
+ * On the collapsed rail there is no room under the icon, so the icon opens the
+ * pages beside it instead, in a small panel that closes on a choice, a click
+ * elsewhere or Esc.
+ */
+function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { children: NavChild[] }; rail: boolean; onNavigate: () => void }) {
+  const { pathname } = useLocation();
+  const listId = useId();
+  const within = item.children.some((child) => isWithin(pathname, child.path));
+  // Untouched, it follows the page; a tap decides for itself from then on.
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const expanded = toggled ?? within;
+  const [flyout, setFlyout] = useState(false);
+  const Icon = item.icon;
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: rail && flyout,
+    onOpenChange: setFlyout,
+    placement: "right-start",
+    strategy: "fixed",
+    middleware: [offset(14), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+  const { getReferenceProps, getFloatingProps } = useInteractions([useDismiss(context)]);
+
+  const leave = () => {
+    setFlyout(false);
+    onNavigate();
+  };
+
+  return (
+    <li className="nav-item">
+      <button
+        type="button"
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        className={`nav-link sidebar-link sidebar-parent ${within ? "nav-link-within" : ""}`}
+        aria-expanded={rail ? flyout : expanded}
+        aria-controls={rail ? undefined : listId}
+        onClick={() => (rail ? setFlyout((open) => !open) : setToggled(!expanded))}
+      >
+        <Icon className="nav-icon" aria-hidden />
+        <span className="nav-label">{item.label}</span>
+        <FiChevronDown className={`sidebar-chevron ${expanded ? "open" : ""}`} aria-hidden />
+      </button>
+
+      {!rail && expanded && (
+        <ul id={listId} className="nav flex-column flex-nowrap sidebar-sub">
+          {item.children.map((child) => (
+            <li key={child.path} className="nav-item">
+              <NavLink to={child.path} end onClick={onNavigate} className={({ isActive }) => `nav-link sidebar-link sidebar-sublink ${isActive ? "nav-link-current" : ""}`}>
+                <span className="nav-label">{child.label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {rail && flyout && (
+        <FloatingPortal>
+          {/* eslint-disable-next-line react-hooks/refs -- `setFloating` is a Floating UI callback ref, not a React ref object. */}
+          <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()} className="sidebar-flyout">
+            <div className="sidebar-flyout-title">{item.label}</div>
+            <ul className="nav flex-column flex-nowrap">
+              {item.children.map((child) => (
+                <li key={child.path} className="nav-item">
+                  <NavLink to={child.path} end onClick={leave} className={({ isActive }) => `sidebar-flyout-link ${isActive ? "active" : ""}`}>
+                    {child.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </FloatingPortal>
+      )}
+    </li>
+  );
+}
+
 export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesktop }: SidebarProps) {
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
@@ -210,7 +305,16 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
       key: "daily",
       label: t("nav.groupDaily"),
       items: [
-        { path: "/transactions", label: t("nav.transactions"), icon: FiCreditCard },
+        {
+          path: "/transactions",
+          label: t("nav.transactions"),
+          icon: FiCreditCard,
+          // Adding first: it is the thing done most often, and now a page of its own.
+          children: [
+            { path: "/transactions/new", label: t("nav.newTransaction") },
+            { path: "/transactions", label: t("nav.allTransactions") },
+          ],
+        },
         // Money in before money out. Amber rather than red: a late income is
         // something to look into, not a debt.
         {
@@ -297,9 +401,13 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
                     {group.label}
                   </div>
                   <ul className="nav flex-column flex-nowrap" aria-labelledby={`nav-group-${group.key}`}>
-                    {group.items.map((item) => (
-                      <SidebarLink key={item.path} item={item} railTips={railTips} onNavigate={navigate} />
-                    ))}
+                    {group.items.map((item) =>
+                      item.children ? (
+                        <SidebarGroupLink key={item.path} item={{ ...item, children: item.children }} rail={railTips} onNavigate={navigate} />
+                      ) : (
+                        <SidebarLink key={item.path} item={item} railTips={railTips} onNavigate={navigate} />
+                      ),
+                    )}
                   </ul>
                 </div>
               ))}

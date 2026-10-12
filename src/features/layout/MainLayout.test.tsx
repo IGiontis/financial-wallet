@@ -48,8 +48,10 @@ const renderAt = (path: string) =>
 const sidebar = () => screen.getByRole("navigation", { name: "Main navigation" });
 const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 
-// Every destination, in the order the sidebar lists them.
-const ALL_PATHS = ["/", "/analytics", "/transactions", "/incomes", "/bills", "/planner", "/allocation", "/goals", "/accounts", "/investments", "/debts", "/settings"];
+// Every destination the sidebar shows as a link, in its order, with
+// Transactions folded: it is a button over its two pages, which show when it
+// opens (see "an item with pages under it").
+const ALL_PATHS = ["/", "/analytics", "/incomes", "/bills", "/planner", "/allocation", "/goals", "/accounts", "/investments", "/debts", "/settings"];
 
 const original = window.matchMedia;
 
@@ -89,7 +91,7 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
     expect(document.documentElement).toHaveAttribute("data-nav-style", style);
   });
 
-  it("lists the same twelve links, in the same four groups and the same order", () => {
+  it("lists the same links, in the same four groups and the same order", () => {
     renderAt("/");
     const hrefs = within(sidebar())
       .getAllByRole("link")
@@ -101,7 +103,8 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"));
     expect(group("Where you stand")).toEqual(["/", "/analytics"]);
-    expect(group("Day to day")).toEqual(["/transactions", "/incomes", "/bills"]);
+    expect(group("Day to day")).toEqual(["/incomes", "/bills"]);
+    expect(within(within(sidebar()).getByRole("list", { name: "Day to day" })).getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-expanded", "false");
     expect(group("Plan")).toEqual(["/planner", "/allocation", "/goals"]);
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
@@ -211,6 +214,64 @@ describe("the drawer on a phone", () => {
     // No rail tooltips in the drawer: it shows its words.
     await userEvent.hover(within(sidebar()).getByRole("link", { name: "Goals" }));
     expect(document.querySelector(".sidebar-tip")).toBeNull();
+  });
+});
+
+describe("an item with pages under it", () => {
+  const transactions = () => within(sidebar()).getByRole("button", { name: "Transactions" });
+
+  it("opens in place on a tap, new first and the list second, and folds away again", async () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/");
+    await userEvent.click(transactions());
+    expect(transactions()).toHaveAttribute("aria-expanded", "true");
+    const pages = within(document.getElementById(transactions().getAttribute("aria-controls")!)!).getAllByRole("link");
+    expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["New transaction", "/transactions/new"],
+      ["All transactions", "/transactions"],
+    ]);
+
+    await userEvent.click(transactions());
+    expect(transactions()).toHaveAttribute("aria-expanded", "false");
+    expect(within(sidebar()).queryByRole("link", { name: "New transaction" })).toBeNull();
+  });
+
+  it("is already open on one of its pages, with that page marked and not the other", () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/transactions/new");
+    expect(transactions()).toHaveAttribute("aria-expanded", "true");
+    expect(within(sidebar()).getByRole("link", { name: "New transaction" })).toHaveAttribute("aria-current", "page");
+    // The list's path is the start of this one; it must not light up as well.
+    expect(within(sidebar()).getByRole("link", { name: "All transactions" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("goes where its page points", async () => {
+    localStorage.setItem("sidebar-collapsed", "false");
+    renderAt("/");
+    await userEvent.click(transactions());
+    await userEvent.click(within(sidebar()).getByRole("link", { name: "New transaction" }));
+    expect(screen.getByTestId("path")).toHaveTextContent("/transactions/new");
+  });
+
+  it("on the collapsed rail opens its pages beside the icon, and closes on a choice", async () => {
+    localStorage.setItem("sidebar-collapsed", "true");
+    renderAt("/");
+    await userEvent.click(transactions());
+    const flyout = document.querySelector(".sidebar-flyout") as HTMLElement;
+    expect(flyout).toHaveTextContent("Transactions");
+    await userEvent.click(within(flyout).getByRole("link", { name: "All transactions" }));
+    expect(screen.getByTestId("path")).toHaveTextContent("/transactions");
+    expect(document.querySelector(".sidebar-flyout")).toBeNull();
+  });
+
+  it("on the collapsed rail closes on Esc without going anywhere", async () => {
+    localStorage.setItem("sidebar-collapsed", "true");
+    renderAt("/");
+    await userEvent.click(transactions());
+    expect(document.querySelector(".sidebar-flyout")).not.toBeNull();
+    await userEvent.keyboard("{Escape}");
+    expect(document.querySelector(".sidebar-flyout")).toBeNull();
+    expect(screen.getByTestId("path")).toHaveTextContent("/");
   });
 });
 

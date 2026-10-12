@@ -1,21 +1,13 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { CategoryDelta, CategorySeries, CommittedMonth, FlowLink, FlowNode, MonthPace, WaterfallStep } from "../analyticsUtils";
-import type { SavingsGoal } from "../dashboardUtils";
+import type { CategorySeries, FlowLink, FlowNode, MonthPace, WaterfallStep } from "../analyticsUtils";
 import type { Payee } from "../../transactions/transactionInsights";
 import { ChartDetails, DetailsTable, type DetailsColumn } from "./DetailsTable";
 import { signedWith, weekdayNames } from "./chartTheme";
-import LabelledFlowChart from "./LabelledFlowChart";
-import PlanActualChart, { type PlanActualRow } from "./PlanActualChart";
-import SavingsGoalChart from "./SavingsGoalChart";
-import NetWorthChart, { type NetWorthRow } from "./NetWorthChart";
-import TopMoversChart from "./TopMoversChart";
 import CategorySparklines from "./CategorySparklines";
 import MonthWaterfall from "./MonthWaterfall";
 import WeekdayChart from "./WeekdayChart";
 import MonthPaceChart from "./MonthPaceChart";
-import CommittedSplitChart from "./CommittedSplitChart";
-import CategoryTrendChart, { type TrendRow, type TrendSeries } from "./CategoryTrendChart";
 import IncomeMonthsChart from "./IncomeMonthsChart";
 import IncomeSources from "./IncomeSources";
 
@@ -35,182 +27,6 @@ function usePercent() {
     const f = new Intl.NumberFormat(i18n.resolvedLanguage, { maximumFractionDigits: 1 });
     return (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? "—" : `${f.format(n)}%`);
   }, [i18n.resolvedLanguage]);
-}
-
-// ── Income and spending ──────────────────────────────────────────────────────
-
-interface FlowRow {
-  label: string;
-  income: number;
-  expenses: number;
-  net: number;
-}
-
-export function FlowDetails({ data, formatCurrency, legend }: { data: FlowRow[]; formatCurrency: Format; legend: ReactNode }) {
-  const { t } = useTranslation();
-  const signed = signedWith(formatCurrency);
-  const columns: DetailsColumn<FlowRow>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => r.label },
-    { key: "income", label: t("analytics.flow.income"), numeric: true, cell: (r) => formatCurrency(r.income), foot: formatCurrency(sum(data, (r) => r.income)) },
-    { key: "expenses", label: t("analytics.flow.expenses"), numeric: true, cell: (r) => formatCurrency(r.expenses), foot: formatCurrency(sum(data, (r) => r.expenses)) },
-    { key: "net", label: t("analytics.flow.net"), numeric: true, tone: (r) => r.net, cell: (r) => signed(r.net), foot: signed(sum(data, (r) => r.net)) },
-  ];
-  return (
-    <ChartDetails
-      note={t("analytics.dashboard.linesHint")}
-      chart={<LabelledFlowChart data={data} formatCurrency={formatCurrency} />}
-      legend={legend}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={newestFirst(data)} rowKey={(r) => r.label} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
-}
-
-// ── Plan against actual ──────────────────────────────────────────────────────
-
-export function PlanDetails({ rows, note, legend, formatCurrency }: { rows: PlanActualRow[]; note: string; legend: ReactNode; formatCurrency: Format }) {
-  const { t } = useTranslation();
-  const signed = signedWith(formatCurrency);
-  const hasPlan = rows.some((r) => r.plan !== null);
-  const hasLastYear = rows.some((r) => r.lastYear !== null);
-  const gap = (r: PlanActualRow) => (r.plan === null ? undefined : round2(r.actual - r.plan));
-  const planned = rows.filter((r) => r.plan !== null);
-  const columns: DetailsColumn<PlanActualRow>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => r.label },
-    { key: "actual", label: t("analytics.dashboard.actual"), numeric: true, cell: (r) => formatCurrency(r.actual), foot: formatCurrency(sum(rows, (r) => r.actual)) },
-    ...(hasPlan
-      ? [
-          { key: "plan", label: t("analytics.dashboard.plan"), numeric: true, cell: (r: PlanActualRow) => (r.plan === null ? "—" : formatCurrency(r.plan)), foot: formatCurrency(sum(planned, (r) => r.plan ?? 0)) },
-          {
-            key: "gap",
-            label: t("analytics.dashboard.difference"),
-            numeric: true,
-            // Over the plan is the bad direction: red, though the number is positive.
-            tone: (r: PlanActualRow) => {
-              const g = gap(r);
-              return g === undefined ? undefined : -g;
-            },
-            cell: (r: PlanActualRow) => {
-              const g = gap(r);
-              return g === undefined ? "—" : signed(g);
-            },
-            foot: signed(round2(sum(planned, (r) => r.actual) - sum(planned, (r) => r.plan ?? 0))),
-          },
-        ]
-      : []),
-    ...(hasLastYear
-      ? [{ key: "lastYear", label: t("analytics.dashboard.lastYear"), numeric: true, secondary: true, cell: (r: PlanActualRow) => (r.lastYear === null ? "—" : formatCurrency(r.lastYear)) }]
-      : []),
-  ];
-  return (
-    <ChartDetails
-      note={note}
-      chart={<PlanActualChart data={rows} formatCurrency={formatCurrency} />}
-      legend={legend}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={newestFirst(rows)} rowKey={(r) => r.label} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
-}
-
-// ── Savings rate ─────────────────────────────────────────────────────────────
-
-interface RatePoint {
-  label: string;
-  rate: number | null;
-  income: number;
-  net: number;
-}
-
-export function SavingsDetails({
-  data,
-  goal,
-  average,
-  note,
-  legend,
-  control,
-  formatCurrency,
-}: {
-  data: RatePoint[];
-  goal?: SavingsGoal;
-  average?: number;
-  note: string;
-  legend: ReactNode;
-  control: ReactNode;
-  formatCurrency: Format;
-}) {
-  const { t } = useTranslation();
-  const percent = usePercent();
-  const signed = signedWith(formatCurrency);
-  const columns: DetailsColumn<RatePoint>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => r.label },
-    { key: "income", label: t("analytics.flow.income"), numeric: true, cell: (r) => formatCurrency(r.income), foot: formatCurrency(sum(data, (r) => r.income)) },
-    { key: "kept", label: t("analytics.savingsRate.kept"), numeric: true, tone: (r) => r.net, cell: (r) => signed(r.net), foot: signed(sum(data, (r) => r.net)) },
-    {
-      key: "rate",
-      label: t("analytics.savingsRate.rate"),
-      numeric: true,
-      // Against the goal when there is one: reaching its floor is the green.
-      tone: (r) => (r.rate === null ? undefined : goal ? (r.rate >= goal.min ? 1 : -1) : r.rate),
-      cell: (r) => percent(r.rate),
-      foot: percent(average),
-    },
-  ];
-  return (
-    <ChartDetails
-      note={note}
-      chart={<SavingsGoalChart data={data} goal={goal} average={average} formatCurrency={formatCurrency} />}
-      legend={legend}
-      extra={control}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={newestFirst(data)} rowKey={(r) => r.label} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
-}
-
-// ── Net worth ────────────────────────────────────────────────────────────────
-
-export function NetWorthDetails({ rows, note, legend, formatCurrency }: { rows: NetWorthRow[]; note: string; legend: ReactNode; formatCurrency: Format }) {
-  const { t } = useTranslation();
-  const columns: DetailsColumn<NetWorthRow>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => r.label },
-    { key: "cash", label: t("analytics.netWorth.cash"), numeric: true, cell: (r) => formatCurrency(r.cash) },
-    { key: "saved", label: t("analytics.netWorth.saved"), numeric: true, secondary: true, cell: (r) => formatCurrency(r.saved) },
-    { key: "owedToMe", label: t("analytics.netWorth.owedToMe"), numeric: true, secondary: true, cell: (r) => formatCurrency(r.owedToMe) },
-    { key: "debt", label: t("analytics.netWorth.owedByMe"), numeric: true, cell: (r) => (r.debt === 0 ? formatCurrency(0) : `−${formatCurrency(Math.abs(r.debt))}`) },
-    { key: "net", label: t("analytics.netWorth.net"), numeric: true, tone: (r) => r.net, cell: (r) => formatCurrency(r.net) },
-  ];
-  return (
-    <ChartDetails
-      note={note}
-      chart={<NetWorthChart data={rows} formatCurrency={formatCurrency} />}
-      legend={legend}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={newestFirst(rows)} rowKey={(r) => r.label} columns={columns} />}
-    />
-  );
-}
-
-// ── What changed ─────────────────────────────────────────────────────────────
-
-export function MoversDetails({ rows, nameFor, formatCurrency }: { rows: CategoryDelta[]; nameFor: (id: string) => string; formatCurrency: Format }) {
-  const { t } = useTranslation();
-  const signed = signedWith(formatCurrency);
-  const columns: DetailsColumn<CategoryDelta>[] = [
-    { key: "name", label: t("analytics.details.category"), cell: (r) => nameFor(r.categoryId) },
-    { key: "before", label: t("analytics.movers.before"), numeric: true, cell: (r) => formatCurrency(r.previous), foot: formatCurrency(sum(rows, (r) => r.previous)) },
-    { key: "now", label: t("analytics.movers.now"), numeric: true, cell: (r) => formatCurrency(r.current), foot: formatCurrency(sum(rows, (r) => r.current)) },
-    // More spent is the bad direction.
-    { key: "change", label: t("analytics.movers.change"), numeric: true, tone: (r) => -r.delta, cell: (r) => signed(r.delta), foot: signed(sum(rows, (r) => r.delta)) },
-  ];
-  return (
-    <ChartDetails
-      note={t("analytics.movers.hint")}
-      chart={<TopMoversChart rows={rows} nameFor={nameFor} formatCurrency={formatCurrency} limit={12} />}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={rows} rowKey={(r) => r.categoryId} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
 }
 
 // ── Each category on its own ─────────────────────────────────────────────────
@@ -324,28 +140,6 @@ export function PaceDetails({ pace, legend, formatCurrency }: { pace: MonthPace;
 
 // ── Committed against free ───────────────────────────────────────────────────
 
-export function CommittedDetails({ rows, legend, monthLabel, formatCurrency }: { rows: CommittedMonth[]; legend: ReactNode; monthLabel: (d: Date) => string; formatCurrency: Format }) {
-  const { t } = useTranslation();
-  const percent = usePercent();
-  const committed = sum(rows, (r) => r.committed);
-  const free = sum(rows, (r) => r.free);
-  const columns: DetailsColumn<CommittedMonth>[] = [
-    { key: "month", label: t("analytics.details.month"), cell: (r) => monthLabel(r.start) },
-    { key: "committed", label: t("analytics.committed.committed"), numeric: true, cell: (r) => formatCurrency(r.committed), foot: formatCurrency(committed) },
-    { key: "free", label: t("analytics.committed.free"), numeric: true, cell: (r) => formatCurrency(r.free), foot: formatCurrency(free) },
-    { key: "share", label: t("analytics.committed.share"), numeric: true, cell: (r) => percent(r.share * 100), foot: committed + free > 0 ? percent((committed / (committed + free)) * 100) : "—" },
-  ];
-  return (
-    <ChartDetails
-      note={t("analytics.committed.hint")}
-      chart={<CommittedSplitChart rows={rows} formatCurrency={formatCurrency} monthLabel={monthLabel} />}
-      legend={legend}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={newestFirst(rows)} rowKey={(r) => r.key} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
-}
-
 // ── Where the money went (the Sankey) ────────────────────────────────────────
 
 export function MoneyFlowDetails({ chart, nodes, links, total, labelFor, formatCurrency }: { chart: ReactNode; nodes: FlowNode[]; links: FlowLink[]; total: number; labelFor: (node: FlowNode) => string; formatCurrency: Format }) {
@@ -375,32 +169,6 @@ export function MoneyFlowDetails({ chart, nodes, links, total, labelFor, formatC
 }
 
 // ── Categories against each other ────────────────────────────────────────────
-
-export function TrendDetails({ data, series, legend, formatCurrency }: { data: TrendRow[]; series: TrendSeries[]; legend: ReactNode; formatCurrency: Format }) {
-  const { t } = useTranslation();
-  // A category per row, a month per column: the lines of the chart, read across.
-  const rows = series.map((s) => ({ ...s, total: sum(data, (row) => Number(row[s.id]) || 0) }));
-  const columns: DetailsColumn<(typeof rows)[number]>[] = [
-    { key: "name", label: t("analytics.details.category"), cell: (r) => r.name },
-    ...data.map((row) => ({
-      key: String(row.label),
-      label: String(row.label),
-      numeric: true,
-      cell: (r: (typeof rows)[number]) => formatCurrency(Number(row[r.id]) || 0),
-      foot: formatCurrency(sum(series, (s) => Number(row[s.id]) || 0)),
-    })),
-    { key: "total", label: t("common.total"), numeric: true, cell: (r) => formatCurrency(r.total), foot: formatCurrency(sum(rows, (r) => r.total)) },
-  ];
-  return (
-    <ChartDetails
-      note={t("analytics.categoryTrend.hint")}
-      chart={<CategoryTrendChart data={data} series={series} formatCurrency={formatCurrency} totalLabel={t("common.total")} />}
-      legend={legend}
-      tableTitle={t("analytics.details.table")}
-      table={<DetailsTable rows={rows} rowKey={(r) => r.id} columns={columns} footLabel={t("common.total")} />}
-    />
-  );
-}
 
 // ── How steady the income is ─────────────────────────────────────────────────
 

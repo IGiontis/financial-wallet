@@ -80,7 +80,9 @@
     "mainNavigation": "Main navigation",
     "closeMenu": "Close menu",
     "switchToEnglish": "Switch to English",
-    "switchToGreek": "Switch to Greek"
+    "switchToGreek": "Switch to Greek",
+    "newTransaction": "New transaction",
+    "allTransactions": "All transactions"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -934,7 +936,10 @@
     "nextMonth": "Next month",
     "rangeAllDates": "All dates",
     "debtLocked": "Written by a loan. Change or delete it on Debts & loans.",
-    "loanMove": "Loan"
+    "loanMove": "Loan",
+    "savedTitle": "Transaction saved",
+    "savedSub": "It is in your transactions and already counts in the totals.",
+    "savedDetails": "What was saved"
   },
   "analytics": {
     "title": "Analytics",

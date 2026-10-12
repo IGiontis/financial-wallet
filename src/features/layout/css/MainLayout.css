@@ -85,3 +85,26 @@
   padding-top: var(--topbar-height);
   scroll-padding-top: var(--topbar-height);
 }
+
+/* A page that fills the screen above the footer rather than growing with its
+   content — «Νέα συναλλαγή», whose long list scrolls inside itself. It marks
+   its root `fill-page`; the outlet around it then lays it out as a column, and
+   `min-height: 0` lets it be shorter than what it holds, so what it holds
+   scrolls in its own box instead of pushing the footer down. */
+.page-outlet:has(> .fill-page) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fill-page {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* White in the light theme, the cards' dark in the dark one: the page is the form. */
+  background: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  padding-top: 1rem;
+  padding-bottom: 0.75rem;
+}

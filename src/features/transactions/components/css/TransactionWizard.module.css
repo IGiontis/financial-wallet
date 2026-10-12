@@ -196,3 +196,92 @@
   color: var(--color-text-secondary);
   margin-bottom: 0.75rem;
 }
+
+/* ── The wizard as a page (`/transactions/new`) ─────────────────────────────
+   A column that fills the page down to the footer: the body takes the room
+   and scrolls if a step is taller than it; Back and Next stay at the bottom. */
+
+.page {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pageBody {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border-radius: var(--border-radius-lg);
+}
+
+/* What a step shows keeps its own height; a step taller than the room
+   scrolls the body. Left to shrink, the check's summary card was squeezed to a
+   sliver to fit. The category step is the one exception — .stepFill below
+   shrinks on purpose, for its list to scroll inside it. */
+.pageBody > * {
+  flex-shrink: 0;
+}
+
+.pageFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0 0.25rem;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* The category step takes whatever the body has left, for the list to fill. */
+.stepFill {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Saved, on the page ───────────────────────────────────────────────────────
+   The confirmation an order page gives: a tick, one line, and what went in. */
+
+.savedPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem 0 0.5rem;
+}
+
+.savedIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 0.75rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-income) 16%, transparent);
+  color: var(--color-income);
+  font-size: 28px;
+}
+
+.savedTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.savedSub {
+  margin: 0.25rem 0 1.25rem;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}
+
+.savedDetails {
+  width: 100%;
+  max-width: 560px;
+  text-align: left;
+}

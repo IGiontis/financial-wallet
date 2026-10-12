@@ -1075,3 +1075,109 @@
     box-shadow: 0 0 0 2px #4d8dff;
   }
 }
+
+/* ── Items with pages under them ───────────────────────────────────────────── */
+/* «Συναλλαγές» opens «Νέα συναλλαγή» and «Όλες». The item is a button drawn as
+   the links are (`sidebar-link`), so every style dresses it the same way; the
+   chevron says it opens rather than goes. */
+
+.sidebar .sidebar-parent {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.sidebar .sidebar-chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  color: var(--nav-icon);
+  transition: transform 0.15s;
+}
+
+.sidebar .sidebar-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* One of its pages is on screen: the icon says so, the page itself carries the bar. */
+.sidebar .sidebar-parent.nav-link-within .nav-icon {
+  color: #7fb0ff;
+}
+
+/* The pages, indented to start under the item's label. */
+.sidebar .sidebar-sub {
+  padding-left: 30px;
+}
+
+.sidebar .sidebar-sub .sidebar-sublink {
+  height: 32px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar .sidebar-sub .sidebar-sublink {
+    height: 40px;
+  }
+}
+
+@media (min-width: 992px) {
+  .sidebar.collapsed .sidebar-chevron {
+    display: none;
+  }
+
+  /* On the rail the item stands for its pages, so it carries the edge bar. */
+  .sidebar.collapsed .sidebar-parent.nav-link-within::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: #4d8dff;
+  }
+}
+
+/* The pages beside the collapsed rail's icon. Portalled to <body>, like the tip. */
+.sidebar-flyout {
+  z-index: 1070;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #0e131a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-flyout-title {
+  padding: 6px 10px 4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar-flyout-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: rgba(232, 237, 244, 0.92);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.sidebar-flyout-link:hover,
+.sidebar-flyout-link:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.sidebar-flyout-link.active {
+  color: #7fb0ff;
+  font-weight: 600;
+}
