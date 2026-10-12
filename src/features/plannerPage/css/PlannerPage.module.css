@@ -1524,3 +1524,98 @@ span.scaleOpen {
   color: inherit;
   opacity: 0.8;
 }
+
+/* ── «Από πού βγαίνει το υπόλοιπο», a month to a row ──────────────────────── */
+
+.flowRows {
+  margin-top: 0.5rem;
+}
+
+.flowRow {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.flowRow:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.flowRowHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flowRowName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.flowRowSpan {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.flowRowSpan strong {
+  color: var(--color-text-primary);
+}
+
+.flowRowBars {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.flowRowTrack {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.flowRowIn,
+.flowRowOut {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.flowRowIn {
+  background: var(--color-income);
+}
+
+.flowRowOut {
+  background: var(--color-expense);
+}
+
+.flowRowIncome,
+.flowRowExpense {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.flowRowIncome {
+  color: var(--color-income-text);
+}
+
+.flowRowExpense {
+  color: var(--color-expense-text);
+}
+
+.flowRowLeft {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}

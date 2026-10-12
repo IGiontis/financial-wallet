@@ -8,7 +8,7 @@ import { isPay } from "../payCycles";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import HorizonPicker from "./HorizonPicker";
 import { BalanceScrub } from "./BalanceScrub";
-import PlanFlowChart from "./PlanFlowChart";
+import PlanMonthRows from "./PlanMonthRows";
 import styles from "../css/PlannerPage.module.css";
 
 const VERDICT = {
@@ -144,9 +144,7 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
           <>
             <div className={`${styles.label} mt-4`}>{t("planner.flowTitle")}</div>
             <p className="small text-body-secondary mb-0">{t("planner.flowHint")}</p>
-            <div className={styles.sheetChart}>
-              <PlanFlowChart periods={periods} formatCurrency={formatCurrency} locale={locale} />
-            </div>
+            <PlanMonthRows periods={periods} opening={plan.openingBalance} formatCurrency={formatCurrency} locale={locale} />
 
             <div className={`${styles.label} mt-4 mb-1`}>{t("planner.periodsTitle")}</div>
             <Table size="sm" hover responsive borderless className={`${styles.sheetTable} mb-0`}>
@@ -188,8 +186,8 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
       </div>
 
       {zoomed && (
-        <ZoomModal open onClose={() => setZoomed(false)} title={t("planner.flowTitle")} hint={t("planner.flowHint")}>
-          <PlanFlowChart periods={periods} formatCurrency={formatCurrency} locale={locale} />
+        <ZoomModal open fit onClose={() => setZoomed(false)} title={t("planner.flowTitle")} hint={t("planner.flowHint")}>
+          <PlanMonthRows periods={periods} opening={plan.openingBalance} formatCurrency={formatCurrency} locale={locale} />
         </ZoomModal>
       )}
     </section>

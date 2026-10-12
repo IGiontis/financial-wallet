@@ -1475,7 +1475,7 @@
     "horizonMonthsLabel": "Months",
     "horizonHint": "Up to {{max}} months — {{years}} years.",
     "flowTitle": "Where the balance comes from",
-    "flowHint": "What arrives above the line, what leaves below it, and the balance running across.",
+    "flowHint": "Each month, where you start and where you end: what came in, what went out, and what it left.",
     "seasonLabel": "Only for part of the year",
     "seasonFrom": "From month",
     "seasonTo": "to",
@@ -1588,7 +1588,13 @@
     "ledgerWindow_one": "over the {{months}} month you are looking at",
     "ledgerWindow_other": "over the {{months}} months you are looking at",
     "ledgerEmptyOut": "Nothing yet. Add a monthly cost below.",
-    "ledgerOffShort": "off"
+    "ledgerOffShort": "off",
+    "rowsIn": "In",
+    "rowsOut": "Out",
+    "rowsLeft": "Left over this month",
+    "rowsLeftQuarter": "Left over this quarter",
+    "rowsShort": "More went out than came in",
+    "rowsShortQuarter": "More went out than came in this quarter"
   },
   "settings": {
     "title": "Settings",
