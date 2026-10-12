@@ -553,3 +553,41 @@ export function debtEdit(next: CreateDebtDTO): { set: Partial<CreateDebtDTO>; cl
   const clear = DEBT_FORM_OPTIONAL_FIELDS.filter((field) => next[field] === undefined);
   return { set, clear };
 }
+
+/** What a repayment that has not been saved yet would do to its debt. */
+export interface RepaymentPreview {
+  /** Owed now, before it. */
+  remainingBefore: number;
+  /** Owed once it is in — what the debt's own card will say afterwards. */
+  remainingAfter: number;
+  /** The part that meets interest; 0 between people. */
+  interest: number;
+  /** The part that comes off the debt. With `interest` it makes the amount, to the cent. */
+  principal: number;
+  /** It clears what is left. */
+  settles: boolean;
+  /** More than was left: the debt is settled, the rest is not part of it. */
+  overpays: boolean;
+}
+
+/**
+ * Plays a repayment into a debt without saving it, the way the debt will read
+ * once it is saved: the same `computeDebtStatus` and the same loan walk, so the
+ * check before saving and the card after it cannot disagree.
+ */
+export function previewRepayment(debt: DebtWithStatus, amount: number, date: Date, now: Date = new Date()): RepaymentPreview {
+  const id = "__draft__";
+  const draft: DebtPayment = { id, userId: debt.userId, debtId: debt.id, amount, date, createdAt: now };
+  const after = computeDebtStatus(debt, [...debt.payments, draft], now);
+  const split = isLoan(after) ? loanSplits(after, now)?.get(id) : undefined;
+  const interest = split?.interest ?? 0;
+  const remainingBefore = debt.remaining;
+  return {
+    remainingBefore,
+    remainingAfter: after.remaining,
+    interest,
+    principal: split?.principal ?? round2(amount),
+    settles: after.isSettled,
+    overpays: round2(amount) > remainingBefore + 0.005,
+  };
+}

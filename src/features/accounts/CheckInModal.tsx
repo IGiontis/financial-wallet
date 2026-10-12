@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { FiPlus } from "react-icons/fi";
+import type { Category, CreateTransactionDTO } from "../../shared/types/IndexTypes";
+import GapRecordSheet from "./GapRecordSheet";
 import { parseAmount, type MoneyAccount } from "./accountsUtils";
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
@@ -15,6 +18,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * that is already correct is the kind of chore that ends a habit. Only the ones
  * that differ need touching; each shows its own difference as it is typed, and
  * the total one sits at the foot of the sheet, beside the button that saves it.
+ *
+ * Where a figure differs, the row offers to write down what the difference
+ * was while the person is here — see `GapRecordSheet`. Doing so moves what the
+ * app expected by the same amount, so the difference closes by itself; leaving
+ * it alone keeps it a difference.
  */
 export default function CheckInModal({
   accounts,
@@ -22,6 +30,8 @@ export default function CheckInModal({
   tones,
   baseCurrency,
   formatCurrency,
+  categories,
+  onAddRecord,
   onSave,
   onClose,
 }: {
@@ -31,6 +41,9 @@ export default function CheckInModal({
   tones: Record<string, string>;
   baseCurrency: string;
   formatCurrency: (n: number) => string;
+  categories: Category[];
+  /** Writes the record the difference turned out to be. */
+  onAddRecord: (data: CreateTransactionDTO) => Promise<unknown>;
   onSave: (amounts: Record<string, number>) => void;
   onClose: () => void;
 }) {
@@ -41,6 +54,7 @@ export default function CheckInModal({
     return (n: number | undefined) => (n === undefined ? "" : fmt.format(n));
   }, [i18n.resolvedLanguage]);
 
+  const [gap, setGap] = useState<{ account: MoneyAccount; change: number } | null>(null);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(accounts.map((a) => [a.id, asInput(expected[a.id])])));
 
   const parsed = accounts.map((a) => ({ id: a.id, value: parseAmount(values[a.id] ?? "") }));
@@ -73,7 +87,8 @@ export default function CheckInModal({
               <span className={styles.tile} style={{ ["--tone" as string]: tones[account.id] }} aria-hidden>
                 {ACCOUNT_ICON[account.kind]}
               </span>
-              <label htmlFor={`read-${account.id}`} className="flex-grow-1" style={{ minWidth: 0 }}>
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+              <label htmlFor={`read-${account.id}`} className="d-block">
                 <span className={styles.name}>{account.name}</span>
                 {expected[account.id] !== undefined &&
                   (change === 0 ? (
@@ -84,6 +99,12 @@ export default function CheckInModal({
                     </span>
                   ))}
               </label>
+              {change !== 0 && (
+                <button type="button" className={styles.gapAsk} onClick={() => setGap({ account, change })}>
+                  <FiPlus size={13} aria-hidden /> {t(change < 0 ? "accounts.gap.askOut" : "accounts.gap.askIn")}
+                </button>
+              )}
+              </div>
               <InputGroup className={styles.readInput}>
                 <Input
                   id={`read-${account.id}`}
@@ -105,6 +126,19 @@ export default function CheckInModal({
           <p className="small text-body-secondary mt-3 mb-0">{t(difference < 0 ? "accounts.notWrittenHint" : "accounts.cameUnwrittenHint")}</p>
         )}
       </ModalBody>
+
+      {gap && (
+        <GapRecordSheet
+          accountId={gap.account.id}
+          accountName={gap.account.name}
+          change={gap.change}
+          categories={categories}
+          baseCurrency={baseCurrency}
+          formatCurrency={formatCurrency}
+          onAdd={onAddRecord}
+          onClose={() => setGap(null)}
+        />
+      )}
 
       {/* The answer sits by the button, where the eye already is when saving. */}
       <ModalFooter className="d-block">

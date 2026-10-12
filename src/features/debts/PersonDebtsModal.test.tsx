@@ -25,6 +25,7 @@ const spies = vi.hoisted(() => ({
 
 // The card picker reads the accounts; which card is chosen is not what these check.
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
+vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => [] }));
 vi.mock("./useDebts", () => ({
   useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),
@@ -164,29 +165,105 @@ describe("the payments tab", () => {
 });
 
 describe("recording a payment", () => {
+  // The wizard is a dialog of its own, over the sheet.
+  const wizard = () => screen.getAllByRole("dialog").at(-1)!;
+  const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
+
   it("offers the month's payment on a loan, and fills it in", async () => {
     renderSheet([car]);
     const instalment = loanState(nikos([car]).debts[0])!.instalment;
     expect(instalment).toBe(185.26);
 
     await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
-    expect(screen.getByLabelText("Amount")).toHaveValue(185.26);
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(within(wizard()).getByLabelText("Amount")).toHaveValue(185.26);
+    await next();
+    await next();
+    await next();
+    await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
-    expect(spies.record).toHaveBeenCalledWith(expect.objectContaining({ debtId: "car", amount: 185.26 }), expect.anything());
+    expect(spies.record).toHaveBeenCalledWith(expect.objectContaining({ debtId: "car", amount: 185.26, accountId: "" }), expect.anything());
   });
 
   it("offers what is left between people, dated today", async () => {
     renderSheet([rent]);
 
     await userEvent.click(screen.getByRole("button", { name: "Payment" }));
-    expect(screen.getByLabelText("Amount")).toHaveValue(300);
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(within(wizard()).getByLabelText("Amount")).toHaveValue(300);
+    await next();
+    await next();
+    await next();
+    await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
     const [vars] = spies.record.mock.calls[0];
     expect(vars).toMatchObject({ debtId: "rent", amount: 300 });
     const now = new Date();
     expect([vars.date.getFullYear(), vars.date.getMonth(), vars.date.getDate()]).toEqual([now.getFullYear(), now.getMonth(), now.getDate()]);
+  });
+
+  it("has no Save until the check, the fourth step", async () => {
+    renderSheet([rent]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await next();
+    await next();
+    expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await next();
+    expect(within(wizard()).getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(spies.record).not.toHaveBeenCalled();
+  });
+
+  it("will not leave the amount with nothing or zero in it", async () => {
+    renderSheet([rent]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.clear(within(wizard()).getByLabelText("Amount"));
+    await userEvent.type(within(wizard()).getByLabelText("Amount"), "0");
+    await next();
+
+    expect(within(wizard()).getByLabelText("Amount")).toBeInvalid();
+    expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("says at the check what is left once it is paid — and when it clears the debt", async () => {
+    renderSheet([rent]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.clear(within(wizard()).getByLabelText("Amount"));
+    await userEvent.type(within(wizard()).getByLabelText("Amount"), "100");
+    await next();
+    await next();
+    await next();
+
+    // 300 was left of the 500 after the two payments; 100 more leaves 200.
+    const effect = within(wizard()).getByRole("group", { name: "What changes" });
+    expect(effect).toHaveTextContent("Owed now€300.00");
+    expect(effect).toHaveTextContent("Owed after€200.00 left");
+    expect(effect).not.toHaveTextContent("interest");
+
+    // The rail and the row of the check both lead back to the amount.
+    await userEvent.click(within(wizard()).getAllByRole("button", { name: /Amount/ })[0]);
+    await userEvent.clear(within(wizard()).getByLabelText("Amount"));
+    await userEvent.type(within(wizard()).getByLabelText("Amount"), "300");
+    await next();
+    await next();
+    await next();
+    expect(within(wizard()).getByRole("group", { name: "What changes" })).toHaveTextContent("Owed afterPaid off");
+  });
+
+  it("splits a loan payment into interest and debt at the check, adding up to the payment", async () => {
+    renderSheet([car]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
+    await next();
+    await next();
+    await next();
+
+    const effect = within(wizard()).getByRole("group", { name: "What changes" });
+    expect(effect).toHaveTextContent("Goes to interest");
+    expect(effect).toHaveTextContent("Goes to the debt");
+    const cents = (label: string) => Number((effect.textContent!.match(new RegExp(label + "€([0-9.]+)")) ?? [])[1]);
+    expect(Math.round((cents("Goes to interest") + cents("Goes to the debt")) * 100) / 100).toBe(185.26);
   });
 
   it("has nothing to pay on a loan already settled", () => {

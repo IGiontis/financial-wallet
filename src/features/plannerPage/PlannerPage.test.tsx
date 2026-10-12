@@ -414,6 +414,9 @@ describe("the incomes, from «Έσοδα»", () => {
     const amount = screen.getByLabelText("Amount per month");
     await userEvent.clear(amount);
     await userEvent.type(amount, "350");
+    // Three steps, and Save only on the last; an existing figure lets the rail jump.
+    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(settings.get("planner-lines")).toEqual([{ ...OWN, amount: 350 }, room]);
   });

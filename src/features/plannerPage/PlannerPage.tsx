@@ -752,6 +752,7 @@ export function PlannerPage() {
         <EntryEditor
           mode={editor.mode}
           draft={editor.draft}
+          formatCurrency={formatCurrency}
           onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
           onSave={(draft) => saveEntry(editor, draft)}
           onClose={() => setEditor(null)}

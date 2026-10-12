@@ -977,3 +977,90 @@ button.payRow[aria-expanded="true"] {
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+
+/* The repayment wizard: amount shortcuts, and the check's two cards. */
+.wizChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0.6rem;
+}
+
+.wizChip {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+}
+
+.wizChip:hover {
+  background: var(--color-surface);
+}
+
+.wizNote {
+  padding: 8px 10px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.wizCard {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.wizRow,
+.wizStatic {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+.wizRow:last-child,
+.wizStatic:last-child {
+  border-bottom: none;
+}
+
+/* The check's rows go back to the step that asked them. */
+.wizRow:hover {
+  background: var(--color-surface);
+}
+
+.wizLabel {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.wizValue {
+  min-width: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.wizEffectHead {
+  padding: 8px 12px 0;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wizDone {
+  color: var(--color-income-text);
+}

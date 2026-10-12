@@ -5,7 +5,7 @@ import { FiEdit2, FiPlus, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
-import { useDeleteDebt, useDeleteRepayment, useRecordRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
+import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
 import { DateField } from "../../shared/components/DateField";
 import { RateHelpButton } from "./RateExplainer";
@@ -15,6 +15,7 @@ import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import AccountPicker from "../accounts/AccountPicker";
+import RepaymentWizard from "./RepaymentWizard";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -168,7 +169,6 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
 function PaymentPanel({
   amount,
   date,
-  hint,
   saving,
   onAmount,
   onDate,
@@ -186,8 +186,6 @@ function PaymentPanel({
   onAccount: (id: string) => void;
   /** Money coming in (repaid to me) rather than going out — the picker words itself to match. */
   income: boolean;
-  /** Beside the amount — "of €300" while recording, nothing while correcting. */
-  hint?: string;
   saving: boolean;
   onAmount: (value: string) => void;
   onDate: (value: string) => void;
@@ -219,7 +217,6 @@ function PaymentPanel({
             onChange={(e) => onAmount(e.target.value)}
             aria-label={t("common.amount")}
           />
-          {hint && <InputGroupText>{hint}</InputGroupText>}
         </InputGroup>
         {/* The app's own calendar, like every other date in it — not the
             browser's, which opens from a small icon and looks different on
@@ -378,7 +375,6 @@ export default function PersonDebtsModal({
   knownPeople?: string[];
 }) {
   const { t } = useTranslation();
-  const record = useRecordRepayment();
   const updateRepayment = useUpdateRepayment();
   const removeRepayment = useDeleteRepayment();
   const deleteGuard = useOfflineGuard("delete");
@@ -395,7 +391,11 @@ export default function PersonDebtsModal({
   const [tab, setTab] = useState<SheetTab>("pays");
   // One panel open at a time: a new payment and a correction open together is
   // two half-finished forms and no way to tell which Save is which.
-  const [panel, setPanel] = useState<{ kind: "record" } | { kind: "edit"; payment: DebtPayment } | null>(null);
+  const [panel, setPanel] = useState<{ kind: "edit"; payment: DebtPayment } | null>(null);
+  // Recording a new repayment is the four-step wizard, over this sheet; only a
+  // correction opens in place.
+  // Holds the amount it opens with.
+  const [recording, setRecording] = useState<number | null>(null);
   const [panelAmount, setPanelAmount] = useState("");
   const [panelDate, setPanelDate] = useState(today);
   // Which card a repayment went through: "" (the main account) for a new one,
@@ -430,6 +430,7 @@ export default function PersonDebtsModal({
     <>
       {editing && <AddDebtModal debt={editing} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setEditing(null)} />}
       {adding && <AddDebtModal defaultPerson={person.person} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setAdding(false)} />}
+      {recording !== null && debt && <RepaymentWizard debt={debt} suggested={recording} formatCurrency={formatCurrency} onClose={() => setRecording(null)} />}
     </>
   );
 
@@ -450,7 +451,7 @@ export default function PersonDebtsModal({
   const cleared = clearedPercent(debt, loan);
   const canWhatIf = !!loan && !debt.isSettled;
   const shownTab: SheetTab = tab === "whatif" && !canWhatIf ? "pays" : tab;
-  const saving = record.isPending || updateRepayment.isPending;
+  const saving = updateRepayment.isPending;
   const lastPayment = debt.payments[0];
 
   // What the button says and what it fills in. On a loan that is the month's
@@ -468,18 +469,14 @@ export default function PersonDebtsModal({
 
   const openRecord = () => {
     setTab("pays");
-    setPanel({ kind: "record" });
-    // A part payment is one edit away from here; settling is the common case.
-    setPanelAmount(String(instalmentDue ?? debt.remaining));
-    setPanelDate(today());
-    // The card the debt itself went through, if it named one: a loan taken into
-    // Revolut is usually paid back from Revolut.
-    setPanelAccount(debt.accountId ?? "");
+    setPanel(null);
+    // A part payment is one edit away from here; the month's payment, or settling, is the common case.
+    setRecording(instalmentDue ?? debt.remaining);
   };
 
   const openEdit = (payment: DebtPayment) => {
     // Tapping the open one again closes it, like any other row that expands.
-    if (panel?.kind === "edit" && panel.payment.id === payment.id) {
+    if (panel?.payment.id === payment.id) {
       setPanel(null);
       return;
     }
@@ -494,12 +491,11 @@ export default function PersonDebtsModal({
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
 
-    if (panel.kind === "record") record.mutate({ debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? "" }, { onSuccess: () => setPanel(null) });
-    else updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount }, { onSuccess: () => setPanel(null) });
+    updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount }, { onSuccess: () => setPanel(null) });
   };
 
   const deletePanelPayment = () => {
-    if (panel?.kind !== "edit") return;
+    if (!panel) return;
     removeRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id }, { onSuccess: () => setPanel(null) });
   };
 
@@ -626,7 +622,7 @@ export default function PersonDebtsModal({
 
           {!debt.isSettled && (
             <div className={styles.cta}>
-              <Button color="primary" className="w-100" onClick={openRecord} aria-expanded={panel?.kind === "record"}>
+              <Button color="primary" className="w-100" onClick={openRecord}>
                 <FiPlus size={16} aria-hidden /> {ctaLabel}
               </Button>
             </div>
@@ -654,25 +650,9 @@ export default function PersonDebtsModal({
           <div role="tabpanel" id={`debt-panel-${shownTab}`} aria-labelledby={`debt-tab-${shownTab}`} className={styles.tabPanel}>
             {shownTab === "pays" && (
               <>
-                {panel?.kind === "record" && (
-                  <PaymentPanel
-                    amount={panelAmount}
-                    date={panelDate}
-                    hint={t("debts.of", { amount: formatCurrency(debt.remaining) })}
-                    saving={saving}
-                    onAmount={setPanelAmount}
-                    onDate={setPanelDate}
-                    onSave={savePanel}
-                    onCancel={() => setPanel(null)}
-                    account={panelAccount}
-                    onAccount={setPanelAccount}
-                    income={!borrowed}
-                  />
-                )}
-
                 <ul className={styles.payList} aria-label={t("debts.tabPayments")}>
                   {debt.payments.map((payment) => {
-                    const open = panel?.kind === "edit" && panel.payment.id === payment.id;
+                    const open = panel?.payment.id === payment.id;
                     const split = splits?.get(payment.id);
                     return (
                       <li key={payment.id}>
@@ -714,7 +694,7 @@ export default function PersonDebtsModal({
                     </span>
                   </li>
                 </ul>
-                {debt.payments.length === 0 && panel?.kind !== "record" && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
+                {debt.payments.length === 0 && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
               </>
             )}
 

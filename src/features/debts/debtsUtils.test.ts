@@ -16,6 +16,7 @@ import {
   monthlyInstalment,
   payoffSaving,
   plannableDebts,
+  previewRepayment,
   rateOutlook,
 } from "./debtsUtils";
 import type { Debt, DebtPayment, DebtWithStatus } from "../../shared/types/IndexTypes";
@@ -858,5 +859,39 @@ describe("personProgress", () => {
       ["owed_by_me", 250, 200],
       ["owed_to_me", 100, 60],
     ]);
+  });
+});
+
+describe("previewRepayment", () => {
+  const now = new Date(2026, 5, 15);
+
+  it("between people: takes the payment off what is left, and says when it clears it", () => {
+    const d = computeDebtStatus(debt({ id: "p1", amount: 300 }), [repay("p1", 100, new Date(2026, 4, 1))], now);
+
+    const part = previewRepayment(d, 50, now, now);
+    expect(part).toMatchObject({ remainingBefore: 200, remainingAfter: 150, interest: 0, principal: 50, settles: false, overpays: false });
+
+    const rest = previewRepayment(d, 200, now, now);
+    expect(rest).toMatchObject({ remainingAfter: 0, settles: true, overpays: false });
+
+    const over = previewRepayment(d, 250, now, now);
+    expect(over).toMatchObject({ remainingAfter: 0, settles: true, overpays: true });
+  });
+
+  it("on a loan paid today: interest and principal make the payment, and the balance falls by exactly the payment", () => {
+    const d = computeDebtStatus(debt({ id: "l1", amount: 6000, date: new Date(2026, 0, 10), interestRate: 7, termMonths: 36 }), [repay("l1", 185.26, new Date(2026, 1, 10))], now);
+
+    const pv = previewRepayment(d, 185.26, now, now);
+
+    expect(round2(pv.interest + pv.principal)).toBe(185.26);
+    expect(pv.interest).toBeGreaterThan(0);
+    // Paid today, nothing accrues between the payment and now: the balance drops by the whole payment.
+    expect(round2(pv.remainingBefore - pv.remainingAfter)).toBe(185.26);
+    // Second way: the saved payment, run through the loan walk, gives the same two parts.
+    const saved = computeDebtStatus(d, [...d.payments, repay("l1", 185.26, now)], now);
+    const row = [...(loanSplits(saved, now)?.values() ?? [])].at(-1)!;
+    expect(row.interest).toBe(pv.interest);
+    expect(row.principal).toBe(pv.principal);
+    expect(saved.remaining).toBe(pv.remainingAfter);
   });
 });

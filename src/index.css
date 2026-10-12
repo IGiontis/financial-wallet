@@ -396,6 +396,23 @@
   overflow: hidden;
 }
 
+/* A sheet that fills the phone (`fullscreen="sm"`) reaches the very edges of
+   the screen, under the status bar at the top and the home bar at the bottom,
+   where its buttons were being pressed against the edge. The insets are 0 on
+   a screen with neither, so nothing moves there. */
+@media (max-width: 575.98px) {
+  .modal-fullscreen-sm-down .modal-header {
+    padding-top: calc(var(--bs-modal-header-padding-y, 1rem) + env(safe-area-inset-top, 0px));
+  }
+  .modal-fullscreen-sm-down .modal-footer {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+  /* A sheet with no footer ends on its body. */
+  .modal-fullscreen-sm-down .modal-content > .modal-body:last-child {
+    padding-bottom: calc(var(--bs-modal-padding, 1rem) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Full-height sheets on phones so long forms stay reachable.
    Not for a dialog that asked to fill the screen (`fullscreen="sm"`): these two
    rules put its 8px margin back and capped its body at the screen less 12rem,

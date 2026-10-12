@@ -29,6 +29,7 @@ export interface AccountDraft {
  */
 export default function AccountModal({
   account,
+  isMain,
   defaultColor,
   baseCurrency,
   onSave,
@@ -36,6 +37,13 @@ export default function AccountModal({
   onClose,
 }: {
   account?: MoneyAccount;
+  /**
+   * This is the account records land in now: the one marked, or, when none is,
+   * the first bank. Read from the list rather than the flag, which is missing
+   * on the fallback and would show the switch off for an account that is in
+   * fact the main one.
+   */
+  isMain: boolean;
   /** The finish the card has now, or would get. */
   defaultColor?: CardColor | "cash";
   baseCurrency: string;
@@ -47,7 +55,7 @@ export default function AccountModal({
   const deleteGuard = useOfflineGuard("delete");
   const [name, setName] = useState(account?.name ?? "");
   const [kind, setKind] = useState<MoneyAccountKind>(account?.kind ?? "bank");
-  const [main, setMain] = useState(account?.main ?? false);
+  const [main, setMain] = useState(isMain);
   const [color, setColor] = useState<CardColor>(defaultColor && defaultColor !== "cash" ? defaultColor : "blue");
   const [amount, setAmount] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -64,7 +72,7 @@ export default function AccountModal({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered fullscreen="sm">
+    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm">
       <ModalHeader toggle={onClose}>{account ? t("accounts.editTitle") : t("accounts.addTitle")}</ModalHeader>
       <ModalBody>
         <div className={`${segmented.group} ${segmented.even} mb-3`} role="group" aria-label={t("accounts.kind")}>
@@ -128,16 +136,19 @@ export default function AccountModal({
         )}
 
         <FormGroup switch className="mb-0">
-          <Input id="account-main" type="switch" checked={main} onChange={(e) => setMain(e.target.checked)} />
+          {/* Locked on for the main one: there is always exactly one, so it is
+              moved by making another the main, never by switching this off. */}
+          <Input id="account-main" type="switch" checked={main} disabled={isMain} onChange={(e) => setMain(e.target.checked)} />
           <Label for="account-main" check className="small">
             {t("accounts.main")}
           </Label>
-          <div className="form-text">{t("accounts.mainHint")}</div>
+          <div className="form-text">{t(isMain ? "accounts.mainIsHint" : "accounts.mainHint")}</div>
         </FormGroup>
 
-        {account && onDelete && (
+        {/* Asked only once the bin in the footer is pressed. */}
+        {account && onDelete && confirming && (
           <div className="border-top mt-3 pt-3">
-            {confirming ? (
+            {confirming && (
               <>
                 <p className="small mb-2">{t("accounts.deleteConfirm", { name: account.name })}</p>
                 {deleteGuard.locked && <p className="small text-body-secondary mb-2">{deleteGuard.reason}</p>}
@@ -150,19 +161,22 @@ export default function AccountModal({
                   </Button>
                 </div>
               </>
-            ) : (
-              <DeleteButton opensConfirm size="sm" label={t("accounts.delete")} onClick={() => setConfirming(true)} />
             )}
           </div>
         )}
       </ModalBody>
-      <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
-          {t("common.cancel")}
-        </Button>
-        <Button color="primary" onClick={save}>
-          {t("common.save")}
-        </Button>
+      {/* The bin on its own side of the footer, away from Save: pressed beside
+          it, a slip of the thumb would have started the wrong thing. */}
+      <ModalFooter className="justify-content-between">
+        {account && onDelete && !confirming ? <DeleteButton opensConfirm iconOnly label={t("accounts.delete")} onClick={() => setConfirming(true)} /> : <span />}
+        <div className="d-flex gap-2">
+          <Button color="secondary" outline onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button color="primary" onClick={save}>
+            {t("common.save")}
+          </Button>
+        </div>
       </ModalFooter>
     </Modal>
   );

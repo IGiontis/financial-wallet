@@ -30,6 +30,7 @@ import { BankCard, NoCard } from "./BankCard";
 import AccountSheet from "./AccountSheet";
 import cardStyles from "./css/BankCard.module.css";
 import CheckInModal from "./CheckInModal";
+import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import styles from "./css/AccountsPage.module.css";
 
@@ -55,6 +56,9 @@ export function AccountsPage() {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
   const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, isLoading } = useMoneyAccounts();
+  // For writing down what a difference turned out to be, from inside the reading.
+  const { data: categories = [] } = useCategories();
+  const createTransaction = useCreateTransaction();
   const deleteGuard = useOfflineGuard("delete");
 
   const [reading, setReading] = useState(false);
@@ -354,6 +358,8 @@ export function AccountsPage() {
           tones={tones}
           baseCurrency={baseCurrency}
           formatCurrency={formatCurrency}
+          categories={categories}
+          onAddRecord={createTransaction.mutateAsync}
           onSave={(amounts) => {
             record(amounts);
             setReading(false);
@@ -389,6 +395,7 @@ export function AccountsPage() {
           // A new card starts in a finish no other card has, so two never look alike by default.
           defaultColor={editing === "new" ? (CARD_COLORS.find((c) => !Object.values(finishes).includes(c)) ?? "blue") : finishes[editing.id]}
           account={editing === "new" ? undefined : editing}
+          isMain={editing === "new" ? accounts.length === 0 : mainAccount(accounts)?.id === editing.id}
           baseCurrency={baseCurrency}
           onSave={saveAccount}
           onDelete={editing === "new" ? undefined : () => deleteAccount(editing.id)}

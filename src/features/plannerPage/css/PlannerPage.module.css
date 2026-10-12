@@ -911,17 +911,70 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: var(--border-radius-sm);
+  width: 34px;
+  height: 34px;
+  margin-left: 0.25rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
-  color: var(--color-text-secondary);
+  color: var(--color-link);
   cursor: pointer;
 }
 
 .groupAdd:hover {
   color: var(--color-text-primary);
+}
+
+/* "Skip all" / "Include all", on a line of its own at the top of an open group. */
+.sweepRow {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 0.25rem;
+}
+
+/* The check at the end of the figure wizard: each answer, a way back to its step. */
+.wizCard {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.wizRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+.wizRow:last-child {
+  border-bottom: none;
+}
+
+.wizRow:hover {
+  background: var(--color-surface);
+}
+
+.wizLabel {
+  flex: 0 0 30%;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.wizValue {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Rows ─────────────────────────────────────────────────────────────────── */

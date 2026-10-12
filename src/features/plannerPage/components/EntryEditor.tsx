@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 
 import { DateField } from "../../../shared/components/DateField";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
+import segmented from "../../../shared/css/Segmented.module.css";
+import { formatTable } from "../../transactions/transactionDates";
+import { WizardSteps } from "../../transactions/components/WizardSteps";
 import { oneOffDate, REPEAT_CHOICES, repeatLabel } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
-import { DeleteButton } from "../../../shared/components/DeleteButton";
 
 export interface EntryDraft {
   id?: string;
@@ -29,198 +32,307 @@ interface EntryEditorProps {
   /** A rate per month, or a single dated amount. */
   mode: "line" | "oneoff";
   draft: EntryDraft;
+  formatCurrency: (n: number) => string;
   /** Absent while creating. */
   onDelete?: () => void;
   onSave: (draft: EntryDraft) => void;
   onClose: () => void;
 }
 
-/**
- * One dialog for writing every figure the user owns.
- *
- * These used to be inline: a name box, an amount box, a suffix and a delete
- * cross squeezed onto one line under every row, permanently, whether or not
- * anyone was editing. On a phone that is four controls in about three hundred
- * pixels, and it made a list of three budget lines look like a form with nine
- * fields. It also meant the list could never be read — every row carried its
- * own editor whether you wanted it or not.
- *
- * A dialog costs one tap and gives each field a label, a sensible width, and a
- * delete that is not a 14-pixel cross beside two inputs.
- */
-export function EntryEditor({ mode, draft, onDelete, onSave, onClose }: EntryEditorProps) {
-  const { t } = useTranslation();
-  const [value, setValue] = useState<EntryDraft>(draft);
+const STEPS = ["1", "2", "3"] as const;
+type Step = (typeof STEPS)[number];
 
+/** "2026-12" as "Dec 2026", or undefined for anything else. */
+function monthText(key: string | undefined, lang: string): string | undefined {
+  const match = /^(\d{4})-(\d{2})$/.exec(key ?? "");
+  if (!match) return undefined;
+  return new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }).format(new Date(Number(match[1]), Number(match[2]) - 1, 1));
+}
+
+/**
+ * One dialog for writing every figure the user owns, in three steps: what it
+ * is and how much, when it applies, and the check.
+ *
+ * It used to be one tall form with everything at once, the season, the yearly
+ * repeat and the end date included, so that to add "300 a month in summer" you
+ * had to read all of it first. Now the first step is a name and an amount and
+ * nothing else; the question of when comes after, and asks one thing at a time:
+ * all year or only some months, once or repeating. The last step says the
+ * answer in a sentence, and is the only place Save is.
+ *
+ * Opening an existing figure lets the rail jump, since everything is filled in.
+ */
+export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onClose }: EntryEditorProps) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "en";
+  const [value, setValue] = useState<EntryDraft>(draft);
+  const [step, setStep] = useState<Step>("1");
+  const [tried, setTried] = useState(false);
+  // Whether a monthly figure only runs for part of the year; a figure that arrives on a date is its own thing.
+  const [seasonal, setSeasonal] = useState(!!(draft.from || draft.to));
+
+  const edit = !!draft.id;
   const amount = parseFloat(value.amount);
   const dated = mode === "oneoff";
-  // A Save that silently declines is indistinguishable from a Save that is
-  // broken, so the button reads off this rather than the click doing nothing.
+  const amountOk = Number.isFinite(amount) && amount > 0;
   // A season that ends before it starts charges nothing at all, which looks
   // like the app losing the entry rather than refusing it.
-  const seasonBackwards = !!value.from && !!value.to && value.to < value.from;
+  const seasonBackwards = !dated && seasonal && !!value.from && !!value.to && value.to < value.from;
   // A season with no start has nothing to add a year to. Saying so beats
   // storing a repeat that quietly does nothing.
-  const yearlyNeedsStart = !dated && !!value.yearly && !value.from;
-  const seasonEndsEarly = !dated && !!value.yearly && !!value.until && value.until < (value.to || value.from || "");
+  const yearlyNeedsStart = !dated && seasonal && !!value.yearly && !value.from;
+  const seasonEndsEarly = !dated && seasonal && !!value.yearly && !!value.until && value.until < (value.to || value.from || "");
   const repeats = !!value.every;
-  const repeatBackwards = repeats && !!value.until && !!value.date && value.until < value.date;
-  const valid = Number.isFinite(amount) && amount > 0 && (!dated || !!oneOffDate(value.date ?? "")) && !seasonBackwards && !repeatBackwards && !yearlyNeedsStart && !seasonEndsEarly;
+  const repeatBackwards = dated && repeats && !!value.until && !!value.date && value.until < value.date;
+  const dateOk = !dated || !!oneOffDate(value.date ?? "");
+  const whenOk = dateOk && !seasonBackwards && !repeatBackwards && !yearlyNeedsStart && !seasonEndsEarly;
+  const valid = amountOk && whenOk;
 
-  const save = () => valid && onSave({ ...value, label: value.label.trim() });
+  const index = STEPS.indexOf(step);
+  const goTo = (target: Step) => {
+    const to = STEPS.indexOf(target);
+    // Forward only as far as what is filled in allows; back is always free.
+    if (to > 0 && !amountOk) {
+      setTried(true);
+      setStep("1");
+      return;
+    }
+    if (to > 1 && !whenOk) {
+      setTried(true);
+      setStep("2");
+      return;
+    }
+    setStep(target);
+  };
+
+  const save = () => {
+    if (!valid) return;
+    // Whatever the switches say is what is stored: a season left behind by "all year" would still apply.
+    const clean: EntryDraft = { ...value, label: value.label.trim() };
+    if (!dated && !seasonal) {
+      delete clean.from;
+      delete clean.to;
+      delete clean.yearly;
+      delete clean.until;
+    }
+    onSave(clean);
+  };
+
+  const chooseSeasonal = (on: boolean) => {
+    setSeasonal(on);
+    if (!on) setValue((v) => ({ ...v, from: undefined, to: undefined, yearly: undefined, until: undefined }));
+  };
+
+  const chooseRepeats = (on: boolean) => setValue((v) => ({ ...v, every: on ? (v.every ?? 1) : undefined, until: on ? v.until : undefined }));
+
+  // The "when", as the sentence the check shows.
+  const whenText = (() => {
+    if (dated) {
+      const first = oneOffDate(value.date ?? "");
+      const day = first ? formatTable(first, lang) : "—";
+      if (!repeats) return day;
+      const cadence = repeatLabel(value.every!);
+      const stop = oneOffDate(value.until ?? "");
+      return `${t(cadence.key, { count: cadence.count })} · ${t("planner.repeatFirstDate")} ${day}${stop ? ` · ${t("planner.seasonToOnly", { month: formatTable(stop, lang) })}` : ""}`;
+    }
+    if (!seasonal) return t("planner.wizard_allYear");
+    const from = monthText(value.from, lang);
+    const to = monthText(value.to, lang);
+    const span = from && to ? `${from} — ${to}` : from ? (value.yearly ? from : t("planner.seasonFromOnly", { month: from })) : to ? t("planner.seasonToOnly", { month: to }) : t("planner.wizard_allYear");
+    if (!value.yearly) return span;
+    const stop = monthText(value.until, lang);
+    return `${span} · ${t("planner.seasonYearlyTag")}${stop ? ` · ${t("planner.seasonToOnly", { month: stop })}` : ""}`;
+  })();
+
+  const rows: { step: Step; label: string; value: string }[] = [
+    { step: "1", label: t("planner.lineName"), value: value.label.trim() || "—" },
+    { step: "1", label: t("common.amount"), value: dated ? formatCurrency(amountOk ? amount : 0) : t("planner.perMonthShort", { amount: formatCurrency(amountOk ? amount : 0) }) },
+    { step: "2", label: t("planner.wizard_when"), value: whenText },
+  ];
 
   return (
-    <Modal isOpen toggle={onClose} centered size="sm">
+    <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: 15 }}>{t(draft.id ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
+        <span style={{ fontSize: 15 }}>{t(edit ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
       </ModalHeader>
 
-      <ModalBody className="pt-2" onKeyDown={(e) => e.key === "Enter" && save()}>
-        <label className={styles.fieldLabel} htmlFor="entry-name">
-          {t("planner.lineName")}
-        </label>
-        <Input
-          id="entry-name"
-          autoFocus
-          value={value.label}
-          onChange={(e) => setValue({ ...value, label: e.target.value })}
-          placeholder={dated ? t("planner.oneOffNamePlaceholder") : t("planner.lineNamePlaceholder")}
-          className="mb-3"
-        />
-
-        <label className={styles.fieldLabel} htmlFor="entry-amount">
-          {dated ? t("planner.oneOffAmount") : t("planner.lineAmount")}
-        </label>
-        <Input
-          id="entry-amount"
-          type="number"
-          min={0}
-          inputMode="decimal"
-          value={value.amount}
-          onChange={(e) => setValue({ ...value, amount: e.target.value })}
-          placeholder="0"
-          className={dated ? "mb-3" : "mb-0"}
-        />
-        {!dated && <p className={styles.fieldHint}>{t("planner.perMonthHint")}</p>}
-
-        {dated && (
-          <>
-            <label className={styles.fieldLabel} htmlFor="entry-date">
-              {repeats ? t("planner.repeatFirstDate") : t("common.date")}
-            </label>
-            <DateField id="entry-date" name="entry-date" value={value.date ?? ""} onChange={(v) => setValue({ ...value, date: v })} placeholder={t("common.date")} />
-
-            {/* A cadence rather than a date each time. "A coupon every three
-                months" was four entries a year, rewritten every January — and
-                a three-year plan needed twelve of them.
-                A fixed set rather than a free number: these are every cadence
-                pay actually arrives on, and a list needs no validating. */}
-            <label className={`${styles.fieldLabel} mt-3`} htmlFor="entry-every">
-              {t("planner.repeats")}
-            </label>
-            <Input
-              id="entry-every"
-              type="select"
-              value={value.every ?? ""}
-              // Dropping the end date with the cadence: an "until" left behind
-              // by a repeat that is now a single date is a stored figure with
-              // nothing to apply to.
-              onChange={(e) => setValue({ ...value, every: e.target.value ? Number(e.target.value) : undefined, until: e.target.value ? value.until : undefined })}
-            >
-              <option value="">{t("planner.repeatOnce")}</option>
-              {REPEAT_CHOICES.map((months) => {
-                const label = repeatLabel(months);
-                return (
-                  <option key={months} value={months}>
-                    {t(label.key, { count: label.count })}
-                  </option>
-                );
-              })}
-            </Input>
-
-            {repeats && (
-              <div className="mt-3">
-                <label className={styles.fieldLabel} htmlFor="entry-until">
-                  {t("planner.repeatUntil")}
-                </label>
-                <DateField id="entry-until" clearable name="entry-until" value={value.until ?? ""} onChange={(v) => setValue({ ...value, until: v })} placeholder={t("planner.repeatUntilPlaceholder")} />
-                {repeatBackwards ? <p className={styles.fieldError}>{t("planner.repeatBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.repeatUntilHint")}</p>}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* A rate that stops. "€200 a month for skiing, December to April" is
-            not a bill and not a one-off — it is this line, with two ends. Left
-            empty it runs for the whole window, which is what every line did
-            before there was anywhere to put the ends. */}
-        {!dated && (
-          <div className="mt-3">
-            <label className={styles.fieldLabel}>{t("planner.seasonLabel")}</label>
-            {/* The app's own calendar, in month mode — not `input type="month"`,
-                which is the native control DateField exists to replace. */}
-            <div className="d-flex align-items-center gap-2">
-              <DateField month clearable name="season-from" value={value.from ?? ""} onChange={(v) => setValue({ ...value, from: v })} placeholder={t("planner.seasonFrom")} />
-              <span className={styles.fieldHint} style={{ margin: 0 }}>
-                {t("planner.seasonTo")}
-              </span>
-              <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => setValue({ ...value, to: v })} placeholder={t("planner.seasonToLabel")} />
-            </div>
-            {seasonBackwards ? <p className={styles.fieldError}>{t("planner.seasonBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.seasonHint")}</p>}
-
-            {/* The same season, every year. "€200 a month for skiing from
-                December to April" is not one winter, and a trip every August
-                is not one August — without this both had to be written out
-                again for every year the plan looked at. */}
-            <label className={`${styles.fieldLabel} mt-3`} htmlFor="season-repeat">
-              {t("planner.repeats")}
-            </label>
-            <Input
-              id="season-repeat"
-              type="select"
-              value={value.yearly ? "yearly" : ""}
-              onChange={(e) => setValue({ ...value, yearly: e.target.value === "yearly", until: e.target.value === "yearly" ? value.until : undefined })}
-            >
-              <option value="">{t("planner.seasonOnce")}</option>
-              <option value="yearly">{t("planner.repeatEveryYear")}</option>
-            </Input>
-
-            {value.yearly && (
-              <div className="mt-3">
-                <label className={styles.fieldLabel} htmlFor="season-until">
-                  {t("planner.repeatUntil")}
-                </label>
-                <DateField id="season-until" month clearable name="season-until" value={value.until ?? ""} onChange={(v) => setValue({ ...value, until: v })} placeholder={t("planner.repeatUntilPlaceholder")} />
-                {yearlyNeedsStart ? (
-                  <p className={styles.fieldError}>{t("planner.seasonNeedsStart")}</p>
-                ) : seasonEndsEarly ? (
-                  <p className={styles.fieldError}>{t("planner.repeatBackwards")}</p>
-                ) : (
-                  <p className={styles.fieldHint}>{t("planner.repeatUntilHint")}</p>
-                )}
-              </div>
-            )}
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (step === "3") save();
+          else goTo(STEPS[index + 1]);
+        }}
+      >
+        <ModalBody>
+          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`planner.wizard_stepShort${s}`)} open={edit} large />
+          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+            {t(`planner.wizard_${dated ? "oneoff" : "line"}${step}`)}
           </div>
-        )}
-      </ModalBody>
 
-      <ModalFooter className="justify-content-between">
-        {/* Left, away from Save: the two buttons of a small dialog sitting side
-            by side is how a delete gets pressed by accident. */}
-        {onDelete ? (
-          <DeleteButton onClick={onDelete} what={draft.label || undefined} />
-        ) : (
-          <span />
-        )}
-        <span className="d-flex gap-2">
-          <Button color="secondary" outline onClick={onClose}>
-            {t("common.cancel")}
-          </Button>
-          <Button color="primary" onClick={save} disabled={!valid}>
-            {t("common.save")}
-          </Button>
-        </span>
-      </ModalFooter>
+          {step === "1" && (
+            <>
+              <FormGroup>
+                <Label className={styles.fieldLabel} htmlFor="entry-name">
+                  {t("planner.lineName")}
+                </Label>
+                <Input
+                  id="entry-name"
+                  autoFocus
+                  value={value.label}
+                  onChange={(e) => setValue({ ...value, label: e.target.value })}
+                  placeholder={dated ? t("planner.oneOffNamePlaceholder") : t("planner.lineNamePlaceholder")}
+                />
+              </FormGroup>
+              <FormGroup className="mb-0">
+                <Label className={styles.fieldLabel} htmlFor="entry-amount">
+                  {dated ? t("planner.oneOffAmount") : t("planner.lineAmount")}
+                </Label>
+                <Input id="entry-amount" type="number" min={0} inputMode="decimal" value={value.amount} invalid={tried && !amountOk} onChange={(e) => setValue({ ...value, amount: e.target.value })} placeholder="0" />
+                <FormFeedback>{t("planner.wizard_amountNeeded")}</FormFeedback>
+                {!dated && <p className={styles.fieldHint}>{t("planner.perMonthHint")}</p>}
+              </FormGroup>
+            </>
+          )}
+
+          {step === "2" && !dated && (
+            <>
+              <div className={`${segmented.group} ${segmented.even} mb-3`} role="group" aria-label={t("planner.wizard_when")}>
+                {[false, true].map((on) => (
+                  <button key={String(on)} type="button" className={`${segmented.item} ${seasonal === on ? segmented.active : ""}`} aria-pressed={seasonal === on} onClick={() => chooseSeasonal(on)}>
+                    {t(on ? "planner.wizard_someMonths" : "planner.wizard_allYear")}
+                  </button>
+                ))}
+              </div>
+
+              {!seasonal && <p className={styles.fieldHint}>{t("planner.wizard_allYearHint")}</p>}
+
+              {seasonal && (
+                <>
+                  <div className="d-flex align-items-center gap-2">
+                    <DateField month clearable name="season-from" value={value.from ?? ""} onChange={(v) => setValue({ ...value, from: v })} placeholder={t("planner.seasonFrom")} />
+                    <span className={styles.fieldHint} style={{ margin: 0 }}>
+                      {t("planner.seasonTo")}
+                    </span>
+                    <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => setValue({ ...value, to: v })} placeholder={t("planner.seasonToLabel")} />
+                  </div>
+                  {seasonBackwards ? <p className={styles.fieldError}>{t("planner.seasonBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.wizard_someMonthsHint")}</p>}
+
+                  <FormGroup switch className="mt-2 mb-0">
+                    <Input id="season-yearly" type="switch" checked={!!value.yearly} onChange={(e) => setValue({ ...value, yearly: e.target.checked, until: e.target.checked ? value.until : undefined })} />
+                    <Label for="season-yearly" check className="small">
+                      {t("planner.wizard_everyYear")}
+                    </Label>
+                  </FormGroup>
+
+                  {value.yearly && (
+                    <div className="mt-3">
+                      <Label className={styles.fieldLabel} htmlFor="season-until">
+                        {t("planner.repeatUntil")}
+                      </Label>
+                      <DateField id="season-until" month clearable name="season-until" value={value.until ?? ""} onChange={(v) => setValue({ ...value, until: v })} placeholder={t("planner.repeatUntilPlaceholder")} />
+                      {yearlyNeedsStart ? (
+                        <p className={styles.fieldError}>{t("planner.seasonNeedsStart")}</p>
+                      ) : seasonEndsEarly ? (
+                        <p className={styles.fieldError}>{t("planner.repeatBackwards")}</p>
+                      ) : (
+                        <p className={styles.fieldHint}>{t("planner.repeatUntilHint")}</p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {step === "2" && dated && (
+            <>
+              <FormGroup>
+                <Label className={styles.fieldLabel} htmlFor="entry-date">
+                  {repeats ? t("planner.repeatFirstDate") : t("common.date")}
+                </Label>
+                <DateField id="entry-date" name="entry-date" value={value.date ?? ""} onChange={(v) => setValue({ ...value, date: v })} placeholder={t("common.date")} />
+                {tried && !dateOk && <p className={styles.fieldError}>{t("validation.dateRequired")}</p>}
+              </FormGroup>
+
+              {/* A cadence rather than a date each time: "a coupon every three
+                  months" was four entries a year, rewritten every January.
+                  A fixed set rather than a free number: these are every cadence
+                  pay actually arrives on, and a list needs no validating. */}
+              <div className={`${segmented.group} ${segmented.even} mb-3`} role="group" aria-label={t("planner.repeats")}>
+                {[false, true].map((on) => (
+                  <button key={String(on)} type="button" className={`${segmented.item} ${repeats === on ? segmented.active : ""}`} aria-pressed={repeats === on} onClick={() => chooseRepeats(on)}>
+                    {t(on ? "planner.wizard_repeating" : "planner.wizard_once")}
+                  </button>
+                ))}
+              </div>
+
+              {repeats && (
+                <>
+                  <Label className={styles.fieldLabel} htmlFor="entry-every">
+                    {t("planner.repeats")}
+                  </Label>
+                  <Input id="entry-every" type="select" value={value.every ?? ""} onChange={(e) => setValue({ ...value, every: Number(e.target.value) })}>
+                    {REPEAT_CHOICES.map((months) => {
+                      const label = repeatLabel(months);
+                      return (
+                        <option key={months} value={months}>
+                          {t(label.key, { count: label.count })}
+                        </option>
+                      );
+                    })}
+                  </Input>
+
+                  <div className="mt-3">
+                    <Label className={styles.fieldLabel} htmlFor="entry-until">
+                      {t("planner.repeatUntil")}
+                    </Label>
+                    <DateField id="entry-until" clearable name="entry-until" value={value.until ?? ""} onChange={(v) => setValue({ ...value, until: v })} placeholder={t("planner.repeatUntilPlaceholder")} />
+                    {repeatBackwards ? <p className={styles.fieldError}>{t("planner.repeatBackwards")}</p> : <p className={styles.fieldHint}>{t("planner.repeatUntilHint")}</p>}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {step === "3" && (
+            <div className={styles.wizCard}>
+              {rows.map((row) => (
+                <button key={row.label} type="button" className={styles.wizRow} onClick={() => goTo(row.step)}>
+                  <span className={styles.wizLabel}>{row.label}</span>
+                  <span className={styles.wizValue}>{row.value}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </ModalBody>
+
+        <ModalFooter className="justify-content-between">
+          {/* Left, away from Save: the two buttons of a small dialog sitting side
+              by side is how a delete gets pressed by accident. */}
+          {onDelete ? <DeleteButton iconOnly onClick={onDelete} what={draft.label || undefined} /> : <span />}
+          <span className="d-flex gap-2">
+            {step === "1" ? (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+                ‹ {t("common.back")}
+              </Button>
+            )}
+            {step === "3" ? (
+              <Button type="submit" color="success" disabled={!valid}>
+                {t("common.save")}
+              </Button>
+            ) : (
+              <Button type="submit" color="primary">
+                {t("common.next")} ›
+              </Button>
+            )}
+          </span>
+        </ModalFooter>
+      </form>
     </Modal>
   );
 }

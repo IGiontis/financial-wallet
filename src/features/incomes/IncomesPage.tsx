@@ -303,12 +303,12 @@ export default function IncomesPage() {
               />
             )}
 
-            {view === "year" && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} onOpen={(income) => setCardId(income.id)} />}
+            {view === "year" && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />}
           </Col>
 
           {!compact && (
             <Col xs={12} lg={5} xl={4}>
-              <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} onOpen={(income) => setCardId(income.id)} />
+              <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />
             </Col>
           )}
         </Row>

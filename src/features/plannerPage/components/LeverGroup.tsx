@@ -49,14 +49,6 @@ export function LeverGroup({ title, count, total, formatCurrency, open, onToggle
           </span>
         </button>
 
-        {/* Only while open: sweeping rows you cannot see is how a plan quietly
-            loses its bills. */}
-        {open && sweepLabel && onSweep && (
-          <button type="button" className={styles.sectionToggle} onClick={onSweep}>
-            {sweepLabel}
-          </button>
-        )}
-
         {/* Beside the group it adds to, and reachable whether or not the group
             is unrolled — a link at the foot of a folded list is unreachable. */}
         {onAdd && (
@@ -66,7 +58,21 @@ export function LeverGroup({ title, count, total, formatCurrency, open, onToggle
         )}
       </div>
 
-      {open && <div className={styles.groupBody}>{children}</div>}
+      {open && (
+        <div className={styles.groupBody}>
+          {/* In the body, not the header: beside the + it was two small targets
+              a thumb apart. And only while open: sweeping rows you cannot see
+              is how a plan quietly loses its bills. */}
+          {sweepLabel && onSweep && (
+            <div className={styles.sweepRow}>
+              <button type="button" className={styles.sectionToggle} onClick={onSweep}>
+                {sweepLabel}
+              </button>
+            </div>
+          )}
+          {children}
+        </div>
+      )}
     </div>
   );
 }

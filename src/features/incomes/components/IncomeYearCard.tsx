@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { KIND_ICON, type Income, type IncomeYear } from "../incomesUtils";
+import { KIND_ICON, type IncomeYear } from "../incomesUtils";
 import type { IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
@@ -10,8 +10,11 @@ import styles from "../css/IncomesPage.module.css";
  * The sum is written out under the figure — 1.450×12 + … + 320×10 — because
  * that is what explains why "a month across the year" comes out under this
  * month's total: the lessons take the summer off.
+ *
+ * To read, not to press: the rows are figures, not a way into the income. The
+ * incomes themselves are opened from the list.
  */
-export function IncomeYearCard({ year, formatCurrency, f, onOpen }: { year: IncomeYear; formatCurrency: (n: number) => string; f: IncomeFormats; onOpen: (income: Income) => void }) {
+export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; formatCurrency: (n: number) => string; f: IncomeFormats }) {
   const { t } = useTranslation();
   const rows = year.rows.filter((r) => r.count > 0);
   const approx = year.approximate ? "≈" : "";
@@ -49,14 +52,7 @@ export function IncomeYearCard({ year, formatCurrency, f, onOpen }: { year: Inco
 
           <div className="d-flex flex-column gap-2">
             {rows.map((row) => (
-              <button
-                key={row.income.id}
-                type="button"
-                onClick={() => onOpen(row.income)}
-                className="btn p-0 text-start border-0"
-                style={{ color: "inherit" }}
-                aria-label={`${row.income.name}: ${formatCurrency(row.total)}`}
-              >
+              <div key={row.income.id}>
                 <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12.5 }}>
                   <span className="text-truncate">
                     <span aria-hidden>{KIND_ICON[row.income.kind]}</span> {row.income.name}
@@ -69,7 +65,7 @@ export function IncomeYearCard({ year, formatCurrency, f, onOpen }: { year: Inco
                 <div className={styles.yearTrack}>
                   <div className={styles.yearFill} style={{ width: `${top > 0 ? (row.total / top) * 100 : 0}%` }} />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 
