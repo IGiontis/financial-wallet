@@ -206,7 +206,7 @@ export function useDeleteTransaction() {
   return useMutation<void, Error, DeletableTransaction, { transactions: ListSnapshot<Transaction> }>({
     // The payment is looked up in the bills list, which this mutation edits
     // only after the delete has gone through — so it is still there to find.
-    mutationFn: ({ id, billId }) => deleteTransaction(id, billId ? { userId, paymentId: paymentIdFor(queryClient, userId, id) } : undefined),
+    mutationFn: ({ id, billId }) => deleteTransaction(userId, id, billId ? { userId, paymentId: paymentIdFor(queryClient, userId, id) } : undefined),
 
     onMutate: async ({ id }) => ({ transactions: await editList(queryClient, key, removeWhere<Transaction>((row) => row.id === id)) }),
 

@@ -308,7 +308,7 @@ export function useUnmarkBillPaid() {
   const dropExpense = (transactionId: string) => removeWhere<Transaction>((t) => t.id === transactionId);
 
   return useMutation<void, Error, { paymentId: string; transactionId?: string }, Rollback>({
-    mutationFn: ({ paymentId, transactionId }) => unmarkBillPaid({ id: paymentId, transactionId }),
+    mutationFn: ({ paymentId, transactionId }) => unmarkBillPaid(userId, { id: paymentId, transactionId }),
 
     onMutate: async ({ paymentId, transactionId }) => ({
       bills: await editList(queryClient, billKeys.all(userId), dropPayment(paymentId)),

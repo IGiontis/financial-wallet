@@ -1,5 +1,8 @@
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, type Query } from "firebase/firestore";
 import { db } from "./config";
+import { noteDeleted, noteRecreated, noteReset, syncedList } from "./syncList";
+import { meterRead } from "../lib/readMeter";
+import { localGet, localSet } from "../lib/localStore";
 import { requireConnection } from "../shared/utils/offlinePolicy";
 import { debtEdit } from "../features/debts/debtsUtils";
 import { firestoreToDate } from "../shared/utils/dates";
@@ -37,6 +40,13 @@ import type { DebtCashRecord } from "../features/debts/debtCash";
 // Firestore rejects undefined values — strip them before every write.
 
 const clean = (obj: Record<string, unknown>) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+/** A query read from the server, counted by name while developing — see `readMeter`. */
+const readAll = async (label: string, q: Query) => {
+  const snap = await getDocs(q);
+  meterRead(label, snap.size, !!snap.metadata?.fromCache);
+  return snap;
+};
 
 /**
  * A fresh document id, made on this device with no round trip.
@@ -84,6 +94,7 @@ export const createUser = async (uid: string, data: CreateUserDTO) => {
 
 export const getUser = async (uid: string) => {
   const snap = await getDoc(doc(db, "users", uid));
+  meterRead("users", 1, !!snap.metadata?.fromCache);
   return snap.exists() ? (snap.data() as User) : null;
 };
 
@@ -137,11 +148,12 @@ export const createTransaction = async (userId: string, data: CreateTransactionD
   return id;
 };
 
-export const getTransactions = async (userId: string) => {
-  const q = query(collection(db, "transactions"), where("userId", "==", userId));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Transaction);
-};
+/**
+ * Every transaction of the user. Read whole once per device, then only what
+ * changed since — see `syncedList`. Every delete below says so through
+ * `noteDeleted`, or other devices would go on showing the record.
+ */
+export const getTransactions = (userId: string) => syncedList<Transaction>("transactions", userId);
 
 /**
  * The payment record behind an expense logged by paying a bill (`billId` set).
@@ -190,12 +202,13 @@ export const updateTransaction = async (transactionId: string, data: UpdateTrans
 };
 
 /** Deleting a bill's expense takes its payment with it, so the bill goes back to unpaid. */
-export const deleteTransaction = async (transactionId: string, billPayment?: BillPaymentLink) => {
+export const deleteTransaction = async (userId: string, transactionId: string, billPayment?: BillPaymentLink) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   if (!billPayment) {
     await deleteDoc(doc(db, "transactions", transactionId));
+    await noteDeleted(userId, "transactions", [transactionId]);
     return;
   }
 
@@ -204,6 +217,7 @@ export const deleteTransaction = async (transactionId: string, billPayment?: Bil
   batch.delete(doc(db, "transactions", transactionId));
   for (const id of paymentIds) batch.delete(doc(db, "billPayments", id));
   await batch.commit();
+  await noteDeleted(userId, "transactions", [transactionId]);
 };
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
@@ -211,14 +225,30 @@ export const deleteTransaction = async (transactionId: string, billPayment?: Bil
 // This fixes the duplicate categories issue by deduplicating by name+type
 // instead of just id (which fails when seed runs twice creating same name but different id)
 
+/** How long the shared default categories are kept on the device before being read again. */
+const DEFAULT_CATEGORIES_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * The seeded categories every user shares. They change only when the seed
+ * does, yet were read — thirty-odd documents — every time anyone opened the
+ * app; now once a week per device.
+ */
+const getDefaultCategories = async (): Promise<Category[]> => {
+  const kept = await localGet<{ at: number; rows: Category[] }>("ref:categories-default");
+  if (kept && Array.isArray(kept.rows) && kept.rows.length > 0 && Date.now() - kept.at < DEFAULT_CATEGORIES_KEEP_MS) return kept.rows;
+  const snap = await readAll("categories (defaults)", query(collection(db, "categories"), where("isDefault", "==", true)));
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
+  if (!snap.metadata?.fromCache && rows.length > 0) {
+    // Plain values only on the device: the timestamps become dates.
+    await localSet("ref:categories-default", { at: Date.now(), rows: rows.map(({ createdAt, updatedAt, ...rest }) => ({ ...rest, createdAt: firestoreToDate(createdAt), updatedAt: firestoreToDate(updatedAt) })) });
+  }
+  return rows;
+};
+
 export const getCategories = async (userId: string) => {
-  const [userSnap, defaultSnap] = await Promise.all([
-    getDocs(query(collection(db, "categories"), where("userId", "==", userId))),
-    getDocs(query(collection(db, "categories"), where("isDefault", "==", true))),
-  ]);
+  const [userSnap, defaultCats] = await Promise.all([readAll("categories (own)", query(collection(db, "categories"), where("userId", "==", userId))), getDefaultCategories()]);
 
   const userCats = userSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
-  const defaultCats = defaultSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
 
   // Merge — user categories take priority over defaults with the same name+type
   const all = [...defaultCats, ...userCats];
@@ -348,7 +378,7 @@ export const createInvestmentGoal = async (userId: string, data: CreateInvestmen
 
 export const getInvestmentGoals = async (userId: string) => {
   const q = query(collection(db, "investmentGoals"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("investmentGoals", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentGoal);
 };
 
@@ -387,6 +417,7 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
   // The goal last: see `commitDeletes`. A goal with up to ~220 contributions
   // goes in one batch, all or nothing.
   await commitDeletes([...mirrors.docs.map((d) => d.ref), ...contributions.docs.map((d) => d.ref), doc(db, "investmentGoals", goalId)]);
+  await noteDeleted(userId, "transactions", mirrors.docs.map((d) => d.id));
 
   return { contributionIds: contributions.docs.map((d) => d.id), transactionIds: mirrors.docs.map((d) => d.id) };
 };
@@ -397,7 +428,7 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
 // computed without an N+1 fan-out (one read per goal).
 export const getAllContributions = async (userId: string) => {
   const q = query(collection(db, "investmentContributions"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("investmentContributions", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentContribution);
 };
 
@@ -463,6 +494,7 @@ export const deleteContribution = async (userId: string, contribution: Investmen
   batch.delete(doc(db, "investmentContributions", contribution.id));
   if (mirror) batch.delete(mirror.ref);
   await batch.commit();
+  if (mirror) await noteDeleted(userId, "transactions", [mirror.id]);
   return { transactionId: mirror?.id ?? null };
 };
 
@@ -470,7 +502,7 @@ export const deleteContribution = async (userId: string, contribution: Investmen
 
 export const getBills = async (userId: string) => {
   const q = query(collection(db, "bills"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("bills", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Bill);
 };
 
@@ -510,7 +542,7 @@ export const deleteBill = async (billId: string) => {
 
 export const getBillPayments = async (userId: string) => {
   const q = query(collection(db, "billPayments"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("billPayments", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BillPayment);
 };
 
@@ -610,11 +642,12 @@ export const markBillPeriodsSettled = async (
   await batch.commit();
 };
 
-export const unmarkBillPaid = async (payment: { id: string; transactionId?: string }) => {
+export const unmarkBillPaid = async (userId: string, payment: { id: string; transactionId?: string }) => {
   const batch = writeBatch(db);
   if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));
   batch.delete(doc(db, "billPayments", payment.id));
   await batch.commit();
+  if (payment.transactionId) await noteDeleted(userId, "transactions", [payment.transactionId]);
 };
 
 // ─── DEBTS ────────────────────────────────────────────────────────────────────
@@ -624,13 +657,13 @@ export const unmarkBillPaid = async (payment: { id: string; transactionId?: stri
 
 export const getDebts = async (userId: string) => {
   const q = query(collection(db, "debts"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("debts", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Debt);
 };
 
 export const getDebtPayments = async (userId: string) => {
   const q = query(collection(db, "debtPayments"), where("userId", "==", userId));
-  const snap = await getDocs(q);
+  const snap = await readAll("debtPayments", q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DebtPayment);
 };
 
@@ -696,7 +729,18 @@ export const deleteDebtPayment = async (paymentId: string) => {
  * `debtCashRecords`. Fixed ids, so this is writes only: the wanted ones set
  * again whole, the rest deleted (deleting one that is not there is no error).
  */
-export const syncDebtCash = async (userId: string, records: DebtCashRecord[], remove: string[]) => {
+export const syncDebtCash = async (
+  userId: string,
+  records: DebtCashRecord[],
+  remove: string[],
+  /**
+   * Of `remove`, the ones that actually existed — the only ones worth telling
+   * other devices about. Most of `remove` is ids that were never written (a
+   * repayment with no interest has no interest record), and logging those on
+   * every sync would fill the log with nothing.
+   */
+  existed: string[] = remove,
+) => {
   if (records.length === 0 && remove.length === 0) return;
   const batch = writeBatch(db);
   for (const { id, ...record } of records) {
@@ -704,6 +748,9 @@ export const syncDebtCash = async (userId: string, records: DebtCashRecord[], re
   }
   for (const id of remove) batch.delete(doc(db, "transactions", id));
   await batch.commit();
+  // The ids are fixed, so one deleted earlier can be written again now: its
+  // deletion comes out of the log, or other devices would drop it.
+  await Promise.all([noteRecreated(userId, "transactions", records.map((r) => r.id)), noteDeleted(userId, "transactions", existed)]);
 };
 
 // ─── DATA RESET ───────────────────────────────────────────────────────────────
@@ -759,6 +806,8 @@ export const resetUserData = async (userId: string, scope: ResetScope): Promise<
     refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
     await batch.commit();
   }
+  // A bulk clear writes no deletion log; every device reads its lists whole instead.
+  await noteReset(userId);
 
   return refs.length;
 };
@@ -785,6 +834,9 @@ export const deleteAllUserData = async (userId: string) => {
       }),
     )
   ).flat();
+
+  // Nothing of theirs stays in this device's store either.
+  await noteReset(userId);
 
   // Include the user profile document itself
   refs.push(doc(db, "users", userId));

@@ -246,7 +246,7 @@ describe("what cannot be taken back asks first", () => {
     sheet = await undo();
     await userEvent.click(within(sheet).getByRole("button", { name: "Αναίρεση" }));
     await waitFor(() => expect(api.deleteTransaction).toHaveBeenCalledTimes(1));
-    expect(api.deleteTransaction.mock.calls[0][0]).toBe(salaryRecord.id);
+    expect(api.deleteTransaction.mock.calls[0][1]).toBe(salaryRecord.id);
   });
 });
 

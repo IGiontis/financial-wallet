@@ -92,6 +92,15 @@ const fs = vi.hoisted(() => {
 
 vi.mock("firebase/firestore", () => fs.api);
 vi.mock("./config", () => ({ db: {} }));
+// The delta sync's own bookkeeping is tested in `deltaSync.test.ts`; here
+// only what reaches the collections matters.
+const noted = vi.hoisted(() => ({ deleted: [] as [string, string, string[]][] }));
+vi.mock("./syncList", () => ({
+  syncedList: async () => [],
+  noteDeleted: async (userId: string, name: string, ids: string[]) => void noted.deleted.push([userId, name, ids]),
+  noteRecreated: async () => {},
+  noteReset: async () => {},
+}));
 
 
 const put = (col: string, id: string, data: Data) => fs.table(col).set(id, data);
@@ -267,7 +276,7 @@ describe("deleteTransaction", () => {
   it("deletes a bill's expense and its payment in one batch", async () => {
     seedPaidBill();
 
-    await deleteTransaction("t-bill", { userId: "u1", paymentId: "p1" });
+    await deleteTransaction("u1", "t-bill", { userId: "u1", paymentId: "p1" });
 
     expect(fs.batches).toHaveLength(1);
     expect(ids("transactions")).toEqual([]);
@@ -277,7 +286,7 @@ describe("deleteTransaction", () => {
   it("finds the payment by its transaction when the screen did not know it", async () => {
     seedPaidBill();
 
-    await deleteTransaction("t-bill", { userId: "u1" });
+    await deleteTransaction("u1", "t-bill", { userId: "u1" });
 
     expect(ids("billPayments")).toEqual(["p-other"]);
     expect(ids("transactions")).toEqual([]);
@@ -287,17 +296,20 @@ describe("deleteTransaction", () => {
     seedPaidBill();
     put("transactions", "t-coffee", { userId: "u1", amount: 3, type: "expense" });
 
-    await deleteTransaction("t-coffee");
+    noted.deleted.length = 0;
+    await deleteTransaction("u1", "t-coffee");
 
     expect(ids("transactions")).toEqual(["t-bill"]);
     expect(ids("billPayments")).toEqual(["p-other", "p1"]);
+    // Other devices are told, or they would go on showing it.
+    expect(noted.deleted).toEqual([["u1", "transactions", ["t-coffee"]]]);
   });
 
   it("refuses without a connection", async () => {
     seedPaidBill();
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
 
-    await expect(deleteTransaction("t-bill", { userId: "u1", paymentId: "p1" })).rejects.toThrow(/connection/);
+    await expect(deleteTransaction("u1", "t-bill", { userId: "u1", paymentId: "p1" })).rejects.toThrow(/connection/);
     expect(ids("billPayments")).toEqual(["p-other", "p1"]);
   });
 });

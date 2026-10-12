@@ -13,6 +13,7 @@ import {
   type User,
 } from "firebase/auth";
 import { auth } from "./config";
+import { forgetAllLocal } from "./syncList";
 
 // ─── Google provider ──────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   await signOut(auth);
+  // The lists kept on this device for the delta sync go with the session.
+  await forgetAllLocal();
 };
 
 // ─── Re-authenticate ──────────────────────────────────────────────────────────

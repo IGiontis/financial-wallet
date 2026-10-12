@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, editDebt, getDebtPayments, getDebts, syncDebtCash, updateDebt, updateDebtPayment } from "../../firebase/firestore";
 import { transactionKeys } from "../transactions/hooks/useTransactions";
-import { allDebtCashIds, debtCashIds, debtCashRecords } from "./debtCash";
+import { allDebtCashIds, debtCashIds, debtCashRecords, type DebtCashRecord } from "./debtCash";
+import { confirmList } from "../../lib/listCache";
 import { computeDebtStatus } from "./debtsUtils";
-import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, UpdateDebtDTO } from "../../shared/types/IndexTypes";
+import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
 
 export const debtKeys = {
   all: (userId: string) => ["debts", userId] as const,
@@ -38,8 +39,9 @@ export function useDebts() {
  * Every write here ends by refreshing the debts and putting the money they
  * moved right: the transactions a debt writes through its card (see
  * `debtCashRecords`) are rewritten from the debt as it now stands, so a
- * repayment corrected in March fixes April's interest too. Then the
- * transactions are refreshed, which is what every card reads.
+ * repayment corrected in March fixes April's interest too. The transactions
+ * on screen are then corrected to match, in place: re-reading the whole list
+ * to learn what this device has just written cost every record again.
  */
 function useDebtRefresh() {
   const { currentUser } = useAuth();
@@ -47,7 +49,18 @@ function useDebtRefresh() {
   const userId = currentUser?.uid ?? "";
 
   return useMemo(() => {
-    const refreshTransactions = () => void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    const key = transactionKeys.all(userId);
+    /** Of these ids, the ones this device knows exist; all of them when the list is not loaded. */
+    const existing = (ids: string[]) => {
+      const rows = queryClient.getQueryData<Transaction[]>(key);
+      return rows ? ids.filter((id) => rows.some((row) => row.id === id)) : ids;
+    };
+    /** The written records in, the removed ones out — the list as the server now holds it. */
+    const patchTransactions = (records: DebtCashRecord[], removed: string[]) => {
+      const gone = new Set(removed);
+      const written = new Map(records.map((record) => [record.id, { ...record, userId, updatedAt: new Date() } as unknown as Transaction]));
+      confirmList<Transaction>(queryClient, key, (rows) => [...rows.filter((row) => !gone.has(row.id) && !written.has(row.id)), ...written.values()]);
+    };
     return {
       userId,
       refresh: () => void queryClient.invalidateQueries({ queryKey: debtKeys.all(userId) }),
@@ -56,14 +69,15 @@ function useDebtRefresh() {
         const debts = await queryClient.fetchQuery<DebtWithStatus[]>({ queryKey: debtKeys.all(userId), staleTime: 0 });
         const debt = debts.find((d) => d.id === debtId);
         const { records, remove } = debt ? debtCashRecords(debt) : { records: [], remove: [] };
-        await syncDebtCash(userId, records, [...new Set([...remove, ...alsoRemove])]);
-        refreshTransactions();
+        const removing = [...new Set([...remove, ...alsoRemove])];
+        await syncDebtCash(userId, records, removing, existing(removing));
+        patchTransactions(records, removing);
       },
       /** The debt is gone: everything it and its repayments wrote goes with it. */
       clear: async (ids: string[]) => {
-        await syncDebtCash(userId, [], ids);
+        await syncDebtCash(userId, [], ids, existing(ids));
         void queryClient.invalidateQueries({ queryKey: debtKeys.all(userId) });
-        refreshTransactions();
+        patchTransactions([], ids);
       },
     };
   }, [queryClient, userId]);

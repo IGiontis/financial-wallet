@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { getUser, saveWorkspaceValue } from "../../firebase/firestore";
+import { exchangeRateKeys } from "./useCurrencyConverter";
 
 // The planner's and the allocation page's own state, kept with the account.
 //
@@ -66,6 +67,7 @@ const writtenAt = new Map<string, number>();
 export function useWorkspace() {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid ?? "";
+  const queryClient = useQueryClient();
 
   return useQuery<Record<string, unknown>>({
     queryKey: workspaceKeys.all(userId),
@@ -75,7 +77,12 @@ export function useWorkspace() {
     staleTime: 1000 * 60 * 30,
     queryFn: async () => {
       const startedAt = Date.now();
-      const remote = (await getUser(userId))?.workspace ?? {};
+      // The same document the profile and currency read, asked for under
+      // their key so the read at start-up is shared rather than made twice.
+      // Only an answer from the last two seconds is reused: an older one could
+      // predate a workspace write the merge below no longer covers.
+      const user = await queryClient.fetchQuery({ queryKey: exchangeRateKeys.user(userId), queryFn: () => getUser(userId), staleTime: 2000 });
+      const remote = user?.workspace ?? {};
 
       // Whatever this device changed while the answer was on its way is newer
       // than the answer. The device's own copy is the value being saved, so it

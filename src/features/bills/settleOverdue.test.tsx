@@ -292,7 +292,7 @@ describe("useSettleOverdue", () => {
 
     await act(() => hook.result.current.unmark.mutateAsync({ paymentId: "settled-aug", transactionId: settledAugust.transactionId }));
 
-    expect(api.unmarkBillPaid).toHaveBeenCalledWith({ id: "settled-aug", transactionId: undefined });
+    expect(api.unmarkBillPaid).toHaveBeenCalledWith(expect.any(String), { id: "settled-aug", transactionId: undefined });
     expect(api.deleteTransaction).not.toHaveBeenCalled();
     expect(billOverdue(cached(), new Date()).items.map((i) => i.periodKey)).toEqual(["2026-07", "2026-08", "2026-09", "2026-10"]);
     expect(transactions()).toHaveLength(1);

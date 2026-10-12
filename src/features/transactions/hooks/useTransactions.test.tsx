@@ -213,7 +213,7 @@ describe("useDeleteTransaction", () => {
 
     expect(api.getTransactions).toHaveBeenCalledTimes(1);
     expect(cached()?.map((t) => t.id)).toEqual(["t-fuel", "t-power"]);
-    expect(api.deleteTransaction).toHaveBeenCalledWith("t-coffee", undefined);
+    expect(api.deleteTransaction).toHaveBeenCalledWith("u1", "t-coffee", undefined);
   });
 
   it("puts the row back when the delete fails", async () => {
@@ -247,7 +247,7 @@ describe("a bill's expense", () => {
     await act(() => result.current.mutation.mutateAsync(power));
 
     // The payment's id comes from the bills on screen, so no lookup read.
-    expect(api.deleteTransaction).toHaveBeenCalledWith("t-power", { userId: "u1", paymentId: "p1" });
+    expect(api.deleteTransaction).toHaveBeenCalledWith("u1", "t-power", { userId: "u1", paymentId: "p1" });
     expect(bills()?.[0]).toMatchObject({ isPaidThisPeriod: false, payments: [] });
     expect(cached()?.map((t) => t.id)).toEqual(["t-coffee", "t-fuel"]);
   });
