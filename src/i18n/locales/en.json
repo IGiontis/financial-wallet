@@ -1581,7 +1581,14 @@
     "wizard_someMonthsHint": "e.g. from December to April. Leave one end empty and it runs on in that direction.",
     "wizard_everyYear": "Comes back every year",
     "wizard_once": "Once",
-    "wizard_repeating": "Repeats"
+    "wizard_repeating": "Repeats",
+    "ledgerIn": "In",
+    "ledgerOut": "Out",
+    "ledgerLeft": "Left",
+    "ledgerWindow_one": "over the {{count}} month you are looking at",
+    "ledgerWindow_other": "over the {{count}} months you are looking at",
+    "ledgerEmptyOut": "Nothing yet. Add a monthly cost below.",
+    "ledgerOffShort": "off"
   },
   "settings": {
     "title": "Settings",

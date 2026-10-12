@@ -212,7 +212,6 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
       tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
     }
     if (income.variable) tags.push({ icon: FiShuffle, text: t("incomes.list.variableMean", { amount: formatCurrency(focus.expected) }), kind: "variable" });
-    if (account) tags.push({ icon: FiCreditCard, text: account, kind: "account" });
     if (row.open.length > 1) tags.push({ icon: FiCalendar, text: t("incomes.list.moreOpen", { count: row.open.length - 1 }), kind: "more" });
   } else {
     amount = `${income.variable ? "≈" : ""}${formatCurrency(focus?.expected ?? income.amount)}`;
@@ -222,6 +221,9 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
     else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.dayMonth.format(upcoming.expectedDate) }), kind: "when" });
     else tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
   }
+  // Where it lands, in every section: it was only on the ones waiting, so an
+  // income already in, or still to come, never said which card it goes to.
+  if (account) tags.push({ icon: FiCreditCard, text: account, kind: "account" });
   // The time «Αυτή τη φορά…» speaks about: this one while it is open (a "not
   // this time" included, so it can be taken back), else the next.
   const thisTime = focus && !isSettled(focus) ? focus : next;

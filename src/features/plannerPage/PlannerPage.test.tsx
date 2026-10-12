@@ -380,9 +380,10 @@ describe("the incomes, from «Έσοδα»", () => {
     const salary = screen.getByRole("button", { name: "Salary: details" });
     const rent = screen.getByRole("button", { name: "Rent I collect: details" });
     expect(salary.compareDocumentPosition(rent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // A name, an amount and a switch: the "×3 · next" is in the income's card now.
-    expect(salary).toHaveTextContent(/^Salary$/);
-    expect(rent).toHaveTextContent(/^Rent I collect$/);
+    // The row is the switch — a name and an amount; the "×3 · next" is in the income's card.
+    expect(screen.getByRole("switch", { name: "Salary" })).toHaveTextContent(/^Salary\+€4350\.00$/);
+    expect(screen.getByRole("switch", { name: "Rent I collect" })).toHaveTextContent(/^Rent I collect\+€1200\.00$/);
+    expect(3 * 1450).toBe(4350);
     expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes");
     // Nothing to type here any more: no salary dialog, no income lines.
     expect(screen.queryByRole("button", { name: "Add monthly income" })).toBeNull();
@@ -408,8 +409,7 @@ describe("the incomes, from «Έσοδα»", () => {
     renderPage();
     expect(screen.queryByText("Room")).toBeNull();
 
-    const mine = screen.getAllByRole("button").find((b) => b.getAttribute("aria-expanded") !== null && b.textContent?.startsWith("Mine"))!;
-    await userEvent.click(mine);
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     const amount = screen.getByLabelText("Amount per month");
     await userEvent.clear(amount);
@@ -438,13 +438,48 @@ describe("the incomes, from «Έσοδα»", () => {
   });
 });
 
+describe("the scales at the top of «Τα ποσά σου»", () => {
+  // The same salary and rent as on «Έσοδα» below.
+  beforeEach(() => {
+    settings.set("incomes", [SALARY, monthlyIncome("rent-in", "Rent I collect", 400, 5)]);
+    data.transactions = [
+      payOnThe25th,
+      { id: "rent-sep", userId: "u", type: "income", amount: 400, categoryId: "c", description: "Rent", date: new Date(2026, 8, 5), createdAt: new Date(2026, 8, 5), updatedAt: new Date(2026, 8, 5), incomeId: "rent-in", incomeDue: "2026-09-05" } as Transaction,
+    ];
+    data.latest = undefined;
+  });
+
+  it("adds in and out from the rows under them, and what is left is the months' own figure", async () => {
+    renderPage();
+    // In: 3 × 1.450 + 3 × 400. Out: the 2.755 the plan spends. Left: their difference.
+    expect(screen.getByText("+€5550.00")).toBeInTheDocument();
+    expect(screen.getByText("−€2755.00")).toBeInTheDocument();
+    expect(screen.getByText("+€2795.00")).toBeInTheDocument();
+    expect(3 * 1450 + 3 * 400).toBe(5550);
+    // Second way: the period sheet's own words for the same months.
+    await openPeriod();
+    expect(screen.getByText("The months leave +€2795.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
+  });
+
+  it("takes a row out with a tap, and puts it back with another", async () => {
+    renderPage();
+    const rent = screen.getByRole("switch", { name: "Rent I collect" });
+    await userEvent.click(rent);
+    expect(rent).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText("+€4350.00")).toBeInTheDocument();
+    await userEvent.click(rent);
+    expect(rent).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("+€5550.00")).toBeInTheDocument();
+  });
+});
+
 describe("a row the app keeps", () => {
   it("opens its facts as columns, with its switch, instead of carrying them under its name", async () => {
     renderPage();
-    const bills = screen.getAllByRole("button").find((b) => b.getAttribute("aria-expanded") !== null && b.textContent?.startsWith("Bills"))!;
-    await userEvent.click(bills);
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    // The row is its switch; the "›" at its end opens it.
+    expect(screen.getByRole("switch", { name: "Power" })).toHaveTextContent(/Power−€195\.00$/);
     const power = screen.getByRole("button", { name: "Power: details" });
-    expect(power).toHaveTextContent(/^Power$/);
 
     await userEvent.click(power);
     const sheet = screen.getByRole("dialog");

@@ -1287,3 +1287,193 @@
   border-top-width: 2px;
   font-weight: 700;
 }
+
+/* ── «Τα ποσά σου»: the scales ──────────────────────────────────────────────── */
+/* Three figures, a bar of in against out, then one side at a time. A row is
+   its own switch; the "›" at its end opens it. See PlanLedger. */
+
+.ledgerFigures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  text-align: center;
+}
+
+.ledgerLabel {
+  display: block;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerValue {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ledgerIncome {
+  color: var(--color-income-text);
+}
+
+.ledgerExpense {
+  color: var(--color-expense-text);
+}
+
+.ledgerBar {
+  display: flex;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-background-secondary);
+}
+
+.ledgerBarIn {
+  background: var(--color-income);
+}
+
+.ledgerBarOut {
+  background: var(--color-expense);
+}
+
+.ledgerWindow {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.ledgerSides {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0 8px;
+  padding: 3px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.ledgerSides button {
+  flex: 1;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: calc(var(--border-radius-md) - 2px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.ledgerSides .ledgerSideOn {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.ledgerCount {
+  margin-left: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.ledgerRow {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 6px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.ledgerToggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 4px 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.ledgerStatic {
+  color: var(--color-text-secondary);
+}
+
+.ledgerName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ledgerGroup {
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerAmount {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Out of the plan: greyed and struck through, the figure replaced by a word. */
+.ledgerRowOff {
+  background: var(--color-background-secondary);
+}
+
+.ledgerRowOff .ledgerName {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
+.ledgerRowOff .ledgerAmount {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.ledgerOpen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  border: 0;
+  border-left: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+span.ledgerOpen {
+  border-left: 0;
+}
+
+.ledgerEmpty {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.ledgerAdd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px dashed var(--color-border-secondary, var(--color-border-tertiary));
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-link);
+  font-size: 13.5px;
+  font-weight: 600;
+}

@@ -4,7 +4,6 @@ import IncomeQuickView from "../incomes/components/IncomeQuickView";
 import { Alert, Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
-import { FiPlus } from "react-icons/fi";
 
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
@@ -28,7 +27,6 @@ import {
   monthStart,
   nextOneOffDate,
   oneOffDate,
-  repeatLabel,
   repeatMonths,
   type BudgetLine,
   type OneOff,
@@ -46,7 +44,7 @@ import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
 import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
-import LeverGroup from "./components/LeverGroup";
+import PlanLedger, { type LedgerItem } from "./components/PlanLedger";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/PlannerPage.module.css";
@@ -54,8 +52,6 @@ import { PageShell } from "../../shared/components/PageShell";
 
 const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Which groups start unrolled. Income holds the salary, and every income's switch. */
-const DEFAULT_OPEN: Record<string, boolean> = { income: true };
 
 /**
  * A forward budget: what arrives, what leaves, over the next one to twelve
@@ -123,9 +119,6 @@ export function PlannerPage() {
   const [sheet, setSheet] = useState<PlannerSheet | null>(null);
   const [rowSheet, setRowSheet] = useState<string | null>(null);
   const navigate = useNavigate();
-  // Which groups are folded is a habit of this screen on this device, not part
-  // of the plan — it stays local while everything above it syncs.
-  const [storedOpen, setOpen] = useLocalStorage<Record<string, boolean>>("planner-open-groups", DEFAULT_OPEN);
   // Which half of the planner a phone is looking at. On a laptop both are on
   // screen at once and this is ignored — see the two `d-lg-block` below.
   const [pane, setPane] = useLocalStorage<"numbers" | "months">("planner-pane", "months");
@@ -141,7 +134,6 @@ export function PlannerPage() {
   const lines = useMemo(() => allLines.filter((l) => l.kind !== "income"), [allLines]);
   const oneOffs = useMemo(() => cleanOneOffs(storedOneOffs), [storedOneOffs]);
   const skipped = useMemo(() => cleanSkipped(storedSkipped), [storedSkipped]);
-  const open = useMemo(() => (storedOpen && typeof storedOpen === "object" ? storedOpen : DEFAULT_OPEN), [storedOpen]);
 
   // One dialog for every figure the user owns, rather than an inline editor
   // permanently unrolled under each row.
@@ -266,20 +258,10 @@ export function PlannerPage() {
   // nothing on its own.
   const seasonYearFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }), [lang]);
 
-  // A one-off can sit in another year, so the short "20 Sep" is not enough.
-  const longDateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
-
-  const sumOf = (rows: PlanRow[]) => rows.reduce((sum, r) => sum + r.total, 0);
-
   // Written from the sanitised copies rather than through a functional update,
   // so a malformed stored value is replaced by a clean one instead of being
   // spread back into the next write.
   const toggleRow = (id: string) => setSkipped(skipped.includes(id) ? skipped.filter((s) => s !== id) : [...skipped, id]);
-  const setAll = (rows: PlanRow[], on: boolean) => {
-    const ids = rows.map((r) => r.id);
-    setSkipped(on ? skipped.filter((s) => !ids.includes(s)) : Array.from(new Set([...skipped, ...ids])));
-  };
-  const toggleGroup = (key: string) => setOpen({ ...open, [key]: !open[key] });
 
   type Editor = { mode: "line" | "oneoff"; draft: EntryDraft };
 
@@ -400,52 +382,51 @@ export function PlannerPage() {
     return stop ? `${yearly} ${t("planner.seasonToOnly", { month: seasonYearFmt.format(stop) })}` : yearly;
   };
 
-  /** Where a row leads instead of an editor here. */
-  type RowLink = { to: string; label: string };
+  // ── «Τα ποσά σου» ──────────────────────────────────────────────────────────
+  // Every row of the plan, as the ledger shows it. A row the app keeps (a
+  // bill, a goal, an instalment) opens its details; a line of your own opens
+  // its editor; an income opens its card, since it is changed on «Έσοδα».
+  const ledgerItem = (row: PlanRow, group?: string, onOpen?: () => void, openLabel?: string): LedgerItem => ({
+    id: row.id,
+    label: row.label,
+    group,
+    total: row.total,
+    enabled: row.enabled,
+    canToggle: true,
+    onOpen: onOpen ?? (() => setRowSheet(row.id)),
+    openLabel: openLabel ?? t("planner.rowDetails", { name: row.label }),
+  });
 
-  const renderRow = (row: PlanRow, onEdit?: () => void, link?: RowLink, editLabel?: string) => {
-    const title = row.label;
-    // The name alone. What used to run under it — per month, how many times,
-    // the season, why a row is zero — is one tap away, in the row's sheet or
-    // its editor; at a glance the list is names, amounts and switches.
-    const name = <span className={styles.rowTitle}>{title}</span>;
-    // A row the app keeps (a bill, a goal, an instalment) has no editor here:
-    // it opens the facts it is made of instead.
-    const open = onEdit ?? (link ? undefined : () => setRowSheet(row.id));
+  const ledgerIn: LedgerItem[] = [
+    ...incomeRows.map((row) => ledgerItem(row, undefined, () => setOpenIncome(row.id), t("incomes.list.openCard", { name: row.label }))),
+    // Extra pay with a date, listed from what is stored rather than from what
+    // the window caught: one outside the months shown is still here, marked,
+    // instead of vanishing as if it had not been saved.
+    ...oneOffsByDate.map((source): LedgerItem => {
+      const cadence = repeatMonths(source.every);
+      const edit = () => setEditor({ mode: "oneoff", draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date, every: cadence, until: source.until } });
+      const row = oneOffRows.find((r) => r.id === source.id);
+      if (row) return ledgerItem(row, undefined, edit, t("planner.editEntry"));
+      const past = !nextOneOffDate(source, startOfToday);
+      return {
+        id: source.id,
+        label: source.label,
+        total: 0,
+        enabled: false,
+        canToggle: false,
+        aside: { amount: `+${formatCurrency(source.amount)}`, tag: t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange"), hint: t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint") },
+        onOpen: edit,
+        openLabel: t("planner.editEntry"),
+      };
+    }),
+  ];
 
-    // Off rows keep the muted treatment instead: a struck-through row tinted
-    // green would be saying two things at once.
-    const tone = !row.enabled ? "" : row.total > 0 ? styles.rowIncome : row.total < 0 ? styles.rowExpense : "";
-
-    return (
-      <div key={row.id} className={`${styles.rowLine} ${tone} ${row.enabled ? "" : styles.rowOff}`}>
-        {link ? (
-          <Link to={link.to} className={`${styles.rowName} ${styles.rowEditable} text-decoration-none`} aria-label={link.label}>
-            {name}
-          </Link>
-        ) : open ? (
-          <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={open} aria-label={editLabel ?? (onEdit ? t("planner.editEntry") : t("planner.rowDetails", { name: title }))}>
-            {name}
-          </button>
-        ) : (
-          <span className={styles.rowName}>{name}</span>
-        )}
-
-        {/* An off row shows a dash rather than €0.00: nothing is being spent,
-            and a zero looks like an amount somebody chose. */}
-        <span className={styles.rowAmount}>
-          {!row.enabled ? "—" : `${row.total > 0 ? "+" : row.total < 0 ? "−" : ""}${formatCurrency(Math.abs(row.total))}`}
-        </span>
-
-        <div className={`form-check form-switch ${styles.rowSwitch}`}>
-          <input className="form-check-input" type="checkbox" role="switch" checked={row.enabled} onChange={() => toggleRow(row.id)} aria-label={title} />
-        </div>
-      </div>
-    );
-  };
-
-  const sweep = (rows: PlanRow[]) =>
-    rows.length > 1 ? { sweepLabel: rows.every((r) => r.enabled) ? t("planner.skipAll") : t("planner.includeAll"), onSweep: () => setAll(rows, !rows.every((r) => r.enabled)) } : {};
+  const ledgerOut: LedgerItem[] = [
+    ...billRows.map((row) => ledgerItem(row, t("planner.groupBills"))),
+    ...goalRows.map((row) => ledgerItem(row, t("planner.groupGoals"))),
+    ...debtRows.map((row) => ledgerItem(row, t("debts.plannerGroup"))),
+    ...budgetRows.map((row) => ledgerItem(row, t("planner.groupMine"), editHandler(row), t("planner.editEntry"))),
+  ];
 
   /** What a row is made of, for its sheet: the words the list no longer carries. */
   const rowFacts = (row: PlanRow): RowFact[] => {
@@ -535,164 +516,36 @@ export function PlannerPage() {
         <Col xs={12} lg={5} className={pane === "numbers" ? "" : "d-none d-lg-block"}>
           {/* On a phone the switch above names this pane; side by side it needs its own. */}
           <div className={`${styles.label} d-none d-lg-block mb-2`}>{t("planner.paneNumbers")}</div>
-          {/* Every lever, folded. Each group says what it costs before it says
-              what it is made of. */}
-          <div className="card px-3 px-lg-4">
-            <LeverGroup
-              title={t("planner.moneyIn")}
-              total={plan.incomeTotal}
+          {/* «Τα ποσά σου» as scales: what comes in, what goes out, what is
+              left, then one side at a time — see `PlanLedger`. */}
+          <div className="card px-3 px-lg-4 py-3">
+            <PlanLedger
+              inItems={ledgerIn}
+              outItems={ledgerOut}
+              months={monthsShown}
               formatCurrency={formatCurrency}
-              open={!!open.income}
-              onToggle={() => toggleGroup("income")}
-              {...sweep(incomeRows)}
-            >
-              {/* Every income on «Έσοδα», in by itself, the salary first. Each
-                  can be switched off here to ask "and without it?"; its
-                  figures and days are changed there, which is where the row
-                  leads. */}
-              {incomeRows.map((row) => renderRow(row, () => setOpenIncome(row.id), undefined, t("incomes.list.openCard", { name: row.label })))}
-
-              {activeIncomes.length === 0 ? (
-                // No incomes, no money in: said, with where to add it — and
-                // the salary the records suggest, as a suggestion only. The
-                // plan is never built on a guess.
-                <div className={`${styles.rowLine} flex-column align-items-start py-2`}>
-                  <span className={styles.rowTitle}>{t("planner.noIncomes")}</span>
-                  {suggestion && (
-                    <span className={styles.rowHint}>{t("planner.foundSalary", { amount: formatCurrency(suggestion.pattern.amount), day: suggestion.pattern.dayOfMonth })}</span>
-                  )}
-                  <Link to="/incomes" className={`${styles.linkButton} mt-1`}>
-                    {t("planner.addOnIncomes")}
-                  </Link>
-                </div>
-              ) : (
-                <Link to="/incomes" className={`${styles.linkButton} my-1`}>
-                  {t("planner.changeOnIncomes")}
-                </Link>
-              )}
-
-              {/* Extra pay lives with the pay, not in a section of its own: it
-                  is the same question — what arrives — asked about a date
-                  rather than about every month.
-                  Listed from what is stored, not from what the window caught:
-                  entering "€1,400 on 20 December" while the horizon is one
-                  month used to save it and show nothing at all, which is
-                  indistinguishable from the app having refused it. */}
-              {oneOffsByDate.map((source) => {
-                const row = oneOffRows.find((r) => r.id === source.id);
-                // The next one still to come — which for a repeat is not the
-                // date it was entered on, and is what says whether it has
-                // finished or is merely outside the months on screen.
-                const next = nextOneOffDate(source, startOfToday);
-                // Nothing to come: the day it stopped, or failing that the day it started.
-                const date = next ?? oneOffDate(source.until ?? "") ?? oneOffDate(source.date)!;
-                const past = !next;
-                const cadence = repeatMonths(source.every);
-                const cadenceText = cadence ? t(repeatLabel(cadence).key, { count: repeatLabel(cadence).count }) : undefined;
-                const edit = () =>
-                  setEditor({
-                    mode: "oneoff",
-                    draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date, every: cadence, until: source.until },
-                  });
-
-                // A repeat says its cadence and how many times the window
-                // catches it, because the amount beside it is the total of
-                // those rather than one payment.
-                if (row) return <div key={source.id}>{renderRow(row, edit)}</div>;
-
-                // Nothing in this window to include or skip, so no switch: a
-                // control that changes no figure is furniture.
-                return (
-                  <div key={source.id} className={`${styles.rowLine} ${styles.rowMuted}`}>
-                    <button type="button" className={`${styles.rowName} ${styles.rowEditable}`} onClick={edit} aria-label={t("planner.editEntry")}>
-                      <span className={styles.rowTitle}>{source.label}</span>
-                      <span className={styles.rowHint}>
-                        {cadenceText ? `${cadenceText} · ${longDateFmt.format(date)}` : longDateFmt.format(date)}{" "}
-                        <span className={styles.oneOffTag} title={t(past ? "planner.oneOffPastHint" : "planner.oneOffOutOfRangeHint")}>
-                          {t(past ? "planner.oneOffPast" : "planner.oneOffOutOfRange")}
-                        </span>
-                      </span>
-                    </button>
-                    <span className={styles.rowAmount}>+{formatCurrency(source.amount)}</span>
-                    <span className={styles.rowSwitch} aria-hidden />
+              onToggle={toggleRow}
+              onAddIn={() => setEditor({ mode: "oneoff", draft: { label: "", amount: "", date: "" } })}
+              onAddOut={() => setEditor({ mode: "line", draft: { label: "", amount: "" } })}
+              inFooter={
+                activeIncomes.length === 0 ? (
+                  // No incomes, no money in: said, with where to add it — and
+                  // the salary the records suggest, as a suggestion only. The
+                  // plan is never built on a guess.
+                  <div className={`${styles.rowLine} flex-column align-items-start py-2`}>
+                    <span className={styles.rowTitle}>{t("planner.noIncomes")}</span>
+                    {suggestion && <span className={styles.rowHint}>{t("planner.foundSalary", { amount: formatCurrency(suggestion.pattern.amount), day: suggestion.pattern.dayOfMonth })}</span>}
+                    <Link to="/incomes" className={`${styles.linkButton} mt-1`}>
+                      {t("planner.addOnIncomes")}
+                    </Link>
                   </div>
-                );
-              })}
-
-              <button type="button" className={styles.addLine} onClick={() => setEditor({ mode: "oneoff", draft: { label: "", amount: "", date: "" } })}>
-                <FiPlus size={13} /> {t("planner.addOneOff")}
-              </button>
-            </LeverGroup>
-
-            <LeverGroup
-              title={t("planner.groupBills")}
-              count={billRows.length}
-              total={sumOf(billRows)}
-              formatCurrency={formatCurrency}
-              open={!!open.bills}
-              onToggle={() => toggleGroup("bills")}
-              {...sweep(billRows)}
-            >
-              {billRows.length === 0 ? (
-                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                  {t("planner.noBillsAtAll")}
-                </p>
-              ) : (
-                billRows.map((row) => renderRow(row))
-              )}
-            </LeverGroup>
-
-            <LeverGroup
-              title={t("planner.groupGoals")}
-              count={goalRows.length}
-              total={sumOf(goalRows)}
-              formatCurrency={formatCurrency}
-              open={!!open.goals}
-              onToggle={() => toggleGroup("goals")}
-              {...sweep(goalRows)}
-            >
-              {goalRows.length === 0 ? (
-                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                  {t("planner.noGoalsAtAll")}
-                </p>
-              ) : (
-                goalRows.map((row) => renderRow(row))
-              )}
-            </LeverGroup>
-
-            {debtRows.length > 0 && (
-              <LeverGroup
-                title={t("debts.plannerGroup")}
-                count={debtRows.length}
-                total={sumOf(debtRows)}
-                formatCurrency={formatCurrency}
-                open={!!open.debts}
-                onToggle={() => toggleGroup("debts")}
-                {...sweep(debtRows)}
-              >
-                {debtRows.map((row) => renderRow(row))}
-              </LeverGroup>
-            )}
-
-            <LeverGroup
-              title={t("planner.groupMine")}
-              count={budgetRows.length}
-              total={sumOf(budgetRows)}
-              formatCurrency={formatCurrency}
-              open={!!open.mine}
-              onToggle={() => toggleGroup("mine")}
-              onAdd={() => setEditor({ mode: "line", draft: { label: "", amount: "" } })}
-              addLabel={t("planner.addExpenseLine")}
-              {...sweep(budgetRows)}
-            >
-              {budgetRows.length === 0 ? (
-                <p className="text-body-secondary mb-1" style={{ fontSize: 12 }}>
-                  {t("planner.noLinesYet")}
-                </p>
-              ) : (
-                budgetRows.map((row) => renderRow(row, editHandler(row)))
-              )}
-            </LeverGroup>
+                ) : (
+                  <Link to="/incomes" className={`${styles.linkButton} my-2 d-inline-block`}>
+                    {t("planner.changeOnIncomes")}
+                  </Link>
+                )
+              }
+            />
           </div>
         </Col>
       </Row>

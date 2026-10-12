@@ -1581,7 +1581,14 @@
     "wizard_someMonthsHint": "π.χ. από Δεκέμβριο έως Απρίλιο. Άφησε ένα άκρο κενό και τρέχει συνέχεια προς εκείνη την πλευρά.",
     "wizard_everyYear": "Επαναλαμβάνεται κάθε χρόνο",
     "wizard_once": "Μία φορά",
-    "wizard_repeating": "Επαναλαμβάνεται"
+    "wizard_repeating": "Επαναλαμβάνεται",
+    "ledgerIn": "Μπαίνουν",
+    "ledgerOut": "Βγαίνουν",
+    "ledgerLeft": "Μένουν",
+    "ledgerWindow_one": "στον {{count}} μήνα που βλέπεις",
+    "ledgerWindow_other": "στους {{count}} μήνες που βλέπεις",
+    "ledgerEmptyOut": "Τίποτα ακόμα. Πρόσθεσε ένα μηνιαίο έξοδο από κάτω.",
+    "ledgerOffShort": "εκτός"
   },
   "settings": {
     "title": "Ρυθμίσεις",

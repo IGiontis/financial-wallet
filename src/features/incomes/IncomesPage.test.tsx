@@ -124,6 +124,16 @@ describe("the Incomes page", () => {
     expect(within(arrived).getByText("✓ 25 Σεπ 2026 · 5 μέρες νωρίς")).toBeInTheDocument();
   });
 
+  it("says which card each income lands on, already arrived or still waiting", async () => {
+    renderPage();
+    // These two have arrived; the chip used to show only on the ones waiting.
+    const arrived = await screen.findByRole("region", { name: "Ήρθαν" });
+    expect(within(arrived).getByText("Eurobank")).toBeInTheDocument();
+    expect(within(arrived).getByText("Revolut")).toBeInTheDocument();
+    const waiting = screen.getByRole("region", { name: "Περιμένεις" });
+    expect(within(waiting).getByText("Μετρητά")).toBeInTheDocument();
+  });
+
   it("writes «Ήρθε» as an income transaction tied to the lessons of 28 September", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Ήρθε: Ιδιαίτερα μαθήματα" }));
