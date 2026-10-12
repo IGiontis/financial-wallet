@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import i18n from "../../../i18n";
-import PlanMonthRows, { monthRows } from "./PlanMonthRows";
+import PlanMonthRows from "./PlanMonthRows";
+import { monthRows } from "../monthRows";
 import type { PlanPeriod } from "../plannerUtils";
 
 // The months as rows that hand on to each other. What matters is the chain:
