@@ -466,7 +466,8 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
     const rent = screen.getByRole("switch", { name: "Rent I collect" });
     await userEvent.click(rent);
     expect(rent).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByText("+€4350.00")).toBeInTheDocument();
+    // In is now the salary alone: the same figure as its row.
+    expect(screen.getAllByText("+€4350.00")).toHaveLength(2);
     await userEvent.click(rent);
     expect(rent).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText("+€5550.00")).toBeInTheDocument();
