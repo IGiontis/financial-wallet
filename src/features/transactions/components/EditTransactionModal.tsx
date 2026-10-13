@@ -465,7 +465,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
       </ModalBody>
 
-      <ModalFooter>
+      <ModalFooter className="justify-content-between">
         {step === "category" ? (
           <Button color="secondary" outline onClick={handleClose}>{t("common.cancel")}</Button>
         ) : (

@@ -21,6 +21,8 @@ import {
 } from "./reviewPalettes";
 import { formatTable } from "../transactionDates";
 import { findCategory } from "../../../shared/utils/categories";
+import { useAccountList } from "../../accounts/useMoneyAccounts";
+import { mainAccount } from "../../accounts/accountsUtils";
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -54,7 +56,24 @@ export default function TransactionViewModal({
 }: Props) {
   const { t, i18n } = useTranslation();
   const { displayCurrency } = useCurrencyConverter();
+  const accounts = useAccountList();
   const cat = resolveCategory(tx, categories);
+  const lang = i18n.resolvedLanguage ?? "en";
+
+  // Where the money went in or came out: its card, or the main account when
+  // none was named — which is where every figure in the app counts it.
+  const named = accounts.find((a) => a.id === tx.accountId);
+  const main = mainAccount(accounts);
+  const accountName = named ? named.name : main ? t("transactions.view.mainCard", { name: main.name }) : undefined;
+
+  // The time it was written down. The date of a record is a day, not a
+  // moment, so the clock comes from when it was entered — and says so.
+  const created = tx.createdAt ? firestoreToDate(tx.createdAt) : undefined;
+  const sameDay = created && created.toDateString() === firestoreToDate(tx.date).toDateString();
+  const recordedAt =
+    created && !Number.isNaN(created.getTime())
+      ? new Intl.DateTimeFormat(lang, sameDay ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(created)
+      : undefined;
   const isGoal = !!tx.isGoalTransaction;
   const isInvestment = !!tx.isInvestmentTransaction && !isGoal;
   const isPositive =
@@ -170,6 +189,8 @@ export default function TransactionViewModal({
           hideCategoryLabel={isGoal || isInvestment}
           gradientFrom={gradientFrom}
           gradientTo={gradientTo}
+          account={accountName ? { label: t(isPositive ? "transactions.view.into" : "transactions.view.outOf"), name: accountName } : undefined}
+          recordedAt={recordedAt}
         />
         {/* A loan's money: written by the debt and kept in step with it. */}
         {tx.debtId && <p className="small text-body-secondary mt-3 mb-0">{t("transactions.debtLocked")}</p>}

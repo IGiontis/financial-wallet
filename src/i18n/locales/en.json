@@ -982,6 +982,12 @@
       "failed": "The transfer was not saved. Try again.",
       "newOne": "New transfer",
       "kindHint": "From one card to another"
+    },
+    "view": {
+      "into": "Went into",
+      "outOf": "Came out of",
+      "recorded": "Recorded",
+      "mainCard": "{{name}} (main)"
     }
   },
   "analytics": {
@@ -1198,9 +1204,6 @@
       "perMonth": "Per month",
       "perWeek": "Per week",
       "running": "Running total",
-      "groupBoth": "Both ways",
-      "groupExpense": "Expenses",
-      "groupIncome": "Income",
       "in": "In",
       "out": "Out",
       "net": "Net",
@@ -1220,7 +1223,7 @@
       "week": "Week",
       "inCountHead": "Times in",
       "outCountHead": "Times out",
-      "noneYet": "No category has any records yet.",
+      "noneYet": "No category has money going both ways yet — stakes and wins under the same name, say.",
       "nothingInRange": "Nothing in this category in this period."
     }
   },

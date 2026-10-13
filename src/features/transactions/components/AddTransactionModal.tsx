@@ -151,8 +151,9 @@ function FrameBody({ asPage, className, children }: { asPage: boolean; className
   return asPage ? <div className={`${styles.pageBody} ${className ?? ""}`}>{children}</div> : <ModalBody className={className}>{children}</ModalBody>;
 }
 
-function FrameFooter({ asPage, split, children }: { asPage: boolean; split?: boolean; children: ReactNode }) {
-  return asPage ? <div className={`${styles.pageFooter} ${split ? styles.footerSplit : ""}`}>{children}</div> : <ModalFooter>{children}</ModalFooter>;
+function FrameFooter({ asPage, children }: { asPage: boolean; children: ReactNode }) {
+  // Back (or Cancel) on the left, the way forward on the right — never the two side by side.
+  return asPage ? <div className={`${styles.pageFooter} ${styles.footerSplit}`}>{children}</div> : <ModalFooter className="justify-content-between">{children}</ModalFooter>;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -586,7 +587,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           step, and there is no dialog to cancel out of. The dialog keeps its
           Cancel. */}
       {!(asPage && !saved && step === "type") && (
-      <FrameFooter asPage={asPage} split={!!saved}>
+      <FrameFooter asPage={asPage}>
         {saved ? (
           <>
             <Button color="secondary" outline onClick={onClose}>

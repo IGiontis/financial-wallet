@@ -47,6 +47,10 @@ export interface TransactionReviewBodyProps {
   hideCategoryLabel?: boolean;
   gradientFrom?: string;
   gradientTo?: string;
+  /** The card or cash, as a chip under the name and a cell: «Μπήκαν σε Revolut». */
+  account?: { label: string; name: string };
+  /** When it was written down: «16:33», or with its day when that was another one. */
+  recordedAt?: string;
 }
 
 export function TransactionReviewBody({
@@ -66,6 +70,8 @@ export function TransactionReviewBody({
   hideCategoryLabel = false,
   gradientFrom,
   gradientTo,
+  account,
+  recordedAt,
 }: TransactionReviewBodyProps) {
   const { t } = useTranslation();
   const hasGradient = !!(gradientFrom && gradientTo);
@@ -129,6 +135,17 @@ export function TransactionReviewBody({
                 </span>
               )}
             </div>
+            {account && (
+              <span
+                className="d-inline-flex align-items-center mt-2"
+                style={{ fontSize: 11.5, fontWeight: 600, gap: 4, padding: "2px 9px", borderRadius: 20, border: `1px solid ${colors.amtTxt}`, color: colors.amtTxt, maxWidth: "100%" }}
+              >
+                <span aria-hidden>🏦</span>
+                <span className="text-truncate">
+                  {account.label} {account.name}
+                </span>
+              </span>
+            )}
           </div>
           <p style={{ fontSize: 20, fontWeight: 700, margin: 0, color: colors.amtTxt, flexShrink: 0 }}>
             {colors.sign}
@@ -142,6 +159,8 @@ export function TransactionReviewBody({
         <GridCell label={t("common.category")} value={`${categoryIcon} ${categoryName}`} />
         <GridCell label={t("common.amount")} value={formatAmount(amount)} accent={colors.amtTxt} />
         <GridCell label={t("common.type")} value={primaryBadge} accent={colors.amtTxt} />
+        {account && <GridCell label={account.label} value={account.name} />}
+        {recordedAt && <GridCell label={t("transactions.view.recorded")} value={recordedAt} />}
         {notes && <GridCell label={t("common.notes")} value={notes} fullWidth />}
       </div>
 

@@ -87,7 +87,9 @@ export function TwoWayCard({
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
-  const options = useMemo(() => twoWayOptions(transactions, categories), [transactions, categories]);
+  // Only what has money both ways: a category that only ever goes out is
+  // already on the page's other cards, and here it would be one line on zero.
+  const options = useMemo(() => twoWayOptions(transactions, categories).filter((o) => o.bothWays), [transactions, categories]);
   const [stored, setStored] = useLocalStorage<string>("analytics-two-way", "");
   const [running, setRunning] = useLocalStorage<boolean>("analytics-two-way-running", false);
   const [linkNames, setLinkNames] = useLocalStorage<boolean>("analytics-two-way-names", true);
@@ -112,12 +114,6 @@ export function TwoWayCard({
   const optionText = (id: string, count: number) => `${findCategory(categories, id)?.icon ?? "•"} ${nameFor(id)} (${count})`;
   const signed = signedWith(formatCurrency);
 
-  const groups = [
-    { key: "both", label: t("analytics.twoWay.groupBoth"), rows: options.filter((o) => o.bothWays) },
-    { key: "expense", label: t("analytics.twoWay.groupExpense"), rows: options.filter((o) => !o.bothWays && o.type === "expense") },
-    { key: "income", label: t("analytics.twoWay.groupIncome"), rows: options.filter((o) => !o.bothWays && o.type === "income") },
-  ].filter((g) => g.rows.length > 0);
-
   const toolbar = options.length > 0 && (
     <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
       <Input
@@ -129,14 +125,10 @@ export function TwoWayCard({
         className="flex-grow-1"
         style={{ minWidth: 0, maxWidth: 320 }}
       >
-        {groups.map((g) => (
-          <optgroup key={g.key} label={g.label}>
-            {g.rows.map((o) => (
-              <option key={o.id} value={o.id}>
-                {optionText(o.id, o.count)}
-              </option>
-            ))}
-          </optgroup>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {optionText(o.id, o.count)}
+          </option>
         ))}
       </Input>
       <div className={segmented.group} role="group" aria-label={t("analytics.twoWay.view")} style={{ padding: 3 }}>

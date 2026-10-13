@@ -128,7 +128,7 @@ function ReviewScreen({
           ))}
         </div>
       </ModalBody>
-      <ModalFooter>
+      <ModalFooter className="justify-content-between">
         <Button type="button" color="secondary" outline onClick={onBack} disabled={isSubmitting}>
           {t("common.back")}
         </Button>
@@ -434,7 +434,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
             </form>
           </ModalBody>
 
-          <ModalFooter>
+          <ModalFooter className="justify-content-between">
             <Button type="button" color="secondary" outline onClick={handleClose}>
               {t("common.cancel")}
             </Button>
