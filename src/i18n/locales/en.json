@@ -2300,12 +2300,20 @@
   "legal": {
     "terms": "Terms of Use",
     "privacy": "Privacy Policy",
-    "noTracking": "No tracking or advertising cookies.",
+    "noTracking": "No ads.",
     "back": "Back",
     "updated": "Last updated: {{date}}",
     "contact": "Contact:",
     "consent": "I am 18 or over and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
     "consentNeeded": "Please confirm this to create an account.",
-    "signInNotice": "By continuing you confirm you are 18 or over and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>."
+    "signInNotice": "By continuing you confirm you are 18 or over and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+    "cookies": {
+      "title": "Cookies",
+      "text": "We'd like to count how many people use the app with Google Analytics, which uses cookies. Never your financial data.",
+      "more": "More",
+      "accept": "Accept",
+      "decline": "No thanks",
+      "settings": "Cookies"
+    }
   }
 }

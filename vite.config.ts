@@ -82,7 +82,12 @@ export default defineConfig({
          */
         codeSplitting: {
           groups: [
-            { name: "firebase", test: /node_modules[\\/](@firebase|firebase)[\\/]/, priority: 30 },
+            // Analytics is left out: it is imported only after a yes on the
+            // cookie notice (`lib/analytics`), and in this group it would ride
+            // in the first load for everyone, the ones who said no included.
+            // A group of its own does not do: a group takes its dependencies
+            // with it, and Firebase's shared core would follow it out.
+            { name: "firebase", test: /node_modules[\\/](@firebase[\\/](?!analytics|installations)|firebase[\\/](?!analytics))/, priority: 30 },
             { name: "react", test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/, priority: 30 },
             { name: "query", test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
             { name: "i18n", test: /node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector)[\\/]/, priority: 20 },

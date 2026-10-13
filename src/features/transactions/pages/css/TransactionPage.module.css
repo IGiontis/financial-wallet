@@ -229,16 +229,12 @@
   margin-bottom: 0.5rem !important;
 }
 
-/* The navigation style that lays the top bar over the page: stick below it. */
-:global([data-nav-style="c"]) .stickyDates {
-  top: var(--topbar-height);
-}
+/* No offset of its own under the menu style whose top bar lies over the page
+   (Γ): the scroll container is already padded by the bar, and a sticky
+   element stops at that padding. Adding the bar here as well held the dates a
+   bar too low, and the list showed through the gap above them. */
 
 .dayWeekday {
   font-weight: 500;
   opacity: 0.75;
-}
-
-:global([data-nav-style="c"]) .dayHead {
-  top: calc(var(--topbar-height) + var(--dates-height, 0px));
 }

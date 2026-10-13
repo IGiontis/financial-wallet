@@ -47,7 +47,7 @@ describe("the links to them", () => {
     );
     expect(screen.getByRole("link", { name: "Terms of Use" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
-    expect(screen.getByText(/No tracking or advertising cookies/)).toBeInTheDocument();
+    expect(screen.getByText(/No ads./)).toBeInTheDocument();
   });
 
   it("drop the promise when asked, on the sign-in pages", () => {

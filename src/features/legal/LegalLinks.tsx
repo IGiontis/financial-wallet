@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { analyticsConfigured, reopenConsent } from "../../lib/analytics";
 
 /**
  * «Όροι Χρήσης · Πολιτική Απορρήτου», and the one-line promise under them.
@@ -21,6 +22,15 @@ export function LegalLinks({ promise = true }: { promise?: boolean }) {
       <Link to="/privacy" style={link}>
         {t("legal.privacy")}
       </Link>
+      {/* Where the cookie question is asked again, once it has been answered. */}
+      {analyticsConfigured && (
+        <>
+          {" · "}
+          <button type="button" onClick={reopenConsent} className="btn btn-link p-0 align-baseline" style={{ ...link, fontSize: "inherit" }}>
+            {t("legal.cookies.settings")}
+          </button>
+        </>
+      )}
       {promise && (
         <>
           {" · "}

@@ -3,8 +3,9 @@
 // Written from what the app actually does — checked against the code when
 // written (12 Oct 2026): Firebase Authentication (email and password, or
 // Google) and Cloud Firestore for the data, Netlify for the site, the
-// exchange-rate API asked for currencies only, no analytics, no advertising,
-// no tracking cookies, a copy kept on the device for speed, and deleting the
+// exchange-rate API asked for currencies only, Google Analytics only after a
+// yes on the cookie notice (13 Oct 2026, `lib/analytics`), no advertising, a
+// copy kept on the device for speed, and deleting the
 // account from Settings removing everything. Change the code in any of those
 // respects and this text has to change with it.
 //
@@ -70,7 +71,11 @@ const el: Record<LegalDoc, LegalText> = {
       },
       {
         heading: "Cookies",
-        paragraphs: ["Δεν χρησιμοποιούμε cookies παρακολούθησης ή διαφήμισης, ούτε εργαλεία στατιστικών επισκεψιμότητας. Ό,τι αποθηκεύεται στον browser χρειάζεται για να μένεις συνδεδεμένος και για να λειτουργεί η εφαρμογή."],
+        paragraphs: [
+          "Ό,τι αποθηκεύεται στον browser για να μένεις συνδεδεμένος και για να λειτουργεί η εφαρμογή είναι απαραίτητο και δεν χρειάζεται τη συναίνεσή σου.",
+          "Μόνο αν πατήσεις «Αποδοχή» στο σχετικό μήνυμα, χρησιμοποιούμε το Google Analytics for Firebase για να μετράμε πόσοι χρησιμοποιούν την εφαρμογή, από ποια χώρα και από ποια συσκευή, και ποιες σελίδες ανοίγουν. Αυτό βάζει cookies στατιστικών της Google. Δεν του στέλνουμε το email σου, τον λογαριασμό σου ούτε κανένα οικονομικό σου στοιχείο. Αν πατήσεις «Όχι, ευχαριστώ», δεν φορτώνεται καθόλου. Μπορείς να αλλάξεις γνώμη οποιαδήποτε στιγμή από το «Cookies» στο κάτω μέρος της σελίδας.",
+          "Δεν χρησιμοποιούμε cookies διαφήμισης.",
+        ],
       },
       {
         heading: "Με ποιον τα μοιραζόμαστε",
@@ -202,7 +207,11 @@ const en: Record<LegalDoc, LegalText> = {
       },
       {
         heading: "Cookies",
-        paragraphs: ["We use no tracking or advertising cookies and no visitor-analytics tools. What is stored in your browser is needed to keep you signed in and for the app to work."],
+        paragraphs: [
+          "What is stored in your browser to keep you signed in and for the app to work is strictly necessary and needs no consent.",
+          "Only if you press «Accept» on the cookie notice, we use Google Analytics for Firebase to count how many people use the app, from which country and on which device, and which pages they open. This sets Google analytics cookies. We do not send it your e-mail, your account or any of your financial data. If you press «No thanks», it is not loaded at all. You can change your mind at any time from «Cookies» at the foot of the page.",
+          "We use no advertising cookies.",
+        ],
       },
       {
         heading: "Who we share it with",

@@ -1,5 +1,6 @@
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { RouterProvider } from "react-router-dom";
+import { CookieBanner } from "./features/legal/CookieBanner";
 import { ToastContainer } from "react-toastify";
 import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -115,6 +116,7 @@ export function App() {
           {/* Mounted always: the hook inside it is what registers the service
               worker, and it draws nothing until there is a version waiting. */}
           <UpdatePrompt />
+          <CookieBanner />
           <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
           {ReactQueryDevtools && (
             <Suspense fallback={null}>
