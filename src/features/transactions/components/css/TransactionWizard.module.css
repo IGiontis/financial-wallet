@@ -235,6 +235,11 @@
   border-top: 1px solid var(--color-border-tertiary);
 }
 
+/* After a save: the way out on the left, the next one on the right. */
+.pageFooter.footerSplit {
+  justify-content: space-between;
+}
+
 /* The category step takes whatever the body has left, for the list to fill. */
 .stepFill {
   flex: 1 1 0;
@@ -254,17 +259,156 @@
   padding: 1.25rem 0 0.5rem;
 }
 
-.savedIcon {
+/* ── The saved tick, drawn: circle, tick, a ring breathing out, sparks ── */
+
+.savedBurst {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 0.75rem;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 0.9rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-income) 16%, transparent);
-  color: var(--color-income);
-  font-size: 28px;
+  background: color-mix(in srgb, var(--color-income) 14%, transparent);
+  animation: savedPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.savedSvg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.savedCircle,
+.savedTick {
+  fill: none;
+  stroke: var(--color-income);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.savedCircle {
+  stroke-width: 2.5;
+  stroke-dasharray: 158;
+  stroke-dashoffset: 158;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  animation: savedDraw 0.55s ease-out 0.1s forwards;
+}
+
+.savedTick {
+  stroke-width: 3.5;
+  stroke-dasharray: 34;
+  stroke-dashoffset: 34;
+  animation: savedDraw 0.35s ease-out 0.55s forwards;
+}
+
+.savedRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-income);
+  opacity: 0;
+  animation: savedRing 0.9s ease-out 0.55s;
+}
+
+.savedSpark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--c);
+  opacity: 0;
+  animation: savedSpark 0.75s ease-out 0.6s;
+}
+
+.savedSpark:nth-child(odd) {
+  width: 4px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+/* The words and the details come in after the tick, one after another. */
+.savedPanel > :not(.savedBurst) {
+  animation: savedRise 0.45s ease-out both;
+}
+.savedPanel > :nth-child(2) {
+  animation-delay: 0.5s;
+}
+.savedPanel > :nth-child(3) {
+  animation-delay: 0.62s;
+}
+.savedPanel > :nth-child(4) {
+  animation-delay: 0.78s;
+}
+
+@keyframes savedPop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes savedDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes savedRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes savedSpark {
+  0% {
+    transform: rotate(var(--a)) translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes savedRise {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savedBurst,
+  .savedPanel > :not(.savedBurst) {
+    animation: none;
+  }
+  .savedCircle,
+  .savedTick {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .savedRing,
+  .savedSpark {
+    display: none;
+  }
 }
 
 .savedTitle {

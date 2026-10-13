@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import { FiCheck } from "react-icons/fi";
+import { SavedCheck } from "./SavedCheck";
 import { DateField } from "../../../shared/components/DateField";
 import { parseISODay, toISODay } from "../../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
@@ -179,7 +179,8 @@ export default function TransferWizard({
   // ── The frame: a dialog, or the page itself ──
   const title = t(edit ? "transactions.transfer.editTitle" : "transactions.transfer.title");
   const body = (children: ReactNode) => (asPage ? <div className={styles.pageBody}>{children}</div> : <ModalBody>{children}</ModalBody>);
-  const footer = (children: ReactNode) => (asPage ? <div className={styles.pageFooter}>{children}</div> : <ModalFooter className="justify-content-between">{children}</ModalFooter>);
+  const footer = (children: ReactNode, split = false) =>
+    asPage ? <div className={`${styles.pageFooter} ${split ? styles.footerSplit : ""}`}>{children}</div> : <ModalFooter className="justify-content-between">{children}</ModalFooter>;
   const frame = (children: ReactNode) =>
     asPage ? (
       <div className={styles.page}>{children}</div>
@@ -211,9 +212,7 @@ export default function TransferWizard({
       <>
         {body(
           <div className={styles.savedPanel} role="status">
-            <span className={styles.savedIcon} aria-hidden>
-              <FiCheck />
-            </span>
+            <SavedCheck />
             <h2 className={styles.savedTitle}>{t("transactions.transfer.saved")}</h2>
             <p className={styles.savedSub}>{t("transactions.transfer.savedSub")}</p>
             <div className={styles.savedDetails}>
@@ -247,6 +246,7 @@ export default function TransferWizard({
               + {t("transactions.transfer.newOne")}
             </Button>
           </>,
+          true,
         )}
       </>,
     );

@@ -1002,7 +1002,8 @@
       "where": "Πού πάνε τα λεφτά",
       "habits": "Συνήθειες & ρυθμός",
       "position": "Πού βρίσκεσαι",
-      "income": "Τα έσοδά σου"
+      "income": "Τα έσοδά σου",
+      "oneCategory": "Μία κατηγορία"
     },
     "netPosition": {
       "title": "Καθαρή θέση"
@@ -1188,6 +1189,39 @@
       "lastMonth": "Τελευταίος μήνας",
       "trend": "Τάση",
       "lastMonthTotal": "Ο προηγούμενος μήνας έκλεισε στα {{amount}}."
+    },
+    "twoWay": {
+      "title": "Μέσα κι έξω, σε μία κατηγορία",
+      "hint": "Πόσες φορές μπήκαν και πόσες βγήκαν λεφτά, και με πόσα",
+      "pick": "Διάλεξε κατηγορία",
+      "view": "Προβολή",
+      "perMonth": "Ανά μήνα",
+      "perWeek": "Ανά εβδομάδα",
+      "running": "Σωρευτικά",
+      "groupBoth": "Και προς τις δύο μεριές",
+      "groupExpense": "Έξοδα",
+      "groupIncome": "Έσοδα",
+      "in": "Μπήκαν",
+      "out": "Βγήκαν",
+      "net": "Καθαρό",
+      "inTimes_one": "Μπήκαν · {{count}} φορά",
+      "inTimes_other": "Μπήκαν · {{count}} φορές",
+      "outTimes_one": "Βγήκαν · {{count}} φορά",
+      "outTimes_other": "Βγήκαν · {{count}} φορές",
+      "times_one": "{{count}} φορά",
+      "times_other": "{{count}} φορές",
+      "returned": "γύρισε {{percent}}%",
+      "untilThen": "Ως και {{period}}",
+      "biggestIn": "Μεγαλύτερο μέσα: {{amount}} ({{date}})",
+      "biggestOut": "Μεγαλύτερο έξω: {{amount}} ({{date}})",
+      "withTwin": "Μαζί με την κατηγορία της άλλης μεριάς: {{name}}",
+      "namesIn": "Μαζί και τα έσοδα με τα ίδια ονόματα: {{names}}",
+      "namesOut": "Μαζί και τα έξοδα με τα ίδια ονόματα: {{names}}",
+      "week": "Εβδομάδα",
+      "inCountHead": "Φορές μέσα",
+      "outCountHead": "Φορές έξω",
+      "noneYet": "Δεν υπάρχουν ακόμα κινήσεις σε καμία κατηγορία.",
+      "nothingInRange": "Καμία κίνηση σε αυτή την κατηγορία, σε αυτό το διάστημα."
     }
   },
   "investments": {

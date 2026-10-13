@@ -56,6 +56,7 @@ import CategorySparklines from "../components/CategorySparklines";
 import MonthWaterfall from "../components/MonthWaterfall";
 import IncomeMonthsChart from "../components/IncomeMonthsChart";
 import IncomeSources from "../components/IncomeSources";
+import { TwoWayCard } from "../components/TwoWayCard";
 import { topPayees } from "../../transactions/transactionInsights";
 
 // ECharts is a second, heavier engine, loaded only for the three charts recharts
@@ -287,6 +288,13 @@ export function AnalyticsPage() {
             fromDate={from}
             toDate={now}
           />
+
+          {/* ── One category, both ways ── */}
+          <h2 className={styles.sectionTitle}>{t("analytics.groups.oneCategory")}</h2>
+
+          <div className={styles.grid}>
+            <TwoWayCard transactions={transactions} categories={categories} from={from} now={now} range={range} nameFor={nameFor} formatCurrency={formatCurrency} />
+          </div>
 
           {/* ── Where the money goes ── */}
           <h2 className={styles.sectionTitle}>{t("analytics.groups.where")}</h2>

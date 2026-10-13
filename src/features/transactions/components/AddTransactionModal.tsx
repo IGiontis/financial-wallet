@@ -3,7 +3,8 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import { FiArrowDownLeft, FiArrowUpRight, FiCheck, FiRepeat } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiRepeat } from "react-icons/fi";
+import { SavedCheck } from "./SavedCheck";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -150,8 +151,8 @@ function FrameBody({ asPage, className, children }: { asPage: boolean; className
   return asPage ? <div className={`${styles.pageBody} ${className ?? ""}`}>{children}</div> : <ModalBody className={className}>{children}</ModalBody>;
 }
 
-function FrameFooter({ asPage, children }: { asPage: boolean; children: ReactNode }) {
-  return asPage ? <div className={styles.pageFooter}>{children}</div> : <ModalFooter>{children}</ModalFooter>;
+function FrameFooter({ asPage, split, children }: { asPage: boolean; split?: boolean; children: ReactNode }) {
+  return asPage ? <div className={`${styles.pageFooter} ${split ? styles.footerSplit : ""}`}>{children}</div> : <ModalFooter>{children}</ModalFooter>;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -352,9 +353,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       <FrameBody asPage={asPage} className={!saved && step !== "type" && formik.values.categoryId ? (formik.values.type === "income" ? "wash-income" : "wash-expense") : undefined}>
         {saved && (
           <div className={styles.savedPanel} role="status">
-            <span className={styles.savedIcon} aria-hidden>
-              <FiCheck />
-            </span>
+            <SavedCheck />
             <h2 className={styles.savedTitle}>{t("transactions.savedTitle")}</h2>
             <p className={styles.savedSub}>{t("transactions.savedSub")}</p>
             <div className={styles.savedDetails}>
@@ -587,7 +586,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           step, and there is no dialog to cancel out of. The dialog keeps its
           Cancel. */}
       {!(asPage && !saved && step === "type") && (
-      <FrameFooter asPage={asPage}>
+      <FrameFooter asPage={asPage} split={!!saved}>
         {saved ? (
           <>
             <Button color="secondary" outline onClick={onClose}>

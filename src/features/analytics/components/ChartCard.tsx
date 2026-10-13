@@ -25,6 +25,8 @@ interface ChartCardProps {
   zoomable?: boolean;
   /** Sits below the chart box — legends, scales. Outside the fixed height. */
   footer?: ReactNode;
+  /** Sits between the title and the chart box — a picker that changes what is drawn. Shown even when the card is empty, so the choice can be changed back. */
+  toolbar?: ReactNode;
   /**
    * A fuller view the sheet shows in place of the card's drawing. With it the
    * card keeps to a glance; the eye in its corner opens the figures. Only the
@@ -48,7 +50,7 @@ interface ChartCardProps {
  * there is. The modal renders the very same `children`, so a card never has to
  * describe itself twice.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, details, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, toolbar, details, children }: ChartCardProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
@@ -105,6 +107,8 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
           </div>
         )}
       </div>
+
+      {toolbar}
 
       <div
         className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""}`}

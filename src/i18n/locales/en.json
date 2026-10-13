@@ -1002,7 +1002,8 @@
       "where": "Where the money goes",
       "habits": "Habits & pace",
       "position": "Where you stand",
-      "income": "Your income"
+      "income": "Your income",
+      "oneCategory": "One category"
     },
     "netPosition": {
       "title": "Net position"
@@ -1188,6 +1189,39 @@
       "lastMonth": "Last month",
       "trend": "Trend",
       "lastMonthTotal": "Last month ended on {{amount}}."
+    },
+    "twoWay": {
+      "title": "In and out, one category",
+      "hint": "How many times money came in and went out, and how much",
+      "pick": "Pick a category",
+      "view": "View",
+      "perMonth": "Per month",
+      "perWeek": "Per week",
+      "running": "Running total",
+      "groupBoth": "Both ways",
+      "groupExpense": "Expenses",
+      "groupIncome": "Income",
+      "in": "In",
+      "out": "Out",
+      "net": "Net",
+      "inTimes_one": "In · {{count}} time",
+      "inTimes_other": "In · {{count}} times",
+      "outTimes_one": "Out · {{count}} time",
+      "outTimes_other": "Out · {{count}} times",
+      "times_one": "{{count}} time",
+      "times_other": "{{count}} times",
+      "returned": "{{percent}}% back",
+      "untilThen": "Up to {{period}}",
+      "biggestIn": "Biggest in: {{amount}} ({{date}})",
+      "biggestOut": "Biggest out: {{amount}} ({{date}})",
+      "withTwin": "Together with the other side's category: {{name}}",
+      "namesIn": "Including income under the same names: {{names}}",
+      "namesOut": "Including expenses under the same names: {{names}}",
+      "week": "Week",
+      "inCountHead": "Times in",
+      "outCountHead": "Times out",
+      "noneYet": "No category has any records yet.",
+      "nothingInRange": "Nothing in this category in this period."
     }
   },
   "investments": {
