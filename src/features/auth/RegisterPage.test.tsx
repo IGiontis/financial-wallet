@@ -61,7 +61,8 @@ describe("signing up", () => {
     await userEvent.click(screen.getByRole("checkbox"));
     await userEvent.click(screen.getByRole("button", { name: "Create your account" }));
     expect(auth.registerWithEmail).toHaveBeenCalledWith("maria@example.test", "secret123");
-  });
+    // Six fields typed key by key: slow in a full run, so more than the default 5s.
+  }, 20_000);
 
   it("will not go to Google until it is ticked either", async () => {
     renderPage();
