@@ -14,6 +14,7 @@ import { firestoreToDate } from "../../../shared/utils/dates";
 import { isPlainExpense } from "../overviewUtils";
 import styles from "../pages/css/OverviewPage.module.css";
 import { findCategory } from "../../../shared/utils/categories";
+import { oneRowPerTransfer } from "../../transactions/transfers";
 
 type Money = (n: number) => string;
 
@@ -154,8 +155,10 @@ const newestFirst = (a: Transaction, b: Transaction) => firestoreToDate(b.create
 export function TodayPanel({ transactions, categories, now, formatCurrency }: { transactions: Transaction[]; categories: Category[]; now: Date; formatCurrency: Money }) {
   const { t } = useTranslation();
   const yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  const today = transactions.filter((tx) => sameDay(firestoreToDate(tx.date), now)).sort(newestFirst);
-  const yesterday = transactions.filter((tx) => sameDay(firestoreToDate(tx.date), yesterdayDate)).sort(newestFirst)[0];
+  // A transfer once, not as money both spent and earned.
+  const listed = oneRowPerTransfer(transactions);
+  const today = listed.filter((tx) => sameDay(firestoreToDate(tx.date), now)).sort(newestFirst);
+  const yesterday = listed.filter((tx) => sameDay(firestoreToDate(tx.date), yesterdayDate)).sort(newestFirst)[0];
   const spent = Math.round(today.filter(isPlainExpense).reduce((sum, tx) => sum + Math.abs(tx.amount), 0) * 100) / 100;
 
   const categoryOf = (tx: Transaction) => findCategory(categories, tx.categoryId);

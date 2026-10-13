@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Badge, Button, Card, CardBody, Col, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiRepeat, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
 
 import { PageShell } from "../../shared/components/PageShell";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
@@ -37,6 +37,7 @@ import CheckInModal from "./CheckInModal";
 import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import styles from "./css/AccountsPage.module.css";
+import TransferWizard from "../transactions/components/TransferWizard";
 
 const HISTORY_SHOWN = 6;
 
@@ -72,6 +73,7 @@ export function AccountsPage() {
   const [viewing, setViewing] = useState<MoneyAccount | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
+  const [transferring, setTransferring] = useState(false);
   // A reading being corrected — see `EditReadingModal`.
   const [fixing, setFixing] = useState<CheckInReading | null>(null);
 
@@ -175,11 +177,22 @@ export function AccountsPage() {
     );
   }
 
+  // Money moved between two accounts is written here, beside reading them:
+  // 200 out of Revolut as cash, and both accounts already say so at the next
+  // update — no correcting either by hand.
   const updateButton = (
-    <Button color="primary" className="w-100 fw-semibold" onClick={() => setReading(true)}>
-      <FiRefreshCw size={17} className="me-2" aria-hidden />
-      {t("accounts.update")}
-    </Button>
+    <div className="d-flex gap-2">
+      <Button color="primary" className="flex-grow-1 fw-semibold" onClick={() => setReading(true)}>
+        <FiRefreshCw size={17} className="me-2" aria-hidden />
+        {t("accounts.update")}
+      </Button>
+      {accounts.length > 1 && (
+        <Button color="primary" outline className="flex-shrink-0 fw-semibold" onClick={() => setTransferring(true)}>
+          <FiRepeat size={16} className="me-2" aria-hidden />
+          {t("transactions.transfer.title")}
+        </Button>
+      )}
+    </div>
   );
 
   return (
@@ -418,6 +431,7 @@ export function AccountsPage() {
           onClose={() => setEditing(null)}
         />
       )}
+      {transferring && <TransferWizard onClose={() => setTransferring(false)} />}
       {fixing && (
         <EditReadingModal
           accounts={accounts}
