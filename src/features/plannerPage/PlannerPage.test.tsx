@@ -75,7 +75,8 @@ const OWN: BudgetLine = { id: "own", label: "Mine", amount: 300, kind: "expense"
 // The salary, as «Έσοδα» keeps it: 1,450 on the 30th.
 const SALARY = monthlySalary(1450, 30);
 
-const payOnThe25th = { id: "pay-sep", userId: "u", type: "income", amount: 1450, categoryId: "c", description: "Salary", date: new Date(2026, 8, 25), createdAt: new Date(2026, 8, 25), updatedAt: new Date(2026, 8, 25) } as Transaction;
+// September's pay, written with «Ήρθε» for the salary's 30th: the only way a record settles an income.
+const payOnThe25th = { id: "pay-sep", userId: "u", type: "income", amount: 1450, categoryId: "c", description: "Salary", date: new Date(2026, 8, 25), createdAt: new Date(2026, 8, 25), updatedAt: new Date(2026, 8, 25), incomeId: SALARY.id, incomeDue: "2026-09-30" } as Transaction;
 const READING = { at: new Date(2026, 8, 29, 20), total: 1000, added: [], checkIn: {} } as unknown as CheckInReading;
 
 /** The Overview's answer, worked out as `usePaydayOutlook` works it, from the same inputs. */
@@ -423,7 +424,8 @@ describe("the incomes, from «Έσοδα»", () => {
 
   it("with no incomes, plans no money in and says where to add it — the found salary only as a suggestion", async () => {
     settings.set("incomes", []);
-    data.transactions = [7, 8, 9].map((month) => ({ ...payOnThe25th, id: `pay-${month}`, date: new Date(2026, month - 1, 28) }) as Transaction);
+    // Typed by hand, without «Ήρθε»: what the suggestion is found from.
+    data.transactions = [7, 8, 9].map((month) => ({ ...payOnThe25th, id: `pay-${month}`, date: new Date(2026, month - 1, 28), incomeId: undefined, incomeDue: undefined }) as Transaction);
     renderPage();
     expect(screen.getByText("No income yet — nothing is coming in to the plan.")).toBeInTheDocument();
     expect(screen.getByText("I found a salary of €1450.00 around the 28 — add it on Income")).toBeInTheDocument();

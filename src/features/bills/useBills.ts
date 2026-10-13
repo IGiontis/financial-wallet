@@ -150,6 +150,8 @@ export interface MarkPaidVars {
   periodKey?: string;
   /** Which instalment of the period this settles. Defaults to the next one owed. */
   installmentIndex?: number;
+  /** The card or cash it was paid from; absent for the main account, as on any expense. */
+  accountId?: string;
 }
 
 const paymentIds = new WeakMap<MarkPaidVars, { paymentId: string; transactionId: string }>();
@@ -162,7 +164,7 @@ export function useMarkBillPaid() {
 
   /** The payment and the expense `markBillPaid` writes, as the two caches hold them. */
   const rowsFor = (vars: MarkPaidVars) => {
-    const { bill, paidDate, paidAmount, periodKey, installmentIndex } = vars;
+    const { bill, paidDate, paidAmount, periodKey, installmentIndex, accountId } = vars;
     const { paymentId, transactionId } = idsOf(vars);
     const amount = paidAmount ?? bill.amount;
     const now = new Date();
@@ -186,6 +188,7 @@ export function useMarkBillPaid() {
       date: paidDate,
       description: bill.name,
       billId: bill.id,
+      accountId,
       createdAt: now,
       updatedAt: now,
     }) as Transaction;
@@ -197,7 +200,7 @@ export function useMarkBillPaid() {
     // `periodKey` defaults to the period we're in, but can name a later one when
     // the user settles a bill ahead of time.
     mutationFn: (vars: MarkPaidVars) => {
-      const { bill, paidDate, paidAmount, periodKey, installmentIndex } = vars;
+      const { bill, paidDate, paidAmount, periodKey, installmentIndex, accountId } = vars;
       return markBillPaid(
         userId,
         { id: bill.id, name: bill.name, amount: bill.amount, categoryId: bill.categoryId },
@@ -206,6 +209,7 @@ export function useMarkBillPaid() {
         paidAmount,
         installmentIndex,
         idsOf(vars),
+        accountId,
       );
     },
 

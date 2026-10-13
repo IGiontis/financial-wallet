@@ -50,15 +50,17 @@ const GOAL = {
 const OWN: BudgetLine = { id: "own", label: "Mine", amount: 300, kind: "expense" };
 const SALARY = monthlySalary(1450, 30);
 
-const income = (id: string, amount: number, date: Date): Transaction =>
-  ({ id, userId: "u", type: "income", amount, categoryId: "c", description: id, date, createdAt: date, updatedAt: date }) as Transaction;
+// Written with «Ήρθε» for the salary's time `due`: money in is no longer guessed from a
+// record near the day, it is said to have come — which is what this is.
+const income = (id: string, amount: number, date: Date, due: string): Transaction =>
+  ({ id, userId: "u", type: "income", amount, categoryId: "c", description: id, date, createdAt: date, updatedAt: date, incomeId: SALARY.id, incomeDue: due }) as Transaction;
 
 const day = (month: number, date: number, year = 2026) => new Date(year, month, date);
 
 // The mockup's records: September's pay, due today, came on the 25th. The
 // salary is an income on «Έσοδα» now, checked against the records like every
 // income, so the plan is told so rather than skipping today's pay day blind.
-const CAME_EARLY: Actuals = { transactions: [income("pay-sep", 1450, day(8, 25))], debts: [], overrides: {} };
+const CAME_EARLY: Actuals = { transactions: [income("pay-sep", 1450, day(8, 25), "2026-09-30")], debts: [], overrides: {} };
 
 const sample = (over: Partial<PlanInput> = {}) => buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], incomes: [SALARY], openingBalance: 1000, horizon: 3, now: NOW, actuals: CAME_EARLY, ...over });
 const pointOn = (plan: PlannerPlan, date: Date) => plan.points.find((p) => p.date.getTime() === date.getTime())?.balance;
@@ -268,7 +270,7 @@ describe("pay that is not where the calendar says", () => {
     // Paid on the 25th, seen in August, not yet in September.
     const plan = sample({
       incomes: [{ ...SALARY, day: 25 }],
-      actuals: { transactions: [income("pay-aug", 1450, day(7, 25))], debts: [], overrides: {} },
+      actuals: { transactions: [income("pay-aug", 1450, day(7, 25), "2026-08-25")], debts: [], overrides: {} },
     });
     const cycles = payCycles(plan);
     const late = cycles[0].payEvents[0];

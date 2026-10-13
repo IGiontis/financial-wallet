@@ -3,7 +3,7 @@ import type { BillPause, Category, CreateTransactionDTO, Transaction } from "../
 import { firestoreToDate, parseISODay, parseISOMonth, toISODay, toISOMonth } from "../../shared/utils/dates";
 import { categoryAliases, normalizeCategoryName } from "../../shared/utils/categoryNames";
 import { isPausedOn } from "../bills/billsUtils";
-import { AMOUNT_TOLERANCE, EARLY_DAYS, LATE_DAYS, LOOKBACK_DAYS, type OccurrenceOverride } from "../plannerPage/plannerActuals";
+import { AMOUNT_TOLERANCE, EARLY_DAYS, LOOKBACK_DAYS, type OccurrenceOverride } from "../plannerPage/plannerActuals";
 import { detectSalary, type SalaryPattern } from "./detectSalary";
 import { isMoneyMove } from "../../shared/utils/moneyModel";
 
@@ -431,8 +431,6 @@ export const EARLY_LABEL_DAYS = 2;
 export type IncomeState =
   /** A «Ήρθε» record — or the user said it came. */
   | "arrived"
-  /** An income record without a tag, close enough in day and amount. */
-  | "found"
   /** «Δεν θα έρθει αυτή τη φορά». */
   | "skipped"
   /** Nothing recorded, but the last bank reading may already hold it: «Ήταν ήδη στην τράπεζα;» */
@@ -454,11 +452,11 @@ export interface IncomeStatus extends IncomeOccurrence {
   expectedDate: Date;
   /** An estimate — a variable income nobody has given this time's figure for. */
   approximate: boolean;
-  /** What settled it, for "arrived" and "found". */
+  /** What settled it. */
   arrival?: { date: Date; amount: number; transactionIds: string[]; manual: boolean };
   /** Arrived this many days before its day — only from `EARLY_LABEL_DAYS`. */
   earlyDays?: number;
-  /** "late": days past its day. "arrived"/"found": days after its day it came. */
+  /** "late": days past its day. "arrived": days after its day it came. */
   lateDays?: number;
   /** "due"/"upcoming": days to go. 0 is today. */
   daysUntil?: number;
@@ -468,7 +466,7 @@ export interface IncomeStatus extends IncomeOccurrence {
   canArrive: boolean;
 }
 
-export const isSettled = (status: Pick<IncomeStatus, "state">) => status.state === "arrived" || status.state === "found";
+export const isSettled = (status: Pick<IncomeStatus, "state">) => status.state === "arrived";
 /** What the amber badge counts: late, and waiting for an answer about the bank. */
 export const needsYou = (status: Pick<IncomeStatus, "state">) => status.state === "late" || status.state === "ask";
 
@@ -481,13 +479,6 @@ export interface IncomeContext {
   now?: Date;
 }
 
-interface Candidate {
-  id: string;
-  date: Date;
-  amount: number;
-  categoryId: string;
-}
-
 const closeTo = (amount: number, expected: number) => Math.abs(amount - expected) <= Math.abs(expected) * AMOUNT_TOLERANCE + 0.005;
 
 /**
@@ -497,22 +488,18 @@ const closeTo = (amount: number, expected: number) => Math.abs(amount - expected
  *
  *   1. A record with this `incomeId` for this time: arrived.
  *   2. What the user said about this time: not coming, came, another day,
- *      another amount, or "wait" (which also stops the two guesses below).
- *   3. An income record without a tag inside ±10 days and ±15% of the figure —
- *      for a variable income, the same category and any amount: found.
- *   4. The bank question, when nothing matched but the last reading was taken
- *      on or after the earliest day it could have come (10 days early). Until
- *      it is answered it counts nowhere.
- *   5. Its day has passed: late, for 25 days; after that, missed.
- *   6. Otherwise due within 10 days (when «Ήρθε» appears), or upcoming.
+ *      another amount, or "wait".
+ *   3. The bank question, when nothing was recorded but the last reading was
+ *      taken on or after the earliest day it could have come (10 days early).
+ *      Until it is answered it counts nowhere.
+ *   4. Its day has passed: late, for 25 days; after that, missed.
+ *   5. Otherwise due within 10 days (when «Ήρθε» appears), or upcoming.
  *
- * The windows are the Planner's own (`plannerActuals`), imported rather than
- * restated, so the two screens cannot drift apart on what "about the same
- * day" means.
- *
- * Stateful on purpose, like the Planner's resolver: an untagged record settles
- * one occurrence at most, so a payment the size of two incomes is not counted
- * as both.
+ * An income comes in through «Ήρθε» on this page and nowhere else. An income
+ * record typed on the Transactions screen is never taken for one: it used to
+ * be matched by day and amount ("found"), and a coupon's payout, a win or a
+ * refund close in size to an income quietly settled it. Matching by guess has
+ * no place beside a figure the owner can write down himself.
  */
 export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
   const today = startOfDay(ctx.now ?? new Date());
@@ -520,24 +507,17 @@ export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
   const byId = new Map(incomes.map((i) => [i.id, i]));
   const lastReading = ctx.lastReadingAt ? startOfDay(ctx.lastReadingAt) : undefined;
 
+  // Only the records written with «Ήρθε»; an untagged income record is not ours.
   const tagged = new Map<string, Transaction[]>();
-  const untagged: Candidate[] = [];
   for (const tx of ctx.transactions) {
-    if (!isPlainIncome(tx)) continue;
-    if (tx.incomeId) {
-      // Tagged for another income or none of ours: never a candidate for
-      // "found" — the user has already said what it was.
-      const list = tagged.get(tx.incomeId) ?? [];
-      list.push(tx);
-      tagged.set(tx.incomeId, list);
-      continue;
-    }
-    untagged.push({ id: tx.id, date: startOfDay(firestoreToDate(tx.date)), amount: Math.abs(tx.amount), categoryId: tx.categoryId });
+    if (!isPlainIncome(tx) || !tx.incomeId) continue;
+    const list = tagged.get(tx.incomeId) ?? [];
+    list.push(tx);
+    tagged.set(tx.incomeId, list);
   }
 
   const expectedById = new Map(incomes.map((i) => [i.id, expectedAmount(i, ctx.transactions)]));
   const usedTagged = new Set<string>();
-  const usedUntagged = new Set<string>();
 
   /**
    * The «Ήρθε» records for this time. Its own day first; failing that, for a
@@ -551,23 +531,6 @@ export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
     if (found.length === 0 && income && income.frequency !== "weekly") found = mine.filter((tx) => (tx.incomeDue ?? "").slice(0, 7) === occurrence.forMonth);
     for (const tx of found) usedTagged.add(tx.id);
     return found;
-  };
-
-  const findMatch = (occurrence: IncomeOccurrence, income: Income | undefined, expected: number, around: Date): Candidate | undefined => {
-    const from = occurrence.undated ? startOfMonth(occurrence.date) : addDays(around, -EARLY_DAYS);
-    const to = occurrence.undated ? endOfMonth(occurrence.date) : addDays(around, LATE_DAYS);
-    const byCategory = !!income?.variable;
-    if (byCategory && !income?.categoryId) return undefined;
-
-    let best: Candidate | undefined;
-    for (const c of untagged) {
-      if (usedUntagged.has(c.id) || c.date < from || c.date > to || c.date > today) continue;
-      if (byCategory ? c.categoryId !== income!.categoryId : !closeTo(c.amount, expected)) continue;
-      const distance = Math.abs(differenceInCalendarDays(c.date, around));
-      const bestDistance = best ? Math.abs(differenceInCalendarDays(best.date, around)) : Infinity;
-      if (distance < bestDistance || (distance === bestDistance && best && Math.abs(c.amount - expected) < Math.abs(best.amount - expected))) best = c;
-    }
-    return best;
   };
 
   /** Early or late, against the day it was due — not a day moved for this time. */
@@ -606,15 +569,6 @@ export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
       return { ...base, state: "arrived", arrival: { date, amount: expected, transactionIds: [], manual: true }, ...timing(date, occurrence.date) };
     }
 
-    // 3. A record without a tag, close enough.
-    if (override?.state !== "waiting") {
-      const match = findMatch(occurrence, income, expected, expectedDate);
-      if (match) {
-        usedUntagged.add(match.id);
-        return { ...base, state: "found", arrival: { date: match.date, amount: round2(match.amount), transactionIds: [match.id], manual: false }, ...timing(match.date, occurrence.date) };
-      }
-    }
-
     // Undated: expected somewhere in its month and never late — there is no
     // day to be late against. Over once the month is.
     if (occurrence.undated) {
@@ -624,17 +578,17 @@ export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
 
     const past = differenceInCalendarDays(today, expectedDate);
 
-    // 4. The bank question. Asked only while nothing has been said about this
+    // 3. The bank question. Asked only while nothing has been said about this
     // time — "not yet" is itself an answer ("waiting") and is not asked again.
     if (!override && lastReading && expected > 0 && past <= LOOKBACK_DAYS && lastReading >= addDays(expectedDate, -EARLY_DAYS)) {
       return { ...base, state: "ask", canArrive: true };
     }
 
-    // 5. Late, then given up on.
+    // 4. Late, then given up on.
     if (past > LOOKBACK_DAYS) return { ...base, state: "missed", lateDays: past };
     if (past > 0) return { ...base, state: "late", lateDays: past, canArrive: true };
 
-    // 6. Still to come.
+    // 5. Still to come.
     const until = differenceInCalendarDays(expectedDate, today);
     return { ...base, state: until <= EARLY_DAYS ? "due" : "upcoming", daysUntil: until, canArrive: until <= EARLY_DAYS };
   };

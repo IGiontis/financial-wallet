@@ -11,12 +11,16 @@ import { isMoneyMove } from "../../shared/utils/moneyModel";
 // again on the 30th although it is already in the account, and it forgets the
 // rent altogether once the 22nd has gone by, as if it had come.
 //
-// So every dated item near today is first looked for among the records: an
-// income of about the same size, or a loan repayment, close enough to its day.
-// Found, it is done and drops out of what is still to come. Not found and its
-// day has passed, it is late and stays in the plan from today. Anything the
-// automatic look gets wrong is fixed for that one time in a tap, by an override
-// kept per occurrence.
+// So a loan's instalment near today is first looked for among that loan's own
+// repayments, close enough to its day. Found, it is done and drops out of what
+// is still to come. Not found and its day has passed, it is late and stays in
+// the plan from today. Anything the look gets wrong is fixed for that one time
+// in a tap, by an override kept per occurrence.
+//
+// Money in is not looked for among the transactions at all. An extra income —
+// a coupon, a bonus — is settled by the owner saying it came, and a record
+// typed on the Transactions screen is never taken for it: matching by day and
+// amount meant a win or a refund of about the right size quietly settled one.
 //
 // Bills and goals are not handled here: they already know what has been paid,
 // through the bill's own payments and the goal's deposits. Nor are the incomes
@@ -133,10 +137,10 @@ interface Candidate {
  * Stateful on purpose: a record settles one occurrence at most, so a bonus the
  * size of a salary cannot be counted as both.
  *
- * `settled` are records already accounted for before this resolver starts —
- * the ones the incomes found as theirs — so a one-off cannot claim the
- * salary's record a second time. A record written with «Ήρθε» for an income
- * (`incomeId`) is never a match either: the user has already said what it was.
+ * `settled` are records already accounted for before this resolver starts.
+ * Only loans are matched to records now (their repayments), so it matters
+ * only for those; a record written with «Ήρθε» for an income (`incomeId`) is
+ * never one either.
  */
 export function createResolver(actuals: Actuals, now: Date = new Date(), settled: Iterable<string> = []) {
   const today = startOfDay(now);
@@ -168,6 +172,9 @@ export function createResolver(actuals: Actuals, now: Date = new Date(), settled
   };
 
   const findMatch = (occurrence: PlannedOccurrence): Candidate | undefined => {
+    // Money in is never guessed from the records: it is settled by the owner,
+    // on «Έσοδα» or in the plan. Only a loan's own repayments are looked for.
+    if (occurrence.source !== "loan") return undefined;
     const from = addDays(occurrence.date, -EARLY_DAYS);
     const to = addDays(occurrence.date, LATE_DAYS);
     let best: Candidate | undefined;

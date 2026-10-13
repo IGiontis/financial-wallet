@@ -64,6 +64,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
 }));
 // No salary on «Έσοδα»: the page shows what it shows without one.
 vi.mock("../incomes/useSalaryIncome", () => ({ useSalaryIncome: () => ({ monthly: 0, thisMonth: undefined, isLoading: false }) }));
+// The payment wizard offers the cards; none here.
+vi.mock("../accounts/useMoneyAccounts", () => ({ useMoneyAccounts: () => ({ accounts: [], latest: undefined, transactions: [] }) }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, convertToBase: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));
@@ -226,9 +228,10 @@ describe("paying the water from the bill's own dialog", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") }));
     const form = await screen.findByRole("dialog");
-    // Was October: the current period, which is not even late yet.
-    expect((within(form).getByRole("combobox") as HTMLSelectElement).value).toBe("2026-07");
     expect((within(form).getByRole("spinbutton") as HTMLInputElement).value).toBe("60");
+    // The period is the second step. Was October: the current period, which is not even late yet.
+    await userEvent.click(within(form).getByRole("button", { name: /Next/ }));
+    expect((within(form).getByRole("combobox") as HTMLSelectElement).value).toBe("2026-07");
   });
 
   it("marks the ticked months paid without a transaction, and leaves an unticked one", async () => {

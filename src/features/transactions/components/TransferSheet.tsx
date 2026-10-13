@@ -38,7 +38,7 @@ export default function TransferSheet({
     <Modal isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>{t("transactions.transfer.title")}</ModalHeader>
       <ModalBody>
-        <div className={styles.transferReview}>
+        <div className={styles.reviewRows}>
           <div>
             <span>{t("transactions.transfer.stepFrom")}</span>
             <strong>{name(out.accountId)}</strong>

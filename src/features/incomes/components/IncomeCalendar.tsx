@@ -21,7 +21,6 @@ export interface CalendarActions {
   onOpen: (income: Income) => void;
   onArrive: (income: Income, status: IncomeStatus) => void;
   /** «Δεν ήταν αυτό» on a record found for an income — stop matching it. */
-  onNotThis: (status: IncomeStatus) => void;
   /** A tap on an empty day: a new income, monthly on that day. */
   onNewOnDay: (day: number) => void;
 }
@@ -52,7 +51,6 @@ export function IncomeCalendar({
   bounds,
   onOpen,
   onArrive,
-  onNotThis,
   onNewOnDay,
 }: CalendarActions & {
   statuses: IncomeStatus[];
@@ -220,11 +218,6 @@ export function IncomeCalendar({
                       <button type="button" className={styles.linkButton} onClick={() => onOpen(income)}>
                         {t("incomes.calendar.open")}
                       </button>
-                      {mark.status.state === "found" && (
-                        <button type="button" className={styles.linkButton} onClick={() => onNotThis(mark.status)}>
-                          {t("incomes.calendar.notThis")}
-                        </button>
-                      )}
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2">

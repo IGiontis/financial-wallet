@@ -104,10 +104,17 @@ describe("useMarkBillPaid", () => {
     await waitFor(() => expect(bill("b1")?.isPaidThisPeriod).toBe(true));
     expect(bill("b1")?.payment).toMatchObject({ id: "billPayments-new", transactionId: "transactions-new", amount: 92, periodKey: period });
     expect(txs()?.find((t) => t.id === "transactions-new")).toMatchObject({ amount: 92, type: "expense", billId: "b1", description: "Power", categoryId: "utilities" });
-    expect(api.markBillPaid).toHaveBeenCalledWith("u1", { id: "b1", name: "Power", amount: 80, categoryId: "utilities" }, period, day(20), 92, undefined, {
-      paymentId: "billPayments-new",
-      transactionId: "transactions-new",
-    });
+    expect(api.markBillPaid).toHaveBeenCalledWith(
+      "u1",
+      { id: "b1", name: "Power", amount: 80, categoryId: "utilities" },
+      period,
+      day(20),
+      92,
+      undefined,
+      { paymentId: "billPayments-new", transactionId: "transactions-new" },
+      // No card named: the expense goes on the main account.
+      undefined,
+    );
 
     await act(async () => answer({ paymentId: "billPayments-new", transactionId: "transactions-new" }));
     await settle();
@@ -118,6 +125,16 @@ describe("useMarkBillPaid", () => {
     // Both left fresh: they already hold what the server holds.
     expect(client.getQueryState(BILLS)?.isInvalidated).toBe(false);
     expect(client.getQueryState(TXS)?.isInvalidated).toBe(false);
+  });
+
+  it("writes the card it was paid from on the expense, in the list and in the write", async () => {
+    api.markBillPaid.mockResolvedValue({ paymentId: "billPayments-new", transactionId: "transactions-new" });
+    const { result } = await mountWith(useMarkBillPaid);
+
+    act(() => result.current.mutation.mutate({ bill: bill("b1")!, paidDate: day(20), paidAmount: 92, accountId: "revolut" }));
+
+    await waitFor(() => expect(txs()?.find((t) => t.id === "transactions-new")).toMatchObject({ amount: 92, type: "expense", accountId: "revolut" }));
+    expect(api.markBillPaid.mock.calls[0][7]).toBe("revolut");
   });
 
   it("rolls both lists back when the write fails", async () => {

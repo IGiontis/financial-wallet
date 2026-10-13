@@ -160,15 +160,31 @@ describe("the incomes, checked against what came", () => {
     expect(p.incomeTotal).toBe(5760 + 70);
   });
 
-  it("finds an untagged record of about the size, and no one-off may take it again", () => {
-    // The salary landed on the 28th, written down by hand without «Ήρθε»; a
-    // one-off of the same size was due on the 29th and has not come.
+  it("takes no untagged record for the salary or for a one-off, however close in day and size", () => {
+    // The salary landed on the 28th, typed by hand without «Ήρθε»; a one-off of
+    // the same size was due on the 29th. Neither is settled by it: money in is
+    // settled by the owner saying it came, never guessed from a record.
     const bonus: OneOff = { id: "bonus", label: "Bonus", amount: 1450, date: "2026-09-29" };
     const p = plan({ oneOffs: [bonus], actuals: actuals({ transactions: [SEPTEMBER[0], SEPTEMBER[1], plainIncome(1450, day(9, 28))] }) });
-    expect(p.occurrences.find((o) => o.key === incomeOccurrenceKey("salary", "2026-09-30"))?.status).toBe("received");
+    expect(p.occurrences.find((o) => o.key === incomeOccurrenceKey("salary", "2026-09-30"))?.status).toBe("due");
     expect(p.occurrences.find((o) => o.refId === "bonus")?.status).toBe("late");
-    // So the bonus is still owed, on today: 5.760 + 1.450.
-    expect(p.incomeTotal).toBe(5760 + 1450);
+    // By hand: today's salary 1.450, the rents 3 × 400, the allowances 3 × 70,
+    // the three later salaries 3 × 1.450, and the bonus still owed, held on today: 1.450.
+    expect(p.incomeTotal).toBe(1450 + 3 * 400 + 3 * 70 + 3 * 1450 + 1450);
+    expect(p.incomeTotal).toBe(8660);
+  });
+
+  it("settles them when the owner says they came, and then no record is needed", () => {
+    const bonus: OneOff = { id: "bonus", label: "Bonus", amount: 1450, date: "2026-09-29" };
+    const said: Record<string, OccurrenceOverride> = {
+      [incomeOccurrenceKey("salary", "2026-09-30")]: { state: "received", date: "2026-09-28" },
+      "oneoff:bonus:2026-09-29": { state: "received", date: "2026-09-29" },
+    };
+    const p = plan({ oneOffs: [bonus], actuals: actuals({ transactions: [SEPTEMBER[0], SEPTEMBER[1]], overrides: said }) });
+    expect(p.occurrences.find((o) => o.key === incomeOccurrenceKey("salary", "2026-09-30"))?.status).toBe("received");
+    expect(p.occurrences.find((o) => o.refId === "bonus")?.status).toBe("received");
+    // Both settled: 5.760, as when the salary's own record was there.
+    expect(p.incomeTotal).toBe(5760);
   });
 
   it("never lets a one-off claim a record «Ήρθε» wrote for an income — even one archived since", () => {

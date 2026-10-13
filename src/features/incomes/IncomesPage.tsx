@@ -297,7 +297,6 @@ export default function IncomesPage() {
                 bounds={bounds}
                 onOpen={(income) => setCardId(income.id)}
                 onArrive={(income, status) => openArrive(income, status)}
-                onNotThis={(status) => setOverride(status.key, { state: "waiting" })}
                 // «Νέο έσοδο στις 15;» — the «Πότε» step already says monthly, on the 15th.
                 onNewOnDay={(day) => openNew({ frequency: "monthly", day: String(day) })}
               />

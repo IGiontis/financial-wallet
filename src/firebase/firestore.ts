@@ -560,6 +560,8 @@ export const markBillPaid = async (
   installmentIndex?: number,
   /** From `newDocId`, when the caller has already shown both rows under them. */
   ids: { paymentId: string; transactionId: string } = { paymentId: newDocId("billPayments"), transactionId: newDocId("transactions") },
+  /** The card or cash it was paid from; the expense goes on the main account when absent. */
+  accountId?: string,
 ) => {
   const batch = writeBatch(db);
   const amount = paidAmount ?? bill.amount;
@@ -574,6 +576,7 @@ export const markBillPaid = async (
       date: paidDate,
       description: bill.name,
       billId: bill.id,
+      accountId,
     }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

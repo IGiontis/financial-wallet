@@ -180,47 +180,32 @@ describe("the status of an occurrence", () => {
     expect(status.arrival).toMatchObject({ amount: 950, manual: true });
   });
 
-  it("3. finds an untagged record from 10 days early to 10 days late, and not a day further", () => {
+  // An income comes through «Ήρθε» and nowhere else. A record typed on the
+  // Transactions screen was once matched to it by day and amount ("found"): a
+  // win, a refund or a coupon's payout close in size to an income settled it.
+  it("3. never takes an untagged income record for it, however close in day and amount", () => {
     const now = d(2026, 9, 30);
-    expect(statusOn(inc, due, { now, transactions: [tx(1000, d(2026, 9, 5))] }).state).toBe("found");
-    expect(statusOn(inc, due, { now, transactions: [tx(1000, d(2026, 9, 4))] }).state).toBe("late");
-    expect(statusOn(inc, due, { now, transactions: [tx(1000, d(2026, 9, 25))] }).state).toBe("found");
-    expect(statusOn(inc, due, { now, transactions: [tx(1000, d(2026, 9, 26))] }).state).toBe("late");
+    for (const record of [tx(1000, due), tx(1000, d(2026, 9, 14)), tx(1150, due), tx(850, d(2026, 9, 16))]) {
+      expect(statusOn(inc, due, { now, transactions: [record] }).state).toBe("late");
+    }
   });
 
-  it("3. finds an amount within 15% either way, and not beyond", () => {
-    const now = d(2026, 9, 30);
-    const at = (amount: number) => statusOn(inc, due, { now, transactions: [tx(amount, due)] }).state;
-    expect([at(1150), at(850)]).toEqual(["found", "found"]);
-    expect([at(1151), at(849)]).toEqual(["late", "late"]);
-  });
-
-  it("3. does not find a record dated after today", () => {
-    expect(statusOn(inc, due, { now: d(2026, 9, 14), transactions: [tx(1000, due)] }).state).toBe("due");
-  });
-
-  it("3. finds a variable income by its category, at any amount", () => {
+  it("3. nor a variable income's, by its category", () => {
     const variable = income({ variable: true, categoryId: "c-free" });
     const now = d(2026, 9, 30);
-    expect(statusOn(variable, due, { now, transactions: [tx(2600, due, { categoryId: "c-free" })] }).state).toBe("found");
-    expect(statusOn(variable, due, { now, transactions: [tx(1000, due, { categoryId: "c-other" })] }).state).toBe("late");
+    expect(statusOn(variable, due, { now, transactions: [tx(2600, due, { categoryId: "c-free" })] }).state).toBe("late");
   });
 
-  it("3. never finds a record already tagged — for this income's other time, or for another income", () => {
+  it("3. nor a record tagged for another income", () => {
     const now = d(2026, 9, 30);
     expect(statusOn(inc, due, { now, transactions: [tx(1000, due, { incomeId: "other", incomeDue: "2026-09-15" })] }).state).toBe("late");
   });
 
-  it("3. lets one record settle one occurrence, the earliest", () => {
+  it("3. one record written with «Ήρθε» settles its own time and no other income's", () => {
     const a = income({ id: "a" });
-    const b = income({ id: "b", day: 16 });
-    const statuses = resolveIncomes([a, b], { transactions: [tx(1000, d(2026, 9, 15))], now: d(2026, 9, 30) }, d(2026, 9, 1), d(2026, 9, 30));
-    expect(statuses.map((s) => `${s.incomeId}:${s.state}`)).toEqual(["a:found", "b:late"]);
-  });
-
-  it("3. «wait» stops the found guess", () => {
-    const status = statusOn(inc, due, { now: d(2026, 9, 30), transactions: [tx(1000, due)], overrides: { "income:inc:2026-09-15": { state: "waiting" } } });
-    expect(status.state).toBe("late");
+    const b = income({ id: "b" });
+    const statuses = resolveIncomes([a, b], { transactions: [tx(1000, d(2026, 9, 15), { incomeId: "a", incomeDue: "2026-09-15" })], now: d(2026, 9, 30) }, d(2026, 9, 1), d(2026, 9, 30));
+    expect(statuses.map((s) => `${s.incomeId}:${s.state}`)).toEqual(["a:arrived", "b:late"]);
   });
 
   it("4. asks about the bank when the reading is on or after the earliest day it could have come", () => {
@@ -229,11 +214,13 @@ describe("the status of an occurrence", () => {
     expect(statusOn(inc, due, { now, lastReadingAt: new Date(2026, 8, 4, 21, 0) }).state).toBe("late");
   });
 
-  it("4. does not ask once something was said, nor when a record was found", () => {
+  it("4. does not ask once something was said, nor when it was written with «Ήρθε»", () => {
     const now = d(2026, 9, 16);
     const reading = d(2026, 9, 14);
     expect(statusOn(inc, due, { now, lastReadingAt: reading, overrides: { "income:inc:2026-09-15": { state: "waiting" } } }).state).toBe("late");
-    expect(statusOn(inc, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13))] }).state).toBe("found");
+    expect(statusOn(inc, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13), { incomeId: "inc", incomeDue: "2026-09-15" })] }).state).toBe("arrived");
+    // An untagged record near the day does not answer it: the banks are still asked about.
+    expect(statusOn(inc, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13))] }).state).toBe("ask");
   });
 
   it("4. asks about one not due yet, when the reading is inside its early window", () => {
@@ -264,8 +251,8 @@ describe("the status of an occurrence", () => {
     const overrides = { "income:inc:2026-09-15": { date: "2026-09-20", amount: 1200 } };
     expect(statusOn(inc, due, { now: d(2026, 9, 18), overrides })).toMatchObject({ state: "due", daysUntil: 2, expected: 1200, overridden: true });
     expect(statusOn(inc, due, { now: d(2026, 9, 23), overrides })).toMatchObject({ state: "late", lateDays: 3 });
-    // The record is looked for around the new day and at the new amount.
-    expect(statusOn(inc, due, { now: d(2026, 9, 30), overrides, transactions: [tx(1200, d(2026, 9, 29))] }).state).toBe("found");
+    // A record written with «Ήρθε» for the time settles it, wherever the day was moved to.
+    expect(statusOn(inc, due, { now: d(2026, 9, 30), overrides, transactions: [tx(1200, d(2026, 9, 29), { incomeId: "inc", incomeDue: "2026-09-15" })] }).state).toBe("arrived");
   });
 
   it("keeps a record written against the old day when the day is changed in the same month", () => {
@@ -278,7 +265,9 @@ describe("the status of an occurrence", () => {
     const undated = income({ day: undefined });
     expect(statusOn(undated, d(2026, 9, 1), { now: d(2026, 9, 30) })).toMatchObject({ state: "due", canArrive: true });
     expect(statusOn(undated, d(2026, 9, 1), { now: d(2026, 10, 1) }).state).toBe("missed");
-    expect(statusOn(undated, d(2026, 9, 1), { now: d(2026, 9, 30), transactions: [tx(1000, d(2026, 9, 22))] }).state).toBe("found");
+    expect(statusOn(undated, d(2026, 9, 1), { now: d(2026, 9, 30), transactions: [tx(1000, d(2026, 9, 22), { incomeId: "inc", incomeDue: "2026-09-01" })] }).state).toBe("arrived");
+    // Written without «Ήρθε» it settles nothing.
+    expect(statusOn(undated, d(2026, 9, 1), { now: d(2026, 9, 30), transactions: [tx(1000, d(2026, 9, 22))] }).state).toBe("due");
   });
 });
 
@@ -376,13 +365,15 @@ describe("September in the design's sample", () => {
   });
 
   it("shows when the salary came over the last six months", () => {
-    const found = [d(2026, 4, 30), d(2026, 5, 29), d(2026, 6, 30), d(2026, 7, 30), d(2026, 8, 31)].map((date) => tx(1450, date, { categoryId: "c-salary" }));
+    // Each written with «Ήρθε» for the 30th of its month, a day or so either side.
+    const dues = ["2026-04-30", "2026-05-30", "2026-06-30", "2026-07-30", "2026-08-30"];
+    const found = [d(2026, 4, 30), d(2026, 5, 29), d(2026, 6, 30), d(2026, 7, 30), d(2026, 8, 31)].map((date, i) => tx(1450, date, { categoryId: "c-salary", incomeId: "sal", incomeDue: dues[i] }));
     const { from, to } = incomeWindow(NOW);
     const statuses = resolveIncomes(sampleIncomes, { transactions: [...sampleTransactions, ...found], now: NOW }, from, to);
     const chips = incomeHistory(salary, statuses, NOW);
     expect(chips.map((c) => c.key)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
     expect(chips.map((c) => c.status?.arrival?.date.getDate())).toEqual([30, 29, 30, 30, 31, 25]);
-    expect(chips.map((c) => c.state)).toEqual(["found", "found", "found", "found", "found", "arrived"]);
+    expect(chips.map((c) => c.state)).toEqual(["arrived", "arrived", "arrived", "arrived", "arrived", "arrived"]);
     // And the lessons' summer shows as paused, not missing.
     expect(incomeHistory(lessons, statuses, NOW).map((c) => c.state)).toEqual(["arrived", "arrived", "arrived", "paused", "paused", "late"]);
   });

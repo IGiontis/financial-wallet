@@ -286,15 +286,15 @@
   text-align: left;
 }
 
-/* ── A transfer's check: from, to, how much, when — each row back to its step ── */
+/* ── The check of a wizard: rows of label and value, each back to its step ── */
 
-.transferReview {
+.reviewRows {
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
 }
 
-.transferReview > * {
+.reviewRows > * {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -309,20 +309,20 @@
   text-align: left;
 }
 
-.transferReview > *:last-child {
+.reviewRows > *:last-child {
   border-bottom: 0;
 }
 
-.transferReview > button:hover {
+.reviewRows > button:hover {
   background: var(--color-surface);
 }
 
-.transferReview span {
+.reviewRows span {
   color: var(--color-text-secondary);
   font-size: 12.5px;
 }
 
-.transferReview strong {
+.reviewRows strong {
   text-align: right;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

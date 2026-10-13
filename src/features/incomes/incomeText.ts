@@ -81,12 +81,10 @@ export type StatusTone = "paid" | "late" | "ask" | "due" | "muted";
  */
 export function statusTag(status: IncomeStatus, t: TFunction, f: IncomeFormats): { text: string; tone: StatusTone } {
   switch (status.state) {
-    case "arrived":
-    case "found": {
+    case "arrived": {
       const parts = [t("incomes.status.arrived", { date: f.dayMonth.format(status.arrival!.date) })];
       if (status.earlyDays) parts.push(t("incomes.status.early", { count: status.earlyDays }));
       else if (status.lateDays && status.lateDays >= EARLY_LABEL_DAYS) parts.push(t("incomes.status.lateArrival", { count: status.lateDays }));
-      if (status.state === "found") parts.push(t("incomes.status.found"));
       return { text: parts.join(" · "), tone: "paid" };
     }
     case "late":

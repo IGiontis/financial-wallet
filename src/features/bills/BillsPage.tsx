@@ -1105,9 +1105,9 @@ export default function BillsPage() {
   // answer. The cache has already been updated optimistically, so the screen is
   // correct the moment it closes; a write that then fails rolls itself back and
   // says so, which beats holding the whole page hostage to the network.
-  const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number) => {
+  const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number, accountId?: string) => {
     if (!payingBill) return;
-    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex, accountId }, { onError: () => toast.error(t("bills.markPaidFailed")) });
     setPayingBill(null);
   };
 

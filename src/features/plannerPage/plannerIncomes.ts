@@ -78,15 +78,14 @@ const timesAhead = (income: Income, today: Date, end: Date) => incomeOccurrences
 function toResolved(status: IncomeStatus, income: Income, plain: number, today: Date, transactions: Transaction[]): ResolvedOccurrence {
   const base = { key: status.key, source: "income" as const, refId: income.id, label: income.name, amount: plain, date: status.date, pay: income.isSalary ? true : undefined, overridden: status.overridden };
   switch (status.state) {
-    case "arrived":
-    case "found": {
+    case "arrived": {
       const arrival = status.arrival!;
       const record = arrival.transactionIds.length > 0 ? transactions.find((tx) => tx.id === arrival.transactionIds[0]) : undefined;
       return {
         ...base,
         status: "received",
         plannedAmount: 0,
-        matched: { date: arrival.date, amount: arrival.amount, label: record?.description || income.name, manual: arrival.manual, recorded: status.state === "arrived" && !arrival.manual ? true : undefined },
+        matched: { date: arrival.date, amount: arrival.amount, label: record?.description || income.name, manual: arrival.manual, recorded: !arrival.manual ? true : undefined },
       };
     }
     case "skipped":

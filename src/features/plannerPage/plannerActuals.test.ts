@@ -40,12 +40,14 @@ const august = income(1700, 7, 28);
 const early = income(1700, 8, 25);
 
 describe("createResolver", () => {
-  it("finds a salary that came early, and says when", () => {
+  // Money in is settled by the owner, never guessed from a record near its
+  // day: a win or a refund of about the right size used to settle a coupon.
+  it("does not take an income record for a dated income, close as it is in day and size", () => {
     const resolve = createResolver(actuals({ transactions: [august, early] }), NOW);
     const r = resolve(occurrence({ date: new Date(2026, 8, 30) }));
-    expect(r.status).toBe("received");
-    expect(r.plannedDate).toBeUndefined();
-    expect(r.matched).toMatchObject({ date: new Date(2026, 8, 25), amount: 1700, manual: false });
+    expect(r.status).toBe("due");
+    expect(r.matched).toBeUndefined();
+    expect(r.plannedAmount).toBe(1700);
   });
 
   it("keeps one that has not come as late, from today, when pay is normally recorded", () => {
@@ -62,33 +64,19 @@ describe("createResolver", () => {
     expect(resolve(occurrence({ date: new Date(2026, 8, 30) })).status).toBe("assumed");
   });
 
-  it("does not take a much smaller income for the salary", () => {
-    // 1,400 is 18% under 1,700 — outside the ±15% band.
-    const resolve = createResolver(actuals({ transactions: [august, income(1400, 8, 25, "Επιστροφή")] }), NOW);
-    expect(resolve(occurrence({ date: new Date(2026, 8, 30) })).status).toBe("due");
-    // 1,500 is 11.8% under — inside it.
-    const resolve2 = createResolver(actuals({ transactions: [august, income(1500, 8, 25)] }), NOW);
-    expect(resolve2(occurrence({ date: new Date(2026, 8, 30) })).matched?.amount).toBe(1500);
+  it("takes none, whatever the size or the day", () => {
+    for (const record of [income(1500, 8, 25), income(1400, 8, 25, "Επιστροφή"), income(1700, 8, 19), income(1700, 8, 30)]) {
+      const resolve = createResolver(actuals({ transactions: [august, record] }), NOW);
+      expect(resolve(occurrence({ date: new Date(2026, 8, 30) })).status).toBe("due");
+    }
   });
 
-  it("does not reach further than ten days", () => {
-    const resolve = createResolver(actuals({ transactions: [august, income(1700, 8, 19)] }), NOW);
-    // The 19th is eleven days before the 30th.
-    expect(resolve(occurrence({ date: new Date(2026, 8, 30) })).status).toBe("due");
-  });
-
-  it("lets one record settle one thing only", () => {
-    const resolve = createResolver(actuals({ transactions: [august, early] }), NOW);
-    const salaryCame = resolve(occurrence({ date: new Date(2026, 8, 30) }));
-    const bonus = resolve(occurrence({ source: "oneoff", refId: "bonus", label: "Μπόνους", date: new Date(2026, 8, 28) }));
-    expect(salaryCame.status).toBe("received");
-    expect(bonus.status).toBe("due");
-  });
-
-  it("does not count savings coming back as income", () => {
-    const withdrawal = { ...income(1700, 8, 25), type: "investment", isInvestmentTransaction: true, isGoalTransaction: true, contributionType: "withdrawal" } as Transaction;
-    const resolve = createResolver(actuals({ transactions: [august, withdrawal] }), NOW);
-    expect(resolve(occurrence({ date: new Date(2026, 8, 30) })).status).toBe("due");
+  it("settles only on the owner's word: it came, on a day and for an amount", () => {
+    const date = new Date(2026, 8, 30);
+    const said = { [occurrenceKey("oneoff", "pay", date)]: { state: "received" as const, date: "2026-09-25", amount: 1650 } };
+    const r = createResolver(actuals({ transactions: [august, early], overrides: said }), NOW)(occurrence({ date }));
+    expect(r.status).toBe("received");
+    expect(r.matched).toMatchObject({ date: new Date(2026, 8, 25), amount: 1650, manual: true });
   });
 
   it("finds a loan instalment among that loan's repayments", () => {
@@ -142,13 +130,17 @@ describe("createResolver", () => {
 
 describe("the plan, checked against the records", () => {
   const base = { bills: [] as BillWithStatus[], goals: [] as InvestmentGoalWithStats[], incomes, oneOffs: [rent], openingBalance: 2420, horizon: 2, now: NOW };
-  const records = actuals({ transactions: [august, early, income(250, 7, 22, "Ενοίκιο")] });
+  // The salary of the 30th came on the 25th, and the owner said so on «Έσοδα»;
+  // the 250 of the room's rent, recorded in August, is only a record.
+  const said = { [salaryKey(new Date(2026, 8, 30))]: { state: "received" as const, date: "2026-09-25" } };
+  const records = actuals({ transactions: [august, early, income(250, 7, 22, "Ενοίκιο")], overrides: said });
 
-  it("neither counts the early salary twice nor forgets the late rent", () => {
+  it("neither counts the salary the owner said came twice, nor forgets the late rent", () => {
     const blind = buildPlan(base);
     const checked = buildPlan({ ...base, actuals: records });
 
     // Second route, by hand: the 1,700 on the 30th goes, the 250 from the 22nd comes back.
+    // An income record near a day settles nothing — only what was said does.
     expect(checked.endingBalance - blind.endingBalance).toBeCloseTo(-1700 + 250, 2);
 
     // Two months from 26 Sep close on 30 Nov (25 Nov, rounded out): the 30th
@@ -307,11 +299,14 @@ describe("pay a bank reading may already hold", () => {
     expect(status(plan(readOn(new Date(2026, 8, 21, 0, 1))))).toBe("unconfirmed");
   });
 
-  it("still matches a salary that was written down, and asks nothing", () => {
-    const logged = actuals({ transactions: [august, income(1700, 8, 28)], lastReadingAt: new Date(2026, 8, 29, 20) });
-    const r = createResolver(logged, today)(occurrence({ date: october1 }));
-    expect(r.status).toBe("received");
-    expect(r.matched).toMatchObject({ date: new Date(2026, 8, 28), amount: 1700, manual: false });
+  it("asks even with an untagged record near the day, but not once it was written with «Ήρθε»", () => {
+    const asked = actuals({ transactions: [august, income(1700, 8, 28)], lastReadingAt: new Date(2026, 8, 29, 20) });
+    expect(createResolver(asked, today)(occurrence({ date: october1 })).status).toBe("unconfirmed");
+    expect(plan(asked).occurrences.some((o) => o.status === "unconfirmed")).toBe(true);
+
+    const written = { ...income(1700, 8, 28), incomeId: SALARY_ID, incomeDue: "2026-10-01" } as Transaction;
+    const logged = actuals({ transactions: [august, written], lastReadingAt: new Date(2026, 8, 29, 20) });
+    expect(status(plan(logged))).toBe("received");
     expect(plan(logged).occurrences.some((o) => o.status === "unconfirmed")).toBe(false);
   });
 

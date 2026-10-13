@@ -217,7 +217,7 @@ export default function TransferWizard({
             <h2 className={styles.savedTitle}>{t("transactions.transfer.saved")}</h2>
             <p className={styles.savedSub}>{t("transactions.transfer.savedSub")}</p>
             <div className={styles.savedDetails}>
-              <div className={styles.transferReview}>
+              <div className={styles.reviewRows}>
                 <div>
                   <span>{t("transactions.transfer.stepFrom")}</span>
                   <strong>{saved.from.name}</strong>
@@ -314,7 +314,7 @@ export default function TransferWizard({
 
           {step === "review" && (
             <>
-              <div className={styles.transferReview}>
+              <div className={styles.reviewRows}>
                 {rows.map((row) => (
                   <button key={row.label} type="button" onClick={() => goTo(row.step)}>
                     <span>{row.label}</span>
