@@ -285,3 +285,61 @@
   max-width: 560px;
   text-align: left;
 }
+
+/* ── A transfer's check: from, to, how much, when — each row back to its step ── */
+
+.transferReview {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.transferReview > * {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+.transferReview > *:last-child {
+  border-bottom: 0;
+}
+
+.transferReview > button:hover {
+  background: var(--color-surface);
+}
+
+.transferReview span {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.transferReview strong {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The third kind, under the two: a whole row, in neither side's colour. */
+.typeTransfer {
+  grid-column: 1 / -1;
+  min-height: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 0.85rem 1rem;
+  color: var(--bs-primary);
+}
+
+.typeTransfer .typeHint {
+  flex-basis: 100%;
+  text-align: center;
+}

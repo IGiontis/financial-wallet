@@ -1,6 +1,6 @@
 import type { DebtWithStatus, Transaction } from "../../shared/types/IndexTypes";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { isDebtTransfer } from "../../shared/utils/moneyModel";
+import { isMoneyMove } from "../../shared/utils/moneyModel";
 
 // What the plan expected, held up against what actually happened.
 //
@@ -116,7 +116,7 @@ export const occurrenceKey = (source: OccurrenceSource, refId: string, date: Dat
 
 /** Money in that is ordinary income — not savings coming back. */
 // Borrowed money is never the salary arriving, however close the figure.
-const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !isDebtTransfer(tx);
+const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !isMoneyMove(tx);
 
 const close = (amount: number, expected: number) => Math.abs(Math.abs(amount) - Math.abs(expected)) <= Math.abs(expected) * AMOUNT_TOLERANCE + 0.005;
 

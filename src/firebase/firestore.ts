@@ -35,6 +35,7 @@ import type {
   CreateBillPaymentDTO,
 } from "../shared/types/IndexTypes";
 import type { DebtCashRecord } from "../features/debts/debtCash";
+import { transferIds, type TransferRecord } from "../features/transactions/transfers";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // Firestore rejects undefined values — strip them before every write.
@@ -751,6 +752,34 @@ export const syncDebtCash = async (
   // The ids are fixed, so one deleted earlier can be written again now: its
   // deletion comes out of the log, or other devices would drop it.
   await Promise.all([noteRecreated(userId, "transactions", records.map((r) => r.id)), noteDeleted(userId, "transactions", existed)]);
+};
+
+// ─── TRANSFERS ────────────────────────────────────────────────────────────────
+// Money moved between two of your own accounts — see `features/transactions/transfers`.
+
+/**
+ * Writes both halves of a transfer in one batch. A corrected transfer writes
+ * the same two documents again under their fixed ids, keeping when the pair
+ * was first written.
+ */
+export const saveTransfer = async (userId: string, records: TransferRecord[], createdAt?: Date) => {
+  const batch = writeBatch(db);
+  for (const { id, ...record } of records) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), createdAt: createdAt ?? serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
+};
+
+/** Deletes both halves, and tells the user's other devices — see `noteDeleted`. */
+export const deleteTransfer = async (userId: string, transferId: string) => {
+  // Not queued: see `offlinePolicy`.
+  requireConnection("delete");
+  const ids = transferIds(transferId);
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "transactions", ids.out));
+  batch.delete(doc(db, "transactions", ids.in));
+  await batch.commit();
+  await noteDeleted(userId, "transactions", [ids.out, ids.in]);
 };
 
 // ─── DATA RESET ───────────────────────────────────────────────────────────────

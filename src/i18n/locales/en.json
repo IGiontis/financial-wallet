@@ -939,7 +939,33 @@
     "loanMove": "Loan",
     "savedTitle": "Transaction saved",
     "savedSub": "It is in your transactions and already counts in the totals.",
-    "savedDetails": "What was saved"
+    "savedDetails": "What was saved",
+    "transfer": {
+      "title": "Transfer",
+      "editTitle": "Edit transfer",
+      "badge": "Transfer",
+      "stepFrom": "From",
+      "stepTo": "To",
+      "stepAmount": "Amount",
+      "stepReview": "Review",
+      "askFrom": "Where is the money leaving?",
+      "askTo": "Where is it going?",
+      "askAmount": "How much, and when?",
+      "askReview": "Check it, then save",
+      "note": "Note (optional)",
+      "notePlaceholder": "e.g. cash machine",
+      "amountNeeded": "Enter an amount above 0",
+      "neither": "It counts as neither spending nor income: only the account the money is in changes. Your total stays the same.",
+      "moreThanHas": "The app reckons «{{name}}» holds {{amount}}, less than this transfer.",
+      "needTwo": "A transfer needs at least two accounts on Banks & cash.",
+      "goToBanks": "To Banks & cash ›",
+      "saved": "Transfer saved",
+      "savedSub": "The money changed account; your total stayed the same.",
+      "savedToast": "Transfer saved",
+      "failed": "The transfer was not saved. Try again.",
+      "newOne": "New transfer",
+      "kindHint": "From one card to another"
+    }
   },
   "analytics": {
     "title": "Analytics",
@@ -1824,7 +1850,8 @@
     "filterPlaceholder": "Filter categories…",
     "noneMatch": "No category matches.",
     "loans": "Loans",
-    "loanInterest": "Loan interest"
+    "loanInterest": "Loan interest",
+    "transfer": "Transfer"
   },
   "debts": {
     "title": "Debts & loans",

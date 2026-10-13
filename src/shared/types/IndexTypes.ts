@@ -131,6 +131,15 @@ export interface Transaction {
    * money lent, income). See `isDebtTransfer`.
    */
   debtPart?: DebtCashPart;
+  /**
+   * One half of a move between two of your own accounts — 200 from Revolut to
+   * cash. Written in pairs under one id: the "out" half an expense on the
+   * account it left, the "in" half an income on the account it reached. The
+   * pair changes where the money is and nothing else, so neither half is
+   * income or spending — see `isMoneyMove`. Changed and deleted as a pair.
+   */
+  transferId?: string;
+  transferPart?: "out" | "in";
 
   // ── Investment transaction flags ──────────────────────────────────────────
   isInvestmentTransaction?: boolean;

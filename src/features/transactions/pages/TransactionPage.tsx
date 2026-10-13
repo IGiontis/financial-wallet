@@ -20,6 +20,10 @@ import { tapDay } from "../dateRanges";
 import ManagePayeesModal from "../components/ManagePayeesModal";
 import { usePayees } from "../hooks/usePayees";
 import AddTransactionModal from "../components/AddTransactionModal";
+import TransferWizard, { type TransferDraft } from "../components/TransferWizard";
+import TransferSheet from "../components/TransferSheet";
+import { useDeleteTransfer } from "../hooks/useTransfers";
+import { oneRowPerTransfer, transferOf } from "../transfers";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
@@ -27,7 +31,7 @@ import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
-import { isDebtTransfer } from "../../../shared/utils/moneyModel";
+import { isDebtTransfer, isMoneyMove } from "../../../shared/utils/moneyModel";
 import { findCategory } from "../../../shared/utils/categories";
 
 const PAGE_SIZE = 15;
@@ -50,6 +54,8 @@ function getGoalBadgeStyle(contributionType: string | undefined): React.CSSPrope
 }
 
 function getAmountChipStyle(tx: Transaction): React.CSSProperties {
+  // Neither side's colour: the money only changed account.
+  if (tx.transferId) return tinted("--color-text-secondary");
   if (tx.isGoalTransaction) return tinted("--color-goal");
   if (tx.isInvestmentTransaction) return tinted("--color-invest");
   return tinted(tx.type === "income" ? "--color-income" : "--color-expense");
@@ -77,8 +83,8 @@ function computeFilterTotals(transactions: Transaction[]): FilterTotals {
       if (tx.contributionType === "withdrawal") earned += tx.amount;
       continue;
     }
-    // A loan moved a card; it did not come in or go out.
-    if (isDebtTransfer(tx)) continue;
+    // A loan or a transfer moved a card; it did not come in or go out.
+    if (isMoneyMove(tx)) continue;
     if (tx.type === "income") earned += tx.amount;
     else spent += Math.abs(tx.amount);
   }
@@ -245,7 +251,7 @@ function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Trans
 
   return (
     <button type="button" className={styles.txCard} onClick={onView}>
-      <span className={styles.txIcon} style={{ background: isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)" }} aria-hidden>
+      <span className={styles.txIcon} style={{ background: tx.transferId ? "var(--color-background-secondary)" : isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)" }} aria-hidden>
         {cat?.icon ?? "💳"}
       </span>
       <span className={styles.txBody}>
@@ -259,8 +265,8 @@ function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Trans
           <span className="text-truncate">{categoryLabel(cat?.name, t) || "—"}</span>
         </span>
       </span>
-      <span className={styles.txAmount} style={{ color: isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
-        {isPositive ? "+" : "−"}
+      <span className={styles.txAmount} style={{ color: tx.transferId ? "var(--color-text-secondary)" : isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
+        {tx.transferId ? "" : isPositive ? "+" : "−"}
         {formatCurrency(tx.amount)}
       </span>
     </button>
@@ -408,6 +414,8 @@ export function TransactionsPage() {
   const [showPayeesModal, setShowPayeesModal] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
+  // A transfer being written or corrected: "new" from the wizard's third kind, or the pair's figures.
+  const [transferEdit, setTransferEdit] = useState<TransferDraft | "new" | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   // A new page of records starts at the top of the page, not where the last
   // one was left: "Next" at the foot of fifteen cards used to open the next
@@ -434,6 +442,7 @@ export function TransactionsPage() {
   const createMutation = useCreateTransaction();
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
+  const deleteTransferMutation = useDeleteTransfer();
 
   // The dialog closes on the optimistic row, not on the server's answer — see
   // `saveWithoutWaiting`. A rejection arrives as a toast instead. The menu's
@@ -500,7 +509,8 @@ export function TransactionsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [categories]);
 
-  const transactionsWithDates = useMemo(() => transactions.map((tx) => ({ tx, date: firestoreToDate(tx.date), createdAt: firestoreToDate(tx.createdAt) })), [transactions]);
+  // A transfer is listed once, by the half that left: its pair is one move, not money both spent and earned.
+  const transactionsWithDates = useMemo(() => oneRowPerTransfer(transactions).map((tx) => ({ tx, date: firestoreToDate(tx.date), createdAt: firestoreToDate(tx.createdAt) })), [transactions]);
 
   const filteredTransactions = useMemo(() => {
     const fromMid = fromDate ? midnight(fromDate) : null;
@@ -511,8 +521,8 @@ export function TransactionsPage() {
         const matchSearch = tx.description.toLowerCase().includes(query);
         const matchCat =
           selectedCategory === "all" ||
-          (selectedCategory === "income" && tx.type === "income") ||
-          (selectedCategory === "expense" && tx.type === "expense") ||
+          (selectedCategory === "income" && tx.type === "income" && !tx.transferId) ||
+          (selectedCategory === "expense" && tx.type === "expense" && !tx.transferId) ||
           (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
         const txMid = midnight(date);
         let matchDate = true;
@@ -712,13 +722,16 @@ export function TransactionsPage() {
                                       whiteSpace: "nowrap",
                                     }}
                                   >
-                                    {isPositive ? "+" : "−"}
+                                    {tx.transferId ? "" : isPositive ? "+" : "−"}
                                     {formatCurrency(tx.amount)}
                                   </span>
                                 </td>
                                 <td className="text-end pe-3">
                                   <div className="d-flex justify-content-end gap-2 align-items-center" onClick={(e) => e.stopPropagation()}>
-                                    {!tx.isInvestmentTransaction && !tx.isGoalTransaction && (
+                                    {tx.transferId && (
+                                      <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: 10, ...tinted("--color-text-secondary") }}>{t("transactions.transfer.badge")}</span>
+                                    )}
+                                    {!tx.transferId && !tx.isInvestmentTransaction && !tx.isGoalTransaction && (
                                       <span
                                         style={{
                                           display: "inline-block",
@@ -858,12 +871,63 @@ export function TransactionsPage() {
         <ManagePayeesModal payees={payees} onClose={() => setShowPayeesModal(false)} onAdd={addPayee} onRename={renamePayee} onRemove={removePayee} />
       )}
 
-      <AddTransactionModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} categories={categories} onSubmit={handleCreate} />
+      <AddTransactionModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        categories={categories}
+        onSubmit={handleCreate}
+        onPickTransfer={() => {
+          setShowAddModal(false);
+          setTransferEdit("new");
+        }}
+      />
+      {transferEdit && (
+        <TransferWizard
+          initial={transferEdit === "new" ? undefined : transferEdit}
+          onClose={() => setTransferEdit(null)}
+          onBack={
+            transferEdit === "new"
+              ? () => {
+                  setTransferEdit(null);
+                  setShowAddModal(true);
+                }
+              : undefined
+          }
+        />
+      )}
       {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} />}
       {deleteTransaction && (
         <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
       )}
-      {viewTransaction && (
+      {viewTransaction?.transferId && (
+        <TransferSheet
+          out={viewTransaction}
+          inn={transferOf(transactions, viewTransaction.transferId).in}
+          formatCurrency={formatCurrency}
+          onClose={() => setViewTransaction(null)}
+          onEdit={() => {
+            const pair = transferOf(transactions, viewTransaction.transferId!);
+            setTransferEdit({
+              id: viewTransaction.transferId!,
+              from: viewTransaction.accountId ?? "",
+              to: pair.in?.accountId ?? "",
+              amount: viewTransaction.amount,
+              date: firestoreToDate(viewTransaction.date),
+              note: viewTransaction.notes,
+              createdAt: firestoreToDate(viewTransaction.createdAt),
+            });
+            setViewTransaction(null);
+          }}
+          onDelete={() => {
+            deleteTransferMutation.mutate(viewTransaction.transferId!, {
+              onSuccess: () => toast.success(t("transactions.deleteSuccess")),
+              onError: () => toast.error(t("transactions.deleteFailed")),
+            });
+            setViewTransaction(null);
+          }}
+        />
+      )}
+      {viewTransaction && !viewTransaction.transferId && (
         <TransactionViewModal
           transaction={viewTransaction}
           categories={categories}

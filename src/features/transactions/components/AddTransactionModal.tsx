@@ -3,7 +3,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import { FiArrowDownLeft, FiArrowUpRight, FiCheck } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiCheck, FiRepeat } from "react-icons/fi";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -163,11 +163,13 @@ interface AddTransactionModalProps {
   onSubmit: (data: CreateTransactionDTO) => Promise<void>;
   /** The whole of a page rather than a dialog. `onClose` is then "All transactions" on the saved panel. */
   asPage?: boolean;
+  /** Offers «Μεταφορά» as a third kind on the first step; the caller opens the transfer wizard. */
+  onPickTransfer?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit, asPage = false }: AddTransactionModalProps) {
+export default function AddTransactionModal({ isOpen, onClose, categories, onSubmit, asPage = false, onPickTransfer }: AddTransactionModalProps) {
   const [step, setStep] = useState<Step>("type");
   // On the page, what was just saved: shown as a confirmation, with its
   // details, until "New transaction" clears it. The dialog has no such panel —
@@ -381,6 +383,16 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   <span className={styles.typeHint}>{t(kind === "expense" ? "transactions.wizard.expenseHint" : "transactions.wizard.incomeHint")}</span>
                 </button>
               ))}
+              {/* Neither: money moving between two of your own accounts. */}
+              {onPickTransfer && (
+                <button type="button" className={`${styles.typeCard} ${styles.typeTransfer}`} onClick={onPickTransfer}>
+                  <span className={styles.typeIcon} aria-hidden>
+                    <FiRepeat size={22} />
+                  </span>
+                  <span className={styles.typeName}>{t("transactions.transfer.title")}</span>
+                  <span className={styles.typeHint}>{t("transactions.transfer.kindHint")}</span>
+                </button>
+              )}
             </div>
           </>
         )}

@@ -23,12 +23,22 @@ export const isTransfer = (tx: Transaction) => !!tx.isInvestmentTransaction || !
  */
 export const isDebtTransfer = (tx: Pick<Transaction, "debtId" | "debtPart">) => !!tx.debtId && tx.debtPart !== "interest";
 
+/** One half of a move between two of your own accounts — see `Transaction.transferId`. */
+export const isAccountTransfer = (tx: Pick<Transaction, "transferId">) => !!tx.transferId;
+
+/**
+ * Money that moved between your own accounts: a loan's (see `isDebtTransfer`)
+ * or a transfer's. Each changes which account holds the money and nothing
+ * else, so every report of what came in or went out leaves them out.
+ */
+export const isMoneyMove = (tx: Pick<Transaction, "debtId" | "debtPart" | "transferId">) => isDebtTransfer(tx) || isAccountTransfer(tx);
+
 export const isGoalContribution = (tx: Transaction) => !!tx.isGoalTransaction;
 
 export const isInvestmentContribution = (tx: Transaction) => !!tx.isInvestmentTransaction && !tx.isGoalTransaction;
 
 /** Real spending — what actually left your pocket for good. */
-export const isSpending = (tx: Transaction) => !isTransfer(tx) && !isDebtTransfer(tx) && tx.type === "expense";
+export const isSpending = (tx: Transaction) => !isTransfer(tx) && !isMoneyMove(tx) && tx.type === "expense";
 
 /** Plain income plus anything pulled back out of a goal or investment. */
-export const isEarning = (tx: Transaction) => (!isTransfer(tx) && !isDebtTransfer(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal");
+export const isEarning = (tx: Transaction) => (!isTransfer(tx) && !isMoneyMove(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal");

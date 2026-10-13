@@ -228,7 +228,7 @@ export function netWorthSeries(
  */
 export function repaymentsOutsideCash(debts: DebtWithStatus[], transactions: Transaction[]): { matched: number; unmatched: number } {
   const spending = transactions
-    .filter((tx) => tx.type === "expense" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !tx.debtId)
+    .filter((tx) => tx.type === "expense" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !tx.debtId && !tx.transferId)
     .map((tx) => ({ amount: Math.abs(tx.amount), time: firestoreToDate(tx.date).getTime() }));
 
   const WINDOW = 3 * 24 * 60 * 60 * 1000;

@@ -5,7 +5,7 @@ import { categoryAliases, normalizeCategoryName } from "../../shared/utils/categ
 import { isPausedOn } from "../bills/billsUtils";
 import { AMOUNT_TOLERANCE, EARLY_DAYS, LATE_DAYS, LOOKBACK_DAYS, type OccurrenceOverride } from "../plannerPage/plannerActuals";
 import { detectSalary, type SalaryPattern } from "./detectSalary";
-import { isDebtTransfer } from "../../shared/utils/moneyModel";
+import { isMoneyMove } from "../../shared/utils/moneyModel";
 
 // The regular money in: the salary, a rent you collect, an allowance, a
 // pension, a steady second job.
@@ -323,7 +323,7 @@ export const VARIABLE_MEAN_COUNT = 3;
 
 /** Money in that is ordinary income — not savings coming back. Same test as the Planner's. */
 // Borrowed money is never the salary arriving, however close the figure.
-const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !isDebtTransfer(tx);
+const isPlainIncome = (tx: Transaction) => tx.type === "income" && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !isMoneyMove(tx);
 
 /** One «Ήρθε» per occurrence: two records for the same time (a rent paid in two parts) are one arrival. */
 export interface IncomeArrival {
