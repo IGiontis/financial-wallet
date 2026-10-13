@@ -24,6 +24,7 @@ vi.mock("../hooks/useTransactions", () => ({
   useUpdateTransaction: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteTransaction: () => ({ mutate: mocks.deleteMutate, isPending: false }),
 }));
+vi.mock("../hooks/useTransfers", () => ({ useDeleteTransfer: () => ({ mutate: vi.fn() }), useSaveTransfer: () => ({ mutate: vi.fn() }) }));
 vi.mock("../hooks/usePayees", () => ({ usePayees: () => ({ payees: [], isReady: true, add: vi.fn(), rename: vi.fn(), remove: vi.fn() }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
 vi.mock("../../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
