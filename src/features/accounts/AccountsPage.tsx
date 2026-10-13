@@ -38,6 +38,7 @@ import { useCategories, useCreateTransaction } from "../transactions/hooks/useTr
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import styles from "./css/AccountsPage.module.css";
 import TransferWizard from "../transactions/components/TransferWizard";
+import { oneRowPerTransfer } from "../transactions/transfers";
 
 const HISTORY_SHOWN = 6;
 
@@ -87,7 +88,8 @@ export function AccountsPage() {
   const projected = latest ? projectedTotal(latest, transactions) : 0;
   const inGoals = goalHeldTotal(transactions);
   const available = currentBalance(transactions, anchors.at(-1));
-  const since = latest ? transactions.filter((tx) => isAfterReading(tx, latest.at)).length : 0;
+  // A transfer is one thing that happened, not the two halves it is written as.
+  const since = latest ? oneRowPerTransfer(transactions).filter((tx) => isAfterReading(tx, latest.at)).length : 0;
   const age = daysSince(latest);
   const main = mainAccount(accounts);
 
