@@ -8,6 +8,7 @@ export const OverviewPage = lazy(() => import("../features/overview/pages/Overvi
 export const TransactionsPage = lazy(() => import("../features/transactions/pages/TransactionPage").then((m) => ({ default: m.TransactionsPage })));
 export const LegalPage = lazy(() => import("../features/legal/LegalPage"));
 export const NewTransactionPage = lazy(() => import("../features/transactions/pages/NewTransactionPage").then((m) => ({ default: m.NewTransactionPage })));
+export const LedgerPage = lazy(() => import("../features/transactions/pages/LedgerPage").then((m) => ({ default: m.LedgerPage })));
 export const AnalyticsPage = lazy(() => import("../features/analytics/pages/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })));
 export const GoalsPage = lazy(() => import("../features/goals/GoalsPage"));
 export const SettingsPage = lazy(() => import("../features/settings/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));

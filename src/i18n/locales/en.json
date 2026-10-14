@@ -82,7 +82,8 @@
     "switchToEnglish": "Switch to English",
     "switchToGreek": "Switch to Greek",
     "newTransaction": "New transaction",
-    "allTransactions": "All transactions"
+    "allTransactions": "All transactions",
+    "ledger": "Ledger"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -2324,5 +2325,34 @@
       "decline": "No thanks",
       "settings": "Cookies"
     }
+  },
+  "ledger": {
+    "title": "Ledger",
+    "subtitle": "Read only: every record, by day, with the net as it went.",
+    "span": "Period",
+    "month": "Month",
+    "year": "Year",
+    "kind": "Kind",
+    "kind_all": "All",
+    "kind_in": "Income",
+    "kind_out": "Expenses",
+    "kind_moves": "Moves",
+    "card": "Card",
+    "allCards": "All cards",
+    "in": "In",
+    "out": "Out",
+    "net": "Net",
+    "perDay": "Spent per day",
+    "count_one": "{{count}} record",
+    "count_other": "{{count}} records",
+    "legendTime": "Time recorded",
+    "legendRunning": "Amount · net so far",
+    "runningTitle": "The period's net after this record",
+    "notCounted": "not counted",
+    "empty": "Nothing in this period.",
+    "more_one": "Show one more ({{count}})",
+    "more_other": "Show more ({{count}})",
+    "whereOut": "Where it went",
+    "whereIn": "Where it came from"
   }
 }

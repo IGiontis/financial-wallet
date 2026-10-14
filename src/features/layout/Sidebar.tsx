@@ -313,6 +313,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           children: [
             { path: "/transactions/new", label: t("nav.newTransaction") },
             { path: "/transactions", label: t("nav.allTransactions") },
+            // To read only: dense, by day, the month as it happened.
+            { path: "/transactions/ledger", label: t("nav.ledger") },
           ],
         },
         // Money in before money out. Amber rather than red: a late income is

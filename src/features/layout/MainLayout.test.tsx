@@ -220,7 +220,7 @@ describe("the drawer on a phone", () => {
 describe("an item with pages under it", () => {
   const transactions = () => within(sidebar()).getByRole("button", { name: "Transactions" });
 
-  it("opens in place on a tap, new first and the list second, and folds away again", async () => {
+  it("opens in place on a tap, new first, the list second, the ledger third, and folds away again", async () => {
     localStorage.setItem("sidebar-collapsed", "false");
     renderAt("/");
     await userEvent.click(transactions());
@@ -229,6 +229,7 @@ describe("an item with pages under it", () => {
     expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
       ["New transaction", "/transactions/new"],
       ["All transactions", "/transactions"],
+      ["Ledger", "/transactions/ledger"],
     ]);
 
     await userEvent.click(transactions());

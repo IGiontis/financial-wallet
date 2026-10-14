@@ -1,0 +1,328 @@
+/* «Βιβλίο κινήσεων» — dense and read-only. Phone first: one column, the
+   categories above the list; from lg the categories move to a side column. */
+
+.controls,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.controls {
+  justify-content: space-between;
+}
+
+.period {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stepBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.stepBtn:disabled {
+  opacity: 0.35;
+}
+
+.periodLabel {
+  min-width: 9.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.kinds {
+  flex: 1 1 100%;
+}
+
+.cardSelect {
+  flex: 1 1 8rem;
+  max-width: 14rem;
+}
+
+.search {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* ── The four figures ── */
+
+.sums {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sum {
+  display: flex;
+  flex-direction: column;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.sumLabel,
+.sumSub {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.sumValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── List and side ── */
+
+.body {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1rem;
+}
+
+.list {
+  min-width: 0;
+}
+
+.legend {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.25rem 0.25rem;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.day {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.dayHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-background-secondary);
+  font-size: 12px;
+}
+
+.dayName {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.dayTotals {
+  display: flex;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2.6rem 1.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.dayHead + .row {
+  border-top: 0;
+}
+
+.row:hover {
+  background: var(--color-background-secondary);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+/* Money that only changed pockets: listed, quieter, counted in neither. */
+.rowMove .desc,
+.rowMove .amount {
+  opacity: 0.6;
+}
+
+.time {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  font-size: 16px;
+  text-align: center;
+}
+
+.what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.desc {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.card,
+.moveTag {
+  padding: 0 6px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border-tertiary);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.running {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+/* ── Categories ── */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.catSection {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.sideTitle {
+  margin: 0 0 0.5rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.cat + .cat {
+  margin-top: 0.5rem;
+}
+
+.catHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 12.5px;
+}
+
+.catCount {
+  color: var(--color-text-secondary);
+}
+
+.catAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.catTrack {
+  height: 5px;
+  margin-top: 3px;
+  border-radius: 3px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.catTrack > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+@media (min-width: 576px) {
+  .sums {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .kinds {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 992px) {
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    align-items: start;
+  }
+
+  .side {
+    position: sticky;
+    top: 12px;
+  }
+}
