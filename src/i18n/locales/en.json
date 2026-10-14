@@ -533,7 +533,12 @@
       "willBill": "The bill",
       "paidFor": "will show as paid for {{period}}",
       "done": "Paid: {{name}} · {{amount}} from {{card}} · {{period}}"
-    }
+    },
+    "monthAll": "The whole month",
+    "prepaidLess": "Paid ahead",
+    "leftToPay": "Left to pay",
+    "yearAheadPrepaid": "Striped: what you have already paid ahead",
+    "yearAheadPaidTitle": "{{paid}} paid ahead, {{left}} left"
   },
   "incomes": {
     "title": "Income",

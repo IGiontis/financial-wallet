@@ -533,7 +533,12 @@
       "willBill": "Το πάγιο",
       "paidFor": "θα φαίνεται πληρωμένο — {{period}}",
       "done": "Πληρώθηκε: {{name}} · {{amount}} από {{card}} · {{period}}"
-    }
+    },
+    "monthAll": "Όλος ο μήνας",
+    "prepaidLess": "Προπληρωμένα",
+    "leftToPay": "Μένει να πληρώσεις",
+    "yearAheadPrepaid": "Με γραμμές: ό,τι έχεις ήδη προπληρώσει",
+    "yearAheadPaidTitle": "προπληρωμένα {{paid}}, μένουν {{left}}"
   },
   "incomes": {
     "title": "Έσοδα",

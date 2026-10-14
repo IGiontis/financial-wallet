@@ -1528,11 +1528,45 @@
 }
 
 .yearBarFill {
+  position: relative;
   display: block;
   width: var(--fill, 0%);
   height: 100%;
   border-radius: 5px;
   background: var(--bs-primary);
+  overflow: hidden;
+}
+
+/* The part of the month already paid ahead: the same bar, striped. From the
+   start of the bar on a phone, from its foot in the columns. */
+.yearBarPaid,
+.yearAheadSwatch {
+  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
+}
+
+.yearBarPaid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--paid, 0%);
+}
+
+.yearAheadLegend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.5rem;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.yearAheadSwatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background-color: var(--bs-primary);
 }
 
 /* The dearest month, which is the one the view exists to find. */
@@ -1600,6 +1634,13 @@
     width: 100%;
     height: var(--fill, 0%);
     border-radius: 4px 4px 0 0;
+  }
+
+  .yearBarPaid {
+    top: auto;
+    right: 0;
+    width: auto;
+    height: var(--paid, 0%);
   }
 
   .yearBarAmount {

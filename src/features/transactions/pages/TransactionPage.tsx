@@ -531,10 +531,15 @@ export function TransactionsPage() {
         else if (toMid !== null) matchDate = txMid <= toMid;
         return matchSearch && matchCat && matchDate;
       })
+      // Newest day first, and within a day newest first by when it was written
+      // down. The day, not the date's full time: a record's date is a day, and
+      // the hours some carry are noise — a form that stored UTC midnight (03:00
+      // here), an import's evening — which used to decide the order within the
+      // day and left it looking random.
       .sort((a, b) => {
-        const d = b.date.getTime() - a.date.getTime();
+        const d = midnight(b.date) - midnight(a.date);
         if (d !== 0) return d;
-        return b.createdAt.getTime() - a.createdAt.getTime();
+        return (b.createdAt.getTime() || 0) - (a.createdAt.getTime() || 0);
       })
       .map(({ tx }) => tx);
   }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories]);

@@ -44,6 +44,7 @@ export default function BillYearAhead({
   // Only worth pointing out when it actually stands out; on a flat year every
   // month is the heaviest and saying so is noise.
   const notable = heaviest && total > 0 && heaviest.total > (total / months.length) * 1.25 ? heaviest : undefined;
+  const anyPaid = months.some((month) => month.paid > 0);
 
   return (
     <div className={styles.yearAhead}>
@@ -60,24 +61,39 @@ export default function BillYearAhead({
       <div className={styles.yearBars}>
         {months.map((month, offset) => {
           const share = peak > 0 ? Math.max((month.total / peak) * 100, month.total > 0 ? 4 : 0) : 0;
+          // Of the bar, the part already paid ahead — striped, so the month
+          // reads as what it costs and how much of that is already behind you.
+          const paidShare = month.total > 0 ? Math.min((month.paid / month.total) * 100, 100) : 0;
+          const left = Math.round((month.total - month.paid) * 100) / 100;
           return (
             <button
               key={month.start.toISOString()}
               type="button"
               className={`${styles.yearBarItem} ${month === notable ? styles.yearBarItemPeak : ""}`}
-              style={{ ["--fill" as string]: `${share}%` }}
+              style={{ ["--fill" as string]: `${share}%`, ["--paid" as string]: `${paidShare}%` }}
               onClick={() => onOpenMonth(offset)}
-              title={`${longName(month.start)} — ${formatCurrency(month.total)}`}
+              title={
+                month.paid > 0
+                  ? `${longName(month.start)} — ${formatCurrency(month.total)} · ${t("bills.yearAheadPaidTitle", { paid: formatCurrency(month.paid), left: formatCurrency(left) })}`
+                  : `${longName(month.start)} — ${formatCurrency(month.total)}`
+              }
             >
               <span className={styles.yearBarMonth}>{monthFmt.format(month.start)}</span>
               <span className={styles.yearBarTrack}>
-                <span className={styles.yearBarFill} />
+                <span className={styles.yearBarFill}>{paidShare > 0 && <span className={styles.yearBarPaid} />}</span>
               </span>
               <span className={styles.yearBarAmount}>{month.total > 0 ? formatCurrency(month.total) : "—"}</span>
             </button>
           );
         })}
       </div>
+
+      {anyPaid && (
+        <div className={styles.yearAheadLegend}>
+          <span className={styles.yearAheadSwatch} aria-hidden />
+          {t("bills.yearAheadPrepaid")}
+        </div>
+      )}
 
       {notable && (
         <p className={styles.yearAheadNote}>

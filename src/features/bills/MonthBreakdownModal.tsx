@@ -187,6 +187,38 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
             <Section {...shared} heading={t("bills.variableTotal")} items={variable} kind="variable" />
             <Section {...shared} heading={t("bills.sectionPaid")} items={paid} kind="paid" accent="var(--color-income)" />
 
+            {/* With something paid ahead, what the month comes to once that is
+                taken off — the figure there is still to find, under the list
+                it comes from. The whole month less what is paid is `total`,
+                the same figure as above, so the two cannot disagree. */}
+            {forecast.prepaid > 0 && (
+              <div className={`${styles.forecastCard} p-3 mb-3`} role="group" aria-label={t("bills.leftToPay")}>
+                <div className={styles.forecastLine}>
+                  <span className={styles.forecastLabel}>{t("bills.monthAll")}</span>
+                  <span className={styles.forecastValue}>{formatCurrency(forecast.total + forecast.prepaid)}</span>
+                </div>
+                <div className={styles.forecastLine}>
+                  <span className={styles.forecastLabel}>
+                    <span className={styles.forecastOp} aria-hidden>
+                      −
+                    </span>
+                    {t("bills.prepaidLess")}
+                    <span className={styles.forecastCount}>{t("bills.billCount", { count: forecast.prepaidCount })}</span>
+                  </span>
+                  <span className={styles.forecastValue} style={{ color: "var(--color-income)" }}>
+                    {formatCurrency(forecast.prepaid)}
+                  </span>
+                </div>
+                <div className={`${styles.forecastLine} ${styles.forecastTotalLine}`}>
+                  <span className={styles.forecastLabel}>{t("bills.leftToPay")}</span>
+                  <span className={styles.forecastTotal}>
+                    {forecast.variableCount > 0 ? "≈ " : ""}
+                    {formatCurrency(forecast.total)}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {variable.length > 0 && (
               <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
                 {t("bills.forecastHint")}

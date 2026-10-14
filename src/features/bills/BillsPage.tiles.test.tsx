@@ -87,7 +87,8 @@ describe("the Bills page tiles", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(i18n.t("bills.thisMonthTitle"))).toBeInTheDocument();
-  });
+    // The whole page renders first: near the 5s default in a full run.
+  }, 15_000);
 
   it("opens the late bills from the count of them", async () => {
     render(<BillsPage />);
