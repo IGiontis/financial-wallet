@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Row, Col, Card, CardBody, Table, Badge, Button, Alert, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Row, Col, Card, CardBody, Table, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { FiEdit2, FiUsers } from "react-icons/fi";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
@@ -434,8 +434,8 @@ export function TransactionsPage() {
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
-  const { data: categories = [], isLoading: catLoading, isError: catError } = useCategories();
+  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: categories = [], isLoading: catLoading } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
   const { payees, isReady: payeesReady, add: addPayee, rename: renamePayee, remove: removePayee } = usePayees();
 
@@ -576,7 +576,6 @@ export function TransactionsPage() {
     return () => observer.disconnect();
     // The card exists once the records have loaded; that is when to watch it.
   }, [isLoading]);
-  const isError = txError || catError;
 
   const calendarProps = {
     allTransactions: transactions,
@@ -610,11 +609,6 @@ export function TransactionsPage() {
             )}
           </Col>
           <Col lg={8}>
-            {isError && (
-              <Alert color="danger" className="mb-3">
-                {t("transactions.loadFailed")}
-              </Alert>
-            )}
             <Card className="border-0 shadow-sm mb-3">
               <CardBody className="py-2">
                 {/* Flex rather than a 12-column grid: fixed column widths crushed
@@ -817,11 +811,6 @@ export function TransactionsPage() {
       {/* ── Mobile ── One scroll, the page's own. What the filter holds
           first, then the dates, the search, and the records by day. */}
       <div className="d-lg-none" style={{ ["--dates-height" as string]: `${datesHeight}px` }}>
-        {isError && (
-          <Alert color="danger" className="mb-3">
-            {t("transactions.loadFailed")}
-          </Alert>
-        )}
         {!isLoading && <MobileSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />}
         {isLoading ? (
           <SkeletonCard>

@@ -9,6 +9,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import "./css/MainLayout.css";
 import { LegalLinks } from "../legal/LegalLinks";
+import { LoadErrorBar } from "../../shared/components/LoadErrorBar";
 
 /** Below Bootstrap's `lg` the sidebar is a drawer behind ☰; from it up, a fixed bar. */
 const DRAWER_QUERY = "(max-width: 991.98px)";
@@ -86,6 +87,7 @@ export function MainLayout() {
             }}
           >
             <div className="page-outlet" style={{ flex: 1 }}>
+              <LoadErrorBar />
               <Outlet />
             </div>
             <p style={{ fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", margin: 0 }}>

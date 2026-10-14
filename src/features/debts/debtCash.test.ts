@@ -3,7 +3,7 @@ import type { Debt, DebtPayment, Transaction } from "../../shared/types/IndexTyp
 import { isDebtTransfer, isEarning, isSpending } from "../../shared/utils/moneyModel";
 import { balanceDelta } from "../../shared/utils/balance";
 import { computeDebtStatus, loanSplits } from "./debtsUtils";
-import { DEBT_INTEREST_CATEGORY_ID, debtCashIds, debtCashRecords } from "./debtCash";
+import { DEBT_INTEREST_CATEGORY_ID, debtCashDrift, debtCashIds, debtCashRecords } from "./debtCash";
 
 // The money a debt moves through a card. Borrowing 1.000 into Revolut puts
 // 1.000 on Revolut and earns nothing; paying 100 back takes 100 off it and
@@ -98,5 +98,46 @@ describe("a loan with interest", () => {
     const interest = asTx(records.find((r) => r.debtPart === "interest")!);
     expect(isEarning(interest)).toBe(true);
     expect(balanceDelta(interest)).toBeGreaterThan(0);
+  });
+});
+
+// ─── Putting drifted money right ─────────────────────────────────────────────
+//
+// Each debt write is two writes; a lost signal between them leaves the money
+// wrong until something writes it again. `debtCashDrift` is that something.
+
+describe("money that drifted from its debt", () => {
+  const NOW = new Date(2026, 9, 7);
+  const loan = status(debt({ accountId: "revolut" }), [pay("p1", 100, new Date(2026, 1, 10), "eurobank")]);
+  const right = debtCashRecords(loan, NOW).records.map(asTx);
+  const other = { id: "t-food", userId: "u", type: "expense", amount: 40, date: JAN, categoryId: "food", description: "", createdAt: JAN, updatedAt: JAN } as Transaction;
+
+  it("finds nothing when every record is as its debt says", () => {
+    expect(debtCashDrift([loan], [...right, other], NOW)).toEqual({ records: [], remove: [] });
+  });
+
+  it("writes back a loan whose money never reached the card", () => {
+    const missing = right.filter((tx) => tx.id !== debtCashIds.loan("d1"));
+    const drift = debtCashDrift([loan], missing, NOW);
+    expect(drift.records.map((r) => [r.id, r.type, r.amount, r.accountId])).toEqual([[debtCashIds.loan("d1"), "income", 1000, "revolut"]]);
+    expect(drift.remove).toEqual([]);
+  });
+
+  it("corrects a repayment left at its old figure or on its old card", () => {
+    const stale = right.map((tx) => (tx.id === debtCashIds.principal("p1") ? { ...tx, amount: 80, accountId: "revolut" } : tx));
+    expect(debtCashDrift([loan], stale, NOW).records.map((r) => [r.id, r.amount, r.accountId])).toEqual([[debtCashIds.principal("p1"), 100, "eurobank"]]);
+  });
+
+  it("takes out the money of a debt that is gone — and never touches other records", () => {
+    const drift = debtCashDrift([], [...right, other], NOW);
+    expect(drift.records).toEqual([]);
+    expect(drift.remove.sort()).toEqual([debtCashIds.loan("d1"), debtCashIds.principal("p1")].sort());
+    expect(drift.remove).not.toContain("t-food");
+  });
+
+  it("reads the main account written as nothing and as an empty card alike", () => {
+    const main = status(debt({ accountId: "" }), []);
+    const written = debtCashRecords(main, NOW).records.map(asTx).map((tx) => ({ ...tx, accountId: "" }));
+    expect(debtCashDrift([main], written, NOW).records).toEqual([]);
   });
 });

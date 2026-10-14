@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import IncomeQuickView from "../incomes/components/IncomeQuickView";
-import { Alert, Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
+import { Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 
@@ -325,7 +325,9 @@ export function PlannerPage() {
     setEditor(null);
   };
 
-  if (txLoading || goalLoading || billLoading || openingLoading || incomesLoading) {
+  // Failed, the page keeps its skeleton while it is tried again; the bar over
+  // every page says so (`LoadErrorBar`).
+  if (txLoading || goalLoading || billLoading || openingLoading || incomesLoading || isError) {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -345,16 +347,6 @@ export function PlannerPage() {
             <SkeletonChartCard height={260} />
           </Col>
         </Row>
-      </PageShell>
-    );
-  }
-
-  if (isError) {
-    return (
-      <PageShell>
-        <Alert color="danger" className="small">
-          {t("common.failedToLoad")}
-        </Alert>
       </PageShell>
     );
   }

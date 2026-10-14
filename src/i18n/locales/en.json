@@ -45,7 +45,10 @@
     "offlineBulk": "Marking several at once waits for a connection — it cannot be judged against an offline copy.",
     "deleteConfirmTitle": "Delete?",
     "deleteConfirmBody": "It will be deleted for good. This can't be undone.",
-    "deleteConfirmNamed": "“{{name}}” will be deleted for good. This can't be undone."
+    "deleteConfirmNamed": "“{{name}}” will be deleted for good. This can't be undone.",
+    "loadFailedRetrying": "Some data didn't load — trying again on its own.",
+    "retryNow": "Try now",
+    "retrying": "Loading…"
   },
   "nav": {
     "groupStanding": "Where you stand",
@@ -2090,7 +2093,10 @@
     "moneyMovedIn": "Money went into a card or cash",
     "moneyMovedOut": "Money left a card or cash",
     "noMoneyHint": "Only the debt is recorded — no card changes. Say, they owe you for something you paid earlier, or it was settled without money.",
-    "noMoney": "No money moved"
+    "noMoney": "No money moved",
+    "saveFailed": "Not saved. Check your connection and try again.",
+    "deleteFailed": "Not deleted. Check your connection and try again.",
+    "moneyLater": "Saved. The card's record isn't written yet — it puts itself right the next time you open Debts."
   },
   "statement": {
     "title": "Statement",

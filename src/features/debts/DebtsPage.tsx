@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Alert, Button } from "reactstrap";
+import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
 import { FiPlus } from "react-icons/fi";
 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useDebts } from "./useDebts";
+import { useDebts, useHealDebtCash } from "./useDebts";
+import { useTransactions } from "../transactions/hooks/useTransactions";
 import { debtTotals, debtsByPerson } from "./debtsUtils";
 import PersonDebtsModal from "./PersonDebtsModal";
 import AddDebtModal from "./AddDebtModal";
@@ -25,7 +26,10 @@ export function DebtsPage() {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency } = useCurrencyConverter();
 
-  const { data: debts = [], isLoading, isError, error } = useDebts();
+  const debtsQuery = useDebts();
+  const { data: debts = [], isLoading } = debtsQuery;
+  // Money a lost signal left out of step with its debt, put right on arrival.
+  useHealDebtCash(debtsQuery, useTransactions());
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -72,12 +76,6 @@ export function DebtsPage() {
           take away the button that writes, and the first thing a new collection
           does is fail here until its rules are published. The code is shown
           because "permission-denied" and "unavailable" need different fixes. */}
-      {isError && (
-        <Alert color="danger" className="small">
-          <div>{t("debts.loadFailed")}</div>
-          {error instanceof Error && error.message && <div className="mt-1 font-monospace" style={{ fontSize: 11 }}>{error.message}</div>}
-        </Alert>
-      )}
 
       <div className={styles.totals}>
         <div className={`${styles.total} ${styles.totalOut}`}>

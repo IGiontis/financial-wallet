@@ -1,3 +1,4 @@
+import { installQueryAutoRetry } from "./queryAutoRetry";
 import { QueryClient } from "@tanstack/react-query";
 
 // Firestore bills per document read, and this app runs on the free tier. The
@@ -31,3 +32,6 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// A load that failed is tried again on its own — see `queryAutoRetry`.
+installQueryAutoRetry(queryClient);

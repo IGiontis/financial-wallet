@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { PageShell } from "../../../shared/components/PageShell";
+import { SkeletonCard, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { categoryLabel, findCategory } from "../../../shared/utils/categories";
@@ -206,6 +207,9 @@ export function LedgerPage() {
       </div>
 
       {/* The stretch in four figures. */}
+      {isLoading ? (
+        <SkeletonStats />
+      ) : (
       <div className={styles.sums}>
         <div className={styles.sum}>
           <span className={styles.sumLabel}>{t("ledger.in")}</span>
@@ -231,11 +235,18 @@ export function LedgerPage() {
           <span className={styles.sumSub}>{t("ledger.count", { count: ledger.count })}</span>
         </div>
       </div>
+      )}
 
       <div className={styles.body}>
         <div className={styles.list}>
           {isLoading ? (
-            <p className="small text-body-secondary">{t("common.loading")}</p>
+            <>
+              {[0, 1, 2].map((i) => (
+                <SkeletonCard key={i} className="mb-3">
+                  <SkeletonRows count={3} />
+                </SkeletonCard>
+              ))}
+            </>
           ) : ledger.count === 0 ? (
             <p className={styles.empty}>{t("ledger.empty")}</p>
           ) : (

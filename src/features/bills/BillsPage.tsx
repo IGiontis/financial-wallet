@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
@@ -1196,7 +1196,6 @@ export default function BillsPage() {
           </Col>
         </Row>
       )}
-      {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
       {!isLoading && !isError && (
         <Row className="g-3 g-lg-4">

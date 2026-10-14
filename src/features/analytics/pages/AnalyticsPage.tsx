@@ -215,7 +215,9 @@ export function AnalyticsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (isLoading) {
+  // Failed, the page keeps its skeleton while it is tried again; the bar over
+  // every page says so (`LoadErrorBar`).
+  if (isLoading || isError) {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -226,16 +228,6 @@ export function AnalyticsPage() {
             </div>
           ))}
         </div>
-      </PageShell>
-    );
-  }
-
-  if (isError) {
-    return (
-      <PageShell>
-        <Alert color="danger" className="small">
-          {t("common.failedToLoad")}
-        </Alert>
       </PageShell>
     );
   }

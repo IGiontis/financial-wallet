@@ -105,3 +105,51 @@ export function debtCashRecords(debt: DebtWithStatus, now: Date = new Date()): {
   ).filter((id) => !wanted.has(id));
   return { records, remove };
 }
+
+const DEBT_CASH_ID = /^debt(pay|int)?_/;
+const sameDay = (a: unknown, b: unknown) => {
+  const x = firestoreToDate(a as Date);
+  const y = firestoreToDate(b as Date);
+  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
+};
+
+/**
+ * Where the transactions on hand have drifted from what the debts say they
+ * should be — and the writes that put them back.
+ *
+ * Every debt write is two writes: the debt or repayment, then its money (see
+ * `syncDebtCash`). A phone that loses its signal between the two leaves a loan
+ * with no money in the card, a corrected repayment with the old figure, or the
+ * money of a deleted loan still sitting in an account. Nothing re-ran the
+ * second write afterwards. This finds every such difference from what is
+ * already loaded — no reads — so opening the Debts page puts it right.
+ *
+ * Compared on what a figure depends on: side, amount, card, day, part. A
+ * transaction whose debt no longer exists is removed, as deleting the debt
+ * would have done.
+ */
+export function debtCashDrift(debts: DebtWithStatus[], transactions: Pick<TransactionLike, "id" | "type" | "amount" | "accountId" | "date" | "debtId" | "debtPart">[], now: Date = new Date()): { records: DebtCashRecord[]; remove: string[] } {
+  const have = new Map(transactions.filter((tx) => DEBT_CASH_ID.test(tx.id)).map((tx) => [tx.id, tx]));
+  const records: DebtCashRecord[] = [];
+  const wanted = new Set<string>();
+
+  for (const debt of debts) {
+    for (const record of debtCashRecords(debt, now).records) {
+      wanted.add(record.id);
+      const tx = have.get(record.id);
+      const same =
+        tx &&
+        tx.type === record.type &&
+        round2(Math.abs(tx.amount)) === record.amount &&
+        (tx.accountId || undefined) === record.accountId &&
+        tx.debtPart === record.debtPart &&
+        sameDay(tx.date, record.date);
+      if (!same) records.push(record);
+    }
+  }
+
+  const remove = [...have.keys()].filter((id) => !wanted.has(id));
+  return { records, remove };
+}
+
+type TransactionLike = { id: string; type: string; amount: number; accountId?: string; date: unknown; debtId?: string; debtPart?: DebtCashPart };

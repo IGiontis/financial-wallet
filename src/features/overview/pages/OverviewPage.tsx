@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
-import { Row, Col, Card, CardBody, Progress, Alert } from "reactstrap";
+import { Row, Col, Card, CardBody, Progress } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
@@ -351,7 +351,9 @@ export const OverviewPage = () => {
     />
   );
 
-  if (txLoading) {
+  // Failed, the page keeps its skeleton while it is tried again; the bar over
+  // every page says so (`LoadErrorBar`).
+  if (txLoading || txError) {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -367,16 +369,6 @@ export const OverviewPage = () => {
             </SkeletonCard>
           </Col>
         </Row>
-      </PageShell>
-    );
-  }
-
-  if (txError) {
-    return (
-      <PageShell>
-        <Alert color="danger" className="small">
-          {t("common.failedToLoad")}
-        </Alert>
       </PageShell>
     );
   }

@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Button, Col, Row } from "reactstrap";
+import { Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
 import { GoalStacks } from "./components/GoalStacks";
@@ -307,7 +307,6 @@ export default function InvestmentsPage() {
         onView={setView}
       >
         {isLoading && <SkeletonCardGrid count={6} />}
-        {isError && <Alert color="danger">{t("common.failedToLoad")}</Alert>}
 
         {!isLoading && !isError && (
           <>
