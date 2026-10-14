@@ -2080,7 +2080,11 @@
       "after": "Owed after",
       "remains": "{{amount}} left",
       "cleared": "Paid off"
-    }
+    },
+    "moneyMovedIn": "Money went into a card or cash",
+    "moneyMovedOut": "Money left a card or cash",
+    "noMoneyHint": "Only the debt is recorded — no card changes. Say, they owe you for something you paid earlier, or it was settled without money.",
+    "noMoney": "No money moved"
   },
   "statement": {
     "title": "Statement",

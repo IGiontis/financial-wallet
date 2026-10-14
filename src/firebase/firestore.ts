@@ -717,8 +717,10 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 };
 
 /** Correcting a repayment typed wrong: the amount, the day, or both. */
-export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string }) => {
-  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...(data.accountId !== undefined ? { accountId: data.accountId } : {}) });
+/** `accountId: null` takes the card off — a repayment that moved no money. */
+export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null }) => {
+  const account = data.accountId === null ? { accountId: deleteField() } : data.accountId !== undefined ? { accountId: data.accountId } : {};
+  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account });
 };
 
 export const deleteDebtPayment = async (paymentId: string) => {

@@ -5,7 +5,7 @@ import { DateField } from "../../shared/components/DateField";
 import { parseISODay, toISODay } from "../../shared/utils/dates";
 import { formatTable } from "../transactions/transactionDates";
 import { WizardSteps } from "../transactions/components/WizardSteps";
-import AccountPicker from "../accounts/AccountPicker";
+import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { mainAccount } from "../accounts/accountsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
@@ -42,8 +42,11 @@ export default function RepaymentWizard({
   const [step, setStep] = useState<Step>("1");
   const [amount, setAmount] = useState(String(suggested));
   const [date, setDate] = useState(() => toISODay(new Date()));
-  // The card the debt itself went through is the likeliest one for paying it back.
-  const [account, setAccount] = useState(debt.accountId ?? "");
+  // The card the debt itself went through is the likeliest one for paying it
+  // back. A debt that moved no money still starts as money moving: someone who
+  // owes you for a dinner you paid usually pays you back in money. Switched off
+  // only when it was settled some other way.
+  const [account, setAccount] = useState<string | undefined>(debt.accountId ?? "");
   const [tried, setTried] = useState(false);
 
   const value = parseFloat(amount);
@@ -67,6 +70,7 @@ export default function RepaymentWizard({
 
   const preview = amountOk && when ? previewRepayment(debt, value, when) : undefined;
   const cardName = (() => {
+    if (account === undefined) return t("debts.noMoney");
     const named = accounts.find((a) => a.id === account);
     if (named) return named.name;
     const main = mainAccount(accounts);
@@ -148,7 +152,7 @@ export default function RepaymentWizard({
             </FormGroup>
           )}
 
-          {step === "3" && <AccountPicker value={account} onChoose={setAccount} income={!borrowed} />}
+          {step === "3" && <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} />}
 
           {step === "4" && (
             <>

@@ -690,6 +690,8 @@ describe("debtEdit", () => {
     interestRate: 7,
     termMonths: 60,
     interestFreeMonths: 3,
+    // Through the main account: money moved.
+    accountId: "",
   };
 
   it("writes every field the form filled in", () => {
@@ -706,6 +708,15 @@ describe("debtEdit", () => {
     expect(clear).toEqual(expect.arrayContaining(["interestRate", "termMonths", "interestFreeMonths", "rateType", "baseRate", "margin", "rateReviewedAt"]));
     expect(set).not.toHaveProperty("interestRate");
     expect(set).not.toHaveProperty("termMonths");
+  });
+
+  it("takes the card off when no money moved, so its transaction goes too", () => {
+    const { set, clear } = debtEdit({ ...loan, accountId: undefined });
+
+    expect(clear).toContain("accountId");
+    expect(set).not.toHaveProperty("accountId");
+    // And keeps it — the main account, "" — when money did move.
+    expect(debtEdit(loan).set).toHaveProperty("accountId", "");
   });
 
   it("clears a label or a due date that was emptied", () => {

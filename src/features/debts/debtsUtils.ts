@@ -534,7 +534,9 @@ export function rateOutlook(debt: DebtWithStatus, deltaPoints: number, asOf: Dat
  * `notes` is deliberately not here: the form has no field for it, so an edit
  * has no business deciding it should be gone.
  */
-export const DEBT_FORM_OPTIONAL_FIELDS = ["label", "dueDate", "interestRate", "termMonths", "interestFreeMonths", "rateType", "baseRate", "margin", "rateReviewedAt"] as const;
+// `accountId` among them: switching "money moved" off on a saved debt has to
+// take the card off it, or its transaction is written again on the next sync.
+export const DEBT_FORM_OPTIONAL_FIELDS = ["label", "dueDate", "interestRate", "termMonths", "interestFreeMonths", "rateType", "baseRate", "margin", "rateReviewedAt", "accountId"] as const;
 
 type DebtFormOptionalField = (typeof DEBT_FORM_OPTIONAL_FIELDS)[number];
 

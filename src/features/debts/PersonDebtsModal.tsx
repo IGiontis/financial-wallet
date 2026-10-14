@@ -14,7 +14,7 @@ import segmented from "../../shared/css/Segmented.module.css";
 import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
-import AccountPicker from "../accounts/AccountPicker";
+import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import RepaymentWizard from "./RepaymentWizard";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
@@ -183,7 +183,7 @@ function PaymentPanel({
   date: string;
   /** The card or cash it went through; "" for no particular one. Undefined: an older repayment that names none. */
   account: string | undefined;
-  onAccount: (id: string) => void;
+  onAccount: (id: string | undefined) => void;
   /** Money coming in (repaid to me) rather than going out — the picker words itself to match. */
   income: boolean;
   saving: boolean;
@@ -229,13 +229,12 @@ function PaymentPanel({
         </div>
       </div>
       {/* Which card it left or reached, as on any transaction — it moves that
-          card. An older repayment that names none moves nothing until one is
-          chosen here. */}
+          card. Or none: settled without money changing hands. */}
       <div className={styles.paymentAccount} role="group" aria-labelledby={accountLabelId}>
         <div id={accountLabelId} className={styles.paymentAccountLabel}>
           {t(income ? "debts.paidInto" : "debts.paidFrom")}
         </div>
-        <AccountPicker value={account ?? ""} onChoose={onAccount} income={income} />
+        <MoneyMovedPicker value={account} onChange={onAccount} income={income} />
       </div>
       <div className={styles.paymentButtons}>
         <Button color="primary" size="sm" onClick={onSave} disabled={saving || !valid}>
@@ -491,7 +490,8 @@ export default function PersonDebtsModal({
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
 
-    updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount }, { onSuccess: () => setPanel(null) });
+    // `null` when switched off, so the card it had is taken off rather than kept.
+    updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? null }, { onSuccess: () => setPanel(null) });
   };
 
   const deletePanelPayment = () => {

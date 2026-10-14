@@ -11,7 +11,7 @@ import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
 import { parseISODay, toISODay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
-import AccountPicker from "../accounts/AccountPicker";
+import { MoneyMovedPicker } from "./MoneyMovedPicker";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -67,8 +67,8 @@ export default function AddDebtModal({
   const [free, setFree] = useState(asInput(debt?.interestFreeMonths));
   const [touched, setTouched] = useState(false);
   // Where the money went or came from. A new debt starts on "no particular
-  // card" (the main account) and moves money; one saved before this existed
-  // names none, and keeps moving nothing until a card is chosen here.
+  // card" (the main account) and moves money; `undefined` is a debt with no
+  // money handed over — switched off below, or one saved before cards existed.
   const [account, setAccount] = useState<string | undefined>(debt ? debt.accountId : "");
 
   const value = parseFloat(amount);
@@ -310,7 +310,7 @@ export default function AddDebtModal({
               neither income nor spending. */}
           <FormGroup>
             <Label className="small fw-medium">{t(direction === "owed_by_me" ? "debts.loanInto" : "debts.loanFrom")}</Label>
-            <AccountPicker value={account ?? ""} onChoose={setAccount} income={direction === "owed_by_me"} />
+            <MoneyMovedPicker value={account} onChange={setAccount} income={direction === "owed_by_me"} />
           </FormGroup>
 
           <FormGroup className="mb-0">
