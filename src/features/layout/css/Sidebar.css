@@ -1117,6 +1117,12 @@
   font-weight: 500;
 }
 
+/* Each page with a small icon of its own, a little under the item's. */
+.sidebar .sidebar-sub .sidebar-subicon {
+  width: 15px;
+  height: 15px;
+}
+
 @media (max-width: 991.98px) {
   .sidebar .sidebar-sub .sidebar-sublink {
     height: 40px;
@@ -1161,7 +1167,9 @@
 }
 
 .sidebar-flyout-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   padding: 8px 10px;
   border-radius: 7px;
   color: rgba(232, 237, 244, 0.92);
@@ -1177,7 +1185,18 @@
   color: #fff;
 }
 
+.sidebar-flyout-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  opacity: 0.75;
+}
+
 .sidebar-flyout-link.active {
   color: #7fb0ff;
   font-weight: 600;
+}
+
+.sidebar-flyout-link.active .sidebar-flyout-icon {
+  opacity: 1;
 }

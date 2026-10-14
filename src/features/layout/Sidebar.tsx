@@ -8,7 +8,7 @@ import { useProfile } from "./useProfile";
 import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -41,6 +41,7 @@ interface NavItemProp {
 interface NavChild {
   path: string;
   label: string;
+  icon?: IconType;
 }
 
 /** Whether a child is the page on screen: its own path exactly, or a page under it. */
@@ -220,6 +221,7 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
           {item.children.map((child) => (
             <li key={child.path} className="nav-item">
               <NavLink to={child.path} end onClick={onNavigate} className={({ isActive }) => `nav-link sidebar-link sidebar-sublink ${isActive ? "nav-link-current" : ""}`}>
+                {child.icon && <child.icon className="nav-icon sidebar-subicon" aria-hidden />}
                 <span className="nav-label">{child.label}</span>
               </NavLink>
             </li>
@@ -236,6 +238,7 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
               {item.children.map((child) => (
                 <li key={child.path} className="nav-item">
                   <NavLink to={child.path} end onClick={leave} className={({ isActive }) => `sidebar-flyout-link ${isActive ? "active" : ""}`}>
+                    {child.icon && <child.icon className="sidebar-flyout-icon" aria-hidden />}
                     {child.label}
                   </NavLink>
                 </li>
@@ -311,10 +314,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           icon: FiCreditCard,
           // Adding first: it is the thing done most often, and now a page of its own.
           children: [
-            { path: "/transactions/new", label: t("nav.newTransaction") },
-            { path: "/transactions", label: t("nav.allTransactions") },
+            { path: "/transactions/new", label: t("nav.newTransaction"), icon: FiPlusCircle },
+            { path: "/transactions", label: t("nav.allTransactions"), icon: FiList },
             // To read only: dense, by day, the month as it happened.
-            { path: "/transactions/ledger", label: t("nav.ledger") },
+            { path: "/transactions/ledger", label: t("nav.ledger"), icon: FiBookOpen },
           ],
         },
         // Money in before money out. Amber rather than red: a late income is
