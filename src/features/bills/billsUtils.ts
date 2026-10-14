@@ -1904,3 +1904,30 @@ export function heaviestMonth(months: MonthAhead[]): MonthAhead | undefined {
   const heaviest = months.reduce<MonthAhead | undefined>((worst, month) => (!worst || month.total > worst.total ? month : worst), undefined);
   return heaviest && heaviest.total > 0 ? heaviest : undefined;
 }
+
+// ─── Comes back or not ───────────────────────────────────────────────────────
+
+/**
+ * Whether a bill will ask to be paid again: active, with a next due date, and
+ * that date not inside a pause with no end — a subscription cancelled after
+ * its last month is paid and done, not "next due in November".
+ */
+export function willBePaidAgain(bill: BillWithStatus, now: Date = new Date()): boolean {
+  if (!bill.isActive || !bill.nextDueDate) return false;
+  if (currentPause(bill, now)?.state === "ended") return false;
+  const openEnded = !!bill.pause && bill.pause.to === undefined;
+  return !(openEnded && isPausedOn(bill, firestoreToDate(bill.nextDueDate)));
+}
+
+/**
+ * The paid bills in the order the cards show them: what comes back first, the
+ * soonest due at the top; then what will not be paid again, most recently
+ * settled first.
+ */
+export function settledForCards(bills: BillWithStatus[], now: Date = new Date()): BillWithStatus[] {
+  const due = (b: BillWithStatus) => (b.nextDueDate ? firestoreToDate(b.nextDueDate).getTime() : Number.MAX_SAFE_INTEGER);
+  const last = (b: BillWithStatus) => (b.lastPaidDate ? firestoreToDate(b.lastPaidDate).getTime() : 0);
+  const again = bills.filter((b) => willBePaidAgain(b, now)).sort((a, b) => due(a) - due(b));
+  const done = bills.filter((b) => !willBePaidAgain(b, now)).sort((a, b) => last(b) - last(a));
+  return [...again, ...done];
+}

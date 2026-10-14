@@ -549,6 +549,17 @@
   border-color: transparent;
 }
 
+/* Paid and not coming back: further back still than a paid card. */
+.billCardDone {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+.billCardDone:hover,
+.billCardDone:focus-visible {
+  opacity: 0.8;
+}
+
 .billCardPaid .cardName,
 .billCardPaid .metricValue,
 .billCardPaused .cardName,

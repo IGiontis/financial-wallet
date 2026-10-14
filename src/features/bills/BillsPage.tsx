@@ -42,6 +42,8 @@ import {
   yearAhead,
   type MonthChip,
   type MonthForecast,
+  settledForCards,
+  willBePaidAgain,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
 import { standaloneMonthName } from "../../shared/utils/dates";
@@ -797,12 +799,15 @@ function BillCard({
   formatCurrency,
   onOpenDetails,
   now,
+  done = false,
 }: {
   bill: BillWithStatus;
   category: Category | undefined;
   formatCurrency: (n: number) => string;
   onOpenDetails: (b: BillWithStatus) => void;
   now: Date;
+  /** Paid and not coming back: greyed, at the foot of the paid ones. */
+  done?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   // Settled means this period paid and nothing earlier still owed. A card paid
@@ -821,7 +826,7 @@ function BillCard({
 
   return (
     <div
-      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""}`}
+      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -1307,8 +1312,18 @@ export default function BillsPage() {
                       })
                     ) : (
                       <div className="d-flex flex-column gap-2">
-                        {section.bills.map((bill) => (
-                          <BillCard key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+                        {/* The paid ones as cards: what comes back first, soonest
+                            due at the top; what will not be paid again greyed, last. */}
+                        {(section.key === "settled" ? settledForCards(section.bills, now) : section.bills).map((bill) => (
+                          <BillCard
+                            key={bill.id}
+                            bill={bill}
+                            category={categoryFor(bill.categoryId)}
+                            formatCurrency={formatCurrency}
+                            onOpenDetails={setDetailBill}
+                            now={now}
+                            done={section.key === "settled" && !willBePaidAgain(bill, now)}
+                          />
                         ))}
                       </div>
                     )}
