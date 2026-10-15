@@ -996,7 +996,9 @@
       "into": "Went into",
       "outOf": "Came out of",
       "recorded": "Recorded",
-      "mainCard": "{{name}} (main)"
+      "mainCard": "{{name}} (main)",
+      "givenFrom": "Given",
+      "returnedInto": "Given back"
     }
   },
   "analytics": {
@@ -2097,7 +2099,13 @@
     "noMoney": "No money moved",
     "saveFailed": "Not saved. Check your connection and try again.",
     "deleteFailed": "Not deleted. Check your connection and try again.",
-    "moneyLater": "Saved. The card's record isn't written yet — it puts itself right the next time you open Debts."
+    "moneyLater": "Saved. The card's record isn't written yet — it puts itself right the next time you open Debts.",
+    "viewLabel": "View",
+    "viewOne": "One at a time",
+    "viewColumns": "Columns",
+    "colOpen": "Open: {{name}}",
+    "colLeftAfter": "{{amount}} left",
+    "colRecorded": "recorded {{when}}"
   },
   "statement": {
     "title": "Statement",

@@ -75,6 +75,20 @@ export default function TransactionViewModal({
       ? new Intl.DateTimeFormat(lang, sameDay ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(created)
       : undefined;
   const isGoal = !!tx.isGoalTransaction;
+  /**
+   * The card, said the way the money moved. A goal's money kept in your own
+   * bank never left it: "kept in". Handed to someone (`heldBy`) it did leave —
+   * "given from Eurobank → Athanasia" — and given back, it came into a card.
+   */
+  const goalAccount = (name: string) => {
+    if (isGoal && tx.heldBy) {
+      return tx.contributionType === "withdrawal"
+        ? { label: t("transactions.view.returnedInto"), name: `${tx.heldBy} → ${name}` }
+        : { label: t("transactions.view.givenFrom"), name: `${name} → ${tx.heldBy}` };
+    }
+    if (isGoal) return { label: t("goalWizard.rowHeldIn"), name };
+    return { label: t(isPositive ? "transactions.view.into" : "transactions.view.outOf"), name };
+  };
   const isInvestment = !!tx.isInvestmentTransaction && !isGoal;
   const isPositive =
     isGoal || isInvestment
@@ -189,8 +203,7 @@ export default function TransactionViewModal({
           hideCategoryLabel={isGoal || isInvestment}
           gradientFrom={gradientFrom}
           gradientTo={gradientTo}
-          // A goal's money stays in its bank, set aside: neither into it nor out of it.
-          account={accountName ? { label: t(isGoal ? "goalWizard.rowHeldIn" : isPositive ? "transactions.view.into" : "transactions.view.outOf"), name: accountName } : undefined}
+          account={accountName ? goalAccount(accountName) : undefined}
           recordedAt={recordedAt}
         />
         {/* A loan's money: written by the debt and kept in step with it. */}

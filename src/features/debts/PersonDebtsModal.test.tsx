@@ -428,3 +428,66 @@ describe("the total with one person", () => {
     expect(screen.queryByText(/All together/)).not.toBeInTheDocument();
   });
 });
+
+describe("every loan as columns", () => {
+  const column = (name: string) => screen.getByRole("region", { name });
+  const toColumns = () => userEvent.click(screen.getByRole("button", { name: "Columns" }));
+
+  beforeEach(() => localStorage.clear());
+
+  it("has no choice to make with a single loan", () => {
+    renderSheet([rent]);
+
+    expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
+  });
+
+  it("puts each loan in a column of its own: every payment newest first, what was left after it, and where it began", async () => {
+    renderSheet();
+    await toColumns();
+
+    const rows = within(column("March rent")).getAllByRole("listitem").map((row) => row.textContent ?? "");
+    // 500 − 120 = 380, then − 80 = 300: each row's figure is the one above less its payment.
+    expect(rows).toEqual([
+      expect.stringMatching(/€80\.00.*€300\.00 left/),
+      expect.stringMatching(/€120\.00.*€380\.00 left/),
+      expect.stringMatching(/You took.*€500\.00/),
+    ]);
+    // And the newest row is what the head says is left.
+    expect(within(column("March rent")).getByText("€300.00")).toBeInTheDocument();
+
+    // The loan's own split, the same as the one-at-a-time sheet shows.
+    const split = loanSplits(nikos([car]).debts[0])!.get("c3")!;
+    expect(within(column("Car")).getAllByRole("listitem")[0]).toHaveTextContent(`€${split.principal.toFixed(2)} off the debt · €${split.interest.toFixed(2)} interest`);
+    expect(column("Concert tickets")).toHaveTextContent("Settled");
+  });
+
+  it("records against the column's own loan, not the one that was in front", async () => {
+    renderSheet();
+    await toColumns();
+    // The sheet opened on the rent; the footer's button is gone, each column has its own.
+    expect(screen.queryByRole("button", { name: /Pay €/ })).not.toBeInTheDocument();
+
+    await userEvent.click(within(column("Car")).getByRole("button", { name: "Payment" }));
+    const wizard = screen.getAllByRole("dialog").at(-1)!;
+    expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
+  });
+
+  it("opens a loan one at a time from its column's head", async () => {
+    renderSheet();
+    await toColumns();
+
+    await userEvent.click(screen.getByRole("button", { name: "Open: Car" }));
+
+    expect(within(screen.getByRole("group", { name: "Loans" })).getByRole("button", { pressed: true })).toHaveTextContent(/^Car/);
+    expect(screen.getByRole("button", { name: "One at a time" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("remembers columns for next time", async () => {
+    const first = renderSheet();
+    await toColumns();
+    first.unmount();
+
+    renderSheet();
+    expect(screen.getByRole("region", { name: "Car" })).toBeInTheDocument();
+  });
+});

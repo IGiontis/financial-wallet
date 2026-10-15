@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiEdit2, FiPlus, FiX } from "react-icons/fi";
+import { FiColumns, FiEdit2, FiPlus, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
@@ -16,6 +16,8 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import RepaymentWizard from "./RepaymentWizard";
+import { LoanColumns } from "./LoanColumns";
+import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -388,6 +390,11 @@ export default function PersonDebtsModal({
   const debt = loans.find((d) => d.id === pickedId) ?? loans[0];
 
   const [tab, setTab] = useState<SheetTab>("pays");
+  // One loan at a time, or every loan side by side as columns. Remembered,
+  // since whoever reads it as columns will want it that way next time too.
+  const [view, setView] = useLocalStorage<"one" | "columns">("debts-sheet-view", "one");
+  // With a single loan there is nothing to put side by side.
+  const asColumns = view === "columns" && loans.length > 1;
   // One panel open at a time: a new payment and a correction open together is
   // two half-finished forms and no way to tell which Save is which.
   const [panel, setPanel] = useState<{ kind: "edit"; payment: DebtPayment } | null>(null);
@@ -473,6 +480,32 @@ export default function PersonDebtsModal({
     setRecording(instalmentDue ?? debt.remaining);
   };
 
+  const shownView = asColumns ? "columns" : "one";
+  const viewToggle = loans.length > 1 && (
+    <div className={`${segmented.group} ${styles.viewToggle}`} role="group" aria-label={t("debts.viewLabel")}>
+      {(["one", "columns"] as const).map((id) => (
+        <button key={id} type="button" className={`${segmented.item} ${shownView === id ? segmented.active : ""}`} aria-pressed={shownView === id} onClick={() => setView(id)}>
+          {id === "one" ? <FiSquare size={13} aria-hidden /> : <FiColumns size={13} aria-hidden />} {t(id === "one" ? "debts.viewOne" : "debts.viewColumns")}
+        </button>
+      ))}
+    </div>
+  );
+
+  // From a column: that loan in front, one at a time, where it can be corrected.
+  const openFromColumn = (d: DebtWithStatus) => {
+    pick(d.id);
+    setTab("pays");
+    setView("one");
+  };
+
+  // From a column: the wizard for that loan, over the columns. Picked first,
+  // so the wizard and the figure it opens with are that loan's.
+  const recordFromColumn = (d: DebtWithStatus) => {
+    pick(d.id);
+    const state = loanState(d);
+    setRecording(state ? Math.min(state.instalment, d.remaining) : d.remaining);
+  };
+
   const openEdit = (payment: DebtPayment) => {
     // Tapping the open one again closes it, like any other row that expands.
     if (panel?.payment.id === payment.id) {
@@ -556,8 +589,15 @@ export default function PersonDebtsModal({
         </span>
       </ModalHeader>
 
+      {asColumns ? (
+        <ModalBody className={styles.columnsBody}>
+          {viewToggle}
+          <LoanColumns loans={loans} formatCurrency={formatCurrency} locale={locale} onOpen={openFromColumn} onRecord={recordFromColumn} />
+        </ModalBody>
+      ) : (
       <ModalBody className={styles.sheetBody}>
         <div className={styles.sheetLeft}>
+          {viewToggle}
           {/* Everything with this person added up — "how much have I borrowed
               from the bank, and how much of it is paid" — before any one loan. */}
           {loans.length > 1 && (
@@ -620,13 +660,6 @@ export default function PersonDebtsModal({
             ))}
           </dl>
 
-          {!debt.isSettled && (
-            <div className={styles.cta}>
-              <Button color="primary" className="w-100" onClick={openRecord}>
-                <FiPlus size={16} aria-hidden /> {ctaLabel}
-              </Button>
-            </div>
-          )}
         </div>
 
         <div className={styles.sheetRight}>
@@ -729,6 +762,19 @@ export default function PersonDebtsModal({
           </div>
         </div>
       </ModalBody>
+      )}
+
+      {/* The one thing to do, in the footer: always at the foot of the sheet,
+          outside what scrolls. Sticky inside the body it rode up with its
+          column on a phone, where the columns stack. */}
+      {/* As columns, each open loan has its own button at its head instead. */}
+      {!debt.isSettled && !asColumns && (
+        <ModalFooter className={styles.ctaFooter}>
+          <Button color="primary" className="w-100" onClick={openRecord}>
+            <FiPlus size={16} aria-hidden /> {ctaLabel}
+          </Button>
+        </ModalFooter>
+      )}
 
       {modals}
 
