@@ -189,7 +189,8 @@ export default function TransactionViewModal({
           hideCategoryLabel={isGoal || isInvestment}
           gradientFrom={gradientFrom}
           gradientTo={gradientTo}
-          account={accountName ? { label: t(isPositive ? "transactions.view.into" : "transactions.view.outOf"), name: accountName } : undefined}
+          // A goal's money stays in its bank, set aside: neither into it nor out of it.
+          account={accountName ? { label: t(isGoal ? "goalWizard.rowHeldIn" : isPositive ? "transactions.view.into" : "transactions.view.outOf"), name: accountName } : undefined}
           recordedAt={recordedAt}
         />
         {/* A loan's money: written by the debt and kept in step with it. */}

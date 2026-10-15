@@ -19,9 +19,8 @@ import { groupGoals } from "../budget/components/goalGrouping";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import type { GoalView } from "../budget/components/GoalStacks";
 import type { GoalGroupBy } from "../budget/components/goalGrouping";
-import AddDepositModal from "../budget/AddDepositModal";
+import ContributionWizard from "../budget/ContributionWizard";
 import { SkeletonCardGrid, SkeletonStats } from "../../shared/components/Skeletons";
-import WithdrawModal from "../budget/WithdrawModal";
 import AddNewGoalModal from "../budget/AddNewGoalModal";
 import EditGoalModal from "../budget/EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
@@ -297,8 +296,8 @@ export default function GoalsPage() {
 
       {/* Modals */}
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
-      {depositGoal && <AddDepositModal goal={depositGoal} isOpen onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
-      {withdrawGoal && <WithdrawModal goal={withdrawGoal} isOpen onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
+      {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
+      {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*

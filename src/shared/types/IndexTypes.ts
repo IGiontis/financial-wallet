@@ -344,6 +344,12 @@ export interface CreateInvestmentContributionDTO {
   contributionType: ContributionType;
   date: Date;
   notes?: string;
+  /**
+   * The card: for a savings goal, the bank the money is kept in (its balance
+   * does not change); for an investment, the one it left or came back into.
+   * Absent for the main account, as on any transaction.
+   */
+  accountId?: string;
 }
 
 export interface UpdateInvestmentContributionDTO {

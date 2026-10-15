@@ -182,6 +182,7 @@ const mirrorOf = ({ data, goalName, isGoalTransaction = false }: AddContribution
   goalId: data.goalId,
   goalName,
   contributionType: data.contributionType,
+  accountId: data.accountId,
 });
 
 /** One pair of ids per save, shared by the optimistic rows and the write — see `idsFor`. */
