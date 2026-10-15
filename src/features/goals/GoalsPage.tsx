@@ -14,8 +14,6 @@ import { Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, HistoryModal } from "../budget/components/InvestmentsShared";
 import { GoalDeleteModal, type GoalEnding } from "../budget/components/GoalDeleteModal";
-import { useCreateTransaction } from "../transactions/hooks/useTransactions";
-import { toISODay, parseISODay } from "../../shared/utils/dates";
 import { GoalStacks } from "../budget/components/GoalStacks";
 import { GoalsWorkbench } from "../budget/components/GoalsWorkbench";
 import { groupGoals } from "../budget/components/goalGrouping";
@@ -28,7 +26,7 @@ import AddNewGoalModal from "../budget/AddNewGoalModal";
 import EditGoalModal from "../budget/EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
-import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
+import { useInvestmentGoals, useCreateGoal, useAddContribution, useCloseGoal, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
@@ -131,10 +129,10 @@ export default function GoalsPage() {
   const { format: formatCurrency } = useCurrencyConverter();
 
   const createGoalMutation = useCreateGoal();
-  const createExpense = useCreateTransaction();
   const updateGoalMutation = useUpdateGoal();
   const addContribution = useAddContribution();
   const deleteGoalMutation = useDeleteGoal();
+  const closeGoalMutation = useCloseGoal();
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -152,34 +150,32 @@ export default function GoalsPage() {
   const handleEditGoal = (goalId: string, data: UpdateInvestmentGoalDTO): Promise<void> =>
     saveWithoutWaiting(updateGoalMutation, { goalId, data }, () => toast.error(t("goals.updateFailed")));
 
-  // Deleted first — that needs the server — and only then, if the money was
-  // spent, its expense: a goal left standing beside an expense for the same
-  // money would count it twice.
+  // Given up on: the goal and every record of it go, so money handed to
+  // someone comes back to the card it left. Done: it is closed instead — the
+  // closing records and the deletion in one batch, its history kept.
   const handleDeleteGoal = (ending: GoalEnding) => {
     if (!deleteGoal) return;
     const goal = deleteGoal;
+    const failed = () => toast.error(t("goals.deleteFailed"));
+    if (ending.close) {
+      closeGoalMutation.mutate(
+        { goalId: goal.id, records: ending.close },
+        {
+          onSuccess: () => {
+            setDeleteGoal(null);
+            toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(goal.totalSaved), name: goal.name }));
+          },
+          onError: failed,
+        },
+      );
+      return;
+    }
     deleteGoalMutation.mutate(goal.id, {
       onSuccess: () => {
         setDeleteGoal(null);
-        if (!ending.spent) {
-          if (goal.totalSaved > 0) toast.success(t("goalDelete.doneDropped", { amount: formatCurrency(goal.totalSaved) }));
-          return;
-        }
-        void saveWithoutWaiting(
-          createExpense,
-          {
-            amount: goal.totalSaved,
-            type: "expense",
-            categoryId: ending.spent.categoryId,
-            date: parseISODay(toISODay(new Date()))!,
-            description: goal.name,
-            notes: t("goalWizard.fromGoal", { name: goal.name }),
-            accountId: ending.spent.accountId,
-          },
-          () => toast.error(t("transactions.saveFailed")),
-        );
-        toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(goal.totalSaved), name: goal.name }));
+        if (goal.totalSaved > 0) toast.success(t("goalDelete.doneDropped", { amount: formatCurrency(goal.totalSaved) }));
       },
+      onError: failed,
     });
   };
 
@@ -329,7 +325,7 @@ export default function GoalsPage() {
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
-      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
+      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
         defaultGoalType="targeted":
           - Hides the goal type selector (always targeted)

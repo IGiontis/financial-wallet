@@ -147,6 +147,13 @@ export interface Transaction {
   isGoalTransaction?: boolean;
   goalName?: string;
   contributionType?: "deposit" | "withdrawal";
+  /**
+   * A goal's money handed to someone to keep — the friend booking the trip.
+   * It has left your banks (the card it left goes down) but is still the
+   * goal's, not spent. Absent: the goal's money sits in your own bank, set
+   * aside. See `goalHeldDelta`.
+   */
+  heldBy?: string;
 }
 
 export interface CreateTransactionDTO {
@@ -168,6 +175,8 @@ export interface CreateTransactionDTO {
   incomeDue?: string;
   inReading?: boolean;
   accountId?: string;
+  /** See `Transaction.heldBy`. */
+  heldBy?: string;
 }
 
 export interface UpdateTransactionDTO {
@@ -334,6 +343,9 @@ export interface InvestmentContribution {
   contributionType: ContributionType;
   date: Date;
   notes?: string;
+  accountId?: string;
+  /** See `Transaction.heldBy`. */
+  heldBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -350,6 +362,8 @@ export interface CreateInvestmentContributionDTO {
    * Absent for the main account, as on any transaction.
    */
   accountId?: string;
+  /** Handed to this person to keep for the goal — see `Transaction.heldBy`. */
+  heldBy?: string;
 }
 
 export interface UpdateInvestmentContributionDTO {

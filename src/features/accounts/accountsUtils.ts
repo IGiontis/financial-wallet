@@ -65,9 +65,15 @@ export const STALE_AFTER_DAYS = 7;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Money into a savings goal, still in your banks: +in, −out. */
+/**
+ * Money into a savings goal, still in your banks: +in, −out.
+ *
+ * Not the goal's money handed to someone to keep (`heldBy`): that has left
+ * your banks — the card it left goes down, and it comes back to a card only
+ * when it is returned.
+ */
 export function goalHeldDelta(tx: Transaction): number {
-  if (!tx.isGoalTransaction) return 0;
+  if (!tx.isGoalTransaction || tx.heldBy) return 0;
   return tx.contributionType === "withdrawal" ? -tx.amount : tx.amount;
 }
 

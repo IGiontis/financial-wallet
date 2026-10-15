@@ -3,23 +3,25 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../i18n";
 import ContributionWizard from "./ContributionWizard";
-import type { InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import type { InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
-// Money into and out of a goal, step by step: Save only on the check, the card
-// on the record, and — out of a goal — kept, or spent with an expense beside it.
+// Money into and out of a savings goal. The owner's case: Eurobank 2.000 and
+// Revolut 900, read on the 14th; on the 15th, 500 from Eurobank handed to
+// Athanasia for the trip, and 200 of the goal kept in his own bank.
 
 const spies = vi.hoisted(() => ({ expense: vi.fn() }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, convertToBase: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
 }));
+const holdings = vi.hoisted(() => ({ transactions: [] as unknown[] }));
 vi.mock("../accounts/useMoneyAccounts", () => {
   const accounts = [
     { id: "eurobank", name: "Eurobank", kind: "bank", main: true },
     { id: "revolut", name: "Revolut", kind: "bank" },
   ];
   const latest = { at: new Date(2026, 9, 14), checkIn: { id: "c", at: new Date(2026, 9, 14).toISOString(), amounts: { eurobank: 2000, revolut: 900 } } };
-  return { useMoneyAccounts: () => ({ accounts, latest, transactions: [] }) };
+  return { useMoneyAccounts: () => ({ accounts, latest, transactions: holdings.transactions }) };
 });
 vi.mock("../transactions/hooks/useTransactions", () => ({
   useCategories: () => ({
@@ -29,134 +31,184 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
     ],
   }),
   useCreateTransaction: () => ({ mutate: spies.expense }),
-  // The picker offers a new category; not what these check.
   useCreateCategoryScope: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
-
-// The payee field is the transactions' own; here a plain input stands in for it.
+// The payee field is the transactions' own; a plain input stands in for it.
 vi.mock("../transactions/components/PayeeInput", () => ({
   PayeeInput: ({ value, onChange, invalid }: { value: string; onChange: (v: string) => void; invalid?: boolean }) => (
-    <input aria-label="Who did it go to?" value={value} aria-invalid={invalid || undefined} onChange={(e) => onChange(e.target.value)} />
+    <input aria-label="Person" value={value} aria-invalid={invalid || undefined} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
 vi.mock("../transactions/hooks/usePayees", () => ({ usePayees: () => ({ payees: ["Athanasia"] }) }));
 
-const TRIP = { id: "trip", name: "Trip", icon: "✈️", goalType: "targeted", targetAmount: 2000, targetPeriod: "custom", totalSaved: 1000, remaining: 1000, isActive: true } as unknown as InvestmentGoalWithStats;
+const day = new Date(2026, 9, 15, 10);
+const HANDED = {
+  id: "m1",
+  userId: "u",
+  type: "investment",
+  amount: 500,
+  categoryId: "",
+  description: "Trip",
+  date: day,
+  createdAt: day,
+  updatedAt: day,
+  isInvestmentTransaction: true,
+  isGoalTransaction: true,
+  goalId: "trip",
+  goalName: "Trip",
+  contributionType: "deposit",
+  accountId: "eurobank",
+  heldBy: "Athanasia",
+} as Transaction;
+
+const TRIP = { id: "trip", name: "Trip", icon: "✈️", goalType: "targeted", targetAmount: 2000, targetPeriod: "custom", totalSaved: 0, remaining: 2000, isActive: true } as unknown as InvestmentGoalWithStats;
+const TRIP_FUNDED = { ...TRIP, totalSaved: 700, remaining: 1300 } as unknown as InvestmentGoalWithStats;
 
 beforeAll(async () => {
   window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
   await i18n.changeLanguage("en");
 });
 
-beforeEach(() => spies.expense.mockClear());
+beforeEach(() => {
+  spies.expense.mockClear();
+  holdings.transactions = [];
+});
 
 const next = (dialog: HTMLElement) => userEvent.click(within(dialog).getByRole("button", { name: /Next/ }));
+const check = (dialog: HTMLElement) => within(dialog).getByRole("group", { name: "What will happen" });
+
+/** Through amount and date, from the first step's answer. */
+async function answerThenAmount(dialog: HTMLElement, choice: RegExp, amount: string) {
+  await userEvent.click(within(dialog).getByRole("radio", { name: choice }));
+  await next(dialog);
+  await userEvent.type(within(dialog).getByLabelText(/Amount/), amount);
+  await next(dialog);
+  await next(dialog);
+}
 
 describe("putting money into a goal", () => {
-  it("saves only from the check, with the card it is kept in — and that card does not move", async () => {
+  it("asks first where it goes, choosing nothing for you", async () => {
+    render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByRole("radio").map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
+    await next(dialog);
+    expect(within(dialog).getByText("Choose where the money is going")).toBeInTheDocument();
+  });
+
+  it("kept on my card: set aside, the card unchanged", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "300");
-    await next(dialog);
-    await next(dialog);
+    await answerThenAmount(dialog, /stays on my card/, "300");
     await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
     await next(dialog);
-    expect(onSubmit).not.toHaveBeenCalled();
-
-    const check = within(dialog).getByRole("group", { name: "What will happen" });
-    expect(check).toHaveTextContent("€1000.00 → €1300.00");
-    expect(check).toHaveTextContent("€700.00");
-    expect(check).toHaveTextContent("unchanged");
-
+    expect(check(dialog)).toHaveTextContent("€0.00 → €300.00");
+    expect(check(dialog)).toHaveTextContent("unchanged");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add deposit" }));
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ goalId: "trip", amount: 300, contributionType: "deposit", accountId: "revolut" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 300, contributionType: "deposit", accountId: "revolut", heldBy: undefined }));
+  });
+
+  it("given to Athanasia: the card and the person both asked, and Eurobank goes down 500", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
+    const dialog = screen.getByRole("dialog");
+    await answerThenAmount(dialog, /gave it to someone/, "500");
+    // Neither assumed.
+    expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    await next(dialog);
+    expect(within(dialog).getByText("Choose the card it left")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Person")).toBeInvalid();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
+    await userEvent.type(within(dialog).getByLabelText("Person"), "Athanasia");
+    await next(dialog);
+    expect(check(dialog)).toHaveTextContent("€2000.00 → €1500.00");
+    expect(check(dialog)).toHaveTextContent("Athanasia holds€500.00");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add deposit" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, contributionType: "deposit", accountId: "eurobank", heldBy: "Athanasia" }));
     expect(spies.expense).not.toHaveBeenCalled();
   });
 
   it("will not take more than a deadline goal still needs", async () => {
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "1500");
+    await userEvent.click(within(dialog).getByRole("radio", { name: /stays on my card/ }));
+    await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), "2500");
     await next(dialog);
     expect(within(dialog).getByLabelText(/Amount/)).toBeInvalid();
   });
 });
 
-describe("taking money out of a goal", () => {
-  it("files what was given away under Other Expense unless another is picked", async () => {
-    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn().mockResolvedValue(undefined)} />);
-    const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
-    await next(dialog);
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
-    await next(dialog);
-    await next(dialog);
-    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
-    await userEvent.type(within(dialog).getByLabelText("Who did it go to?"), "Athanasia");
-    expect(dialog).toHaveTextContent("Category: Other Expense");
-    await next(dialog);
-    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
-    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ categoryId: "other", description: "Athanasia", amount: 500 }), expect.anything());
+describe("taking money out of a goal Athanasia holds 500 of", () => {
+  beforeEach(() => {
+    holdings.transactions = [HANDED];
   });
 
-  it("asks first what became of the money, and chooses nothing for you", async () => {
-    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
+  it("offers what she can do with hers, and what can be done with yours", () => {
+    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    // The first step, given-or-spent first, neither chosen.
-    const [given, kept] = within(dialog).getAllByRole("radio");
-    expect(given).toHaveTextContent(/^I gave it to someone/);
-    expect(kept).toHaveTextContent(/^I'm keeping it/);
-    expect([given, kept].map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
-    await next(dialog);
-    expect(within(dialog).getByText("Choose what became of the money")).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText(/Amount/)).toBeNull();
+    expect(within(dialog).getAllByRole("radio").map((r) => r.querySelector(".fw-semibold")?.textContent)).toEqual([
+      "Athanasia gave it back",
+      "Athanasia spent it on the goal",
+      "I gave it to someone / spent it",
+      "I'm keeping it",
+    ]);
   });
 
-  it("kept: only set free, no expense, the card unchanged", async () => {
+  it("she gave it back: into the card chosen, which goes up", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
+    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /keeping it/ }));
+    await answerThenAmount(dialog, /gave it back/, "200");
     await next(dialog);
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "200");
+    expect(within(dialog).getByText("Choose the card it left")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
     await next(dialog);
-    await next(dialog);
-    await next(dialog);
-    expect(within(dialog).getByRole("group", { name: "What will happen" })).toHaveTextContent("unchanged");
+    expect(check(dialog)).toHaveTextContent("€900.00 → €1100.00");
+    expect(check(dialog)).toHaveTextContent("Athanasia holds€300.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, contributionType: "withdrawal" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, contributionType: "withdrawal", accountId: "revolut", heldBy: "Athanasia" }));
     expect(spies.expense).not.toHaveBeenCalled();
   });
 
-  it("spent: the withdrawal and an expense of the same amount, off the card it left", async () => {
+  it("she spent it: an expense on the card it was handed from, and no card moves", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
+    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
+    await answerThenAmount(dialog, /spent it on the goal/, "500");
+    // No card to choose: it left Eurobank when it was handed over.
+    expect(within(dialog).queryByRole("button", { name: /^Revolut/ })).toBeNull();
     await next(dialog);
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
+    expect(check(dialog)).toHaveTextContent("unchanged (it had already left)");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, contributionType: "withdrawal", accountId: "eurobank", heldBy: "Athanasia" }));
+    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, type: "expense", categoryId: "other", accountId: "eurobank" }), expect.anything());
+  });
+
+  it("will not take from her more than she holds", async () => {
+    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it back/ }));
     await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), "600");
     await next(dialog);
-    // The card step: no card chosen for you, and who it went to asked there.
-    expect(within(dialog).getByText("Who did it go to?")).toBeInTheDocument();
-    expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
-    await next(dialog);
-    expect(within(dialog).getByText("Choose the card it left")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Who did it go to?")).toBeInvalid();
-    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
-    await userEvent.type(within(dialog).getByLabelText("Who did it go to?"), "Maria – trip");
+    expect(within(dialog).getByText("Only €500.00 there")).toBeInTheDocument();
+  });
+
+  it("from my own bank, spent: card and person asked, the card goes down", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
+    const dialog = screen.getByRole("dialog");
+    await answerThenAmount(dialog, /I gave it to someone/, "200");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
+    await userEvent.type(within(dialog).getByLabelText("Person"), "Maria");
     await userEvent.click(within(dialog).getByRole("button", { name: "Change category" }));
     await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
     await next(dialog);
-
-    const check = within(dialog).getByRole("group", { name: "What will happen" });
-    // Eurobank, the main one, 2.000 less 500.
-    expect(check).toHaveTextContent("€2000.00 → €1500.00");
-    expect(check).toHaveTextContent("−€500.00 · Maria – trip");
-
+    expect(check(dialog)).toHaveTextContent("€900.00 → €700.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, contributionType: "withdrawal" }));
-    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, type: "expense", categoryId: "travel", description: "Maria – trip" }), expect.anything());
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, heldBy: undefined, accountId: "revolut" }));
+    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, categoryId: "travel", description: "Maria", accountId: "revolut" }), expect.anything());
   });
 });

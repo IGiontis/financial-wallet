@@ -97,7 +97,9 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
   const periodLabel = usePeriodLabel(bill);
   // The cards, and what each holds now — from what is already loaded, without a read of its own.
-  const { accounts, latest, transactions } = useMoneyAccounts({ fetch: false });
+  // Fetched: the Bills page loads no transactions of its own, and without
+  // them each card's figure before and after is wrong.
+  const { accounts, latest, transactions, isLoading: moneyLoading } = useMoneyAccounts();
   const holds = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
 
   const periods = useMemo(() => getPeriodOptions(bill, bill.payments, new Date(), PERIOD_CHOICES, PERIOD_LOOKBACK), [bill]);
@@ -368,7 +370,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                     −{format(typedAmount)} · {cardName}
                   </strong>
                 </div>
-                {cardNow !== undefined && cardAfter !== undefined && (
+                {!moneyLoading && cardNow !== undefined && cardAfter !== undefined && (
                   <div>
                     <span>{t("bills.pay.willCard")}</span>
                     <strong>

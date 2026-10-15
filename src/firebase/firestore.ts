@@ -424,6 +424,27 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
   return { contributionIds: contributions.docs.map((d) => d.id), transactionIds: mirrors.docs.map((d) => d.id) };
 };
 
+/**
+ * A goal done and its money spent: the records that close it written, then the
+ * goal and its contributions deleted — its records in Transactions kept, as
+ * the history of what happened to the money. See `closingRecords`.
+ *
+ * One batch: the closing records never land without the goal going, nor the
+ * goal go without them.
+ */
+export const closeInvestmentGoal = async (userId: string, goalId: string, records: { id: string; data: CreateTransactionDTO }[]) => {
+  requireConnection("delete");
+  const contributions = await getDocs(query(collection(db, "investmentContributions"), where("userId", "==", userId), where("goalId", "==", goalId)));
+  const batch = writeBatch(db);
+  for (const { id, data } of records) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  for (const d of contributions.docs) batch.delete(d.ref);
+  batch.delete(doc(db, "investmentGoals", goalId));
+  await batch.commit();
+  return { contributionIds: contributions.docs.map((d) => d.id) };
+};
+
 // ─── INVESTMENT CONTRIBUTIONS ─────────────────────────────────────────────────
 
 // Fetches every contribution for a user in a single query, so goal stats can be

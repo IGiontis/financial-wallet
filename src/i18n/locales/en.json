@@ -1436,7 +1436,8 @@
     "withdrawn": "Withdrawn",
     "netSaved": "Net saved",
     "depositFailed": "Could not record the deposit. Check your connection and try again.",
-    "withdrawFailed": "Could not record the withdrawal. Check your connection and try again."
+    "withdrawFailed": "Could not record the withdrawal. Check your connection and try again.",
+    "deleteFailed": "Not deleted. Check your connection and try again."
   },
   "planner": {
     "title": "Will I make it?",
@@ -2411,7 +2412,32 @@
     "pickUse": "Choose what became of the money",
     "askWho": "Who did it go to?",
     "pickCard": "Choose the card it left",
-    "changeCategory": "Change category"
+    "changeCategory": "Change category",
+    "askWhere": "Where is the money going?",
+    "inKept": "It stays on my card",
+    "inKeptHint": "Set aside for the goal, in your bank — the card doesn't change.",
+    "inGiven": "I gave it to someone",
+    "inGivenHint": "Say, whoever is booking the trip. It leaves the card, but it's still the goal's money.",
+    "pickWhere": "Choose where the money is going",
+    "outReturned": "{{who}} gave it back",
+    "outReturnedHint": "Of the {{amount}} they hold — it comes into one of your cards.",
+    "outTheySpent": "{{who}} spent it on the goal",
+    "outTheySpentHint": "Of the {{amount}} they hold — an expense is written; no card changes.",
+    "moreThanThere": "Only {{amount}} there",
+    "rowWhat": "What happened",
+    "rowGivenTo": "Held by",
+    "rowHandedFrom": "Had left from",
+    "askReturnedInto": "Which card did it come into?",
+    "askTheySpent": "The card",
+    "returnedHint": "The card goes up by the amount.",
+    "askGivenTo": "Who did you give it to?",
+    "theySpentCard": "The money left {{card}} when you gave it to {{who}} — the card doesn't go down again.",
+    "holds": "{{who}} holds",
+    "cardAlreadyLeft": "unchanged (it had already left)",
+    "doneGiven": "{{amount}} into “{{name}}” — held by {{who}}",
+    "doneReturned": "{{who}} gave back {{amount}} from “{{name}}”",
+    "doneTheySpent": "{{who}} spent {{amount}} on “{{name}}”",
+    "step_use_in": "Where to"
   },
   "goalDelete": {
     "ask": "What became of the goal's {{amount}}?",
@@ -2434,6 +2460,13 @@
     "backToSpendable": "goes back to spendable",
     "spendable": "Spendable",
     "spendableSame": "stays {{amount}}",
-    "cards": "The cards"
+    "cards": "The cards",
+    "droppedHintHeld": "Whoever holds goal money gives it back to the card it came from; what was in your bank is set free.",
+    "spentHintHeld": "The {{amount}} was spent: an expense is written. What you had given someone already left the card — it doesn't go down again.",
+    "heldByNote": "{{amount}} held by {{who}}",
+    "inBanksNote": "{{amount}} in your bank",
+    "bankLeftFrom": "The {{amount}} that was in your bank — which card did it leave?",
+    "givesBack": "{{who}} gives back",
+    "alreadyLeft": "{{who}} already had it"
   }
 }

@@ -6,6 +6,7 @@ import {
   createInvestmentGoal,
   updateInvestmentGoal,
   deleteInvestmentGoal,
+  closeInvestmentGoal,
   getAllContributions,
   createContributionWithTransaction,
   deleteContribution,
@@ -180,6 +181,30 @@ export function useDeleteGoal() {
   });
 }
 
+// ─── useCloseGoal ─────────────────────────────────────────────────────────────
+// The goal done and its money spent — see `closingRecords` and `closeInvestmentGoal`.
+
+export function useCloseGoal() {
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = currentUser?.uid ?? "";
+
+  return useMutation({
+    mutationFn: ({ goalId, records }: { goalId: string; records: CreateTransactionDTO[] }) =>
+      closeInvestmentGoal(
+        userId,
+        goalId,
+        records.map((data) => ({ id: newDocId("transactions"), data })),
+      ).then(() => records),
+    onSuccess: (_written, { goalId }) => {
+      confirmList(queryClient, investmentKeys.goals(userId), removeWhere<InvestmentGoal>((g) => g.id === goalId));
+      confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.goalId === goalId));
+      // The closing records are new: the list reads just them on its next sync.
+      void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+    },
+  });
+}
+
 // ─── useAddContribution ───────────────────────────────────────────────────────
 // isGoalTransaction: true  → from GoalsPage  (targeted goal, yellow in UI)
 // isGoalTransaction: false → from InvestmentsPage (recurring/tracking, blue in UI)
@@ -204,6 +229,7 @@ const mirrorOf = ({ data, goalName, isGoalTransaction = false }: AddContribution
   goalName,
   contributionType: data.contributionType,
   accountId: data.accountId,
+  heldBy: data.heldBy,
 });
 
 /** One pair of ids per save, shared by the optimistic rows and the write — see `idsFor`. */
