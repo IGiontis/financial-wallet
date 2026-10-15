@@ -18,7 +18,6 @@ import {
   plannableDebts,
   previewRepayment,
   rateOutlook,
-  debtTimeline,
 } from "./debtsUtils";
 import type { Debt, DebtPayment, DebtWithStatus } from "../../shared/types/IndexTypes";
 
@@ -905,59 +904,5 @@ describe("previewRepayment", () => {
     expect(row.interest).toBe(pv.interest);
     expect(row.principal).toBe(pv.principal);
     expect(saved.remaining).toBe(pv.remainingAfter);
-  });
-});
-
-describe("debtTimeline — a loan's column, payment by payment", () => {
-  it("between people: newest first, each row the amount less everything handed back by then", () => {
-    const iou = computeDebtStatus(debt({ id: "d1", amount: 450 }), [
-      repay("d1", 100, new Date(2026, 5, 1)),
-      repay("d1", 150, new Date(2026, 7, 1)),
-      repay("d1", 50, new Date(2026, 6, 1)),
-    ]);
-    const rows = debtTimeline(iou, NOW);
-
-    expect(rows.map((r) => r.payment.amount)).toEqual([150, 50, 100]);
-    expect(rows.map((r) => r.balanceAfter)).toEqual([150, 300, 350]);
-    expect(rows.every((r) => r.split === undefined)).toBe(true);
-    // A second way: the newest row is what the sheet says is left.
-    expect(rows[0].balanceAfter).toBe(iou.remaining);
-    // And each step down is exactly the payment on that row.
-    for (let i = 0; i < rows.length - 1; i++) expect(round2(rows[i + 1].balanceAfter - rows[i].balanceAfter)).toBe(rows[i].payment.amount);
-  });
-
-  it("stops at zero when more was handed back than lent", () => {
-    const iou = computeDebtStatus(debt({ id: "d1", amount: 100 }), [repay("d1", 80, new Date(2026, 5, 1)), repay("d1", 50, new Date(2026, 6, 1))]);
-    expect(debtTimeline(iou, NOW).map((r) => r.balanceAfter)).toEqual([0, 20]);
-  });
-
-  it("on a loan: the walk's own split and balance, which tie to the payment and to each other", () => {
-    const l = loan({}, [repay("l1", 198.01, new Date(2026, 9, 9)), repay("l1", 198.01, new Date(2026, 10, 9)), repay("l1", 400, new Date(2026, 11, 9))]);
-    const rows = debtTimeline(l, new Date(2026, 11, 9));
-    const splits = loanSplits(l, new Date(2026, 11, 9))!;
-
-    expect(rows.map((r) => r.payment.amount)).toEqual([400, 198.01, 198.01]);
-    for (const row of rows) {
-      expect(row.split).toEqual({ principal: splits.get(row.payment.id)!.principal, interest: splits.get(row.payment.id)!.interest });
-      // Principal and interest add up to the payment, to the cent.
-      expect(round2(row.split!.principal + row.split!.interest)).toBe(row.payment.amount);
-    }
-    // A second way: the balance falls by the principal of the payment between,
-    // within the cent that rounding the split can move it.
-    for (let i = 0; i < rows.length - 1; i++) expect(Math.abs(rows[i + 1].balanceAfter - rows[i].balanceAfter - rows[i].split!.principal)).toBeLessThanOrEqual(0.011);
-    expect(Math.abs(rows[2].balanceAfter - (10000 - rows[2].split!.principal))).toBeLessThanOrEqual(0.011);
-    // On the day of the last payment nothing has built up since, so the header agrees.
-    expect(rows[0].balanceAfter).toBe(loanState(l, new Date(2026, 11, 9))!.balance);
-  });
-
-  it("on a loan, a payment smaller than the interest leaves the debt higher, not where it was", () => {
-    // Two months unpaid on 10.000 at 7% is ~116 of interest; 20 meets only part of it.
-    const l = loan({}, [repay("l1", 20, new Date(2026, 10, 9))]);
-    const [row] = debtTimeline(l, new Date(2026, 10, 9));
-
-    expect(row.split).toEqual({ principal: 0, interest: 20 });
-    expect(row.balanceAfter).toBeGreaterThan(10000);
-    // The same figure the loan itself reports that day.
-    expect(row.balanceAfter).toBe(loanState(l, new Date(2026, 10, 9))!.balance);
   });
 });

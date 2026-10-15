@@ -2104,8 +2104,7 @@
     "viewOne": "Ένα-ένα",
     "viewColumns": "Στήλες",
     "colOpen": "Άνοιγμα: {{name}}",
-    "colLeftAfter": "έμειναν {{amount}}",
-    "colRecorded": "γράφτηκε {{when}}"
+    "cardLast": "Τελ. πληρωμή {{when}}"
   },
   "statement": {
     "title": "Κατάσταση",

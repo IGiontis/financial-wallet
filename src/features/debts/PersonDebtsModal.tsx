@@ -16,7 +16,7 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import RepaymentWizard from "./RepaymentWizard";
-import { LoanColumns } from "./LoanColumns";
+import { LoanCards } from "./LoanCards";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
@@ -390,10 +390,10 @@ export default function PersonDebtsModal({
   const debt = loans.find((d) => d.id === pickedId) ?? loans[0];
 
   const [tab, setTab] = useState<SheetTab>("pays");
-  // One loan at a time, or every loan side by side as columns. Remembered,
+  // One loan at a time, or every loan as a card down the screen. Remembered,
   // since whoever reads it as columns will want it that way next time too.
   const [view, setView] = useLocalStorage<"one" | "columns">("debts-sheet-view", "one");
-  // With a single loan there is nothing to put side by side.
+  // With a single loan there is nothing to list.
   const asColumns = view === "columns" && loans.length > 1;
   // One panel open at a time: a new payment and a correction open together is
   // two half-finished forms and no way to tell which Save is which.
@@ -592,7 +592,7 @@ export default function PersonDebtsModal({
       {asColumns ? (
         <ModalBody className={styles.columnsBody}>
           {viewToggle}
-          <LoanColumns loans={loans} formatCurrency={formatCurrency} locale={locale} onOpen={openFromColumn} onRecord={recordFromColumn} />
+          <LoanCards loans={loans} formatCurrency={formatCurrency} locale={locale} onOpen={openFromColumn} onRecord={recordFromColumn} />
         </ModalBody>
       ) : (
       <ModalBody className={styles.sheetBody}>
@@ -767,7 +767,7 @@ export default function PersonDebtsModal({
       {/* The one thing to do, in the footer: always at the foot of the sheet,
           outside what scrolls. Sticky inside the body it rode up with its
           column on a phone, where the columns stack. */}
-      {/* As columns, each open loan has its own button at its head instead. */}
+      {/* As cards, each open loan has its own button instead. */}
       {!debt.isSettled && !asColumns && (
         <ModalFooter className={styles.ctaFooter}>
           <Button color="primary" className="w-100" onClick={openRecord}>

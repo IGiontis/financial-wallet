@@ -2104,8 +2104,7 @@
     "viewOne": "One at a time",
     "viewColumns": "Columns",
     "colOpen": "Open: {{name}}",
-    "colLeftAfter": "{{amount}} left",
-    "colRecorded": "recorded {{when}}"
+    "cardLast": "Last paid {{when}}"
   },
   "statement": {
     "title": "Statement",
