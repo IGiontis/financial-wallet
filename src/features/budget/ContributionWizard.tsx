@@ -17,7 +17,9 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 
-const ALL_STEPS = ["amount", "when", "use", "card", "review"] as const;
+// "use" first: out of a goal, what became of the money decides everything
+// after it — which card moves, and whether an expense is written.
+const ALL_STEPS = ["use", "amount", "when", "card", "review"] as const;
 type Step = (typeof ALL_STEPS)[number];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -75,7 +77,7 @@ export default function ContributionWizard({
   const capped = deposit && isDeadlineGoal;
   const full = capped && remaining <= 0;
 
-  const [step, setStep] = useState<Step>("amount");
+  const [step, setStep] = useState<Step>(STEPS[0]);
   const [amount, setAmount] = useState("");
   const [gain, setGain] = useState("");
   const [date, setDate] = useState(() => toISODay(new Date()));
@@ -83,9 +85,15 @@ export default function ContributionWizard({
   const [account, setAccount] = useState("");
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [spent, setSpent] = useState(false);
+  // Not answered yet: nothing is chosen for you — a default here kept the
+  // card unchanged for money that had in fact left it.
+  const [use, setUse] = useState<"spent" | "kept" | null>(null);
+  const spent = use === "spent";
   const [spentOn, setSpentOn] = useState("");
-  const [spentCategory, setSpentCategory] = useState("");
+  const [pickedCategory, setPickedCategory] = useState("");
+  // "Other expense" unless another is picked: what matters is that it left.
+  const otherExpense = categories.find((c) => c.type === "expense" && c.name === "Other Expense")?.id ?? "";
+  const spentCategory = pickedCategory || otherExpense;
 
   const typed = parseFloat(amount);
   const typedGain = Math.max(parseFloat(gain) || 0, 0);
@@ -106,16 +114,20 @@ export default function ContributionWizard({
   const notesTooLong = notes.length > 40;
 
   const index = STEPS.indexOf(step);
+  /** Whether a step is filled in enough to go past it. */
+  const done = (s: Step) => {
+    if (s === "use") return use !== null && (!spent || (!!spentOn.trim() && !!spentCategory));
+    if (s === "amount") return !amountError;
+    if (s === "when") return !!when && !notesTooLong;
+    return true;
+  };
+  // Forward only as far as what is filled in allows; back is always free.
   const goTo = (target: Step) => {
     const to = STEPS.indexOf(target);
-    if (to > 0 && amountError) {
+    const blocked = STEPS.slice(0, to).find((s) => !done(s));
+    if (blocked) {
       setTried(true);
-      return setStep("amount");
-    }
-    if (to > 1 && (!when || notesTooLong)) return setStep("when");
-    if (spent && to > STEPS.indexOf("use") && (!spentCategory || !spentOn.trim())) {
-      setTried(true);
-      return setStep("use");
+      return setStep(blocked);
     }
     setStep(target);
   };
@@ -268,22 +280,23 @@ export default function ContributionWizard({
           {step === "use" && (
             <>
               <div className="d-flex flex-column gap-2 mb-3" role="radiogroup" aria-label={t("goalWizard.askUse")}>
-                {[false, true].map((value) => (
+                {(["spent", "kept"] as const).map((value) => (
                   <button
-                    key={String(value)}
+                    key={value}
                     type="button"
                     role="radio"
-                    aria-checked={spent === value}
-                    className={`btn text-start ${spent === value ? "btn-primary" : "btn-outline-secondary"}`}
-                    onClick={() => setSpent(value)}
+                    aria-checked={use === value}
+                    className={`btn text-start ${use === value ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => setUse(value)}
                   >
-                    <div className="fw-semibold">{t(value ? "goalWizard.useSpent" : "goalWizard.useKept")}</div>
+                    <div className="fw-semibold">{t(value === "spent" ? "goalWizard.useSpent" : "goalWizard.useKept")}</div>
                     <div className="small" style={{ opacity: 0.8 }}>
-                      {t(value ? "goalWizard.useSpentHint" : "goalWizard.useKeptHint")}
+                      {t(value === "spent" ? "goalWizard.useSpentHint" : "goalWizard.useKeptHint")}
                     </div>
                   </button>
                 ))}
               </div>
+              {tried && use === null && <div className="small text-danger mb-2">{t("goalWizard.pickUse")}</div>}
               {spent && (
                 <>
                   <FormGroup>
@@ -298,9 +311,9 @@ export default function ContributionWizard({
                       invalid={tried && !spentOn.trim()}
                     />
                   </FormGroup>
-                  <Label className="small fw-medium">{t("common.category")} *</Label>
+                  <Label className="small fw-medium">{t("common.category")}</Label>
                   {tried && !spentCategory && <div className="small text-danger mb-1">{t("goalWizard.pickCategory")}</div>}
-                  <CategoryPicker categories={categories} value={spentCategory} type="expense" onChange={(id) => setSpentCategory(id)} />
+                  <CategoryPicker categories={categories} value={spentCategory} type="expense" onChange={(id) => setPickedCategory(id)} />
                 </>
               )}
             </>

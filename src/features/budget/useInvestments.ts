@@ -108,16 +108,37 @@ export function useContributions(goalId: string | null) {
 
 // ─── useCreateGoal ────────────────────────────────────────────────────────────
 
+interface CreateGoalVars {
+  data: CreateInvestmentGoalDTO;
+  isActive: boolean;
+}
+
+/** One id per save, shared by the goal put on screen and the write — see `idsFor`. */
+const goalIds = new WeakMap<CreateGoalVars, string>();
+
+/**
+ * A new goal is on the page the moment it is saved, not after the server has
+ * answered and the list been read again: on a slow phone that was two round
+ * trips, the dialog long closed, and the goal nowhere until another tab was
+ * opened and back.
+ */
 export function useCreateGoal() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const idOf = (vars: CreateGoalVars) => idsFor(goalIds, vars, () => newDocId("investmentGoals"));
 
-  return useMutation({
-    mutationFn: ({ data, isActive }: { data: CreateInvestmentGoalDTO; isActive: boolean }) => createInvestmentGoal(userId, data, isActive),
-    onSuccess: () => {
+  return useMutation<string, Error, CreateGoalVars, { goal: InvestmentGoal; goals: ListSnapshot<InvestmentGoal> }>({
+    mutationFn: (vars) => createInvestmentGoal(userId, vars.data, vars.isActive, idOf(vars)),
+    onMutate: async (vars) => {
+      const now = new Date();
+      const goal = { ...withoutUndefined(vars.data), id: idOf(vars), userId, isActive: vars.isActive, isCompleted: false, createdAt: now, updatedAt: now } as InvestmentGoal;
+      return { goal, goals: await editList(queryClient, investmentKeys.goals(userId), upsertById(goal)) };
+    },
+    onError: (_error, _vars, context) => restoreList(queryClient, context?.goals),
+    onSuccess: (_id, _vars, context) => {
       // Goals only: nothing here writes a contribution.
-      void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });
+      if (context) confirmList(queryClient, investmentKeys.goals(userId), upsertById(context.goal));
     },
   });
 }

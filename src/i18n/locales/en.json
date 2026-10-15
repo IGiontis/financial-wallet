@@ -2396,17 +2396,29 @@
     "step_use": "What for",
     "askUse": "What became of the money?",
     "useKept": "I'm keeping it",
-    "useKeptHint": "Back to spendable — still in the bank.",
-    "useSpent": "I gave it / spent it",
-    "useSpentHint": "It left the card — an expense is written too.",
-    "spentOn": "On what, or to whom",
-    "spentOnPlaceholder": "e.g. Maria – trip",
+    "useKeptHint": "Stays in the bank, just no longer set aside.",
+    "useSpent": "I gave it to someone / spent it",
+    "useSpentHint": "It left the card — the card goes down and an expense is written.",
+    "spentOn": "To whom, or for what",
+    "spentOnPlaceholder": "e.g. Athanasia – trip",
     "pickCategory": "Pick a category",
     "askLeft": "Which card did it leave?",
     "leftHint": "The card goes down by the amount, as with any expense.",
     "rowSpentOn": "Went to",
     "andExpense": "And an expense",
     "fromGoal": "From the goal “{{name}}”",
-    "doneSpent": "{{amount}} from “{{name}}” → {{on}}"
+    "doneSpent": "{{amount}} from “{{name}}” → {{on}}",
+    "pickUse": "Choose what became of the money"
+  },
+  "goalDelete": {
+    "ask": "What became of the goal's {{amount}}?",
+    "dropped": "I'm not doing it after all",
+    "droppedHint": "The {{amount}} goes back to spendable — it was in the bank, only set aside.",
+    "spent": "Done — the money was spent",
+    "spentHint": "The {{amount}} has left: an expense is written and the card goes down.",
+    "leftFrom": "Which card did it leave?",
+    "confirmSpent": "Delete & record the expense",
+    "doneDropped": "Deleted — the {{amount}} is spendable again",
+    "doneSpent": "Deleted — an expense of {{amount}} written for “{{name}}”"
   }
 }

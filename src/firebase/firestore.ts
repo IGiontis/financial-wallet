@@ -365,16 +365,17 @@ export const countCategoryUsage = async (userId: string, categoryId: string): Pr
 
 // ─── INVESTMENT GOALS ─────────────────────────────────────────────────────────
 
-export const createInvestmentGoal = async (userId: string, data: CreateInvestmentGoalDTO, isActive: boolean = true) => {
+export const createInvestmentGoal = async (userId: string, data: CreateInvestmentGoalDTO, isActive: boolean = true, id: string = newDocId("investmentGoals")) => {
   // Remove undefined fields — Firestore does not accept undefined
   const cleaned = clean({ ...data, userId, isActive, isCompleted: false });
 
-  const ref = await addDoc(collection(db, "investmentGoals"), {
+  // Under an id chosen up front, so the goal already on screen is the one saved — see `newDocId`.
+  await setDoc(doc(db, "investmentGoals", id), {
     ...cleaned,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  return ref.id;
+  return id;
 };
 
 export const getInvestmentGoals = async (userId: string) => {

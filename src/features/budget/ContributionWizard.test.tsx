@@ -22,7 +22,12 @@ vi.mock("../accounts/useMoneyAccounts", () => {
   return { useMoneyAccounts: () => ({ accounts, latest, transactions: [] }) };
 });
 vi.mock("../transactions/hooks/useTransactions", () => ({
-  useCategories: () => ({ data: [{ id: "travel", name: "Travel", type: "expense", icon: "✈️", isDefault: true, userId: null }] }),
+  useCategories: () => ({
+    data: [
+      { id: "travel", name: "Travel", type: "expense", icon: "✈️", isDefault: true, userId: null },
+      { id: "other", name: "Other Expense", type: "expense", icon: "🧾", isDefault: true, userId: null },
+    ],
+  }),
   useCreateTransaction: () => ({ mutate: spies.expense }),
   // The picker offers a new category; not what these check.
   useCreateCategoryScope: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
@@ -71,15 +76,42 @@ describe("putting money into a goal", () => {
 });
 
 describe("taking money out of a goal", () => {
+  it("files what was given away under Other expense unless another is picked", async () => {
+    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn().mockResolvedValue(undefined)} />);
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
+    await userEvent.type(within(dialog).getByLabelText(/To whom, or for what/), "Athanasia");
+    expect(within(dialog).getByRole("option", { name: /Other expense/i })).toHaveAttribute("aria-selected", "true");
+    await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
+    await next(dialog);
+    await next(dialog);
+    await next(dialog);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
+    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ categoryId: "other", description: "Athanasia", amount: 500 }), expect.anything());
+  });
+
+  it("asks first what became of the money, and chooses nothing for you", async () => {
+    render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    // The first step, given-or-spent first, neither chosen.
+    const [given, kept] = within(dialog).getAllByRole("radio");
+    expect(given).toHaveTextContent(/^I gave it to someone/);
+    expect(kept).toHaveTextContent(/^I'm keeping it/);
+    expect([given, kept].map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
+    await next(dialog);
+    expect(within(dialog).getByText("Choose what became of the money")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Amount/)).toBeNull();
+  });
+
   it("kept: only set free, no expense, the card unchanged", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("radio", { name: /keeping it/ }));
+    await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "200");
     await next(dialog);
-    await next(dialog);
-    // Kept is where it starts.
-    expect(within(dialog).getByRole("radio", { name: /keeping it/ })).toHaveAttribute("aria-checked", "true");
     await next(dialog);
     await next(dialog);
     expect(within(dialog).getByRole("group", { name: "What will happen" })).toHaveTextContent("unchanged");
@@ -92,15 +124,15 @@ describe("taking money out of a goal", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
+    // Who it went to may not be left out.
+    await next(dialog);
+    expect(within(dialog).getByLabelText(/To whom, or for what/)).toBeInvalid();
+    await userEvent.type(within(dialog).getByLabelText(/To whom, or for what/), "Maria – trip");
+    await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
+    await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
     await next(dialog);
-    await next(dialog);
-    await userEvent.click(within(dialog).getByRole("radio", { name: /spent it/ }));
-    // Neither what it went to nor the category may be left out.
-    await next(dialog);
-    expect(within(dialog).getByText("Pick a category")).toBeInTheDocument();
-    await userEvent.type(within(dialog).getByLabelText(/On what, or to whom/), "Maria – trip");
-    await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
     await next(dialog);
     await next(dialog);
 
