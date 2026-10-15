@@ -9,6 +9,8 @@ import type { CreateInvestmentContributionDTO, CreateTransactionDTO, InvestmentG
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
 import CategoryPicker from "../categories/CategoryPicker";
+import { PayeeInput } from "../transactions/components/PayeeInput";
+import { usePayees } from "../transactions/hooks/usePayees";
 import { categoryLabel } from "../../shared/utils/categories";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
@@ -91,6 +93,10 @@ export default function ContributionWizard({
   const spent = use === "spent";
   const [spentOn, setSpentOn] = useState("");
   const [pickedCategory, setPickedCategory] = useState("");
+  const [changingCategory, setChangingCategory] = useState(false);
+  // Given away, the card it left is said, not assumed: no card starts chosen.
+  const [cardPicked, setCardPicked] = useState(false);
+  const { payees } = usePayees();
   // "Other expense" unless another is picked: what matters is that it left.
   const otherExpense = categories.find((c) => c.type === "expense" && c.name === "Other Expense")?.id ?? "";
   const spentCategory = pickedCategory || otherExpense;
@@ -116,9 +122,11 @@ export default function ContributionWizard({
   const index = STEPS.indexOf(step);
   /** Whether a step is filled in enough to go past it. */
   const done = (s: Step) => {
-    if (s === "use") return use !== null && (!spent || (!!spentOn.trim() && !!spentCategory));
+    if (s === "use") return use !== null;
     if (s === "amount") return !amountError;
     if (s === "when") return !!when && !notesTooLong;
+    // Where it left and who it went to: both, before the check.
+    if (s === "card") return !spent || (cardPicked && !!spentOn.trim() && !!spentCategory);
     return true;
   };
   // Forward only as far as what is filled in allows; back is always free.
@@ -181,7 +189,7 @@ export default function ContributionWizard({
   const rows: { step: Step; label: string; value: string }[] = [
     { step: "amount", label: t("common.amount"), value: format(totalInBase) },
     { step: "when", label: t("common.date"), value: when ? formatTable(when, lang) : "—" },
-    ...(spent ? [{ step: "use" as Step, label: t("goalWizard.rowSpentOn"), value: `${spentOn.trim()} · ${spentCategoryName ?? ""}` }] : []),
+    ...(spent ? [{ step: "card" as Step, label: t("goalWizard.rowSpentOn"), value: `${spentOn.trim()} · ${spentCategoryName ?? ""}` }] : []),
     { step: "card", label: t(spent ? "goalWizard.rowFrom" : isGoal ? "goalWizard.rowHeldIn" : deposit ? "goalWizard.rowFrom" : "goalWizard.rowInto"), value: cardName },
     ...(notes.trim() ? [{ step: "when" as Step, label: t("common.notes"), value: notes.trim() }] : []),
   ];
@@ -297,32 +305,51 @@ export default function ContributionWizard({
                 ))}
               </div>
               {tried && use === null && <div className="small text-danger mb-2">{t("goalWizard.pickUse")}</div>}
-              {spent && (
-                <>
-                  <FormGroup>
-                    <Label for="contribution-spent-on" className="small fw-medium">
-                      {t("goalWizard.spentOn")} *
-                    </Label>
-                    <Input
-                      id="contribution-spent-on"
-                      value={spentOn}
-                      onChange={(e) => setSpentOn(e.target.value)}
-                      placeholder={t("goalWizard.spentOnPlaceholder")}
-                      invalid={tried && !spentOn.trim()}
-                    />
-                  </FormGroup>
-                  <Label className="small fw-medium">{t("common.category")}</Label>
-                  {tried && !spentCategory && <div className="small text-danger mb-1">{t("goalWizard.pickCategory")}</div>}
-                  <CategoryPicker categories={categories} value={spentCategory} type="expense" onChange={(id) => setPickedCategory(id)} />
-                </>
-              )}
             </>
           )}
 
           {step === "card" && (
             <>
-              <AccountPicker value={account} onChoose={setAccount} income={!deposit && !spent} />
+              <AccountPicker
+                value={account}
+                unset={spent && !cardPicked}
+                onChoose={(id) => {
+                  setAccount(id);
+                  setCardPicked(true);
+                }}
+                income={!deposit && !spent}
+              />
+              {spent && tried && !cardPicked && <div className="small text-danger mt-1">{t("goalWizard.pickCard")}</div>}
               <p className="small text-body-secondary mt-2 mb-0">{t(spent ? "goalWizard.leftHint" : isGoal ? "goalWizard.heldHint" : deposit ? "goalWizard.leavesHint" : "goalWizard.returnsHint")}</p>
+
+              {/* Given away: who to — the payee field the transactions use, offering the names already written. */}
+              {spent && (
+                <div className="mt-3">
+                  <p className={wizard.prompt}>{t("goalWizard.askWho")}</p>
+                  <PayeeInput value={spentOn} payees={payees} onChange={setSpentOn} invalid={tried && !spentOn.trim()} placeholder={t("goalWizard.spentOnPlaceholder")} />
+                  <div className="small text-body-secondary mt-2 d-flex flex-wrap align-items-center gap-2">
+                    <span>
+                      {t("common.category")}: <strong>{spentCategoryName ?? "—"}</strong>
+                    </span>
+                    <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setChangingCategory((v) => !v)}>
+                      {t(changingCategory ? "common.close" : "goalWizard.changeCategory")}
+                    </button>
+                  </div>
+                  {changingCategory && (
+                    <div className="mt-2">
+                      <CategoryPicker
+                        categories={categories}
+                        value={spentCategory}
+                        type="expense"
+                        onChange={(id) => {
+                          setPickedCategory(id);
+                          setChangingCategory(false);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

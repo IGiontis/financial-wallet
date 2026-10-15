@@ -21,7 +21,18 @@ import styles from "./css/BankCard.module.css";
  * naming a card only puts the record against that card rather than the main
  * one. Tapping one chooses it and moves on, as choosing a category does.
  */
-export default function AccountPicker({ value, onChoose, income }: { value: string; onChoose: (id: string) => void; income: boolean }) {
+export default function AccountPicker({
+  value,
+  onChoose,
+  income,
+  unset = false,
+}: {
+  value: string;
+  onChoose: (id: string) => void;
+  income: boolean;
+  /** Nothing chosen yet, not even "no particular card": where an answer must be given rather than assumed. */
+  unset?: boolean;
+}) {
   const { t } = useTranslation();
   const { format: formatCurrency } = useCurrencyConverter();
   const { accounts, latest, transactions } = useMoneyAccounts();
@@ -31,7 +42,7 @@ export default function AccountPicker({ value, onChoose, income }: { value: stri
   const main = mainAccount(accounts);
   const finishes = accountFinishes(accounts);
   // An account deleted since reads as "no particular card".
-  const chosen = accounts.some((a) => a.id === value) ? value : "";
+  const chosen = unset ? undefined : accounts.some((a) => a.id === value) ? value : "";
   const cash = accounts.filter((a) => a.kind === "cash");
   const cards = accounts.filter((a) => a.kind === "bank");
 

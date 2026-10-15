@@ -2408,7 +2408,10 @@
     "andExpense": "Και έξοδο",
     "fromGoal": "Από τον στόχο «{{name}}»",
     "doneSpent": "{{amount}} από το «{{name}}» → {{on}}",
-    "pickUse": "Διάλεξε τι έγιναν τα λεφτά"
+    "pickUse": "Διάλεξε τι έγιναν τα λεφτά",
+    "askWho": "Σε ποιον πήγαν;",
+    "pickCard": "Διάλεξε από ποια κάρτα έφυγαν",
+    "changeCategory": "Αλλαγή κατηγορίας"
   },
   "goalDelete": {
     "ask": "Τι έγιναν τα {{amount}} του στόχου;",
@@ -2419,6 +2422,18 @@
     "leftFrom": "Από ποια κάρτα έφυγαν;",
     "confirmSpent": "Διαγραφή & καταχώρηση εξόδου",
     "doneDropped": "Διαγράφηκε — τα {{amount}} είναι ξανά διαθέσιμα",
-    "doneSpent": "Διαγράφηκε — γράφτηκε έξοδο {{amount}} για «{{name}}»"
+    "doneSpent": "Διαγράφηκε — γράφτηκε έξοδο {{amount}} για «{{name}}»",
+    "pickOne": "Διάλεξε τι έγιναν τα λεφτά",
+    "reviewTitle": "Έλεγξέ το πριν τη διαγραφή",
+    "rowGoal": "Στόχος",
+    "rowChoice": "Επιλογή",
+    "rowLeftFrom": "Έφυγαν από",
+    "theGoal": "Ο στόχος",
+    "goesAway": "διαγράφεται",
+    "theMoney": "Τα {{amount}}",
+    "backToSpendable": "επιστρέφουν στα διαθέσιμα",
+    "spendable": "Διαθέσιμα για ξόδεμα",
+    "spendableSame": "μένουν {{amount}}",
+    "cards": "Οι κάρτες"
   }
 }

@@ -2408,7 +2408,10 @@
     "andExpense": "And an expense",
     "fromGoal": "From the goal “{{name}}”",
     "doneSpent": "{{amount}} from “{{name}}” → {{on}}",
-    "pickUse": "Choose what became of the money"
+    "pickUse": "Choose what became of the money",
+    "askWho": "Who did it go to?",
+    "pickCard": "Choose the card it left",
+    "changeCategory": "Change category"
   },
   "goalDelete": {
     "ask": "What became of the goal's {{amount}}?",
@@ -2419,6 +2422,18 @@
     "leftFrom": "Which card did it leave?",
     "confirmSpent": "Delete & record the expense",
     "doneDropped": "Deleted — the {{amount}} is spendable again",
-    "doneSpent": "Deleted — an expense of {{amount}} written for “{{name}}”"
+    "doneSpent": "Deleted — an expense of {{amount}} written for “{{name}}”",
+    "pickOne": "Choose what became of the money",
+    "reviewTitle": "Check it before deleting",
+    "rowGoal": "Goal",
+    "rowChoice": "Choice",
+    "rowLeftFrom": "Left from",
+    "theGoal": "The goal",
+    "goesAway": "is deleted",
+    "theMoney": "The {{amount}}",
+    "backToSpendable": "goes back to spendable",
+    "spendable": "Spendable",
+    "spendableSame": "stays {{amount}}",
+    "cards": "The cards"
   }
 }

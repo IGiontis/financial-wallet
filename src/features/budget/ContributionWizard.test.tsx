@@ -33,6 +33,14 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   useCreateCategoryScope: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
 
+// The payee field is the transactions' own; here a plain input stands in for it.
+vi.mock("../transactions/components/PayeeInput", () => ({
+  PayeeInput: ({ value, onChange, invalid }: { value: string; onChange: (v: string) => void; invalid?: boolean }) => (
+    <input aria-label="Who did it go to?" value={value} aria-invalid={invalid || undefined} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
+vi.mock("../transactions/hooks/usePayees", () => ({ usePayees: () => ({ payees: ["Athanasia"] }) }));
+
 const TRIP = { id: "trip", name: "Trip", icon: "✈️", goalType: "targeted", targetAmount: 2000, targetPeriod: "custom", totalSaved: 1000, remaining: 1000, isActive: true } as unknown as InvestmentGoalWithStats;
 
 beforeAll(async () => {
@@ -76,16 +84,17 @@ describe("putting money into a goal", () => {
 });
 
 describe("taking money out of a goal", () => {
-  it("files what was given away under Other expense unless another is picked", async () => {
+  it("files what was given away under Other Expense unless another is picked", async () => {
     render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn().mockResolvedValue(undefined)} />);
     const dialog = screen.getByRole("dialog");
     await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
-    await userEvent.type(within(dialog).getByLabelText(/To whom, or for what/), "Athanasia");
-    expect(within(dialog).getByRole("option", { name: /Other expense/i })).toHaveAttribute("aria-selected", "true");
     await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
     await next(dialog);
     await next(dialog);
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
+    await userEvent.type(within(dialog).getByLabelText("Who did it go to?"), "Athanasia");
+    expect(dialog).toHaveTextContent("Category: Other Expense");
     await next(dialog);
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
     expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ categoryId: "other", description: "Athanasia", amount: 500 }), expect.anything());
@@ -125,15 +134,20 @@ describe("taking money out of a goal", () => {
     render(<ContributionWizard goal={TRIP} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
     await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
-    // Who it went to may not be left out.
-    await next(dialog);
-    expect(within(dialog).getByLabelText(/To whom, or for what/)).toBeInvalid();
-    await userEvent.type(within(dialog).getByLabelText(/To whom, or for what/), "Maria – trip");
-    await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
     await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "500");
     await next(dialog);
     await next(dialog);
+    // The card step: no card chosen for you, and who it went to asked there.
+    expect(within(dialog).getByText("Who did it go to?")).toBeInTheDocument();
+    expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    await next(dialog);
+    expect(within(dialog).getByText("Choose the card it left")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Who did it go to?")).toBeInvalid();
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
+    await userEvent.type(within(dialog).getByLabelText("Who did it go to?"), "Maria – trip");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Change category" }));
+    await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
     await next(dialog);
 
     const check = within(dialog).getByRole("group", { name: "What will happen" });
