@@ -103,7 +103,7 @@ describe("planDays — the balance line as a list of days", () => {
     expect(Math.abs(-lines - plan.budgetTotal)).toBeLessThanOrEqual(0.01 * days.length);
   });
 
-  it("is empty-handed with nothing in the plan but still says where it starts", () => {
+  it("has nothing to list when nothing comes in or goes out", () => {
     const empty = buildPlan({ bills: [], goals: [], incomes: [], now, horizon: THIS_MONTH, openingBalance: 50 });
     expect(planDays(empty)).toEqual([]);
   });
