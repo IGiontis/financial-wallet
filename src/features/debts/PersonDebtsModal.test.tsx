@@ -429,9 +429,9 @@ describe("the total with one person", () => {
   });
 });
 
-describe("every loan as columns", () => {
-  const column = (name: string) => screen.getByRole("region", { name });
-  const toColumns = () => userEvent.click(screen.getByRole("button", { name: "Columns" }));
+describe("every loan as a card", () => {
+  const card = (name: string) => screen.getByRole("listitem", { name });
+  const toCards = () => userEvent.click(screen.getByRole("button", { name: "Columns" }));
 
   beforeEach(() => localStorage.clear());
 
@@ -441,40 +441,53 @@ describe("every loan as columns", () => {
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
   });
 
-  it("puts each loan in a column of its own: every payment newest first, what was left after it, and where it began", async () => {
+  it("lists the loans one under another, open ones first", async () => {
     renderSheet();
-    await toColumns();
+    await toCards();
 
-    const rows = within(column("March rent")).getAllByRole("listitem").map((row) => row.textContent ?? "");
-    // 500 − 120 = 380, then − 80 = 300: each row's figure is the one above less its payment.
-    expect(rows).toEqual([
-      expect.stringMatching(/€80\.00.*€300\.00 left/),
-      expect.stringMatching(/€120\.00.*€380\.00 left/),
-      expect.stringMatching(/You took.*€500\.00/),
-    ]);
-    // And the newest row is what the head says is left.
-    expect(within(column("March rent")).getByText("€300.00")).toBeInTheDocument();
-
-    // The loan's own split, the same as the one-at-a-time sheet shows.
-    const split = loanSplits(nikos([car]).debts[0])!.get("c3")!;
-    expect(within(column("Car")).getAllByRole("listitem")[0]).toHaveTextContent(`€${split.principal.toFixed(2)} off the debt · €${split.interest.toFixed(2)} interest`);
-    expect(column("Concert tickets")).toHaveTextContent("Settled");
+    const cards = within(screen.getByRole("list", { name: "Loans" })).getAllByRole("listitem");
+    expect(cards.map((c) => c.getAttribute("aria-label"))).toEqual(["March rent", "Car", "Concert tickets"]);
   });
 
-  it("records against the column's own loan, not the one that was in front", async () => {
+  it("says on the left what it is, and on the right what is left and how much is gone", async () => {
     renderSheet();
-    await toColumns();
-    // The sheet opened on the rent; the footer's button is gone, each column has its own.
+    await toCards();
+
+    const rentCard = card("March rent");
+    expect(rentCard).toHaveTextContent("You took €500.00");
+    expect(rentCard).toHaveTextContent("Mar 3, 2026");
+    // The newest payment, not the first one stored.
+    expect(rentCard).toHaveTextContent(/Last paid May 2(?!\d)/);
+    // 500 − 120 − 80 = 300 left, and 200 of 500 is 40% gone.
+    expect(rentCard).toHaveTextContent("€300.00");
+    expect(rentCard).toHaveTextContent("40%");
+
+    // A loan's share is what came off the debt, not what was handed over:
+    // three payments of 185.26 are more than the principal they cleared.
+    const carDebt = nikos([car]).debts[0];
+    const gone = Math.floor(((6000 - loanState(carDebt)!.balance) / 6000) * 100);
+    expect(gone).toBeLessThan(Math.floor(((185.26 * 3) / 6000) * 100));
+    expect(card("Car")).toHaveTextContent(`${gone}%`);
+    expect(card("Car")).toHaveTextContent(`€${carDebt.remaining.toFixed(2)}`);
+
+    expect(card("Concert tickets")).toHaveTextContent("Settled");
+    expect(within(card("Concert tickets")).queryByRole("button", { name: "Payment" })).not.toBeInTheDocument();
+  });
+
+  it("records against the card's own loan, not the one that was in front", async () => {
+    renderSheet();
+    await toCards();
+    // The sheet opened on the rent; the footer's button is gone, each card has its own.
     expect(screen.queryByRole("button", { name: /Pay €/ })).not.toBeInTheDocument();
 
-    await userEvent.click(within(column("Car")).getByRole("button", { name: "Payment" }));
+    await userEvent.click(within(card("Car")).getByRole("button", { name: "Payment" }));
     const wizard = screen.getAllByRole("dialog").at(-1)!;
     expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
   });
 
-  it("opens a loan one at a time from its column's head", async () => {
+  it("opens a loan one at a time from its card", async () => {
     renderSheet();
-    await toColumns();
+    await toCards();
 
     await userEvent.click(screen.getByRole("button", { name: "Open: Car" }));
 
@@ -482,12 +495,12 @@ describe("every loan as columns", () => {
     expect(screen.getByRole("button", { name: "One at a time" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("remembers columns for next time", async () => {
+  it("remembers the cards for next time", async () => {
     const first = renderSheet();
-    await toColumns();
+    await toCards();
     first.unmount();
 
     renderSheet();
-    expect(screen.getByRole("region", { name: "Car" })).toBeInTheDocument();
+    expect(card("Car")).toBeInTheDocument();
   });
 });

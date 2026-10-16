@@ -1686,7 +1686,14 @@
     "rowsLeft": "Left over this month",
     "rowsLeftQuarter": "Left over this quarter",
     "rowsShort": "More went out than came in",
-    "rowsShortQuarter": "More went out than came in this quarter"
+    "rowsShortQuarter": "More went out than came in this quarter",
+    "horizonThisMonth": "Only this month",
+    "daysTitle": "Day by day",
+    "daysHint": "Every day something comes in or goes out, and what is left at the end of it. Tap the line to see one day.",
+    "daysLines": "Your own amounts (a little every day)",
+    "daysStart": "You start with",
+    "daysLeft": "left",
+    "daysEmpty": "Nothing comes in or goes out in this stretch."
   },
   "settings": {
     "title": "Settings",

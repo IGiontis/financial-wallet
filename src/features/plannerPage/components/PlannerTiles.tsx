@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
 
@@ -7,6 +7,7 @@ import type { PlannerHorizon, PlannerPlan } from "../plannerUtils";
 import HorizonPicker from "./HorizonPicker";
 import { ZoomButton } from "../../../shared/components/ChartZoom";
 import { BalanceScrub } from "./BalanceScrub";
+import BalanceSheet from "./BalanceSheet";
 import styles from "../css/PlannerPage.module.css";
 
 /** Which sheet a tile opens: the pay-day answer in full, or the whole period. */
@@ -42,6 +43,8 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
  */
 export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, questions, onOpen, now, formatCurrency, locale, cardRef }: PlannerTilesProps) {
   const { t } = useTranslation();
+  // The eye on the line: every day something lands, and what is left after it.
+  const [chartOpen, setChartOpen] = useState(false);
   const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
   const shortDate = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
 
@@ -105,7 +108,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
             {shortDate.format(plan.start)} – {dayDate.format(plan.end)}
           </span>
         </div>
-        <HorizonPicker horizon={horizon} onChange={onHorizon} />
+        <HorizonPicker horizon={horizon} onChange={onHorizon} now={now} locale={locale} />
 
         {questions > 0 && (
           <button type="button" className={styles.questionsLine} onClick={() => onOpen("questions")}>
@@ -134,9 +137,14 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
           ))}
         </div>
 
+        <div className={styles.chartHead}>
+          <span className={styles.label}>{t("planner.balanceTitle")}</span>
+          <ZoomButton onClick={() => setChartOpen(true)} label={t("planner.daysTitle")} />
+        </div>
         {/* Keyed by the window: a selected day was an index into the old one. */}
         <BalanceScrub key={`${plan.months}-${plan.end.getTime()}`} plan={plan} formatCurrency={formatCurrency} locale={locale} />
       </div>
+      {chartOpen && <BalanceSheet plan={plan} onClose={() => setChartOpen(false)} formatCurrency={formatCurrency} locale={locale} />}
     </section>
   );
 }

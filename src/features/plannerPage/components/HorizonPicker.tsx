@@ -3,15 +3,18 @@ import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader } from "react
 import { useTranslation } from "react-i18next";
 import { FiMoreHorizontal } from "react-icons/fi";
 
-import { asHorizon, MAX_HORIZON_MONTHS, MIN_HORIZON_MONTHS, PLANNER_HORIZONS, type PlannerHorizon } from "../plannerUtils";
+import { asHorizon, MAX_HORIZON_MONTHS, MIN_HORIZON_MONTHS, PLANNER_HORIZONS, THIS_MONTH, type PlannerHorizon } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
 
 /** The pills a phone shows; the rest of `PLANNER_HORIZONS` sits behind "⋯" there. */
-const PHONE_HORIZONS: readonly number[] = [1, 3, 6, 12];
+const PHONE_HORIZONS: readonly number[] = [THIS_MONTH, 1, 3, 6, 12];
 
 interface HorizonPickerProps {
   horizon: PlannerHorizon;
   onChange: (horizon: PlannerHorizon) => void;
+  /** Names the "this month" pill after the month itself. */
+  now?: Date;
+  locale?: string;
 }
 
 /**
@@ -30,15 +33,17 @@ interface HorizonPickerProps {
  * the "⋯" filled the row edge to edge, and the two and three years are the
  * rarest asks — they wait inside "⋯", one tap away, with any other length.
  */
-export function HorizonPicker({ horizon, onChange }: HorizonPickerProps) {
-  const { t } = useTranslation();
+export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: HorizonPickerProps) {
+  const { t, i18n } = useTranslation();
+  // "Οκτ" for only this month — first, before "1μ", which runs into the next.
   // Whole years read as years; everything else reads as months.
-  const label = (months: number) => (months >= 12 && months % 12 === 0 ? t("planner.horizonYears", { count: months / 12 }) : t("planner.horizonMonths", { count: months }));
+  const monthName = new Intl.DateTimeFormat(locale ?? i18n.resolvedLanguage ?? "en", { month: "short" }).format(now);
+  const label = (months: number) => (months === THIS_MONTH ? monthName : months >= 12 && months % 12 === 0 ? t("planner.horizonYears", { count: months / 12 }) : t("planner.horizonMonths", { count: months }));
   const [asking, setAsking] = useState(false);
   const [typed, setTyped] = useState("");
 
   const current = asHorizon(horizon);
-  const offered = PLANNER_HORIZONS.includes(current) ? PLANNER_HORIZONS : [...PLANNER_HORIZONS, current].sort((a, b) => a - b);
+  const offered = [THIS_MONTH, ...(PLANNER_HORIZONS.includes(current) || current === THIS_MONTH ? PLANNER_HORIZONS : [...PLANNER_HORIZONS, current].sort((a, b) => a - b))];
 
   const months = parseInt(typed, 10);
   const valid = Number.isFinite(months) && months >= MIN_HORIZON_MONTHS && months <= MAX_HORIZON_MONTHS;
@@ -61,6 +66,8 @@ export function HorizonPicker({ horizon, onChange }: HorizonPickerProps) {
             className={`${styles.horizonPill} ${current === option ? styles.horizonOn : ""} ${PHONE_HORIZONS.includes(option) || current === option ? "" : "d-none d-md-inline-block"}`}
             aria-pressed={current === option}
             onClick={() => onChange(option)}
+            title={option === THIS_MONTH ? t("planner.horizonThisMonth") : undefined}
+            aria-label={option === THIS_MONTH ? t("planner.horizonThisMonth") : undefined}
           >
             {label(option)}
           </button>

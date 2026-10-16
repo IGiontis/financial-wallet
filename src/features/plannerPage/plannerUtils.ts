@@ -108,7 +108,15 @@ export type PlannerHorizon = number;
 /** The offered ones. Anything else is typed in and equally valid. */
 export const PLANNER_HORIZONS: readonly number[] = [1, 3, 6, 12, 24, 36] as const;
 
+/** The shortest that can be typed in. */
 export const MIN_HORIZON_MONTHS = 1;
+/**
+ * Only the month you are in, to its last day — "how does October end?".
+ * Every count of months reaches into the next one from any day but the 1st
+ * (see `horizonEnd`), which is right for "the next month" and no answer to
+ * this. Stored as 0, the one horizon shorter than a month.
+ */
+export const THIS_MONTH: PlannerHorizon = 0;
 /** Ten years. Past this the daily walk below is tens of thousands of points for a line nobody can read. */
 export const MAX_HORIZON_MONTHS = 120;
 
@@ -125,6 +133,7 @@ export const MAX_HORIZON_MONTHS = 120;
 export function asHorizon(value: unknown): PlannerHorizon {
   const raw = typeof value === "string" ? Number(/^(\d+)m?$/.exec(value.trim())?.[1] ?? NaN) : value;
   if (typeof raw !== "number" || !Number.isFinite(raw)) return MIN_HORIZON_MONTHS;
+  if (Math.round(raw) === THIS_MONTH) return THIS_MONTH;
   return Math.min(Math.max(Math.round(raw), MIN_HORIZON_MONTHS), MAX_HORIZON_MONTHS);
 }
 
@@ -152,6 +161,7 @@ export const horizonMonths = (horizon: PlannerHorizon): number => asHorizon(hori
  * ahead, and from any other day the end of month `N` ahead.
  */
 export function horizonEnd(horizon: PlannerHorizon, now: Date = new Date()): Date {
+  if (asHorizon(horizon) === THIS_MONTH) return endOfMonth(startOfDay(now));
   return endOfMonth(addDays(addMonths(startOfDay(now), horizonMonths(horizon)), -1));
 }
 

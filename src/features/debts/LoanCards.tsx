@@ -40,6 +40,8 @@ export function LoanCards({
   const { t } = useTranslation();
   const dayFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const timeFmt = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  // This year goes without saying, and with it the line fits beside the button.
+  const thisYearFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
 
   /** The last payment's day, and the time it was written down when that was the same day. */
   const lastPaid = (debt: DebtWithStatus) => {
@@ -48,7 +50,8 @@ export function LoanCards({
     const day = firestoreToDate(last.date);
     const created = last.createdAt ? firestoreToDate(last.createdAt) : undefined;
     const sameDay = created && !Number.isNaN(created.getTime()) && created.toDateString() === day.toDateString();
-    return sameDay ? `${dayFmt.format(day)} · ${timeFmt.format(created)}` : dayFmt.format(day);
+    const date = (day.getFullYear() === new Date().getFullYear() ? thisYearFmt : dayFmt).format(day);
+    return sameDay ? `${date} · ${timeFmt.format(created)}` : date;
   };
 
   return (

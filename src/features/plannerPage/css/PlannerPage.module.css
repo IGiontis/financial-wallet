@@ -1619,3 +1619,65 @@ span.scaleOpen {
   font-size: 12.5px;
   color: var(--color-text-secondary);
 }
+
+/* ── The balance line's sheet: every day something lands ── */
+
+.chartHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.dayList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dayItem {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+.dayItem:last-child {
+  border-bottom: 0;
+}
+
+.dayUnder {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: var(--border-radius-sm);
+  background: color-mix(in srgb, var(--color-expense) 8%, transparent);
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dayLeft {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.dayEvent {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dayEvent > span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

@@ -131,7 +131,7 @@ describe("horizonEnd", () => {
     expect(asHorizon(36)).toBe(36);
     expect(horizonEnd(36, now).getFullYear()).toBe(2029);
     // Clamped at both ends rather than trusted.
-    expect(asHorizon(0)).toBe(1);
+    expect(asHorizon(-5)).toBe(1);
     expect(asHorizon(9999)).toBe(120);
   });
 
