@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Input } from "reactstrap";
+import { Input, Offcanvas, OffcanvasBody, OffcanvasHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiFilter, FiX } from "react-icons/fi";
+import { FiGrid, FiList, FiSliders } from "react-icons/fi";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
 import { GoalViewToggle } from "./GoalStacks";
@@ -77,6 +77,9 @@ export function GoalsWorkbench({
   // Grouping only reaches the screen in the list view, so the control that sets
   // it has nothing to say while the cards are up.
   const grouping = view === "stacks" && options.length > 1;
+  // On a phone, anything chosen that is not the first choice gets a dot on the
+  // one button, so a regrouped list is never a mystery.
+  const changed = view === "stacks" && options.length > 0 && groupBy !== options[0].value;
 
   const tabStrip = (
     <div className={styles.tabs} role="tablist" aria-label={title}>
@@ -145,7 +148,9 @@ export function GoalsWorkbench({
         </aside>
 
         <main className={styles.main}>
-          {stats}
+          {/* On a phone the boxes are one row that scrolls sideways, rather
+              than three rows that filled the whole first screen. */}
+          {stats && <div className={styles.stats}>{stats}</div>}
 
           {/* The controls follow the page down. Twenty goals is four screens of
               scrolling, and having to come back to the top to change tab or
@@ -157,18 +162,22 @@ export function GoalsWorkbench({
                 <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} block />
               </div>
 
-              {/* One control, two shapes: a menu where there is room beside the
-                  field, a sheet where there is not, and neither once the rail is
-                  carrying the same choice. */}
+              {/* A phone gets one button beside the field — how to look at the
+                  goals, and how to group them, in a sheet from the bottom — in
+                  place of a filter button and a view toggle squeezed in beside
+                  a search box with no room left to type in. */}
+              {narrow ? (
+                <button type="button" className={styles.filterBtn} onClick={() => setSheetOpen(true)} aria-label={t("goals.viewAndGroup")}>
+                  <FiSliders size={15} aria-hidden />
+                  {view === "stacks" ? <FiList size={15} aria-hidden /> : <FiGrid size={15} aria-hidden />}
+                  {changed && <span className={styles.filterMark} aria-hidden />}
+                </button>
+              ) : (
+              <>
+              {/* A menu where there is room beside the field, and none once the
+                  rail is carrying the same choice. */}
               <span className={styles.groupSlot}>
-                {grouping &&
-                  (narrow ? (
-                    <button type="button" className={styles.filterBtn} onClick={() => setSheetOpen(true)}>
-                      <FiFilter size={14} aria-hidden />
-                      {t("goals.filters")}
-                      {groupBy !== options[0].value && <span className={styles.filterMark} aria-hidden />}
-                    </button>
-                  ) : (
+                {grouping && (
                     <Input
                       type="select"
                       bsSize="sm"
@@ -183,10 +192,12 @@ export function GoalsWorkbench({
                         </option>
                       ))}
                     </Input>
-                  ))}
+                  )}
               </span>
 
               <GoalViewToggle view={view} onChange={onView} />
+              </>
+              )}
             </div>
           </div>
 
@@ -194,18 +205,28 @@ export function GoalsWorkbench({
         </main>
       </div>
 
-      {/* A phone has no room beside the field for a menu, so the choice takes
-          the screen instead — the same shape the payee picker uses. */}
-      {sheetOpen && (
-        <div className={styles.sheet} role="dialog" aria-modal="true" aria-label={t("goals.filters")}>
-          <div className={styles.sheetHead}>
-            <span className={styles.sheetTitle}>{t("goals.filters")}</span>
-            <button type="button" className={styles.sheetClose} onClick={() => setSheetOpen(false)} aria-label={t("common.close")}>
-              <FiX size={20} />
-            </button>
+      {/* From the bottom, where a thumb is, over the page rather than instead
+          of it; every choice applies as it is tapped. */}
+      <Offcanvas isOpen={narrow && sheetOpen} toggle={() => setSheetOpen(false)} direction="bottom" className={styles.sheet}>
+        <OffcanvasHeader toggle={() => setSheetOpen(false)}>{t("goals.viewAndGroup")}</OffcanvasHeader>
+        <OffcanvasBody>
+          <div className={styles.sheetGroup}>
+            <p className={styles.railTitle} style={{ marginLeft: 2 }}>
+              {t("goals.viewLabel")}
+            </p>
+            <div className={styles.sheetSeg} role="group" aria-label={t("goals.viewLabel")}>
+              <button type="button" className={`${styles.pick} ${view === "cards" ? styles.pickOn : ""}`} aria-pressed={view === "cards"} onClick={() => onView("cards")}>
+                <FiGrid size={15} aria-hidden /> {t("goals.viewCards")}
+              </button>
+              <button type="button" className={`${styles.pick} ${view === "stacks" ? styles.pickOn : ""}`} aria-pressed={view === "stacks"} onClick={() => onView("stacks")}>
+                <FiList size={15} aria-hidden /> {t("goals.viewStacks")}
+              </button>
+            </div>
           </div>
 
-          <div className={styles.sheetBody}>
+          {/* Grouping shapes the list only; with the cards up it would be a
+              choice that changes nothing on screen. */}
+          {grouping && (
             <div className={styles.sheetGroup}>
               <p className={styles.railTitle} style={{ marginLeft: 2 }}>
                 {t("goals.groupBy")}
@@ -224,23 +245,9 @@ export function GoalsWorkbench({
                 ))}
               </div>
             </div>
-
-            <div className={styles.sheetGroup}>
-              <p className={styles.railTitle} style={{ marginLeft: 2 }}>
-                {t("goals.viewLabel")}
-              </p>
-              <div className={styles.sheetPicks}>
-                <button type="button" className={`${styles.pick} ${view === "cards" ? styles.pickOn : ""}`} aria-pressed={view === "cards"} onClick={() => onView("cards")}>
-                  {t("goals.viewCards")}
-                </button>
-                <button type="button" className={`${styles.pick} ${view === "stacks" ? styles.pickOn : ""}`} aria-pressed={view === "stacks"} onClick={() => onView("stacks")}>
-                  {t("goals.viewStacks")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
+        </OffcanvasBody>
+      </Offcanvas>
     </>
   );
 }

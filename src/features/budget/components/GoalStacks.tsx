@@ -1,12 +1,12 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { FiChevronDown, FiGrid, FiList, FiPlus } from "react-icons/fi";
 import { useTranslation } from "react-i18next";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
-import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { formatDate, getStatusConfig, goalHeadline, relativeToNow, toDate } from "./goalDisplay";
 import styles from "./css/GoalStacks.module.css";
 import type { GoalGroup } from "./goalGrouping";
 import type { GoalCardProps } from "./InvestmentsShared";
+import { GoalDetailsModal } from "./GoalDetailsModal";
 import type { InvestmentGoalStatus, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 
 // One line per goal, stacked under the horizon it belongs to.
@@ -26,11 +26,15 @@ type RowActions = Omit<GoalCardProps, "goal">;
 
 // Memoised, now that the handlers above hold still: a row redraws when its own
 // goal changes and not because someone typed a letter in the search box.
-const GoalRow = memo(function GoalRow({ goal, formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause }: RowActions & { goal: InvestmentGoalWithStats }) {
+const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoalWithStats }) {
+  const { goal, formatCurrency, onAddDeposit } = props;
   const { t } = useTranslation();
+  // The row is the way in: tapped, it opens the goal's sheet, where every action is.
+  const [open, setOpen] = useState(false);
   const now = new Date();
 
-  const accent = goal.color ?? "var(--color-invest)";
+  // `||`, not `??`: a goal saved with an empty colour drew an empty bar.
+  const accent = goal.color || "var(--color-invest)";
   // The same two figures the card puts in its ring, from the same function —
   // a row that measured a monthly goal against its lifetime total would read
   // 1,200% beside a card reading 62%.
@@ -44,10 +48,23 @@ const GoalRow = memo(function GoalRow({ goal, formatCurrency, onViewHistory, onA
   const status = goal.status ? getStatusConfig(goal.status) : null;
   const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
   const isDone = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
-  const monthly = goal.monthlyRequired ?? 0;
 
   return (
-    <div className={styles.row}>
+    <>
+    <div
+      className={styles.row}
+      role="button"
+      tabIndex={0}
+      aria-label={t("goals.openDetails", { name: goal.name })}
+      onClick={() => setOpen(true)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setOpen(true);
+        }
+      }}
+    >
       <span className={styles.icon} style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)` }} aria-hidden>
         {goal.icon ?? "🎯"}
       </span>
@@ -70,47 +87,45 @@ const GoalRow = memo(function GoalRow({ goal, formatCurrency, onViewHistory, onA
         </div>
       </div>
 
-      <div className={styles.bar}>
-        <span className={styles.track}>
-          <span className={styles.fill} style={{ width: `${pct}%`, background: accent }} />
-        </span>
-        <span className={styles.pct}>{Math.round(pct)}%</span>
-      </div>
-
-      <div className={styles.figures}>
+      {/* How much, and how far — the two things a list is read for. The pace
+          and the rest are in the sheet the row opens. */}
+      <div className={styles.side}>
         <div className={styles.amount}>
           {formatCurrency(saved)}
           {target > 0 && <span> / {formatCurrency(target)}</span>}
         </div>
-        <div className={styles.pace}>{monthly > 0 && !isDone ? t("goals.stackNeedPerMonth", { amount: formatCurrency(monthly) }) : (goal.notes ?? "")}</div>
+        {target > 0 && (
+          <div className={styles.bar}>
+            <span className={styles.track}>
+              <span className={styles.fill} style={{ width: `${pct}%`, background: accent }} />
+            </span>
+            <span className={styles.pct}>{Math.round(pct)}%</span>
+          </div>
+        )}
       </div>
 
       <div className={styles.menu}>
+        {/* The one action worth a button of its own; the rest are in the sheet
+            the row opens. Alone, it has room to be hit — beside the "⋯" the
+            two were a few pixels apart. */}
         {!isDone && (
           <button
             type="button"
-            onClick={() => onAddDeposit(goal)}
+            className={styles.quickAdd}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddDeposit(goal);
+            }}
             aria-label={`${t("investments.addDeposit")} — ${goal.name}`}
-            style={{ background: "transparent", border: "none", padding: 2, cursor: "pointer", color: "var(--color-link)", lineHeight: 1 }}
+            title={t("investments.addDeposit")}
           >
-            <FiPlus size={16} />
+            <FiPlus size={17} />
           </button>
         )}
-
-        <RowMenu
-          label={goal.name}
-          entries={[
-            { label: t("goals.history"), onSelect: () => onViewHistory(goal) },
-            ...(saved > 0 && !isDone ? [{ label: t("investments.withdraw"), onSelect: () => onWithdraw(goal) }] : []),
-            MENU_DIVIDER,
-            { label: t("common.edit"), onSelect: () => onEdit(goal), disabled: isDone },
-            { label: t(goal.isActive ? "goals.pause" : "goals.resume"), onSelect: () => onTogglePause(goal), disabled: isDone },
-            MENU_DIVIDER,
-            { label: t("common.delete"), onSelect: () => onDelete(goal), danger: true },
-          ]}
-        />
       </div>
     </div>
+    {open && <GoalDetailsModal {...props} onClose={() => setOpen(false)} />}
+    </>
   );
 });
 

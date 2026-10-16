@@ -1,0 +1,138 @@
+/* The sheet a goal's list row opens: the figures, the pace, every action. */
+
+.chip {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  background: var(--color-surface-raised);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipPaused {
+  color: var(--color-goal-text);
+}
+
+/* ── The sheet ────────────────────────────────────────────────────────────── */
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ring {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ringCentre {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroAmount {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroSub {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroNote {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.figures {
+  display: flex;
+  margin-top: 16px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.figure {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.figureRule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border-tertiary);
+}
+
+.figureValue {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.figureLabel {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--color-text-secondary);
+}
+
+.notes {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.mainActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.mainActions > :global(.btn) {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.moreActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.moreActions > :global(.btn) {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+}

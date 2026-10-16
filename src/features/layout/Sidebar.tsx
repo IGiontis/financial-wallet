@@ -201,7 +201,9 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
   };
 
   return (
-    <li className="nav-item">
+    // Open, the item and its pages share one panel, so it is plain which
+    // pages belong to it and where the next item begins.
+    <li className={`nav-item ${!rail && expanded ? "sidebar-group-open" : ""}`}>
       <button
         type="button"
         ref={refs.setReference}

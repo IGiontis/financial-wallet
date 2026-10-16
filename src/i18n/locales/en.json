@@ -1439,7 +1439,11 @@
     "netSaved": "Net saved",
     "depositFailed": "Could not record the deposit. Check your connection and try again.",
     "withdrawFailed": "Could not record the withdrawal. Check your connection and try again.",
-    "deleteFailed": "Not deleted. Check your connection and try again."
+    "deleteFailed": "Not deleted. Check your connection and try again.",
+    "openDetails": "{{name}}: details and actions",
+    "options": "Options",
+    "viewAndGroup": "View and grouping",
+    "addShort": "Add"
   },
   "planner": {
     "title": "Will I make it?",

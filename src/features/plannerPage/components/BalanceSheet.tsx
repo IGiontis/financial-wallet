@@ -39,7 +39,10 @@ export function BalanceSheet({ plan, onClose, formatCurrency, locale }: { plan: 
         {days.map((day) => (
           <li key={day.date.getTime()} className={`${styles.dayItem} ${day.balance < 0 ? styles.dayUnder : ""}`}>
             <div className={styles.dayHead}>
-              <span>{dayFmt.format(day.date)}</span>
+              <span>
+                {dayFmt.format(day.date)}
+                {day.lowest && <span className={styles.dayTag}>{t("planner.tileLowest")}</span>}
+              </span>
               <span style={{ color: red(day.balance) }}>
                 <span className={styles.dayLeft}>{t("planner.daysLeft")}</span> {formatCurrency(day.balance)}
               </span>

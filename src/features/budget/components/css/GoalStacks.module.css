@@ -89,28 +89,48 @@
   color: var(--color-expense-text);
 }
 
-/* ── One goal, one line ────────────────────────────────────────────────────── */
+/* ── One goal, one small card ─────────────────────────────────────────────── */
+/* Each goal its own little card inside the stack, with room between them, so a
+   tap lands on the goal meant. It says little — what, when, how much, how far —
+   and opens a sheet with the rest; the "+" sits apart at its end. */
+
+.stack > .row {
+  margin: 8px;
+}
+
+.stack > .row + .row {
+  margin-top: 0;
+}
 
 .row {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 116px minmax(0, 150px) 52px;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 168px) 40px;
   align-items: center;
   gap: 12px;
-  padding: 9px 12px;
-  border-top: 1px solid var(--color-border-primary);
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .row:hover {
-  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, var(--color-surface));
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
 }
 
 .icon {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  font-size: 15px;
+  font-size: 17px;
   background: color-mix(in srgb, var(--color-invest) 14%, transparent);
 }
 
@@ -122,7 +142,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -138,6 +158,7 @@
 }
 
 .meta {
+  margin-top: 1px;
   font-size: 11.5px;
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -150,48 +171,21 @@
   font-weight: 600;
 }
 
-/* ── Progress ─────────────────────────────────────────────────────────────── */
+/* ── How much, and how far ────────────────────────────────────────────────── */
 
-.bar {
+.side {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.track {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--color-background-secondary);
-  overflow: hidden;
-}
-
-.fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.2s ease;
-}
-
-.pct {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  min-width: 34px;
-  text-align: right;
-}
-
-/* ── The two figures on the right ─────────────────────────────────────────── */
-
-.figures {
-  text-align: right;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
   min-width: 0;
 }
 
 .amount {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 650;
   color: var(--color-text-primary);
+  text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -203,20 +197,60 @@
   color: var(--color-text-secondary);
 }
 
-.pace {
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  /* Visible on the card itself, so the empty part reads as the part to go. */
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  overflow: hidden;
+}
+
+/* A block, not the span's own inline box: inline, the width was ignored and
+   the bar stayed empty at any percentage. */
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.pct {
   font-size: 11.5px;
+  font-weight: 600;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 32px;
+  text-align: right;
 }
 
 .menu {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+}
+
+/* A real target for a thumb, on its own at the row's end. */
+.quickAdd {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+.quickAdd:hover {
+  background: color-mix(in srgb, var(--bs-primary) 10%, var(--color-surface));
 }
 
 .empty {
@@ -226,17 +260,16 @@
 }
 
 /* ── Narrow ───────────────────────────────────────────────────────────────── */
-/* Five columns do not fit a phone. The bar and the figures drop under the name
-   and keep their own line each, rather than being squeezed to forty pixels. */
+/* On a phone the amount and the bar go under the name, the full width of the
+   card, and the "+" keeps its own corner. */
 
 @media (max-width: 767.98px) {
   .row {
-    grid-template-columns: 30px minmax(0, 1fr) 52px;
+    grid-template-columns: 36px minmax(0, 1fr) 40px;
     grid-template-areas:
       "icon main menu"
-      ".    figs figs"
-      ".    bar  bar";
-    row-gap: 6px;
+      "side side side";
+    row-gap: 8px;
   }
 
   .icon {
@@ -248,15 +281,18 @@
   .menu {
     grid-area: menu;
   }
-  .bar {
-    grid-area: bar;
+  .side {
+    grid-area: side;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
   }
-  .figures {
-    grid-area: figs;
+  .side .amount {
+    flex-shrink: 0;
     text-align: left;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
+  }
+  .side .bar {
+    flex: 1;
   }
 
   .head {

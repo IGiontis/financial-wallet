@@ -1106,6 +1106,20 @@
   color: #7fb0ff;
 }
 
+/* Open: the item and its pages on one panel of their own, so the pages read
+   as its pages and the next item as the next item. */
+.sidebar .nav-item.sidebar-group-open {
+  margin-block: 2px;
+  padding-bottom: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.sidebar .nav-item.sidebar-group-open > .sidebar-parent:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 /* The pages, indented to start under the item's label. */
 .sidebar .sidebar-sub {
   padding-left: 30px;

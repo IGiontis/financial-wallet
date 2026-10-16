@@ -82,10 +82,11 @@ describe("planDays — the balance line as a list of days", () => {
 
   it("adds up: from the money you start with, each day's things and lines give the next day's balance", () => {
     // A second way to the same figures — not read off the walk, rebuilt from what the list prints.
-    let running = plan.openingBalance;
+    // To the cent on every row: one row less the next lands on what is printed between them.
+    let running = round(plan.openingBalance);
     for (const day of days) {
-      running += day.events.reduce((sum, e) => sum + e.amount, 0) + day.lines;
-      expect(Math.abs(running - day.balance)).toBeLessThanOrEqual(0.01 * (days.indexOf(day) + 1));
+      running = round(running + day.events.reduce((sum, e) => sum + e.amount, 0) + day.lines);
+      expect(running).toBe(day.balance);
     }
     // And it ends on the figure the plan ends on.
     expect(days.at(-1)!.balance).toBe(plan.endingBalance);
@@ -101,6 +102,15 @@ describe("planDays — the balance line as a list of days", () => {
     const lines = round(days.reduce((s, d) => s + d.lines, 0));
     expect(lines).toBeLessThan(0);
     expect(Math.abs(-lines - plan.budgetTotal)).toBeLessThanOrEqual(0.01 * days.length);
+  });
+
+  it("lists the lowest day, with the figure the tile shows, even when nothing lands on it", () => {
+    const low = days.filter((d) => d.lowest);
+    expect(low).toHaveLength(1);
+    expect(low[0].date.toDateString()).toBe(plan.lowestOn.toDateString());
+    expect(low[0].balance).toBe(round(plan.lowestBalance));
+    // Nothing printed is lower than it.
+    expect(Math.min(...days.map((d) => d.balance))).toBe(low[0].balance);
   });
 
   it("has nothing to list when nothing comes in or goes out", () => {
