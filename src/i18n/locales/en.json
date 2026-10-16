@@ -1700,7 +1700,21 @@
     "daysLines": "Your own amounts (a little every day)",
     "daysStart": "You start with",
     "daysLeft": "left",
-    "daysEmpty": "Nothing comes in or goes out in this stretch."
+    "daysEmpty": "Nothing comes in or goes out in this stretch.",
+    "eyePutIn": "{{name}}: put it in the plan",
+    "eyeTakeOut": "{{name}}: take it out of the plan",
+    "rowCounted": "Counted",
+    "rowNotCounted": "Not counted",
+    "rowPutIn": "Put it in the plan",
+    "rowTakeOut": "Take it out of the plan",
+    "shareOfOut": "{{pct}}% of what goes out in this stretch",
+    "shareOfIn": "{{pct}}% of what comes in in this stretch",
+    "factAverage": "Average a month",
+    "rowDates_one": "When · {{count}} time",
+    "rowDates_other": "When · {{count}} times",
+    "rowLate": "late",
+    "rowMoreDates_one": "and {{count}} more",
+    "rowMoreDates_other": "and {{count}} more"
   },
   "settings": {
     "title": "Settings",

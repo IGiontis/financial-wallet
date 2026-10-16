@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FiChevronRight, FiPlus } from "react-icons/fi";
+import { FiEye, FiEyeOff, FiPlus } from "react-icons/fi";
 import styles from "../css/PlannerPage.module.css";
 
 /** One line of the plan, ready to show. */
@@ -34,9 +34,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  *
  * It replaced five folded groups, each with a switch on every row — a page of
  * switches that said what was in the plan only after every group had been
- * opened. Here the three figures say it first, and a row is put in or taken
- * out by tapping it: struck through and greyed when out. What a row opens —
- * an income's card, a line's editor, a bill's details — is the "›" at its end.
+ * opened. Here the three figures say it first. A tap on a row opens it — an
+ * income's card, a line's editor, a bill's details — and the eye at its end puts
+ * it in or takes it out of the plan: open when counted, shut and the row struck
+ * through when not. (It was the other way round; the owner reached for the row
+ * to see what a thing was, and switched it off instead.)
  *
  * The figures are added up from the rows below them, so the two cannot
  * disagree.
@@ -131,36 +133,48 @@ export function PlanLedger({
   );
 
   function renderItem(item: LedgerItem) {
+    const body = (
+      <>
+        <span className={styles.scaleName}>
+          {item.label}
+          {item.aside && (
+            <span className={styles.oneOffTag} title={item.aside.hint}>
+              {item.aside.tag}
+            </span>
+          )}
+        </span>
+        <span className={`${styles.scaleAmount} ${!item.enabled || !item.canToggle ? "" : item.total > 0 ? styles.scaleIncome : item.total < 0 ? styles.scaleExpense : ""}`}>
+          {!item.canToggle ? item.aside?.amount : item.enabled ? signed(item.total) : t("planner.ledgerOffShort")}
+        </span>
+      </>
+    );
+
     return (
       <div key={item.id} className={`${styles.scaleRow} ${item.enabled || !item.canToggle ? "" : styles.scaleRowOff}`}>
-        {item.canToggle ? (
-          // The row is the switch: one tap in or out of the plan.
-          <button type="button" role="switch" aria-checked={item.enabled} aria-label={item.label} className={styles.scaleToggle} onClick={() => onToggle(item.id)}>
-            <span className={styles.scaleName}>{item.label}</span>
-            <span className={`${styles.scaleAmount} ${!item.enabled ? "" : item.total > 0 ? styles.scaleIncome : item.total < 0 ? styles.scaleExpense : ""}`}>
-              {item.enabled ? signed(item.total) : t("planner.ledgerOffShort")}
-            </span>
-          </button>
-        ) : (
-          <span className={`${styles.scaleToggle} ${styles.scaleStatic}`}>
-            <span className={styles.scaleName}>
-              {item.label}
-              {item.aside && (
-                <span className={styles.oneOffTag} title={item.aside.hint}>
-                  {item.aside.tag}
-                </span>
-              )}
-            </span>
-            <span className={styles.scaleAmount}>{item.aside?.amount}</span>
-          </span>
-        )}
+        {/* The row is the way in: what it is, and what it is made of. */}
         {item.link ? (
-          <Link to={item.link.to} className={styles.scaleOpen} aria-label={item.link.label}>
-            <FiChevronRight aria-hidden />
+          <Link to={item.link.to} className={styles.scaleToggle} aria-label={item.link.label}>
+            {body}
           </Link>
         ) : item.onOpen ? (
-          <button type="button" className={styles.scaleOpen} onClick={item.onOpen} aria-label={item.openLabel}>
-            <FiChevronRight aria-hidden />
+          <button type="button" className={styles.scaleToggle} onClick={item.onOpen} aria-label={item.openLabel}>
+            {body}
+          </button>
+        ) : (
+          <span className={`${styles.scaleToggle} ${styles.scaleStatic}`}>{body}</span>
+        )}
+        {/* The eye: open when it counts, shut when it does not. */}
+        {item.canToggle ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={item.enabled}
+            className={`${styles.scaleOpen} ${styles.scaleEye} ${item.enabled ? styles.scaleEyeOn : ""}`}
+            onClick={() => onToggle(item.id)}
+            aria-label={t(item.enabled ? "planner.eyeTakeOut" : "planner.eyePutIn", { name: item.label })}
+            title={t(item.enabled ? "planner.eyeTakeOut" : "planner.eyePutIn", { name: item.label })}
+          >
+            {item.enabled ? <FiEye aria-hidden /> : <FiEyeOff aria-hidden />}
           </button>
         ) : (
           <span className={styles.scaleOpen} aria-hidden />

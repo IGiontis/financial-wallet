@@ -1700,7 +1700,21 @@
     "daysLines": "Τα δικά σου ποσά (λίγο κάθε μέρα)",
     "daysStart": "Ξεκινάς με",
     "daysLeft": "μένουν",
-    "daysEmpty": "Τίποτα δεν μπαίνει ή βγαίνει σε αυτό το διάστημα."
+    "daysEmpty": "Τίποτα δεν μπαίνει ή βγαίνει σε αυτό το διάστημα.",
+    "eyePutIn": "{{name}}: βάλ' το στο σχέδιο",
+    "eyeTakeOut": "{{name}}: βγάλ' το από το σχέδιο",
+    "rowCounted": "Μετράει",
+    "rowNotCounted": "Δεν μετράει",
+    "rowPutIn": "Βάλ' το στο σχέδιο",
+    "rowTakeOut": "Βγάλ' το από το σχέδιο",
+    "shareOfOut": "{{pct}}% απ' όσα βγαίνουν σε αυτό το διάστημα",
+    "shareOfIn": "{{pct}}% απ' όσα μπαίνουν σε αυτό το διάστημα",
+    "factAverage": "Μέσος όρος τον μήνα",
+    "rowDates_one": "Πότε · {{count}} φορά",
+    "rowDates_other": "Πότε · {{count}} φορές",
+    "rowLate": "καθυστερεί",
+    "rowMoreDates_one": "και {{count}} ακόμα",
+    "rowMoreDates_other": "και {{count}} ακόμα"
   },
   "settings": {
     "title": "Ρυθμίσεις",

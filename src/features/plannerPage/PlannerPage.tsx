@@ -38,7 +38,7 @@ import PlannerPaydayCard, { type PaydaySteps } from "./components/PlannerPaydayC
 import PeriodCard from "./components/PeriodCard";
 import AnswerStrip from "./components/AnswerStrip";
 import PlannerTiles, { type PlannerSheet } from "./components/PlannerTiles";
-import PlanRowSheet, { type RowFact } from "./components/PlanRowSheet";
+import PlanRowSheet, { type RowDate, type RowFact } from "./components/PlanRowSheet";
 import UnconfirmedQuestion from "./components/UnconfirmedQuestion";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
@@ -427,6 +427,8 @@ export function PlannerPage() {
     if (row.each !== undefined) facts.push([t("planner.factEach"), formatCurrency(row.each)]);
     else if (row.perMonth !== undefined) facts.push([t("planner.factPerMonth"), formatCurrency(Math.abs(row.perMonth))]);
     if (row.occurrences !== undefined) facts.push([t("planner.factTimes"), String(row.occurrences)]);
+    // What it averages a month over the window — how heavy it is, whatever its rhythm.
+    if (row.enabled && row.total !== 0 && plan.monthsCovered > 0) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     if (season) facts.push([t("planner.factSeason"), season]);
     // A zero row says why it is zero. "×0" would be true and useless.
@@ -436,6 +438,30 @@ export function PlannerPage() {
     return facts;
   };
   const sheetRow = rowSheet ? plan.rows.find((r) => r.id === rowSheet) : undefined;
+
+  /** Every day a row lands on in the window, from the plan's own events. */
+  const rowDates = (row: PlanRow): RowDate[] =>
+    plan.events
+      .filter((e) => {
+        if (row.source === "income") return e.incomeId === row.id;
+        if (row.source === "bill") return e.billId === row.id;
+        if (row.source === "debt") return e.occurrenceKey?.startsWith(`loan:${row.id}:`) ?? false;
+        if (row.source === "oneoff") return e.occurrenceKey ? e.occurrenceKey.startsWith(`oneoff:${row.id}:`) : e.kind === "income" && e.label === row.label;
+        // A goal's slices carry nothing but its name.
+        if (row.source === "goal") return e.kind === "goal" && !e.occurrenceKey && e.label === row.label;
+        return false;
+      })
+      .map((e) => ({ date: e.date, amount: e.amount, late: e.late }));
+
+  /** Its part of everything on its own side of the plan, in percent. */
+  const rowShare = (row: PlanRow): number | undefined => {
+    const sameSide = plan.rows.filter((r) => r.enabled && (row.total < 0 ? r.total < 0 : r.total > 0));
+    const whole = sameSide.reduce((sum, r) => sum + Math.abs(r.total), 0);
+    return whole > 0 && row.total !== 0 ? (Math.abs(row.total) / whole) * 100 : undefined;
+  };
+
+  const rowGroup = (row: PlanRow): string | undefined =>
+    row.source === "bill" ? t("planner.groupBills") : row.source === "goal" ? t("planner.groupGoals") : row.source === "debt" ? t("debts.plannerGroup") : row.source === "line" ? t("planner.groupMine") : undefined;
 
   return (
     <PageShell>
@@ -592,7 +618,19 @@ export function PlannerPage() {
           ))}
         </ModalBody>
       </Modal>
-      {sheetRow && <PlanRowSheet row={sheetRow} facts={rowFacts(sheetRow)} onToggle={() => toggleRow(sheetRow.id)} onClose={() => setRowSheet(null)} />}
+      {sheetRow && (
+        <PlanRowSheet
+          row={sheetRow}
+          facts={rowFacts(sheetRow)}
+          group={rowGroup(sheetRow)}
+          share={rowShare(sheetRow)}
+          dates={rowDates(sheetRow)}
+          formatCurrency={formatCurrency}
+          dateFmt={new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+          onToggle={() => toggleRow(sheetRow.id)}
+          onClose={() => setRowSheet(null)}
+        />
+      )}
 
       {editor && (
         <EntryEditor
