@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { settledForCards, willBePaidAgain } from "./billsUtils";
+import { paidThisPeriod, settledForCards, willBePaidAgain } from "./billsUtils";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 
 // The paid cards: what comes back first, soonest due at the top; what will not
@@ -40,5 +40,25 @@ describe("the paid cards' order", () => {
       bill("water", { nextDueDate: new Date(2026, 11, 2) }),
     ];
     expect(settledForCards(list, NOW).map((b) => b.id)).toEqual(["rent", "netflix", "water", "gym", "cancelled"]);
+  });
+});
+
+describe("what a paid bill's chip says was paid", () => {
+  const pay = (periodKey: string, amount: number, installmentIndex?: number) =>
+    ({ id: `${periodKey}-${amount}-${installmentIndex ?? 0}`, userId: "u", billId: "b", periodKey, amount, paidDate: NOW, createdAt: NOW, installmentIndex }) as BillWithStatus["payments"][number];
+
+  it("is this period's payment, not the one before it", () => {
+    expect(paidThisPeriod(bill("b", { currentPeriodKey: "2026-10", payments: [pay("2026-10", 45.3), pay("2026-09", 41)] }))).toBe(45.3);
+  });
+
+  it("adds up a period paid in instalments, to the cent", () => {
+    // 0.1 + 0.2 is the classic float trap; the figure printed must be 0.30.
+    expect(paidThisPeriod(bill("b", { currentPeriodKey: "2026", payments: [pay("2026", 0.1, 0), pay("2026", 0.2, 1), pay("2025", 99)] }))).toBe(0.3);
+    expect(paidThisPeriod(bill("b", { currentPeriodKey: "2026", payments: [pay("2026", 210, 0), pay("2026", 210, 1)] }))).toBe(420);
+  });
+
+  it("has nothing to say when nothing is filed under this period", () => {
+    expect(paidThisPeriod(bill("b", { currentPeriodKey: "2026-10", payments: [pay("2026-09", 41)] }))).toBe(0);
+    expect(paidThisPeriod(bill("b", { currentPeriodKey: "2026-10", payments: [] }))).toBe(0);
   });
 });

@@ -542,7 +542,8 @@
     "prepaidLess": "Paid ahead",
     "leftToPay": "Left to pay",
     "yearAheadPrepaid": "Striped: what you have already paid ahead",
-    "yearAheadPaidTitle": "{{paid}} paid ahead, {{left}} left"
+    "yearAheadPaidTitle": "{{paid}} paid ahead, {{left}} left",
+    "chipPaidAmount": "Paid {{amount}}"
   },
   "incomes": {
     "title": "Income",

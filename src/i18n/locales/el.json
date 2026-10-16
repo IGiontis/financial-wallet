@@ -542,7 +542,8 @@
     "prepaidLess": "Προπληρωμένα",
     "leftToPay": "Μένει να πληρώσεις",
     "yearAheadPrepaid": "Με γραμμές: ό,τι έχεις ήδη προπληρώσει",
-    "yearAheadPaidTitle": "προπληρωμένα {{paid}}, μένουν {{left}}"
+    "yearAheadPaidTitle": "προπληρωμένα {{paid}}, μένουν {{left}}",
+    "chipPaidAmount": "Πληρώθηκε {{amount}}"
   },
   "incomes": {
     "title": "Έσοδα",

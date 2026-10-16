@@ -502,9 +502,17 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   }
 
   if (urgency === "paid") {
+    // The tick and how much, so a paid bill can be read without opening it.
+    // Every instalment of the period added up; a period covered by a payment
+    // made ahead has none of its own, and says paid instead.
+    const paid = paidThisPeriod(bill);
     return (
-      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-income) 15%, transparent)", color: "var(--color-income)" }}>
-        ✓ {t("bills.paidRecently")}
+      <span
+        className={styles.statusChip}
+        style={{ background: "color-mix(in srgb, var(--color-income) 15%, transparent)", color: "var(--color-income)" }}
+        title={paid > 0 ? t("bills.chipPaidAmount", { amount: formatCurrency(paid) }) : undefined}
+      >
+        ✓ {paid > 0 ? formatCurrency(paid) : t("bills.paidRecently")}
       </span>
     );
   }
@@ -744,13 +752,18 @@ function BillLine({
           {late ? (
             <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
           ) : settled ? (
-            <span className={`${styles.linePill} ${styles.linePillPaid}`}>{t("bills.linePaid")}</span>
+            // The tick and what was paid, as on the cards.
+            <span className={`${styles.linePill} ${styles.linePillPaid}`} title={t("bills.chipPaidAmount", { amount: formatCurrency(paidThisPeriod(bill)) })}>
+              <FiCheck size={11} aria-hidden /> {paidThisPeriod(bill) > 0 ? formatCurrency(paidThisPeriod(bill)) : t("bills.linePaid")}
+            </span>
           ) : stopped ? (
             <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
           ) : (
             <span className={`${styles.linePill} ${styles.linePillDue}`}>{t("bills.lineUnpaid")}</span>
           )}
           <CadenceBadge bill={bill} />
+          {/* Paid ahead, as on the card: how many periods are already covered. */}
+          {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
         </span>
       </span>
 

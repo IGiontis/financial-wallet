@@ -1931,3 +1931,4 @@ export function settledForCards(bills: BillWithStatus[], now: Date = new Date())
   const done = bills.filter((b) => !willBePaidAgain(b, now)).sort((a, b) => last(b) - last(a));
   return [...again, ...done];
 }
+
