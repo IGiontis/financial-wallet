@@ -46,6 +46,12 @@ const renderAt = (path: string) =>
   );
 
 const sidebar = () => screen.getByRole("navigation", { name: "Main navigation" });
+const HOME = "MyFiWallet — to the Overview";
+/** The menu's links, without the logo — which goes home and is no item of the menu. */
+const navLinks = () =>
+  within(sidebar())
+    .getAllByRole("link")
+    .filter((link) => link.getAttribute("aria-label") !== HOME);
 const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 
 // Every destination the sidebar shows as a link, in its order, with
@@ -93,8 +99,7 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
 
   it("lists the same links, in the same four groups and the same order", () => {
     renderAt("/");
-    const hrefs = within(sidebar())
-      .getAllByRole("link")
+    const hrefs = navLinks()
       .map((link) => link.getAttribute("href"));
     expect(hrefs).toEqual(ALL_PATHS);
 
@@ -109,10 +114,17 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
 
+  it("takes the name and logo home, to the Overview, without marking itself as the page", () => {
+    renderAt("/goals");
+    const home = within(sidebar()).getByRole("link", { name: HOME });
+    expect(home).toHaveAttribute("href", "/");
+    expect(home).toHaveTextContent("MyFiWallet");
+    expect(home).not.toHaveAttribute("aria-current");
+  });
+
   it("marks the page you are on, and only that one", () => {
     renderAt("/goals");
-    const current = within(sidebar())
-      .getAllByRole("link")
+    const current = navLinks()
       .filter((link) => link.getAttribute("aria-current") === "page");
     expect(current.map((link) => link.getAttribute("href"))).toEqual(["/goals"]);
   });
@@ -284,7 +296,7 @@ describe("the collapsed rail on a wide screen", () => {
   it("keeps every link named, and labels an icon beside it on hover, bills and all", async () => {
     state.billsDue = 2;
     renderAt("/");
-    expect(within(sidebar()).getAllByRole("link")).toHaveLength(ALL_PATHS.length);
+    expect(navLinks()).toHaveLength(ALL_PATHS.length);
 
     const bills = within(sidebar()).getByRole("link", { name: "Bills — 2 bills need paying" });
     await userEvent.hover(bills);

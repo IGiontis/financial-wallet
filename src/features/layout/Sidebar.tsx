@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { FloatingPortal, autoUpdate, offset, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import { useBillsNeedingAttention } from "../bills/useBills";
@@ -385,12 +385,12 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
             who is signed in; the ✕ only where the bar is a drawer. */}
         <div className="sidebar-header">
           {/* The name is the way home, as on most sites: to the Overview. */}
-          <NavLink to="/" end onClick={navigate} className="sidebar-home" aria-label={t("nav.goHome")}>
+          <Link to="/" onClick={navigate} className="sidebar-home" aria-label={t("nav.goHome")}>
             <span className="sidebar-logo" aria-hidden>
               <FiBriefcase />
             </span>
             <span className="sidebar-brand">MyFiWallet</span>
-          </NavLink>
+          </Link>
           <div className="sidebar-profile">
             {avatar}
             {who}
