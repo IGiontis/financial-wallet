@@ -427,8 +427,10 @@ export function PlannerPage() {
     if (row.each !== undefined) facts.push([t("planner.factEach"), formatCurrency(row.each)]);
     else if (row.perMonth !== undefined) facts.push([t("planner.factPerMonth"), formatCurrency(Math.abs(row.perMonth))]);
     if (row.occurrences !== undefined) facts.push([t("planner.factTimes"), String(row.occurrences)]);
-    // What it averages a month over the window — how heavy it is, whatever its rhythm.
-    if (row.enabled && row.total !== 0 && plan.monthsCovered > 0) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
+    // What it averages a month over the window — how heavy it is, whatever its
+    // rhythm. Only over two months or more: over the rest of this month alone,
+    // 85 € of power divided by half a month read as 163 € a month.
+    if (row.enabled && row.total !== 0 && plan.monthsCovered >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     if (season) facts.push([t("planner.factSeason"), season]);
     // A zero row says why it is zero. "×0" would be true and useless.
