@@ -850,3 +850,31 @@ body {
     }
   }
 }
+
+/* ── Date picker: hover that follows the theme ─────────────────────────────── */
+/* The library writes its hover as
+   `.react-datepicker__day:not([aria-disabled="true"]):hover`, which outweighs
+   the plain `:hover` rules above, so its own near-white (#f0f0f0) won in the
+   dark theme — with the theme's near-white text on it: 1.1:1, the day under
+   the pointer vanished. The same selectors again, written after it, put the
+   hover back on the token layer in both themes. */
+.react-datepicker__day:not([aria-disabled="true"]):hover,
+.react-datepicker__month-text:not([aria-disabled="true"]):hover,
+.react-datepicker__quarter-text:not([aria-disabled="true"]):hover,
+.react-datepicker__year-text:not([aria-disabled="true"]):hover {
+  background-color: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+/* What is chosen stays the app's blue under the pointer, not the library's. */
+.react-datepicker__day--selected:not([aria-disabled="true"]):hover,
+.react-datepicker__day--keyboard-selected:not([aria-disabled="true"]):hover,
+.react-datepicker__day--in-range:not([aria-disabled="true"]):hover,
+.react-datepicker__month-text--selected:not([aria-disabled="true"]):hover,
+.react-datepicker__month-text--keyboard-selected:not([aria-disabled="true"]):hover,
+.react-datepicker__month-text--in-range:not([aria-disabled="true"]):hover,
+.react-datepicker__year-text--selected:not([aria-disabled="true"]):hover {
+  background-color: var(--bs-primary);
+  color: #fff;
+  filter: brightness(1.08);
+}

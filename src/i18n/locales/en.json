@@ -87,7 +87,8 @@
     "newTransaction": "New transaction",
     "allTransactions": "All transactions",
     "ledger": "Ledger",
-    "goHome": "MyFiWallet — to the Overview"
+    "goHome": "MyFiWallet — to the Overview",
+    "calendar": "Calendar"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -2488,5 +2489,53 @@
     "bankLeftFrom": "The {{amount}} that was in your bank — which card did it leave?",
     "givesBack": "{{who}} gives back",
     "alreadyLeft": "{{who}} already had it"
+  },
+  "calendar": {
+    "prev": "Previous month",
+    "next": "Next month",
+    "today": "Today",
+    "in": "Income",
+    "out": "Expenses",
+    "cameOf": "{{amount}} came",
+    "paidOf": "{{amount}} paid",
+    "emptyDay": "Nothing comes in or goes out on this day.",
+    "net": "Day's total",
+    "state": {
+      "bill": {
+        "done": "Paid",
+        "todo": "To pay",
+        "late": "Overdue"
+      },
+      "income": {
+        "done": "Arrived",
+        "todo": "Expected",
+        "late": "Late, or waiting for your answer"
+      },
+      "debt": {
+        "done": "Paid",
+        "todo": "To pay",
+        "late": "Overdue"
+      },
+      "goal": {
+        "done": "Put in",
+        "todo": "To put in",
+        "late": "To put in"
+      }
+    },
+    "pickMonth": "Choose month and year",
+    "pickDay": "Tap a day to see what is on it.",
+    "keyTitle": "What the colours mean",
+    "keyIn": "Income you are expecting",
+    "keyInDone": "Income that came (pale green)",
+    "keyOut": "An expense still to pay",
+    "keyOutDone": "An expense that was paid (pale red)",
+    "keyBoth": "Income and expense on the same day — the net figure inside",
+    "keyAllDone": "Everything on the day done — struck through in green",
+    "keyLate": "Late, or waiting for you to say whether it came",
+    "keyToday": "Today",
+    "keySign": "The figure in a day is what is left: what has not happened yet, in less out. It goes down as you pay, and once everything is done it shows the day's whole again.",
+    "scope": "Only what is scheduled: incomes, bills, loan instalments and goals — not your transactions.",
+    "groupUnpaid": "Unpaid",
+    "groupPaid": "Paid"
   }
 }

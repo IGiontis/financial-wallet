@@ -124,3 +124,59 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
     />
   );
 }
+
+/** A button that is only its caption — the trigger of `MonthPicker`, which draws the picker around it. */
+const CaptionButton = forwardRef<HTMLButtonElement, { onClick?: () => void; caption: React.ReactNode; className?: string; label?: string }>(({ onClick, caption, className, label }, ref) => (
+  <button type="button" ref={ref} onClick={onClick} className={className} aria-label={label}>
+    {caption}
+  </button>
+));
+CaptionButton.displayName = "CaptionButton";
+
+/**
+ * The same calendar as `DateField`, in month mode, opened from any button — for
+ * a page whose title *is* the month ("October 2026") and should open the grid
+ * of months, with the year to change beside it.
+ *
+ * It shares the portal, the locale and the narrow-screen sheet with `DateField`
+ * on purpose: one calendar, whichever way it was opened.
+ */
+export function MonthPicker({
+  value,
+  onChange,
+  minDate,
+  maxDate,
+  caption,
+  className,
+  label,
+}: {
+  value: Date;
+  onChange: (month: Date) => void;
+  minDate?: Date;
+  maxDate?: Date;
+  caption: React.ReactNode;
+  className?: string;
+  label?: string;
+}) {
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage?.startsWith("el") ? "el" : "en";
+  const narrow = useNarrowScreen();
+
+  return (
+    <DatePicker
+      selected={value}
+      onChange={(date: Date | null) => date && onChange(new Date(date.getFullYear(), date.getMonth(), 1))}
+      locale={locale}
+      dateFormat="MMM yyyy"
+      minDate={minDate}
+      maxDate={maxDate}
+      showMonthYearPicker
+      showPopperArrow={false}
+      portalId="datepicker-portal"
+      withPortal={narrow}
+      popperPlacement="bottom"
+      customInput={<CaptionButton caption={caption} className={className} label={label} />}
+      calendarClassName={styles.calendar}
+    />
+  );
+}

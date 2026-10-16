@@ -15,6 +15,7 @@ export const SettingsPage = lazy(() => import("../features/settings/pages/Settin
 export const InvestmentsPage = lazy(() => import("../features/budget/InvestmentsPage"));
 export const BillsPage = lazy(() => import("../features/bills/BillsPage"));
 export const IncomesPage = lazy(() => import("../features/incomes/IncomesPage"));
+export const CalendarPage = lazy(() => import("../features/calendar/CalendarPage"));
 export const PlannerPage = lazy(() => import("../features/plannerPage/PlannerPage").then((m) => ({ default: m.PlannerPage })));
 export const AllocationPage = lazy(() => import("../features/allocation/AllocationPage").then((m) => ({ default: m.AllocationPage })));
 export const DebtsPage = lazy(() => import("../features/debts/DebtsPage"));

@@ -8,7 +8,7 @@ import { useProfile } from "./useProfile";
 import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen } from "react-icons/fi";
+import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiSliders, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -340,6 +340,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
       label: t("nav.groupPlan"),
       items: [
         { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
+        // The month on one screen: what comes in and goes out, day by day.
+        { path: "/calendar", label: t("nav.calendar"), icon: FiGrid },
         { path: "/allocation", label: t("nav.allocation"), icon: FiSliders },
         { path: "/goals", label: t("nav.goals"), icon: FiTarget },
       ],
