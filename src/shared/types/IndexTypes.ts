@@ -304,6 +304,13 @@ export interface InvestmentGoal {
   targetAmount?: number;
   targetPeriod?: TargetPeriod;
   deadline?: Date;
+  /**
+   * "YYYY-MM-DD": the day the owner means to start putting money in. Read by
+   * the Planner only — it asks nothing of the goal before that month, and
+   * spreads what is left from then to the deadline. Money can still go in
+   * earlier; it simply is not planned for.
+   */
+  planFrom?: string;
   isActive: boolean;
   isCompleted: boolean;
   completedAt?: Date;
@@ -320,6 +327,8 @@ export interface CreateInvestmentGoalDTO {
   targetAmount?: number;
   targetPeriod?: TargetPeriod;
   deadline?: Date;
+  /** See `InvestmentGoal.planFrom`. */
+  planFrom?: string;
 }
 
 export interface UpdateInvestmentGoalDTO {
@@ -330,6 +339,8 @@ export interface UpdateInvestmentGoalDTO {
   targetAmount?: number;
   targetPeriod?: TargetPeriod;
   deadline?: Date;
+  /** See `InvestmentGoal.planFrom`. `null` takes it off. */
+  planFrom?: string | null;
   isActive?: boolean;
   isCompleted?: boolean;
   completedAt?: Date;

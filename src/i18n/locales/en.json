@@ -1446,7 +1446,11 @@
     "openDetails": "{{name}}: details and actions",
     "options": "Options",
     "viewAndGroup": "View and grouping",
-    "addShort": "Add"
+    "addShort": "Add",
+    "planFrom": "I'll start putting money in from (optional)",
+    "planFromShort": "You start putting money in",
+    "planFromPlaceholder": "From today",
+    "planFromHint": "For the Planner only: it asks nothing before this day, and shares what is left from then to the deadline. You can still put money in earlier."
   },
   "planner": {
     "title": "Will I make it?",
@@ -1853,7 +1857,8 @@
     "installmentMin": "At least 1 payment",
     "installmentMax": "At most 12 payments",
     "pauseToRequired": "Choose when it ends",
-    "pauseEndBeforeStart": "The end is before the start"
+    "pauseEndBeforeStart": "The end is before the start",
+    "planFromAfterDeadline": "The start has to come before the deadline."
   },
   "errors": {
     "invalidCredentials": "Invalid email or password.",

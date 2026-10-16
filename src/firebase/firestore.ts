@@ -388,6 +388,8 @@ export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmen
   const cleaned = clean({ ...data });
   await updateDoc(doc(db, "investmentGoals", goalId), {
     ...cleaned,
+    // Taken off: `clean()` would drop a null, and the old date would stay.
+    ...(data.planFrom === null ? { planFrom: deleteField() } : {}),
     updatedAt: serverTimestamp(),
   });
 };

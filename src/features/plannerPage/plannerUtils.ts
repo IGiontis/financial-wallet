@@ -1,7 +1,7 @@
 import { addDays, addMonths, addYears, differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay, startOfMonth } from "date-fns";
 import { createResolver, lookbackStart, occurrenceKey, type Actuals, type PlannedOccurrence, type ResolvedOccurrence } from "./plannerActuals";
 import { planIncomes } from "./plannerIncomes";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay } from "../../shared/utils/dates";
 import type { Income } from "../incomes/incomesUtils";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
 import { deadlinePace } from "../budget/investmentsUtils";
@@ -73,6 +73,45 @@ export function goalMonthlyTarget(goal: InvestmentGoalWithStats, now: Date = new
 }
 
 export const plannableGoals = (goals: InvestmentGoalWithStats[]) => goals.filter((g) => g.isActive && !g.isCompleted);
+
+/** The day a goal's saving is meant to start, when that is still ahead of today. */
+export function goalPlanStart(goal: Pick<InvestmentGoalWithStats, "planFrom">, today: Date): Date | undefined {
+  const start = goal.planFrom ? parseISODay(goal.planFrom) : null;
+  return start && startOfDay(start) > startOfDay(today) ? startOfDay(start) : undefined;
+}
+
+/**
+ * The slices of a goal that starts later, inside the window: one a month from
+ * its start, on the day of the month it starts on.
+ *
+ * Undefined when there is no later start, and the goal is planned as before.
+ * With a deadline, what is left is shared over the months from the start to the
+ * deadline by the same rule as everywhere else (`deadlinePace`, measured from
+ * the start rather than from today); a monthly or yearly goal asks its usual
+ * monthly figure from the start on.
+ */
+export function goalStartSlices(goal: InvestmentGoalWithStats, today: Date, end: Date, now: Date): { date: Date; amount: number }[] | undefined {
+  const start = goalPlanStart(goal, today);
+  if (!start || goal.goalType === "open_ended") return undefined;
+
+  const deadline = goal.deadline ? firestoreToDate(goal.deadline) : undefined;
+  const dated = !!deadline && goal.targetPeriod !== "monthly" && goal.targetPeriod !== "yearly";
+  const pace = dated ? deadlinePace(goal.remaining ?? 0, deadline, 0, start) : undefined;
+  const monthly = dated ? 0 : goalMonthlyTarget(goal, now);
+
+  const slices: { date: Date; amount: number }[] = [];
+  const last = deadline && dated ? startOfMonth(deadline) : undefined;
+  for (let i = 0; i < MAX_HORIZON_MONTHS + 1; i++) {
+    const month = addMonths(startOfMonth(start), i);
+    if (month > end || (last && month > last)) break;
+    const date = i === 0 ? start : clampDay(month.getFullYear(), month.getMonth(), start.getDate());
+    if (date > end) break;
+    // The first month takes the rounding, as `deadlinePace` gives it.
+    const amount = pace ? (i === 0 ? pace.thisMonth : pace.perMonth) : monthly;
+    if (amount > 0) slices.push({ date, amount: round2(amount) });
+  }
+  return slices;
+}
 
 /**
  * Of the months ahead, the ones this goal is still asking for money in.
@@ -842,6 +881,19 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   for (let cursor = startOfMonth(addMonths(today, 1)); cursor <= end; cursor = addMonths(cursor, 1)) laterMonths.push(startOfDay(cursor));
 
   for (const goal of plannableGoals(goals)) {
+    const enabled = isOn(goal.id);
+
+    // A goal the owner means to start later: nothing before that month, and
+    // from then what is left spread to the deadline — on the day he picked,
+    // each month. See `goalStartSlices`.
+    const later = goalStartSlices(goal, today, end, now);
+    if (later) {
+      const total = round2(later.reduce((sum, slice) => sum + slice.amount, 0));
+      rows.push({ id: goal.id, source: "goal", label: goal.name, total: enabled ? negate(total) : 0, occurrences: later.length, perMonth: negate(later[1]?.amount ?? later[0]?.amount ?? 0), note: total > 0 ? undefined : "funded", enabled });
+      if (enabled) for (const slice of later) events.push({ kind: "goal", label: goal.name, amount: -slice.amount, date: slice.date });
+      continue;
+    }
+
     // This month wants whatever is still outstanding; later months want the full
     // target again, since nothing has been paid into them yet.
     const need = goalMonthlyNeed(goal, now);
@@ -850,7 +902,6 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     const months = goalMonthsAhead(goal, laterMonths);
     const total = need + target * months.length;
 
-    const enabled = isOn(goal.id);
     rows.push({
       id: goal.id,
       source: "goal",

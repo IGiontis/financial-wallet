@@ -95,6 +95,9 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
       id={id}
       disabled={disabled}
       isClearable={clearable}
+      // Handed to the button as its placeholder. Without it the library passes its
+      // own, empty, over the one given to the button, and every empty field read "—".
+      placeholderText={placeholder}
       showPopperArrow={false}
       // In month mode the grid *is* the twelve months, so the dropdowns would
       // duplicate it.

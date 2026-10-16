@@ -21,6 +21,7 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Trans, useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
+import { PlanFromField } from "./components/PlanFromField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
@@ -44,6 +45,8 @@ interface GoalFormValues {
   targetAmount: number | "";
   targetPeriod: TargetPeriod;
   deadline: string;
+  /** "YYYY-MM-DD", or "" — see `InvestmentGoal.planFrom`. */
+  planFrom: string;
   isActive: boolean;
 }
 
@@ -82,6 +85,11 @@ const validationSchema = Yup.object({
     then: (s) => s.required("validation.deadlineRequired"),
     otherwise: (s) => s.optional(),
   }),
+  // Optional; when given, it has to come before the goal's own deadline.
+  planFrom: Yup.string().test("before-deadline", "validation.planFromAfterDeadline", function (value) {
+    const { deadline } = this.parent as { deadline?: string };
+    return !value || !deadline || value <= deadline;
+  }),
   notes: Yup.string().max(300, "validation.maxChars|300"),
   isActive: Yup.boolean(),
 });
@@ -117,6 +125,7 @@ function ReviewScreen({
     ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? t("goals.periodMonthly") : t("goals.periodYearly") }] : []),
     // Show Deadline row only for GoalsPage (custom period)
     ...(isGoalsPage && isTargeted && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    ...(isGoalsPage && isTargeted && values.planFrom ? [{ label: t("goals.planFromShort"), value: format(new Date(values.planFrom), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
     { label: t("goals.statusLabel"), value: values.isActive ? t("goals.statusActive") : t("common.paused") },
   ];
@@ -204,6 +213,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
       // InvestmentsPage → monthly as sensible default for recurring
       targetPeriod: isGoalsPage ? "custom" : "monthly",
       deadline: defaultDeadline,
+      planFrom: "",
       isActive: true,
     }),
     [isGoalsPage],
@@ -224,6 +234,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           targetAmount: values.goalType === "targeted" ? (values.targetAmount as number) : undefined,
           targetPeriod: values.goalType === "targeted" ? values.targetPeriod : undefined,
           deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
+          planFrom: isGoalsPage && values.goalType === "targeted" && values.planFrom ? values.planFrom : undefined,
         };
         await onSubmit(dto, values.isActive);
         toast.success(t("goals.createdSuccess", { name: values.name }));
@@ -390,6 +401,14 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                       )}
                     </Col>
                   </Row>
+                  {isGoalsPage && (
+                    <PlanFromField
+                      value={formik.values.planFrom}
+                      onChange={(v) => formik.setFieldValue("planFrom", v)}
+                      maxDate={formik.values.deadline ? new Date(formik.values.deadline) : undefined}
+                      error={formik.errors.planFrom ? validationMessage(formik.errors.planFrom, t) : undefined}
+                    />
+                  )}
                 </>
               )}
 

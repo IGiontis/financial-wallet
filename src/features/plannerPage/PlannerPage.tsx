@@ -24,6 +24,7 @@ import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
 import {
   asHorizon,
   buildPlan,
+  goalPlanStart,
   monthStart,
   nextOneOffDate,
   oneOffDate,
@@ -431,6 +432,9 @@ export function PlannerPage() {
     // rhythm. Only over two months or more: over the rest of this month alone,
     // 85 € of power divided by half a month read as 163 € a month.
     if (row.enabled && row.total !== 0 && plan.monthsCovered >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
+    // A goal meant to start later says from when: the reason nothing is asked before it.
+    const planStart = row.source === "goal" ? (() => { const goal = goals.find((g) => g.id === row.id); return goal ? goalPlanStart(goal, startOfToday) : undefined; })() : undefined;
+    if (planStart) facts.push([t("goals.planFromShort"), new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }).format(planStart)]);
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     if (season) facts.push([t("planner.factSeason"), season]);
     // A zero row says why it is zero. "×0" would be true and useless.

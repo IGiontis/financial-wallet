@@ -5,6 +5,7 @@ import { firestoreToDate } from "../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
+import { PlanFromField } from "./components/PlanFromField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
@@ -23,6 +24,8 @@ interface EditGoalFormValues {
   targetAmount: number | "";
   targetPeriod: TargetPeriod;
   deadline: string;
+  /** "YYYY-MM-DD", or "" — see `InvestmentGoal.planFrom`. */
+  planFrom: string;
 }
 
 const toDateInputValue = (value: unknown): string => {
@@ -53,6 +56,11 @@ const validationSchema = Yup.object({
     is: "custom",
     then: (s) => s.required("validation.deadlineRequiredCustom"),
     otherwise: (s) => s.optional(),
+  }),
+  // Optional; when given, it has to come before the goal's own deadline.
+  planFrom: Yup.string().test("before-deadline", "validation.planFromAfterDeadline", function (value) {
+    const { deadline } = this.parent as { deadline?: string };
+    return !value || !deadline || value <= deadline;
   }),
   notes: Yup.string().max(300, "validation.maxChars|300"),
 });
@@ -88,6 +96,7 @@ function ReviewScreen({
     ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
     ...(isTargeted && !isGoalsPageGoal ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "yearly" ? t("goals.periodYearly") : t("goals.periodMonthly") }] : []),
     ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
+    ...(isTargeted && isGoalsPageGoal && values.planFrom ? [{ label: t("goals.planFromShort"), value: format(new Date(values.planFrom), "dd/MM/yyyy") }] : []),
     ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
   ];
 
@@ -160,6 +169,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
       targetAmount: goal.targetAmount ?? "",
       targetPeriod: goal.targetPeriod ?? "monthly",
       deadline: toDateInputValue(goal.deadline),
+      planFrom: goal.planFrom ?? "",
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -172,6 +182,8 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
           targetAmount: isTargeted ? (values.targetAmount as number) : undefined,
           targetPeriod: isTargeted ? values.targetPeriod : undefined,
           deadline: isTargeted && isGoalsPageGoal && values.deadline ? new Date(values.deadline) : undefined,
+          // Cleared: `null`, so the date already saved is taken off rather than kept.
+          planFrom: isTargeted && isGoalsPageGoal ? values.planFrom || (goal.planFrom ? null : undefined) : undefined,
         };
         await onSubmit(goal.id, data);
         toast.success(t("goals.updatedSuccess", { name: values.name }));
@@ -238,6 +250,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                 <>
                   {isGoalsPageGoal ? (
                     /* GoalsPage goal — target amount + deadline side by side */
+                    <>
                     <Row className="g-3">
                       <Col xs={6}>
                         <FormGroup className="mb-0">
@@ -270,6 +283,13 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                         </FormGroup>
                       </Col>
                     </Row>
+                    <PlanFromField
+                      value={formik.values.planFrom}
+                      onChange={(v) => formik.setFieldValue("planFrom", v)}
+                      maxDate={formik.values.deadline ? new Date(formik.values.deadline) : undefined}
+                      error={formik.errors.planFrom ? validationMessage(formik.errors.planFrom, t) : undefined}
+                    />
+                    </>
                   ) : (
                     /* InvestmentsPage goal — target amount + period dropdown side by side */
                     <Row className="g-3">
