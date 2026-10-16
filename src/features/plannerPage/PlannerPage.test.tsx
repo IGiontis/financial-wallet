@@ -381,9 +381,11 @@ describe("the incomes, from «Έσοδα»", () => {
     const salary = screen.getByRole("button", { name: "Salary: details" });
     const rent = screen.getByRole("button", { name: "Rent I collect: details" });
     expect(salary.compareDocumentPosition(rent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // The row is the switch — a name and an amount; the "×3 · next" is in the income's card.
-    expect(screen.getByRole("switch", { name: "Salary" })).toHaveTextContent(/^Salary\+€4350\.00$/);
-    expect(screen.getByRole("switch", { name: "Rent I collect" })).toHaveTextContent(/^Rent I collect\+€1200\.00$/);
+    // The row opens the card — a name and an amount; the "×3 · next" is in the card.
+    expect(salary).toHaveTextContent(/^Salary\+€4350\.00$/);
+    expect(rent).toHaveTextContent(/^Rent I collect\+€1200\.00$/);
+    // And each has its eye, open: counted.
+    expect(screen.getByRole("switch", { name: "Salary: take it out of the plan" })).toHaveAttribute("aria-checked", "true");
     expect(3 * 1450).toBe(4350);
     expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes");
     // Nothing to type here any more: no salary dialog, no income lines.
@@ -396,7 +398,7 @@ describe("the incomes, from «Έσοδα»", () => {
 
   it("switches one off the way the salary always was — kept in planner-skip under its id", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("switch", { name: "Rent I collect" }));
+    await userEvent.click(screen.getByRole("switch", { name: "Rent I collect: take it out of the plan" }));
     expect(settings.get("planner-skip")).toEqual(["rent-in"]);
     // Exactly its 1.200 less.
     await openPeriod();
@@ -463,10 +465,12 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
     expect(screen.getByText("The months leave +€2795.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
   });
 
-  it("takes a row out with a tap, and puts it back with another", async () => {
+  it("takes a row out with a tap on its eye, and puts it back with another", async () => {
     renderPage();
-    const rent = screen.getByRole("switch", { name: "Rent I collect" });
+    const rent = screen.getByRole("switch", { name: /^Rent I collect: / });
     await userEvent.click(rent);
+    // Shut, and saying what the next tap does.
+    expect(rent).toHaveAccessibleName("Rent I collect: put it in the plan");
     expect(rent).toHaveAttribute("aria-checked", "false");
     // In is now the salary alone: the same figure as its row.
     expect(screen.getAllByText("+€4350.00")).toHaveLength(2);
@@ -477,22 +481,26 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
 });
 
 describe("a row the app keeps", () => {
-  it("opens its facts as columns, with its switch, instead of carrying them under its name", async () => {
+  it("opens its facts in boxes, with every day it lands on, and the eye to take it out", async () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
-    // The row is its switch; the "›" at its end opens it.
-    expect(screen.getByRole("switch", { name: "Power" })).toHaveTextContent(/Power−€195\.00$/);
+    // The row opens it; the eye at its end is its switch.
     const power = screen.getByRole("button", { name: "Power: details" });
+    expect(power).toHaveTextContent(/Power−€195\.00$/);
 
     await userEvent.click(power);
     const sheet = screen.getByRole("dialog");
+    const box = (label: RegExp) => within(sheet).getByText(label).parentElement!;
     // 65 on the 5th of October, November and December: three times, 195.
-    expect(within(sheet).getByRole("row", { name: /A month/ })).toHaveTextContent("€65.00");
-    expect(within(sheet).getByRole("row", { name: /Times/ })).toHaveTextContent("3");
-    expect(within(sheet).getByRole("row", { name: /Over the window/ })).toHaveTextContent("−€195.00");
+    expect(box(/^A month$/)).toHaveTextContent("€65.00");
+    expect(box(/^Times$/)).toHaveTextContent("3");
+    expect(within(sheet).getByText("−€195.00")).toBeInTheDocument();
     expect(3 * 65).toBe(195);
+    // The three days themselves, each for 65 — a second way to the same 195.
+    const days = within(sheet).getAllByText("−€65.00");
+    expect(days).toHaveLength(3);
 
-    await userEvent.click(within(sheet).getByRole("switch", { name: "Count it in the plan" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Take it out of the plan" }));
     expect(settings.get("planner-skip")).toEqual(["power"]);
   });
 });
