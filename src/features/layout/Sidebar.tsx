@@ -384,10 +384,13 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
             style decides what is drawn: the logo and name, or (Β, on a phone)
             who is signed in; the ✕ only where the bar is a drawer. */}
         <div className="sidebar-header">
-          <span className="sidebar-logo" aria-hidden>
-            <FiBriefcase />
-          </span>
-          <span className="sidebar-brand">MyFiWallet</span>
+          {/* The name is the way home, as on most sites: to the Overview. */}
+          <NavLink to="/" end onClick={navigate} className="sidebar-home" aria-label={t("nav.goHome")}>
+            <span className="sidebar-logo" aria-hidden>
+              <FiBriefcase />
+            </span>
+            <span className="sidebar-brand">MyFiWallet</span>
+          </NavLink>
           <div className="sidebar-profile">
             {avatar}
             {who}

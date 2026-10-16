@@ -157,6 +157,8 @@ describe("incomeOccurrences", () => {
 
 describe("the status of an occurrence", () => {
   const inc = income();
+  // The bank question is the salary's alone — the pay that comes early.
+  const pay = income({ isSalary: true });
   const due = d(2026, 9, 15);
 
   it("1. a record with its incomeId beats everything said and found", () => {
@@ -210,22 +212,32 @@ describe("the status of an occurrence", () => {
 
   it("4. asks about the bank when the reading is on or after the earliest day it could have come", () => {
     const now = d(2026, 9, 16);
-    expect(statusOn(inc, due, { now, lastReadingAt: new Date(2026, 8, 5, 21, 0) }).state).toBe("ask");
-    expect(statusOn(inc, due, { now, lastReadingAt: new Date(2026, 8, 4, 21, 0) }).state).toBe("late");
+    expect(statusOn(pay, due, { now, lastReadingAt: new Date(2026, 8, 5, 21, 0) }).state).toBe("ask");
+    expect(statusOn(pay, due, { now, lastReadingAt: new Date(2026, 8, 4, 21, 0) }).state).toBe("late");
   });
 
   it("4. does not ask once something was said, nor when it was written with «Ήρθε»", () => {
     const now = d(2026, 9, 16);
     const reading = d(2026, 9, 14);
-    expect(statusOn(inc, due, { now, lastReadingAt: reading, overrides: { "income:inc:2026-09-15": { state: "waiting" } } }).state).toBe("late");
-    expect(statusOn(inc, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13), { incomeId: "inc", incomeDue: "2026-09-15" })] }).state).toBe("arrived");
+    expect(statusOn(pay, due, { now, lastReadingAt: reading, overrides: { "income:inc:2026-09-15": { state: "waiting" } } }).state).toBe("late");
+    expect(statusOn(pay, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13), { incomeId: "inc", incomeDue: "2026-09-15" })] }).state).toBe("arrived");
     // An untagged record near the day does not answer it: the banks are still asked about.
-    expect(statusOn(inc, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13))] }).state).toBe("ask");
+    expect(statusOn(pay, due, { now, lastReadingAt: reading, transactions: [tx(1000, d(2026, 9, 13))] }).state).toBe("ask");
   });
 
   it("4. asks about one not due yet, when the reading is inside its early window", () => {
     // Due on the 15th, banks read on the 5th: it may already be in them.
-    expect(statusOn(inc, d(2026, 10, 15), { now: d(2026, 10, 6), lastReadingAt: d(2026, 10, 5) }).state).toBe("ask");
+    expect(statusOn(pay, d(2026, 10, 15), { now: d(2026, 10, 6), lastReadingAt: d(2026, 10, 5) }).state).toBe("ask");
+  });
+
+  it("4. never asks about any other income — the owner's «Edessaikos» on the 24th, asked about on the 16th", () => {
+    // Banks read on the 14th, so the 24th is inside the ten early days — and
+    // still only the salary is asked about. The rest come on their day.
+    const edessaikos = statusOn(income({ day: 24, name: "Edessaikos", kind: "other" }), d(2026, 9, 24), { now: d(2026, 9, 16), lastReadingAt: d(2026, 9, 14) });
+    expect(edessaikos).toMatchObject({ state: "due", daysUntil: 8, canArrive: true });
+    expect(statusOn(income({ day: 24, isSalary: true }), d(2026, 9, 24), { now: d(2026, 9, 16), lastReadingAt: d(2026, 9, 14) }).state).toBe("ask");
+    // Its day gone with nothing said: late, as before there was a reading.
+    expect(statusOn(inc, due, { now: d(2026, 9, 16), lastReadingAt: d(2026, 9, 14) }).state).toBe("late");
   });
 
   it("5. is late for 25 days, then goes to history as missed", () => {
@@ -348,17 +360,19 @@ describe("September in the design's sample", () => {
   });
 
   it("holds what waits on the bank question out of both sides until it is answered", () => {
-    // No salary record, banks read on Monday 28/9: both the salary (earliest
-    // 20/9) and the lessons (earliest 18/9) may already be in that reading.
+    // No salary record, banks read on Monday 28/9: the salary (earliest 20/9)
+    // may already be in that reading. The lessons are not the salary, so they
+    // are not asked about: their day has gone, so they are late.
     const withoutSalary = sampleTransactions.slice(1);
     const { from, to } = incomeWindow(NOW);
     const statuses = resolveIncomes(sampleIncomes, { transactions: withoutSalary, now: NOW, lastReadingAt: new Date(2026, 8, 28, 20, 0) }, from, to);
     const month = monthSummary(statuses, "2026-09");
-    expect(month).toMatchObject({ arrived: 470, asking: 1450 + 320, missing: 0, total: 2240 });
-    // The badge also counts October's rent: due 5/10, so it could have come
-    // from 25/9 — before the reading too.
-    expect(statuses.filter((s) => s.state === "ask").map((s) => s.key)).toEqual(["income:tut:2026-09-28", "income:sal:2026-09-30", "income:rent:2026-10-05"]);
-    expect(lateCount(statuses)).toBe(3);
+    expect(month).toMatchObject({ arrived: 470, asking: 1450, missing: 320, total: 2240 });
+    // Only the salary is asked; October's rent, due 5/10, is simply due.
+    expect(statuses.filter((s) => s.state === "ask").map((s) => s.key)).toEqual(["income:sal:2026-09-30"]);
+    expect(statuses.find((s) => s.key === "income:rent:2026-10-05")?.state).toBe("due");
+    // The badge: the salary to answer and the lessons that are late.
+    expect(lateCount(statuses)).toBe(2);
     // «Όχι ακόμα» on the lessons: waiting, so late again, and not asked twice.
     const answered = resolveIncomes(sampleIncomes, { transactions: withoutSalary, now: NOW, lastReadingAt: new Date(2026, 8, 28, 20, 0), overrides: { "income:tut:2026-09-28": { state: "waiting" } } }, from, to);
     expect(monthSummary(answered, "2026-09")).toMatchObject({ arrived: 470, asking: 1450, missing: 320, total: 2240 });

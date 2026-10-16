@@ -86,7 +86,8 @@
     "switchToGreek": "Αλλαγή σε Ελληνικά",
     "newTransaction": "Νέα συναλλαγή",
     "allTransactions": "Όλες οι συναλλαγές",
-    "ledger": "Βιβλίο κινήσεων"
+    "ledger": "Βιβλίο κινήσεων",
+    "goHome": "MyFiWallet — στην Επισκόπηση"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",

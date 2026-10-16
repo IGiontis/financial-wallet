@@ -209,8 +209,12 @@ export function createResolver(actuals: Actuals, now: Date = new Date(), settled
    * warning a tap clears, the other a promise the plan cannot keep.
    */
   const lastReading = actuals.lastReadingAt ? startOfDay(actuals.lastReadingAt) : undefined;
+  //
+  // Only the salary is asked about, as on «Έσοδα»: an extra 600 typed for
+  // today, or a one-off a week off, is taken on its own day rather than held
+  // out as 0,00 € behind a question about whether it came early.
   const mayBeInReading = (occurrence: PlannedOccurrence) =>
-    occurrence.source !== "loan" && occurrence.amount > 0 && !!lastReading && lastReading >= addDays(occurrence.date, -EARLY_DAYS);
+    occurrence.pay === true && occurrence.amount > 0 && !!lastReading && lastReading >= addDays(occurrence.date, -EARLY_DAYS);
 
   return (occurrence: PlannedOccurrence): ResolvedOccurrence => {
     const override = actuals.overrides[occurrence.key];

@@ -86,7 +86,8 @@
     "switchToGreek": "Switch to Greek",
     "newTransaction": "New transaction",
     "allTransactions": "All transactions",
-    "ledger": "Ledger"
+    "ledger": "Ledger",
+    "goHome": "MyFiWallet — to the Overview"
   },
   "auth": {
     "welcomeBack": "Welcome back",

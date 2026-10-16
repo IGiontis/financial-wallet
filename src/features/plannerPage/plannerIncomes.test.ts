@@ -118,15 +118,16 @@ describe("the incomes, checked against what came", () => {
     const opening = { amount: 1000, date: day(9, 29), at: reading };
     const before = [SEPTEMBER[0], SEPTEMBER[1]];
 
-    // Not answered yet: asked about, and counted nowhere. So is the rent of
-    // 5 October — it may have come up to ten days early, inside the same
-    // reading — so by hand: three salaries, two rents, three allowances.
+    // Not answered yet: asked about, and counted nowhere. Only the salary is
+    // asked: the rent of 5 October is inside the same ten days, but it is not
+    // the pay that comes early, so it is counted on its day. By hand: three
+    // salaries, three rents, three allowances.
     const asked = plan({ actuals: actuals({ transactions: before, lastReadingAt: reading }) });
     const statusOf = (p: PlannerPlan, key: string) => p.occurrences.find((o) => o.key === key)?.status;
     expect(statusOf(asked, incomeOccurrenceKey("salary", "2026-09-30"))).toBe("unconfirmed");
-    expect(statusOf(asked, incomeOccurrenceKey("rent", "2026-10-05"))).toBe("unconfirmed");
-    expect(3 * 1450 + 2 * 400 + 3 * 70).toBe(5360);
-    expect(asked.incomeTotal).toBe(5360);
+    expect(statusOf(asked, incomeOccurrenceKey("rent", "2026-10-05"))).toBe("due");
+    expect(3 * 1450 + 3 * 400 + 3 * 70).toBe(5760);
+    expect(asked.incomeTotal).toBe(5760);
 
     // «Ναι, ήταν μέσα» on «Έσοδα»: a record dated on the reading's day, marked
     // as inside it. The balance stays 1.000 and the plan still counts it nowhere.
@@ -134,8 +135,8 @@ describe("the incomes, checked against what came", () => {
     const answered = plan({ actuals: actuals({ transactions: [...before, inReading], lastReadingAt: reading }) });
     expect(currentBalance([...before, inReading], opening)).toBe(1000);
     expect(statusOf(answered, incomeOccurrenceKey("salary", "2026-09-30"))).toBe("received");
-    expect(answered.incomeTotal).toBe(5360);
-    expect(currentBalance([...before, inReading], opening) + answered.incomeTotal).toBe(6360);
+    expect(answered.incomeTotal).toBe(5760);
+    expect(currentBalance([...before, inReading], opening) + answered.incomeTotal).toBe(6760);
     // Without the mark the same record, written after the reading, would be
     // counted in the balance as well — the subtlety `inReading` exists for.
     expect(currentBalance([...before, { ...inReading, inReading: undefined }], opening)).toBe(2450);
@@ -144,12 +145,12 @@ describe("the incomes, checked against what came", () => {
     const key = incomeOccurrenceKey("salary", "2026-09-30");
     const said = plan({ actuals: actuals({ transactions: before, lastReadingAt: reading, overrides: { [key]: answerUnconfirmed(asked.occurrences.find((o) => o.key === key)!, true, NOW) } }) });
     expect(statusOf(said, key)).toBe("received");
-    expect(said.incomeTotal).toBe(5360);
+    expect(said.incomeTotal).toBe(5760);
 
-    // «Όχι ακόμα»: back on its day — today — and counted: 5.360 + 1.450.
+    // «Όχι ακόμα»: back on its day — today — and counted: 5.760 + 1.450.
     const notYet = plan({ actuals: actuals({ transactions: before, lastReadingAt: reading, overrides: { [key]: answerUnconfirmed(asked.occurrences.find((o) => o.key === key)!, false, NOW) } }) });
     expect(notYet.events.find((e) => e.pay && e.date.getTime() === day(9, 30).getTime())?.amount).toBe(1450);
-    expect(notYet.incomeTotal).toBe(5360 + 1450);
+    expect(notYet.incomeTotal).toBe(5760 + 1450);
   });
 
   it("holds a late one on today, and says when it was due", () => {

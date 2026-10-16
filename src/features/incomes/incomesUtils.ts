@@ -580,7 +580,14 @@ export function createIncomeResolver(incomes: Income[], ctx: IncomeContext) {
 
     // 3. The bank question. Asked only while nothing has been said about this
     // time — "not yet" is itself an answer ("waiting") and is not asked again.
-    if (!override && lastReading && expected > 0 && past <= LOOKBACK_DAYS && lastReading >= addDays(expectedDate, -EARLY_DAYS)) {
+    //
+    // Only of the salary, which is the pay that comes early: September's came
+    // on the 28th for the 1st, sat in a bank reading unrecorded, and was
+    // counted twice. Every other income is taken on its own day — asked on the
+    // 16th whether the 24th's had come already, the owner rightly found the
+    // question absurd, and the 600 typed for today was left out as 0,00 €. If
+    // one does come early, «Ήρθε» says so.
+    if (!override && income?.isSalary && lastReading && expected > 0 && past <= LOOKBACK_DAYS && lastReading >= addDays(expectedDate, -EARLY_DAYS)) {
       return { ...base, state: "ask", canArrive: true };
     }
 
