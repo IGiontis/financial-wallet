@@ -295,17 +295,36 @@ function pauseBounds(pause: BillPause | undefined): PauseBounds | undefined {
   return monthNumber(to) < monthNumber(from) ? undefined : { from: monthNumber(from), to: monthNumber(to) };
 }
 
+/** The first month a bill is charged, as a month number — see `Bill.startsOn`. */
+function startMonth(bill: Pick<Bill, "startsOn">): number | undefined {
+  const start = bill.startsOn ? parseISOMonth(bill.startsOn) : undefined;
+  return start ? monthNumber(start) : undefined;
+}
+
+/** The month a bill starts in, when that is still ahead of `now`. */
+export function startsLater(bill: Pick<Bill, "startsOn">, now: Date = new Date()): Date | undefined {
+  const start = startMonth(bill);
+  return start !== undefined && start > monthNumber(now) ? monthFromNumber(start) : undefined;
+}
+
 /**
  * True when the bill is not charged in the month `date` falls in.
  *
  * Nothing before `from` is ever paused — including on a yearly pause — so
  * setting one today cannot quietly erase a winter that was genuinely owed.
+ *
+ * A month before the bill starts (`startsOn`) is not charged either, and for
+ * the same reason it is asked here: the list, the arrears, the forecast, the
+ * calendar and the planner all ask this one question.
  */
-export function isPausedOn(bill: Pick<Bill, "pause">, date: Date): boolean {
+export function isPausedOn(bill: Pick<Bill, "pause" | "startsOn">, date: Date): boolean {
+  const month = monthNumber(date);
+  const start = startMonth(bill);
+  if (start !== undefined && month < start) return true;
+
   const bounds = pauseBounds(bill.pause);
   if (!bounds) return false;
 
-  const month = monthNumber(date);
   if (month < bounds.from) return false;
   if (bounds.length !== undefined) return (month - bounds.from) % 12 < bounds.length;
   return bounds.to === undefined || month <= bounds.to;
@@ -324,8 +343,10 @@ const MAX_PAUSE_WALK = 520;
 export function firstUnpausedDue(bill: Bill, due: Date): Date | undefined {
   if (!isPausedOn(bill, due)) return due;
 
-  const bounds = pauseBounds(bill.pause)!;
-  if (bounds.length === undefined && bounds.to === undefined) return undefined;
+  // Not started yet and never paused: it simply comes on its start. Paused for
+  // good, it may never come back.
+  const bounds = pauseBounds(bill.pause);
+  if (bounds && bounds.length === undefined && bounds.to === undefined && monthNumber(due) >= bounds.from) return undefined;
 
   const periodStart = getPeriodStart(bill, due);
   for (let step = 1; step <= MAX_PAUSE_WALK; step++) {
@@ -350,7 +371,7 @@ export function firstUnpausedDue(bill: Bill, due: Date): Date | undefined {
  * wrong.
  */
 export function chargedShare(bill: Bill, now: Date = new Date()): number {
-  if (!pauseBounds(bill.pause)) return 1;
+  if (!pauseBounds(bill.pause) && startMonth(bill) === undefined) return 1;
 
   const windowStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const windowEnd = new Date(now.getFullYear(), now.getMonth() + 12, 1);
@@ -639,7 +660,7 @@ export function computeBillStatus(bill: Bill, allPayments: BillPayment[], now: D
  * off the badge until then; one that never comes back has no next payment.
  */
 function withPause(bill: Bill, status: BillWithStatus, now: Date): BillWithStatus {
-  if (!bill.pause) return status;
+  if (!bill.pause && !bill.startsOn) return status;
 
   const currentDue = getPeriodDueDate(bill, now) ?? getPeriodStart(bill, now);
   const currentPaused = !status.isPaidThisPeriod && isPausedOn(bill, currentDue);

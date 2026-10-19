@@ -563,9 +563,9 @@ export const getBills = async (userId: string) => {
 export const createBill = async (userId: string, data: CreateBillDTO, id: string = newDocId("bills")) => {
   // A new bill with the pause switched off has nothing to store; `null` is only
   // meaningful on an edit, where it means "take the pause away".
-  const { pause, ...rest } = data;
+  const { pause, startsOn, ...rest } = data;
   await setDoc(doc(db, "bills", id), {
-    ...clean({ ...rest, pause: pause ? clean({ ...pause }) : undefined, userId, isActive: true }),
+    ...clean({ ...rest, pause: pause ? clean({ ...pause }) : undefined, startsOn: startsOn || undefined, userId, isActive: true }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -576,10 +576,11 @@ export const updateBill = async (billId: string, data: UpdateBillDTO) => {
   // `clean()` drops undefined, which is right for fields the edit did not touch
   // and wrong for a pause that was switched off: leaving it out would leave the
   // old pause in place. `null` is the edit saying so, and becomes a delete.
-  const { pause, ...rest } = data;
+  const { pause, startsOn, ...rest } = data;
   await updateDoc(doc(db, "bills", billId), {
     ...clean({ ...rest }),
     ...(pause === null ? { pause: deleteField() } : pause ? { pause: clean({ ...pause }) } : {}),
+    ...(startsOn === null ? { startsOn: deleteField() } : startsOn ? { startsOn } : {}),
     updatedAt: serverTimestamp(),
   });
 };

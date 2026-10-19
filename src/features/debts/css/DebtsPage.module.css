@@ -1202,10 +1202,18 @@ button.payRow[aria-expanded="true"] {
   overflow-y: auto;
 }
 
+/* The chosen person, edge to edge across the list: the card gives up its side
+   padding and each row carries it instead, so the highlight runs the full width
+   of the row rather than a rounded patch inside the margins. */
+.split .listCard {
+  padding-inline: 0 !important;
+}
+
+.split .listCard .person {
+  padding-inline: 1.25rem;
+}
+
 .personOn {
-  margin-inline: -0.5rem;
-  padding-inline: 0.5rem;
-  border-radius: var(--border-radius-md);
   background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
   box-shadow: inset 3px 0 0 var(--bs-primary);
 }

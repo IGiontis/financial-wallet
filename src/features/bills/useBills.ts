@@ -69,17 +69,19 @@ const createdBillIds = new WeakMap<CreateBillDTO, string>();
 
 /** The bill `createBill` stores, as the cache holds it. */
 function newBill(userId: string, id: string, data: CreateBillDTO): Bill {
-  const { pause, ...rest } = data;
+  const { pause, startsOn, ...rest } = data;
   const now = new Date();
-  return { ...withoutUndefined(rest), ...(pause ? { pause: withoutUndefined(pause) } : {}), id, userId, isActive: true, createdAt: now, updatedAt: now } as Bill;
+  return { ...withoutUndefined(rest), ...(pause ? { pause: withoutUndefined(pause) } : {}), ...(startsOn ? { startsOn } : {}), id, userId, isActive: true, createdAt: now, updatedAt: now } as Bill;
 }
 
 /** What `updateBill` leaves in the document: `pause: null` removes the pause. */
 function applyBillUpdate(bill: Bill, data: UpdateBillDTO): Bill {
-  const { pause, ...rest } = data;
+  const { pause, startsOn, ...rest } = data;
   const next: Bill = { ...bill, ...withoutUndefined(rest), updatedAt: new Date() };
   if (pause === null) delete next.pause;
   else if (pause) next.pause = withoutUndefined(pause) as Bill["pause"];
+  if (startsOn === null) delete next.startsOn;
+  else if (startsOn) next.startsOn = startsOn;
   return next;
 }
 

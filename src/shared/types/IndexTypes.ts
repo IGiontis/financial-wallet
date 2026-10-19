@@ -499,6 +499,12 @@ export interface Bill {
   isActive: boolean;
   /** When it is not charged. See `BillPause`. */
   pause?: BillPause;
+  /**
+   * "YYYY-MM": the first month it is charged. Nothing before it is owed — a tax
+   * added in October that starts next year is not "unpaid for this year".
+   * Absent: charged from when it was added, as before. See `isPausedOn`.
+   */
+  startsOn?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -521,6 +527,8 @@ export interface CreateBillDTO {
   installmentIntervalMonths?: number;
   /** `null` from an edit that switched the pause off — see `updateBill`. */
   pause?: BillPause | null;
+  /** See `Bill.startsOn`. `null` from an edit that cleared it. */
+  startsOn?: string | null;
 }
 
 export interface UpdateBillDTO {
@@ -542,6 +550,8 @@ export interface UpdateBillDTO {
   isActive?: boolean;
   /** `null` clears it. */
   pause?: BillPause | null;
+  /** See `Bill.startsOn`. `null` clears it. */
+  startsOn?: string | null;
 }
 
 export interface BillPayment {

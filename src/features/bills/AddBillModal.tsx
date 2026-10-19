@@ -37,6 +37,8 @@ interface BillFormValues {
   installmentCount: number | "";
   installmentIntervalMonths: number | "";
   anchorMonth: string; // "YYYY-MM" — start of the first cycle
+  /** "YYYY-MM", or "" — the first month it is charged. See `Bill.startsOn`. */
+  startsOn: string;
   dueDay: number | "";
   dueMonth: number | "";
   hasGrace: boolean;
@@ -137,6 +139,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       installmentCount: bill?.installmentCount ?? 1,
       installmentIntervalMonths: bill?.installmentIntervalMonths ?? 1,
       anchorMonth: toMonthInput(bill?.anchorDate ? firestoreToDate(bill.anchorDate) : bill?.createdAt ? firestoreToDate(bill.createdAt) : new Date()),
+      startsOn: bill?.startsOn ?? "",
       dueDay: bill?.dueDay ?? "",
       dueMonth: bill?.dueMonth ?? "",
       hasGrace: (bill?.graceDays ?? 0) > 0,
@@ -193,6 +196,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           // Switched off on an edit means "remove it", which has to be said out
           // loud: an absent field would leave the old pause where it was.
           pause: pauseFromValues(values) ?? (isEdit ? null : undefined),
+          // Cleared on an edit is "starts as before", said out loud like the pause.
+          startsOn: parseISOMonth(values.startsOn) ? values.startsOn : isEdit ? null : undefined,
         };
         await onSubmit(data);
         resetForm();
@@ -394,6 +399,15 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               </Col>
             )}
           </Row>
+
+          {/* A bill that begins later — a tax from next year: nothing before it is owed. */}
+          <FormGroup className="mt-3 mb-0">
+            <Label className="small fw-medium" for="bill-starts-on">
+              {t("bills.startsOn")}
+            </Label>
+            <DateField month clearable id="bill-starts-on" name="startsOn" value={formik.values.startsOn} onChange={(value) => formik.setFieldValue("startsOn", value ?? "")} placeholder={t("bills.startsOnPlaceholder")} />
+            <FormText className="small">{t("bills.startsOnHint")}</FormText>
+          </FormGroup>
 
           {/* Instalments — a gym year of 360 taken as three monthly payments */}
           {canSplit && (

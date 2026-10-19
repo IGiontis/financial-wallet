@@ -39,6 +39,7 @@ import {
   urgencyToken,
   yearlyBreakdown,
   currentPause,
+  startsLater,
   yearAhead,
   type MonthChip,
   type MonthForecast,
@@ -460,7 +461,7 @@ function QuickStats({
 /** Off right now or gone for good — as opposed to merely coming up. */
 const isStoppedNow = (bill: BillWithStatus) => {
   const state = currentPause(bill)?.state;
-  return state === "paused" || state === "ended";
+  return state === "paused" || state === "ended" || !!startsLater(bill);
 };
 
 function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; formatCurrency: (n: number) => string; now: Date }) {
@@ -481,6 +482,17 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
         {overdue.count > 1
           ? t("bills.chipOverdue", { count: overdue.count, amount: formatCurrency(overdue.total) })
           : t("bills.lateByDays", { count: Math.abs(daysUntilDeadline(bill, now) ?? 0) })}
+      </span>
+    );
+  }
+
+  // Not started yet: when it starts, rather than "due in 250 days".
+  const starts = bill.isPaidThisPeriod ? undefined : startsLater(bill, now);
+  if (starts) {
+    const month = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
+    return (
+      <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>
+        {t("bills.lineStartsOn", { month: month.format(starts) })}
       </span>
     );
   }
@@ -549,6 +561,7 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
   const overdue = billOverdue(bill, now);
   if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--color-expense)" };
 
+  if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
   const pause = currentPause(bill);
   if (!bill.isPaidThisPeriod && pause?.state === "ended") return { label: t("bills.labelStopped"), value: dateFmt.format(pause.from) };
   if (!bill.isPaidThisPeriod && pause?.state === "paused") return { label: t("bills.labelResumes"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
@@ -728,7 +741,10 @@ function BillLine({
   // None when the period was covered by a payment made ahead: it says "paid" instead.
   const paidNow = settled ? paidThisPeriod(bill) : 0;
   const pause = currentPause(bill);
-  const stopped = !bill.isPaidThisPeriod && !late && (pause?.state === "paused" || pause?.state === "ended");
+  // Not started yet: nothing owed, and the pill says when it starts instead of "unpaid".
+  const starts = !bill.isPaidThisPeriod && !late ? startsLater(bill, now) : undefined;
+  const stopped = !bill.isPaidThisPeriod && !late && (!!starts || pause?.state === "paused" || pause?.state === "ended");
+  const startFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
 
   // A variable bill carries an estimate until the charge arrives, so its figure
   // is marked as one rather than printed like a fact.
@@ -758,6 +774,8 @@ function BillLine({
             <span className={`${styles.linePill} ${styles.linePillPaid}`} title={paidNow > 0 ? t("bills.chipPaidAmount", { amount: formatCurrency(paidNow) }) : undefined}>
               <FiCheck size={11} aria-hidden /> {paidNow > 0 ? formatCurrency(paidNow) : t("bills.linePaid")}
             </span>
+          ) : starts ? (
+            <span className={`${styles.linePill} ${styles.linePillPaused}`}>{t("bills.lineStartsOn", { month: startFmt.format(starts) })}</span>
           ) : stopped ? (
             <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
           ) : (
