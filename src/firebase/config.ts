@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
 import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
@@ -32,6 +33,39 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const firebaseApp = app;
+
+/**
+ * App Check: every request to Firestore and Auth carries a token saying it came
+ * from this app, in a real browser — not from a script that copied the config
+ * out of the bundle (which is public, and has to be). Once it is enforced in the
+ * Console, a request without one is refused before the rules are even read.
+ *
+ * The token comes from reCAPTCHA (now Google Cloud Fraud Defense, the Enterprise
+ * provider — the classic one is deprecated, and a key made today is a Cloud key),
+ * which asks nothing of the person: it scores the visit in the background. Unlike
+ * the classic one it needs no secret key in the Console, only this site key. On only with a site key, so a build without one
+ * behaves exactly as before; never against the emulators, which do not check it.
+ *
+ * `npm run dev` against the real project runs on localhost, which reCAPTCHA
+ * will not vouch for: there it uses a debug token instead — printed in the
+ * console the first time, to be added under App Check → Manage debug tokens
+ * (or set as VITE_APPCHECK_DEBUG_TOKEN to keep one across browsers).
+ *
+ * Before everything else on purpose: Auth and Firestore below must not send a
+ * request before it can be signed.
+ */
+const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
+export const appCheckEnabled = !useEmulators && !!appCheckSiteKey;
+if (appCheckEnabled) {
+  if (import.meta.env.DEV) (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true;
+  try {
+    initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey!), isTokenAutoRefreshEnabled: true });
+  } catch (error) {
+    // Vite's hot reload runs this module again, and a second initialisation
+    // throws; the first one is still in force.
+    if (!(error instanceof FirebaseError && error.code === "appCheck/already-initialized")) throw error;
+  }
+}
 
 export const auth = getAuth(app);
 if (useEmulators && !auth.emulatorConfig) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });

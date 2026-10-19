@@ -878,3 +878,10 @@ body {
   color: #fff;
   filter: brightness(1.08);
 }
+
+/* ── reCAPTCHA (App Check) ─────────────────────────────────────────────────── */
+/* Its badge sat in the bottom-right corner, over the page's own buttons. Hidden,
+   as Google allows, with its line shown instead — see `RecaptchaNotice`. */
+.grecaptcha-badge {
+  visibility: hidden;
+}

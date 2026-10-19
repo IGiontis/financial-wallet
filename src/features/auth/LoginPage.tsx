@@ -1,3 +1,4 @@
+import { RecaptchaNotice } from "../legal/RecaptchaNotice";
 import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useFormik } from "formik";
@@ -160,6 +161,7 @@ export default function LoginPage() {
                   </Link>
                 </p>
                 <AgeTermsNotice />
+                <RecaptchaNotice className="text-center mt-3" />
               </CardBody>
             </Card>
           </Col>

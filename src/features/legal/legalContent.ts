@@ -4,7 +4,8 @@
 // written (12 Oct 2026): Firebase Authentication (email and password, or
 // Google) and Cloud Firestore for the data, Netlify for the site, the
 // exchange-rate API asked for currencies only, Google Analytics only after a
-// yes on the cookie notice (13 Oct 2026, `lib/analytics`), no advertising, a
+// yes on the cookie notice (13 Oct 2026, `lib/analytics`), Firebase App Check with
+// reCAPTCHA Enterprise once a site key is set (19 Oct 2026, `firebase/config`), no advertising, a
 // copy kept on the device for speed, and deleting the
 // account from Settings removing everything. Change the code in any of those
 // respects and this text has to change with it.
@@ -27,7 +28,7 @@ export interface LegalText {
 }
 
 /** When the texts last changed — shown on both pages. */
-export const LEGAL_UPDATED = new Date(2026, 9, 12);
+export const LEGAL_UPDATED = new Date(2026, 9, 19);
 
 /** Where to get in touch. A public page, already linked from the footer. */
 export const LEGAL_CONTACT_URL = "https://igiontisportfolio.netlify.app/#home";
@@ -74,7 +75,14 @@ const el: Record<LegalDoc, LegalText> = {
         paragraphs: [
           "Ό,τι αποθηκεύεται στον browser για να μένεις συνδεδεμένος και για να λειτουργεί η εφαρμογή είναι απαραίτητο και δεν χρειάζεται τη συναίνεσή σου.",
           "Μόνο αν πατήσεις «Αποδοχή» στο σχετικό μήνυμα, χρησιμοποιούμε το Google Analytics for Firebase για να μετράμε πόσοι χρησιμοποιούν την εφαρμογή, από ποια χώρα και από ποια συσκευή, και ποιες σελίδες ανοίγουν. Αυτό βάζει cookies στατιστικών της Google. Δεν του στέλνουμε το email σου, τον λογαριασμό σου ούτε κανένα οικονομικό σου στοιχείο. Αν πατήσεις «Όχι, ευχαριστώ», δεν φορτώνεται καθόλου. Μπορείς να αλλάξεις γνώμη οποιαδήποτε στιγμή από το «Cookies» στο κάτω μέρος της σελίδας.",
+          "Το reCAPTCHA που προστατεύει την εφαρμογή από κατάχρηση (δες την αντίστοιχη ενότητα) μπορεί να βάλει cookie ασφαλείας, απαραίτητο για τη λειτουργία αυτής της προστασίας.",
           "Δεν χρησιμοποιούμε cookies διαφήμισης.",
+        ],
+      },
+      {
+        heading: "Προστασία από κατάχρηση (reCAPTCHA)",
+        paragraphs: [
+          "Για να μην μπορούν αυτοματοποιημένα προγράμματα να φορτώνουν την εφαρμογή με αιτήματα, χρησιμοποιούμε το Firebase App Check με το reCAPTCHA της Google (Google Cloud Fraud Defense). Δεν σου ζητά να λύσεις τίποτα: ελέγχει στο παρασκήνιο αν η επίσκεψη προέρχεται από άνθρωπο, και για αυτό η Google λαμβάνει στοιχεία της συσκευής και της επίσκεψής σου (όπως διεύθυνση IP και δεδομένα του προγράμματος περιήγησης) και μπορεί να βάζει cookie ασφαλείας. Τα στοιχεία αυτά δεν περιέχουν τίποτα από όσα γράφεις στην εφαρμογή. Η χρήση τους διέπεται από την Πολιτική Απορρήτου και τους Όρους Παροχής Υπηρεσιών της Google. Νομική βάση είναι το έννομο συμφέρον μας να προστατεύουμε την υπηρεσία από κατάχρηση (άρθρο 6 παρ. 1 στοιχ. στ΄ του ΓΚΠΔ), και γι' αυτό δεν ζητά τη συναίνεσή σου.",
         ],
       },
       {
@@ -210,7 +218,14 @@ const en: Record<LegalDoc, LegalText> = {
         paragraphs: [
           "What is stored in your browser to keep you signed in and for the app to work is strictly necessary and needs no consent.",
           "Only if you press «Accept» on the cookie notice, we use Google Analytics for Firebase to count how many people use the app, from which country and on which device, and which pages they open. This sets Google analytics cookies. We do not send it your e-mail, your account or any of your financial data. If you press «No thanks», it is not loaded at all. You can change your mind at any time from «Cookies» at the foot of the page.",
+          "The reCAPTCHA that protects the app from abuse (see its own section) may set a security cookie, which that protection needs in order to work.",
           "We use no advertising cookies.",
+        ],
+      },
+      {
+        heading: "Protection against abuse (reCAPTCHA)",
+        paragraphs: [
+          "To stop automated programs from flooding the app with requests, we use Firebase App Check with Google's reCAPTCHA (Google Cloud Fraud Defense). It asks nothing of you: it checks in the background whether a visit comes from a person, and for that Google receives information about your device and visit (such as your IP address and browser data) and may set a security cookie. None of what you write in the app is in it. Its use is governed by Google's Privacy Policy and Terms of Service. The legal basis is our legitimate interest in protecting the service from abuse (Article 6(1)(f) of the GDPR), which is why it does not ask for your consent.",
         ],
       },
       {

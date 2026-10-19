@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { analyticsConfigured, reopenConsent } from "../../lib/analytics";
+import { RecaptchaNotice } from "./RecaptchaNotice";
 
 /**
  * «Όροι Χρήσης · Πολιτική Απορρήτου», and the one-line promise under them.
@@ -37,6 +38,7 @@ export function LegalLinks({ promise = true }: { promise?: boolean }) {
           {t("legal.noTracking")}
         </>
       )}
+      <RecaptchaNotice className="mt-1" />
     </span>
   );
 }

@@ -2304,6 +2304,11 @@
   "legal": {
     "terms": "Όροι Χρήσης",
     "privacy": "Πολιτική Απορρήτου",
+    "recaptchaPrefix": "Προστατεύεται από το reCAPTCHA· ισχύουν η",
+    "recaptchaPrivacy": "Πολιτική Απορρήτου",
+    "recaptchaAnd": "και οι",
+    "recaptchaTerms": "Όροι Παροχής Υπηρεσιών",
+    "recaptchaSuffix": "της Google.",
     "noTracking": "Χωρίς διαφημίσεις.",
     "back": "Πίσω",
     "updated": "Τελευταία ενημέρωση: {{date}}",
