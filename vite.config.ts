@@ -119,5 +119,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Whatever the developer's own .env holds, the tests run without App Check:
+    // a real site key there switched it on inside jsdom. Its own test stubs it.
+    env: { VITE_APPCHECK_SITE_KEY: "", VITE_APPCHECK_DEBUG_TOKEN: "" },
   },
 });

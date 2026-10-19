@@ -2308,10 +2308,10 @@
   "legal": {
     "terms": "Terms of Use",
     "privacy": "Privacy Policy",
-    "recaptchaPrefix": "This site is protected by reCAPTCHA and the Google",
-    "recaptchaPrivacy": "Privacy Policy",
+    "recaptchaPrefix": "This site is protected by reCAPTCHA and the",
+    "recaptchaPrivacy": "Google Privacy Policy",
     "recaptchaAnd": "and",
-    "recaptchaTerms": "Terms of Service",
+    "recaptchaTerms": "Google Terms of Service",
     "recaptchaSuffix": "apply.",
     "noTracking": "No ads.",
     "back": "Back",
