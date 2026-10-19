@@ -1968,8 +1968,9 @@ a.scaleToggle {
 /* Under its name, what the month has spent of it: a thin bar and the figures. */
 .scaleLimit {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   margin-top: 3px;
   font-size: 11.5px;
   font-weight: 500;

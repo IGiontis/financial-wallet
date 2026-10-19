@@ -148,7 +148,7 @@ export function PlannerPage() {
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
   // The money in: every income on «Έσοδα», the salary among them — the list
-  // the Overview, the Bills page and the Allocation page read too, so no two
+  // the Overview and the Bills page read too, so no two
   // screens plan with different pay. Changed there, never here.
   const { incomes, isLoading: incomesLoading } = useIncomeList();
   const activeIncomes = useMemo(() => incomes.filter(isActiveIncome), [incomes]);

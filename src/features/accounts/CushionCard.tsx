@@ -34,8 +34,9 @@ export function CushionCard({ formatCurrency }: { formatCurrency: (n: number) =>
   return (
     <Card className="mb-3">
       <CardBody>
-        <div className="d-flex align-items-baseline justify-content-between gap-2 mb-2">
-          <span className="fw-semibold" style={{ fontSize: 14 }}>
+        {/* Wrapped, not squeezed: in the narrow column the figure goes under the title. */}
+        <div className="d-flex flex-wrap align-items-baseline justify-content-between column-gap-2 row-gap-1 mb-2">
+          <span className="fw-semibold text-nowrap" style={{ fontSize: 14 }}>
             {t("cushion.title")}
           </span>
           <span className="fw-bold" style={{ fontVariantNumeric: "tabular-nums" }}>

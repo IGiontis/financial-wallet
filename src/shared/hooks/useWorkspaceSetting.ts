@@ -4,7 +4,7 @@ import { useAuth } from "./useAuth";
 import { getUser, saveWorkspaceValue } from "../../firebase/firestore";
 import { exchangeRateKeys } from "./useCurrencyConverter";
 
-// The planner's and the allocation page's own state, kept with the account.
+// The planner's own state, kept with the account.
 //
 // Both screens used `useLocalStorage`, which is per browser and per device — so
 // a plan typed on a phone and the same plan on a laptop were two separate

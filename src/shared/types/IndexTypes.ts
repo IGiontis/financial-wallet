@@ -25,7 +25,7 @@ export interface User {
    */
   openingBalance?: number;
   /**
-   * The planner's and the allocation page's own state, kept with the account
+   * The planner's own state, kept with the account
    * rather than with the browser.
    *
    * Both screens wrote to `localStorage`, which is per device and per browser: a
