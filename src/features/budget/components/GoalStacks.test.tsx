@@ -9,6 +9,8 @@ import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 // A goal's line in the list: the bar that shows how far, a tap that opens the
 // goal's sheet with every action in it, and a "+" of its own.
 
+// The mark for what someone else paid reads the debts; it has its own test.
+vi.mock("./CoveredMark", () => ({ CoveredMark: () => null }));
 vi.mock("../../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
 
 const fmt = (n: number) => `€${n.toFixed(2)}`;

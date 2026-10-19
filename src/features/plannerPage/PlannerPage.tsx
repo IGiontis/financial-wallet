@@ -399,11 +399,12 @@ export function PlannerPage() {
       const cadence = repeatMonths(source.every);
       const edit = () => setEditor({ mode: "oneoff", draft: { id: source.id, label: source.label, amount: String(source.amount), date: source.date, every: cadence, until: source.until } });
       const row = oneOffRows.find((r) => r.id === source.id);
-      if (row) return ledgerItem(row, undefined, edit, t("planner.editEntry"));
+      if (row) return ledgerItem(row, t("planner.groupExtra"), edit, t("planner.editEntry"));
       const past = !nextOneOffDate(source, startOfToday);
       return {
         id: source.id,
         label: source.label,
+        group: t("planner.groupExtra"),
         total: 0,
         enabled: false,
         canToggle: false,

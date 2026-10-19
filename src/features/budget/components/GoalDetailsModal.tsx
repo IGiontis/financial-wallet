@@ -8,6 +8,7 @@ import { DeleteButton } from "../../../shared/components/DeleteButton";
 import i18n from "../../../i18n";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, goalHeadline, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 import styles from "./css/GoalDetails.module.css";
+import { CoveredMark } from "./CoveredMark";
 
 
 // ─── What a goal says about itself ───────────────────────────────────────────
@@ -240,6 +241,10 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
                 {summary.note.text}
               </div>
             )}
+            {/* What someone else paid and you still owe them. */}
+            <div className="mt-2">
+              <CoveredMark goal={goal} />
+            </div>
           </div>
         </div>
 

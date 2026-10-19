@@ -1397,10 +1397,10 @@
     "history": "Ιστορικό",
     "coveredByCarryover": "Καλύφθηκε από μεταφορά",
     "needPerMonth": "χρειάζεται/μήνα",
-    "monthsPastDeadline_one": "1 μήνας μετά την προθεσμία",
-    "monthsPastDeadline_other": "{{count}} μήνες μετά την προθεσμία",
-    "monthsToSpare_one": "1 μήνας νωρίτερα",
-    "monthsToSpare_other": "{{count}} μήνες νωρίτερα",
+    "monthsPastDeadline_one": "1 μήνας μετά την προθεσμία σου",
+    "monthsPastDeadline_other": "{{count}} μήνες μετά την προθεσμία σου",
+    "monthsToSpare_one": "1 μήνας πριν την προθεσμία σου",
+    "monthsToSpare_other": "{{count}} μήνες πριν την προθεσμία σου",
     "monthsLeftCount_one": "1 μήνας ακόμη",
     "monthsLeftCount_other": "{{count}} μήνες ακόμη",
     "monthsLeftShort_one": "μήνας μένει",
@@ -1415,7 +1415,7 @@
     "yourPace": "ο ρυθμός σου",
     "lastMove": "τελευταία κίνηση",
     "perWeekShort": "{{amount}}/εβδ.",
-    "finishesIn": "Τελειώνει {{month}}",
+    "finishesIn": "Με τον ρυθμό σου ολοκληρώνεται {{month}}",
     "landsInDeadlineMonth": "Πέφτει μέσα στον μήνα της προθεσμίας",
     "noPaceYet": "Χωρίς καταθέσεις δεν βγαίνει ημερομηνία",
     "deadlineOn": "Προθεσμία {{date}}",
@@ -1718,7 +1718,8 @@
     "rowDates_other": "Πότε · {{count}} φορές",
     "rowLate": "καθυστερεί",
     "rowMoreDates_one": "και {{count}} ακόμα",
-    "rowMoreDates_other": "και {{count}} ακόμα"
+    "rowMoreDates_other": "και {{count}} ακόμα",
+    "groupExtra": "Έκτακτα"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -2477,7 +2478,23 @@
     "doneGiven": "{{amount}} στο «{{name}}» — τα κρατάει η/ο {{who}}",
     "doneReturned": "Η/Ο {{who}} επέστρεψε {{amount}} από το «{{name}}»",
     "doneTheySpent": "Η/Ο {{who}} ξόδεψε {{amount}} για το «{{name}}»",
-    "step_use_in": "Πού πάνε"
+    "step_use_in": "Πού πάνε",
+    "inCovered": "Το πλήρωσε κάποιος για μένα",
+    "inCoveredHint": "Δεν έβαλες εσύ λεφτά: πλήρωσε ο ίδιος (π.χ. το ξενοδοχείο) και τώρα του χρωστάς. Γράφεται έξοδο και χρέος.",
+    "step_who": "Ποιος",
+    "askCoveredBy": "Ποιος το πλήρωσε και για τι ήταν;",
+    "askWhoPaid": "Ποιος το πλήρωσε;",
+    "paidByPlaceholder": "π.χ. Νίκος",
+    "coveredNoCard": "Καμία κάρτα δεν κινείται: τα λεφτά δεν πέρασαν από σένα. Όταν τα επιστρέψεις στον άνθρωπο, θα το γράψεις ως πληρωμή του χρέους, είτε στο χέρι είτε από κάρτα.",
+    "coveredCards": "Κάρτες",
+    "coveredDebt": "Χρέος · {{who}}",
+    "rowCoveredBy": "Πλήρωσε",
+    "coveredNote": "Πλήρωσε: {{who}}",
+    "coveredExpenseNote": "Πλήρωσε: {{who}} · χρέος",
+    "coveredFailed": "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.",
+    "doneCovered": "Καταγράφηκε: {{who}} πλήρωσε {{amount}} για «{{name}}». Τώρα τα χρωστάς.",
+    "coveredMark": "{{amount}} χρέος · {{who}}",
+    "coveredMarkOpen": "Δες το χρέος"
   },
   "goalDelete": {
     "ask": "Τι έγιναν τα {{amount}} του στόχου;",
@@ -2507,7 +2524,8 @@
     "inBanksNote": "{{amount}} στην τράπεζά σου",
     "bankLeftFrom": "Τα {{amount}} που ήταν στην τράπεζά σου — από ποια κάρτα έφυγαν;",
     "givesBack": "Η/Ο {{who}} σου επιστρέφει",
-    "alreadyLeft": "τα είχε ήδη η/ο {{who}}"
+    "alreadyLeft": "τα είχε ήδη η/ο {{who}}",
+    "coveredNote": "{{who}} πλήρωσε {{amount}}: το χρέος και το έξοδο μένουν ό,τι κι αν γίνει με τον στόχο — το χρέος το βρίσκεις στα Χρέη."
   },
   "calendar": {
     "prev": "Προηγούμενος μήνας",

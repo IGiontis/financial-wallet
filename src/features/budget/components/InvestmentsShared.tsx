@@ -23,6 +23,7 @@ import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import i18n from "../../../i18n";
+import { CoveredMark } from "./CoveredMark";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 
 // ─── Progress ring ────────────────────────────────────────────────────────────
@@ -393,6 +394,10 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             </p>
             <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
             {note && <p style={{ margin: "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
+            {/* What someone else paid and is still owed to them. */}
+            <div style={{ marginTop: 6 }}>
+              <CoveredMark goal={goal} />
+            </div>
           </div>
         </div>
 

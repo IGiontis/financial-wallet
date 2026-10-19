@@ -251,7 +251,9 @@ export function AccountsPage() {
           {/* ── The accounts, as the cards in your wallet ── */}
           <Card className="mb-3">
             <CardBody className="p-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
+              {/* Room between the title row and the cards: the row was close enough to
+                  read as part of the first card. */}
+              <div className={`d-flex justify-content-between align-items-center ${styles.listHead}`}>
                 <span className="small fw-semibold text-body-secondary">{t("accounts.listTitle", { count: accounts.length })}</span>
                 <Button color="link" size="sm" className="p-0 text-decoration-none" onClick={() => setManaging((m) => !m)} aria-pressed={managing}>
                   {managing ? (

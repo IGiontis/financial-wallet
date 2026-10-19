@@ -126,6 +126,13 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                 {inBanks && ` · ${t("goalDelete.inBanksNote", { amount: format(holding.inBanks) })}`}
               </p>
             )}
+            {/* What someone else paid stays: the expense was written the day they paid and the
+                debt is still owed, whatever becomes of the goal. */}
+            {goal.covered && goal.covered.length > 0 && (
+              <p className="small text-body-secondary mb-2">
+                {goal.covered.map((c) => t("goalDelete.coveredNote", { who: c.person, amount: format(c.amount) })).join(" · ")}
+              </p>
+            )}
             <p className="fw-semibold mb-2" style={{ fontSize: 14 }}>
               {t("goalDelete.ask", { amount: format(goal.totalSaved) })}
             </p>

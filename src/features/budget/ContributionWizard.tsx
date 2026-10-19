@@ -18,6 +18,7 @@ import { expectedByAccount, mainAccount } from "../accounts/accountsUtils";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
 import { goalHolding } from "./goalHolding";
+import { useCoveredFunding } from "./useCoveredFunding";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 
@@ -32,13 +33,16 @@ type Step = (typeof ALL_STEPS)[number];
  * In:   kept      — set aside in your own bank; no card moves.
  *       given     — handed to someone to keep for the goal (the friend booking
  *                   the trip): it leaves the card it came from.
+ *       covered   — someone paid it for you (Nikos paid the hotel): no money of
+ *                   yours moves, and you owe them. An expense, a debt and the
+ *                   goal's deposit, written together — see `createCoveredFunding`.
  * Out:  kept      — set aside no longer, still in your bank; no card moves.
  *       spent     — from your bank, given or spent: an expense, the card goes down.
  *       returned  — what someone held, given back: the card it comes into goes up.
  *       theySpent — what someone held, spent for the goal: an expense, and no
  *                   card moves — it left when it was handed over.
  */
-type Mode = "kept" | "given" | "spent" | "returned" | "theySpent";
+type Mode = "kept" | "given" | "spent" | "returned" | "theySpent" | "covered";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -83,6 +87,7 @@ export default function ContributionWizard({
   const { data: categories = [] } = useCategories();
   const { payees } = usePayees();
   const createExpense = useCreateTransaction();
+  const coveredFunding = useCoveredFunding();
   const toBase = (n: number) => (baseCurrency === displayCurrency ? n : convertToBase(n));
 
   const deposit = kind === "deposit";
@@ -122,7 +127,8 @@ export default function ContributionWizard({
   const entersCard = !isGoal ? !deposit : mode === "returned";
   /** The card is said, not assumed, wherever the money leaves or enters one. */
   const cardMustBeChosen = isGoal && (mode === "given" || mode === "spent" || mode === "returned");
-  const needsPerson = isGoal && (mode === "given" || mode === "spent");
+  const isCovered = isGoal && mode === "covered";
+  const needsPerson = isGoal && (mode === "given" || mode === "spent" || mode === "covered");
   const writesExpense = isGoal && (mode === "spent" || mode === "theySpent");
   // "theySpent" moves no card: the record is written on the card it was handed from.
   const cardAccount = mode === "theySpent" ? (holder?.accountId ?? "") : account;
@@ -154,7 +160,7 @@ export default function ContributionWizard({
     if (s === "use") return mode !== null && (mode !== "returned" && mode !== "theySpent" ? true : !!holder);
     if (s === "amount") return !amountError;
     if (s === "when") return !!when && !notesTooLong;
-    if (s === "card") return (!cardMustBeChosen || cardPicked) && (!needsPerson || !!person.trim()) && (!writesExpense || !!category);
+    if (s === "card") return (!cardMustBeChosen || cardPicked) && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
     return true;
   };
   // Forward only as far as what is filled in allows; back is always free.
@@ -183,6 +189,29 @@ export default function ContributionWizard({
   const save = async () => {
     if (amountError || !when) return;
     setSaving(true);
+    if (isCovered) {
+      // Someone else paid: the goal's deposit, the debt to them and the expense,
+      // as one — no card moves, so none is asked.
+      try {
+        const who = person.trim();
+        await saveWithoutWaiting(
+          coveredFunding,
+          {
+            contribution: { goalId: goal.id, amount: totalInBase, contributionType: "deposit", date: when, notes: notes.trim() || t("goalWizard.coveredNote", { who }), coveredBy: who },
+            // The loan's money is written on the main account, beside the expense: the two
+            // cancel there, so the balance does not move for money that never reached it.
+            debt: { person: who, direction: "owed_by_me", label: goal.name, amount: totalInBase, date: when, accountId: "", forGoalId: goal.id },
+            expense: { amount: totalInBase, type: "expense", categoryId: category, date: when, description: goal.name, notes: t("goalWizard.coveredExpenseNote", { who }) },
+          },
+          () => toast.error(t("goalWizard.coveredFailed")),
+        );
+        toast.success(doneMessage());
+        onClose();
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const dto: CreateInvestmentContributionDTO = {
       goalId: goal.id,
       amount: totalInBase,
@@ -217,7 +246,7 @@ export default function ContributionWizard({
 
   const doneMessage = () => {
     const values = { amount: format(totalInBase), name: goal.name, on: person.trim(), who: holder?.name ?? person.trim() };
-    if (deposit) return t(mode === "given" ? "goalWizard.doneGiven" : "goalWizard.doneIn", values);
+    if (deposit) return t(mode === "given" ? "goalWizard.doneGiven" : mode === "covered" ? "goalWizard.doneCovered" : "goalWizard.doneIn", values);
     if (mode === "spent") return t("goalWizard.doneSpent", values);
     if (mode === "returned") return t("goalWizard.doneReturned", values);
     if (mode === "theySpent") return t("goalWizard.doneTheySpent", values);
@@ -230,6 +259,7 @@ export default function ContributionWizard({
     ? [
         { key: "kept", mode: "kept", title: t("goalWizard.inKept"), hint: t("goalWizard.inKeptHint") },
         { key: "given", mode: "given", title: t("goalWizard.inGiven"), hint: t("goalWizard.inGivenHint") },
+        { key: "covered", mode: "covered", title: t("goalWizard.inCovered"), hint: t("goalWizard.inCoveredHint") },
       ]
     : [
         ...holding.holders.flatMap((h): Choice[] => [
@@ -252,7 +282,12 @@ export default function ContributionWizard({
     ...(mode === "given" ? [{ step: "card" as Step, label: t("goalWizard.rowGivenTo"), value: person.trim() }] : []),
     ...(mode === "spent" ? [{ step: "card" as Step, label: t("goalWizard.rowSpentOn"), value: `${person.trim()} · ${categoryName}` }] : []),
     ...(mode === "theySpent" ? [{ step: "card" as Step, label: t("common.category"), value: categoryName }] : []),
-    { step: "card", label: t(cardRowKey()), value: cardName },
+    ...(isCovered
+      ? [
+          { step: "card" as Step, label: t("goalWizard.rowCoveredBy"), value: person.trim() },
+          { step: "card" as Step, label: t("common.category"), value: categoryName },
+        ]
+      : [{ step: "card" as Step, label: t(cardRowKey()), value: cardName }]),
     ...(notes.trim() ? [{ step: "when" as Step, label: t("common.notes"), value: notes.trim() }] : []),
   ];
 
@@ -269,6 +304,7 @@ export default function ContributionWizard({
     if (s === "card") {
       if (!isGoal) return t(deposit ? "goalWizard.askFrom" : "goalWizard.askInto");
       if (mode === "kept") return t("goalWizard.askHeldIn");
+      if (mode === "covered") return t("goalWizard.askCoveredBy");
       if (mode === "returned") return t("goalWizard.askReturnedInto");
       if (mode === "theySpent") return t("goalWizard.askTheySpent");
       return t("goalWizard.askLeft");
@@ -323,7 +359,7 @@ export default function ContributionWizard({
         }}
       >
         <ModalBody>
-          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`goalWizard.step_${s}${s === "use" && deposit ? "_in" : ""}`)} />
+          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => (s === "card" && isCovered ? t("goalWizard.step_who") : t(`goalWizard.step_${s}${s === "use" && deposit ? "_in" : ""}`))} />
           <p className={wizard.prompt}>{ask(step)}</p>
 
           {moneyLoading && <SkeletonRows count={3} icon={false} />}
@@ -425,7 +461,10 @@ export default function ContributionWizard({
 
           {step === "card" && (
             <>
-              {mode === "theySpent" ? (
+              {isCovered ? (
+                // Nothing to choose: no card of yours moves — someone else paid.
+                <p className="small text-body-secondary mb-0">{t("goalWizard.coveredNoCard")}</p>
+              ) : mode === "theySpent" ? (
                 // Nothing to choose: it left the card it was handed from, and stays gone.
                 <p className="small mb-0">{t("goalWizard.theySpentCard", { who: holder?.name ?? "", card: cardName })}</p>
               ) : (
@@ -447,11 +486,11 @@ export default function ContributionWizard({
               {/* To whom: the payee field the transactions use, offering the names already written. */}
               {needsPerson && (
                 <div className="mt-3">
-                  <p className={wizard.prompt}>{t(mode === "given" ? "goalWizard.askGivenTo" : "goalWizard.askWho")}</p>
-                  <PayeeInput value={person} payees={payees} onChange={setPerson} invalid={tried && !person.trim()} placeholder={t("goalWizard.spentOnPlaceholder")} />
+                  <p className={wizard.prompt}>{t(mode === "given" ? "goalWizard.askGivenTo" : mode === "covered" ? "goalWizard.askWhoPaid" : "goalWizard.askWho")}</p>
+                  <PayeeInput value={person} payees={payees} onChange={setPerson} invalid={tried && !person.trim()} placeholder={t(mode === "covered" ? "goalWizard.paidByPlaceholder" : "goalWizard.spentOnPlaceholder")} />
                 </div>
               )}
-              {writesExpense && categoryChooser}
+              {(writesExpense || isCovered) && categoryChooser}
             </>
           )}
 
@@ -494,14 +533,35 @@ export default function ContributionWizard({
                     <strong style={{ color: "var(--color-income)" }}>+{format(gainPart)}</strong>
                   </div>
                 )}
-                <div>
-                  <span>{cardName}</span>
-                  <strong>{cardAfter === undefined || cardNow === undefined ? t(mode === "theySpent" ? "goalWizard.cardAlreadyLeft" : "goalWizard.cardUnchanged") : `${format(cardNow)} → ${format(cardAfter)}`}</strong>
-                </div>
-                <div>
-                  <span>{t("goalWizard.inTransactions")}</span>
-                  <strong>{t(deposit ? "goalWizard.recordIn" : "goalWizard.recordOut", { amount: format(totalInBase) })}</strong>
-                </div>
+                {isCovered ? (
+                  <>
+                    <div>
+                      <span>{t("goalWizard.coveredCards")}</span>
+                      <strong>{t("goalWizard.cardUnchanged")}</strong>
+                    </div>
+                    <div>
+                      <span>{t("goalWizard.andExpense")}</span>
+                      <strong>
+                        −{format(totalInBase)} · {categoryName}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>{t("goalWizard.coveredDebt", { who: person.trim() })}</span>
+                      <strong style={{ color: "var(--color-expense-text)" }}>{format(totalInBase)}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span>{cardName}</span>
+                      <strong>{cardAfter === undefined || cardNow === undefined ? t(mode === "theySpent" ? "goalWizard.cardAlreadyLeft" : "goalWizard.cardUnchanged") : `${format(cardNow)} → ${format(cardAfter)}`}</strong>
+                    </div>
+                    <div>
+                      <span>{t("goalWizard.inTransactions")}</span>
+                      <strong>{t(deposit ? "goalWizard.recordIn" : "goalWizard.recordOut", { amount: format(totalInBase) })}</strong>
+                    </div>
+                  </>
+                )}
                 {writesExpense && (
                   <div>
                     <span>{t("goalWizard.andExpense")}</span>

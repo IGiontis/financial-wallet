@@ -1397,10 +1397,10 @@
     "history": "History",
     "coveredByCarryover": "Covered by carryover",
     "needPerMonth": "needs a month",
-    "monthsPastDeadline_one": "1 month past the deadline",
-    "monthsPastDeadline_other": "{{count}} months past the deadline",
-    "monthsToSpare_one": "1 month to spare",
-    "monthsToSpare_other": "{{count}} months to spare",
+    "monthsPastDeadline_one": "1 month after your deadline",
+    "monthsPastDeadline_other": "{{count}} months after your deadline",
+    "monthsToSpare_one": "1 month before your deadline",
+    "monthsToSpare_other": "{{count}} months before your deadline",
     "monthsLeftCount_one": "1 month left",
     "monthsLeftCount_other": "{{count}} months left",
     "monthsLeftShort_one": "month left",
@@ -1415,7 +1415,7 @@
     "yourPace": "your pace",
     "lastMove": "last put in",
     "perWeekShort": "{{amount}}/wk",
-    "finishesIn": "Finishes {{month}}",
+    "finishesIn": "At your pace it finishes {{month}}",
     "landsInDeadlineMonth": "Lands in the deadline's own month",
     "noPaceYet": "No deposits yet, so no finish date",
     "deadlineOn": "Deadline {{date}}",
@@ -1718,7 +1718,8 @@
     "rowDates_other": "When · {{count}} times",
     "rowLate": "late",
     "rowMoreDates_one": "and {{count}} more",
-    "rowMoreDates_other": "and {{count}} more"
+    "rowMoreDates_other": "and {{count}} more",
+    "groupExtra": "One-off"
   },
   "settings": {
     "title": "Settings",
@@ -2477,7 +2478,23 @@
     "doneGiven": "{{amount}} into “{{name}}” — held by {{who}}",
     "doneReturned": "{{who}} gave back {{amount}} from “{{name}}”",
     "doneTheySpent": "{{who}} spent {{amount}} on “{{name}}”",
-    "step_use_in": "Where to"
+    "step_use_in": "Where to",
+    "inCovered": "Someone paid it for me",
+    "inCoveredHint": "You did not put money in: they paid (the hotel, say) and now you owe them. An expense and a debt are written.",
+    "step_who": "Who",
+    "askCoveredBy": "Who paid it, and what for?",
+    "askWhoPaid": "Who paid it?",
+    "paidByPlaceholder": "e.g. Nick",
+    "coveredNoCard": "No card moves: the money never passed through you. When you pay them back, record it as a payment on the debt, by hand or from a card.",
+    "coveredCards": "Cards",
+    "coveredDebt": "Debt to {{who}}",
+    "rowCoveredBy": "Paid by",
+    "coveredNote": "Paid by {{who}}",
+    "coveredExpenseNote": "Paid by {{who}} · debt",
+    "coveredFailed": "Not saved. Try again.",
+    "doneCovered": "Recorded: {{who}} paid {{amount}} for “{{name}}” and you owe them.",
+    "coveredMark": "{{amount}} owed to {{who}}",
+    "coveredMarkOpen": "See the debt"
   },
   "goalDelete": {
     "ask": "What became of the goal's {{amount}}?",
@@ -2507,7 +2524,8 @@
     "inBanksNote": "{{amount}} in your bank",
     "bankLeftFrom": "The {{amount}} that was in your bank — which card did it leave?",
     "givesBack": "{{who}} gives back",
-    "alreadyLeft": "{{who}} already had it"
+    "alreadyLeft": "{{who}} already had it",
+    "coveredNote": "{{who}} paid {{amount}}: the debt and the expense stay whatever becomes of the goal — find the debt under Debts."
   },
   "calendar": {
     "prev": "Previous month",

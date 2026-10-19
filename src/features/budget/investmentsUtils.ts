@@ -126,7 +126,7 @@ export function deadlinePace(remaining: number, deadline: Date, savedThisMonth =
   return { monthsLeft, perMonth, thisMonth };
 }
 
-export function computeGoalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
+function goalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
   const dated = read(contributions);
 
   // ── Totals ────────────────────────────────────────────────────────────────
@@ -352,4 +352,26 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
     withdrawalCount,
     lastContributionDate,
   };
+}
+
+/**
+ * A goal's figures, with what other people paid toward it kept apart.
+ *
+ * What someone covered counts in `totalSaved` like any deposit — the goal is
+ * funded — but it is not set aside in your bank and nobody holds it for you, so
+ * it is listed on its own for what has to ask where the money is (`goalHolding`).
+ */
+export function computeGoalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
+  const stats = goalStats(goal, contributions);
+  const byPerson = new Map<string, { person: string; amount: number; debtId?: string }>();
+  for (const c of contributions) {
+    if (!c.coveredBy || c.contributionType !== "deposit") continue;
+    const key = c.coveredBy.trim().toLowerCase();
+    const entry = byPerson.get(key) ?? { person: c.coveredBy.trim(), amount: 0, debtId: c.debtId };
+    entry.amount = round2(entry.amount + c.amount);
+    byPerson.set(key, entry);
+  }
+  if (byPerson.size === 0) return stats;
+  const covered = [...byPerson.values()];
+  return { ...stats, covered, totalCovered: round2(covered.reduce((sum, c) => sum + c.amount, 0)) };
 }

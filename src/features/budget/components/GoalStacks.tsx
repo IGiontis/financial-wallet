@@ -7,6 +7,7 @@ import styles from "./css/GoalStacks.module.css";
 import type { GoalGroup } from "./goalGrouping";
 import type { GoalCardProps } from "./InvestmentsShared";
 import { GoalDetailsModal } from "./GoalDetailsModal";
+import { CoveredMark } from "./CoveredMark";
 import type { InvestmentGoalStatus, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 
 // One line per goal, stacked under the horizon it belongs to.
@@ -85,6 +86,7 @@ const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoal
               ? `${formatDate(deadline)} · ${relativeToNow(deadline, now)}`
               : (goal.notes ?? "")}
         </div>
+        <CoveredMark goal={goal} compact />
       </div>
 
       {/* How much, and how far — the two things a list is read for. The pace

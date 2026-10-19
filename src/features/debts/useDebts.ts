@@ -51,7 +51,7 @@ export function useDebts() {
  * and saving it again wrote a second one. The money left behind is put right
  * by `useHealDebtCash` the next time the Debts page opens.
  */
-function useDebtRefresh() {
+export function useDebtRefresh() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";

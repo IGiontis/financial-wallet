@@ -43,6 +43,17 @@ export function PlanMonthRows({ periods, opening, formatCurrency, locale }: { pe
                 {formatCurrency(row.from)} → <strong style={{ color: row.to < 0 ? "var(--color-expense-text)" : undefined }}>{formatCurrency(row.to)}</strong>
               </span>
             </div>
+            {/* The month in two figures, in the middle of its card: money in on
+                one side, money out on the other, each in a box of the same width
+                whatever the digits, and shrunk to fit it rather than spilling out. */}
+            <div className={styles.flowAmounts}>
+              <span className={`${styles.flowAmount} ${styles.flowAmountIn}`}>
+                <span>{signed(row.income)}</span>
+              </span>
+              <span className={`${styles.flowAmount} ${styles.flowAmountOut}`}>
+                <span>{signed(-row.outgoing)}</span>
+              </span>
+            </div>
             <div className={styles.flowRowBars}>
               <span>{t("planner.rowsIn")}</span>
               <span className={styles.flowRowTrack}>

@@ -357,6 +357,9 @@ export interface InvestmentContribution {
   accountId?: string;
   /** See `Transaction.heldBy`. */
   heldBy?: string;
+  /** See `CreateInvestmentContributionDTO.coveredBy`. */
+  coveredBy?: string;
+  debtId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -375,6 +378,14 @@ export interface CreateInvestmentContributionDTO {
   accountId?: string;
   /** Handed to this person to keep for the goal — see `Transaction.heldBy`. */
   heldBy?: string;
+  /**
+   * This person paid it for you: the contribution counts toward the goal, but no
+   * money of yours moved and it has no mirror in Transactions — the expense and
+   * the debt were written beside it (see `createCoveredFunding`).
+   */
+  coveredBy?: string;
+  /** The debt to `coveredBy` that came with it. */
+  debtId?: string;
 }
 
 export interface UpdateInvestmentContributionDTO {
@@ -401,6 +412,12 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
   missedMonths?: number; // number of past periods where contribution < target
   periodSurplus?: number; // how much over target was paid in the current period
   periodCredit?: number;
+  /**
+   * What other people paid toward it, by person: part of `totalSaved` but never
+   * in your bank, nor held by anyone — see `goalHolding`. Absent when nobody did.
+   */
+  covered?: { person: string; amount: number; debtId?: string }[];
+  totalCovered?: number;
 }
 
 // ============================================================================
@@ -747,6 +764,8 @@ export interface Debt {
    * saved before this existed has none, and moves nothing, as it always did.
    */
   accountId?: string;
+  /** The goal this debt paid for a part of, if it did — see `InvestmentContribution.coveredBy`. */
+  forGoalId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -784,6 +803,8 @@ export interface CreateDebtDTO {
   notes?: string;
   /** See `Debt.accountId`. */
   accountId?: string;
+  /** See `Debt.forGoalId`. */
+  forGoalId?: string;
 }
 
 export interface UpdateDebtDTO {

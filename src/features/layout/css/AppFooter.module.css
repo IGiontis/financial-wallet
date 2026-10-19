@@ -1,0 +1,59 @@
+/* The page's foot: a strip of its own, off the page's colour, with room around it. */
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rights {
+  font-size: 11.5px;
+  opacity: 0.85;
+}
+
+.link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--color-text-primary);
+}
+
+.links {
+  line-height: 1.8;
+}
+
+.links :global(a),
+.links :global(button) {
+  padding-block: 2px;
+}
+
+@media (min-width: 768px) {
+  .footer {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    text-align: left;
+  }
+
+  .who {
+    align-items: flex-start;
+  }
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { closingRecords, goalHolding, undoByAccount } from "./goalHolding";
+import { computeGoalStats } from "./investmentsUtils";
 import { realDelta, goalHeldTotal } from "../accounts/accountsUtils";
 import { balanceDelta } from "../../shared/utils/balance";
 import { isEarning, isSpending } from "../../shared/utils/moneyModel";
@@ -85,5 +86,47 @@ describe("deleting the goal — done, the money spent", () => {
     expect([spent, earned]).toEqual([700, 700]);
     // The spendable balance: the deposits had set 700 aside; the withdrawals give it back; the expenses spend it.
     expect(all.reduce((s, r) => s + balanceDelta(r), 0)).toBe(-700);
+  });
+});
+
+// The owner's second case: a trip of 700, 150 of it his own, and the other 550
+// paid by Nikos for the hotel and the flights — no card of his moved.
+describe("a part of a goal that someone else paid", () => {
+  const own = mirror(150, "deposit", "revolut");
+  const covered = { id: "cov", userId: "u", goalId: "trip", amount: 550, contributionType: "deposit" as const, date: day, coveredBy: "Nikos", debtId: "d1", createdAt: day, updatedAt: day };
+  const goal = computeGoalStats({ id: "trip", userId: "u", name: "Trip", goalType: "targeted", targetAmount: 700, targetPeriod: "custom", deadline: new Date(2027, 5, 1), isActive: true, isCompleted: false, createdAt: day, updatedAt: day }, [
+    { id: "own", userId: "u", goalId: "trip", amount: 150, contributionType: "deposit", date: day, createdAt: day, updatedAt: day },
+    covered,
+  ]);
+
+  it("counts toward the goal, which reads as funded, and is listed apart", () => {
+    expect(goal.totalSaved).toBe(700);
+    expect(goal.remaining).toBe(0);
+    expect(goal.percentageReached).toBe(100);
+    expect(goal.totalCovered).toBe(550);
+    expect(goal.covered).toEqual([{ person: "Nikos", amount: 550, debtId: "d1" }]);
+  });
+
+  it("is neither in his bank nor held by anyone — only the 150 he put aside is", () => {
+    const { holders, inBanks } = goalHolding(goal, [own]);
+    expect(holders).toEqual([]);
+    expect(inBanks).toBe(150);
+    // Reconciled the other way: what the goal holds, less what Nikos paid.
+    expect(goal.totalSaved - (goal.totalCovered ?? 0)).toBe(inBanks);
+  });
+
+  it("closing the goal spends only his own 150 — the 550 was written as an expense the day Nikos paid", () => {
+    const records = closingRecords(goal, [own], { bankAccountId: "revolut", categoryId: "travel", date: day, note: "" });
+    const expenses = records.filter((r) => r.type === "expense");
+    expect(expenses.map((r) => r.amount)).toEqual([150]);
+    // The withdrawal takes back what was set aside, and no more.
+    expect(records.filter((r) => r.contributionType === "withdrawal").map((r) => r.amount)).toEqual([150]);
+  });
+
+  it("the whole of it, a second way: his 150 and Nikos's 550 are the trip's 700 of spending", () => {
+    // The expense written when Nikos paid, and the one that closing writes.
+    const paid = 550;
+    const closing = closingRecords(goal, [own], { bankAccountId: "revolut", categoryId: "travel", date: day, note: "" }).filter((r) => r.type === "expense");
+    expect(paid + closing.reduce((s, r) => s + r.amount, 0)).toBe(goal.totalSaved);
   });
 });

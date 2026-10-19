@@ -7,7 +7,8 @@ import { FiPlus } from "react-icons/fi";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useDebts, useHealDebtCash } from "./useDebts";
 import { useTransactions } from "../transactions/hooks/useTransactions";
-import { debtTotals, debtsByPerson } from "./debtsUtils";
+import { debtProgress, debtTotals, debtsByPerson } from "./debtsUtils";
+import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import PersonDebtsModal from "./PersonDebtsModal";
 import AddDebtModal from "./AddDebtModal";
 import styles from "./css/DebtsPage.module.css";
@@ -21,6 +22,9 @@ import { PageShell } from "../../shared/components/PageShell";
  * every average on the Analytics screen. The Planner reads the one half that
  * genuinely has to be found from somewhere — what you owe.
  */
+/** A laptop and up, once the menu has taken its share: room for a list and a panel side by side. */
+const WIDE_QUERY = "(min-width: 1200px)";
+
 export function DebtsPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
@@ -30,12 +34,16 @@ export function DebtsPage() {
   const { data: debts = [], isLoading } = debtsQuery;
   // Money a lost signal left out of step with its debt, put right on arrival.
   useHealDebtCash(debtsQuery, useTransactions());
+  // From a laptop up, the person is a panel beside the list rather than a dialog
+  // over it, and one is always in it — the list is its own navigation.
+  const wide = useNarrowScreen(WIDE_QUERY);
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   const people = useMemo(() => debtsByPerson(debts), [debts]);
   const totals = useMemo(() => debtTotals(people), [people]);
-  const person = people.find((p) => p.person === openPerson);
+  // Wide: the one chosen, or the first until one is. Narrow: only what was tapped.
+  const person = people.find((p) => p.person === openPerson) ?? (wide ? people[0] : undefined);
   const netTone = totals.net > 0 ? "var(--color-income)" : totals.net < 0 ? "var(--color-expense)" : undefined;
 
   // The shape of what is coming, rather than a wheel. The whole page used to be
@@ -102,28 +110,46 @@ export function DebtsPage() {
         </div>
       </div>
 
-      <div className={`${styles.card} p-3 p-lg-4`}>
-        {people.length === 0 ? (
-          <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
-            {t("debts.empty")}
-          </p>
-        ) : (
-          people.map((p) => {
-            const balance = balanceLabel(p.owedByMe, p.owedToMe);
-            return (
-              <button key={p.person} type="button" className={styles.person} onClick={() => setOpenPerson(p.person)}>
-                <span className={styles.personName}>{p.person}</span>
-                <span className={styles.personCount}>{t("debts.loanCount", { count: p.openCount })}</span>
-                <span className={`${styles.personBalance} ${p.openCount === 0 ? styles.settled : ""}`} style={{ color: balance.tone }}>
-                  {balance.text}
-                </span>
-              </button>
-            );
-          })
+      <div className={wide && people.length > 0 ? styles.split : undefined}>
+        <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`}>
+          {people.length === 0 ? (
+            <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
+              {t("debts.empty")}
+            </p>
+          ) : (
+            people.map((p) => {
+              const balance = balanceLabel(p.owedByMe, p.owedToMe);
+              const selected = wide && person?.person === p.person;
+              // How much of everything with them has come off, from the same split
+              // as the sheet: so the list says it before anything is opened.
+              const progress = p.debts.map((d) => debtProgress(d));
+              const started = progress.reduce((sum, x) => sum + x.started, 0);
+              const cleared = started > 0 ? Math.min(Math.round((progress.reduce((sum, x) => sum + x.principal, 0) / started) * 100), 100) : 0;
+              return (
+                <button key={p.person} type="button" className={`${styles.person} ${selected ? styles.personOn : ""}`} aria-pressed={wide ? !!selected : undefined} onClick={() => setOpenPerson(p.person)}>
+                  <span className={styles.personName}>{p.person}</span>
+                  <span className={styles.personCount}>{t("debts.loanCount", { count: p.openCount })}</span>
+                  <span className={`${styles.personBalance} ${p.openCount === 0 ? styles.settled : ""}`} style={{ color: balance.tone }}>
+                    {balance.text}
+                  </span>
+                  {wide && started > 0 && (
+                    <span className={styles.personBar} aria-hidden>
+                      <span style={{ width: `${cleared}%` }} />
+                      <span className={styles.personBarPct}>{cleared}%</span>
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {wide && person && (
+          <PersonDebtsModal key={person.person} inline person={person} knownPeople={people.map((p) => p.person)} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />
         )}
       </div>
 
-      {person && (
+      {!wide && person && (
         <PersonDebtsModal person={person} knownPeople={people.map((p) => p.person)} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />
       )}
       {adding && <AddDebtModal knownPeople={people.map((p) => p.person)} onClose={() => setAdding(false)} />}

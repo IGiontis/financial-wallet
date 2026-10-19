@@ -327,3 +327,11 @@
   outline: 3px solid var(--bs-primary);
   outline-offset: 2px;
 }
+
+/* The list's title row, with air between it and the cards below. */
+.listHead {
+  min-height: 40px;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+}

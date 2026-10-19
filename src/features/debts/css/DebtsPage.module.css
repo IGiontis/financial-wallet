@@ -1184,3 +1184,144 @@ button.payRow[aria-expanded="true"] {
   margin-top: auto;
   white-space: nowrap;
 }
+
+/* ── A laptop and up: the list, and the person beside it ───────────────────── */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* The list stays in sight while its panel scrolls. */
+.listCard {
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100dvh - var(--topbar-height, 56px) - 1.5rem);
+  overflow-y: auto;
+}
+
+.personOn {
+  margin-inline: -0.5rem;
+  padding-inline: 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--bs-primary);
+}
+
+/* A person's row in the wide list: name and amount above, how far along below. */
+.split .person {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.personBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 100%;
+  height: 12px;
+}
+
+.personBar > span:first-child {
+  flex: none;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-income);
+  min-width: 2px;
+  max-width: calc(100% - 40px);
+}
+
+.personBarPct {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The panel. It is the sheet's own content in a card of the page; the sheet's
+   spacing variables, which only exist inside a dialog, are given here. */
+.pane {
+  --bs-modal-padding: 1.25rem;
+  --bs-modal-bg: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.paneHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+/* One column in the panel, with the loan's own figures — and the percentage —
+   first: who and how far is what is read, so it is not below the totals and the
+   chips. Order, not markup, so the dialog is unchanged. */
+.pane .sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.pane .sheetLeft,
+.pane .sheetRight {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.pane .sheetLeft > * {
+  flex-shrink: 0;
+}
+
+.pane .picker {
+  order: 1;
+  flex-direction: row;
+  margin-inline: 0;
+  padding: 0 0 2px;
+  overflow-x: auto;
+}
+
+.pane .hero {
+  order: 2;
+}
+
+.pane .stats {
+  order: 3;
+}
+
+.pane .personTotal {
+  order: 4;
+}
+
+.pane .ctaFooter {
+  position: sticky;
+  bottom: 0;
+}
+
+/* The name has a line of its own, the whole width of the list, so it is read
+   rather than cut to "Εθνική τρά…" by the figures sharing its row. Only a name
+   longer than the line itself — about forty letters — is shortened. How many
+   loans and what is owed sit under it, the count at the left and the amount at
+   the right, and the progress under both. */
+.split .personName {
+  flex: 1 0 100%;
+  font-weight: 600;
+}
+
+.split .personCount {
+  flex: 1 1 auto;
+}

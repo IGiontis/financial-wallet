@@ -367,11 +367,14 @@ export default function PersonDebtsModal({
   locale,
   onClose,
   knownPeople = [],
+  inline = false,
 }: {
   person: DebtPerson;
   formatCurrency: (n: number) => string;
   locale: string;
   onClose: () => void;
+  /** As a panel in the page, beside the list — for a wide screen — rather than a dialog over it. */
+  inline?: boolean;
   /** For the name field when a loan is corrected or added. */
   knownPeople?: string[];
 }) {
@@ -442,6 +445,7 @@ export default function PersonDebtsModal({
 
   if (!debt) {
     // Everything with this person was deleted from under the sheet.
+    if (inline) return <div className={styles.pane}><p className="text-body-secondary small p-3 mb-0">{t("debts.settledUp")}</p></div>;
     return (
       <Modal isOpen toggle={onClose} centered>
         <ModalHeader toggle={onClose}>{person.person}</ModalHeader>
@@ -569,26 +573,8 @@ export default function PersonDebtsModal({
     { id: "details", label: t("debts.tabDetails") },
   ];
 
-  return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm" size="lg">
-      <ModalHeader
-        toggle={onClose}
-        className={styles.sheetHeader}
-        close={
-          <div className="d-flex align-items-center gap-2 flex-shrink-0">
-            {newLoan}
-            <button type="button" className="btn-close" onClick={onClose} aria-label={t("common.close")} />
-          </div>
-        }
-      >
-        <span className={styles.sheetTitle}>
-          <span>{person.person}</span>
-          <span className={styles.sheetHeadline} style={{ color: headlineTone }}>
-            {headline}
-          </span>
-        </span>
-      </ModalHeader>
-
+  const rest = (
+    <>
       {asColumns ? (
         <ModalBody className={styles.columnsBody}>
           {viewToggle}
@@ -776,6 +762,7 @@ export default function PersonDebtsModal({
         </ModalFooter>
       )}
 
+
       {modals}
 
       {deleting && (
@@ -801,6 +788,49 @@ export default function PersonDebtsModal({
           </ModalFooter>
         </Modal>
       )}
+    </>
+  );
+
+  // Beside the list: a panel in the page. The person is its title, and the sheet's
+  // ✕ has nothing to close — choosing someone else in the list replaces it.
+  if (inline) {
+    return (
+      <div className={styles.pane}>
+        <div className={styles.paneHead}>
+          <span className={styles.sheetTitle}>
+            <span>{person.person}</span>
+            <span className={styles.sheetHeadline} style={{ color: headlineTone }}>
+              {headline}
+            </span>
+          </span>
+          {newLoan}
+        </div>
+        {rest}
+      </div>
+    );
+  }
+
+  return (
+    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm" size="lg">
+      <ModalHeader
+        toggle={onClose}
+        className={styles.sheetHeader}
+        close={
+          <div className="d-flex align-items-center gap-2 flex-shrink-0">
+            {newLoan}
+            <button type="button" className="btn-close" onClick={onClose} aria-label={t("common.close")} />
+          </div>
+        }
+      >
+        <span className={styles.sheetTitle}>
+          <span>{person.person}</span>
+          <span className={styles.sheetHeadline} style={{ color: headlineTone }}>
+            {headline}
+          </span>
+        </span>
+      </ModalHeader>
+
+      {rest}
     </Modal>
   );
 }

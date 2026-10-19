@@ -487,6 +487,34 @@ export const createContributionWithTransaction = async (
 };
 
 /**
+ * Someone paid part of a goal for you: the contribution, the debt to them and
+ * the expense, in one batch — all three or none.
+ *
+ * The contribution has no mirror in Transactions on purpose: no money of yours
+ * moved, so there is nothing for a card to read. The expense is the cost of
+ * what was bought, dated the day they paid; the debt is what you now owe them,
+ * and its own money (the loan, written as a record on the card) is written by
+ * `syncDebtCash` straight after — where a failure is mended by `useHealDebtCash`
+ * the next time the Debts page opens, like every other debt's.
+ *
+ * Under ids chosen up front, so saving again after a lost answer writes the
+ * same three documents rather than three more.
+ */
+export const createCoveredFunding = async (
+  userId: string,
+  ids: { contributionId: string; debtId: string; expenseId: string },
+  data: { contribution: CreateInvestmentContributionDTO; debt: CreateDebtDTO; expense: CreateTransactionDTO },
+) => {
+  const stamp = () => ({ createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  const batch = writeBatch(db);
+  batch.set(doc(db, "investmentContributions", ids.contributionId), { ...clean({ ...data.contribution, userId, debtId: ids.debtId }), ...stamp() });
+  batch.set(doc(db, "debts", ids.debtId), { ...clean({ ...data.debt, userId }), ...stamp() });
+  batch.set(doc(db, "transactions", ids.expenseId), { ...clean({ ...data.expense, userId }), ...stamp() });
+  await batch.commit();
+  return ids;
+};
+
+/**
  * Deletes one contribution and the transaction that mirrors it.
  *
  * Nothing stores which transaction that is, so it is recognised by what the

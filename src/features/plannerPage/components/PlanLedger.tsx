@@ -120,13 +120,14 @@ export function PlanLedger({
                 <span className={styles.scaleHeadingTotal}>{signed(sum(rows))}</span>
               </div>
             )}
-            {rows.map(renderItem)}
+            {/* A column of rows on a phone; from a laptop up, small boxes that wrap. */}
+            <div className={styles.scaleCards}>{rows.map(renderItem)}</div>
           </section>
         ))}
         {side === "in" && inFooter}
       </div>
 
-      <button type="button" className={styles.scaleAdd} onClick={side === "in" ? onAddIn : onAddOut}>
+      <button type="button" className={`${styles.scaleAdd} ${side === "in" ? styles.scaleAddIn : styles.scaleAddOut}`} onClick={side === "in" ? onAddIn : onAddOut}>
         <FiPlus aria-hidden /> {t(side === "in" ? "planner.addOneOff" : "planner.addExpenseLine")}
       </button>
     </div>

@@ -34,7 +34,7 @@ export interface GoalHolding {
 const mirrorsOf = (goalId: string, transactions: Transaction[]) => transactions.filter((tx) => tx.isGoalTransaction && tx.goalId === goalId);
 const signed = (tx: Transaction) => (tx.contributionType === "withdrawal" ? -tx.amount : tx.amount);
 
-export function goalHolding(goal: Pick<InvestmentGoalWithStats, "id" | "totalSaved">, transactions: Transaction[]): GoalHolding {
+export function goalHolding(goal: Pick<InvestmentGoalWithStats, "id" | "totalSaved" | "totalCovered">, transactions: Transaction[]): GoalHolding {
   const byPerson = new Map<string, GoalHolder>();
   let bankRecorded = 0;
   for (const tx of mirrorsOf(goal.id, transactions)) {
@@ -51,7 +51,10 @@ export function goalHolding(goal: Pick<InvestmentGoalWithStats, "id" | "totalSav
   }
   const holders = [...byPerson.values()].filter((h) => h.amount > 0.005);
   const outside = round2(holders.reduce((sum, h) => sum + h.amount, 0));
-  const inBanks = round2(Math.max(goal.totalSaved - outside, 0));
+  // Neither in your bank nor held by anyone: what someone else paid. Left in
+  // "in your bank" it would be spent a second time when the goal is closed — the
+  // expense was written the day they paid.
+  const inBanks = round2(Math.max(goal.totalSaved - outside - (goal.totalCovered ?? 0), 0));
   return { holders, inBanks, inBanksRecorded: round2(Math.min(Math.max(bankRecorded, 0), inBanks)) };
 }
 
@@ -85,7 +88,7 @@ export function undoByAccount(goalId: string, transactions: Transaction[]): Reco
  * together brings it to nothing, so nothing is left counted as set aside.
  */
 export function closingRecords(
-  goal: Pick<InvestmentGoalWithStats, "id" | "name" | "totalSaved">,
+  goal: Pick<InvestmentGoalWithStats, "id" | "name" | "totalSaved" | "totalCovered">,
   transactions: Transaction[],
   choice: { bankAccountId?: string; categoryId: string; date: Date; note: string },
 ): CreateTransactionDTO[] {
