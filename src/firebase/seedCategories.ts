@@ -85,6 +85,14 @@ export const seedDefaultCategories = async (): Promise<void> => {
     // the flag unset so the next start retries.
     localStorage.setItem(SEED_FLAG_KEY, SEED_VERSION);
   } catch (err) {
+    // The shared defaults are the Console's to add: the security rules let a
+    // user create only their own categories, so a missing default is refused
+    // here, and would be refused again on every start — at ~34 reads a try.
+    // Marked done instead; anything else (offline, say) retries next start.
+    if ((err as { code?: string })?.code === "permission-denied") {
+      localStorage.setItem(SEED_FLAG_KEY, SEED_VERSION);
+      return;
+    }
     console.error("Failed to seed categories:", err);
   }
 };
