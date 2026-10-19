@@ -20,8 +20,9 @@ export function RecaptchaNotice({ className = "" }: { className?: string }) {
       {t("legal.recaptchaAnd")}{" "}
       <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" style={link}>
         {t("legal.recaptchaTerms")}
-      </a>{" "}
-      {t("legal.recaptchaSuffix")}
+      </a>
+      {/* Greek ends on the link ("…της Google."), English after it ("… apply."). */}
+      {t("legal.recaptchaSuffix") ? ` ${t("legal.recaptchaSuffix")}` : "."}
     </span>
   );
 }
