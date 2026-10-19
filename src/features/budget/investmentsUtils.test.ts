@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { computeGoalStats, deadlinePace } from "./investmentsUtils";
 import { buildPlan, goalMonthlyNeed, goalMonthlyTarget } from "../plannerPage/plannerUtils";
-import { committedMonthly } from "../allocation/allocationUtils";
+import { committedMonthly } from "../accounts/cushion";
 import type { InvestmentGoal, InvestmentContribution } from "../../shared/types/IndexTypes";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────

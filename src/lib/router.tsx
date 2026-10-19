@@ -6,7 +6,7 @@ import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // Route components and lazy page chunks live in their own modules so this file
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
 import { PageLoader, ProtectedRoute, PublicOnlyRoute } from "./routeGuards";
-import { OverviewPage, TransactionsPage, NewTransactionPage, LedgerPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, AllocationPage, DebtsPage, AccountsPage, LoginPage, RegisterPage } from "./lazyRoutes";
+import { OverviewPage, TransactionsPage, NewTransactionPage, LedgerPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
   // Readable signed in or not: linked from the sign-in pages and the footer.
@@ -143,14 +143,8 @@ export const router = createBrowserRouter([
               </Suspense>
             ),
           },
-          {
-            path: "allocation",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <AllocationPage />
-              </Suspense>
-            ),
-          },
+          // The Allocation page became the Planner's limits; an old bookmark lands there.
+          { path: "allocation", element: <Navigate to="/planner" replace /> },
           {
             path: "debts",
             element: (

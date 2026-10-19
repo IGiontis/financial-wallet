@@ -1963,3 +1963,98 @@ a.scaleToggle {
     align-self: stretch;
   }
 }
+
+/* ── A line as a limit ───────────────────────────────────────────────────── */
+/* Under its name, what the month has spent of it: a thin bar and the figures. */
+.scaleLimit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.scaleLimitTrack {
+  flex: 0 0 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.scaleLimitTrack > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--color-goal);
+}
+
+.scaleLimitOver {
+  color: var(--color-expense-text);
+}
+
+.scaleLimitOver .scaleLimitTrack > span {
+  background: var(--color-expense);
+}
+
+/* The editor's categories: a toggle, then a list of boxes to tick. */
+.limitToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.limitCount {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 11.5px;
+}
+
+.limitPick {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  margin-top: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+.limitOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.limitOption + .limitOption {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.limitOption :global(.form-check-input) {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.limitTaken {
+  cursor: default;
+  color: var(--color-text-secondary);
+}
+
+.limitTakenBy {
+  font-size: 11.5px;
+}

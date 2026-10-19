@@ -108,3 +108,35 @@ describe("deleting a goal", () => {
     ]);
   });
 });
+
+// 200 of his own in Revolut, 550 paid by Nikos: the 550 was never set aside, so
+// giving the goal up frees the 200 and no more, and closing it spends the 200.
+describe("deleting a goal someone else paid part of", () => {
+  const covered = () => ({ ...goal(750), totalCovered: 550, covered: [{ person: "Nikos", amount: 550, debtIds: ["d1"] }] }) as unknown as InvestmentGoalWithStats;
+  beforeEach(() => {
+    store.transactions = [mirror("m2", 200, "revolut")];
+  });
+
+  it("given up on: only his own 200 comes back to spendable", async () => {
+    render(<GoalDeleteModal goal={covered()} isDeleting={false} onConfirm={vi.fn()} onClose={() => {}} />);
+    // The choice says the 200, not the 750.
+    expect(screen.getByRole("radio", { name: /not doing it/ })).toHaveTextContent("€200.00");
+    await userEvent.click(screen.getByRole("radio", { name: /not doing it/ }));
+    await next();
+    // 2.900 in the banks, 200 of it set aside: 2.700 → 2.900 — the banks' whole total, as it must be once nothing is set aside.
+    expect(check()).toHaveTextContent("€2700.00 → €2900.00");
+  });
+
+  it("done: the 200 leaves Revolut, and that is the only expense", async () => {
+    const onConfirm = vi.fn();
+    render(<GoalDeleteModal goal={covered()} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: /money was spent/ }));
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: "Revolut" }));
+    await next();
+    expect(check()).toHaveTextContent("€900.00 → €700.00");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete & record the expense" }));
+    const { close } = onConfirm.mock.calls[0][0];
+    expect(close.filter((r: { type: string }) => r.type === "expense").map((e: { amount: number }) => e.amount)).toEqual([200]);
+  });
+});

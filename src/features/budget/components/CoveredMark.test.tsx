@@ -11,7 +11,7 @@ const debts = vi.hoisted(() => ({ data: undefined as unknown }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: debts.data }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
 
-const goal = { covered: [{ person: "Nikos", amount: 550, debtId: "d1" }] };
+const goal = { covered: [{ person: "Nikos", amount: 550, debtIds: ["d1"] }] };
 const renderMark = () =>
   render(
     <MemoryRouter>
@@ -46,6 +46,21 @@ describe("the mark on a goal someone else paid part of", () => {
     debts.data = [];
     const again = renderMark();
     expect(again.container).toBeEmptyDOMElement();
+  });
+
+  it("adds up every debt to the same person — paid twice for one goal, owed twice", () => {
+    debts.data = [
+      { id: "d1", remaining: 300, isSettled: false },
+      { id: "d2", remaining: 120.5, isSettled: false },
+      { id: "d3", remaining: 999, isSettled: false },
+    ];
+    render(
+      <MemoryRouter>
+        <CoveredMark goal={{ covered: [{ person: "Nikos", amount: 750, debtIds: ["d1", "d2"] }] }} />
+      </MemoryRouter>,
+    );
+    // 300 + 120.50; d3 is someone else's and not counted.
+    expect(screen.getByRole("link")).toHaveTextContent("€420.50 owed to Nikos");
   });
 
   it("is nothing on a goal nobody paid for", () => {

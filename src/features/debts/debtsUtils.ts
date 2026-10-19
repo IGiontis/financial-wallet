@@ -89,6 +89,22 @@ export function plannableDebts(debts: DebtWithStatus[]): DebtWithStatus[] {
   return debts.filter((d) => d.direction === "owed_by_me" && !d.isSettled);
 }
 
+/**
+ * The order to throw spare money at, dearest first.
+ *
+ * Only what is owed, and only what is charged for: a debt with no rate has no
+ * interest to save, so paying it early buys relief rather than money. The
+ * ordering is the whole point — the biggest balance is very often not the
+ * expensive one, and a list sorted by size sends the money to the wrong place.
+ */
+export function payoffOrder(debts: DebtWithStatus[]): DebtWithStatus[] {
+  return plannableDebts(debts)
+    .filter((debt) => currentRate(debt) > 0)
+    // Rate first; between two at the same rate, the smaller balance, because it
+    // is the one that can actually be cleared.
+    .sort((a, b) => currentRate(b) - currentRate(a) || a.remaining - b.remaining || a.id.localeCompare(b.id));
+}
+
 // ─── Loans ───────────────────────────────────────────────────────────────────
 //
 // A loan is a debt whose balance grows. Everything above treats what is owed as

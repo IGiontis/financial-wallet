@@ -11,7 +11,7 @@ import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
 import { expectedByAccount, goalHeldTotal, mainAccount } from "../../accounts/accountsUtils";
 import CategoryPicker from "../../categories/CategoryPicker";
 import { useCategories } from "../../transactions/hooks/useTransactions";
-import { closingRecords, goalHolding, undoByAccount } from "../goalHolding";
+import { closingRecords, goalHolding, ownSaved, undoByAccount } from "../goalHolding";
 import wizard from "../../transactions/components/css/TransactionWizard.module.css";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 
@@ -85,6 +85,9 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
     [ending, goal, transactions, account, category, t],
   );
 
+  // What giving it up frees and closing it spends: what someone else paid was spent the day they paid.
+  const own = ownSaved(goal);
+
   const next = () => {
     setTried(true);
     if (ready) setStage("review");
@@ -148,7 +151,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                 >
                   <div className="fw-semibold">{t(`goalDelete.${value}`)}</div>
                   <div className="small" style={{ opacity: 0.8 }}>
-                    {t(`goalDelete.${value}Hint${holding.holders.length > 0 ? "Held" : ""}`, { amount: format(goal.totalSaved) })}
+                    {t(`goalDelete.${value}Hint${holding.holders.length > 0 ? "Held" : ""}`, { amount: format(own) })}
                   </div>
                 </button>
               ))}
@@ -255,7 +258,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                   <div>
                     <span>{t("goalDelete.spendable")}</span>
                     <strong>
-                      {format(spendable)} → {format(round2(spendable + goal.totalSaved))}
+                      {format(spendable)} → {format(round2(spendable + own))}
                     </strong>
                   </div>
                 </>

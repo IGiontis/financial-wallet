@@ -22,6 +22,8 @@ export interface LedgerItem {
   openLabel?: string;
   /** Or a page of its own, for what is changed elsewhere. */
   link?: { to: string; label: string };
+  /** A line with categories: what this month has spent of its limit. */
+  limit?: { spent: number; of: number; text: string };
 }
 
 type Side = "in" | "out";
@@ -141,6 +143,14 @@ export function PlanLedger({
           {item.aside && (
             <span className={styles.oneOffTag} title={item.aside.hint}>
               {item.aside.tag}
+            </span>
+          )}
+          {item.limit && (
+            <span className={`${styles.scaleLimit} ${item.limit.spent > item.limit.of + 0.005 ? styles.scaleLimitOver : ""}`}>
+              <span className={styles.scaleLimitTrack} aria-hidden>
+                <span style={{ width: `${item.limit.of > 0 ? Math.min((item.limit.spent / item.limit.of) * 100, 100) : 100}%` }} />
+              </span>
+              {item.limit.text}
             </span>
           )}
         </span>

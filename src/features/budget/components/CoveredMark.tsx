@@ -21,10 +21,10 @@ export function CoveredMark({ goal, compact = false }: { goal: Pick<InvestmentGo
 
   const open = goal.covered
     .map((c) => {
-      const debt = debts?.find((d) => d.id === c.debtId);
-      // Until the debts have loaded, what was covered; after, what is still owed — none, if cleared or deleted.
-      const owed = debts ? (debt && !debt.isSettled ? debt.remaining : 0) : c.amount;
-      return { person: c.person, owed };
+      // Until the debts have loaded, what was covered; after, what is still owed on
+      // each of their debts — none for one cleared or deleted.
+      const owed = debts ? c.debtIds.reduce((sum, id) => { const debt = debts.find((d) => d.id === id); return debt && !debt.isSettled ? sum + debt.remaining : sum; }, 0) : c.amount;
+      return { person: c.person, owed: Math.round(owed * 100) / 100 };
     })
     .filter((c) => c.owed > 0.005);
   if (open.length === 0) return null;

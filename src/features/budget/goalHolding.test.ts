@@ -104,7 +104,16 @@ describe("a part of a goal that someone else paid", () => {
     expect(goal.remaining).toBe(0);
     expect(goal.percentageReached).toBe(100);
     expect(goal.totalCovered).toBe(550);
-    expect(goal.covered).toEqual([{ person: "Nikos", amount: 550, debtId: "d1" }]);
+    expect(goal.covered).toEqual([{ person: "Nikos", amount: 550, debtIds: ["d1"] }]);
+  });
+
+  it("keeps every debt of one person who paid twice, under one name however it was typed", () => {
+    const twice = computeGoalStats({ id: "trip", userId: "u", name: "Trip", goalType: "targeted", targetAmount: 700, targetPeriod: "custom", deadline: new Date(2027, 5, 1), isActive: true, isCompleted: false, createdAt: day, updatedAt: day }, [
+      covered,
+      { ...covered, id: "cov2", amount: 100, coveredBy: " nikos ", debtId: "d2" },
+    ]);
+    expect(twice.covered).toEqual([{ person: "Nikos", amount: 650, debtIds: ["d1", "d2"] }]);
+    expect(twice.totalCovered).toBe(650);
   });
 
   it("is neither in his bank nor held by anyone — only the 150 he put aside is", () => {

@@ -101,8 +101,9 @@ export function PlanRowSheet({
           <>
             <div className={styles.rowDatesTitle}>{t("planner.rowDates", { count: dates.length })}</div>
             <ul className={styles.rowDates}>
-              {dates.slice(0, DATES_SHOWN).map((d) => (
-                <li key={d.date.getTime()}>
+              {/* By position too: a bill's two instalments can fall on one day. */}
+              {dates.slice(0, DATES_SHOWN).map((d, i) => (
+                <li key={`${d.date.getTime()}:${i}`}>
                   <span>
                     {dateFmt.format(d.date)}
                     {d.late && <span className={styles.rowLate}>{t("planner.rowLate")}</span>}

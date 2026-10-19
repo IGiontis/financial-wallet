@@ -9,6 +9,7 @@ import i18n from "../../../i18n";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, goalHeadline, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 import styles from "./css/GoalDetails.module.css";
 import { CoveredMark } from "./CoveredMark";
+import { ownSaved } from "../goalHolding";
 
 
 // ─── What a goal says about itself ───────────────────────────────────────────
@@ -242,9 +243,11 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
               </div>
             )}
             {/* What someone else paid and you still owe them. */}
-            <div className="mt-2">
-              <CoveredMark goal={goal} />
-            </div>
+            {!!goal.covered?.length && (
+              <div className="mt-2">
+                <CoveredMark goal={goal} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -270,7 +273,8 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
               {/* One word: «Προσθήκη κατάθεσης» wrapped beside «Ανάληψη» on a phone. */}
               <FiPlus size={15} aria-hidden /> {t("goals.addShort")}
             </Button>
-            {goal.totalSaved > 0 && (
+            {/* Only your own money comes back out: what someone else paid was spent the day they paid. */}
+            {ownSaved(goal) > 0 && (
               <Button color="secondary" outline onClick={() => onWithdraw(goal)}>
                 <FiMinus size={15} aria-hidden /> {t("investments.withdraw")}
               </Button>

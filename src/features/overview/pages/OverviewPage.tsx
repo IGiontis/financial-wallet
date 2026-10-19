@@ -336,7 +336,7 @@ export const OverviewPage = () => {
       ? { to: "/goals", label: t("nav.goals"), value: `${goalProgress.percent}%`, sub: t("overview.tileGoalsOf", { saved: formatCurrency(goalProgress.saved), target: formatCurrency(goalProgress.target) }), tone: "var(--color-goal)" }
       : { to: "/goals", label: t("nav.goals"), value: formatCurrency(lastPosition?.saved ?? 0), sub: t("overview.tileSaved"), tone: "var(--color-invest)" },
     { to: "/analytics", label: t("nav.analytics"), value: formatCurrency(lastPosition?.net ?? balance), sub: t("overview.netPosition") },
-    { to: "/allocation", label: t("nav.allocation"), value: formatCurrency(thisMonth.totalIncome), sub: t("overview.tileToAllocate") },
+    { to: "/incomes", label: t("nav.incomes"), value: formatCurrency(thisMonth.totalIncome), sub: t("overview.tileCameIn") },
     { to: "/investments", label: t("nav.investments"), value: `${investedThisMonth >= 0 ? "+" : "−"}${formatCurrency(Math.abs(investedThisMonth))}`, sub: t("overview.tileInvestedMonth"), tone: "var(--color-invest)" },
   ];
 

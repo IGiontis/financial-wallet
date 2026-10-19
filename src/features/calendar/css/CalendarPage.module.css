@@ -140,8 +140,6 @@
    difference. What has happened goes pale, each side on its own: the income that
    came beside a bill still to pay is a pale green with the red as strong as ever. */
 .day {
-  --c-in: var(--color-income);
-  --c-out: var(--color-expense);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -189,6 +187,16 @@
   font-weight: 700;
   line-height: 1.1;
   white-space: nowrap;
+}
+
+/* The two colours, for a day and for its miniature in the key alike — set
+   here, before the pale ones, so that a pale class always has the last word.
+   (Set again on the key's cell further down, they overrode it: the key's
+   "came" and "paid" were drawn as strong as "to come" and "to pay".) */
+.day,
+.keyCell {
+  --c-in: var(--color-income);
+  --c-out: var(--color-expense);
 }
 
 /* Pale: the same hue, mostly surface. */
@@ -548,8 +556,6 @@
 
 /* A day in miniature, coloured by the same classes. */
 .keyCell {
-  --c-in: var(--color-income);
-  --c-out: var(--color-expense);
   position: relative;
   flex-shrink: 0;
   width: 30px;

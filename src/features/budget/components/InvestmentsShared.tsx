@@ -24,6 +24,7 @@ import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import i18n from "../../../i18n";
 import { CoveredMark } from "./CoveredMark";
+import { ownSaved } from "../goalHolding";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 
 // ─── Progress ring ────────────────────────────────────────────────────────────
@@ -427,7 +428,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             {i18n.t("investments.addDeposit")}
           </Button>
         )}
-        {goal.totalSaved > 0 && !isEffectivelyCompleted && (
+        {ownSaved(goal) > 0 && !isEffectivelyCompleted && (
           <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 84 }} onClick={() => onWithdraw(goal)}>
             {i18n.t("investments.withdraw")}
           </Button>

@@ -342,7 +342,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
         { path: "/planner", label: t("nav.planner"), icon: FiCalendar },
         // The month on one screen: what comes in and goes out, day by day.
         { path: "/calendar", label: t("nav.calendar"), icon: FiGrid },
-        { path: "/allocation", label: t("nav.allocation"), icon: FiSliders },
         { path: "/goals", label: t("nav.goals"), icon: FiTarget },
       ],
     },

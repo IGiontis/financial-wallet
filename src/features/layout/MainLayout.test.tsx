@@ -57,7 +57,7 @@ const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 // Every destination the sidebar shows as a link, in its order, with
 // Transactions folded: it is a button over its two pages, which show when it
 // opens (see "an item with pages under it").
-const ALL_PATHS = ["/", "/analytics", "/incomes", "/bills", "/planner", "/calendar", "/allocation", "/goals", "/accounts", "/investments", "/debts", "/settings"];
+const ALL_PATHS = ["/", "/analytics", "/incomes", "/bills", "/planner", "/calendar", "/goals", "/accounts", "/investments", "/debts", "/settings"];
 
 const original = window.matchMedia;
 
@@ -110,7 +110,7 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
     expect(group("Where you stand")).toEqual(["/", "/analytics"]);
     expect(group("Day to day")).toEqual(["/incomes", "/bills"]);
     expect(within(within(sidebar()).getByRole("list", { name: "Day to day" })).getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-expanded", "false");
-    expect(group("Plan")).toEqual(["/planner", "/calendar", "/allocation", "/goals"]);
+    expect(group("Plan")).toEqual(["/planner", "/calendar", "/goals"]);
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
 

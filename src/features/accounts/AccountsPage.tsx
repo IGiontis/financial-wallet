@@ -36,6 +36,7 @@ import cardStyles from "./css/BankCard.module.css";
 import CheckInModal from "./CheckInModal";
 import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
 import AccountModal, { type AccountDraft } from "./AccountModal";
+import { CushionCard } from "./CushionCard";
 import styles from "./css/AccountsPage.module.css";
 import TransferWizard from "../transactions/components/TransferWizard";
 import { oneRowPerTransfer } from "../transactions/transfers";
@@ -375,6 +376,8 @@ export function AccountsPage() {
               </CardBody>
             </Card>
           )}
+
+          <CushionCard formatCurrency={formatCurrency} />
 
           <details className={`${styles.how} mb-3`}>
             <summary>{t("accounts.howTitle")}</summary>

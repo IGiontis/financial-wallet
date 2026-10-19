@@ -5,6 +5,7 @@ import { firestoreToDate, parseISODay } from "../../shared/utils/dates";
 import type { Income } from "../incomes/incomesUtils";
 import { currentRate, isLoan, loanPayoff, monthlyInstalment } from "../debts/debtsUtils";
 import { deadlinePace } from "../budget/investmentsUtils";
+import { lineSpentThisMonth } from "./lineSpending";
 import { currentPause, getDeadline, getGraceDays, getInstallmentCount, getPeriodDueDate, getPeriodKey, getPeriodStart, installmentAmount, installmentDueDates, isPausedOn, paidInstallments, shiftPeriodStart } from "../bills/billsUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
@@ -104,7 +105,9 @@ export function goalStartSlices(goal: InvestmentGoalWithStats, today: Date, end:
   for (let i = 0; i < MAX_HORIZON_MONTHS + 1; i++) {
     const month = addMonths(startOfMonth(start), i);
     if (month > end || (last && month > last)) break;
-    const date = i === 0 ? start : clampDay(month.getFullYear(), month.getMonth(), start.getDate());
+    const onDay = i === 0 ? start : clampDay(month.getFullYear(), month.getMonth(), start.getDate());
+    // The deadline's month pays by the deadline: started on the 28th, due on the 10th, its last slice is on the 10th.
+    const date = deadline && dated && onDay > startOfDay(deadline) ? startOfDay(deadline) : onDay;
     if (date > end) break;
     // The first month takes the rounding, as `deadlinePace` gives it.
     const amount = pace ? (i === 0 ? pace.thisMonth : pace.perMonth) : monthly;
@@ -294,6 +297,13 @@ export interface BudgetLine {
   yearly?: boolean;
   /** "YYYY-MM" — the last month a yearly season runs. Absent means it never stops. */
   until?: string;
+  /**
+   * The categories it pays for, which make it a limit as well as a rate: the
+   * plan reads what this month has spent under them and charges the rest of
+   * the month only what is left of the line — see `lineSpentThisMonth`.
+   * Absent or empty: a plain rate, spread over the days as before.
+   */
+  categoryIds?: string[];
 }
 
 // ─── Seasons ────────────────────────────────────────────────────────────────
@@ -544,6 +554,8 @@ export interface PlannerEvent {
   billId?: string;
   /** The income from «Έσοδα» this is a time of. */
   incomeId?: string;
+  /** The goal this puts money aside for — two goals can share a name. */
+  goalId?: string;
   /**
    * A time of the salary — the income marked «ο μισθός μου». Pay day is where
    * the plan is cut (`payCycles`) and what "until pay day" runs to
@@ -595,6 +607,8 @@ export interface PlanRow {
   kind?: BudgetLine["kind"];
   /** An income: what one time of it brings — its figure, or a variable one's mean. */
   each?: number;
+  /** A budget line with categories: what this month has spent under them, against its `perMonth`. */
+  spent?: number;
   /** The income marked «ο μισθός μου». */
   pay?: boolean;
   /**
@@ -606,7 +620,7 @@ export interface PlanRow {
    * having nothing to charge, so every active bill and goal now gets a row and
    * this says which case it is.
    */
-  note?: "paid" | "undated" | "funded" | "outofseason" | "paused";
+  note?: "paid" | "undated" | "funded" | "outofseason" | "paused" | "later";
   enabled: boolean;
 }
 
@@ -889,8 +903,10 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     const later = goalStartSlices(goal, today, end, now);
     if (later) {
       const total = round2(later.reduce((sum, slice) => sum + slice.amount, 0));
-      rows.push({ id: goal.id, source: "goal", label: goal.name, total: enabled ? negate(total) : 0, occurrences: later.length, perMonth: negate(later[1]?.amount ?? later[0]?.amount ?? 0), note: total > 0 ? undefined : "funded", enabled });
-      if (enabled) for (const slice of later) events.push({ kind: "goal", label: goal.name, amount: -slice.amount, date: slice.date });
+      // Nothing in the window is either "it starts after it" or "it needs nothing more" — not the same news.
+      const startsAfter = (goalPlanStart(goal, today) ?? end) > end;
+      rows.push({ id: goal.id, source: "goal", label: goal.name, total: enabled ? negate(total) : 0, occurrences: later.length, perMonth: negate(later[1]?.amount ?? later[0]?.amount ?? 0), note: total > 0 ? undefined : startsAfter ? "later" : "funded", enabled });
+      if (enabled) for (const slice of later) events.push({ kind: "goal", label: goal.name, goalId: goal.id, amount: -slice.amount, date: slice.date });
       continue;
     }
 
@@ -916,8 +932,8 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     });
     if (!enabled || total <= 0) continue;
 
-    if (need > 0) events.push({ kind: "goal", label: goal.name, amount: -need, date: today });
-    if (target > 0) for (const month of months) events.push({ kind: "goal", label: goal.name, amount: -target, date: month });
+    if (need > 0) events.push({ kind: "goal", label: goal.name, goalId: goal.id, amount: -need, date: today });
+    if (target > 0) for (const month of months) events.push({ kind: "goal", label: goal.name, goalId: goal.id, amount: -target, date: month });
   }
 
   // ── Debts owed ────────────────────────────────────────────────────────────
@@ -1039,15 +1055,31 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
 
   // Money in is the incomes' now; an income line an older Planner stored is
   // passed by rather than counted a second time beside the income it became.
-  for (const line of lines.filter((l) => l.kind !== "income")) {
+  const costLines = lines.filter((l) => l.kind !== "income");
+  // What each line with categories has spent this month — from the records the
+  // plan is checked against, so the Planner and the Overview read the same.
+  const spentOn = actuals ? lineSpentThisMonth(costLines, actuals.transactions, today) : new Map<string, number>();
+  // The last day of the month we are in, as an offset into the walk.
+  const monthEnd = differenceInCalendarDays(endOfMonth(today), today);
+  const daysThisMonth = getDaysInMonth(today);
+
+  for (const line of costLines) {
     const enabled = isOn(line.id);
     // One stretch, or one per winter for a season that comes back every year.
     const seasons = lineRanges(line, today, days);
+    const spent = spentOn.get(line.id);
+    // A limit running this month: the rest of the month is charged what is
+    // left of it — 250 with 210 spent is 40 over the days to the month's end,
+    // and nothing once it is used up (what went over has left the bank already).
+    // Seasons are whole months, so one running today starts at offset 0.
+    const current = spent !== undefined ? seasons.find((season) => season.from === 0) : undefined;
+    const restEnd = current ? Math.min(current.to, monthEnd) : -1;
+    const leftThisMonth = current ? round2(Math.max(line.amount - spent!, 0)) : 0;
+
     // A season entirely outside the horizon costs nothing here, and says so
     // with a note rather than vanishing from the list.
-    const months = seasons.reduce((sum, season) => sum + monthsBetween(today, season.from, season.to), 0);
-
-    const total = enabled ? negate(line.amount * months) : 0;
+    const months = seasons.reduce((sum, season) => sum + (season === current ? monthsBetween(today, restEnd + 1, season.to) : monthsBetween(today, season.from, season.to)), 0);
+    const total = enabled ? negate(round2(leftThisMonth + line.amount * months)) : 0;
 
     rows.push({
       id: line.id,
@@ -1056,12 +1088,26 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
       total,
       perMonth: -line.amount,
       kind: "expense",
+      // Only for a month it runs in: a season still to come has spent nothing of its own.
+      ...(current ? { spent } : {}),
       note: seasons.length ? undefined : "outofseason",
       enabled,
     });
     if (!enabled) continue;
 
     for (const season of seasons) {
+      if (season === current) {
+        // The walk spreads a monthly rate over the month's days; this one is the
+        // rate that lands exactly what is left over the days that are left.
+        const rate = (leftThisMonth * daysThisMonth) / (restEnd + 1);
+        rateOut[0] += rate;
+        rateOut[restEnd + 1] -= rate;
+        if (season.to > restEnd) {
+          rateOut[restEnd + 1] += line.amount;
+          rateOut[season.to + 1] -= line.amount;
+        }
+        continue;
+      }
       rateOut[season.from] += line.amount;
       rateOut[season.to + 1] -= line.amount;
     }

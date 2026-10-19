@@ -10,6 +10,7 @@ import { useTransactions } from "../transactions/hooks/useTransactions";
 import { debtProgress, debtTotals, debtsByPerson } from "./debtsUtils";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import PersonDebtsModal from "./PersonDebtsModal";
+import { DebtOrder } from "./DebtOrder";
 import AddDebtModal from "./AddDebtModal";
 import styles from "./css/DebtsPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
@@ -148,6 +149,9 @@ export function DebtsPage() {
           <PersonDebtsModal key={person.person} inline person={person} knownPeople={people.map((p) => p.person)} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />
         )}
       </div>
+
+      {/* Which loan to put spare money against first — only with a loan that charges interest. */}
+      <DebtOrder debts={debts} formatCurrency={formatCurrency} />
 
       {!wide && person && (
         <PersonDebtsModal person={person} knownPeople={people.map((p) => p.person)} formatCurrency={formatCurrency} locale={lang} onClose={() => setOpenPerson(null)} />

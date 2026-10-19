@@ -416,7 +416,7 @@ export interface InvestmentGoalWithStats extends InvestmentGoal {
    * What other people paid toward it, by person: part of `totalSaved` but never
    * in your bank, nor held by anyone — see `goalHolding`. Absent when nobody did.
    */
-  covered?: { person: string; amount: number; debtId?: string }[];
+  covered?: { person: string; amount: number; debtIds: string[] }[];
   totalCovered?: number;
 }
 

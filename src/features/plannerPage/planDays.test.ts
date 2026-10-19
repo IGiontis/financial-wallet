@@ -199,6 +199,22 @@ describe("a goal that starts later", () => {
     const plan = planOf(trip({ planFrom: "2027-01-12" }), 1);
     expect(plan.events.filter((e) => e.kind === "goal")).toEqual([]);
     expect(plan.rows.find((r) => r.id === "trip")?.total).toBe(0);
+    // Said as not started, not as "needs nothing more".
+    expect(plan.rows.find((r) => r.id === "trip")?.note).toBe("later");
+  });
+
+  it("says a goal that started in the window and needs nothing as funded, not as later", () => {
+    const plan = planOf(trip({ remaining: 0, totalSaved: 1200, planFrom: "2027-01-12" }));
+    expect(plan.rows.find((r) => r.id === "trip")?.note).toBe("funded");
+  });
+
+  it("pays the deadline's month by the deadline, however late in the month it started", () => {
+    const events = slices(trip({ deadline: new Date(2027, 5, 10), planFrom: "2027-01-28" }));
+    const last = events[events.length - 1];
+    expect(last.date).toEqual(new Date(2027, 5, 10));
+    expect(events.every((e) => e.date <= new Date(2027, 5, 10))).toBe(true);
+    // Still the whole 1.200, a second way.
+    expect(round(events.reduce((s, e) => s - e.amount, 0))).toBe(1200);
   });
 
   it("is ignored once its start has come — planned from today as before", () => {

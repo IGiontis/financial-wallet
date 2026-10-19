@@ -725,6 +725,8 @@ function BillLine({
   const overdue = billOverdue(bill, now);
   const late = overdue.count > 0;
   const settled = bill.isPaidThisPeriod && !late;
+  // None when the period was covered by a payment made ahead: it says "paid" instead.
+  const paidNow = settled ? paidThisPeriod(bill) : 0;
   const pause = currentPause(bill);
   const stopped = !bill.isPaidThisPeriod && !late && (pause?.state === "paused" || pause?.state === "ended");
 
@@ -753,8 +755,8 @@ function BillLine({
             <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
           ) : settled ? (
             // The tick and what was paid, as on the cards.
-            <span className={`${styles.linePill} ${styles.linePillPaid}`} title={t("bills.chipPaidAmount", { amount: formatCurrency(paidThisPeriod(bill)) })}>
-              <FiCheck size={11} aria-hidden /> {paidThisPeriod(bill) > 0 ? formatCurrency(paidThisPeriod(bill)) : t("bills.linePaid")}
+            <span className={`${styles.linePill} ${styles.linePillPaid}`} title={paidNow > 0 ? t("bills.chipPaidAmount", { amount: formatCurrency(paidNow) }) : undefined}>
+              <FiCheck size={11} aria-hidden /> {paidNow > 0 ? formatCurrency(paidNow) : t("bills.linePaid")}
             </span>
           ) : stopped ? (
             <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>

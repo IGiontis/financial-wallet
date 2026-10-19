@@ -1,14 +1,19 @@
-/* The page's foot: a strip of its own, off the page's colour, with room around it. */
+/* The page's foot: a strip of its own, off the page's colour, running from one
+   edge of the page to the other — square, with a rule along its top, rather than
+   a rounded box floating inside the margins. The negative margins undo the
+   page's own gutters (Bootstrap's fluid container, and its `py-2` below). */
 
 .footer {
+  --gutter: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin-top: 2rem;
-  padding: 1.1rem 1.25rem;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
+  margin: 2rem calc(var(--gutter) * -1) -0.5rem;
+  padding: 1.25rem calc(var(--gutter) + 0.5rem);
+  border: 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  border-radius: 0;
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 12.5px;
@@ -49,7 +54,7 @@
   .footer {
     flex-direction: row;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 1.1rem calc(var(--gutter) + 1rem);
     text-align: left;
   }
 

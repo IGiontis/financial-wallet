@@ -8,6 +8,8 @@ import segmented from "../../../shared/css/Segmented.module.css";
 import { formatTable } from "../../transactions/transactionDates";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
 import { oneOffDate, REPEAT_CHOICES, repeatLabel } from "../plannerUtils";
+import { categoryLabel } from "../../../shared/utils/categories";
+import type { Category } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
 
 export interface EntryDraft {
@@ -26,6 +28,8 @@ export interface EntryDraft {
   to?: string;
   /** The season comes back every year. */
   yearly?: boolean;
+  /** A monthly line's categories, which make it a limit — see `BudgetLine.categoryIds`. */
+  categoryIds?: string[];
 }
 
 interface EntryEditorProps {
@@ -33,6 +37,10 @@ interface EntryEditorProps {
   mode: "line" | "oneoff";
   draft: EntryDraft;
   formatCurrency: (n: number) => string;
+  /** For a monthly line: the categories it can pay for. */
+  categories?: Category[];
+  /** Categories another line already has, with that line's name — one category, one line. */
+  takenBy?: Map<string, { id: string; label: string }>;
   /** Absent while creating. */
   onDelete?: () => void;
   onSave: (draft: EntryDraft) => void;
@@ -62,7 +70,7 @@ function monthText(key: string | undefined, lang: string): string | undefined {
  *
  * Opening an existing figure lets the rail jump, since everything is filled in.
  */
-export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onClose }: EntryEditorProps) {
+export function EntryEditor({ mode, draft, formatCurrency, categories = [], takenBy, onDelete, onSave, onClose }: EntryEditorProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const [value, setValue] = useState<EntryDraft>(draft);
@@ -70,6 +78,17 @@ export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onC
   const [tried, setTried] = useState(false);
   // Whether a monthly figure only runs for part of the year; a figure that arrives on a date is its own thing.
   const [seasonal, setSeasonal] = useState(!!(draft.from || draft.to));
+  // The categories, open from the start when some are already linked.
+  const [linking, setLinking] = useState(!!draft.categoryIds?.length);
+  const expenseCategories = categories.filter((c) => c.type === "expense").sort((a, b) => categoryLabel(a.name, t).localeCompare(categoryLabel(b.name, t)));
+  const linked = new Set(value.categoryIds ?? []);
+  const toggleCategory = (id: string) => {
+    const next = new Set(linked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setValue({ ...value, categoryIds: [...next] });
+  };
+  const linkedNames = expenseCategories.filter((c) => linked.has(c.id)).map((c) => categoryLabel(c.name, t));
 
   const edit = !!draft.id;
   const amount = parseFloat(value.amount);
@@ -109,6 +128,8 @@ export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onC
     if (!valid) return;
     // Whatever the switches say is what is stored: a season left behind by "all year" would still apply.
     const clean: EntryDraft = { ...value, label: value.label.trim() };
+    // No categories is no limit: nothing stored rather than an empty list.
+    if (!clean.categoryIds?.length) delete clean.categoryIds;
     if (!dated && !seasonal) {
       delete clean.from;
       delete clean.to;
@@ -148,6 +169,7 @@ export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onC
     { step: "1", label: t("planner.lineName"), value: value.label.trim() || "—" },
     { step: "1", label: t("common.amount"), value: dated ? formatCurrency(amountOk ? amount : 0) : t("planner.perMonthShort", { amount: formatCurrency(amountOk ? amount : 0) }) },
     { step: "2", label: t("planner.wizard_when"), value: whenText },
+    ...(!dated && linkedNames.length > 0 ? [{ step: "1" as Step, label: t("planner.lineCategoriesShort"), value: linkedNames.join(", ") }] : []),
   ];
 
   return (
@@ -192,6 +214,34 @@ export function EntryEditor({ mode, draft, formatCurrency, onDelete, onSave, onC
                 <FormFeedback>{t("planner.wizard_amountNeeded")}</FormFeedback>
                 {!dated && <p className={styles.fieldHint}>{t("planner.perMonthHint")}</p>}
               </FormGroup>
+
+              {/* What used to be the Allocation page's buckets: the line as a
+                  limit, measured against what its categories actually spent. */}
+              {!dated && expenseCategories.length > 0 && (
+                <div className="mt-3">
+                  <button type="button" className={styles.limitToggle} onClick={() => setLinking((v) => !v)} aria-expanded={linking}>
+                    {t("planner.lineCategories")}
+                    {linkedNames.length > 0 && <span className={styles.limitCount}>{linkedNames.length}</span>}
+                  </button>
+                  <p className={styles.fieldHint}>{t("planner.lineCategoriesHint")}</p>
+                  {linking && (
+                    <div className={styles.limitPick} role="group" aria-label={t("planner.lineCategories")}>
+                      {expenseCategories.map((category) => {
+                        const owner = takenBy?.get(category.id);
+                        const taken = !!owner && owner.id !== draft.id;
+                        return (
+                          <label key={category.id} className={`${styles.limitOption} ${taken ? styles.limitTaken : ""}`}>
+                            <Input type="checkbox" checked={linked.has(category.id)} disabled={taken} onChange={() => toggleCategory(category.id)} />
+                            <span aria-hidden>{category.icon ?? "🧾"}</span>
+                            <span className="flex-grow-1">{categoryLabel(category.name, t)}</span>
+                            {taken && <span className={styles.limitTakenBy}>{t("planner.lineCategoryTaken", { name: owner!.label })}</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

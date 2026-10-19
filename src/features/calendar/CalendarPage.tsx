@@ -92,8 +92,9 @@ export default function CalendarPage() {
   const plans = useMemo(() => calendarPlans({ goals, debts, actuals, skipIds, now }), [goals, debts, actuals, skipIds, now]);
 
   const items = useMemo(
-    () => calendarItems(month, { now, bills, statuses, incomeName, oneOffs, debts, ...plans }),
-    [month, now, bills, statuses, incomeName, oneOffs, debts, plans],
+    // The instalments to come are the open debts' (above); the payments made are every debt's.
+    () => calendarItems(month, { now, bills, statuses, incomeName, oneOffs, debts: allDebts, ...plans }),
+    [month, now, bills, statuses, incomeName, oneOffs, allDebts, plans],
   );
   const days = useMemo(() => groupByDay(items), [items]);
   const totals = useMemo(() => monthTotals(items), [items]);
@@ -155,7 +156,8 @@ export default function CalendarPage() {
             minDate={first}
             maxDate={endOfMonth(last)}
             className={styles.titleButton}
-            label={t("calendar.pickMonth")}
+            // The month too: a label alone would hide the title it is written on.
+            label={`${monthTitle} · ${t("calendar.pickMonth")}`}
             caption={
               <>
                 <h1 className="h5 fw-semibold text-body-emphasis mb-0">{monthTitle}</h1>

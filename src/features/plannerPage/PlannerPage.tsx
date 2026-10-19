@@ -5,7 +5,9 @@ import { Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
 
-import { useTransactions } from "../transactions/hooks/useTransactions";
+import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
+import { categoryOwners } from "./lineSpending";
+import { useAllocationMigration } from "./allocationMigration";
 import { useOpeningBalance } from "../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { goalHeldTotal, projectedTotal } from "../accounts/accountsUtils";
@@ -77,6 +79,9 @@ export function PlannerPage() {
   const lang = i18n.resolvedLanguage ?? "en";
 
   const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
+  const { data: categories = [] } = useCategories();
+  // The old Allocation page's buckets, moved into «Τα δικά μου» once.
+  useAllocationMigration();
   // The plan starts from the money you have — the Overview's figure, counted
   // the same way: from the banks once they have been read, otherwise from the
   // records. It used to start from a typed figure until the banks were read,
@@ -274,7 +279,7 @@ export function PlannerPage() {
       ? () =>
           setEditor({
             mode: "line",
-            draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until },
+            draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until, categoryIds: line.categoryIds },
           })
       : undefined;
   };
@@ -310,6 +315,7 @@ export function PlannerPage() {
         // repeating is a figure that applies to nothing.
         ...(draft.from && draft.yearly ? { yearly: true } : {}),
         ...(draft.from && draft.yearly && draft.until ? { until: draft.until } : {}),
+        ...(draft.categoryIds?.length ? { categoryIds: draft.categoryIds } : {}),
       };
       // Through the whole stored list, so the old income lines kept there are
       // written back as they were.
@@ -379,6 +385,13 @@ export function PlannerPage() {
   // Every row of the plan, as the ledger shows it. A row the app keeps (a
   // bill, a goal, an instalment) opens its details; a line of your own opens
   // its editor; an income opens its card, since it is changed on «Έσοδα».
+  /** "210 από 250 €", or how far over. */
+  const limitOf = (spent: number, of: number) => ({
+    spent,
+    of,
+    text: t(spent > of + 0.005 ? "planner.limitOver" : "planner.limitSpent", { spent: formatCurrency(spent), limit: formatCurrency(of) }),
+  });
+
   const ledgerItem = (row: PlanRow, group?: string, onOpen?: () => void, openLabel?: string): LedgerItem => ({
     id: row.id,
     label: row.label,
@@ -388,6 +401,7 @@ export function PlannerPage() {
     canToggle: true,
     onOpen: onOpen ?? (() => setRowSheet(row.id)),
     openLabel: openLabel ?? t("planner.rowDetails", { name: row.label }),
+    ...(row.spent !== undefined && row.perMonth !== undefined ? { limit: limitOf(row.spent, Math.abs(row.perMonth)) } : {}),
   });
 
   const ledgerIn: LedgerItem[] = [
@@ -429,6 +443,11 @@ export function PlannerPage() {
     if (row.each !== undefined) facts.push([t("planner.factEach"), formatCurrency(row.each)]);
     else if (row.perMonth !== undefined) facts.push([t("planner.factPerMonth"), formatCurrency(Math.abs(row.perMonth))]);
     if (row.occurrences !== undefined) facts.push([t("planner.factTimes"), String(row.occurrences)]);
+    // A limit: what this month has used of it, and so what the rest of the month is charged.
+    if (row.spent !== undefined && row.perMonth !== undefined) {
+      facts.push([t("planner.factSpent"), formatCurrency(row.spent)]);
+      facts.push([t("planner.factLeftThisMonth"), formatCurrency(Math.max(Math.abs(row.perMonth) - row.spent, 0))]);
+    }
     // What it averages a month over the window — how heavy it is, whatever its
     // rhythm. Only over two months or more: over the rest of this month alone,
     // 85 € of power divided by half a month read as 163 € a month.
@@ -454,8 +473,7 @@ export function PlannerPage() {
         if (row.source === "bill") return e.billId === row.id;
         if (row.source === "debt") return e.occurrenceKey?.startsWith(`loan:${row.id}:`) ?? false;
         if (row.source === "oneoff") return e.occurrenceKey ? e.occurrenceKey.startsWith(`oneoff:${row.id}:`) : e.kind === "income" && e.label === row.label;
-        // A goal's slices carry nothing but its name.
-        if (row.source === "goal") return e.kind === "goal" && !e.occurrenceKey && e.label === row.label;
+        if (row.source === "goal") return e.goalId === row.id;
         return false;
       })
       .map((e) => ({ date: e.date, amount: e.amount, late: e.late }));
@@ -644,6 +662,8 @@ export function PlannerPage() {
           mode={editor.mode}
           draft={editor.draft}
           formatCurrency={formatCurrency}
+          categories={categories}
+          takenBy={categoryOwners(lines)}
           onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
           onSave={(draft) => saveEntry(editor, draft)}
           onClose={() => setEditor(null)}

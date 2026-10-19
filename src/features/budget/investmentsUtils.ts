@@ -363,12 +363,14 @@ function goalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]
  */
 export function computeGoalStats(goal: InvestmentGoal, contributions: InvestmentContribution[]): InvestmentGoalWithStats {
   const stats = goalStats(goal, contributions);
-  const byPerson = new Map<string, { person: string; amount: number; debtId?: string }>();
+  // Every debt of theirs, not the first: someone who paid twice for one goal is owed twice.
+  const byPerson = new Map<string, { person: string; amount: number; debtIds: string[] }>();
   for (const c of contributions) {
     if (!c.coveredBy || c.contributionType !== "deposit") continue;
     const key = c.coveredBy.trim().toLowerCase();
-    const entry = byPerson.get(key) ?? { person: c.coveredBy.trim(), amount: 0, debtId: c.debtId };
+    const entry = byPerson.get(key) ?? { person: c.coveredBy.trim(), amount: 0, debtIds: [] };
     entry.amount = round2(entry.amount + c.amount);
+    if (c.debtId && !entry.debtIds.includes(c.debtId)) entry.debtIds.push(c.debtId);
     byPerson.set(key, entry);
   }
   if (byPerson.size === 0) return stats;

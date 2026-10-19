@@ -59,6 +59,15 @@ export function goalHolding(goal: Pick<InvestmentGoalWithStats, "id" | "totalSav
 }
 
 /**
+ * The part of the goal that was your money: all of it, less what other people
+ * paid. It is what giving the goal up frees and what closing it spends — what
+ * someone covered was spent the day they paid, and was never set aside.
+ */
+export function ownSaved(goal: Pick<InvestmentGoalWithStats, "totalSaved" | "totalCovered">): number {
+  return round2(Math.max(goal.totalSaved - (goal.totalCovered ?? 0), 0));
+}
+
+/**
  * What deleting the goal and all its records does to each card: every record
  * taken back, so money given away returns to the card it left. Account id →
  * change ("" for the main account).

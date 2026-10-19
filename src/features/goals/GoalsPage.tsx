@@ -14,6 +14,7 @@ import { Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, HistoryModal } from "../budget/components/InvestmentsShared";
 import { GoalDeleteModal, type GoalEnding } from "../budget/components/GoalDeleteModal";
+import { ownSaved } from "../budget/goalHolding";
 import { GoalStacks } from "../budget/components/GoalStacks";
 import { GoalsWorkbench } from "../budget/components/GoalsWorkbench";
 import { groupGoals } from "../budget/components/goalGrouping";
@@ -163,7 +164,7 @@ export default function GoalsPage() {
         {
           onSuccess: () => {
             setDeleteGoal(null);
-            toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(goal.totalSaved), name: goal.name }));
+            toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name }));
           },
           onError: failed,
         },
@@ -173,7 +174,7 @@ export default function GoalsPage() {
     deleteGoalMutation.mutate(goal.id, {
       onSuccess: () => {
         setDeleteGoal(null);
-        if (goal.totalSaved > 0) toast.success(t("goalDelete.doneDropped", { amount: formatCurrency(goal.totalSaved) }));
+        if (ownSaved(goal) > 0) toast.success(t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }));
       },
       onError: failed,
     });

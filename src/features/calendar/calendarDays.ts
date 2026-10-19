@@ -80,7 +80,7 @@ export function calendarPlans(input: {
 }): { goalEvents: PlannerEvent[]; debtEvents: PlannerEvent[] } {
   const base = { bills: [] as BillWithStatus[], incomes: [], lines: [], oneOffs: [], skipIds: input.skipIds, now: input.now, horizon: CALENDAR_AHEAD_MONTHS };
   return {
-    goalEvents: buildPlan({ ...base, goals: input.goals, debts: [] }).events.filter((e) => e.kind === "goal"),
+    goalEvents: buildPlan({ ...base, goals: input.goals, debts: [] }).events.filter((e) => e.goalId !== undefined),
     // With the records, so an instalment already paid this month is not listed again as to come.
     debtEvents: buildPlan({ ...base, goals: [], debts: input.debts, actuals: input.actuals }).events.filter((e) => e.kind === "goal"),
   };
@@ -94,7 +94,10 @@ export interface CalendarSources {
   incomeName: (incomeId: string) => string;
   /** The planner's own extra incomes, with the ones switched off already taken out. */
   oneOffs: OneOff[];
-  /** What is owed by the user — loans and IOUs they pay back. */
+  /**
+   * Every debt. The payments of the ones the user owes are listed — the settled
+   * ones' too: paying the last of a debt does not unpay the days it was paid on.
+   */
   debts: DebtWithStatus[];
   goalEvents: PlannerEvent[];
   debtEvents: PlannerEvent[];
@@ -151,6 +154,7 @@ export function calendarItems(month: Date, sources: CalendarSources): CalendarIt
 
   // ── Loans and IOUs the user pays back ──────────────────────────────────────
   for (const debt of sources.debts) {
+    if (debt.direction !== "owed_by_me") continue;
     for (const payment of debt.payments) {
       const date = startOfDay(firestoreToDate(payment.date));
       if (!inMonth(date, month)) continue;
@@ -165,7 +169,7 @@ export function calendarItems(month: Date, sources: CalendarSources): CalendarIt
   // ── Goals: what the plan puts aside, where it puts it ──────────────────────
   sources.goalEvents.forEach((event, index) => {
     if (!inMonth(event.date, month)) return;
-    items.push({ id: `goal:${event.label}:${startOfDay(event.date).getTime()}:${index}`, date: startOfDay(event.date), kind: "goal", direction: "out", label: event.label, amount: round2(Math.abs(event.amount)), state: "todo" });
+    items.push({ id: `goal:${event.goalId ?? event.label}:${startOfDay(event.date).getTime()}:${index}`, date: startOfDay(event.date), kind: "goal", direction: "out", label: event.label, amount: round2(Math.abs(event.amount)), state: "todo" });
   });
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime() || a.direction.localeCompare(b.direction) || a.label.localeCompare(b.label));

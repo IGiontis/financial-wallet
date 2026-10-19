@@ -157,6 +157,13 @@ describe("loans and goals on the calendar", () => {
     expect(due[0].amount).toBeCloseTo(185.26, 1);
   });
 
+  it("keeps a payment on its day after the debt is cleared, and lists none of what is owed to the user", () => {
+    const cleared = { ...loan, id: "nikos", label: "", person: "Νίκος", amount: 550, payments: [{ id: "p9", userId: "u", debtId: "nikos", amount: 550, date: new Date(2026, 9, 12), createdAt: new Date(2026, 9, 12) }], paid: 550, remaining: 0, isSettled: true } as unknown as DebtWithStatus;
+    const theirs = { ...loan, id: "maria", direction: "owed_to_me", payments: [{ id: "p8", userId: "u", debtId: "maria", amount: 40, date: new Date(2026, 9, 12), createdAt: new Date(2026, 9, 12) }] } as unknown as DebtWithStatus;
+    const oct = calendarItems(OCT, sources({ debts: [cleared, theirs] }));
+    expect(oct.filter((i) => i.kind === "debt").map((i) => [i.label, i.date.getDate(), i.amount, i.state])).toEqual([["Νίκος", 12, 550, "done"]]);
+  });
+
   it("puts a goal's monthly deposit on the 1st of each month still ahead", () => {
     const goal: InvestmentGoalWithStats = { id: "g", name: "Laptop", isActive: true, isCompleted: false, goalType: "targeted", targetAmount: 1200, totalSaved: 0, remaining: 1200, currentPeriodSaved: 0, deadline: new Date(2027, 2, 1), createdAt: new Date(2026, 8, 1), monthlyRequired: 300 } as unknown as InvestmentGoalWithStats;
     const plans = calendarPlans({ goals: [goal], debts: [], actuals: { transactions: [], debts: [], overrides: {} }, now: NOW });
