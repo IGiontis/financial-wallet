@@ -561,7 +561,8 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
   const overdue = billOverdue(bill, now);
   if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--color-expense)" };
 
-  if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
+  // With its year: a first payment months away, read as "30 Jun", looks like the June just gone.
+  if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? new Intl.DateTimeFormat(dateFmt.resolvedOptions().locale, { day: "numeric", month: "short", year: "numeric" }).format(bill.nextDueDate) : "—" };
   const pause = currentPause(bill);
   if (!bill.isPaidThisPeriod && pause?.state === "ended") return { label: t("bills.labelStopped"), value: dateFmt.format(pause.from) };
   if (!bill.isPaidThisPeriod && pause?.state === "paused") return { label: t("bills.labelResumes"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
