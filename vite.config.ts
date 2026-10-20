@@ -41,7 +41,7 @@ export default defineConfig({
         name: "MyFiWallet",
         short_name: "MyFiWallet",
         description: "Track spending, bills, savings goals and investments in one place.",
-        theme_color: "#1a1a2e",
+        theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone", // makes it feel like a native app
         start_url: "/",

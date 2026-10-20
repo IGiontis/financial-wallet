@@ -37,8 +37,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Drive Bootstrap 5.3's native colour mode + the browser UI colour
   useEffect(() => {
     document.documentElement.setAttribute("data-bs-theme", theme);
+    // The phone's own bar above the app takes the top bar's colour, so the two
+    // read as one. It was the page's darker ground in the dark theme — a shade
+    // band over the top bar — and Bootstrap blue in the light one. Read from the
+    // token the top bar itself is painted with, now that the theme has switched.
+    const surface = getComputedStyle(document.documentElement).getPropertyValue("--color-surface").trim();
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "dark" ? "#14181e" : "#0d6efd");
+    if (meta) meta.setAttribute("content", surface || (theme === "dark" ? "#1f262f" : "#ffffff"));
   }, [theme]);
 
   // On <html>, next to `data-bs-theme`, so one selector can ask for both —
