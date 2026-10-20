@@ -1594,6 +1594,16 @@
   font-weight: 700;
 }
 
+/* The easy month, in green — the other end of the same scale. */
+.yearBarItemLow .yearBarFill {
+  background: var(--color-income);
+}
+
+.yearBarItemLow .yearBarAmount {
+  color: var(--color-income-text);
+  font-weight: 700;
+}
+
 .yearBarAmount {
   flex: 0 0 auto;
   font-size: 12.5px;

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { heaviestMonth, type MonthAhead } from "./billsUtils";
+import { heaviestMonth, lightestMonth, type MonthAhead } from "./billsUtils";
 import { standaloneMonthName } from "../../shared/utils/dates";
 import styles from "./css/BillsPage.module.css";
 
@@ -44,6 +44,10 @@ export default function BillYearAhead({
   // Only worth pointing out when it actually stands out; on a flat year every
   // month is the heaviest and saying so is noise.
   const notable = heaviest && total > 0 && heaviest.total > (total / months.length) * 1.25 ? heaviest : undefined;
+  // The other end, by the same measure: green only where a month is clearly the
+  // easy one, so a flat year stays plain at both ends.
+  const lightest = lightestMonth(months);
+  const easy = lightest && total > 0 && lightest !== heaviest && lightest.total < (total / months.length) * 0.75 ? lightest : undefined;
   const anyPaid = months.some((month) => month.paid > 0);
 
   return (
@@ -69,7 +73,7 @@ export default function BillYearAhead({
             <button
               key={month.start.toISOString()}
               type="button"
-              className={`${styles.yearBarItem} ${month === notable ? styles.yearBarItemPeak : ""}`}
+              className={`${styles.yearBarItem} ${month === notable ? styles.yearBarItemPeak : month === easy ? styles.yearBarItemLow : ""}`}
               style={{ ["--fill" as string]: `${share}%`, ["--paid" as string]: `${paidShare}%` }}
               onClick={() => onOpenMonth(offset)}
               title={
@@ -95,9 +99,11 @@ export default function BillYearAhead({
         </div>
       )}
 
-      {notable && (
+      {(notable || easy) && (
         <p className={styles.yearAheadNote}>
-          {t("bills.yearAheadPeak", { month: longName(notable.start), amount: formatCurrency(notable.total), count: notable.count })}
+          {notable && t("bills.yearAheadPeak", { month: longName(notable.start), amount: formatCurrency(notable.total), count: notable.count })}
+          {notable && easy && " "}
+          {easy && t("bills.yearAheadLow", { month: longName(easy.start), amount: formatCurrency(easy.total) })}
         </p>
       )}
     </div>

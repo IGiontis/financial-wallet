@@ -1920,6 +1920,16 @@ export function yearAhead(bills: BillWithStatus[], now: Date = new Date(), month
   });
 }
 
+/**
+ * The cheapest month of a run — the first of them on a tie, so a year of
+ * equally light months marks one rather than all. Undefined for an empty run,
+ * or when nothing is owed in any month (then no month is lighter than another).
+ */
+export function lightestMonth(months: MonthAhead[]): MonthAhead | undefined {
+  if (!months.some((month) => month.total > 0)) return undefined;
+  return months.reduce<MonthAhead | undefined>((best, month) => (!best || month.total < best.total ? month : best), undefined);
+}
+
 /** The dearest month of a run, for the sentence under the chart. Undefined when nothing is owed at all. */
 export function heaviestMonth(months: MonthAhead[]): MonthAhead | undefined {
   const heaviest = months.reduce<MonthAhead | undefined>((worst, month) => (!worst || month.total > worst.total ? month : worst), undefined);

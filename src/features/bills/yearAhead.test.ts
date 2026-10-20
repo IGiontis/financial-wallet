@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeBillStatus, heaviestMonth, yearAhead } from "./billsUtils";
+import { computeBillStatus, heaviestMonth, lightestMonth, yearAhead } from "./billsUtils";
 import type { Bill, BillPayment } from "../../shared/types/IndexTypes";
 
 // The twelve months ahead, as the bills fall into them.
@@ -94,5 +94,19 @@ describe("yearAhead", () => {
 
   it("has no heaviest month when nothing is owed", () => {
     expect(heaviestMonth(yearAhead([], NOW))).toBeUndefined();
+  });
+
+  it("finds the lightest month at the other end — the first of them on a tie", () => {
+    // The holiday house off from November to March: November is the first of five empty months.
+    const house = status(makeBill({ amount: 60, pause: { from: "2026-11", to: "2027-03", yearly: true } }));
+    const months = yearAhead([house], NOW);
+    const light = lightestMonth(months)!;
+    expect([light.start.getFullYear(), light.start.getMonth(), light.total]).toEqual([2026, 10, 0]);
+    // A second way: nothing in the year is cheaper.
+    expect(months.every((m) => m.total >= light.total)).toBe(true);
+  });
+
+  it("has no lightest month when nothing is owed", () => {
+    expect(lightestMonth(yearAhead([], NOW))).toBeUndefined();
   });
 });
