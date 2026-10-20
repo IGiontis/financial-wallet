@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { committedMonthly, debtMonthlyShare, emergencyTarget } from "./cushion";
+import { committedMonthly, cushionLasts, cushionMonthly, debtMonthlyShare, emergencyTarget } from "./cushion";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 
 const now = new Date(2026, 8, 5);
@@ -53,11 +53,36 @@ describe("debtMonthlyShare", () => {
 });
 
 describe("emergencyTarget", () => {
-  it("is the committed cost times the months, and never less than one month", () => {
+  it("is the bills and instalments times the months — the goals left out — and never less than one month", () => {
     const committed = { bills: 900, goals: 250, debts: 120, total: 1270 };
-    expect(emergencyTarget(committed, 3)).toBe(3810);
-    expect(emergencyTarget(committed, 6)).toBe(7620);
-    expect(emergencyTarget(committed, 0)).toBe(1270);
-    expect(emergencyTarget(committed, -2)).toBe(1270);
+    // 900 + 120 = 1.020 a month: the 250 into goals stops with the income.
+    expect(cushionMonthly(committed)).toBe(1020);
+    expect(emergencyTarget(committed, 3)).toBe(3060);
+    expect(emergencyTarget(committed, 6)).toBe(6120);
+    expect(emergencyTarget(committed, 0)).toBe(1020);
+    expect(emergencyTarget(committed, -2)).toBe(1020);
+    // A second way: the whole commitment, less the goals.
+    expect(emergencyTarget(committed, 3)).toBe((committed.total - committed.goals) * 3);
+  });
+});
+
+describe("how long the cushion lasts", () => {
+  it("says days below a month: 660 against 2.530,64 a month is 7 days, not 0,26 months", () => {
+    expect(cushionLasts(660, 2530.64)).toEqual({ days: 7 });
+  });
+
+  it("says months, to one decimal, from one month up — never rounding up what is not there", () => {
+    expect(cushionLasts(3000, 1000)).toEqual({ months: 3 });
+    expect(cushionLasts(3790, 1000)).toEqual({ months: 3.7 });
+    // A second way: the months said, times the month, never exceed what is saved.
+    for (const saved of [1000, 1999, 2500, 7591.92]) {
+      const r = cushionLasts(saved, 1000) as { months: number };
+      expect(r.months * 1000).toBeLessThanOrEqual(saved);
+    }
+  });
+
+  it("has nothing to say with nothing fixed to cover, and counts nothing below zero", () => {
+    expect(cushionLasts(500, 0)).toBeUndefined();
+    expect(cushionLasts(-50, 1000)).toEqual({ days: 0 });
   });
 });

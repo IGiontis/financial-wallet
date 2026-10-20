@@ -81,6 +81,28 @@ describe("netWorthSeries", () => {
     expect(last(after).net).toBeCloseTo(last(before).net, 2);
   });
 
+  it("tells the goals apart from the investments, and the two still make up what is set aside", () => {
+    // A goal's record carries both flags, as the app writes it; an investment's only its own.
+    const points = netWorthSeries(
+      [
+        tx({ type: "income", amount: 2000, date: new Date("2026-01-05") }),
+        tx({ amount: 150, date: new Date("2026-02-05"), goalId: "trip", isGoalTransaction: true, isInvestmentTransaction: true, contributionType: "deposit" }),
+        tx({ amount: 400, date: new Date("2026-02-06"), goalId: "shares", isInvestmentTransaction: true, contributionType: "deposit" }),
+        tx({ amount: 50, date: new Date("2026-03-06"), goalId: "trip", isGoalTransaction: true, isInvestmentTransaction: true, contributionType: "withdrawal" }),
+      ],
+      [],
+      undefined,
+      FROM,
+      TO,
+    );
+    const last = points[points.length - 1];
+    expect(last.inGoals).toBeCloseTo(100, 2);
+    expect(last.inInvestments).toBeCloseTo(400, 2);
+    // The second way: the two parts are the whole, and the net is unchanged by splitting.
+    for (const point of points) expect(point.inGoals + point.inInvestments).toBeCloseTo(point.saved, 2);
+    expect(last.net).toBeCloseTo(2000, 2);
+  });
+
   it("gives a withdrawal back to the cash it came from", () => {
     const points = netWorthSeries(
       [

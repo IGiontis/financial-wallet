@@ -34,8 +34,12 @@ export interface NetWorthPoint {
   start: Date;
   /** Money available to spend at the end of the month. */
   cash: number;
-  /** Held in goals and investments. */
+  /** Held in goals and investments: `inGoals + inInvestments`. */
   saved: number;
+  /** Of `saved`, what the goals hold. */
+  inGoals: number;
+  /** Of `saved`, what the investments hold. */
+  inInvestments: number;
   /** Still to come back from other people. */
   owedToMe: number;
   /** Still owed to other people. Positive. */
@@ -152,6 +156,9 @@ export function netWorthSeries(
   // day before the deposit it came out of — the same month, typed in the
   // wrong order — is not mistaken for a gain.
   const holdings = new Map<string, number>();
+  // Which pots are goals, so the two can be told apart on screen: a goal's
+  // records carry `isGoalTransaction`, an investment's only the investment flag.
+  const goalPots = new Set<string>();
   const floorHoldings = () => {
     for (const [id, held] of holdings) holdings.set(id, Math.max(held, 0));
   };
@@ -177,13 +184,19 @@ export function netWorthSeries(
         if (heldMonth !== undefined && month > heldMonth) floorHoldings();
         heldMonth = month;
         holdings.set(holdingOf(tx), (holdings.get(holdingOf(tx)) ?? 0) + delta);
+        if (tx.isGoalTransaction) goalPots.add(holdingOf(tx));
       }
       cursorIndex += 1;
     }
 
     floorHoldings();
-    let saved = 0;
-    for (const held of holdings.values()) saved += held;
+    let inGoals = 0;
+    let inInvestments = 0;
+    for (const [id, held] of holdings) {
+      if (goalPots.has(id)) inGoals += held;
+      else inInvestments += held;
+    }
+    const saved = inGoals + inInvestments;
 
     // Counted afresh each month from whichever starting point applies, rather
     // than carried forward: a reading replaces the running sum, it does not add
@@ -208,6 +221,8 @@ export function netWorthSeries(
       start,
       cash: round2(cash),
       saved: round2(saved),
+      inGoals: round2(inGoals),
+      inInvestments: round2(inInvestments),
       owedToMe: round2(owedToMe),
       owedByMe: round2(owedByMe),
       net: round2(cash + saved + owedToMe - owedByMe),

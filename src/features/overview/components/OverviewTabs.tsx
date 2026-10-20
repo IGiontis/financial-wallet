@@ -304,7 +304,9 @@ export function PositionPanel({ series, formatCurrency, locale }: { series: NetW
 
   const rows: { label: string; value: number; color: string }[] = [
     { label: t("analytics.netWorth.cash"), value: now.cash, color: "var(--color-text-primary)" },
-    { label: t("analytics.netWorth.saved"), value: now.saved, color: "var(--color-invest)" },
+    // Goals and investments apart: «Στην άκρη» put the trip and the shares under one name.
+    { label: t("overview.inGoals"), value: now.inGoals, color: "var(--color-goal-text)" },
+    { label: t("overview.inInvestments"), value: now.inInvestments, color: "var(--color-invest)" },
     ...(now.owedToMe > 0 ? [{ label: t("analytics.netWorth.owedToMe"), value: now.owedToMe, color: "var(--color-goal)" }] : []),
     ...(now.owedByMe > 0 ? [{ label: t("analytics.netWorth.owedByMe"), value: -now.owedByMe, color: "var(--color-expense-text)" }] : []),
   ];

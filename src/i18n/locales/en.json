@@ -171,6 +171,8 @@
     "runningNet": "How the period added up",
     "tabToday": "To do",
     "tabMonth": "Month",
+    "inGoals": "In goals",
+    "inInvestments": "In investments",
     "tabPosition": "Net worth",
     "tabAll": "Summary",
     "allClear": "All clear",
@@ -2541,8 +2543,15 @@
     "prompt": "Try an amount and see where it lands best."
   },
   "cushion": {
-    "title": "Cushion",
-    "of": "{{saved}} of {{target}}",
-    "note": "A common convention is {{months}} months of committed costs — yours are {{amount}} a month. Not advice, just the arithmetic."
+    "title": "Safety cushion",
+    "question": "If your income stopped tomorrow, how long would the money you have available cover your fixed costs?",
+    "none": "Nothing set aside yet",
+    "lastsDays_one": "Lasts {{count}} day",
+    "lastsDays_other": "Lasts {{count}} days",
+    "lastsMonths_one": "Lasts {{months}} month",
+    "lastsMonths_other": "Lasts {{months}} months",
+    "of": "{{saved}} of the {{target}} needed for {{months}} months",
+    "note": "Your fixed costs — bills and loan instalments — are {{amount}} a month. The cushion counted is what is «Available» in your banks and cash: not the money for goals, which already has somewhere to go. Keeping {{months}} months of such costs aside is a common convention. Not advice, just the arithmetic.",
+    "ofMet": "{{saved}} — more than the {{target}} needed for {{months}} months"
   }
 }

@@ -48,6 +48,15 @@ export function committedMonthly(bills: BillWithStatus[], goals: InvestmentGoalW
   return { bills: billTotal, goals: goalTotal, debts: debtTotal, total: round2(billTotal + goalTotal + debtTotal) };
 }
 
+/**
+ * What a bad month still has to pay: the bills and the instalments. Not the
+ * goals' monthly figures — those stop the day the income does, and counting
+ * them asked the cushion to keep filling the very goals it is drawn from.
+ */
+export function cushionMonthly(committed: Pick<Committed, "bills" | "debts">): number {
+  return round2(committed.bills + committed.debts);
+}
+
 /** Months of committed costs worth holding in cash. A common convention, not advice. */
 export const EMERGENCY_MONTHS = 3;
 
@@ -57,5 +66,17 @@ export const EMERGENCY_MONTHS = 3;
  * the salary that did not arrive.
  */
 export function emergencyTarget(committed: Committed, months: number = EMERGENCY_MONTHS): number {
-  return round2(committed.total * Math.max(1, months));
+  return round2(cushionMonthly(committed) * Math.max(1, months));
+}
+
+/**
+ * How long the money set aside would carry the month's fixed costs: whole
+ * months from one up, days below it — "8 days" says what "0.26 months" hides.
+ * Undefined with nothing fixed to cover.
+ */
+export function cushionLasts(saved: number, monthly: number): { months: number } | { days: number } | undefined {
+  if (monthly <= 0) return undefined;
+  const months = Math.max(saved, 0) / monthly;
+  if (months >= 1) return { months: Math.floor(months * 10) / 10 };
+  return { days: Math.floor(months * 30) };
 }

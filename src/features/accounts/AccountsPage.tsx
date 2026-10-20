@@ -377,7 +377,7 @@ export function AccountsPage() {
             </Card>
           )}
 
-          <CushionCard formatCurrency={formatCurrency} />
+          <CushionCard available={available} formatCurrency={formatCurrency} />
 
           <details className={`${styles.how} mb-3`}>
             <summary>{t("accounts.howTitle")}</summary>
