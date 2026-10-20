@@ -40,7 +40,7 @@ import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
 import { monthTimeline } from "../../bills/monthTimeline";
-import { overdueBills } from "../../bills/billsUtils";
+import { monthForecast, overdueBills } from "../../bills/billsUtils";
 import BillMonthTimeline from "../../bills/BillMonthTimeline";
 import { attentionItems, goalsProgress, spendingByCategory } from "../overviewTabs";
 import { useCategories } from "../../transactions/hooks/useTransactions";
@@ -308,11 +308,14 @@ export const OverviewPage = () => {
   );
 
   const goalProgress = goalsProgress(goals);
+  // What this month's bills have already had paid — the same figure as «πληρωμένα» on the Bills page.
+  const billsPaid = monthForecast(bills, now, 0).prepaid;
+  const billsRows = billsPaid > 0.005 ? [{ label: t("overview.tileBillsPaid"), value: formatCurrency(billsPaid), tone: "var(--color-income-text)" }] : undefined;
 
   const tiles: OverviewTile[] = [
     late.bills.length > 0
-      ? { to: "/bills", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)" }
-      : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)" },
+      ? { to: "/bills", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)", rows: billsRows }
+      : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)", rows: billsRows },
     { to: "/transactions", label: t("nav.transactions"), value: formatCurrency(thisMonth.totalExpenses), sub: t("overview.soFarThisMonth") },
     // Only with a debt still open: an empty "0,00 € you owe" was a tile about nothing.
     // Both sides and what they come to — the net is what you would be left

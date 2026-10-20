@@ -247,7 +247,8 @@
     "tileDebtNetIn": "net in your favour",
     "tileDebtNetOut": "net you owe",
     "tileCameIn": "came in this month",
-    "notInNet": "Not counted in your net position — goal money is already promised, and investments may be locked:"
+    "notInNet": "Not counted in your net position — goal money is already promised, and investments may be locked:",
+    "tileBillsPaid": "Paid"
   },
   "bills": {
     "title": "Bills",
