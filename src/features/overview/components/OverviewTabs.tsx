@@ -304,9 +304,6 @@ export function PositionPanel({ series, formatCurrency, locale }: { series: NetW
 
   const rows: { label: string; value: number; color: string }[] = [
     { label: t("analytics.netWorth.cash"), value: now.cash, color: "var(--color-text-primary)" },
-    // Goals and investments apart: «Στην άκρη» put the trip and the shares under one name.
-    { label: t("overview.inGoals"), value: now.inGoals, color: "var(--color-goal-text)" },
-    { label: t("overview.inInvestments"), value: now.inInvestments, color: "var(--color-invest)" },
     ...(now.owedToMe > 0 ? [{ label: t("analytics.netWorth.owedToMe"), value: now.owedToMe, color: "var(--color-goal)" }] : []),
     ...(now.owedByMe > 0 ? [{ label: t("analytics.netWorth.owedByMe"), value: -now.owedByMe, color: "var(--color-expense-text)" }] : []),
   ];
@@ -340,6 +337,27 @@ export function PositionPanel({ series, formatCurrency, locale }: { series: NetW
             <dd>{formatCurrency(now.net)}</dd>
           </div>
         </dl>
+        {/* Said, but not added: a goal's money is promised to it, an investment's
+            may be locked — neither is money to hand today. */}
+        {(now.inGoals > 0.005 || now.inInvestments > 0.005) && (
+          <>
+            <div className="small text-body-secondary mt-3 mb-1">{t("overview.notInNet")}</div>
+            <dl className={styles.madeOf}>
+              {now.inGoals > 0.005 && (
+                <div>
+                  <dt>{t("overview.inGoals")}</dt>
+                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(now.inGoals)}</dd>
+                </div>
+              )}
+              {now.inInvestments > 0.005 && (
+                <div>
+                  <dt>{t("overview.inInvestments")}</dt>
+                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(now.inInvestments)}</dd>
+                </div>
+              )}
+            </dl>
+          </>
+        )}
       </Panel>
     </>
   );

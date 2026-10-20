@@ -44,7 +44,12 @@ export interface NetWorthPoint {
   owedToMe: number;
   /** Still owed to other people. Positive. */
   owedByMe: number;
-  /** cash + saved + owedToMe − owedByMe. */
+  /**
+   * cash + owedToMe − owedByMe: what you could lay your hands on, net of what you
+   * owe. Not what is in goals or investments — a goal's money is promised to it
+   * (and often already spent on it), and an investment may be locked; both are
+   * reported beside the total (`inGoals`, `inInvestments`), never in it.
+   */
   net: number;
 }
 
@@ -225,7 +230,7 @@ export function netWorthSeries(
       inInvestments: round2(inInvestments),
       owedToMe: round2(owedToMe),
       owedByMe: round2(owedByMe),
-      net: round2(cash + saved + owedToMe - owedByMe),
+      net: round2(cash + owedToMe - owedByMe),
     };
   });
 }

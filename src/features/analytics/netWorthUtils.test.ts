@@ -47,8 +47,12 @@ const pay = (amount: number, date: string) => ({ id: Math.random().toString(), u
 const FROM = new Date("2026-01-01");
 const TO = new Date("2026-04-15");
 
-/** The sum again, from the parts the chart draws. Not the production formula. */
-const reconcile = (p: { cash: number; saved: number; owedToMe: number; owedByMe: number }) => p.cash + p.saved + p.owedToMe - p.owedByMe;
+/**
+ * The sum again, from the parts. Not the production formula. What sits in goals
+ * and investments is not in it: promised, spent or locked, it is not money to
+ * hand — the owner's call, 20 Oct 2026.
+ */
+const reconcile = (p: { cash: number; owedToMe: number; owedByMe: number }) => p.cash + p.owedToMe - p.owedByMe;
 
 describe("netWorthSeries", () => {
   it("adds the four ledgers to the figure it reports", () => {
@@ -64,7 +68,7 @@ describe("netWorthSeries", () => {
     for (const point of points) expect(point.net).toBeCloseTo(reconcile(point), 2);
   });
 
-  it("does not create money when money is put aside", () => {
+  it("takes money put into an investment out of the net — it is not to hand any more", () => {
     const before = netWorthSeries([tx({ type: "income", amount: 1000, date: new Date("2026-01-05") })], [], undefined, FROM, TO);
     const after = netWorthSeries(
       [tx({ type: "income", amount: 1000, date: new Date("2026-01-05") }), tx({ amount: 400, date: new Date("2026-02-05"), isInvestmentTransaction: true, contributionType: "deposit" })],
@@ -75,10 +79,12 @@ describe("netWorthSeries", () => {
     );
 
     const last = (p: typeof before) => p[p.length - 1];
-    // The cash fell by exactly what the investment gained, and the total held.
+    // The cash fell by exactly what the investment gained; the net falls with it,
+    // and the 400 is still reported beside it.
     expect(last(after).cash).toBeCloseTo(last(before).cash - 400, 2);
     expect(last(after).saved).toBeCloseTo(400, 2);
-    expect(last(after).net).toBeCloseTo(last(before).net, 2);
+    expect(last(after).inInvestments).toBeCloseTo(400, 2);
+    expect(last(after).net).toBeCloseTo(last(before).net - 400, 2);
   });
 
   it("tells the goals apart from the investments, and the two still make up what is set aside", () => {
@@ -98,9 +104,11 @@ describe("netWorthSeries", () => {
     const last = points[points.length - 1];
     expect(last.inGoals).toBeCloseTo(100, 2);
     expect(last.inInvestments).toBeCloseTo(400, 2);
-    // The second way: the two parts are the whole, and the net is unchanged by splitting.
+    // The two parts are the whole of what is set aside…
     for (const point of points) expect(point.inGoals + point.inInvestments).toBeCloseTo(point.saved, 2);
-    expect(last.net).toBeCloseTo(2000, 2);
+    // …and none of it is in the net: 2.000 in, 500 set aside, 1.500 to hand.
+    expect(last.net).toBeCloseTo(1500, 2);
+    expect(last.net).toBeCloseTo(last.cash, 2);
   });
 
   it("gives a withdrawal back to the cash it came from", () => {
@@ -118,7 +126,8 @@ describe("netWorthSeries", () => {
     const last = points[points.length - 1];
     expect(last.saved).toBeCloseTo(250, 2);
     expect(last.cash).toBeCloseTo(-250, 2);
-    expect(last.net).toBeCloseTo(0, 2);
+    // The 250 still in the goal is not counted; the cash it left is.
+    expect(last.net).toBeCloseTo(-250, 2);
   });
 
   it("counts a debt from the month it was taken out, not before", () => {
@@ -326,7 +335,7 @@ describe("netWorthSeries — gains taken out of an investment", () => {
   const into = (goalId: string, amount: number, date: string, contributionType: "deposit" | "withdrawal" = "deposit") =>
     tx({ amount, type: "investment", isInvestmentTransaction: true, goalId, contributionType, date: new Date(date) });
 
-  it("adds the realised gain to net worth", () => {
+  it("counts the investment's money only once it is taken out, gain and all", () => {
     const points = netWorthSeries(
       [tx({ type: "income", amount: 1000, date: new Date("2026-01-05") }), into("g1", 1000, "2026-02-05"), into("g1", 1200, "2026-03-05", "withdrawal")],
       [],
@@ -336,8 +345,9 @@ describe("netWorthSeries — gains taken out of an investment", () => {
     );
     const [january, february, march] = points;
 
-    expect(february).toMatchObject({ cash: 0, saved: 1000, net: 1000 });
-    // It used to be saved -200 here, and a net worth that never moved.
+    // Invested in February: locked, so not in the net.
+    expect(february).toMatchObject({ cash: 0, saved: 1000, net: 0 });
+    // It used to be saved -200 here; the pot is empty, and all 1.200 is to hand.
     expect(march).toMatchObject({ cash: 1200, saved: 0, net: 1200 });
     // Another way round: what came in, plus the gain the sale realised.
     expect(march.net - january.net).toBe(200);
@@ -376,7 +386,8 @@ describe("netWorthSeries — gains taken out of an investment", () => {
   it("changes nothing when what came out is exactly what went in", () => {
     const points = netWorthSeries([tx({ type: "income", amount: 1000, date: new Date("2026-01-05") }), into("g1", 600, "2026-01-10"), into("g1", 600, "2026-02-10", "withdrawal")], [], undefined, FROM, TO);
 
-    expect(points.map((p) => p.net)).toEqual([1000, 1000, 1000, 1000]);
+    // January has 600 of the 1.000 in the investment, so 400 to hand; out again, all of it.
+    expect(points.map((p) => p.net)).toEqual([400, 1000, 1000, 1000]);
     expect(points[1].saved).toBe(0);
   });
 });
