@@ -487,6 +487,13 @@
   gap: 4px;
 }
 
+/* The rule between "+" and ✕. */
+.headDivider {
+  width: 1px;
+  height: 22px;
+  background: color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
+}
+
 .sheetBody {
   display: flex;
   flex-direction: column;
@@ -1078,6 +1085,13 @@ button.payRow[aria-expanded="true"] {
   gap: 1rem;
 }
 
+/* Nothing in it gives way. With many loans the column overflowed and the browser
+   squeezed what it could — the switch, down from 48px to 29px, its buttons cut
+   off under the cards: what looked like it hiding behind them. */
+.columnsBody > * {
+  flex-shrink: 0;
+}
+
 /* One under the other, with room between them so a thumb lands on the right one. */
 .cards {
   display: flex;
@@ -1332,4 +1346,87 @@ button.payRow[aria-expanded="true"] {
 
 .split .personCount {
   flex: 1 1 auto;
+}
+
+/* ── The sheet's three views ─────────────────────────────────────────────── */
+/* The switch stays at the top while the sheet scrolls. */
+.viewToggle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* The sheet's own ground around it, so cards scrolling under it do not show. */
+  box-shadow: 0 0 0 8px var(--color-surface-raised);
+}
+
+/* «Στήλες»: the small ring beside the pay button. */
+.cardRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardRing {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.cardRing svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.cardRing strong {
+  position: relative;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* «Όλα μαζί»: one row a loan — what it is, what is left, how much is gone. */
+.allList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.allRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--color-border-tertiary);
+  border-left: 4px solid;
+  border-radius: var(--border-radius-md);
+}
+
+.allMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.allName {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.allMeta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.allAmount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

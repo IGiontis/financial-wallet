@@ -6,6 +6,21 @@ import { loanState } from "./debtsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import styles from "./css/DebtsPage.module.css";
 
+/** The sheet's ring, small enough for a card: how much is gone, in its middle. */
+export function MiniRing({ percent, tone, label }: { percent: number; tone: string; label: string }) {
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <span className={styles.cardRing} title={`${Math.floor(percent)}% ${label}`}>
+      <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden>
+        <circle cx="22" cy="22" r={radius} className={styles.ringTrack} style={{ strokeWidth: 5, stroke: "var(--color-border-tertiary)" }} />
+        {percent > 0 && <circle cx="22" cy="22" r={radius} className={styles.ringFill} style={{ strokeWidth: 5, stroke: tone }} strokeDasharray={`${(circumference * percent) / 100} ${circumference}`} />}
+      </svg>
+      <strong>{Math.floor(percent)}%</strong>
+    </span>
+  );
+}
+
 /** How much of the debt is gone — not how much has been handed over. */
 function clearedShare(debt: DebtWithStatus): number {
   if (debt.amount <= 0) return 0;
@@ -79,17 +94,16 @@ export function LoanCards({
 
             <div className={styles.cardRight}>
               {debt.isSettled ? <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span> : <span className={styles.cardAmount}>{formatCurrency(debt.remaining)}</span>}
-              <span className={styles.cardBar}>
-                <span aria-hidden>
-                  <span style={{ width: `${share}%`, background: tone }} />
-                </span>
-                {Math.floor(share)}%
+              {/* How much of it is gone, as the ring the one-at-a-time view draws — the
+                  owner's pick over a bar — beside the button to pay. */}
+              <span className={styles.cardRow}>
+                <MiniRing percent={share} tone={tone} label={t("debts.cleared")} />
+                {!debt.isSettled && (
+                  <Button color="secondary" outline size="sm" className={styles.cardPay} onClick={() => onRecord(debt)}>
+                    <FiPlus size={14} aria-hidden /> {t(borrowed ? "debts.payShortOut" : "debts.payShortIn")}
+                  </Button>
+                )}
               </span>
-              {!debt.isSettled && (
-                <Button color="secondary" outline size="sm" className={styles.cardPay} onClick={() => onRecord(debt)}>
-                  <FiPlus size={14} aria-hidden /> {t(borrowed ? "debts.payShortOut" : "debts.payShortIn")}
-                </Button>
-              )}
             </div>
           </li>
         );

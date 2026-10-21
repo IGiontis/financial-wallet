@@ -104,6 +104,12 @@ afterEach(() => {
 });
 
 describe("which loan is in front", () => {
+  // The one-at-a-time view; the sheet now opens on «All together».
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem("debts-sheet-view", JSON.stringify("one"));
+  });
+
   it("opens on one still owed, with the paid-off one last", () => {
     renderSheet();
     const chips = within(screen.getByRole("group", { name: "Loans" })).getAllByRole("button");
@@ -409,6 +415,9 @@ describe("the progress tab", () => {
 });
 
 describe("the total with one person", () => {
+  // «All together», where the sheet opens.
+  beforeEach(() => localStorage.clear());
+
   it("adds up every loan with them, the paid-off one included", () => {
     renderSheet();
 
@@ -426,6 +435,21 @@ describe("the total with one person", () => {
     renderSheet([rent]);
 
     expect(screen.queryByText(/All together/)).not.toBeInTheDocument();
+  });
+});
+
+describe("all together", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("opens first, of the three in their order, to look at only", () => {
+    renderSheet();
+    const views = within(screen.getByRole("group", { name: "View" })).getAllByRole("button");
+    expect(views.map((v) => v.textContent?.trim())).toEqual(["All together", "Columns", "One at a time"]);
+    expect(views[0]).toHaveAttribute("aria-pressed", "true");
+    // Each loan with what is left, and nothing to press: no pay button anywhere.
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("€300.00");
+    expect(within(dialog).queryByRole("button", { name: /^Pay/ })).not.toBeInTheDocument();
   });
 });
 

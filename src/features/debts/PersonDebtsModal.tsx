@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiColumns, FiEdit2, FiGift, FiPlus, FiRotateCcw, FiSquare, FiX } from "react-icons/fi";
+import { FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
@@ -17,7 +17,7 @@ import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import RepaymentWizard from "./RepaymentWizard";
 import { ForgiveDebtModal } from "./ForgiveDebtModal";
-import { LoanCards } from "./LoanCards";
+import { LoanCards, MiniRing } from "./LoanCards";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
@@ -396,9 +396,11 @@ export default function PersonDebtsModal({
   const [tab, setTab] = useState<SheetTab>("pays");
   // One loan at a time, or every loan as a card down the screen. Remembered,
   // since whoever reads it as columns will want it that way next time too.
-  const [view, setView] = useLocalStorage<"one" | "columns">("debts-sheet-view", "one");
+  const [view, setView] = useLocalStorage<"all" | "columns" | "one">("debts-sheet-view", "all");
   // With a single loan there is nothing to list.
   const asColumns = view === "columns" && loans.length > 1;
+  // Everything with the person at a glance, nothing to press — the first of the three.
+  const asAll = view === "all" && loans.length > 1;
   // One panel open at a time: a new payment and a correction open together is
   // two half-finished forms and no way to tell which Save is which.
   const [panel, setPanel] = useState<{ kind: "edit"; payment: DebtPayment } | null>(null);
@@ -434,7 +436,7 @@ export default function PersonDebtsModal({
   const headlineTone = person.owedByMe > 0 ? "var(--color-expense-text)" : person.owedToMe > 0 ? "var(--color-income-text)" : undefined;
 
   const newLoan = (
-    <Button color="secondary" outline size="sm" onClick={() => setAdding(true)} className={styles.sheetNew} aria-label={t("debts.newLoanShort")}>
+    <Button color="primary" size="sm" onClick={() => setAdding(true)} className={styles.sheetNew} aria-label={t("debts.newLoanShort")}>
       <FiPlus size={14} aria-hidden /> <span className="d-none d-sm-inline">{t("debts.newLoanShort")}</span>
     </Button>
   );
@@ -489,15 +491,54 @@ export default function PersonDebtsModal({
     setRecording(instalmentDue ?? debt.remaining);
   };
 
-  const shownView = asColumns ? "columns" : "one";
+  const shownView = asAll ? "all" : asColumns ? "columns" : "one";
+  const VIEWS = [
+    { id: "all", icon: FiLayers, label: "debts.viewAll" },
+    { id: "columns", icon: FiColumns, label: "debts.viewColumns" },
+    { id: "one", icon: FiSquare, label: "debts.viewOne" },
+  ] as const;
+  // Held at the top of the sheet while it scrolls: with many loans it rode up
+  // and out of sight, under the cards, and there was no way back but up.
   const viewToggle = loans.length > 1 && (
     <div className={`${segmented.group} ${styles.viewToggle}`} role="group" aria-label={t("debts.viewLabel")}>
-      {(["one", "columns"] as const).map((id) => (
+      {VIEWS.map(({ id, icon: Icon, label }) => (
         <button key={id} type="button" className={`${segmented.item} ${shownView === id ? segmented.active : ""}`} aria-pressed={shownView === id} onClick={() => setView(id)}>
-          {id === "one" ? <FiSquare size={13} aria-hidden /> : <FiColumns size={13} aria-hidden />} {t(id === "one" ? "debts.viewOne" : "debts.viewColumns")}
+          <Icon size={13} aria-hidden /> {t(label)}
         </button>
       ))}
     </div>
+  );
+
+  // «Όλα μαζί»: the person's totals, then each loan with how much of it is gone. To look at only.
+  const allTogether = (
+    <>
+      <div className={styles.personTotal}>
+        {personProgress(loans).map((total) => (
+          <ProgressPanel
+            key={total.direction}
+            progress={total.progress}
+            borrowed={total.direction === "owed_by_me"}
+            formatCurrency={formatCurrency}
+            title={t(total.direction === "owed_by_me" ? "debts.totalBorrowed" : "debts.totalLent", { count: total.count })}
+          />
+        ))}
+      </div>
+      <ul className={styles.allList}>
+        {loans.map((d) => {
+          const tone = d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)";
+          return (
+            <li key={d.id} className={styles.allRow} style={{ borderLeftColor: tone }}>
+              <span className={styles.allMain}>
+                <span className={styles.allName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
+                <span className={styles.allMeta}>{t("debts.of", { amount: formatCurrency(d.amount) })}</span>
+              </span>
+              <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
+              <MiniRing percent={clearedPercent(d, loanState(d))} tone={tone} label={t("debts.cleared")} />
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 
   // From a column: that loan in front, one at a time, where it can be corrected.
@@ -580,7 +621,12 @@ export default function PersonDebtsModal({
 
   const rest = (
     <>
-      {asColumns ? (
+      {asAll ? (
+        <ModalBody className={styles.columnsBody}>
+          {viewToggle}
+          {allTogether}
+        </ModalBody>
+      ) : asColumns ? (
         <ModalBody className={styles.columnsBody}>
           {viewToggle}
           <LoanCards loans={loans} formatCurrency={formatCurrency} locale={locale} onOpen={openFromColumn} onRecord={recordFromColumn} />
@@ -589,21 +635,7 @@ export default function PersonDebtsModal({
       <ModalBody className={styles.sheetBody}>
         <div className={styles.sheetLeft}>
           {viewToggle}
-          {/* Everything with this person added up — "how much have I borrowed
-              from the bank, and how much of it is paid" — before any one loan. */}
-          {loans.length > 1 && (
-            <div className={styles.personTotal}>
-              {personProgress(loans).map((total) => (
-                <ProgressPanel
-                  key={total.direction}
-                  progress={total.progress}
-                  borrowed={total.direction === "owed_by_me"}
-                  formatCurrency={formatCurrency}
-                  title={t(total.direction === "owed_by_me" ? "debts.totalBorrowed" : "debts.totalLent", { count: total.count })}
-                />
-              ))}
-            </div>
-          )}
+          {/* The person's totals are «Όλα μαζί», a tab of their own. */}
 
           {loans.length > 1 && (
             <div className={styles.picker} role="group" aria-label={t("debts.pickerLabel")}>
@@ -795,7 +827,7 @@ export default function PersonDebtsModal({
           outside what scrolls. Sticky inside the body it rode up with its
           column on a phone, where the columns stack. */}
       {/* As cards, each open loan has its own button instead. */}
-      {!debt.isSettled && !asColumns && (
+      {!debt.isSettled && !asColumns && !asAll && (
         <ModalFooter className={styles.ctaFooter}>
           <Button color="primary" className="w-100" onClick={openRecord}>
             <FiPlus size={16} aria-hidden /> {ctaLabel}
@@ -857,8 +889,11 @@ export default function PersonDebtsModal({
         toggle={onClose}
         className={styles.sheetHeader}
         close={
-          <div className="d-flex align-items-center gap-2 flex-shrink-0">
+          // Apart, with a rule between: the blue "+" and the ✕ side by side were one
+          // slip of the thumb from each other.
+          <div className="d-flex align-items-center gap-3 flex-shrink-0">
             {newLoan}
+            <span className={styles.headDivider} aria-hidden />
             <button type="button" className="btn-close" onClick={onClose} aria-label={t("common.close")} />
           </div>
         }

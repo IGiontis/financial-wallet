@@ -2168,7 +2168,8 @@
     "forgiveConfirm": "Forgive {{amount}}",
     "forgivenTag": "Forgiven",
     "forgivenLine": "{{amount}} forgiven · {{date}}",
-    "unforgive": "Take back the forgiveness"
+    "unforgive": "Take back the forgiveness",
+    "viewAll": "All together"
   },
   "statement": {
     "title": "Statement",

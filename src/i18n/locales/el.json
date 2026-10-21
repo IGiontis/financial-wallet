@@ -2168,7 +2168,8 @@
     "forgiveConfirm": "Χάρισμα {{amount}}",
     "forgivenTag": "Χαρίστηκε",
     "forgivenLine": "Χαρίστηκαν {{amount}} · {{date}}",
-    "unforgive": "Αναίρεση χαρίσματος"
+    "unforgive": "Αναίρεση χαρίσματος",
+    "viewAll": "Όλα μαζί"
   },
   "statement": {
     "title": "Κατάσταση",
