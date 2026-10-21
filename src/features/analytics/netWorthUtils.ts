@@ -88,6 +88,8 @@ const holdingOf = (tx: Transaction): string => tx.goalId ?? "";
  */
 function outstandingAt(debt: DebtWithStatus, at: Date, accruedTo: Date = at): number {
   if (firestoreToDate(debt.date) >= at) return 0;
+  // Forgiven: owed in every month before that day, nothing from it on.
+  if (debt.forgiven && firestoreToDate(debt.forgiven.date) < at) return 0;
   const madeBy = debt.payments.filter((payment) => firestoreToDate(payment.date) < at);
 
   if (isLoan(debt)) return loanState({ ...debt, payments: madeBy }, accruedTo)?.balance ?? 0;

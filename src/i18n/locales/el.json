@@ -2155,7 +2155,20 @@
     "viewOne": "Ένα-ένα",
     "viewColumns": "Στήλες",
     "colOpen": "Άνοιγμα: {{name}}",
-    "cardLast": "Τελ. πληρωμή {{when}}"
+    "cardLast": "Τελ. πληρωμή {{when}}",
+    "forgiveAction": "Χαρίστηκε…",
+    "forgiveTitle": "Χάρισμα χρέους",
+    "forgiveTheyLetGo": "Η/Ο {{who}} σού χαρίζει τα {{amount}} που έμεναν. Δεν θα τα δώσεις.",
+    "forgiveILetGo": "Χαρίζεις στη/στον {{who}} τα {{amount}} που έμεναν. Δεν θα τα πάρεις.",
+    "forgiveDate": "Πότε",
+    "forgiveNote": "Γιατί (προαιρετικό)",
+    "forgiveNotePlaceholder": "π.χ. δώρο γενεθλίων",
+    "forgiveNoMoney": "Καμία κάρτα δεν κινείται και δεν γράφεται συναλλαγή.",
+    "forgiveStays": "Το χρέος μένει στη λίστα με το ιστορικό του, κλειστό ως «Χαρίστηκε». Μπορείς να το αναιρέσεις.",
+    "forgiveConfirm": "Χάρισμα {{amount}}",
+    "forgivenTag": "Χαρίστηκε",
+    "forgivenLine": "Χαρίστηκαν {{amount}} · {{date}}",
+    "unforgive": "Αναίρεση χαρίσματος"
   },
   "statement": {
     "title": "Κατάσταση",

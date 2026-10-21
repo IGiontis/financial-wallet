@@ -78,7 +78,7 @@ export function LoanCards({
             </button>
 
             <div className={styles.cardRight}>
-              {debt.isSettled ? <span className={styles.settledTag}>{t("debts.settled")}</span> : <span className={styles.cardAmount}>{formatCurrency(debt.remaining)}</span>}
+              {debt.isSettled ? <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span> : <span className={styles.cardAmount}>{formatCurrency(debt.remaining)}</span>}
               <span className={styles.cardBar}>
                 <span aria-hidden>
                   <span style={{ width: `${share}%`, background: tone }} />

@@ -2155,7 +2155,20 @@
     "viewOne": "One at a time",
     "viewColumns": "Columns",
     "colOpen": "Open: {{name}}",
-    "cardLast": "Last paid {{when}}"
+    "cardLast": "Last paid {{when}}",
+    "forgiveAction": "Forgiven…",
+    "forgiveTitle": "Forgive the debt",
+    "forgiveTheyLetGo": "{{who}} lets go of the {{amount}} still owed. You won't pay it.",
+    "forgiveILetGo": "You let {{who}} off the {{amount}} still owed. You won't get it.",
+    "forgiveDate": "When",
+    "forgiveNote": "Why (optional)",
+    "forgiveNotePlaceholder": "e.g. a birthday present",
+    "forgiveNoMoney": "No card moves and no transaction is written.",
+    "forgiveStays": "The debt stays in the list with its history, closed as “Forgiven”. You can take it back.",
+    "forgiveConfirm": "Forgive {{amount}}",
+    "forgivenTag": "Forgiven",
+    "forgivenLine": "{{amount}} forgiven · {{date}}",
+    "unforgive": "Take back the forgiveness"
   },
   "statement": {
     "title": "Statement",

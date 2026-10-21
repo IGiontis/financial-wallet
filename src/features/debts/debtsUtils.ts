@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
-import type { CreateDebtDTO, Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
+import type { DebtForgiveness, CreateDebtDTO, Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
 
 // What is still open, per loan and per person.
 //
@@ -28,9 +28,18 @@ export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[], now: D
   // this figure fall faster than the debt actually does, and stop at zero
   // several payments before the lender does.
   const state = isLoan(debt) ? loanState({ ...debt, payments, paid, remaining: handedBack, isSettled: false }, now) : undefined;
-  const remaining = state ? state.balance : handedBack;
+  const owed = state ? state.balance : handedBack;
+  // Forgiven: settled, with nothing owed — what was let go is kept on the debt
+  // itself (`forgiven.amount`), not as a payment that was never made.
+  const remaining = debt.forgiven ? 0 : owed;
 
   return { ...debt, payments, paid, remaining, isSettled: remaining <= 0 };
+}
+
+/** What letting a debt go writes: what is still owed today, the day, and the reason. */
+export function forgiveness(debt: Pick<DebtWithStatus, "remaining">, date: Date, note: string): DebtForgiveness {
+  const trimmed = note.trim();
+  return { date, amount: round2(Math.max(debt.remaining, 0)), ...(trimmed ? { note: trimmed } : {}) };
 }
 
 /**

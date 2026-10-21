@@ -734,7 +734,13 @@ export const createDebt = async (userId: string, data: CreateDebtDTO) => {
 };
 
 export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
-  await updateDoc(doc(db, "debts", debtId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+  // `forgiven: null` takes a forgiveness back; `clean()` would write the null instead.
+  const { forgiven, ...rest } = data;
+  await updateDoc(doc(db, "debts", debtId), {
+    ...clean({ ...rest }),
+    ...(forgiven === null ? { forgiven: deleteField() } : forgiven ? { forgiven: clean({ ...forgiven }) } : {}),
+    updatedAt: serverTimestamp(),
+  });
 };
 
 /**

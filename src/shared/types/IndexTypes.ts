@@ -720,6 +720,19 @@ export type DebtDirection = "owed_by_me" | "owed_to_me";
  */
 export type DebtRateType = "fixed" | "floating";
 
+/**
+ * A debt let go of: what was still owed, forgiven on a day, and why. The debt
+ * stays, with its history — "there was a loan, 300 of it was paid, the rest was
+ * let go" — rather than being deleted as if it never happened. No money moves:
+ * nothing was paid and nothing received.
+ */
+export interface DebtForgiveness {
+  date: Date;
+  /** What was still owed when it was forgiven. */
+  amount: number;
+  note?: string;
+}
+
 export interface Debt {
   id: string;
   userId: string;
@@ -776,6 +789,8 @@ export interface Debt {
   accountId?: string;
   /** The goal this debt paid for a part of, if it did — see `InvestmentContribution.coveredBy`. */
   forGoalId?: string;
+  /** Let go of — see `DebtForgiveness`. Nothing is owed from its date on. */
+  forgiven?: DebtForgiveness;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -832,6 +847,8 @@ export interface UpdateDebtDTO {
   date?: Date;
   dueDate?: Date;
   notes?: string;
+  /** See `Debt.forgiven`. `null` takes the forgiveness back. */
+  forgiven?: DebtForgiveness | null;
 }
 
 export interface CreateDebtPaymentDTO {

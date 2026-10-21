@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiColumns, FiEdit2, FiPlus, FiSquare, FiX } from "react-icons/fi";
+import { FiColumns, FiEdit2, FiGift, FiPlus, FiRotateCcw, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
@@ -16,6 +16,7 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import RepaymentWizard from "./RepaymentWizard";
+import { ForgiveDebtModal } from "./ForgiveDebtModal";
 import { LoanCards } from "./LoanCards";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 
@@ -413,6 +414,9 @@ export default function PersonDebtsModal({
   const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
   const [editing, setEditing] = useState<DebtWithStatus | null>(null);
   const [adding, setAdding] = useState(false);
+  // Letting the shown debt go — see `ForgiveDebtModal` — and taking that back.
+  const [forgiving, setForgiving] = useState(false);
+  const unforgive = useUpdateDebt();
 
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const shortFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
@@ -440,6 +444,7 @@ export default function PersonDebtsModal({
       {editing && <AddDebtModal debt={editing} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setEditing(null)} />}
       {adding && <AddDebtModal defaultPerson={person.person} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setAdding(false)} />}
       {recording !== null && debt && <RepaymentWizard debt={debt} suggested={recording} formatCurrency={formatCurrency} onClose={() => setRecording(null)} />}
+      {forgiving && debt && <ForgiveDebtModal debt={debt} formatCurrency={formatCurrency} onClose={() => setForgiving(false)} />}
     </>
   );
 
@@ -610,7 +615,7 @@ export default function PersonDebtsModal({
                     aria-hidden
                   />
                   <span className={styles.pickName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-                  <span className={styles.pickAmount}>{d.isSettled ? t("debts.settled") : formatCurrency(d.remaining)}</span>
+                  <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
                   <span className={styles.pickBar} aria-hidden>
                     <span style={{ width: `${clearedPercent(d, loanState(d))}%` }} />
                   </span>
@@ -624,7 +629,16 @@ export default function PersonDebtsModal({
             <div className={styles.heroText}>
               <div className={styles.heroName}>{debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent")}</div>
               {debt.isSettled ? (
-                <span className={styles.settledTag}>{t("debts.settled")}</span>
+                <>
+                  <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span>
+                  {/* What was let go, when, and why — the reason the debt is kept rather than deleted. */}
+                  {debt.forgiven && (
+                    <div className={styles.heroSub}>
+                      {t("debts.forgivenLine", { amount: formatCurrency(debt.forgiven.amount), date: dateFmt.format(firestoreToDate(debt.forgiven.date)) })}
+                      {debt.forgiven.note && <span className="d-block fst-italic">«{debt.forgiven.note}»</span>}
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <div className={styles.heroLabel}>{t(borrowed ? "debts.leftToGive" : "debts.leftToGet")}</div>
@@ -702,6 +716,23 @@ export default function PersonDebtsModal({
                       </li>
                     );
                   })}
+                  {/* Let go of: in the history like a payment, but not one — no money moved. */}
+                  {debt.forgiven && (
+                    <li className={`${styles.payRow} ${styles.payOrigin}`}>
+                      <span className={styles.payWhen}>
+                        <span className="d-inline-flex align-items-center gap-1">
+                          <FiGift size={13} aria-hidden /> {t("debts.forgivenTag")}
+                        </span>
+                        <span className={styles.paySplit}>
+                          {dateFmt.format(firestoreToDate(debt.forgiven.date))}
+                          {debt.forgiven.note ? ` · «${debt.forgiven.note}»` : ""}
+                        </span>
+                      </span>
+                      <span className={styles.payAmount} style={{ color: "var(--color-text-secondary)" }}>
+                        {formatCurrency(debt.forgiven.amount)}
+                      </span>
+                    </li>
+                  )}
                   {/* Where it started. Changed through the loan itself, in Details. */}
                   <li className={`${styles.payRow} ${styles.payOrigin}`}>
                     <span className={styles.payWhen}>
@@ -740,6 +771,16 @@ export default function PersonDebtsModal({
                   <Button color="secondary" outline onClick={() => setEditing(debt)}>
                     <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
                   </Button>
+                  {!debt.isSettled && (
+                    <Button color="secondary" outline onClick={() => setForgiving(true)}>
+                      <FiGift size={14} aria-hidden /> {t("debts.forgiveAction")}
+                    </Button>
+                  )}
+                  {debt.forgiven && (
+                    <Button color="secondary" outline disabled={unforgive.isPending} onClick={() => unforgive.mutate({ debtId: debt.id, data: { forgiven: null } })}>
+                      <FiRotateCcw size={14} aria-hidden /> {t("debts.unforgive")}
+                    </Button>
+                  )}
                   <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
                 </div>
                 {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
