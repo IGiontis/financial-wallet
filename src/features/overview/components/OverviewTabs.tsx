@@ -115,14 +115,14 @@ export function AttentionList({
           status.state === "ask"
             ? row(
                 status.key,
-                "/incomes",
+                "/incomes/record",
                 t("incomes.ask.title", { name }),
                 <Badge pill color="warning-subtle" className="text-warning-emphasis">
                   {t("overview.waitsForAnswer")}
                 </Badge>,
                 status.expected,
               )
-            : row(status.key, "/incomes", name, badge(Math.max(1, status.lateDays ?? 1), 0), status.expected),
+            : row(status.key, "/incomes/record", name, badge(Math.max(1, status.lateDays ?? 1), 0), status.expected),
         )}
         {unconfirmed.map((occurrence) =>
           row(
@@ -136,7 +136,7 @@ export function AttentionList({
           ),
         )}
         {late.map((occurrence) => row(occurrence.key, "/planner", occurrence.label, badge(Math.max(1, daysLate(occurrence, now)), 0), Math.abs(occurrence.amount)))}
-        {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount))}
+        {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills/pay" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount))}
       </div>
     </Panel>
   );

@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -90,7 +91,7 @@ const chip = () => document.querySelector("[class*=_cardTags_]")?.children[0];
 
 describe("water three periods behind, October not yet due", () => {
   it("is on the late tile: one bill, €180", () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const tile = screen.getByRole("button", { name: /overdue/i });
     // Was "0 · none late".
@@ -102,7 +103,7 @@ describe("water three periods behind, October not yet due", () => {
   });
 
   it("says on its card how many are unpaid and what they come to, and since when", () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     // Was a grey "in 5 days".
     expect(chip()).toHaveTextContent("3 unpaid · €180.00");
@@ -113,7 +114,7 @@ describe("water three periods behind, October not yet due", () => {
   });
 
   it("lists it in the late list at the tile's figure, from July", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     await userEvent.click(screen.getByRole("button", { name: /overdue/i }));
     const dialog = await screen.findByRole("dialog");
@@ -130,7 +131,7 @@ describe("water three periods behind, October not yet due", () => {
 
   it("asks €180 on its line — what is late, October not being due — dated July", () => {
     localStorage.setItem("bills-view", JSON.stringify("list"));
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const line = document.querySelector("[class*=_billLine_]")!;
     expect(line.querySelector("[class*=_lineTags_]")!.children[0]).toHaveTextContent("overdue");
@@ -140,7 +141,7 @@ describe("water three periods behind, October not yet due", () => {
   });
 
   it("lists the same three in next month's breakdown, under the late tile's own name", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     await userEvent.click(screen.getByRole("button", { name: /next month/i }));
     const dialog = await screen.findByRole("dialog");
@@ -153,7 +154,7 @@ describe("water three periods behind, October not yet due", () => {
 
   it("says it in Greek with one word for it — «Ληξιπρόθεσμα», not «Χρωστούμενα»", async () => {
     await i18n.changeLanguage("el");
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     expect(chip()).toHaveTextContent("3 απλήρωτοι · €180.00");
     await userEvent.click(screen.getByRole("button", { name: /επόμενος μήνας/i }));
@@ -163,7 +164,7 @@ describe("water three periods behind, October not yet due", () => {
   });
 
   it("says it in the bill's own dialog too, instead of a grey «Unpaid»", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     // The card — "Water" is also the "next up" tile's name.
     await userEvent.click(chip()!.closest("[role=button]")!);
@@ -178,7 +179,7 @@ describe("the same water after the 10th, and in its other states", () => {
     const after = new Date(2026, 9, 11, 10, 0);
     vi.setSystemTime(after);
     page.bills = [water(after)];
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const tile = screen.getByRole("button", { name: /overdue/i });
     expect(tile).toHaveTextContent("€240.00");
@@ -190,7 +191,7 @@ describe("the same water after the 10th, and in its other states", () => {
   it("reads one late period as how late it is", () => {
     // July and August paid after all; only September is open.
     page.bills = [water(NOW, [...KEPT, ...paidMonths(["2026-07", "2026-08"])])];
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     // 10 September to 5 October: 20 + 5 days.
     expect(chip()).toHaveTextContent(`${20 + 5} days late`);
@@ -199,7 +200,7 @@ describe("the same water after the 10th, and in its other states", () => {
 
   it("stays among what is still to pay when October is paid but July is not", () => {
     page.bills = [water(NOW, [...KEPT, ...paidMonths(["2026-10"])])];
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const sections = [...document.querySelectorAll("[class*=_listSection_]")].map((s) => s.textContent ?? "");
     // Was filed under "Paid", with a green tick and in no late figure.
@@ -223,7 +224,7 @@ describe("paying the water from the bill's own dialog", () => {
   };
 
   it("opens the payment form on July, the oldest overdue, at €60", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
     const dialog = await openDialog();
 
     await userEvent.click(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") }));
@@ -236,7 +237,7 @@ describe("paying the water from the bill's own dialog", () => {
 
   it("marks the ticked months paid without a transaction, and leaves an unticked one", async () => {
     page.settle.mockClear();
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
     const dialog = await openDialog();
 
     await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
@@ -269,7 +270,7 @@ describe("paying the water from the bill's own dialog", () => {
     const online = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
     Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
     try {
-      render(<BillsPage />);
+      render(<BillsPage />, { wrapper: MemoryRouter });
       const dialog = await openDialog();
       await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
       const confirm = await screen.findByRole("dialog");
@@ -285,7 +286,7 @@ describe("paying the water from the bill's own dialog", () => {
   it("shows a month marked that way as paid with no transaction, and says so before deleting it", async () => {
     const marked = { id: "settled-jul", userId: "u1", billId: "water", periodKey: "2026-07", amount: 60, paidDate: new Date(2026, 6, 10), createdAt: new Date(2026, 9, 5) } as BillPayment;
     page.bills = [water(NOW, [...KEPT, marked])];
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
     // Two left, August and September: €120.
     expect(chip()).toHaveTextContent("2 unpaid · €120.00");
     const dialog = await openDialog();

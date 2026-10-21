@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -80,7 +81,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <IncomesPage />
+      <MemoryRouter>
+        <IncomesPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }

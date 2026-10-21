@@ -357,6 +357,37 @@
   color: #2b1a00;
 }
 
+/* On a section that opens into pages, and on those pages, the count is part of
+   the word: on its top-right corner, touching it — as on the page's own tabs —
+   rather than a separate piece of the row with the row's gap in between. */
+.nav-badge.nav-badge-word {
+  display: inline-block;
+  position: relative;
+  top: -0.55em;
+  margin-left: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 9.5px;
+  line-height: 15px;
+  vertical-align: baseline;
+}
+
+/* The word may not clip its own badge. */
+.sidebar .nav-label:has(.nav-badge-word) {
+  overflow: visible;
+}
+
+/* The icon's copy, for the collapsed rail only — open, the word carries it. */
+.nav-badge.nav-badge-rail {
+  display: none;
+}
+
+.sidebar-parent .sidebar-chevron {
+  margin-left: auto;
+}
+
 /* ── Foot ──────────────────────────────────────────────────────────────────── */
 /* Settings and the collapse control share one row, apart from the four groups:
    they change the app rather than show the money, and they stay put while the
@@ -515,6 +546,10 @@
   /* Rides the icon's top-right corner, smaller than in the row — at full size
      it hid two thirds of the icon it was meant to annotate. The ring in the
      bar's colour keeps it from merging into the icon. */
+  .sidebar.collapsed .nav-badge.nav-badge-rail {
+    display: block;
+  }
+
   .sidebar.collapsed .nav-badge {
     position: absolute;
     top: 2px;

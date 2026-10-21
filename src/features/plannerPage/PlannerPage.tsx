@@ -579,12 +579,12 @@ export function PlannerPage() {
                   <div className={`${styles.rowLine} flex-column align-items-start py-2`}>
                     <span className={styles.rowTitle}>{t("planner.noIncomes")}</span>
                     {suggestion && <span className={styles.rowHint}>{t("planner.foundSalary", { amount: formatCurrency(suggestion.pattern.amount), day: suggestion.pattern.dayOfMonth })}</span>}
-                    <Link to="/incomes" className={`${styles.linkButton} mt-1`}>
+                    <Link to="/incomes/record" className={`${styles.linkButton} mt-1`}>
                       {t("planner.addOnIncomes")}
                     </Link>
                   </div>
                 ) : (
-                  <Link to="/incomes" className={`${styles.linkButton} my-2 d-inline-block`}>
+                  <Link to="/incomes/record" className={`${styles.linkButton} my-2 d-inline-block`}>
                     {t("planner.changeOnIncomes")}
                   </Link>
                 )
@@ -670,7 +670,7 @@ export function PlannerPage() {
         />
       )}
       {/* The income's own card, «Ήρθε» on it — the same as on «Έσοδα». */}
-      {openIncome && <IncomeQuickView incomeId={openIncome} onClose={() => setOpenIncome(null)} onEdit={() => navigate("/incomes")} />}
+      {openIncome && <IncomeQuickView incomeId={openIncome} onClose={() => setOpenIncome(null)} onEdit={() => navigate("/incomes/record")} />}
       {occurrence && (
         <OccurrenceSheet
           occurrence={occurrence}

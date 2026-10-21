@@ -3,7 +3,7 @@ import { Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } f
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
-import { FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
+import { FiSquare, FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -45,13 +45,16 @@ import {
   type MonthForecast,
   settledForCards,
   willBePaidAgain,
+  billsNeedingAttention,
 } from "./billsUtils";
 import { categoryLabel } from "../../shared/utils/categories";
-import { standaloneMonthName } from "../../shared/utils/dates";
+import { firestoreToDate, standaloneMonthName } from "../../shared/utils/dates";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import BillYearAhead from "./BillYearAhead";
+import { SubPageTabs } from "../../shared/components/SubPageTabs";
+import { BillManage } from "./BillManage";
 import BillMonthTimeline from "./BillMonthTimeline";
 import { monthTimeline } from "./monthTimeline";
 import { useSalaryIncome } from "../incomes/useSalaryIncome";
@@ -799,33 +802,47 @@ function BillLine({
   );
 }
 
-type BillView = "cards" | "list" | "months" | "timeline";
+type BillView = "cards" | "list" | "tiles" | "months" | "timeline";
 
-/** Cards or one line each — the same switch the goals list has. */
-function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: BillView) => void }) {
+const VIEW_BUTTONS = [
+  { id: "cards", icon: FiGrid, label: "bills.viewCards" },
+  { id: "list", icon: FiList, label: "bills.viewList" },
+  { id: "tiles", icon: FiSquare, label: "bills.viewTiles" },
+  { id: "timeline", icon: FiCalendar, label: "bills.viewTimeline" },
+  { id: "months", icon: FiBarChart2, label: "bills.viewMonths" },
+] as const;
+
+/** Cards or one line each — the same switch the goals list has. On «Πληρωμές», only the ones a bill is paid from. */
+function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (view: BillView) => void; only?: readonly BillView[] }) {
   const { t } = useTranslation();
 
   return (
     <div className={styles.viewToggle} role="group" aria-label={t("bills.viewLabel")}>
-      <button type="button" className={`${styles.viewBtn} ${view === "cards" ? styles.viewBtnOn : ""}`} aria-pressed={view === "cards"} onClick={() => onChange("cards")}>
-        <FiGrid size={13} aria-hidden />
-        <span>{t("bills.viewCards")}</span>
-      </button>
-      <button type="button" className={`${styles.viewBtn} ${view === "list" ? styles.viewBtnOn : ""}`} aria-pressed={view === "list"} onClick={() => onChange("list")}>
-        <FiList size={13} aria-hidden />
-        <span>{t("bills.viewList")}</span>
-      </button>
-      <button type="button" className={`${styles.viewBtn} ${view === "timeline" ? styles.viewBtnOn : ""}`} aria-pressed={view === "timeline"} onClick={() => onChange("timeline")}>
-        <FiCalendar size={13} aria-hidden />
-        <span>{t("bills.viewTimeline")}</span>
-      </button>
-      <button type="button" className={`${styles.viewBtn} ${view === "months" ? styles.viewBtnOn : ""}`} aria-pressed={view === "months"} onClick={() => onChange("months")}>
-        <FiBarChart2 size={13} aria-hidden />
-        <span>{t("bills.viewMonths")}</span>
-      </button>
+      {VIEW_BUTTONS.filter((b) => !only || only.includes(b.id)).map(({ id, icon: Icon, label }) => (
+        <button key={id} type="button" className={`${styles.viewBtn} ${view === id ? styles.viewBtnOn : ""}`} aria-pressed={view === id} onClick={() => onChange(id)}>
+          <Icon size={13} aria-hidden />
+          <span>{t(label)}</span>
+        </button>
+      ))}
     </div>
   );
 }
+
+/**
+ * The three pages of «Πάγια».
+ *
+ *   overview — to read: what is due, next month, the runway, the year. Nothing to press.
+ *   pay      — to act: the bills themselves, with what is late first, and the "+".
+ *   manage   — every bill by name, no figures: to change one or delete it.
+ *   all      — the page as it was, both together.
+ *
+ * The page was one long column of figures and buttons; split, each answers one
+ * question — "where do I stand" or "what do I pay now".
+ */
+export type BillsPageView = "overview" | "pay" | "manage" | "all";
+
+/** The views the «Πληρωμές» page lists with — «Ο μήνας» too, where a bill is opened and paid from its day. */
+const PAY_VIEWS = ["cards", "list", "tiles", "timeline"] as const;
 
 function BillCard({
   bill,
@@ -1021,8 +1038,11 @@ function YearlyProjection({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function BillsPage() {
+export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const { t, i18n } = useTranslation();
+  // What each page shows: the figures, the list, or both.
+  const showFigures = view === "overview" || view === "all";
+  const showList = view === "pay" || view === "all";
   const { data: bills = [], isLoading, isError } = useBills();
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
@@ -1079,6 +1099,8 @@ export default function BillsPage() {
   // two can never contradict each other.
   const thisMonth = useMemo(() => monthForecast(bills, now, 0), [bills, now]);
   const owed = useMemo(() => arrears(bills), [bills]);
+  // The count on «Πληρωμές» — the menu's, from the bills already on the page.
+  const billsDue = useMemo(() => billsNeedingAttention(bills, now), [bills, now]);
 
   /**
    * Split into what still wants money and what doesn't, each ordered by when
@@ -1091,7 +1113,9 @@ export default function BillsPage() {
    */
   // Per device, not per account: how you like to read a list is not a fact
   // about your money, and putting it on the account would cost a read.
-  const [billView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
+  const [storedBillView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
+  // «Πληρωμές» lists, so a stored month or timeline view reads as cards there.
+  const billView: BillView = view === "pay" && !PAY_VIEWS.includes(storedBillView as (typeof PAY_VIEWS)[number]) ? "cards" : storedBillView;
 
   const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
 
@@ -1211,11 +1235,24 @@ export default function BillsPage() {
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("bills.title")}</h1>
           <p className="small text-body-secondary mb-0">{t("bills.subtitle")}</p>
         </div>
-        <Button color="primary" onClick={openNew} className="flex-shrink-0">
-          <span className="d-none d-sm-inline">+ {t("bills.newBill")}</span>
-          <span className="d-sm-none">+</span>
-        </Button>
+        {view !== "overview" && (
+          <Button color="primary" onClick={openNew} className="flex-shrink-0">
+            <span className="d-none d-sm-inline">+ {t("bills.newBill")}</span>
+            <span className="d-sm-none">+</span>
+          </Button>
+        )}
       </div>
+
+      <SubPageTabs
+        label={t("bills.title")}
+        pages={[
+          { to: "/bills", label: t("bills.pageOverview") },
+          { to: "/bills/pay", label: t("bills.pagePay"), badge: billsDue, badgeLabel: t("bills.dueCount", { count: billsDue }) },
+          // How many there are, once they are loaded — not a «(0)» while they load.
+          { to: "/bills/manage", label: isLoading ? t("bills.pageManage") : `${t("bills.pageManage")} (${bills.length})` },
+          { to: "/bills/all", label: t("bills.pageAll") },
+        ]}
+      />
 
       {isLoading && (
         <Row className="g-3 g-lg-4">
@@ -1237,18 +1274,22 @@ export default function BillsPage() {
       )}
 
       {!isLoading && !isError && (
-        <Row className="g-3 g-lg-4">
+        <Row className={`g-3 g-lg-4 ${showFigures ? "" : "justify-content-center"}`}>
           {/* Summary + list */}
-          <Col xs={12} lg={7} xl={8}>
-            <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(0)} />
-            {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(1)} />}
-            <QuickStats
-              bills={bills}
-              formatCurrency={formatCurrency}
-              onOpenActive={() => setShowActive(true)}
-              onOpenOverdue={() => setShowOverdue(true)}
-              onOpenNext={() => setRunwayOpen({ upTo: 0, title: t("bills.nextUp") })}
-            />
+          <Col xs={12} lg={showFigures ? 7 : 12} xl={showFigures ? 8 : 9}>
+            {showFigures && (
+              <>
+                <PeriodSummary breakdown={thisMonth} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(0)} />
+                {bills.length > 0 && <NextMonthCard forecast={forecast} formatCurrency={formatCurrency} onOpenBreakdown={() => setBreakdownMonth(1)} />}
+                <QuickStats
+                  bills={bills}
+                  formatCurrency={formatCurrency}
+                  onOpenActive={() => setShowActive(true)}
+                  onOpenOverdue={() => setShowOverdue(true)}
+                  onOpenNext={() => setRunwayOpen({ upTo: 0, title: t("bills.nextUp") })}
+                />
+              </>
+            )}
 
             {/* On a phone the two halves of this page take turns.
 
@@ -1257,7 +1298,7 @@ export default function BillsPage() {
                 a contrast of 1.03:1, which is no mark at all. The shared control
                 has the same fill and adds a border — which is what actually says
                 "this one" — and it is the switcher every other page uses. */}
-            {compact && bills.length > 0 && (
+            {view === "all" && compact && bills.length > 0 && (
               <div className={`${segmented.group} ${segmented.even} mb-3`} role="tablist" aria-label={t("bills.title")}>
                 {(["bills", "year"] as const).map((view) => (
                   <button
@@ -1283,34 +1324,59 @@ export default function BillsPage() {
                   + {t("bills.newBill")}
                 </Button>
               </div>
-            ) : compact && mobileView === "year" ? (
+            ) : view === "all" && compact && mobileView === "year" ? (
               <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
             ) : (
               <>
-                <CashRunway
-                  checkpoints={runway}
-                  formatCurrency={formatCurrency}
-                  onOpen={(index) =>
-                    setRunwayOpen({ upTo: index, title: runway[index].overdue ? t("bills.runwayNow") : t("bills.runwayBy", { date: runwayDateFmt.format(runway[index].date) }) })
-                  }
-                />
+                {showFigures && (
+                  <CashRunway
+                    checkpoints={runway}
+                    formatCurrency={formatCurrency}
+                    onOpen={(index) =>
+                      setRunwayOpen({ upTo: index, title: runway[index].overdue ? t("bills.runwayNow") : t("bills.runwayBy", { date: runwayDateFmt.format(runway[index].date) }) })
+                    }
+                  />
+                )}
+
+                {view === "manage" && (
+                  <BillManage
+                    bills={bills}
+                    categoryFor={categoryFor}
+                    now={now}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                    deleteLocked={deleteGuard.locked}
+                    deleteReason={deleteGuard.reason}
+                  />
+                )}
+
+                {/* «Σύνοψη»: the twelve months to read, and on a phone the year under them. */}
+                {view === "overview" && (
+                  <>
+                    <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
+                    {compact && <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />}
+                  </>
+                )}
 
                 {/* Full width on a phone, where three icon-sized targets side by
                     side are a game of chance; tucked to the right once there is
                     room for it to be a control rather than a row. */}
-                <div className="d-flex justify-content-sm-end mb-2">
-                  <BillViewToggle view={billView} onChange={setBillView} />
-                </div>
+                {showList && (
+                  <div className="d-flex justify-content-sm-end mb-2">
+                    <BillViewToggle view={billView} onChange={setBillView} only={view === "pay" ? PAY_VIEWS : undefined} />
+                  </div>
+                )}
 
-                {billView === "timeline" && (
+                {showList && billView === "timeline" && (
                   <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
                 )}
 
-                {billView === "months" && (
+                {showList && billView === "months" && (
                   <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                 )}
 
-                {billView !== "months" &&
+                {showList &&
+                  billView !== "months" &&
                   billView !== "timeline" &&
                   sections.map((section) => (
                   <div key={section.key} className="mb-3">
@@ -1324,7 +1390,54 @@ export default function BillsPage() {
                       </span>
                     </div>
 
-                    {billView === "list" ? (
+                    {billView === "tiles" ? (
+                      // As the «Ενεργά πάγια» boxes: gathered by how often, as many to a
+                      // row as fit, each its name, its figure and where it stands. A tap
+                      // opens the bill, where it is paid.
+                      groupByCadence(section.bills).map((group) => {
+                        const tone = cadenceTone(group.bills[0]);
+                        const freq = getFrequencyLabel(group.bills[0]);
+                        return (
+                          <div key={group.key} className="mb-2">
+                            <Badge pill color={`${tone}-subtle`} className={`text-${tone}-emphasis border border-${tone}-subtle ${styles.cadenceChip}`}>
+                              {t(freq.key, { count: freq.count })} · {group.bills.length}
+                            </Badge>
+                            <div className={styles.activeCards}>
+                              {group.bills.map((bill) => {
+                                const overdue = billOverdue(bill, now);
+                                const paid = bill.isPaidThisPeriod && overdue.count === 0;
+                                const paidNow = paid ? paidThisPeriod(bill) : 0;
+                                return (
+                                  <button
+                                    key={bill.id}
+                                    type="button"
+                                    className={`${styles.activeCard} ${overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""}`}
+                                    onClick={() => setDetailBill(bill)}
+                                  >
+                                    <span className={styles.activeCardName}>{bill.name}</span>
+                                    <span className="d-flex flex-wrap align-items-center gap-1">
+                                      <Badge pill color="light" className={`text-body border ${styles.activeCardChip}`}>
+                                        {bill.isVariableAmount && !paid ? "~" : ""}
+                                        {formatCurrency(overdue.count > 0 ? amountOwedNow(bill, now) : paid && paidNow > 0 ? paidNow : expectedAmount(bill))}
+                                      </Badge>
+                                      {overdue.count > 0 ? (
+                                        <span className={styles.activeCardState} style={{ color: "var(--color-expense-text)" }}>{t("bills.lineLate")}</span>
+                                      ) : paid ? (
+                                        <span className={styles.activeCardState} style={{ color: "var(--color-income-text)" }}>
+                                          <FiCheck size={11} aria-hidden /> {t("bills.linePaid")}
+                                        </span>
+                                      ) : bill.nextDueDate ? (
+                                        <span className={styles.activeCardState}>{shortDateFmt.format(firestoreToDate(bill.nextDueDate))}</span>
+                                      ) : null}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : billView === "list" ? (
                       // Gathered by how often they come — every yearly bill together —
                       // so the list reads as "what I pay monthly, what yearly".
                       groupByCadence(section.bills).map((group) => {
@@ -1369,7 +1482,7 @@ export default function BillsPage() {
 
           {/* Beside the list on desktop. On a phone it is one of the two tabs
               above instead, so it is never mounted twice. */}
-          {!compact && (
+          {!compact && showFigures && (
             <Col xs={12} lg={5} xl={4}>
               <YearlyProjection bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenCategory={(id, label) => setOpenCategory({ id, label })} />
             </Col>

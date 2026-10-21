@@ -314,7 +314,7 @@ export const OverviewPage = () => {
 
   const tiles: OverviewTile[] = [
     late.bills.length > 0
-      ? { to: "/bills", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)", rows: billsRows }
+      ? { to: "/bills/pay", label: t("nav.bills"), value: t("overview.tileLate", { count: late.bills.length }), sub: formatCurrency(late.total), tone: "var(--color-expense-text)", rows: billsRows }
       : { to: "/bills", label: t("nav.bills"), value: t("overview.allClearShort"), sub: t("overview.tileNothingLate"), tone: "var(--color-income-text)", rows: billsRows },
     { to: "/transactions", label: t("nav.transactions"), value: formatCurrency(thisMonth.totalExpenses), sub: t("overview.soFarThisMonth") },
     // Only with a debt still open: an empty "0,00 € you owe" was a tile about nothing.
@@ -466,7 +466,7 @@ export const OverviewPage = () => {
               going", this is the detail for whoever wants the dates. */}
           {bills.length > 0 && (
             <Panel>
-              <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={locale} onOpenBill={() => navigate("/bills")} />
+              <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={locale} onOpenBill={() => navigate("/bills/pay")} />
             </Panel>
           )}
         </div>

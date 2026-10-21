@@ -2028,3 +2028,22 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+/* «Κουτάκια» on «Πληρωμές»: the «Ενεργά πάγια» box, telling where each bill stands. */
+.activeCardLate {
+  border-color: color-mix(in srgb, var(--color-expense) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-expense);
+}
+
+.activeCardPaid {
+  opacity: 0.75;
+}
+
+.activeCardState {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}

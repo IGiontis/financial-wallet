@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -101,7 +102,7 @@ const headings = () =>
 
 describe("the list's headings", () => {
   it("says what is left to pay, without the stopped and paused bills", () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const [outstanding, settled] = headings();
     expect(outstanding.title).toMatch(/^Still to pay/);
@@ -117,14 +118,14 @@ describe("the list's headings", () => {
   });
 
   it("counts every part of a year paid in parts", () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     // Was €150.00, the April part alone.
     expect(headings()[1].total).toBe("€300.00");
   });
 
   it("says the same in the bill's own dialog", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     await userEvent.click(screen.getByText("Cover"));
     const dialog = await screen.findByRole("dialog");
@@ -136,7 +137,7 @@ describe("the list's headings", () => {
 
 describe("the late list on a part-paid bill", () => {
   it("asks for the late part, and the rows add up to the tile", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const tile = screen.getByRole("button", { name: /overdue/i });
     expect(tile).toHaveTextContent("2");

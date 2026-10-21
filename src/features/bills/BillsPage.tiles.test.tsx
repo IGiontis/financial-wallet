@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -81,7 +82,7 @@ afterAll(() => {
 
 describe("the Bills page tiles", () => {
   it("opens this period's breakdown", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     await userEvent.click(screen.getByRole("button", { name: /to pay this period/i }));
 
@@ -91,7 +92,7 @@ describe("the Bills page tiles", () => {
   }, 15_000);
 
   it("opens the late bills from the count of them", async () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const tile = screen.getByRole("button", { name: /overdue/i });
     // The tile's own figures, read before opening: two late, €488.40 between them.
@@ -119,7 +120,7 @@ describe("the Bills page tiles", () => {
     // Nothing to list, so nothing to press — a button that opens an empty
     // dialog is worse than no button.
     vi.setSystemTime(new Date(2026, 8, 1, 0, 1));
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     expect(screen.queryByRole("button", { name: /overdue/i })).not.toBeInTheDocument();
     vi.setSystemTime(NOW);
@@ -128,7 +129,7 @@ describe("the Bills page tiles", () => {
 
 describe("status and cadence under each bill's name", () => {
   it("puts the status first, then the cadence, on every card", () => {
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const rows = [...document.querySelectorAll("[class*=_cardTags_]")];
     expect(rows).toHaveLength(3);
@@ -140,7 +141,7 @@ describe("status and cadence under each bill's name", () => {
 
   it("gives every line in the list a status, first, so they line up", async () => {
     localStorage.setItem("bills-view", JSON.stringify("list"));
-    render(<BillsPage />);
+    render(<BillsPage />, { wrapper: MemoryRouter });
 
     const rows = [...document.querySelectorAll("[class*=_lineTags_]")];
     expect(rows.map((row) => row.children[0].textContent)).toEqual(expect.arrayContaining(["overdue", "unpaid"]));

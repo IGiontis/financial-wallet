@@ -553,7 +553,14 @@
     "yearAheadPrepaid": "Striped: what you have already paid ahead",
     "yearAheadPaidTitle": "{{paid}} paid ahead, {{left}} left",
     "chipPaidAmount": "Paid {{amount}}",
-    "yearAheadLow": "The lightest is {{month}}, at {{amount}}."
+    "yearAheadLow": "The lightest is {{month}}, at {{amount}}.",
+    "pageOverview": "Summary",
+    "pagePay": "Payments",
+    "pageAll": "All",
+    "viewTiles": "Tiles",
+    "pageManage": "Manage",
+    "manageHint_one": "{{count}} bill. Tap one to change it.",
+    "manageHint_other": "{{count}} bills. Tap one to change it."
   },
   "incomes": {
     "title": "Income",
@@ -829,7 +836,14 @@
     "thisTime": {
       "title": "{{name}} · this time",
       "undo": "Forget what I said for this time"
-    }
+    },
+    "pageOverview": "Summary",
+    "pageRecord": "Receipts",
+    "pageAll": "All",
+    "pageManage": "Manage",
+    "manageHint_one": "{{count}} income. Tap one to change it.",
+    "manageHint_other": "{{count}} incomes. Tap one to change it.",
+    "manageArchived": "archived"
   },
   "transactions": {
     "title": "Transactions",
@@ -2570,5 +2584,15 @@
     "of": "{{saved}} of the {{target}} needed for {{months}} months",
     "note": "Your fixed costs — bills and loan instalments — are {{amount}} a month. The cushion counted is what is «Available» in your banks and cash: not the money for goals, which already has somewhere to go. Keeping {{months}} months of such costs aside is a common convention. Not advice, just the arithmetic.",
     "ofMet": "{{saved}} — more than the {{target}} needed for {{months}} months"
+  },
+  "manage": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "editName": "Edit: {{name}}",
+    "deleteName": "Delete: {{name}}",
+    "noDay": "no set day",
+    "weekday": "every {{day}}",
+    "dayOfMonth": "day {{day}} of the month",
+    "off": "off"
   }
 }

@@ -29,7 +29,7 @@ import styles from "./css/CalendarPage.module.css";
 // names left for the sheet a tap opens.
 
 const KIND_ICON: Record<CalendarKind, string> = { bill: "🧾", income: "💰", debt: "🏦", goal: "🎯" };
-const KIND_PATH: Record<CalendarKind, string> = { bill: "/bills", income: "/incomes", debt: "/debts", goal: "/goals" };
+const KIND_PATH: Record<CalendarKind, string> = { bill: "/bills/pay", income: "/incomes/record", debt: "/debts", goal: "/goals" };
 
 /** The colours explained, in the order they are met. */
 const KEY: { classes: string[]; text: string; dot?: boolean }[] = [

@@ -1,0 +1,133 @@
+/* «Διαχείριση»: one plain row per item, its edit and its bin at the end. */
+
+.chip {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* Off — paused, stopped, archived: still here to change, plainly not running. */
+.rowOff .icon,
+.rowOff .nameText,
+.rowOff .meta {
+  opacity: 0.6;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.main:hover {
+  background: var(--color-surface-raised);
+}
+
+.main:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: -2px;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  font-size: 17px;
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.nameText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-primary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tagOn {
+  border-color: color-mix(in srgb, var(--color-link) 45%, transparent);
+  color: var(--color-link);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+/* 40px: a thumb's target, side by side without being a game of chance. */
+.btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.delete:hover:not(:disabled) {
+  color: var(--color-expense-text);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+}

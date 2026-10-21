@@ -96,7 +96,8 @@ describe("the overview", () => {
     expect(screen.getAllByRole("tab")[0]).toHaveTextContent("Summary");
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText("You make it to payday")).toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: /Bills/ })).toHaveAttribute("href", "/bills");
+    // Something is late here, so the tile goes where it is paid.
+    expect(within(panel).getByRole("link", { name: /Bills/ })).toHaveAttribute("href", "/bills/pay");
     // What wants doing is Today's, the month's figures the month's.
     expect(within(panel).queryByText("Water")).toBeNull();
     expect(within(panel).queryByText("In this month")).toBeNull();
@@ -174,7 +175,7 @@ describe("the overview", () => {
     const panel = screen.getByRole("tabpanel");
     // Nothing to press on the list itself — paying is done on Πάγια, and so on.
     expect(within(panel).queryAllByRole("button")).toHaveLength(0);
-    expect(within(panel).getByRole("link", { name: /Water/ })).toHaveAttribute("href", "/bills");
+    expect(within(panel).getByRole("link", { name: /Water/ })).toHaveAttribute("href", "/bills/pay");
     expect(within(panel).getByRole("link", { name: /Rent loan/ })).toHaveAttribute("href", "/debts");
     // And no add button of its own.
     expect(screen.queryByRole("button", { name: "New transaction" })).toBeNull();
@@ -213,7 +214,7 @@ describe("the overview", () => {
     const hrefs = within(screen.getByRole("tabpanel"))
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(expect.arrayContaining(["/bills", "/transactions", "/debts", "/goals", "/analytics"]));
+    expect(hrefs).toEqual(expect.arrayContaining(["/bills/pay", "/transactions", "/debts", "/goals", "/analytics"]));
   });
 
   it("remembers the tab last chosen", async () => {
@@ -274,7 +275,7 @@ describe("the overview", () => {
     const panel = screen.getByRole("tabpanel");
     // In «Έσοδα»'s own words, and answered there.
     const row = within(panel).getByRole("link", { name: /Salary: was it already in the bank?/ });
-    expect(row).toHaveAttribute("href", "/incomes");
+    expect(row).toHaveAttribute("href", "/incomes/record");
     expect(row).toHaveTextContent("Needs an answer");
     expect(row).toHaveTextContent("€1700.00");
     // Nothing is written from the Overview.
@@ -291,7 +292,7 @@ describe("the overview", () => {
     await userEvent.click(screen.getByRole("tab", { name: /To do/ }));
     const panel = screen.getByRole("tabpanel");
     const row = within(panel).getByRole("link", { name: /Allowance/ });
-    expect(row).toHaveAttribute("href", "/incomes");
+    expect(row).toHaveAttribute("href", "/incomes/record");
     expect(row).toHaveTextContent("6 days late");
     expect(row).toHaveTextContent("€70.00");
     expect(2340.55 + 70 - 68.4).toBeCloseTo(2342.15, 2);

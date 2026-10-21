@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -57,7 +57,8 @@ const menuButton = () => screen.getByRole("button", { name: /^Menu/ });
 // Every destination the sidebar shows as a link, in its order, with
 // Transactions folded: it is a button over its two pages, which show when it
 // opens (see "an item with pages under it").
-const ALL_PATHS = ["/", "/analytics", "/incomes", "/bills", "/planner", "/calendar", "/goals", "/accounts", "/investments", "/debts", "/settings"];
+// «Συναλλαγές», «Έσοδα» and «Πάγια» open into their pages, so they are not links themselves.
+const ALL_PATHS = ["/", "/analytics", "/planner", "/calendar", "/goals", "/accounts", "/investments", "/debts", "/settings"];
 
 const original = window.matchMedia;
 
@@ -108,8 +109,10 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"));
     expect(group("Where you stand")).toEqual(["/", "/analytics"]);
-    expect(group("Day to day")).toEqual(["/incomes", "/bills"]);
-    expect(within(within(sidebar()).getByRole("list", { name: "Day to day" })).getByRole("button", { name: "Transactions" })).toHaveAttribute("aria-expanded", "false");
+    // Every one of them opens into its pages: no plain link in the group at all.
+    expect(within(within(sidebar()).getByRole("list", { name: "Day to day" })).queryAllByRole("link")).toEqual([]);
+    const daily = within(within(sidebar()).getByRole("list", { name: "Day to day" }));
+    for (const name of ["Transactions", "Income", "Bills"]) expect(daily.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
     expect(group("Plan")).toEqual(["/planner", "/calendar", "/goals"]);
     expect(group("What you own & owe")).toEqual(["/accounts", "/investments", "/debts"]);
   });
@@ -132,23 +135,40 @@ describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
   it("puts the bills that need paying on Bills, read as part of its name, and a dot on ☰", () => {
     state.billsDue = 2;
     renderAt("/");
-    const bills = within(sidebar()).getByRole("link", { name: "Bills — 2 bills need paying" });
-    expect(bills).toHaveAttribute("href", "/bills");
-    expect(within(bills).getByText("2")).toBeInTheDocument();
+    const bills = within(sidebar()).getByRole("button", { name: "Bills — 2 bills need paying" });
+    expect(within(bills).getAllByText("2")[0]).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Menu — 2 bills need paying" })).toBeInTheDocument();
+    // Open, the count is on the page where they are paid as well.
+    fireEvent.click(bills);
+    expect(within(within(sidebar()).getByRole("link", { name: /^Payments/ })).getByText("2")).toBeInTheDocument();
+    expect(within(sidebar()).getByRole("link", { name: /^Payments/ })).toHaveAttribute("href", "/bills/pay");
   });
 
   it("puts the incomes that need a look on Income, in amber rather than the bills' red", () => {
     state.incomesWaiting = 1;
     renderAt("/");
-    const incomes = within(sidebar()).getByRole("link", { name: "Income — 1 income needs a look" });
-    expect(incomes).toHaveAttribute("href", "/incomes");
-    expect(within(incomes).getByText("1")).toHaveClass("nav-badge", "nav-badge-warning");
+    const incomes = within(sidebar()).getByRole("button", { name: "Income — 1 income needs a look" });
+    expect(within(incomes).getAllByText("1")[0]).toHaveClass("nav-badge", "nav-badge-word", "nav-badge-warning");
+    fireEvent.click(incomes);
+    expect(within(sidebar()).getByRole("link", { name: /^Receipts/ })).toHaveAttribute("href", "/incomes/record");
   });
 
   it("draws nothing on Bills when nothing is due", () => {
     renderAt("/");
-    expect(within(sidebar()).getByRole("link", { name: "Bills" })).toHaveTextContent(/^Bills$/);
+    expect(within(sidebar()).getByRole("button", { name: "Bills" })).toHaveTextContent(/^Bills$/);
+  });
+
+  it("keeps a closed section lit while one of its pages is open", () => {
+    renderAt("/bills/pay");
+    const bills = within(sidebar()).getByRole("button", { name: "Bills" });
+    // Open, the page itself is the lit one.
+    expect(bills).toHaveAttribute("aria-expanded", "true");
+    expect(bills).not.toHaveClass("nav-link-current");
+    // Closed, the section stands in for it — name and all, not only the icon.
+    fireEvent.click(bills);
+    expect(bills).toHaveAttribute("aria-expanded", "false");
+    expect(bills).toHaveClass("nav-link-current");
+    expect(within(sidebar()).getByRole("button", { name: "Income" })).not.toHaveClass("nav-link-current");
   });
 });
 
@@ -156,7 +176,7 @@ describe("the badge", () => {
   it("caps the count at 9+", () => {
     state.billsDue = 14;
     renderAt("/");
-    expect(within(within(sidebar()).getByRole("link", { name: "Bills — 14 bills need paying" })).getByText("9+")).toBeInTheDocument();
+    expect(within(within(sidebar()).getByRole("button", { name: "Bills — 14 bills need paying" })).getAllByText("9+")[0]).toBeInTheDocument();
   });
 });
 
@@ -297,15 +317,17 @@ describe("the collapsed rail on a wide screen", () => {
     state.billsDue = 2;
     renderAt("/");
     expect(navLinks()).toHaveLength(ALL_PATHS.length);
+    // Bills is an icon that opens its pages here — still named with its count.
+    expect(within(sidebar()).getByRole("button", { name: "Bills — 2 bills need paying" })).toBeInTheDocument();
 
-    const bills = within(sidebar()).getByRole("link", { name: "Bills — 2 bills need paying" });
-    await userEvent.hover(bills);
+    const planner = within(sidebar()).getByRole("link", { name: "Planner" });
+    await userEvent.hover(planner);
     const tip = document.querySelector(".sidebar-tip");
-    expect(tip).toHaveTextContent("Bills2 bills need paying");
+    expect(tip).toHaveTextContent("Planner");
     // The link already says this; the tooltip is not read a second time.
     expect(tip).toHaveAttribute("aria-hidden", "true");
 
-    await userEvent.unhover(bills);
+    await userEvent.unhover(planner);
     expect(document.querySelector(".sidebar-tip")).toBeNull();
   });
 

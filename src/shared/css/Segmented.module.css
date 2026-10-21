@@ -92,6 +92,22 @@
   padding-inline: 8px;
 }
 
+/* A section's pages: a full row still, but each as wide as its own label plus a
+   share of what is left, so a long one — «Διαχείριση (12)» — never squeezes a
+   short one, or its neighbour's count, out of the row. */
+.even.fit .item {
+  flex: 1 0 auto; /* never narrower than its label */
+  padding-inline: 6px;
+}
+
+/* A phone too narrow for all of them scrolls the row, as the other pickers do,
+   rather than cutting the last one off. */
+@media (max-width: 767.98px) {
+  .even.fit {
+    overflow-x: auto;
+  }
+}
+
 /* The fill and the border carry the colour; the label does not.
    Red text on a red fill measured 4.07:1 in dark mode — the two reds are too
    close together to read one against the other. The ordinary text colour on the

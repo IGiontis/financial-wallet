@@ -1,3 +1,4 @@
+import { SubPageTabs } from "../../shared/components/SubPageTabs";
 import { useMemo, useState } from "react";
 import { Button, Col, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -28,11 +29,13 @@ import {
   type Income,
   type IncomeArrival,
   type IncomeStatus,
+  lateCount,
 } from "./incomesUtils";
 import { emptyDraft, incomeToDraft, type DraftStep, type IncomeDraft } from "./incomeForm";
 import { makeFormats } from "./incomeText";
 import { IncomeMonthCard, IncomeTiles } from "./components/IncomeMonthCard";
 import { IncomeList } from "./components/IncomeList";
+import { IncomeManage } from "./components/IncomeManage";
 import { IncomeCalendar } from "./components/IncomeCalendar";
 import { IncomeYearCard } from "./components/IncomeYearCard";
 import ArrivedSheet from "./components/ArrivedSheet";
@@ -77,8 +80,19 @@ interface ArrivingState {
   readingAt?: Date;
 }
 
-export default function IncomesPage() {
+/**
+ * The three pages of «Έσοδα», as «Πάγια» has them.
+ *
+ *   overview — to read: the month, the figures, the year. Nothing to press.
+ *   record   — to act: every income with «Ήρθε», as a list or a calendar, and the "+".
+ *   all      — the page as it was, both together.
+ */
+export type IncomesPageView = "overview" | "record" | "manage" | "all";
+
+export default function IncomesPage({ view: page = "all" }: { view?: IncomesPageView }) {
   const { t, i18n } = useTranslation();
+  const showFigures = page === "overview" || page === "all";
+  const showList = page === "record" || page === "all";
   const f = useMemo(() => makeFormats(i18n.resolvedLanguage ?? "en"), [i18n.resolvedLanguage]);
   const { format: formatCurrency, convert } = useCurrencyConverter();
   const { incomes, statuses, transactions, lastReadingAt, now, isLoading, saveIncome, removeIncome, setOverride } = useIncomes();
@@ -95,7 +109,10 @@ export default function IncomesPage() {
   // about your money.
   const compact = useNarrowScreen("(max-width: 991.98px)");
   const [storedView, setView] = useLocalStorage<IncomesView>("incomes-view", "list");
-  const view: IncomesView = storedView === "year" && !compact ? "list" : storedView === "calendar" || storedView === "year" ? storedView : "list";
+  // The year is a tab only on «Όλα» on a phone: «Εισπράξεις» has no year, and on
+  // «Σύνοψη» it is part of the page.
+  const yearTab = compact && page === "all";
+  const view: IncomesView = storedView === "year" && !yearTab ? "list" : storedView === "calendar" || storedView === "year" ? storedView : "list";
 
   const [form, setForm] = useState<FormState | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
@@ -106,6 +123,8 @@ export default function IncomesPage() {
   const byId = useMemo(() => new Map(incomes.map((i) => [i.id, i])), [incomes]);
   const archived = useMemo(() => incomes.filter((i) => !isActiveIncome(i)), [incomes]);
   const summary = useMemo(() => monthSummary(statuses, toISOMonth(now)), [statuses, now]);
+  // The count on «Εισπράξεις» — the menu's, from the times already resolved here.
+  const waiting = useMemo(() => lateCount(statuses), [statuses]);
   const nextMonthDate = useMemo(() => startOfMonth(addMonths(now, 1)), [now]);
   const nextSummary = useMemo(() => monthSummary(statuses, toISOMonth(nextMonthDate)), [statuses, nextMonthDate]);
   const rows = useMemo(() => incomeRows(incomes, statuses, now), [incomes, statuses, now]);
@@ -203,13 +222,26 @@ export default function IncomesPage() {
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("incomes.title")}</h1>
           <p className="small text-body-secondary mb-0">{t("incomes.subtitle")}</p>
         </div>
-        <Button color="primary" onClick={() => openNew()} className="flex-shrink-0" aria-label={t("incomes.new")}>
-          <span className="d-none d-sm-inline">+ {t("incomes.new")}</span>
-          <span className="d-sm-none" aria-hidden>
-            +
-          </span>
-        </Button>
+        {page !== "overview" && (
+          <Button color="primary" onClick={() => openNew()} className="flex-shrink-0" aria-label={t("incomes.new")}>
+            <span className="d-none d-sm-inline">+ {t("incomes.new")}</span>
+            <span className="d-sm-none" aria-hidden>
+              +
+            </span>
+          </Button>
+        )}
       </div>
+
+      <SubPageTabs
+        label={t("incomes.title")}
+        pages={[
+          { to: "/incomes", label: t("incomes.pageOverview") },
+          { to: "/incomes/record", label: t("incomes.pageRecord"), badge: waiting, badgeTone: "warning", badgeLabel: t("nav.incomesWaiting", { count: waiting }) },
+          // How many there are, once they are loaded — not a «(0)» while they load.
+          { to: "/incomes/manage", label: isLoading ? t("incomes.pageManage") : `${t("incomes.pageManage")} (${incomes.length})` },
+          { to: "/incomes/all", label: t("incomes.pageAll") },
+        ]}
+      />
 
       {isLoading ? (
         <Row className="g-3 g-lg-4">
@@ -249,20 +281,41 @@ export default function IncomesPage() {
           </Button>
         </div>
       ) : (
-        <Row className="g-3 g-lg-4">
-          <Col xs={12} lg={7} xl={8}>
-            <IncomeMonthCard summary={summary} incomes={byId} formatCurrency={formatCurrency} f={f} monthDate={now} />
-            <IncomeTiles year={year} incomes={incomes} formatCurrency={formatCurrency} now={now} />
+        <Row className={`g-3 g-lg-4 ${showFigures ? "" : "justify-content-center"}`}>
+          <Col xs={12} lg={showFigures ? 7 : 12} xl={showFigures ? 8 : 9}>
+            {showFigures && (
+              <>
+                <IncomeMonthCard summary={summary} incomes={byId} formatCurrency={formatCurrency} f={f} monthDate={now} />
+                <IncomeTiles year={year} incomes={incomes} formatCurrency={formatCurrency} now={now} />
+              </>
+            )}
 
+            {page === "manage" && (
+              <IncomeManage
+                incomes={incomes}
+                f={f}
+                now={now}
+                onEdit={(income) => openEdit(income)}
+                onDelete={(income) => askDelete(income)}
+                deleteLocked={deleteGuard.locked}
+                deleteReason={deleteGuard.reason}
+              />
+            )}
+
+            {/* «Σύνοψη» on a phone: the year under the month, where the side column would be. */}
+            {page === "overview" && compact && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />}
+
+            {showList && (
             <div className={`${segmented.group} ${segmented.even} mb-3`} role="tablist" aria-label={t("incomes.title")}>
-              {(compact ? (["list", "calendar", "year"] as const) : (["list", "calendar"] as const)).map((tab) => (
+              {(yearTab ? (["list", "calendar", "year"] as const) : (["list", "calendar"] as const)).map((tab) => (
                 <button key={tab} type="button" role="tab" aria-selected={view === tab} className={`${segmented.item} ${view === tab ? segmented.active : ""}`} onClick={() => setView(tab)}>
                   {t(`incomes.tabs.${tab}`)}
                 </button>
               ))}
             </div>
+            )}
 
-            {view === "list" && (
+            {showList && view === "list" && (
               <IncomeList
                 rows={rows}
                 archived={archived}
@@ -287,7 +340,7 @@ export default function IncomesPage() {
               />
             )}
 
-            {view === "calendar" && (
+            {showList && view === "calendar" && (
               <IncomeCalendar
                 statuses={statuses}
                 incomes={byId}
@@ -302,10 +355,10 @@ export default function IncomesPage() {
               />
             )}
 
-            {view === "year" && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />}
+            {showList && view === "year" && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />}
           </Col>
 
-          {!compact && (
+          {!compact && showFigures && (
             <Col xs={12} lg={5} xl={4}>
               <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />
             </Col>

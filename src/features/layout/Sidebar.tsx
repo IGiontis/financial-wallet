@@ -8,7 +8,7 @@ import { useProfile } from "./useProfile";
 import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
-import { FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
+import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -42,6 +42,9 @@ interface NavChild {
   path: string;
   label: string;
   icon?: IconType;
+  /** What waits on this page — the parent's count, where it is acted on. */
+  badge?: number;
+  badgeTone?: "danger" | "warning";
 }
 
 /** Whether a child is the page on screen: its own path exactly, or a page under it. */
@@ -164,6 +167,15 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
   );
 }
 
+/** A count on the top-right corner of a word, touching it. */
+function WordBadge({ count, tone }: { count: number; tone?: "danger" | "warning" }) {
+  return (
+    <sup className={`nav-badge nav-badge-word ${tone === "warning" ? "nav-badge-warning" : ""}`} aria-hidden>
+      {count > 9 ? "9+" : count}
+    </sup>
+  );
+}
+
 /**
  * An item with pages under it — «Συναλλαγές» with «Νέα συναλλαγή» and «Όλες».
  *
@@ -176,7 +188,10 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
  * elsewhere or Esc.
  */
 function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { children: NavChild[] }; rail: boolean; onNavigate: () => void }) {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
+  // The count read out with the name, as on a plain link — see `SidebarLink`.
+  const badgeLabel = item.badge ? (item.badgeLabel?.(item.badge) ?? t("bills.dueCount", { count: item.badge })) : undefined;
   const listId = useId();
   const within = item.children.some((child) => isWithin(pathname, child.path));
   // Untouched, it follows the page; a tap decides for itself from then on.
@@ -208,13 +223,24 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
         type="button"
         ref={refs.setReference}
         {...getReferenceProps()}
-        className={`nav-link sidebar-link sidebar-parent ${within ? "nav-link-within" : ""}`}
+        className={`nav-link sidebar-link sidebar-parent ${within ? "nav-link-within" : ""} ${within && (rail || !expanded) ? "nav-link-current" : ""}`}
         aria-expanded={rail ? flyout : expanded}
         aria-controls={rail ? undefined : listId}
+        aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}
         onClick={() => (rail ? setFlyout((open) => !open) : setToggled(!expanded))}
       >
         <Icon className="nav-icon" aria-hidden />
-        <span className="nav-label">{item.label}</span>
+        {/* The count is part of the word — on its top-right corner, as on the page's tabs —
+            and a second copy rides the icon on the collapsed rail, where the word is hidden. */}
+        <span className="nav-label">
+          {item.label}
+          {!!item.badge && <WordBadge count={item.badge} tone={item.badgeTone} />}
+        </span>
+        {!!item.badge && (
+          <span className={`nav-badge nav-badge-rail ${item.badgeTone === "warning" ? "nav-badge-warning" : ""}`} aria-hidden>
+            {item.badge > 9 ? "9+" : item.badge}
+          </span>
+        )}
         <FiChevronDown className={`sidebar-chevron ${expanded ? "open" : ""}`} aria-hidden />
       </button>
 
@@ -224,7 +250,10 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
             <li key={child.path} className="nav-item">
               <NavLink to={child.path} end onClick={onNavigate} className={({ isActive }) => `nav-link sidebar-link sidebar-sublink ${isActive ? "nav-link-current" : ""}`}>
                 {child.icon && <child.icon className="nav-icon sidebar-subicon" aria-hidden />}
-                <span className="nav-label">{child.label}</span>
+                <span className="nav-label">
+                  {child.label}
+                  {!!child.badge && <WordBadge count={child.badge} tone={child.badgeTone} />}
+                </span>
               </NavLink>
             </li>
           ))}
@@ -331,8 +360,27 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           badge: incomesWaiting,
           badgeTone: "warning",
           badgeLabel: (count) => t("nav.incomesWaiting", { count }),
+          // To read, to record, or both — see `IncomesPageView`.
+          children: [
+            { path: "/incomes", label: t("incomes.pageOverview"), icon: FiEye },
+            { path: "/incomes/record", label: t("incomes.pageRecord"), icon: FiCheckSquare, badge: incomesWaiting, badgeTone: "warning" },
+            { path: "/incomes/manage", label: t("incomes.pageManage"), icon: FiEdit2 },
+            { path: "/incomes/all", label: t("incomes.pageAll"), icon: FiLayers },
+          ],
         },
-        { path: "/bills", label: t("nav.bills"), icon: FiRepeat, badge: billsDue },
+        {
+          path: "/bills",
+          label: t("nav.bills"),
+          icon: FiRepeat,
+          badge: billsDue,
+          // To read, to pay, or both — see `BillsPageView`.
+          children: [
+            { path: "/bills", label: t("bills.pageOverview"), icon: FiEye },
+            { path: "/bills/pay", label: t("bills.pagePay"), icon: FiCheckSquare, badge: billsDue },
+            { path: "/bills/manage", label: t("bills.pageManage"), icon: FiEdit2 },
+            { path: "/bills/all", label: t("bills.pageAll"), icon: FiLayers },
+          ],
+        },
       ],
     },
     {

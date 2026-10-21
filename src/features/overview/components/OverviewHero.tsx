@@ -91,7 +91,7 @@ export default function OverviewHero({
         <div className="d-flex justify-content-between align-items-baseline gap-2 mt-2">
           {/* No pay day: the salary is set on «Έσοδα», where every screen reads it from. */}
           {!outlook.known ? (
-            <Link to="/incomes" className="small text-decoration-none">
+            <Link to="/incomes/record" className="small text-decoration-none">
               {t("overview.setPayday")}
             </Link>
           ) : (

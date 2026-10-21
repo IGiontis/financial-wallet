@@ -11,6 +11,7 @@ import { categoryLabel, findCategory } from "../../../shared/utils/categories";
 import { useCategories, useTransactions } from "../hooks/useTransactions";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { accountOf, mainAccount } from "../../accounts/accountsUtils";
+import { useLoadMore } from "../../../shared/hooks/useLoadMore";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import { buildLedger, type LedgerKind, type LedgerRow } from "../ledger";
 import segmented from "../../../shared/css/Segmented.module.css";
@@ -18,8 +19,12 @@ import styles from "./css/Ledger.module.css";
 
 type Span = "month" | "year";
 
-/** How many rows are drawn before «Περισσότερα» — a year can hold a few thousand. */
-const PAGE = 250;
+/**
+ * Rows drawn at a time; the next ones arrive as the end comes into view (see
+ * `useLoadMore`). It was 250 at once, behind a button at the very bottom — on a
+ * phone a long wall to scroll through before anything more could be asked for.
+ */
+const PAGE = 40;
 
 /**
  * «Βιβλίο κινήσεων»: a month or a year of records, dense and read-only.
@@ -44,7 +49,6 @@ export function LedgerPage() {
   const [kind, setKind] = useState<LedgerKind>("all");
   const [account, setAccount] = useState("");
   const [query, setQuery] = useState("");
-  const [limit, setLimit] = useState(PAGE);
   const [viewing, setViewing] = useState<Transaction | null>(null);
 
   const [now] = useState(() => new Date());
@@ -57,6 +61,9 @@ export function LedgerPage() {
     () => buildLedger(transactions, { from, to, now, kind, query, account: account || undefined, accountOf: (tx) => accountOf(tx, accounts, main) }),
     [transactions, from, to, now, kind, query, account, accounts, main],
   );
+
+  // Every change of what is shown is a new list, read from its top.
+  const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kind}|${account}|${query}`);
 
   const periodLabel = useMemo(
     () => (span === "year" ? String(from.getFullYear()) : new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(from)),
@@ -75,20 +82,20 @@ export function LedgerPage() {
   const cardOf = (tx: Transaction) => accounts.find((a) => a.id === accountOf(tx, accounts, main))?.name;
 
   // A change of what is shown starts the list from the top again.
-  const step = (n: number) => {
-    setOffset((o) => o + n);
-    setLimit(PAGE);
-  };
+  const step = (n: number) => setOffset((o) => o + n);
 
   // The rows drawn so far, day by day, cut at `limit`.
-  let left = limit;
-  const shownDays = [];
-  for (const day of ledger.days) {
-    if (left <= 0) break;
-    const rows = day.rows.slice(0, left);
-    left -= rows.length;
-    shownDays.push({ ...day, rows });
-  }
+  const shownDays = useMemo(() => {
+    let left = limit;
+    const days = [];
+    for (const day of ledger.days) {
+      if (left <= 0) break;
+      const rows = day.rows.slice(0, left);
+      left -= rows.length;
+      days.push({ ...day, rows });
+    }
+    return days;
+  }, [ledger.days, limit]);
 
   const row = (r: LedgerRow) => {
     const { icon, name } = nameOf(r.tx);
@@ -174,7 +181,6 @@ export function LedgerPage() {
               onClick={() => {
                 setSpan(s);
                 setOffset(0);
-                setLimit(PAGE);
               }}
             >
               {t(`ledger.${s}`)}
@@ -267,10 +273,15 @@ export function LedgerPage() {
                   {day.rows.map(row)}
                 </section>
               ))}
-              {ledger.count > limit && (
-                <button type="button" className={`btn btn-outline-secondary btn-sm w-100 mt-2`} onClick={() => setLimit((l) => l + PAGE)}>
-                  {t("ledger.more", { count: ledger.count - limit })}
-                </button>
+              {hasMore && (
+                <>
+                  {/* Watched: in view, the next rows are drawn. The button is for
+                      a browser without the observer, and for whoever wants to ask. */}
+                  <div ref={sentinel} aria-hidden />
+                  <button type="button" className={`btn btn-outline-secondary btn-sm w-100 mt-2`} onClick={more}>
+                    {t("ledger.more", { count: ledger.count - limit })}
+                  </button>
+                </>
               )}
             </>
           )}

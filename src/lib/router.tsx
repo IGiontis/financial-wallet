@@ -115,7 +115,31 @@ export const router = createBrowserRouter([
             path: "bills",
             element: (
               <Suspense fallback={<PageLoader />}>
-                <BillsPage />
+                <BillsPage view="overview" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "bills/pay",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BillsPage view="pay" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "bills/manage",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BillsPage view="manage" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "bills/all",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BillsPage view="all" />
               </Suspense>
             ),
           },
@@ -123,7 +147,31 @@ export const router = createBrowserRouter([
             path: "incomes",
             element: (
               <Suspense fallback={<PageLoader />}>
-                <IncomesPage />
+                <IncomesPage view="overview" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "incomes/record",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <IncomesPage view="record" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "incomes/manage",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <IncomesPage view="manage" />
+              </Suspense>
+            ),
+          },
+          {
+            path: "incomes/all",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <IncomesPage view="all" />
               </Suspense>
             ),
           },

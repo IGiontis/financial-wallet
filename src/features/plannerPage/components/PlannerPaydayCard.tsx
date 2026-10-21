@@ -164,7 +164,7 @@ export function PlannerPaydayCard({
             </button>
             {/* No pay day: the salary is set on «Έσοδα», which every screen reads it from. */}
             {!outlook.known && (
-              <Link to="/incomes" className={styles.linkButton}>
+              <Link to="/incomes/record" className={styles.linkButton}>
                 {t("planner.setPayday")}
               </Link>
             )}

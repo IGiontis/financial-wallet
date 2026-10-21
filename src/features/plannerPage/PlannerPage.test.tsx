@@ -387,7 +387,7 @@ describe("the incomes, from «Έσοδα»", () => {
     // And each has its eye, open: counted.
     expect(screen.getByRole("switch", { name: "Salary: take it out of the plan" })).toHaveAttribute("aria-checked", "true");
     expect(3 * 1450).toBe(4350);
-    expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes");
+    expect(screen.getByRole("link", { name: "Change on Income ›" })).toHaveAttribute("href", "/incomes/record");
     // Nothing to type here any more: no salary dialog, no income lines.
     expect(screen.queryByRole("button", { name: "Add monthly income" })).toBeNull();
     // 1.000 + 3 × 1.450 + 3 × 400 − 2.755.
@@ -431,10 +431,10 @@ describe("the incomes, from «Έσοδα»", () => {
     renderPage();
     expect(screen.getByText("No income yet — nothing is coming in to the plan.")).toBeInTheDocument();
     expect(screen.getByText("I found a salary of €1450.00 around the 28 — add it on Income")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add on Income ›" })).toHaveAttribute("href", "/incomes");
+    expect(screen.getByRole("link", { name: "Add on Income ›" })).toHaveAttribute("href", "/incomes/record");
     // No pay day: the tile reads to the month's end, and its sheet says where to set one.
     await userEvent.click(screen.getByRole("button", { name: /^Until the month ends: / }));
-    expect(screen.getByRole("link", { name: "Add your salary on Income for a sharper answer ›" })).toHaveAttribute("href", "/incomes");
+    expect(screen.getByRole("link", { name: "Add your salary on Income for a sharper answer ›" })).toHaveAttribute("href", "/incomes/record");
     await closeSheet();
     // Not planned with: the months bring nothing in.
     await openPeriod();
