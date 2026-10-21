@@ -26,12 +26,13 @@ beforeAll(async () => {
 const renderList = () => {
   const onEdit = vi.fn();
   const onDelete = vi.fn();
-  render(<IncomeManage incomes={INCOMES} f={makeFormats("en")} now={NOW} onEdit={onEdit} onDelete={onDelete} />);
-  return { onEdit, onDelete };
+  const onToggle = vi.fn();
+  render(<IncomeManage incomes={INCOMES} f={makeFormats("en")} now={NOW} onEdit={onEdit} onDelete={onDelete} onToggle={onToggle} />);
+  return { onEdit, onDelete, onToggle };
 };
 
 describe("the incomes' manage list", () => {
-  it("puts the running ones first and the archived apart, alphabetical, with no amounts", () => {
+  it("puts the active ones first and the inactive apart, alphabetical, with no amounts", () => {
     renderList();
     expect(screen.getByText("4 incomes. Tap one to change it.")).toBeInTheDocument();
     const names = (region: string) =>
@@ -40,7 +41,7 @@ describe("the incomes' manage list", () => {
         .filter((_, i) => i % 2 === 0)
         .map((b) => b.getAttribute("aria-label"));
     expect(names("Active")).toEqual(["Edit: Rent", "Edit: Salary", "Edit: Tutoring"]);
-    expect(names("Archived")).toEqual(["Edit: Old job"]);
+    expect(names("Inactive")).toEqual(["Edit: Old job"]);
     expect(document.body.textContent).not.toMatch(/€|100/);
   });
 
@@ -51,8 +52,7 @@ describe("the incomes' manage list", () => {
     expect(row("Salary")).toHaveTextContent("Salary");
     expect(row("Rent")).toHaveTextContent(/paused until Oct/);
     expect(row("Tutoring")).toHaveTextContent("stopped");
-    expect(row("Old job")).toHaveTextContent("archived");
-    expect(row("Salary")).not.toHaveTextContent(/paused|stopped|archived/);
+    expect(row("Salary")).not.toHaveTextContent(/paused|stopped/);
   });
 
   it("opens the edit and hands the bin's income on to be asked about", async () => {
@@ -61,5 +61,15 @@ describe("the incomes' manage list", () => {
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "r" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete: Old job" }));
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "x" }));
+  });
+
+  it("switches an income off or back on from its row", async () => {
+    const { onToggle } = renderList();
+    expect(screen.getByRole("switch", { name: "Active: Rent" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Active: Old job" })).not.toBeChecked();
+    await userEvent.click(screen.getByRole("switch", { name: "Active: Rent" }));
+    expect(onToggle).toHaveBeenLastCalledWith(expect.objectContaining({ id: "r" }), false);
+    await userEvent.click(screen.getByRole("switch", { name: "Active: Old job" }));
+    expect(onToggle).toHaveBeenLastCalledWith(expect.objectContaining({ id: "x" }), true);
   });
 });

@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSquare, FiX } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
@@ -15,6 +15,9 @@ import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
+import { moneyMovedName } from "./moneyMovedName";
+import { PaymentNote } from "./PaymentNote";
+import { useAccountList } from "../accounts/useMoneyAccounts";
 import RepaymentWizard from "./RepaymentWizard";
 import { ForgiveDebtModal } from "./ForgiveDebtModal";
 import { LoanCards, MiniRing } from "./LoanCards";
@@ -181,9 +184,13 @@ function PaymentPanel({
   account,
   onAccount,
   income,
+  notes,
+  onNotes,
 }: {
   amount: string;
   date: string;
+  notes: string;
+  onNotes: (value: string) => void;
   /** The card or cash it went through; "" for no particular one. Undefined: an older repayment that names none. */
   account: string | undefined;
   onAccount: (id: string | undefined) => void;
@@ -239,6 +246,7 @@ function PaymentPanel({
         </div>
         <MoneyMovedPicker value={account} onChange={onAccount} income={income} />
       </div>
+      <PaymentNote value={notes} onChange={onNotes} className="mb-2" small />
       <div className={styles.paymentButtons}>
         <Button color="primary" size="sm" onClick={onSave} disabled={saving || !valid}>
           {t("common.save")}
@@ -413,6 +421,8 @@ export default function PersonDebtsModal({
   // Which card a repayment went through: "" (the main account) for a new one,
   // and an older one's own — or none at all, which it keeps unless one is chosen.
   const [panelAccount, setPanelAccount] = useState<string | undefined>("");
+  const [panelNotes, setPanelNotes] = useState("");
+  const accounts = useAccountList();
   const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
   const [editing, setEditing] = useState<DebtWithStatus | null>(null);
   const [adding, setAdding] = useState(false);
@@ -566,6 +576,7 @@ export default function PersonDebtsModal({
     setPanelAmount(String(payment.amount));
     setPanelDate(toISODay(payment.date));
     setPanelAccount(payment.accountId);
+    setPanelNotes(payment.notes ?? "");
   };
 
   const savePanel = () => {
@@ -574,7 +585,10 @@ export default function PersonDebtsModal({
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
 
     // `null` when switched off, so the card it had is taken off rather than kept.
-    updateRepayment.mutate({ paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? null }, { onSuccess: () => setPanel(null) });
+    updateRepayment.mutate(
+      { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? null, notes: panelNotes.trim() || null },
+      { onSuccess: () => setPanel(null) },
+    );
   };
 
   const deletePanelPayment = () => {
@@ -663,6 +677,12 @@ export default function PersonDebtsModal({
               {debt.isSettled ? (
                 <>
                   <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span>
+                  {/* Paid off: the day of the last payment, and where it went. */}
+                  {!debt.forgiven && debt.payments[0] && (
+                    <div className={styles.heroSub}>
+                      {t("debts.settledLine", { date: dateFmt.format(firestoreToDate(debt.payments[0].date)), how: moneyMovedName(debt.payments[0].accountId, accounts, t) })}
+                    </div>
+                  )}
                   {/* What was let go, when, and why — the reason the debt is kept rather than deleted. */}
                   {debt.forgiven && (
                     <div className={styles.heroSub}>
@@ -725,7 +745,13 @@ export default function PersonDebtsModal({
                         <button type="button" className={styles.payRow} onClick={() => openEdit(payment)} aria-expanded={open}>
                           <span className={styles.payWhen}>
                             <span>{shortFmt.format(firestoreToDate(payment.date))}</span>
+                            {/* How it went: into or out of which card, or no money at all. */}
+                            <span className={styles.payHow}>
+                              {payment.accountId === undefined ? <FiSlash size={11} aria-hidden /> : borrowed ? <FiArrowUpRight size={11} aria-hidden /> : <FiArrowDownLeft size={11} aria-hidden />}
+                              {moneyMovedName(payment.accountId, accounts, t)}
+                            </span>
                             {split && <span className={styles.paySplit}>{t("debts.splitRow", { principal: formatCurrency(split.principal), interest: formatCurrency(split.interest) })}</span>}
+                            {payment.notes && <span className={styles.payNote}>«{payment.notes}»</span>}
                           </span>
                           <span className={styles.payAmount}>{formatCurrency(payment.amount)}</span>
                           <FiEdit2 size={13} aria-hidden className={styles.payEdit} />
@@ -742,6 +768,8 @@ export default function PersonDebtsModal({
                             onDelete={deletePanelPayment}
                             account={panelAccount}
                             onAccount={setPanelAccount}
+                            notes={panelNotes}
+                            onNotes={setPanelNotes}
                             income={!borrowed}
                           />
                         )}

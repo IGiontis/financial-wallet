@@ -776,10 +776,11 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 };
 
 /** Correcting a repayment typed wrong: the amount, the day, or both. */
-/** `accountId: null` takes the card off — a repayment that moved no money. */
-export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null }) => {
+/** `accountId: null` takes the card off — a repayment that moved no money. An empty note is taken off too. */
+export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null; notes?: string | null }) => {
   const account = data.accountId === null ? { accountId: deleteField() } : data.accountId !== undefined ? { accountId: data.accountId } : {};
-  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account });
+  const notes = data.notes === undefined ? {} : data.notes ? { notes: data.notes } : { notes: deleteField() };
+  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account, ...notes });
 };
 
 export const deleteDebtPayment = async (paymentId: string) => {
@@ -792,30 +793,36 @@ export const deleteDebtPayment = async (paymentId: string) => {
 /**
  * Makes the transactions a debt writes match what it should write — see
  * `debtCashRecords`. Fixed ids, so this is writes only: the wanted ones set
- * again whole, the rest deleted (deleting one that is not there is no error).
+ * again whole, and of the rest, the ones that exist deleted.
+ *
+ * Only those: the security rules refuse to delete a document that is not
+ * there (no owner to check), and one refused delete fails the whole batch. A
+ * repayment with no interest has no interest record, so deleting every
+ * possible id rejected every such save — the debt saved, its money never
+ * written.
  */
 export const syncDebtCash = async (
   userId: string,
   records: DebtCashRecord[],
   remove: string[],
   /**
-   * Of `remove`, the ones that actually existed — the only ones worth telling
-   * other devices about. Most of `remove` is ids that were never written (a
-   * repayment with no interest has no interest record), and logging those on
-   * every sync would fill the log with nothing.
+   * Of `remove`, the ones that actually exist — the only ones deleted, and the
+   * only ones worth telling other devices about. Most of `remove` is ids that
+   * were never written (a repayment with no interest has no interest record).
    */
   existed: string[] = remove,
 ) => {
-  if (records.length === 0 && remove.length === 0) return;
+  const gone = existed.filter((id) => remove.includes(id));
+  if (records.length === 0 && gone.length === 0) return;
   const batch = writeBatch(db);
   for (const { id, ...record } of records) {
     batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), updatedAt: serverTimestamp() });
   }
-  for (const id of remove) batch.delete(doc(db, "transactions", id));
+  for (const id of gone) batch.delete(doc(db, "transactions", id));
   await batch.commit();
   // The ids are fixed, so one deleted earlier can be written again now: its
   // deletion comes out of the log, or other devices would drop it.
-  await Promise.all([noteRecreated(userId, "transactions", records.map((r) => r.id)), noteDeleted(userId, "transactions", existed)]);
+  await Promise.all([noteRecreated(userId, "transactions", records.map((r) => r.id)), noteDeleted(userId, "transactions", gone)]);
 };
 
 // ─── TRANSFERS ────────────────────────────────────────────────────────────────

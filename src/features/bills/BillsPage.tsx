@@ -1347,6 +1347,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                     onDelete={setDeleteTarget}
                     deleteLocked={deleteGuard.locked}
                     deleteReason={deleteGuard.reason}
+                    onToggle={(bill, active) => updateBill.mutate({ billId: bill.id, data: { isActive: active } })}
                   />
                 )}
 

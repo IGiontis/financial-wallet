@@ -842,8 +842,7 @@
     "pageAll": "Όλα",
     "pageManage": "Διαχείριση",
     "manageHint_one": "{{count}} έσοδο. Πάτα ένα για να το αλλάξεις.",
-    "manageHint_other": "{{count}} έσοδα. Πάτα ένα για να το αλλάξεις.",
-    "manageArchived": "αρχειοθετημένο"
+    "manageHint_other": "{{count}} έσοδα. Πάτα ένα για να το αλλάξεις."
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -2183,7 +2182,11 @@
     "forgivenTag": "Χαρίστηκε",
     "forgivenLine": "Χαρίστηκαν {{amount}} · {{date}}",
     "unforgive": "Αναίρεση χαρίσματος",
-    "viewAll": "Όλα μαζί"
+    "viewAll": "Όλα μαζί",
+    "note": "Σχόλιο",
+    "noteOptional": "(προαιρετικό)",
+    "notePlaceholder": "π.χ. τα έδωσε στο χέρι, τα έφερε στο σπίτι…",
+    "settledLine": "{{date}} · {{how}}"
   },
   "statement": {
     "title": "Κατάσταση",
@@ -2593,6 +2596,10 @@
     "noDay": "χωρίς μέρα",
     "weekday": "κάθε {{day}}",
     "dayOfMonth": "στις {{day}} του μήνα",
-    "off": "ανενεργό"
+    "off": "Ανενεργό",
+    "groupOn": "Ενεργά",
+    "groupOff": "Ανενεργά",
+    "on": "Ενεργό",
+    "activeName": "Ενεργό: {{name}}"
   }
 }

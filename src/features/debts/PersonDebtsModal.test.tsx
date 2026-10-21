@@ -25,7 +25,9 @@ const spies = vi.hoisted(() => ({
 
 // The card picker reads the accounts; which card is chosen is not what these check.
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => [] }));
+// The accounts a payment names; empty unless a test fills it.
+const accounts = vi.hoisted(() => ({ list: [] as { id: string; name: string; kind: "bank" | "cash"; main?: boolean }[] }));
+vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => accounts.list }));
 vi.mock("./useDebts", () => ({
   useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),
@@ -97,6 +99,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   Object.values(spies).forEach((spy) => spy.mockReset());
+  accounts.list = [];
 });
 
 afterEach(() => {
@@ -526,5 +529,71 @@ describe("every loan as a card", () => {
 
     renderSheet();
     expect(card("Car")).toBeInTheDocument();
+  });
+});
+
+describe("how each payment went", () => {
+  const PIRAEUS = { id: "piraeus", name: "Piraeus", kind: "bank" as const, main: true };
+  const CASH = { id: "cash", name: "Cash", kind: "cash" as const };
+  const lent: Debt = { ...rent, id: "lent", direction: "owed_to_me", label: "Wedding", amount: 300 };
+  const sheetWith = (list: DebtPayment[], debt: Debt = lent) =>
+    render(<PersonDebtsModal person={debtsByPerson([computeDebtStatus(debt, list)])[0]} formatCurrency={fmt} locale="en" knownPeople={["Nikos"]} onClose={() => {}} />);
+
+  it("names the card each one reached, or that no money moved, with the note under it", () => {
+    accounts.list = [PIRAEUS, CASH];
+    sheetWith([
+      { ...pay("p3", "lent", 50, new Date(2026, 5, 1)), notes: "birthday present" },
+      { ...pay("p2", "lent", 100, new Date(2026, 4, 1)), accountId: "cash" },
+      { ...pay("p1", "lent", 120, new Date(2026, 3, 1)), accountId: "", notes: "paid me at the wedding" },
+    ]);
+    const rows = payRows();
+    expect(rows[0]).toMatch(/Jun 1.*No money moved.*«birthday present».*€50.00/);
+    expect(rows[1]).toMatch(/May 1.*Cash.*€100.00/);
+    // "" is the main account, named as itself.
+    expect(rows[2]).toMatch(/Apr 1.*Piraeus.*«paid me at the wedding».*€120.00/);
+    expect(rows[1]).not.toContain("«");
+  });
+
+  it("says, once paid off, the day of the last payment and where it went", () => {
+    accounts.list = [PIRAEUS];
+    sheetWith([pay("p2", "lent", 200, new Date(2026, 4, 12)), { ...pay("p3", "lent", 100, new Date(2026, 8, 12)), accountId: "piraeus" }].sort((a, b) => b.date.getTime() - a.date.getTime()));
+    expect(screen.getByText("Settled")).toBeInTheDocument();
+    expect(screen.getByText("Sep 12, 2026 · Piraeus")).toBeInTheDocument();
+  });
+
+  it("writes the note typed at «Where», shows it at the check, and saves it trimmed", async () => {
+    sheetWith([]);
+    const wizard = () => screen.getAllByRole("dialog").at(-1)!;
+    const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Money back" }));
+    await next();
+    await next();
+    await userEvent.type(within(wizard()).getByLabelText(/^Note/), "  handed over in cash  ");
+    await next();
+    expect(wizard()).toHaveTextContent("«handed over in cash»");
+    await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
+    expect(spies.record.mock.calls[0][0]).toMatchObject({ debtId: "lent", notes: "handed over in cash" });
+  });
+
+  it("saves no note when none was typed", async () => {
+    sheetWith([]);
+    const wizard = () => screen.getAllByRole("dialog").at(-1)!;
+    const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Money back" }));
+    await next();
+    await next();
+    await next();
+    await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
+    expect(spies.record.mock.calls[0][0].notes).toBeUndefined();
+  });
+
+  it("opens a correction with its note, and takes the note off when it is emptied", async () => {
+    sheetWith([{ ...pay("p1", "lent", 120, new Date(2026, 3, 1)), notes: "at the wedding" }]);
+    await userEvent.click(screen.getByRole("button", { name: /Apr 1.*€120.00/ }));
+    const note = screen.getByLabelText(/^Note/);
+    expect(note).toHaveValue("at the wedding");
+    await userEvent.clear(note);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.update.mock.calls[0][0]).toMatchObject({ paymentId: "p1", notes: null });
   });
 });

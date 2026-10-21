@@ -159,7 +159,8 @@ export function useDeleteRepayment() {
 export function useUpdateRepayment() {
   const { sync } = useDebtRefresh();
   return useMutation({
-    mutationFn: ({ paymentId, amount, date, accountId }: { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null }) => updateDebtPayment(paymentId, { amount, date, accountId }),
+    mutationFn: ({ paymentId, amount, date, accountId, notes }: { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }) =>
+      updateDebtPayment(paymentId, { amount, date, accountId, notes }),
     onSuccess: (_, { debtId }) => sync(debtId),
     onError: failed("debts.saveFailed"),
   });

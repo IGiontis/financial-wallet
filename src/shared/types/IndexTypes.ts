@@ -807,6 +807,8 @@ export interface DebtPayment {
   date: Date;
   /** The card or cash it moved through — see `Debt.accountId`. Absent on older repayments. */
   accountId?: string;
+  /** Why, or how, in the user's words: «τα έδωσε στο χέρι». Read back in the history. */
+  notes?: string;
   createdAt: Date;
 }
 
@@ -857,6 +859,8 @@ export interface CreateDebtPaymentDTO {
   date: Date;
   /** The card or cash it was paid from or into; "" for the main account. Absent: moves nothing. */
   accountId?: string;
+  /** See `DebtPayment.notes`. */
+  notes?: string;
 }
 
 export interface DebtWithStatus extends Debt {

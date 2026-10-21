@@ -1430,3 +1430,19 @@ button.payRow[aria-expanded="true"] {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* A payment's row: where the money went, and the user's note on it. */
+.payHow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.payNote {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

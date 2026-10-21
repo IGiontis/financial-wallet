@@ -299,6 +299,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 onDelete={(income) => askDelete(income)}
                 deleteLocked={deleteGuard.locked}
                 deleteReason={deleteGuard.reason}
+                // Off is archived, as the list's own «Αρχειοθέτηση» does; on again restores it.
+                onToggle={(income, active) => saveIncome({ ...income, active: active ? undefined : false })}
               />
             )}
 

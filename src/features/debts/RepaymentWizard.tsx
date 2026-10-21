@@ -6,6 +6,7 @@ import { parseISODay, toISODay } from "../../shared/utils/dates";
 import { formatTable } from "../transactions/transactionDates";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
+import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { mainAccount } from "../accounts/accountsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
@@ -48,6 +49,7 @@ export default function RepaymentWizard({
   // only when it was settled some other way.
   const [account, setAccount] = useState<string | undefined>(debt.accountId ?? "");
   const [tried, setTried] = useState(false);
+  const [notes, setNotes] = useState("");
 
   const value = parseFloat(amount);
   const amountOk = Number.isFinite(value) && value > 0;
@@ -79,7 +81,7 @@ export default function RepaymentWizard({
 
   const save = () => {
     if (!amountOk || !when) return;
-    record.mutate({ debtId: debt.id, amount: value, date: when, accountId: account }, { onSuccess: onClose });
+    record.mutate({ debtId: debt.id, amount: value, date: when, accountId: account, notes: notes.trim() || undefined }, { onSuccess: onClose });
   };
 
   const left = (n: number) => (n > 0 ? t("debts.wizard.remains", { amount: formatCurrency(n) }) : t("debts.wizard.cleared"));
@@ -88,6 +90,7 @@ export default function RepaymentWizard({
     { step: "1", label: t("common.amount"), value: formatCurrency(amountOk ? value : 0) },
     { step: "2", label: t("debts.when"), value: when ? formatTable(when, i18n.resolvedLanguage ?? "en") : "—" },
     { step: "3", label: t(borrowed ? "debts.paidFrom" : "debts.paidInto"), value: cardName },
+    ...(notes.trim() ? [{ step: "3" as Step, label: t("debts.note"), value: `«${notes.trim()}»` }] : []),
   ];
 
   return (
@@ -152,7 +155,12 @@ export default function RepaymentWizard({
             </FormGroup>
           )}
 
-          {step === "3" && <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} />}
+          {step === "3" && (
+            <>
+              <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} />
+              <PaymentNote value={notes} onChange={setNotes} className="mt-3" />
+            </>
+          )}
 
           {step === "4" && (
             <>

@@ -7,8 +7,9 @@ import { KIND_ICON, isActiveIncome, type Income } from "../incomesUtils";
 import { scheduleText, type IncomeFormats } from "../incomeText";
 
 /**
- * «Έσοδα › Διαχείριση»: every income — the running ones, then the archived —
- * alphabetical, with when it comes and whether it is off.
+ * «Έσοδα › Διαχείριση»: every income — the running ones, then the switched-off
+ * (archived) ones — alphabetical, with when it comes and a switch to turn it on
+ * or off where it stands.
  */
 export function IncomeManage({
   incomes,
@@ -18,8 +19,10 @@ export function IncomeManage({
   onDelete,
   deleteLocked,
   deleteReason,
+  onToggle,
 }: {
   incomes: Income[];
+  onToggle: (income: Income, active: boolean) => void;
   f: IncomeFormats;
   now: Date;
   onEdit: (income: Income) => void;
@@ -33,7 +36,7 @@ export function IncomeManage({
   const groups = useMemo<ManageGroup[]>(() => {
     const thisMonth = toISOMonth(now);
     const off = (income: Income) => {
-      if (!isActiveIncome(income)) return t("incomes.manageArchived");
+      if (!isActiveIncome(income)) return undefined;
       // "YYYY-MM" strings order as the months do.
       if (income.end && income.end < thisMonth) return t("incomes.list.stopped");
       const pause = currentPause(income, now);
@@ -48,11 +51,12 @@ export function IncomeManage({
       meta: scheduleText(income, t, f),
       tag: income.isSalary ? t("incomes.kind.salary") : undefined,
       offTag: off(income),
+      active: isActiveIncome(income),
     });
     const sorted = [...incomes].sort((a, b) => a.name.localeCompare(b.name, locale));
     return [
-      { key: "active", title: t("incomes.tiles.active"), tone: "success", items: sorted.filter(isActiveIncome).map(item) },
-      { key: "archived", title: t("incomes.list.archived"), tone: "secondary", items: sorted.filter((i) => !isActiveIncome(i)).map(item) },
+      { key: "on", title: t("manage.groupOn"), tone: "success", items: sorted.filter(isActiveIncome).map(item) },
+      { key: "off", title: t("manage.groupOff"), tone: "secondary", items: sorted.filter((i) => !isActiveIncome(i)).map(item) },
     ];
   }, [incomes, f, locale, now, t]);
 
@@ -71,6 +75,10 @@ export function IncomeManage({
       }}
       deleteLocked={deleteLocked}
       deleteReason={deleteReason}
+      onToggle={(id, active) => {
+        const income = byId(id);
+        if (income) onToggle(income, active);
+      }}
     />
   );
 }

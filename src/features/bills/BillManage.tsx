@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ManageList, type ManageGroup } from "../../shared/components/ManageList";
-import { cadenceTone, currentPause, getFrequencyLabel, groupByCadence, startsLater } from "./billsUtils";
+import { currentPause, getFrequencyLabel, startsLater } from "./billsUtils";
 import type { BillWithStatus, Category } from "../../shared/types/IndexTypes";
 
 /**
- * «Πάγια › Διαχείριση»: every bill, gathered by how often it comes and
- * alphabetical inside, with when it falls and whether it is off.
+ * «Πάγια › Διαχείριση»: every bill, the running ones and then the switched-off
+ * ones, alphabetical, each with how often and when it falls — and a switch to
+ * turn it on or off where it stands.
  */
 export function BillManage({
   bills,
@@ -16,8 +17,10 @@ export function BillManage({
   onDelete,
   deleteLocked,
   deleteReason,
+  onToggle,
 }: {
   bills: BillWithStatus[];
+  onToggle: (bill: BillWithStatus, active: boolean) => void;
   categoryFor: (id: string) => Category | undefined;
   now: Date;
   onEdit: (bill: BillWithStatus) => void;
@@ -33,15 +36,19 @@ export function BillManage({
     const startFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
     const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: "long" });
 
-    const when = (bill: BillWithStatus) => {
+    const day = (bill: BillWithStatus) => {
       if (bill.dueDay === undefined || bill.dueDay === null) return t("manage.noDay");
       if (bill.frequency === "weekly") return t("manage.weekday", { day: weekdayFmt.format(new Date(2024, 0, 7 + bill.dueDay)) });
       if (bill.frequency === "yearly" && bill.dueMonth !== undefined && bill.dueMonth !== null) return `${bill.dueDay} ${monthFmt.format(new Date(2024, bill.dueMonth, 1))}`;
       return t("manage.dayOfMonth", { day: bill.dueDay });
     };
+    const when = (bill: BillWithStatus) => {
+      const freq = getFrequencyLabel(bill);
+      return `${t(freq.key, { count: freq.count })} · ${day(bill)}`;
+    };
 
     const off = (bill: BillWithStatus) => {
-      if (!bill.isActive) return t("manage.off");
+      if (!bill.isActive) return undefined;
       const starts = startsLater(bill, now);
       if (starts) return t("bills.lineStartsOn", { month: startFmt.format(starts) });
       const pause = currentPause(bill, now)?.state;
@@ -50,22 +57,19 @@ export function BillManage({
       return undefined;
     };
 
-    const sorted = [...bills].sort((a, b) => a.name.localeCompare(b.name, locale));
-    return groupByCadence(sorted).map((group) => {
-      const freq = getFrequencyLabel(group.bills[0]);
-      return {
-        key: group.key,
-        title: t(freq.key, { count: freq.count }),
-        tone: cadenceTone(group.bills[0]),
-        items: group.bills.map((bill) => ({
-          id: bill.id,
-          name: bill.name,
-          icon: categoryFor(bill.categoryId)?.icon ?? "🧾",
-          meta: when(bill),
-          offTag: off(bill),
-        })),
-      };
+    const item = (bill: BillWithStatus) => ({
+      id: bill.id,
+      name: bill.name,
+      icon: categoryFor(bill.categoryId)?.icon ?? "🧾",
+      meta: when(bill),
+      offTag: off(bill),
+      active: bill.isActive,
     });
+    const sorted = [...bills].sort((a, b) => a.name.localeCompare(b.name, locale));
+    return [
+      { key: "on", title: t("manage.groupOn"), tone: "success", items: sorted.filter((b) => b.isActive).map(item) },
+      { key: "off", title: t("manage.groupOff"), tone: "secondary", items: sorted.filter((b) => !b.isActive).map(item) },
+    ];
   }, [bills, categoryFor, locale, now, t]);
 
   const byId = (id: string) => bills.find((bill) => bill.id === id);
@@ -83,6 +87,10 @@ export function BillManage({
       }}
       deleteLocked={deleteLocked}
       deleteReason={deleteReason}
+      onToggle={(id, active) => {
+        const bill = byId(id);
+        if (bill) onToggle(bill, active);
+      }}
     />
   );
 }

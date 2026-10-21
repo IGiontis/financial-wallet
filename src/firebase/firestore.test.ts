@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { goalHeldTotal } from "../features/accounts/accountsUtils";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import type { InvestmentContribution, InvestmentGoal, Transaction } from "../shared/types/IndexTypes";
-import { createContributionWithTransaction, createTransaction, deleteAllUserData, deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, updateTransaction } from "./firestore";
+import { createContributionWithTransaction, createTransaction, deleteAllUserData, deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, updateTransaction } from "./firestore";
+import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // The data layer against a small in-memory Firestore.
 //
@@ -25,6 +26,9 @@ const fs = vi.hoisted(() => {
   const store = new Map<string, Map<string, Data>>();
   const batches: Op[][] = [];
   let auto = 0;
+  // As the security rules do: a delete of a document that is not there has no
+  // owner to check, is refused, and fails the whole batch with it.
+  const rules = { strictDeletes: false };
 
   const table = (col: string) => {
     let t = store.get(col);
@@ -47,10 +51,12 @@ const fs = vi.hoisted(() => {
     store,
     batches,
     table,
+    rules,
     reset: () => {
       store.clear();
       batches.length = 0;
       auto = 0;
+      rules.strictDeletes = false;
     },
     api: {
       collection: (_db: unknown, name: string) => ({ kind: "collection", col: name }),
@@ -79,6 +85,7 @@ const fs = vi.hoisted(() => {
           update: (r: Ref, d: Data) => ops.push(["update", r, d]),
           delete: (r: Ref) => ops.push(["delete", r]),
           commit: async () => {
+            if (rules.strictDeletes && ops.some(([kind, r]) => kind === "delete" && !table(r.col).has(r.id))) throw Object.assign(new Error("PERMISSION_DENIED"), { code: "permission-denied" });
             batches.push(ops);
             ops.forEach(apply);
           },
@@ -378,5 +385,36 @@ describe("deleteAllUserData", () => {
       expect(ids(col)).toEqual([`${col}-theirs`]);
     }
     expect(ids("users")).toEqual([]);
+  });
+});
+
+// ─── A debt's money ───────────────────────────────────────────────────────────
+
+describe("syncDebtCash", () => {
+  const record = (id: string, amount: number) => ({ id, type: "income", amount, categoryId: "", date: day(10), description: "Maria", debtId: "d1", debtPart: "principal" }) as unknown as DebtCashRecord;
+
+  it("deletes only the records that exist, so the rules do not refuse the whole write", async () => {
+    fs.rules.strictDeletes = true;
+    put("transactions", "debtpay_p1", { userId: "u1", amount: 150, type: "income" });
+    // p2 is new; neither repayment carries interest, so no debtint_ was ever written.
+    await syncDebtCash("u1", [record("debtpay_p2", 100)], ["debtpay_p1", "debtint_p1", "debtint_p2"], ["debtpay_p1"]);
+
+    expect(ids("transactions")).toEqual(["debtpay_p2"]);
+    expect(fs.table("transactions").get("debtpay_p2")).toMatchObject({ userId: "u1", amount: 100 });
+    expect(fs.batches[0].filter(([kind]) => kind === "delete").map(([, r]) => r.id)).toEqual(["debtpay_p1"]);
+    expect(noted.deleted.at(-1)).toEqual(["u1", "transactions", ["debtpay_p1"]]);
+  });
+
+  it("writes the new money even when nothing it might replace exists", async () => {
+    fs.rules.strictDeletes = true;
+    await syncDebtCash("u1", [record("debtpay_p9", 100)], ["debtint_p9"], []);
+    expect(ids("transactions")).toEqual(["debtpay_p9"]);
+  });
+
+  it("never deletes an id it was told exists but was not asked to remove", async () => {
+    put("transactions", "t-coffee", { userId: "u1", amount: 3 });
+    await syncDebtCash("u1", [], ["debtint_p1"], ["t-coffee"]);
+    expect(ids("transactions")).toEqual(["t-coffee"]);
+    expect(fs.batches).toHaveLength(0);
   });
 });

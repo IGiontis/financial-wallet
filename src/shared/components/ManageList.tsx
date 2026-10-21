@@ -1,4 +1,4 @@
-import { Badge } from "reactstrap";
+import { Badge, Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import styles from "../css/ManageList.module.css";
@@ -14,6 +14,8 @@ export interface ManageItem {
   offTag?: string;
   /** Said of it without dimming it: «Μισθός». */
   tag?: string;
+  /** On or off, shown as a switch when the list can change it. */
+  active?: boolean;
 }
 
 export interface ManageGroup {
@@ -40,8 +42,11 @@ export function ManageList({
   onDelete,
   deleteLocked,
   deleteReason,
+  onToggle,
 }: {
   groups: ManageGroup[];
+  /** Switches one on or off. Absent: no switches. */
+  onToggle?: (id: string, active: boolean) => void;
   hint?: string;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -63,7 +68,7 @@ export function ManageList({
               </Badge>
               <ul className={styles.list}>
                 {group.items.map((item) => (
-                  <li key={item.id} className={`${styles.row} ${item.offTag ? styles.rowOff : ""}`}>
+                  <li key={item.id} className={`${styles.row} ${item.offTag || item.active === false ? styles.rowOff : ""}`}>
                     <button type="button" className={styles.main} onClick={() => onEdit(item.id)} aria-label={t("manage.editName", { name: item.name })}>
                       <span className={styles.icon} aria-hidden>
                         {item.icon}
@@ -77,6 +82,21 @@ export function ManageList({
                         <span className={styles.meta}>{item.meta}</span>
                       </span>
                     </button>
+                    {onToggle && item.active !== undefined && (
+                      // A switch rather than a word: on or off in one tap, and plain to see which.
+                      // Bootstrap draws it as a switch only inside `.form-switch`.
+                      <span className={`form-switch ${styles.switchWrap}`}>
+                        <Input
+                          type="switch"
+                          role="switch"
+                          className={styles.toggle}
+                          checked={item.active}
+                          onChange={(e) => onToggle(item.id, e.target.checked)}
+                          aria-label={t("manage.activeName", { name: item.name })}
+                          title={t(item.active ? "manage.on" : "manage.off")}
+                        />
+                      </span>
+                    )}
                     <button type="button" className={styles.btn} onClick={() => onEdit(item.id)} aria-label={t("manage.editName", { name: item.name })} title={t("manage.edit")}>
                       <FiEdit2 size={15} aria-hidden />
                     </button>

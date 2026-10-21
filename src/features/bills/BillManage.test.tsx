@@ -29,23 +29,22 @@ beforeAll(async () => {
 const renderList = (props: Partial<Parameters<typeof BillManage>[0]> = {}) => {
   const onEdit = vi.fn();
   const onDelete = vi.fn();
-  render(<BillManage bills={BILLS} categoryFor={categoryFor} now={NOW} onEdit={onEdit} onDelete={onDelete} {...props} />);
-  return { onEdit, onDelete };
+  const onToggle = vi.fn();
+  render(<BillManage bills={BILLS} categoryFor={categoryFor} now={NOW} onEdit={onEdit} onDelete={onDelete} onToggle={onToggle} {...props} />);
+  return { onEdit, onDelete, onToggle };
 };
 
 describe("the bills' manage list", () => {
-  it("lists every bill, gathered by how often and alphabetical inside, with no amounts", () => {
+  it("lists the active bills, then the inactive ones, alphabetical, with no amounts", () => {
     renderList();
     expect(screen.getByText("6 bills. Tap one to change it.")).toBeInTheDocument();
-    const monthly = within(screen.getByRole("region", { name: "Monthly" }));
-    expect(monthly.getAllByRole("button", { name: /^Edit: / }).filter((_, i) => i % 2 === 0).map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Edit: Gym",
-      "Edit: Later",
-      "Edit: Netflix",
-      "Edit: Old phone",
-    ]);
-    expect(screen.getByRole("region", { name: "Yearly" })).toHaveTextContent("Car insurance");
-    expect(screen.getByRole("region", { name: "Weekly" })).toHaveTextContent("Cleaner");
+    const names = (region: string) =>
+      within(screen.getByRole("region", { name: region }))
+        .getAllByRole("button", { name: /^Edit: / })
+        .filter((_, i) => i % 2 === 0)
+        .map((b) => b.getAttribute("aria-label"));
+    expect(names("Active")).toEqual(["Edit: Car insurance", "Edit: Cleaner", "Edit: Gym", "Edit: Later", "Edit: Netflix"]);
+    expect(names("Inactive")).toEqual(["Edit: Old phone"]);
     // Not a figure on the page.
     expect(document.body.textContent).not.toMatch(/€|\d+[.,]\d\d/);
   });
@@ -53,13 +52,14 @@ describe("the bills' manage list", () => {
   it("says when each falls, and tags whatever is not running", () => {
     renderList();
     const row = (name: string) => screen.getAllByRole("button", { name: `Edit: ${name}` })[0];
-    expect(row("Netflix")).toHaveTextContent("day 20 of the month");
-    expect(row("Car insurance")).toHaveTextContent(/10 Mar/);
-    expect(row("Cleaner")).toHaveTextContent("every Monday");
+    expect(row("Netflix")).toHaveTextContent("Monthly · day 20 of the month");
+    expect(row("Car insurance")).toHaveTextContent(/Yearly · 10 Mar/);
+    expect(row("Cleaner")).toHaveTextContent("Weekly · every Monday");
     expect(row("Gym")).toHaveTextContent("paused");
-    expect(row("Old phone")).toHaveTextContent("off");
     expect(row("Later")).toHaveTextContent(/Starts Nov/);
-    expect(row("Netflix")).not.toHaveTextContent(/paused|off|stopped|Starts/);
+    expect(row("Netflix")).not.toHaveTextContent(/paused|stopped|Starts/);
+    // Off is said by its group and its switch, not by a tag as well.
+    expect(row("Old phone")).toHaveTextContent(/^🎬Old phoneMonthly · day 20 of the month$/);
   });
 
   it("opens the edit from the row or the pencil, and hands the bin's bill on to be asked about", async () => {
@@ -71,6 +71,16 @@ describe("the bills' manage list", () => {
     expect(onEdit.mock.calls.every(([b]) => b.id === "n")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Delete: Gym" }));
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "g" }));
+  });
+
+  it("switches a bill on or off from its own row, and shows which it is", async () => {
+    const { onToggle } = renderList();
+    expect(screen.getByRole("switch", { name: "Active: Netflix" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Active: Old phone" })).not.toBeChecked();
+    await userEvent.click(screen.getByRole("switch", { name: "Active: Netflix" }));
+    expect(onToggle).toHaveBeenLastCalledWith(expect.objectContaining({ id: "n" }), false);
+    await userEvent.click(screen.getByRole("switch", { name: "Active: Old phone" }));
+    expect(onToggle).toHaveBeenLastCalledWith(expect.objectContaining({ id: "o" }), true);
   });
 
   it("keeps the bins shut while deleting is locked, saying why", () => {

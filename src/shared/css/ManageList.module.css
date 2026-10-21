@@ -131,3 +131,20 @@
 .btn:disabled {
   opacity: 0.4;
 }
+
+/* Bootstrap's switch, a little larger: a thumb's target in a row of icons. */
+.switchWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 0;
+}
+
+/* Over Bootstrap's own `.form-switch .form-check-input`, which floats it left of a label it does not have here. */
+.switchWrap :global(.form-check-input).toggle {
+  float: none;
+  margin: 0;
+  width: 2.4em;
+  height: 1.3em;
+  cursor: pointer;
+}
