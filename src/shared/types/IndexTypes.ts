@@ -529,6 +529,8 @@ export interface CreateBillDTO {
   pause?: BillPause | null;
   /** See `Bill.startsOn`. `null` from an edit that cleared it. */
   startsOn?: string | null;
+  /** Switched off: kept, counted nowhere. On unless said. */
+  isActive?: boolean;
 }
 
 export interface UpdateBillDTO {

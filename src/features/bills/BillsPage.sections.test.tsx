@@ -85,6 +85,9 @@ beforeAll(async () => {
       part("cover", "2026", 1, 150, new Date(2026, 3, 1)),
       part("cover", "2026", 0, 150, new Date(2026, 2, 1)),
     ]),
+    // Switched off, and unpaid: it must count nowhere — the totals above are
+    // the same with it here as without it.
+    make({ id: "phone", name: "Old phone", amount: 25, dueDay: 10, isActive: false }),
   ];
   window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
   await i18n.changeLanguage("en");
@@ -110,8 +113,8 @@ describe("the list's headings", () => {
     expect(outstanding.total).toBe("€255.00");
     // Second route, by hand: Netflix, and the gym's two parts still to come.
     expect(15 + 0 + 0 + (360 - 120)).toBe(255);
-    // Third: what each unpaid bill says it still owes.
-    const unpaid = page.bills.filter((b) => !b.isPaidThisPeriod);
+    // Third: what each unpaid bill that is switched on says it still owes.
+    const unpaid = page.bills.filter((b) => b.isActive && !b.isPaidThisPeriod);
     expect(unpaid.reduce((sum, b) => sum + b.outstandingAmount, 0)).toBe(255);
 
     expect(settled.title).toMatch(/^Paid/);
@@ -161,5 +164,20 @@ describe("the late list on a part-paid bill", () => {
     expect(late.bills.map((b) => amountDueNext(b, NOW)).reduce((s, a) => s + a, 0)).toBe(135);
     // Netflix is this month's only charge still open; the gym's November part is the other.
     expect(monthForecast(page.bills, NOW, 0).total).toBe(135);
+  });
+});
+
+describe("a switched-off bill", () => {
+  it("is not among what is to pay, but last, under a heading of its own with no total", () => {
+    render(<BillsPage />, { wrapper: MemoryRouter });
+    const list = headings();
+    expect(list.map((h) => h.title.replace(/\d+ bills?$/, ""))).toEqual(["Still to pay", "Paid", "Inactive"]);
+    // Still to pay is the same €255 it was without it: its €25 is not in it.
+    expect(list[0].total).toBe("€255.00");
+    expect(list[2].total).toBe("");
+
+    const name = screen.getByText("Old phone");
+    // Marked where it stands: the tag beside the name.
+    expect(name.parentElement).toHaveTextContent("Inactive");
   });
 });

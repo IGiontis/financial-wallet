@@ -187,12 +187,12 @@ export default function CalendarPage() {
       <p className={styles.scope}>{t("calendar.scope")}</p>
 
       <div className={styles.totals}>
-        <span className={styles.totalIn}>
+        <span className={`${styles.totalIn} tone-tile tone-tile-income`}>
           <span className={styles.totalLabel}>{t("calendar.in")}</span>
           <strong>{formatCurrency(totals.in)}</strong>
           <span className={styles.totalSub}>{t("calendar.cameOf", { amount: formatCurrency(totals.inDone) })}</span>
         </span>
-        <span className={styles.totalOut}>
+        <span className={`${styles.totalOut} tone-tile tone-tile-expense`}>
           <span className={styles.totalLabel}>{t("calendar.out")}</span>
           <strong>{formatCurrency(totals.out)}</strong>
           <span className={styles.totalSub}>{t("calendar.paidOf", { amount: formatCurrency(totals.outDone) })}</span>

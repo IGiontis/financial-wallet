@@ -525,7 +525,7 @@
   font-size: 10.5px;
   font-weight: 600;
   white-space: nowrap;
-  background: color-mix(in srgb, var(--color-income) 15%, transparent);
+  background: var(--income-wash);
   color: var(--color-income);
 }
 
@@ -653,11 +653,11 @@
   background:
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--color-expense) 22%, transparent) 0 3px,
+      var(--expense-wash-strong) 0 3px,
       transparent 3px 7px
     ),
     var(--color-background-secondary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-expense) 30%, transparent);
+  box-shadow: inset 0 0 0 1px var(--expense-edge);
 }
 
 .monthChipFilled {
@@ -973,14 +973,14 @@
 }
 
 .monthCell_paid {
-  border-color: color-mix(in srgb, var(--color-income) 25%, transparent);
-  background: color-mix(in srgb, var(--color-income) 10%, transparent);
+  border-color: var(--income-edge);
+  background: var(--income-wash);
   color: var(--color-income);
 }
 
 .monthCell_overdue {
-  border-color: color-mix(in srgb, var(--color-expense) 25%, transparent);
-  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+  border-color: var(--expense-edge);
+  background: var(--expense-wash);
   color: var(--color-expense);
 }
 
@@ -993,8 +993,8 @@
 }
 
 .monthCell_due {
-  border-color: color-mix(in srgb, var(--color-goal) 30%, transparent);
-  background: color-mix(in srgb, var(--color-goal) 12%, transparent);
+  border-color: var(--goal-edge);
+  background: var(--goal-wash);
   color: var(--color-goal);
 }
 
@@ -1006,14 +1006,14 @@
 }
 
 .monthCell_partial {
-  border-color: color-mix(in srgb, var(--color-income) 25%, transparent);
-  background: color-mix(in srgb, var(--color-income) 10%, transparent);
+  border-color: var(--income-edge);
+  background: var(--income-wash);
   color: var(--color-income);
 }
 
 .monthCell_partial.monthCellStart {
   border-color: var(--color-goal);
-  background: color-mix(in srgb, var(--color-goal) 20%, transparent);
+  background: var(--goal-wash-strong);
   color: var(--color-goal);
 }
 
@@ -1023,12 +1023,12 @@
    a pale colour otherwise just reads as a washed-out version of overdue. */
 .monthCell_future {
   border-style: dashed;
-  border-color: color-mix(in srgb, var(--color-expense) 30%, transparent);
+  border-color: var(--expense-edge);
   color: color-mix(in srgb, var(--color-expense) 75%, var(--color-text-secondary));
   background:
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--color-expense) 13%, transparent) 0 3px,
+      var(--expense-wash) 0 3px,
       transparent 3px 7px
     );
 }
@@ -1043,18 +1043,18 @@
 
 .monthCell_paid.monthCellStart {
   border-color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+  background: var(--income-wash-strong);
 }
 
 .monthCell_overdue.monthCellStart {
   border-color: var(--color-expense);
-  background: color-mix(in srgb, var(--color-expense) 22%, transparent);
+  background: var(--expense-wash-strong);
 }
 
 .monthCell_due.monthCellStart {
   border-style: solid;
   border-color: var(--color-goal);
-  background: color-mix(in srgb, var(--color-goal) 22%, transparent);
+  background: var(--goal-wash-strong);
   color: var(--color-goal);
 }
 
@@ -1063,12 +1063,12 @@
    month. */
 .monthCell_future.monthCellStart {
   border-style: solid;
-  border-color: color-mix(in srgb, var(--color-expense) 55%, transparent);
+  border-color: var(--expense-edge-strong);
   color: var(--color-expense);
   background:
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--color-expense) 24%, transparent) 0 3px,
+      var(--expense-wash-strong) 0 3px,
       transparent 3px 7px
     );
 }
@@ -1078,14 +1078,14 @@
    Last in the cascade, so it outranks the coverage colour it sits on top of. */
 .monthCell.monthCellPartPaid {
   border-color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+  background: var(--income-wash-strong);
   color: var(--color-income);
 }
 
 .monthCell.monthCellPartOwed {
   border-style: solid;
   border-color: var(--color-goal);
-  background: color-mix(in srgb, var(--color-goal) 20%, transparent);
+  background: var(--goal-wash-strong);
   color: var(--color-goal);
 }
 
@@ -1269,10 +1269,10 @@
 
 .viewToggle {
   display: flex;
-  gap: 2px;
-  padding: 3px;
+  gap: var(--segment-gap);
+  padding: var(--segment-pad);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  background: var(--segment-track);
   flex-shrink: 0;
 }
 
@@ -1280,9 +1280,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border: 0.5px solid transparent;
+  border: 1px solid var(--segment-item-border);
   border-radius: var(--border-radius-sm);
-  background: transparent;
+  background: var(--segment-item);
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
@@ -1296,13 +1296,14 @@
 }
 
 .viewBtn:hover:not(.viewBtnOn) {
+  border-color: var(--segment-item-hover-border);
   color: var(--color-text-primary);
 }
 
 .viewBtnOn {
   background: var(--color-segment-active);
   border-color: var(--color-segment-active-border);
-  color: var(--color-text-primary);
+  color: var(--color-segment-active-text);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
@@ -1420,7 +1421,7 @@
 /* Unpaid but not late: orange, between the paid green and the late red. Not
    blue — the monthly cadence badge right beside it is blue. */
 .linePillDue {
-  background: color-mix(in srgb, var(--color-pending) 16%, transparent);
+  background: var(--pending-wash);
   color: var(--color-pending-text);
 }
 
@@ -1437,17 +1438,17 @@
 }
 
 .linePillLate {
-  background: color-mix(in srgb, var(--color-expense) 15%, transparent);
+  background: var(--expense-wash);
   color: var(--color-expense-text);
 }
 
 .linePillPaused {
-  background: color-mix(in srgb, var(--color-goal) 15%, transparent);
+  background: var(--goal-wash);
   color: var(--color-goal-text);
 }
 
 .linePillPaid {
-  background: color-mix(in srgb, var(--color-income) 15%, transparent);
+  background: var(--income-wash);
   color: var(--color-income-text);
 }
 
@@ -1915,8 +1916,8 @@
 }
 
 .runwayDateChipLate {
-  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
+  background: var(--expense-wash);
+  border-color: var(--expense-edge);
   color: var(--color-expense-text);
 }
 
@@ -1997,7 +1998,9 @@
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  /* A card's surface: these sit on the page itself, where the inset grey they
+     used to have was the page's own colour and the tiles vanished into it. */
+  background: var(--color-surface);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -2031,7 +2034,7 @@
 
 /* «Κουτάκια» on «Πληρωμές»: the «Ενεργά πάγια» box, telling where each bill stands. */
 .activeCardLate {
-  border-color: color-mix(in srgb, var(--color-expense) 55%, transparent);
+  border-color: var(--expense-edge-strong);
   box-shadow: inset 3px 0 0 var(--color-expense);
 }
 
@@ -2046,4 +2049,58 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-secondary);
+}
+
+/* The light theme's strong card is the deep Aegean blue, here as on the
+   Overview's money card — not the tooltip's near-black, which sat in the light
+   page like a piece of the dark theme left behind. */
+:global([data-bs-theme="light"]) .yearlyCard {
+  background: #0f3d7a;
+}
+
+/* ── A switched-off bill, the same in every view ──────────────────────────────
+   Its name struck through, an «Ανενεργό» tag, and its colours gone grey — a
+   late red or a paid green on it would say it still counts. The tiles carry a
+   faint X across them as well, the one mark a box with no room for words has. */
+/* As faint as a paid bill that will not come again (.billCardDone) — the
+   two are the same kind of thing: nothing to do about either. */
+.billOff {
+  color: var(--color-text-secondary);
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.billOff:hover,
+.billOff:focus-visible {
+  opacity: 0.8;
+}
+
+.billOff .cardName,
+.billOff .lineName,
+.billOff .activeCardName {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.offTag {
+  display: inline-block;
+  /* Its own width in a column of the tile, not the column's. */
+  align-self: flex-start;
+  margin-left: 6px;
+  padding: 0 7px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.activeCardOff {
+  --x-line: var(--color-border-tertiary);
+  background-image:
+    linear-gradient(to top right, transparent calc(50% - 0.75px), var(--x-line) calc(50% - 0.75px), var(--x-line) calc(50% + 0.75px), transparent calc(50% + 0.75px)),
+    linear-gradient(to bottom right, transparent calc(50% - 0.75px), var(--x-line) calc(50% - 0.75px), var(--x-line) calc(50% + 0.75px), transparent calc(50% + 0.75px));
 }

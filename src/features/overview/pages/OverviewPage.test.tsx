@@ -165,8 +165,22 @@ describe("the overview", () => {
     renderPage();
     expect(screen.getByText("You don't make it to payday")).toBeInTheDocument();
     expect(50 - 68.4).toBeCloseTo(-18.4, 2);
-    expect(screen.getByText("€-18.40")).toBeInTheDocument();
-    expect(screen.getByText(/You need €68.40 and have €50.00\. You go below zero on .*, at “Water”\./)).toBeInTheDocument();
+    // Twice, and the same: the figure, and the receipt's last line under it.
+    expect(screen.getAllByText("€-18.40")).toHaveLength(2);
+    // Worked out as a receipt, each part named, ending on the figure above it.
+    const sum = screen.getByText("You have now").closest("dl") as HTMLElement;
+    const rows = within(sum)
+      .getAllByRole("term")
+      .map((term) => [term.textContent, term.nextElementSibling?.textContent]);
+    expect(rows).toEqual([
+      ["You have now", "€50.00"],
+      ["−Bills", "€68.40"],
+      ["=Left", "€-18.40"],
+    ]);
+    // A second way: the lines add up to the figure.
+    expect(50 - 68.4).toBeCloseTo(-18.4, 2);
+    expect(screen.getByText(/^Below zero from .*, because of “Water”\.$/)).toBeInTheDocument();
+    expect(screen.queryByText(/You need/)).not.toBeInTheDocument();
   });
 
   it("is for looking: no actions, every row of the list leads to its page", async () => {

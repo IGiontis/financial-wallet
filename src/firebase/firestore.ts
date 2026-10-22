@@ -565,7 +565,7 @@ export const createBill = async (userId: string, data: CreateBillDTO, id: string
   // meaningful on an edit, where it means "take the pause away".
   const { pause, startsOn, ...rest } = data;
   await setDoc(doc(db, "bills", id), {
-    ...clean({ ...rest, pause: pause ? clean({ ...pause }) : undefined, startsOn: startsOn || undefined, userId, isActive: true }),
+    ...clean({ ...rest, pause: pause ? clean({ ...pause }) : undefined, startsOn: startsOn || undefined, userId, isActive: rest.isActive ?? true }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

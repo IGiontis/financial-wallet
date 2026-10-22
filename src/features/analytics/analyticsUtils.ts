@@ -63,6 +63,23 @@ export interface MonthlyFlow {
   goals: number;
   /** income − expenses: what you kept, whether it sits in cash or in a goal. */
   net: number;
+  /**
+   * What was saved: `net` less what went into goals — the money invested and
+   * the money left in the bank. A goal's money is set aside to be spent on it,
+   * so it is not saving; see `savingsRate`.
+   */
+  kept: number;
+}
+
+/**
+ * The share of income saved, as a percentage: invested or left in the bank,
+ * but not set aside for a goal. `undefined` with no income — a rate of 0%
+ * would be a claim that cannot be made.
+ *
+ * 2,000 in, 1,200 spent, 300 into a goal, 200 invested, 300 left: 25%.
+ */
+export function savingsRate(income: number, kept: number): number | undefined {
+  return income > 0 ? round2((kept / income) * 100) : undefined;
 }
 
 /**
@@ -85,7 +102,7 @@ export function monthlyFlows(transactions: Transaction[], from: Date | null, to:
 
   const months: MonthlyFlow[] = [];
   for (let cursor = first; cursor <= last; cursor = addMonth(cursor, 1)) {
-    months.push({ key: monthKey(cursor), start: cursor, income: 0, expenses: 0, invested: 0, goals: 0, net: 0 });
+    months.push({ key: monthKey(cursor), start: cursor, income: 0, expenses: 0, invested: 0, goals: 0, net: 0, kept: 0 });
   }
 
   const byKey = new Map(months.map((m) => [m.key, m]));
@@ -118,6 +135,7 @@ export function monthlyFlows(transactions: Transaction[], from: Date | null, to:
     m.invested = round2(m.invested);
     m.goals = round2(m.goals);
     m.net = round2(m.income - m.expenses);
+    m.kept = round2(m.net - m.goals);
   }
 
   return months;
@@ -148,8 +166,8 @@ export interface SavingsPoint {
   start: Date;
   income: number;
   net: number;
-  /** Percentage of income kept. `null` for a month with no income at all — a
-   *  rate of 0% would be a claim we can't make. */
+  kept: number;
+  /** Percentage of income saved — see `savingsRate`. `null` for a month with no income at all. */
   rate: number | null;
 }
 
@@ -159,7 +177,8 @@ export function savingsRateSeries(flows: MonthlyFlow[]): SavingsPoint[] {
     start: f.start,
     income: f.income,
     net: f.net,
-    rate: f.income > 0 ? round2((f.net / f.income) * 100) : null,
+    kept: f.kept,
+    rate: savingsRate(f.income, f.kept) ?? null,
   }));
 }
 
@@ -169,9 +188,7 @@ export function savingsRateSeries(flows: MonthlyFlow[]): SavingsPoint[] {
  */
 export function averageSavingsRate(flows: MonthlyFlow[]): number | undefined {
   const income = flows.reduce((s, f) => s + f.income, 0);
-  if (income <= 0) return undefined;
-  const net = flows.reduce((s, f) => s + f.net, 0);
-  return round2((net / income) * 100);
+  return savingsRate(income, flows.reduce((s, f) => s + f.kept, 0));
 }
 
 // ─── Category mix over time ───────────────────────────────────────────────
@@ -351,7 +368,10 @@ export function monthPace(transactions: Transaction[], now: Date = new Date()): 
 // ─── Money flow ──────────────────────────────────────────────────────────
 
 export const FLOW_HUB_ID = "hub";
+/** Money put into investments — the one kind of saving. */
 export const FLOW_SAVINGS_ID = "savings";
+/** Money set aside for a goal: kept apart to be spent on it, so neither spending nor saving. */
+export const FLOW_GOALS_ID = "goals";
 export const FLOW_LEFTOVER_ID = "leftover";
 export const FLOW_DEFICIT_ID = "deficit";
 export const FLOW_WITHDRAWALS_ID = "withdrawals";
@@ -359,7 +379,7 @@ export const FLOW_WITHDRAWALS_ID = "withdrawals";
 export interface FlowNode {
   /** Unique across the whole diagram — see the prefixing note below. */
   id: string;
-  kind: "income" | "hub" | "expense" | "savings" | "leftover";
+  kind: "income" | "hub" | "expense" | "savings" | "goals" | "leftover";
   /** Set when the node stands for a real category, for labelling. */
   categoryId?: string;
   value: number;
@@ -418,11 +438,10 @@ export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | u
   const otherSpend = foldedSpend.reduce((s, [, v]) => s + v, 0);
 
   const totalSpend = rankedSpend.reduce((s, [, v]) => s + v, 0);
-  const savings = invested + goals;
   const earned = Array.from(incomeByCategory.values()).reduce((s, v) => s + v, 0) + withdrawals;
-  const balance = earned - totalSpend - savings;
+  const balance = earned - totalSpend - invested - goals;
 
-  if (earned === 0 && totalSpend === 0 && savings === 0) return undefined;
+  if (earned === 0 && totalSpend === 0 && invested === 0 && goals === 0) return undefined;
 
   const deficit = balance < 0 ? -balance : 0;
   const leftover = balance > 0 ? balance : 0;
@@ -451,7 +470,9 @@ export function moneyFlow(transactions: Transaction[], limit = 6): MoneyFlow | u
 
   for (const [categoryId, value] of topSpend) addSink(`out:${categoryId}`, "expense", value, categoryId);
   addSink(`out:${OTHER_CATEGORY_ID}`, "expense", otherSpend, OTHER_CATEGORY_ID);
-  addSink(FLOW_SAVINGS_ID, "savings", savings);
+  // Apart: a goal's money is set aside to be spent, an investment's is saved.
+  addSink(FLOW_GOALS_ID, "goals", goals);
+  addSink(FLOW_SAVINGS_ID, "savings", invested);
   addSink(FLOW_LEFTOVER_ID, "leftover", leftover);
 
   return { nodes, links, total: round2(total), otherCount: foldedSpend.length };
@@ -582,8 +603,10 @@ export function categorySeries(transactions: Transaction[], flows: MonthlyFlow[]
  */
 export const WATERFALL_INCOME_ID = "income";
 export const WATERFALL_LEFTOVER_ID = "leftover";
-/** Money put into goals and investments. Underscored like `OTHER_CATEGORY_ID`, so no category id can collide with it. */
+/** Money put into investments. Underscored like `OTHER_CATEGORY_ID`, so no category id can collide with it. */
 export const WATERFALL_SAVINGS_ID = "__savings__";
+/** Money set aside for goals — its own step, not saving. */
+export const WATERFALL_GOALS_ID = "__goals__";
 
 export interface WaterfallStep {
   id: string;
@@ -591,13 +614,16 @@ export interface WaterfallStep {
   amount: number;
   /** Running total after this step. */
   balance: number;
-  /** "savings" is money moved into goals and investments: it leaves the pot like a cost, but it is not spending. */
-  kind: "income" | "expense" | "savings" | "result";
+  /**
+   * "savings" is money moved into investments, "goals" money set aside for a
+   * goal: both leave the pot like a cost, and neither is spending.
+   */
+  kind: "income" | "expense" | "savings" | "goals" | "result";
 }
 
 /**
- * Income, then each large category taken off it in turn, then what went into
- * goals and investments, then what survived.
+ * Income, then each large category taken off it in turn, then what was set
+ * aside for goals, then what went into investments, then what survived.
  *
  * The same figures the Sankey carries, but on a shared baseline — so "which of
  * these is bigger" is answered by comparing two heights rather than the widths
@@ -615,7 +641,10 @@ export interface WaterfallStep {
 export function spendingWaterfall(transactions: Transaction[], limit = 6): WaterfallStep[] {
   const earned = transactions.filter((tx) => (!isTransfer(tx) && !isMoneyMove(tx) && tx.type === "income") || (isTransfer(tx) && tx.contributionType === "withdrawal"));
   const income = round2(earned.reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
-  const savings = round2(transactions.filter((tx) => isTransfer(tx) && tx.contributionType !== "withdrawal").reduce((sum, tx) => sum + Math.abs(tx.amount), 0));
+  const deposits = transactions.filter((tx) => isTransfer(tx) && tx.contributionType !== "withdrawal");
+  const sum = (rows: Transaction[]) => round2(rows.reduce((total, tx) => total + Math.abs(tx.amount), 0));
+  const goals = sum(deposits.filter(isGoalContribution));
+  const savings = sum(deposits.filter((tx) => !isGoalContribution(tx)));
 
   const totals = new Map<string, number>();
   for (const tx of transactions.filter(isSpending)) totals.set(tx.categoryId, round2((totals.get(tx.categoryId) ?? 0) + Math.abs(tx.amount)));
@@ -635,6 +664,10 @@ export function spendingWaterfall(transactions: Transaction[], limit = 6): Water
   if (rest > 0) {
     balance = round2(balance - rest);
     steps.push({ id: OTHER_CATEGORY_ID, amount: -rest, balance, kind: "expense" });
+  }
+  if (goals > 0) {
+    balance = round2(balance - goals);
+    steps.push({ id: WATERFALL_GOALS_ID, amount: -goals, balance, kind: "goals" });
   }
   if (savings > 0) {
     balance = round2(balance - savings);

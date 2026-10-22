@@ -71,7 +71,7 @@ const createdBillIds = new WeakMap<CreateBillDTO, string>();
 function newBill(userId: string, id: string, data: CreateBillDTO): Bill {
   const { pause, startsOn, ...rest } = data;
   const now = new Date();
-  return { ...withoutUndefined(rest), ...(pause ? { pause: withoutUndefined(pause) } : {}), ...(startsOn ? { startsOn } : {}), id, userId, isActive: true, createdAt: now, updatedAt: now } as Bill;
+  return { ...withoutUndefined(rest), ...(pause ? { pause: withoutUndefined(pause) } : {}), ...(startsOn ? { startsOn } : {}), id, userId, isActive: rest.isActive ?? true, createdAt: now, updatedAt: now } as Bill;
 }
 
 /** What `updateBill` leaves in the document: `pause: null` removes the pause. */

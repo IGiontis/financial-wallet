@@ -52,6 +52,8 @@ export default function MoneyFlowSankey({
           return palette.expense;
         case "savings":
           return palette.invest;
+        case "goals":
+          return palette.goal;
         default:
           return palette.goal;
       }

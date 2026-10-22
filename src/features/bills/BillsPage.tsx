@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { toneChip } from "../../shared/utils/tone";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
 import { FiSquare, FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
@@ -506,7 +507,7 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   if (!bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended")) {
     const month = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
     return pause.state === "paused" ? (
-      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-goal) 15%, transparent)", color: "var(--color-goal-text)" }}>
+      <span className={styles.statusChip} style={toneChip("goal")}>
         {t("bills.chipPausedUntil", { month: month.format(pause.to!) })}
       </span>
     ) : (
@@ -524,7 +525,7 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
     return (
       <span
         className={styles.statusChip}
-        style={{ background: "color-mix(in srgb, var(--color-income) 15%, transparent)", color: "var(--color-income)" }}
+        style={toneChip("income")}
         title={paid > 0 ? t("bills.chipPaidAmount", { amount: formatCurrency(paid) }) : undefined}
       >
         ✓ {paid > 0 ? formatCurrency(paid) : t("bills.paidRecently")}
@@ -536,7 +537,7 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   const days = daysUntilDeadline(bill, now);
   if (days === undefined) {
     return (
-      <span className={styles.statusChip} style={{ background: "color-mix(in srgb, var(--color-pending) 16%, transparent)", color: "var(--color-pending-text)" }}>
+      <span className={styles.statusChip} style={toneChip("pending")}>
         {t("bills.unpaid")}
       </span>
     );
@@ -720,6 +721,12 @@ function Metric({ label, value, sub, color }: { label: string; value: string; su
  * no room to explain itself, "€210" beside "every 6 months" is a fact, while
  * "€35" beside it is a calculation the reader has to be told about.
  */
+/** «Ανενεργό» — the same words beside a switched-off bill's name in every view. */
+function OffTag() {
+  const { t } = useTranslation();
+  return <span className={styles.offTag}>{t("bills.offTag")}</span>;
+}
+
 function BillLine({
   bill,
   category,
@@ -761,13 +768,16 @@ function BillLine({
   const when = late ? overdue.oldestDue : bill.nextDueDate;
 
   return (
-    <button type="button" className={`${styles.billLine} ${settled || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
+    <button type="button" className={`${styles.billLine} ${!bill.isActive ? styles.billOff : settled || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
       <span className={styles.lineIcon} aria-hidden>
         {category?.icon ?? "🧾"}
       </span>
 
       <span className={styles.lineMain}>
-        <span className={styles.lineName}>{bill.name}</span>
+        <span className={styles.lineName}>
+          {bill.name}
+          {!bill.isActive && <OffTag />}
+        </span>
         {/* Status first, from the left edge, so it lines up down the list
             instead of sliding with the width of the amount beside it. */}
         <span className={styles.lineTags}>
@@ -877,7 +887,7 @@ function BillCard({
 
   return (
     <div
-      className={`${styles.billCard} ${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`}
+      className={`${styles.billCard} ${!bill.isActive ? styles.billOff : `${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -907,6 +917,7 @@ function BillCard({
           <span className={`${styles.cardName} fw-semibold text-body-emphasis text-truncate`}>
             {bill.name}
             {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
+            {!bill.isActive && <OffTag />}
           </span>
           <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
           {/* On their own line from the left edge, status first: beside the
@@ -1134,10 +1145,13 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     // period that is behind on an earlier one. Listing that under "Paid"
     // buried exactly the bill the owner was looking for.
     const owes = (b: BillWithStatus) => !b.isPaidThisPeriod || billOverdue(b, now).count > 0;
-    const outstanding = bills.filter(owes).sort(byDeadline);
+    // Switched off: nothing to pay, so not among what is — listed last, by name.
+    const running = bills.filter((b) => b.isActive);
+    const inactive = bills.filter((b) => !b.isActive).sort((a, b) => a.name.localeCompare(b.name));
+    const outstanding = running.filter(owes).sort(byDeadline);
     // Most recently settled first — the useful order for a section you scan
     // only to confirm something went through.
-    const settled = bills.filter((b) => !owes(b)).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
+    const settled = running.filter((b) => !owes(b)).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
 
     // What is left on each period, not its price: a part-paid gym owes the parts
     // still to come, a paused or stopped bill owes nothing, and one switched off
@@ -1149,7 +1163,9 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     return [
       { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstandingTotal(outstanding), tone: "var(--color-expense)" },
       { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + paidThisPeriod(b), 0), tone: "var(--color-income)" },
-    ].filter((section) => section.bills.length > 0);
+      // No total: they count nowhere, and a figure would say they did.
+      { key: "inactive", title: t("bills.sectionInactive"), bills: inactive, note: t("bills.sectionInactiveNote"), tone: "var(--color-text-secondary)" },
+    ].filter((section) => section.bills.length > 0) as { key: string; title: string; bills: BillWithStatus[]; total?: number; note?: string; tone: string }[];
   }, [bills, t, now]);
 
   // Keep an open detail modal in sync after a payment lands or is undone.
@@ -1386,9 +1402,13 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                         {section.title}
                         <span className={styles.listSectionCount}>{t("bills.billCount", { count: section.bills.length })}</span>
                       </span>
-                      <span className={styles.listSectionTotal} style={{ color: section.tone }}>
-                        {formatCurrency(section.total)}
-                      </span>
+                      {section.total !== undefined ? (
+                        <span className={styles.listSectionTotal} style={{ color: section.tone }}>
+                          {formatCurrency(section.total)}
+                        </span>
+                      ) : (
+                        <span className={styles.listSectionCount}>{section.note}</span>
+                      )}
                     </div>
 
                     {billView === "tiles" ? (
@@ -1412,10 +1432,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                                   <button
                                     key={bill.id}
                                     type="button"
-                                    className={`${styles.activeCard} ${overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""}`}
+                                    className={`${styles.activeCard} ${!bill.isActive ? `${styles.billOff} ${styles.activeCardOff}` : overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""}`}
                                     onClick={() => setDetailBill(bill)}
                                   >
                                     <span className={styles.activeCardName}>{bill.name}</span>
+                                    {!bill.isActive && <OffTag />}
                                     <span className="d-flex flex-wrap align-items-center gap-1">
                                       <Badge pill color="light" className={`text-body border ${styles.activeCardChip}`}>
                                         {bill.isVariableAmount && !paid ? "~" : ""}

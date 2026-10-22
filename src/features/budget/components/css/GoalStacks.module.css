@@ -131,7 +131,7 @@
   place-items: center;
   border-radius: 999px;
   font-size: 17px;
-  background: color-mix(in srgb, var(--color-invest) 14%, transparent);
+  background: var(--invest-wash);
 }
 
 .main {
@@ -307,10 +307,10 @@
 
 .viewToggle {
   display: flex;
-  gap: 2px;
-  padding: 3px;
+  gap: var(--segment-gap);
+  padding: var(--segment-pad);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  background: var(--segment-track);
   flex-shrink: 0;
 }
 
@@ -318,9 +318,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border: 0.5px solid transparent;
+  border: 1px solid var(--segment-item-border);
   border-radius: var(--border-radius-sm);
-  background: transparent;
+  background: var(--segment-item);
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
@@ -334,13 +334,14 @@
 }
 
 .viewBtn:hover:not(.viewBtnOn) {
+  border-color: var(--segment-item-hover-border);
   color: var(--color-text-primary);
 }
 
 .viewBtnOn {
   background: var(--color-segment-active);
   border-color: var(--color-segment-active-border);
-  color: var(--color-text-primary);
+  color: var(--color-segment-active-text);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
 }

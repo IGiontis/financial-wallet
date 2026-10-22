@@ -25,6 +25,9 @@ import {
   FLOW_HUB_ID,
   FLOW_LEFTOVER_ID,
   FLOW_SAVINGS_ID,
+  savingsRate,
+  FLOW_GOALS_ID,
+  WATERFALL_GOALS_ID,
   FLOW_WITHDRAWALS_ID,
   OTHER_CATEGORY_ID,
   type AnalyticsRange,
@@ -127,7 +130,7 @@ export function AnalyticsPage() {
   );
   const lastYearTotals = useMemo(() => (comparable ? periodTotals(lastYearFlows) : undefined), [comparable, lastYearFlows]);
 
-  const kpiMonths = useMemo(() => flows.map((f) => ({ income: f.income, expenses: f.expenses, net: f.net, rate: f.income > 0 ? (f.net / f.income) * 100 : null })), [flows]);
+  const kpiMonths = useMemo(() => flows.map((f) => ({ income: f.income, expenses: f.expenses, net: f.net, rate: savingsRate(f.income, f.kept) ?? null })), [flows]);
 
   const flowLabel = useCallback(
     (node: FlowNode) => {
@@ -138,6 +141,8 @@ export function AnalyticsPage() {
           return t("analytics.moneyFlow.hub");
         case FLOW_SAVINGS_ID:
           return t("analytics.moneyFlow.savings");
+        case FLOW_GOALS_ID:
+          return t("analytics.moneyFlow.goals");
         case FLOW_LEFTOVER_ID:
           return t("analytics.moneyFlow.leftover");
         case FLOW_DEFICIT_ID:
@@ -169,6 +174,7 @@ export function AnalyticsPage() {
       if (id === OTHER_CATEGORY_ID) return t("analytics.waterfall.otherCategories");
       // The Sankey's own words for the same money, so the two charts agree on it.
       if (id === WATERFALL_SAVINGS_ID) return t("analytics.moneyFlow.savings");
+      if (id === WATERFALL_GOALS_ID) return t("analytics.moneyFlow.goals");
       return nameFor(id);
     },
     [nameFor, t, waterfall],

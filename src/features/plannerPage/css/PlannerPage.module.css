@@ -65,7 +65,7 @@
   padding: 2px 3px 2px 10px;
   border: 1px dashed var(--color-invest);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-invest) 14%, var(--color-surface));
+  background: var(--invest-wash-solid);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -87,7 +87,7 @@
 }
 
 .scenarioClose:hover {
-  background: color-mix(in srgb, var(--color-invest) 20%, transparent);
+  background: var(--invest-wash-strong);
 }
 
 .scenarioInput {
@@ -190,7 +190,7 @@
   margin: 0 -8px;
   padding: 3px 8px;
   border-radius: var(--border-radius-sm);
-  background: color-mix(in srgb, var(--color-income) 10%, var(--color-surface));
+  background: var(--income-wash-solid);
   font-weight: 700;
 }
 
@@ -199,7 +199,7 @@
 }
 
 .stepCloseShort {
-  background: color-mix(in srgb, var(--color-expense) 10%, var(--color-surface));
+  background: var(--expense-wash-solid);
   color: var(--color-expense-text);
 }
 
@@ -259,9 +259,9 @@
   min-width: 40px;
   min-height: 32px;
   padding: 0 10px;
-  border: 0;
+  border: 1px solid var(--segment-item-border);
   border-radius: 999px;
-  background: none;
+  background: var(--segment-item);
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -276,8 +276,9 @@
    from the same hue put them 3.69:1 apart, a chip legible as a shape with a
    label inside it that was not. */
 .horizonOn {
-  background: color-mix(in srgb, var(--bs-primary) 18%, transparent);
-  color: var(--color-text-primary);
+  background: var(--color-segment-active);
+  color: var(--color-segment-active-text);
+  border-color: var(--color-segment-active-border);
 }
 
 /* The subtraction behind "you end with", quiet under the chart. */
@@ -1207,9 +1208,9 @@
   width: 100%;
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--color-goal) 45%, transparent);
+  border: 1px solid var(--goal-edge);
   border-radius: var(--border-radius-md);
-  background: color-mix(in srgb, var(--color-goal) 12%, transparent);
+  background: var(--goal-wash);
   color: var(--color-goal-text);
   font-size: 12.5px;
   font-weight: 600;
@@ -1649,7 +1650,7 @@ span.scaleOpen {
   margin-inline: -8px;
   padding-inline: 8px;
   border-radius: var(--border-radius-sm);
-  background: color-mix(in srgb, var(--color-expense) 8%, transparent);
+  background: var(--expense-wash);
 }
 
 .dayHead {
@@ -1710,7 +1711,7 @@ span.scaleOpen {
   .dayUnder {
     margin-inline: 0;
     padding-inline: 12px;
-    border-color: color-mix(in srgb, var(--color-expense) 35%, transparent);
+    border-color: var(--expense-edge);
   }
 }
 
@@ -1924,35 +1925,35 @@ a.scaleToggle {
 }
 
 .flowAmountIn {
-  background: color-mix(in srgb, var(--color-income) 13%, transparent);
+  background: var(--income-wash);
   color: var(--color-income-text);
 }
 
 .flowAmountOut {
-  background: color-mix(in srgb, var(--color-expense) 13%, transparent);
+  background: var(--expense-wash);
   color: var(--color-expense-text);
 }
 
 /* ── The add button, in the colour of its side ────────────────────────────── */
 
 .scaleAddIn {
-  border: 1.5px solid color-mix(in srgb, var(--color-income) 60%, transparent);
-  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  border: 1.5px solid var(--income-edge-strong);
+  background: var(--income-wash);
   color: var(--color-income-text);
 }
 
 .scaleAddIn:hover {
-  background: color-mix(in srgb, var(--color-income) 22%, transparent);
+  background: var(--income-wash-strong);
 }
 
 .scaleAddOut {
-  border: 1.5px solid color-mix(in srgb, var(--color-expense) 60%, transparent);
-  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  border: 1.5px solid var(--expense-edge-strong);
+  background: var(--expense-wash);
   color: var(--color-expense-text);
 }
 
 .scaleAddOut:hover {
-  background: color-mix(in srgb, var(--color-expense) 22%, transparent);
+  background: var(--expense-wash-strong);
 }
 
 /* ── From a laptop up: boxes, not lines ───────────────────────────────────── */

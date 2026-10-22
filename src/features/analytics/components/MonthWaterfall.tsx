@@ -33,10 +33,10 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency, compact
       width: pct(step.amount),
       // Money into goals and investments is not spending, but it leaves the pot
       // all the same, so it is drawn the way a cost is — in its own colour.
-      takesFrom: step.kind === "expense" || step.kind === "savings",
+      takesFrom: step.kind === "expense" || step.kind === "savings" || step.kind === "goals",
       // A cost hangs from where the running total was down to where it lands;
       // income and the remainder start at the floor.
-      offset: step.kind === "expense" || step.kind === "savings" ? pct(step.balance) : "0%",
+      offset: step.kind === "expense" || step.kind === "savings" || step.kind === "goals" ? pct(step.balance) : "0%",
     }));
   }, [steps, nameFor]);
 
@@ -49,7 +49,7 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency, compact
           </span>
           <span className={styles.track}>
             <span
-              className={`${styles.bar} ${row.kind === "income" ? styles.barIncome : row.kind === "result" ? styles.barResult : row.kind === "savings" ? styles.barSavings : styles.barExpense}`}
+              className={`${styles.bar} ${row.kind === "income" ? styles.barIncome : row.kind === "result" ? styles.barResult : row.kind === "savings" ? styles.barSavings : row.kind === "goals" ? styles.barGoals : styles.barExpense}`}
               style={{ left: row.offset, width: row.width }}
             />
           </span>

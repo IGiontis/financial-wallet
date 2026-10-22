@@ -92,10 +92,63 @@ export function PaydayAnswer({ outlook, now, formatCurrency, locale }: { outlook
           </ul>
         </>
       ) : (
-        <p className="small mb-0 mt-1">
-          {t("overview.shortExplain", { need: formatCurrency(out), have: formatCurrency(have) })}{" "}
-          {outlook.breaksOn &&
-            (outlook.breaksAt ? t("overview.breaksAt", { date: dayDate.format(outlook.breaksOn), name: outlook.breaksAt }) : t("overview.breaksOn", { date: dayDate.format(outlook.breaksOn) }))}
+        <ShortSum outlook={outlook} formatCurrency={formatCurrency} dayDate={dayDate} />
+      )}
+    </>
+  );
+}
+
+/**
+ * Not making it, worked out as a receipt: what there is, what comes, what goes,
+ * and what that leaves — the figure above, reached line by line.
+ *
+ * It used to be one sentence, «Θες 51.440 € κι έχεις 5.100 €», whose two
+ * figures appeared nowhere else on the card — the 5.100 was the money now plus
+ * what is still to come, beside a «3.200» that was only the first. Each part is
+ * named now, and the last line is the figure above it.
+ */
+function ShortSum({ outlook, formatCurrency, dayDate }: { outlook: PaydayOutlook; formatCurrency: Money; dayDate: Intl.DateTimeFormat }) {
+  const { t } = useTranslation();
+  type Row = { key: string; sign: "" | "+" | "−"; label: string; amount: number };
+  const rows = (
+    [
+    { key: "start", sign: "", label: t("overview.sumHave"), amount: outlook.start },
+    { key: "incoming", sign: "+", label: t("overview.sumIncoming"), amount: outlook.incoming },
+    { key: "bills", sign: "−", label: t("overview.sumBills"), amount: outlook.bills },
+    { key: "commitments", sign: "−", label: t("overview.sumCommitments"), amount: outlook.commitments },
+    { key: "lines", sign: "−", label: t("overview.sumLines"), amount: outlook.lines },
+    ] satisfies Row[]
+  ).filter((row) => row.key === "start" || row.amount > 0);
+
+  return (
+    <>
+      <dl className={styles.sum}>
+        {rows.map((row) => (
+          <div key={row.key} className={styles.sumRow}>
+            <dt>
+              <span className={styles.sumSign} aria-hidden>
+                {row.sign}
+              </span>
+              {row.label}
+            </dt>
+            <dd>{formatCurrency(row.amount)}</dd>
+          </div>
+        ))}
+        <div className={`${styles.sumRow} ${styles.sumTotal}`}>
+          <dt>
+            <span className={styles.sumSign} aria-hidden>
+              =
+            </span>
+            {t("overview.sumLeft")}
+          </dt>
+          <dd style={{ color: outlook.left < 0 ? "var(--color-expense-text)" : undefined }}>{formatCurrency(outlook.left)}</dd>
+        </div>
+      </dl>
+      {outlook.breaksOn && (
+        <p className="small text-body-secondary mb-0 mt-2">
+          {outlook.breaksAt
+            ? t("overview.breaksFromAt", { date: dayDate.format(outlook.breaksOn), name: outlook.breaksAt })
+            : t("overview.breaksFrom", { date: dayDate.format(outlook.breaksOn) })}
         </p>
       )}
     </>
@@ -192,7 +245,8 @@ export function PaydayCard({
     return (
       <div ref={cardRef} className={`row g-3 mb-3 ${className ?? ""}`}>
         <div className="col-12 col-lg-5 d-flex">
-          <Card className="mb-0 w-100">
+          {/* The page's one strong card in the light theme — see `.heroMoney`. */}
+          <Card className={`mb-0 w-100 ${styles.heroMoney}`}>
             <CardBody className="p-3 p-sm-4">{money}</CardBody>
           </Card>
         </div>

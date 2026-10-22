@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { toneChip } from "../../../shared/utils/tone";
 import type { ReviewColors } from "./reviewPalettes";
 
 export function GridCell({ label, value, fullWidth = false, accent }: { label: string; value: string; fullWidth?: boolean; accent?: string }) {
@@ -127,8 +128,7 @@ export function TransactionReviewBody({
                     fontWeight: 600,
                     padding: "1px 7px",
                     borderRadius: 20,
-                    background: secondaryBadgeKind === "deposit" ? "color-mix(in srgb, var(--color-expense) 16%, transparent)" : "color-mix(in srgb, var(--color-income) 16%, transparent)",
-                    color: secondaryBadgeKind === "deposit" ? "var(--color-expense)" : "var(--color-income)",
+                    ...toneChip(secondaryBadgeKind === "deposit" ? "expense" : "income"),
                   }}
                 >
                   {secondaryBadge}

@@ -116,75 +116,79 @@ export function IncomeCalendar({
 
   return (
     <div>
-      <div className={styles.calHead}>
-        <button type="button" className={styles.calNav} onClick={() => step(-1)} disabled={atStart} aria-label={t("incomes.calendar.prev")}>
-          <FiChevronLeft aria-hidden />
-        </button>
-        <div className="text-center" style={{ minWidth: 0 }}>
-          <div className="fw-semibold">
-            {f.monthName(month)} {month.getFullYear()}
-          </div>
-          {summary.count > 0 && (
-            <div className="text-body-secondary" style={{ fontSize: 12 }}>
-              {t("incomes.calendar.summary", { arrived: formatCurrency(summary.arrived), total: `${summary.approximate ? "≈" : ""}${formatCurrency(summary.total)}` })}
+      {/* The month in a card of its own, as every other block on the page: laid
+          straight on the page, its grey days made a grid of the page itself. */}
+      <div className={`card ${styles.calCard}`}>
+        <div className={styles.calHead}>
+          <button type="button" className={styles.calNav} onClick={() => step(-1)} disabled={atStart} aria-label={t("incomes.calendar.prev")}>
+            <FiChevronLeft aria-hidden />
+          </button>
+          <div className="text-center" style={{ minWidth: 0 }}>
+            <div className="fw-semibold">
+              {f.monthName(month)} {month.getFullYear()}
             </div>
-          )}
-        </div>
-        <button type="button" className={styles.calNav} onClick={() => step(1)} disabled={atEnd} aria-label={t("incomes.calendar.next")}>
-          <FiChevronRight aria-hidden />
-        </button>
-      </div>
-
-      <div className={styles.calGrid} role="group" aria-label={`${f.monthName(month)} ${month.getFullYear()}`}>
-        {weekdays.map((w, i) => (
-          <div key={i} className={styles.calWeekday} aria-hidden>
-            {w}
+            {summary.count > 0 && (
+              <div className="text-body-secondary" style={{ fontSize: 12 }}>
+                {t("incomes.calendar.summary", { arrived: formatCurrency(summary.arrived), total: `${summary.approximate ? "≈" : ""}${formatCurrency(summary.total)}` })}
+              </div>
+            )}
           </div>
-        ))}
-        {cells.map((date) => {
-          const inside = date.getMonth() === month.getMonth();
-          const dayMarks = inside ? (marks.get(`${date.getDate()}`) ?? []) : [];
-          const isToday = isSameDay(date, now);
-          const isSelected = !!selected && isSameDay(date, selected);
-          const tone = dayTone(dayMarks);
-          return (
-            <button
-              key={date.toISOString()}
-              type="button"
-              disabled={!inside}
-              className={`${styles.calDay} ${tone ? DAY_CLASS[tone] : ""} ${inside ? "" : styles.calOutside} ${isToday ? styles.calToday : ""} ${isSelected ? styles.calSelected : ""}`}
-              onClick={() => setSelected(isSelected ? undefined : date)}
-              aria-pressed={isSelected}
-              aria-label={`${dayTitle.format(date)}${dayMarks.length ? ` · ${dayMarks.map((m) => `${name(m.status.incomeId)} ${markText(m)}`).join(", ")}` : ""}`}
-            >
-              <span className={styles.calNum}>{date.getDate()}</span>
-              {dayMarks.slice(0, 2).map((mark) => (
-                <span key={`${mark.status.key}-${mark.kind}`} className={`${styles.mark} ${MARK_CLASS[mark.kind]}`}>
-                  <span className={styles.markName}>{name(mark.status.incomeId)}</span>
-                  {markText(mark)}
-                </span>
-              ))}
-              {dayMarks.length > 2 && <span className={styles.mark}>+{dayMarks.length - 2}</span>}
-            </button>
-          );
-        })}
-      </div>
+          <button type="button" className={styles.calNav} onClick={() => step(1)} disabled={atEnd} aria-label={t("incomes.calendar.next")}>
+            <FiChevronRight aria-hidden />
+          </button>
+        </div>
 
-      <div className={styles.calLegend} aria-hidden>
-        {(
-          [
-            ["arrived", "legendArrived"],
-            ["late", "legendLate"],
-            ["ask", "legendAsk"],
-            ["due", "legendDue"],
-            ["expected", "legendExpected"],
-          ] as const
-        ).map(([kind, label]) => (
-          <span key={kind}>
-            <span className={`${styles.swatch} ${DAY_CLASS[kind]}`} />
-            {t(`incomes.calendar.${label}`)}
-          </span>
-        ))}
+        <div className={styles.calGrid} role="group" aria-label={`${f.monthName(month)} ${month.getFullYear()}`}>
+          {weekdays.map((w, i) => (
+            <div key={i} className={styles.calWeekday} aria-hidden>
+              {w}
+            </div>
+          ))}
+          {cells.map((date) => {
+            const inside = date.getMonth() === month.getMonth();
+            const dayMarks = inside ? (marks.get(`${date.getDate()}`) ?? []) : [];
+            const isToday = isSameDay(date, now);
+            const isSelected = !!selected && isSameDay(date, selected);
+            const tone = dayTone(dayMarks);
+            return (
+              <button
+                key={date.toISOString()}
+                type="button"
+                disabled={!inside}
+                className={`${styles.calDay} ${tone ? DAY_CLASS[tone] : ""} ${inside ? "" : styles.calOutside} ${isToday ? styles.calToday : ""} ${isSelected ? styles.calSelected : ""}`}
+                onClick={() => setSelected(isSelected ? undefined : date)}
+                aria-pressed={isSelected}
+                aria-label={`${dayTitle.format(date)}${dayMarks.length ? ` · ${dayMarks.map((m) => `${name(m.status.incomeId)} ${markText(m)}`).join(", ")}` : ""}`}
+              >
+                <span className={styles.calNum}>{date.getDate()}</span>
+                {dayMarks.slice(0, 2).map((mark) => (
+                  <span key={`${mark.status.key}-${mark.kind}`} className={`${styles.mark} ${MARK_CLASS[mark.kind]}`}>
+                    <span className={styles.markName}>{name(mark.status.incomeId)}</span>
+                    {markText(mark)}
+                  </span>
+                ))}
+                {dayMarks.length > 2 && <span className={styles.mark}>+{dayMarks.length - 2}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.calLegend} aria-hidden>
+          {(
+            [
+              ["arrived", "legendArrived"],
+              ["late", "legendLate"],
+              ["ask", "legendAsk"],
+              ["due", "legendDue"],
+              ["expected", "legendExpected"],
+            ] as const
+          ).map(([kind, label]) => (
+            <span key={kind}>
+              <span className={`${styles.swatch} ${DAY_CLASS[kind]}`} />
+              {t(`incomes.calendar.${label}`)}
+            </span>
+          ))}
+        </div>
       </div>
 
       {selected && (

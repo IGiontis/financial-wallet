@@ -3,7 +3,7 @@ import type { BillWithStatus, Transaction } from "../../shared/types/IndexTypes"
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isPausedOn, monthlyEquivalent } from "../bills/billsUtils";
 import { lineRanges, type BudgetLine } from "../plannerPage/plannerUtils";
-import { averageSavingsRate, type MonthlyFlow } from "./analyticsUtils";
+import { averageSavingsRate, savingsRate, type MonthlyFlow } from "./analyticsUtils";
 
 // The figures behind the dashboard at the top of the Analytics page: four
 // totals with last year beside them, the plan the spending is measured
@@ -241,7 +241,7 @@ export function monthLedger(flows: MonthlyFlow[], now: Date): MonthLedger {
       income: f.income,
       expenses: f.expenses,
       net: f.net,
-      rate: f.income > 0 ? round2((f.net / f.income) * 100) : undefined,
+      rate: savingsRate(f.income, f.kept),
       cumulative,
       running: f.start.getTime() === runningStart,
     };

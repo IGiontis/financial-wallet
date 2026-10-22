@@ -1,3 +1,5 @@
+import { startOfMonth } from "date-fns";
+import { monthlyFlows } from "../../analytics/analyticsUtils";
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
@@ -35,7 +37,7 @@ import { useIncomes } from "../../incomes/useIncomes";
 import { incomeInMonth, salaryIncome } from "../../incomes/incomesUtils";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
-import { daysSince, goalHeldTotal, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
+import { expectedByAccount, daysSince, goalHeldTotal, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
@@ -125,6 +127,16 @@ export const OverviewPage = () => {
   const balance = useMemo(() => currentBalance(transactions, opening), [transactions, opening]);
   const inGoals = useMemo(() => goalHeldTotal(transactions), [transactions]);
   const banksNow = useMemo(() => (lastReading ? projectedTotal(lastReading, transactions) : undefined), [lastReading, transactions]);
+  // Under the money card: each bank as the Banks page has it now, and the
+  // month so far as the Statistics count it.
+  const accountFigures = useMemo(() => {
+    const byAccount = expectedByAccount(accounts, lastReading, transactions);
+    return accounts.map((account) => ({ id: account.id, name: account.name, amount: byAccount[account.id] ?? 0 }));
+  }, [accounts, lastReading, transactions]);
+  const monthSoFar = useMemo(() => {
+    const flow = monthlyFlows(transactions, startOfMonth(now), now).at(-1);
+    return flow ? { label: t("overview.heroThisMonth"), income: flow.income, expenses: flow.expenses } : undefined;
+  }, [transactions, now, t]);
 
   // ── Will it last until pay day ── the Planner's own walk, from the money above.
   // The reading's time too: pay that came early and only shows in it must not
@@ -434,6 +446,8 @@ export const OverviewPage = () => {
               isLoading={openingLoading}
               banks={banksNow}
               inGoals={inGoals}
+              accounts={accountFigures}
+              month={monthSoFar}
               outlook={outlook}
               now={now}
               formatCurrency={formatCurrency}

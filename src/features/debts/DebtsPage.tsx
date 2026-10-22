@@ -87,11 +87,11 @@ export function DebtsPage() {
           because "permission-denied" and "unavailable" need different fixes. */}
 
       <div className={styles.totals}>
-        <div className={`${styles.total} ${styles.totalOut}`}>
+        <div className={`${styles.total} ${styles.totalOut} tone-tile tone-tile-expense`}>
           <div className={styles.totalLabel}>{t("debts.youOwe")}</div>
           <div className={styles.totalAmount}>{formatCurrency(totals.owedByMe)}</div>
         </div>
-        <div className={`${styles.total} ${styles.totalIn}`}>
+        <div className={`${styles.total} ${styles.totalIn} tone-tile tone-tile-income`}>
           <div className={styles.totalLabel}>{t("debts.owedToYou")}</div>
           <div className={styles.totalAmount}>{formatCurrency(totals.owedToMe)}</div>
         </div>

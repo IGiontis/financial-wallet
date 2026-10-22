@@ -51,6 +51,8 @@ interface BillFormValues {
   pauseTo: string; // "YYYY-MM"
   pauseYearly: boolean;
   notes: string;
+  /** Off: kept in the list, counted nowhere. */
+  isActive: boolean;
 }
 
 const toMonthInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -152,6 +154,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       pauseTo: bill?.pause?.to ?? "",
       pauseYearly: bill?.pause?.yearly ?? false,
       notes: bill?.notes ?? "",
+      isActive: bill?.isActive ?? true,
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -198,6 +201,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           pause: pauseFromValues(values) ?? (isEdit ? null : undefined),
           // Cleared on an edit is "starts as before", said out loud like the pause.
           startsOn: parseISOMonth(values.startsOn) ? values.startsOn : isEdit ? null : undefined,
+          isActive: values.isActive,
         };
         await onSubmit(data);
         resetForm();
@@ -261,6 +265,20 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       <ModalHeader toggle={handleClose}>{isEdit ? t("bills.editBill") : t("bills.newBill")}</ModalHeader>
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>
+          {/* On or off, first: switched off it stays in the list and counts nowhere —
+              the same switch as on «Διαχείριση». */}
+          <FormGroup switch className="mb-3 d-flex align-items-start gap-2">
+            <Input type="switch" role="switch" id="bill-active" name="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
+            <div>
+              <Label for="bill-active" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
+                {t("bills.activeSwitch")}
+              </Label>
+              <div className="text-body-secondary" style={{ fontSize: 11 }}>
+                {t("bills.activeSwitchHint")}
+              </div>
+            </div>
+          </FormGroup>
+
           <Row className="g-3">
             <Col xs={12} sm={7}>
               <FormGroup className="mb-0">

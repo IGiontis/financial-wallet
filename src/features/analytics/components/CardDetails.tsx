@@ -69,10 +69,10 @@ export function WaterfallDetails({ steps, nameFor, formatCurrency }: { steps: Wa
       label: t("analytics.details.amount"),
       numeric: true,
       tone: (r) => (r.kind === "result" ? r.amount : undefined),
-      cell: (r) => `${r.kind === "expense" || r.kind === "savings" || r.amount < 0 ? "−" : "+"}${formatCurrency(Math.abs(r.amount))}`,
+      cell: (r) => `${r.kind === "expense" || r.kind === "savings" || r.kind === "goals" || r.amount < 0 ? "−" : "+"}${formatCurrency(Math.abs(r.amount))}`,
     },
     { key: "share", label: t("analytics.details.ofIncome"), numeric: true, cell: (r) => (income > 0 ? percent((Math.abs(r.amount) / income) * 100) : "—") },
-    { key: "left", label: t("analytics.waterfall.left"), numeric: true, secondary: true, cell: (r) => (r.kind === "expense" || r.kind === "savings" ? formatCurrency(r.balance) : "") },
+    { key: "left", label: t("analytics.waterfall.left"), numeric: true, secondary: true, cell: (r) => (r.kind === "expense" || r.kind === "savings" || r.kind === "goals" ? formatCurrency(r.balance) : "") },
   ];
   return (
     <ChartDetails

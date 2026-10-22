@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, InputGroup, Row, Col } from "reactstrap";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
+import { toneChip } from "../../shared/utils/tone";
 import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
@@ -115,7 +116,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             color={behind ? "danger" : paid ? "success" : "none"}
             pill
             // Unpaid in the same orange as its pill on the page.
-            style={{ fontSize: 10, ...(behind || paid ? {} : { background: "color-mix(in srgb, var(--color-pending) 18%, transparent)", color: "var(--color-pending-text)" }) }}
+            style={{ fontSize: 10, ...(behind || paid ? {} : toneChip("pending")) }}
           >
             {behind
               ? overdue.count > 1

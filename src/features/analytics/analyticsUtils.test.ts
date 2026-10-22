@@ -15,6 +15,7 @@ import {
   FLOW_HUB_ID,
   FLOW_LEFTOVER_ID,
   FLOW_SAVINGS_ID,
+  FLOW_GOALS_ID,
   FLOW_WITHDRAWALS_ID,
   OTHER_CATEGORY_ID,
   categoryDeltas,
@@ -23,6 +24,7 @@ import {
   WATERFALL_INCOME_ID,
   WATERFALL_LEFTOVER_ID,
   WATERFALL_SAVINGS_ID,
+  WATERFALL_GOALS_ID,
   committedSplit,
 } from "./analyticsUtils";
 import { calculateMoneyLeft } from "../overview/overviewUtils";
@@ -149,7 +151,7 @@ describe("cumulativeNet", () => {
 describe("savingsRateSeries", () => {
   const now = new Date(2026, 1, 20);
 
-  it("reports the share of income kept, counting goal deposits as kept", () => {
+  it("does not count a goal's money as saved — it is set aside to be spent", () => {
     const rows = [
       tx({ amount: 1000, type: "income", date: new Date(2026, 1, 1) }),
       tx({ amount: 250, date: new Date(2026, 1, 2) }),
@@ -157,7 +159,24 @@ describe("savingsRateSeries", () => {
     ];
 
     const [feb] = savingsRateSeries(monthlyFlows(rows, new Date(2026, 1, 1), now));
-    expect(feb.rate).toBe(75); // only the 250 of real spending reduces it
+    // (1.000 − 250 − 400) / 1.000: what is left in the bank, the goal's 400 not counted.
+    expect(feb.rate).toBe(35);
+    expect(feb.net).toBe(750); // «Καθαρό» is still income less spending
+  });
+
+  it("counts what was invested and what was left as saved: 2.000 in, 1.200 out, 300 to a goal, 200 invested = 25%", () => {
+    const rows = [
+      tx({ amount: 2000, type: "income", date: new Date(2026, 1, 1) }),
+      tx({ amount: 1200, date: new Date(2026, 1, 2) }),
+      deposit(300, new Date(2026, 1, 3), true),
+      deposit(200, new Date(2026, 1, 3)),
+    ];
+    const flows = monthlyFlows(rows, new Date(2026, 1, 1), now);
+    const [feb] = savingsRateSeries(flows);
+    expect(feb.rate).toBe(25);
+    // A second way: the parts the money went to. 200 invested + 300 left = 500 of 2.000.
+    expect(feb.kept).toBe(200 + (2000 - 1200 - 300 - 200));
+    expect(averageSavingsRate(flows)).toBe(25);
   });
 
   it("leaves a month with no income unrated rather than claiming 0%", () => {
@@ -326,7 +345,9 @@ describe("moneyFlow", () => {
     expect(flow.total).toBe(2050); // 2000 earned + 50 pulled back out
     expect(into(flow)).toBe(2050);
     expect(outOf(flow)).toBe(2050);
-    expect(flow.nodes.find((n) => n.id === FLOW_SAVINGS_ID)?.value).toBe(300); // 200 + 100
+    // Apart: the investment is saved, the goal's money is set aside to be spent.
+    expect(flow.nodes.find((n) => n.id === FLOW_SAVINGS_ID)?.value).toBe(200);
+    expect(flow.nodes.find((n) => n.id === FLOW_GOALS_ID)?.value).toBe(100);
     expect(flow.nodes.find((n) => n.id === FLOW_LEFTOVER_ID)?.value).toBe(650);
     expect(flow.nodes.find((n) => n.id === FLOW_WITHDRAWALS_ID)?.value).toBe(50);
   });
@@ -541,9 +562,25 @@ describe("spendingWaterfall — left over means what the Sankey and the Overview
     const rows = [salary(2000), spend(800), spend(400, "food"), deposit(500, new Date(2026, 2, 5), true)];
     const steps = spendingWaterfall(rows);
 
-    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "rent", "food", WATERFALL_SAVINGS_ID, WATERFALL_LEFTOVER_ID]);
-    expect(steps.find((s) => s.id === WATERFALL_SAVINGS_ID)).toMatchObject({ amount: -500, balance: 300, kind: "savings" });
+    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "rent", "food", WATERFALL_GOALS_ID, WATERFALL_LEFTOVER_ID]);
+    expect(steps.find((s) => s.id === WATERFALL_GOALS_ID)).toMatchObject({ amount: -500, balance: 300, kind: "goals" });
     expect(last(steps).balance).toBe(300);
+  });
+
+  it("keeps a goal's money and an investment's apart, each its own step, adding up as before", () => {
+    // 2,000 in, 1,200 spent, 300 to a goal, 200 invested: 300 left.
+    const rows = [salary(2000), spend(800), spend(400, "food"), deposit(300, new Date(2026, 2, 5), true), deposit(200, new Date(2026, 2, 5))];
+    const steps = spendingWaterfall(rows);
+
+    expect(steps.map((s) => s.id)).toEqual([WATERFALL_INCOME_ID, "rent", "food", WATERFALL_GOALS_ID, WATERFALL_SAVINGS_ID, WATERFALL_LEFTOVER_ID]);
+    expect(steps.find((s) => s.id === WATERFALL_GOALS_ID)).toMatchObject({ amount: -300, balance: 500, kind: "goals" });
+    expect(steps.find((s) => s.id === WATERFALL_SAVINGS_ID)).toMatchObject({ amount: -200, balance: 300, kind: "savings" });
+    expect(last(steps).balance).toBe(300);
+    // The Sankey says the same, a second way: the two sinks and what is left.
+    const flow = moneyFlow(rows)!;
+    const node = (id: string) => flow.nodes.find((n) => n.id === id)?.value;
+    expect([node(FLOW_GOALS_ID), node(FLOW_SAVINGS_ID), node(FLOW_LEFTOVER_ID)]).toEqual([300, 200, 300]);
+    expect(sankeyLeft(rows)).toBe(last(steps).balance);
   });
 
   it("counts what was withdrawn as income, like every other screen", () => {

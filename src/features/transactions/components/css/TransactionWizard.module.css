@@ -162,13 +162,13 @@
    it has been made. Choosing one deepens the tint and hardens its border;
    nothing here is loud enough to look picked on its own. */
 .typeExpense {
-  background: color-mix(in srgb, var(--color-expense) 7%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-expense) 28%, transparent);
+  background: var(--expense-wash-solid);
+  border-color: var(--expense-edge);
 }
 
 .typeIncome {
-  background: color-mix(in srgb, var(--color-income) 7%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-income) 28%, transparent);
+  background: var(--income-wash-solid);
+  border-color: var(--income-edge);
 }
 
 .typeExpense .typeIcon {
@@ -181,12 +181,12 @@
 
 .typeSelected.typeExpense {
   border-color: var(--color-expense);
-  background: color-mix(in srgb, var(--color-expense) 18%, var(--color-surface));
+  background: var(--expense-wash-strong-solid);
 }
 
 .typeSelected.typeIncome {
   border-color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 18%, var(--color-surface));
+  background: var(--income-wash-strong-solid);
 }
 
 /* The prompt above each step. One line, so the step itself starts high on the
@@ -268,7 +268,7 @@
   height: 64px;
   margin-bottom: 0.9rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-income) 14%, transparent);
+  background: var(--income-wash);
   animation: savedPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 

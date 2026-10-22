@@ -159,3 +159,20 @@ describe("the bill form's pause", () => {
     expect(saved[0].pause).toBeUndefined();
   });
 });
+
+describe("the bill form's on/off switch", () => {
+  it("opens a switched-off bill switched off, and saves it back on when turned on", async () => {
+    const saved = open({ ...edessa(), isActive: false });
+    const toggle = await screen.findByRole("switch", { name: /^active/i });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    await save();
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0].isActive).toBe(true);
+  });
+
+  it("saves a new bill switched on unless turned off", async () => {
+    open(null);
+    expect(await screen.findByRole("switch", { name: /^active/i })).toBeChecked();
+  });
+});

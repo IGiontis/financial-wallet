@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
 import { useTranslation } from "react-i18next";
+import { toneChip } from "../../../shared/utils/tone";
 import { useDebounce } from "../../../shared/hooks/useDebounce";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -46,19 +47,29 @@ const tinted = (token: string, strength = 16): React.CSSProperties => ({
 });
 
 function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, border: "none", ...tinted(contributionType === "withdrawal" ? "--color-invest" : "--bs-primary") };
+  return { fontSize: 10, border: "none", ...(contributionType === "withdrawal" ? toneChip("invest") : tinted("--bs-primary")) };
 }
 
+/** Money back out of a goal is the one to notice, so it is the stronger of the two. */
 function getGoalBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, border: "none", ...tinted("--color-goal", contributionType === "withdrawal" ? 22 : 14) };
+  return { fontSize: 10, border: "none", ...toneChip("goal", contributionType === "withdrawal") };
 }
 
+/**
+ * A row's amount, as a chip: the wash and the lettering are the theme's — on
+ * the dark theme a faint tint of the colour, on the light one no wash, the
+ * money in deep green and the money out plain ink (`--figure-chip-*`).
+ */
 function getAmountChipStyle(tx: Transaction): React.CSSProperties {
+  const chip = (accent: string, text: string): React.CSSProperties => ({
+    background: `color-mix(in srgb, var(${accent}) var(--figure-chip-wash), transparent)`,
+    color: `var(${text})`,
+  });
   // Neither side's colour: the money only changed account.
   if (tx.transferId) return tinted("--color-text-secondary");
-  if (tx.isGoalTransaction) return tinted("--color-goal");
-  if (tx.isInvestmentTransaction) return tinted("--color-invest");
-  return tinted(tx.type === "income" ? "--color-income" : "--color-expense");
+  if (tx.isGoalTransaction) return chip("--color-goal", "--figure-chip-goal");
+  if (tx.isInvestmentTransaction) return chip("--color-invest", "--figure-chip-invest");
+  return tx.type === "income" ? chip("--color-income", "--figure-chip-income") : chip("--color-expense", "--figure-chip-expense");
 }
 
 // ─── Filter summary ───────────────────────────────────────────────────────────
@@ -251,7 +262,7 @@ function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Trans
 
   return (
     <button type="button" className={styles.txCard} onClick={onView}>
-      <span className={styles.txIcon} style={{ background: tx.transferId ? "var(--color-background-secondary)" : isPositive ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)" }} aria-hidden>
+      <span className={styles.txIcon} style={{ background: tx.transferId ? "var(--color-background-secondary)" : isPositive ? "var(--income-wash)" : "var(--expense-wash)" }} aria-hidden>
         {cat?.icon ?? "💳"}
       </span>
       <span className={styles.txBody}>

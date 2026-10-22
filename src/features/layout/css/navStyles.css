@@ -42,8 +42,10 @@
    of the two. */
 :root[data-nav-style="c"],
 .nav-style-c {
-  --nav-bg: #2c3544;
-  --nav-bg-2: #232a36;
+  /* A slate with the light theme's blue in it, so the bar and the deep-blue
+     money card beside it read as one family rather than grey against blue. */
+  --nav-bg: #26354d;
+  --nav-bg-2: #1e2b40;
   --sidebar-width: 252px;
   --sidebar-collapsed-width: 76px;
   --drawer-width: 292px;
@@ -62,4 +64,24 @@
   :root[data-nav-style="c"] {
     --topbar-height: 56px;
   }
+}
+
+/* The light theme's page, by menu style: Α's faint blue, Β a clearer blue
+   beside its navy bar, Γ a cooler grey beside its slate. Cards stay white on
+   all three — the page around them takes the style, so text never sits on a
+   tint. The dark theme's page is the same for all three. */
+:root[data-bs-theme="light"][data-nav-style="b"] {
+  --color-background-primary: #e8effa;
+  /* The chosen tab filled in the bar's navy. */
+  --color-segment-active: #10224a;
+  --color-segment-active-border: #10224a;
+  --color-segment-active-text: #ffffff;
+}
+
+:root[data-bs-theme="light"][data-nav-style="c"] {
+  --color-background-primary: #eceff3;
+  /* The chosen tab filled in the bar's slate. */
+  --color-segment-active: #26354d;
+  --color-segment-active-border: #26354d;
+  --color-segment-active-text: #ffffff;
 }

@@ -13,6 +13,7 @@ const flows: MonthlyFlow[] = INCOME.map((income, i) => ({
   invested: 0,
   goals: 0,
   net: income - EXPENSES[i],
+  kept: income - EXPENSES[i],
 }));
 const NOW = new Date(2026, 9, 6, 12);
 

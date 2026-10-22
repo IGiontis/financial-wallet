@@ -49,6 +49,10 @@
   background: var(--color-invest);
 }
 
+.barGoals {
+  background: var(--color-goal);
+}
+
 .barResult {
   background: var(--bs-primary);
 }

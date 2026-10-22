@@ -5,16 +5,16 @@
 .group {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px;
+  gap: var(--segment-gap);
+  padding: var(--segment-pad);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  background: var(--segment-track);
 }
 
 .item {
-  border: 0.5px solid transparent;
+  border: 1px solid var(--segment-item-border);
   border-radius: var(--border-radius-sm);
-  background: transparent;
+  background: var(--segment-item);
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 400;
@@ -31,13 +31,14 @@
 }
 
 .item:hover:not(:disabled):not(.active) {
+  border-color: var(--segment-item-hover-border);
   color: var(--color-text-primary);
 }
 
 .item.active {
   background: var(--color-segment-active);
   border-color: var(--color-segment-active-border);
-  color: var(--color-text-primary);
+  color: var(--color-segment-active-text);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
@@ -113,14 +114,14 @@
    close together to read one against the other. The ordinary text colour on the
    same fill is 10:1, and the side being chosen is no less obvious for it. */
 .item.owe.active {
-  background: color-mix(in srgb, var(--color-expense) 18%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-expense) 75%, transparent);
+  background: var(--expense-wash-strong-solid);
+  border-color: var(--expense-edge-strong);
   color: var(--color-text-primary);
 }
 
 .item.lend.active {
-  background: color-mix(in srgb, var(--color-income) 18%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-income) 75%, transparent);
+  background: var(--income-wash-strong-solid);
+  border-color: var(--income-edge-strong);
   color: var(--color-text-primary);
 }
 

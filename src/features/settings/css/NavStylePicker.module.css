@@ -220,3 +220,35 @@
   margin-top: -10px;
   height: 27px;
 }
+
+/* Α in the light theme draws its bar as the shell does — the pale Aegean blue,
+   the current row white with a blue edge (Sidebar.css, «Α in the light theme»). */
+:global([data-bs-theme="light"]) .a {
+  --nav-bg: #eef4fb;
+  --nav-bg-2: #eef4fb;
+}
+
+:global([data-bs-theme="light"]) .a .bar {
+  box-shadow: inset -1px 0 0 #d6e2f1;
+}
+
+:global([data-bs-theme="light"]) .a .logo {
+  background: #0f3d7a;
+}
+
+:global([data-bs-theme="light"]) .a .row {
+  background: rgba(15, 61, 122, 0.06);
+}
+
+:global([data-bs-theme="light"]) .a .row::after {
+  background: rgba(35, 57, 91, 0.45);
+}
+
+:global([data-bs-theme="light"]) .a .foot {
+  background: #d6e2f1;
+}
+
+:global([data-bs-theme="light"]) .a .current {
+  background: #ffffff;
+  box-shadow: inset 2px 0 0 #1f5fbf;
+}

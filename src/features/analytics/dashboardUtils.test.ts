@@ -17,6 +17,7 @@ const flows: MonthlyFlow[] = INCOME.map((income, i) => ({
   invested: 0,
   goals: 0,
   net: income - EXPENSES[i],
+  kept: income - EXPENSES[i],
 }));
 
 describe("the four totals", () => {

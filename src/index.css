@@ -14,59 +14,69 @@
 /* ── Light theme (default) ────────────────────────────────────────────────── */
 :root,
 [data-bs-theme="light"] {
-  /* Surfaces — cards sit clearly ABOVE a visibly grey page background */
-  --color-background-primary: #e8ecf1; /* app / page background — noticeably grey */
-  --color-background-secondary: #f1f4f8; /* insets, inputs, subtle fills          */
-  --color-surface: #ffffff; /* cards / panels — pure white           */
+  /* «Αιγαίο». Surfaces — white cards on a page with a breath of blue in it,
+     told apart by a hairline rather than by a grey ground. The page used to be
+     a flat #e8ecf1, and every card on it the same white box: an admin
+     template, with nothing on the screen any heavier than anything else. */
+  --color-background-primary: #f4f7fb; /* app / page background            */
+  --color-background-secondary: #eef3fa; /* insets, inputs, subtle fills     */
+  --color-surface: #ffffff; /* cards / panels                                */
   --color-surface-raised: #ffffff;
 
-  /* Text */
-  --color-text-primary: #16202e;
+  /* Text — a blue-black and a slate blue, of the same family as the accent. */
+  --color-text-primary: #132238;
   /* Darker than it looks like it needs to be. At #52627a it measured 5.23:1 —
      past the 4.5 AA floor and still washed out, because it carries 42 of the
      95 pieces of text on the planner at sizes down to 10.5px. Small text is
      where AA is least generous and AAA's 7:1 earns its keep. */
-  --color-text-secondary: #3f4c60;
+  /* 7.2:1 on white, 6.7:1 on the page. */
+  --color-text-secondary: #3d5a80;
 
   /* Borders */
-  --color-border-primary: #9fabbd;
-  --color-border-tertiary: #ccd5e1;
+  --color-border-primary: #9db2ce;
+  --color-border-tertiary: #dce6f2;
 
   /* The selected half of a segmented control. Needs its own token because the
      two themes want opposite things: on a light track the pill stays white and
      an edge does the marking, while on a dark one only a lighter fill reads.
      Left to one rule, the selected tab measured 1.02:1 against its track and
      was, correctly, reported as unreadable. */
+  /* Tabs — every set of them reads these: the shared Segmented control and the
+     few with markup of their own (the Bills and Goals view switches). On white
+     each tab is a tab of its own, with an edge; the chosen one takes the menu
+     style's colour, set per style in navStyles.css — Α's blue edge here. */
+  --segment-track: transparent;
+  --segment-pad: 0;
+  --segment-gap: 6px;
+  --segment-item: var(--color-surface);
+  --segment-item-border: var(--color-border-tertiary);
+  --segment-item-hover-border: var(--color-border-primary);
   --color-segment-active: #ffffff;
-  --color-segment-active-border: #9fabbd;
+  --color-segment-active-border: #1f5fbf;
+  --color-segment-active-text: #0f3d7a;
 
-  /* Elevation */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.07);
-  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+  /* Elevation — shadows in the accent's own deep blue, not a neutral grey. */
+  --shadow-sm: 0 1px 2px rgba(15, 61, 122, 0.06);
+  --shadow-md: 0 4px 14px rgba(15, 61, 122, 0.07);
+  --shadow-lg: 0 12px 32px rgba(15, 61, 122, 0.1);
 
   /* Sidebar */
   --sidebar-bg: #212936;
   --sidebar-text: #e6ebf2;
 
-  /* Semantic accents — tuned for contrast on light backgrounds */
-  --color-income: #16a34a;
-  --color-expense: #dc2626;
+  /* Semantic accents — a deep green and a brick red, of the Aegean palette's
+     weight. The old #16a34a measured 3.3:1 on white and every wash and bar made
+     from it read as washed out; this green is 4.6:1, the red 5.5:1. */
+  --color-income: #12855a;
+  --color-expense: #c4302b;
   --color-invest: #6366f1;
   --color-goal: #d97706;
 
-  /* How strongly a semantic tint colours a surface, and how strong its edge is.
-     Not one number for both themes, and the two are in tension: on white, a
-     wash deep enough to be seen as a block darkens the ground under its own
-     lettering — pushed to 15% it took the hero's text from 4.54:1 to 4.28:1.
-     So on light the wash stays faint and the *border* does the separating,
-     which is what marks a block out anyway; luminance alone never could, since
-     a cream tint and a blue-grey page can sit at the same lightness.
-
-     The edge is mixed from the *-text variant rather than the accent: even at
-     full strength the accent amber reaches only 2.98:1 on white, under the 3:1
-     a boundary needs to count as visible. */
-  --tint-strength: 10%;
+  /* How strong the edge of an amber question block is (UnconfirmedQuestion) —
+     mixed from the *-text variant rather than the accent: even at full strength
+     the accent amber reaches only 2.98:1 on white, under the 3:1 a boundary
+     needs to count as visible. Every other tint comes from the tone scale
+     («Tones» below). */
   --tint-border: 85%;
 
   /* The same meanings, dark enough to be *text* on a light surface.
@@ -77,7 +87,7 @@
   /* Blue as *lettering*. `--bs-primary` is a fill colour: on a dark card it
      measures 3.39:1, which is why "All off" and "Add a line" were the one
      thing hard to read in the theme that is otherwise the good one. */
-  --color-link: #0a4fb5;
+  --color-link: #1a55ad;
 
   /* The colour an ordinary row's figure takes.
      On dark, a faint green or red on each line reads as a quiet signal. On
@@ -88,11 +98,20 @@
   --figure-income: var(--color-text-primary);
   --figure-expense: var(--color-text-primary);
 
+  /* An amount drawn as a chip in a list. On white, a pale wash behind pale
+     lettering was the washed-out look; so in daylight there is no wash, money
+     in is the deep green and money out is plain ink with its minus sign. */
+  --figure-chip-wash: 0%;
+  --figure-chip-income: var(--color-income-text);
+  --figure-chip-expense: var(--color-text-primary);
+  --figure-chip-goal: var(--color-goal-text);
+  --figure-chip-invest: var(--color-invest-text);
+
   /* Text-safe versions of the semantic colours: the solid ones are tuned for
      fills and strokes, and several of them are too light to read as text. */
   --color-invest-text: #4338ca;
-  --color-income-text: #166534;
-  --color-expense-text: #991b1b;
+  --color-income-text: #0e6b45;
+  --color-expense-text: #9b1c22;
   --color-goal-text: #92400e;
   /* Owed but not late yet — a bill still to pay. Orange, between the paid
      green and the late red, and off the cadence badges' blue beside it. */
@@ -106,17 +125,24 @@
   --chart-income: #0e9f8b;
   --chart-expense: #e4573d;
   --chart-net: #5560d8;
-  --color-tooltip-bg: #1e293b;
+  --color-tooltip-bg: #132238;
   --color-tooltip-text: #ffffff;
 
-  /* Strong neutral used for selected days / active pills, and its soft tint */
-  --color-accent-strong: #1e293b;
-  --color-accent-soft: #e3e8f2;
+  /* Strong colour for selected days / active pills, and its soft tint: the
+     deep Aegean blue the money card is filled with. */
+  --color-accent-strong: #0f3d7a;
+  --color-accent-soft: #e3ecf8;
   --color-accent-on-strong: #ffffff;
 
   /* Scrollbar thumb, at rest and under the pointer — see "Scrollbars" below. */
-  --scrollbar-thumb: rgba(63, 76, 96, 0.32);
-  --scrollbar-thumb-hover: rgba(63, 76, 96, 0.55);
+  /* 3:1 on the page and on a card — the floor for a control to count as seen.
+     At 0.32 it measured 1.6:1 and was, fairly, reported as not there. */
+  --scrollbar-thumb: rgba(61, 90, 128, 0.65);
+  --scrollbar-thumb-hover: rgba(61, 90, 128, 0.85);
+  /* Over a dialog's dimmed backdrop — what a dialog taller than the screen
+     scrolls on. The blue-grey thumb was 1.4:1 there; white is 3.5:1. */
+  --scrollbar-thumb-backdrop: rgba(255, 255, 255, 0.85);
+  --scrollbar-thumb-backdrop-hover: #ffffff;
 }
 
 /* ── Dark theme ───────────────────────────────────────────────────────────── */
@@ -135,8 +161,15 @@
   --color-border-tertiary: #2d3641;
 
   /* See the light theme for why this is a token. */
+  --segment-track: var(--color-background-secondary);
+  --segment-pad: 4px;
+  --segment-gap: 4px;
+  --segment-item: transparent;
+  --segment-item-border: transparent;
+  --segment-item-hover-border: transparent;
   --color-segment-active: #4a525c;
   --color-segment-active-border: #5f6b7a;
+  --color-segment-active-text: var(--color-text-primary);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
@@ -153,7 +186,6 @@
 
   /* A dark surface takes colour far more readily, so the same wash needs less
      of it before it starts to glow. */
-  --tint-strength: 9%;
   --tint-border: 26%;
 
   /* On dark these already clear 4.5:1 as text, so the text variants are the
@@ -182,8 +214,19 @@
   --color-accent-soft: #2c3949;
   --color-accent-on-strong: #10161f;
 
-  --scrollbar-thumb: rgba(173, 187, 202, 0.26);
-  --scrollbar-thumb-hover: rgba(173, 187, 202, 0.48);
+  /* 3.2:1 on the page, 3:1 on a card. */
+  --scrollbar-thumb: rgba(173, 187, 202, 0.5);
+  --scrollbar-thumb-hover: rgba(173, 187, 202, 0.72);
+  /* The dark page under the backdrop is dark already: the usual thumb holds 3.2:1. */
+  --scrollbar-thumb-backdrop: rgba(173, 187, 202, 0.5);
+  --scrollbar-thumb-backdrop-hover: rgba(173, 187, 202, 0.72);
+
+  /* Chips in a list: the faint wash of the accent, lettered in it — on dark it reads as a quiet signal. */
+  --figure-chip-wash: 16%;
+  --figure-chip-income: var(--color-income);
+  --figure-chip-expense: var(--color-expense);
+  --figure-chip-goal: var(--color-goal);
+  --figure-chip-invest: var(--color-invest);
 }
 
 /* ── Shared (theme-independent) ───────────────────────────────────────────── */
@@ -191,6 +234,102 @@
   --border-radius-sm: 6px;
   --border-radius-md: 10px;
   --border-radius-lg: 14px;
+}
+
+/* ── Tones: every tint of a meaning, from one scale ───────────────────────────
+   Money in, money out, goals, investments and what is pending each colour a
+   surface the same five ways. This is the only place the strengths are set —
+   a component asks for `var(--income-wash)` or `var(--expense-edge)`, never
+   a percentage of its own. There were forty different ones across the app
+   (6%, 7%, 10%, 12%, 13%…), which is why no two pages agreed.
+
+     wash          a block or chip behind content
+     wash-strong   the chosen or active one
+     *-solid       the same, opaque — for something laid over something else
+     fill          a bar, a dot, a filled mark
+     edge          a border
+     edge-strong   a border that has to be seen
+
+   On white a wash is barely there and the edge does the marking: a pale tint
+   behind coloured lettering is what read as washed out. On dark a wash is a
+   quiet signal and can carry more. */
+:root,
+[data-bs-theme="light"] {
+  --tone-wash: 6%;
+  --tone-wash-strong: 14%;
+}
+
+[data-bs-theme="dark"] {
+  --tone-wash: 16%;
+  --tone-wash-strong: 26%;
+}
+
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --tone-fill: 60%;
+  --tone-edge: 45%;
+  --tone-edge-strong: 75%;
+
+  /* income */
+  --income-wash: color-mix(in srgb, var(--color-income) var(--tone-wash), transparent);
+  --income-wash-strong: color-mix(in srgb, var(--color-income) var(--tone-wash-strong), transparent);
+  --income-wash-solid: color-mix(in srgb, var(--color-income) var(--tone-wash), var(--color-surface));
+  --income-wash-strong-solid: color-mix(in srgb, var(--color-income) var(--tone-wash-strong), var(--color-surface));
+  --income-fill: color-mix(in srgb, var(--color-income) var(--tone-fill), transparent);
+  --income-edge: color-mix(in srgb, var(--color-income) var(--tone-edge), transparent);
+  --income-edge-strong: color-mix(in srgb, var(--color-income) var(--tone-edge-strong), transparent);
+  /* expense */
+  --expense-wash: color-mix(in srgb, var(--color-expense) var(--tone-wash), transparent);
+  --expense-wash-strong: color-mix(in srgb, var(--color-expense) var(--tone-wash-strong), transparent);
+  --expense-wash-solid: color-mix(in srgb, var(--color-expense) var(--tone-wash), var(--color-surface));
+  --expense-wash-strong-solid: color-mix(in srgb, var(--color-expense) var(--tone-wash-strong), var(--color-surface));
+  --expense-fill: color-mix(in srgb, var(--color-expense) var(--tone-fill), transparent);
+  --expense-edge: color-mix(in srgb, var(--color-expense) var(--tone-edge), transparent);
+  --expense-edge-strong: color-mix(in srgb, var(--color-expense) var(--tone-edge-strong), transparent);
+  /* goal */
+  --goal-wash: color-mix(in srgb, var(--color-goal) var(--tone-wash), transparent);
+  --goal-wash-strong: color-mix(in srgb, var(--color-goal) var(--tone-wash-strong), transparent);
+  --goal-wash-solid: color-mix(in srgb, var(--color-goal) var(--tone-wash), var(--color-surface));
+  --goal-wash-strong-solid: color-mix(in srgb, var(--color-goal) var(--tone-wash-strong), var(--color-surface));
+  --goal-fill: color-mix(in srgb, var(--color-goal) var(--tone-fill), transparent);
+  --goal-edge: color-mix(in srgb, var(--color-goal) var(--tone-edge), transparent);
+  --goal-edge-strong: color-mix(in srgb, var(--color-goal) var(--tone-edge-strong), transparent);
+  /* invest */
+  --invest-wash: color-mix(in srgb, var(--color-invest) var(--tone-wash), transparent);
+  --invest-wash-strong: color-mix(in srgb, var(--color-invest) var(--tone-wash-strong), transparent);
+  --invest-wash-solid: color-mix(in srgb, var(--color-invest) var(--tone-wash), var(--color-surface));
+  --invest-wash-strong-solid: color-mix(in srgb, var(--color-invest) var(--tone-wash-strong), var(--color-surface));
+  --invest-fill: color-mix(in srgb, var(--color-invest) var(--tone-fill), transparent);
+  --invest-edge: color-mix(in srgb, var(--color-invest) var(--tone-edge), transparent);
+  --invest-edge-strong: color-mix(in srgb, var(--color-invest) var(--tone-edge-strong), transparent);
+  /* pending */
+  --pending-wash: color-mix(in srgb, var(--color-pending) var(--tone-wash), transparent);
+  --pending-wash-strong: color-mix(in srgb, var(--color-pending) var(--tone-wash-strong), transparent);
+  --pending-wash-solid: color-mix(in srgb, var(--color-pending) var(--tone-wash), var(--color-surface));
+  --pending-wash-strong-solid: color-mix(in srgb, var(--color-pending) var(--tone-wash-strong), var(--color-surface));
+  --pending-fill: color-mix(in srgb, var(--color-pending) var(--tone-fill), transparent);
+  --pending-edge: color-mix(in srgb, var(--color-pending) var(--tone-edge), transparent);
+  --pending-edge-strong: color-mix(in srgb, var(--color-pending) var(--tone-edge-strong), transparent);
+}
+
+/* Bootstrap's own success / danger / warning — its badges, alerts and
+   `text-success` — in the light theme's green, red and amber, from the same
+   scale, so a Bootstrap badge and one of ours never disagree. */
+[data-bs-theme="light"] {
+  --bs-success: #12855a;
+  --bs-success-rgb: 18, 133, 90;
+  --bs-success-text-emphasis: #0e6b45;
+  --bs-success-bg-subtle: var(--income-wash-strong);
+  --bs-success-border-subtle: var(--income-edge);
+  --bs-danger: #c4302b;
+  --bs-danger-rgb: 196, 48, 43;
+  --bs-danger-text-emphasis: #9b1c22;
+  --bs-danger-bg-subtle: var(--expense-wash-strong);
+  --bs-danger-border-subtle: var(--expense-edge);
+  --bs-warning-text-emphasis: #92400e;
+  --bs-warning-bg-subtle: var(--goal-wash-strong);
+  --bs-warning-border-subtle: var(--goal-edge);
 }
 
 /* ── Bootstrap bridge ─────────────────────────────────────────────────────── */
@@ -816,8 +955,8 @@ body {
 @media (hover: hover) and (pointer: fine) {
   @supports selector(::-webkit-scrollbar) {
     ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
     }
 
     ::-webkit-scrollbar-track,
@@ -826,8 +965,7 @@ body {
     }
 
     /* The transparent border, clipped out of the background, is what keeps the
-       pill off the edge: a 6px thumb in a 10px gutter, easy to see and still
-       wide enough to grab. */
+       pill off the edge: an 8px thumb in a 12px gutter, easy to see and to grab. */
     ::-webkit-scrollbar-thumb {
       background-color: var(--scrollbar-thumb);
       background-clip: padding-box;
@@ -841,12 +979,28 @@ body {
     ::-webkit-scrollbar-thumb:active {
       background-color: var(--scrollbar-thumb-hover);
     }
+
+    /* A dialog taller than the screen scrolls the dialog layer itself, whose
+       bar sits on the dimmed backdrop rather than on a surface. Scrolling
+       boxes inside the dialog keep the usual thumb. */
+    .modal::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb-backdrop);
+    }
+
+    .modal::-webkit-scrollbar-thumb:hover,
+    .modal::-webkit-scrollbar-thumb:active {
+      background-color: var(--scrollbar-thumb-backdrop-hover);
+    }
   }
 
   @supports not selector(::-webkit-scrollbar) {
     * {
       scrollbar-width: thin;
       scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+
+    .modal {
+      scrollbar-color: var(--scrollbar-thumb-backdrop) transparent;
     }
   }
 }
@@ -884,4 +1038,81 @@ body {
    as Google allows, with its line shown instead — see `RecaptchaNotice`. */
 .grecaptcha-badge {
   visibility: hidden;
+}
+
+/* ── «Αιγαίο»: the light theme's own blue ────────────────────────────────────
+   Bootstrap's stock #0d6efd was the one colour the light theme had not chosen.
+   Light only: the dark theme keeps its blue. White on #1f5fbf is 6.4:1. */
+[data-bs-theme="light"] {
+  --bs-primary: #1f5fbf;
+  --bs-primary-rgb: 31, 95, 191;
+  --bs-primary-text-emphasis: #0f3d7a;
+  --bs-primary-bg-subtle: #e3ecf8;
+  --bs-primary-border-subtle: #b7cbe8;
+  --bs-link-color: #1a55ad;
+  --bs-link-color-rgb: 26, 85, 173;
+  --bs-link-hover-color: #0f3d7a;
+  --bs-link-hover-color-rgb: 15, 61, 122;
+  --bs-focus-ring-color: rgba(31, 95, 191, 0.25);
+}
+
+[data-bs-theme="light"] .btn-primary {
+  --bs-btn-bg: #1f5fbf;
+  --bs-btn-border-color: #1f5fbf;
+  --bs-btn-hover-bg: #1a52a6;
+  --bs-btn-hover-border-color: #1a52a6;
+  --bs-btn-active-bg: #164689;
+  --bs-btn-active-border-color: #164689;
+  --bs-btn-disabled-bg: #1f5fbf;
+  --bs-btn-disabled-border-color: #1f5fbf;
+  --bs-btn-focus-shadow-rgb: 31, 95, 191;
+}
+
+[data-bs-theme="light"] .btn-outline-primary {
+  --bs-btn-color: #1f5fbf;
+  --bs-btn-border-color: #1f5fbf;
+  --bs-btn-hover-bg: #1f5fbf;
+  --bs-btn-hover-border-color: #1f5fbf;
+  --bs-btn-active-bg: #1a52a6;
+  --bs-btn-active-border-color: #1a52a6;
+  --bs-btn-disabled-color: #1f5fbf;
+  --bs-btn-disabled-border-color: #1f5fbf;
+  --bs-btn-focus-shadow-rgb: 31, 95, 191;
+}
+
+[data-bs-theme="light"] .form-check-input:checked {
+  background-color: #1f5fbf;
+  border-color: #1f5fbf;
+}
+
+[data-bs-theme="light"] .form-control:focus,
+[data-bs-theme="light"] .form-select:focus,
+[data-bs-theme="light"] .form-check-input:focus {
+  border-color: #8fb0de;
+  box-shadow: 0 0 0 0.25rem rgba(31, 95, 191, 0.2);
+}
+
+/* ── A total in a meaning's colour: «Χρωστάς», «Έσοδα του μήνα» ───────────────
+   One look wherever a page heads with money in and money out. Each page keeps
+   its own layout (padding, type) and adds `tone-tile tone-tile-income` or
+   `-expense`; the colour comes from here. On dark a wash of the colour; on
+   light a white tile with the colour on its edge and in its figure — a pink or
+   mint block on white read as an error banner and a washed-out one. */
+.tone-tile-income {
+  --tile-tone: var(--color-income);
+  background: var(--income-wash);
+  color: var(--color-income-text);
+}
+
+.tone-tile-expense {
+  --tile-tone: var(--color-expense);
+  background: var(--expense-wash);
+  color: var(--color-expense-text);
+}
+
+[data-bs-theme="light"] .tone-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-tertiary);
+  border-left: 4px solid var(--tile-tone);
+  border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
 }

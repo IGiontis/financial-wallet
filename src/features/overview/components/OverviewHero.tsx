@@ -6,6 +6,7 @@ import { excludedByOpeningDate, type OpeningBalance } from "../../../shared/util
 import type { PaydayOutlook } from "../overviewTabs";
 import { PaydayCard } from "./PaydayCard";
 import { moneyOrigin } from "./paydayParts";
+import { MoneyBreakdown, type AccountFigure } from "./MoneyBreakdown";
 
 type Money = (n: number) => string;
 
@@ -36,6 +37,8 @@ export default function OverviewHero({
   formatCurrency,
   locale,
   bankStrip,
+  accounts = [],
+  month,
 }: {
   balance: number;
   transactions: Transaction[];
@@ -51,6 +54,10 @@ export default function OverviewHero({
   locale: string;
   /** How fresh the banks reading is, inside the card it corrects rather than on a line of its own. */
   bankStrip?: ReactNode;
+  /** Each bank and the cash as they stand now — only when the figure comes from the banks. */
+  accounts?: AccountFigure[];
+  /** The month so far, in and out. */
+  month?: { label: string; income: number; expenses: number };
 }) {
   const { t } = useTranslation();
 
@@ -77,6 +84,9 @@ export default function OverviewHero({
       // in the charts, they are simply not deducted twice.
       between={
         <>
+          {!isLoading && (
+            <MoneyBreakdown accounts={source === "readings" ? accounts : []} inGoals={inGoals} figure={balance} month={month} formatCurrency={formatCurrency} />
+          )}
           {excluded > 0 && (
             <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
               ⓘ {t("overview.currentBalanceExcluded", { count: excluded })}

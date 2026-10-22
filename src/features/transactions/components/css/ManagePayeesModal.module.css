@@ -12,7 +12,7 @@
 }
 
 .rowDanger {
-  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  background: var(--expense-wash);
 }
 
 .name {

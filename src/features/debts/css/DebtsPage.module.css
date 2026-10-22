@@ -20,18 +20,7 @@
   padding: 0.875rem 1rem;
 }
 
-.totalOut {
-  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-expense) 28%, transparent);
-  color: var(--color-expense);
-}
-
-.totalIn {
-  background: color-mix(in srgb, var(--color-income) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-income) 28%, transparent);
-  color: var(--color-income);
-}
-
+/* Their colours are the shared `tone-tile` (index.css), as on the Calendar. */
 .totalLabel {
   font-size: 11.5px;
 }
@@ -542,8 +531,9 @@
 }
 
 .pickOn {
-  border-color: var(--bs-primary);
-  background: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+  border-color: var(--color-segment-active-border);
+  background: var(--color-segment-active);
+  color: var(--color-segment-active-text);
 }
 
 .pickDot {
