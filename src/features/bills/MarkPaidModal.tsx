@@ -15,6 +15,7 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 interface MarkPaidModalProps {
   bill: BillWithStatus;
@@ -226,7 +227,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   ];
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
         {t("bills.pay.title")} · {bill.name}
       </ModalHeader>

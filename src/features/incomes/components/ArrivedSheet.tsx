@@ -14,6 +14,7 @@ import { bankAnswerDate, isOnReadingDay, isSettled, type ArrivalInput, type Expe
 import type { IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../css/IncomesPage.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 // «Ήρθε»: four fields and one button.
 //
@@ -123,7 +124,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
   const display = Number.isFinite(typed) && typed > 0 ? new Intl.NumberFormat(f.lang, { style: "currency", currency: displayCurrency }).format(typed) : "";
 
   return (
-    <Modal isOpen toggle={onClose} centered>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>
         <span className="d-block">{income.name}</span>
         <span className="d-block fw-normal text-body-secondary" style={{ fontSize: 13 }}>

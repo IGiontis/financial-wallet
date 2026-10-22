@@ -12,6 +12,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
 import { DateField } from "../../shared/components/DateField";
 import { parseISOMonth, standaloneMonthName } from "../../shared/utils/dates";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -261,7 +262,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
   })();
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
+    <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{isEdit ? t("bills.editBill") : t("bills.newBill")}</ModalHeader>
       <form onSubmit={formik.handleSubmit} noValidate>
         <ModalBody>

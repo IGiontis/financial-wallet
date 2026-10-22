@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { resetUserData, type ResetScope } from "../../../firebase/firestore";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 /** Order shown in the dialog; every switch names exactly what it clears. */
 const SCOPE_ITEMS: { key: keyof ResetScope; labelKey: string; hintKey: string }[] = [
@@ -80,7 +81,7 @@ export default function ResetDataSection() {
         {t("settings.resetAction")}
       </Button>
 
-      <Modal isOpen={open} toggle={close} centered>
+      <Modal {...FORM_MODAL} isOpen={open} toggle={close} centered>
         <ModalHeader toggle={close}>{t("settings.resetTitle")}</ModalHeader>
         <ModalBody>
           {deleted !== null ? (

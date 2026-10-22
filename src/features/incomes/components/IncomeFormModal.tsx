@@ -15,6 +15,7 @@ import { scheduleText, weekdayName, type IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
 import styles from "../css/IncomesPage.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 // One sheet for a new income and for changing one, in three steps, in the
 // order of the Bills form — name, amount, «αλλάζει» → how often, which day,
@@ -152,7 +153,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   ];
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</ModalHeader>
 
       <form

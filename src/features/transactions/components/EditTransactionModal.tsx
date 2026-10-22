@@ -27,6 +27,7 @@ import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -276,7 +277,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const recentPayeeNames = useMemo(() => recentPayees(history), [history]);
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} centered size="md">
+    <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="md">
       <ModalHeader toggle={handleClose}>{t("transactions.editTransaction")}</ModalHeader>
 
       {/* The same wash the debts dialog uses: the form takes the colour of

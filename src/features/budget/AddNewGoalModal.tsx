@@ -27,6 +27,7 @@ import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Mo
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { addMonths, format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -266,7 +267,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   const isTargeted = formik.values.goalType === "targeted";
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
+    <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : t(isGoalsPage ? "goals.reviewYourGoal" : "investments.reviewYourInvestment")}</ModalHeader>
 
       {step === "review" ? (

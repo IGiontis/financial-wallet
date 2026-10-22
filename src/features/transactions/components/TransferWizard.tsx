@@ -19,6 +19,7 @@ import { transferProblem, transferRecords } from "../transfers";
 import { newDocId } from "../../../firebase/firestore";
 import { formatTable } from "../transactionDates";
 import styles from "./css/TransactionWizard.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 /** A transfer as it stands, to correct it. */
 export interface TransferDraft {
@@ -185,7 +186,7 @@ export default function TransferWizard({
     asPage ? (
       <div className={styles.page}>{children}</div>
     ) : (
-      <Modal isOpen toggle={onClose} centered scrollable>
+      <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
         <ModalHeader toggle={onClose}>{title}</ModalHeader>
         {children}
       </Modal>

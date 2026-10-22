@@ -21,6 +21,7 @@ import { goalHolding } from "./goalHolding";
 import { useCoveredFunding } from "./useCoveredFunding";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
@@ -348,7 +349,7 @@ export default function ContributionWizard({
   const title = t(deposit ? "investments.addDepositTitle" : "investments.withdrawTitle", { icon: goal.icon ?? "💰", name: goal.name });
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>{title}</ModalHeader>
       <form
         noValidate

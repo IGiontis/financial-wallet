@@ -8,6 +8,7 @@ import { BankCard } from "./BankCard";
 import { CARD_COLORS, CARD_FINISH, type CardColor } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { DeleteButton } from "../../shared/components/DeleteButton";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 export interface AccountDraft {
   name: string;
@@ -72,7 +73,7 @@ export default function AccountModal({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
       <ModalHeader toggle={onClose}>{account ? t("accounts.editTitle") : t("accounts.addTitle")}</ModalHeader>
       <ModalBody>
         <div className={`${segmented.group} ${segmented.even} mb-3`} role="group" aria-label={t("accounts.kind")}>

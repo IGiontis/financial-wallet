@@ -176,3 +176,19 @@ describe("the bill form's on/off switch", () => {
     expect(await screen.findByRole("switch", { name: /^active/i })).toBeChecked();
   });
 });
+
+describe("the bill form's backdrop", () => {
+  it("does not close on a click beside it — a half-filled form is not thrown away", async () => {
+    const onClose = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AddBillModal isOpen onClose={onClose} categories={categories} bill={null} onSubmit={async () => {}} />
+      </QueryClientProvider>,
+    );
+    await userEvent.type(await screen.findByPlaceholderText(/Rent, Netflix/), "Water");
+    // The dialog layer itself, outside the white box — where a stray tap lands.
+    await userEvent.click(document.querySelector(".modal") as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("Water")).toBeInTheDocument();
+  });
+});

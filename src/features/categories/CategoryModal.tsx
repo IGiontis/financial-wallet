@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
 import { cleanCategoryName, findScopeDuplicates, firstGrapheme, type CategoryScope } from "../../shared/utils/categoryNames";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
 const ICON_CHOICES = ["🧾", "💳", "🏦", "🚗", "🏠", "🛠️", "📚", "🎁", "🍼", "🐶", "💊", "✂️", "📦", "🎓", "⚖️", "🧳"];
@@ -74,7 +75,7 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   ];
 
   return (
-    <Modal isOpen toggle={onClose} centered>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>{category ? t("categories.editTitle") : t("categories.newTitle")}</ModalHeader>
 
       <form onSubmit={submit} noValidate>

@@ -11,6 +11,7 @@ import { firestoreToDate } from "../../shared/utils/dates";
 const PENDING_SHOWN = 3;
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -84,7 +85,7 @@ export default function CheckInModal({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
       <ModalHeader toggle={onClose}>{t("accounts.readTitle")}</ModalHeader>
       <ModalBody>
         <p className="small text-body-secondary mb-2">{t(hasExpectation ? "accounts.readHint" : "accounts.readHintFirst")}</p>

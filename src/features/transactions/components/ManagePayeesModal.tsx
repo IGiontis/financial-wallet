@@ -6,6 +6,7 @@ import { validatePayee, MAX_PAYEE_LENGTH, type PayeeError } from "../payeeStore"
 import styles from "./css/ManagePayeesModal.module.css";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 const ERROR_KEY: Record<PayeeError, string> = {
   empty: "validation.nameRequired",
@@ -66,7 +67,7 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered size="md" scrollable zIndex={1070}>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered size="md" scrollable zIndex={1070}>
       <ModalHeader toggle={onClose}>{t("transactions.managePayees")}</ModalHeader>
 
       <ModalBody>

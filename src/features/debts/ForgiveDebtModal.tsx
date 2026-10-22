@@ -7,6 +7,7 @@ import { parseISODay, toISODay } from "../../shared/utils/dates";
 import { forgiveness } from "./debtsUtils";
 import { useUpdateDebt } from "./useDebts";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 const NOTE_MAX = 200;
 
@@ -34,7 +35,7 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>
         <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: 15 }}>
           <FiGift aria-hidden /> {t("debts.forgiveTitle")}

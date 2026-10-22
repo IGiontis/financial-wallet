@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { billOverdue, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 interface SettleOverdueModalProps {
   bill: BillWithStatus;
@@ -50,7 +51,7 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
     });
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>{t("bills.settleOverdueTitle", { name: bill.name })}</ModalHeader>
 
       <ModalBody>

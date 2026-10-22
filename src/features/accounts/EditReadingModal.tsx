@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { parseAmount, type MoneyAccount } from "./accountsUtils";
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 /**
  * Correcting a reading typed wrong — the figures as they were entered that day,
@@ -59,7 +60,7 @@ export default function EditReadingModal({
   const changed = !!next && shown.some((a) => Math.round((next[a.id] - amounts[a.id]) * 100) !== 0);
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
       <ModalHeader toggle={onClose}>{t("accounts.fixTitle", { date: dateLabel })}</ModalHeader>
       <ModalBody>
         <p className="small text-body-secondary mb-2">{t("accounts.fixHint")}</p>

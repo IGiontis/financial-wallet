@@ -11,6 +11,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, I
 import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 const PRESET_ICONS = ["💰", "🚗", "🏠", "✈️", "🎓", "💻", "🛡️", "🏖️", "🏋️", "💍", "🎸", "📱", "🌍", "🚀", "🐾", "🎉"];
 const PRESET_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
@@ -213,7 +214,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleClose} centered size="lg" scrollable>
+    <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="lg" scrollable>
       <ModalHeader toggle={handleClose}>{step === "form" ? t("goals.editTitle", { icon: goal.icon ?? "💰", name: goal.name }) : t("goals.reviewYourChanges")}</ModalHeader>
 
       {step === "review" ? (

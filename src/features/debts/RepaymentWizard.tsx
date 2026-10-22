@@ -13,6 +13,7 @@ import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { previewRepayment } from "./debtsUtils";
 import { useRecordRepayment } from "./useDebts";
 import styles from "./css/DebtsPage.module.css";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
 // four steps as a transaction and an income: how much, when, through which
@@ -94,7 +95,7 @@ export default function RepaymentWizard({
   ];
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
         {t(borrowed ? "debts.wizard.titleOut" : "debts.wizard.titleIn")} · {debt.person}
       </ModalHeader>

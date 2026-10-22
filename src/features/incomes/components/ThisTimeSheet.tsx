@@ -9,6 +9,7 @@ import type { OccurrenceOverride } from "../../plannerPage/plannerActuals";
 import type { Income, IncomeStatus } from "../incomesUtils";
 import type { IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 // «Αυτή τη φορά…», from a row's ⋮: what can be said about one time only — it
 // comes on another day, with another amount, or not at all — as on the
@@ -48,7 +49,7 @@ export default function ThisTimeSheet({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered size="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose} tag="div" className="w-100">
         <div className="fw-semibold">{t("incomes.thisTime.title", { name: income.name })}</div>
         <div className="text-body-secondary" style={{ fontSize: 12.5 }}>

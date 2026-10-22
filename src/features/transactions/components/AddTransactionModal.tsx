@@ -27,6 +27,7 @@ import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ function Frame({ asPage, isOpen, onClose, children }: { asPage: boolean; isOpen:
   return asPage ? (
     <div className={styles.page}>{children}</div>
   ) : (
-    <Modal isOpen={isOpen} toggle={onClose} centered size="md">
+    <Modal {...FORM_MODAL} isOpen={isOpen} toggle={onClose} centered size="md">
       {children}
     </Modal>
   );

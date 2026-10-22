@@ -12,6 +12,7 @@ import segmented from "../../shared/css/Segmented.module.css";
 import { parseISODay, toISODay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -148,7 +149,7 @@ export default function AddDebtModal({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
       <Form onSubmit={submit}>
         <ModalBody className={direction === "owed_by_me" ? "wash-expense" : "wash-income"}>

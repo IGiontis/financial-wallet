@@ -7,6 +7,7 @@ import { DateField } from "../../../shared/components/DateField";
 import { toISODay } from "../../../shared/utils/dates";
 import { parseAmount } from "../../accounts/accountsUtils";
 import { daysLate, type OccurrenceOverride, type ResolvedOccurrence } from "../plannerActuals";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 /**
  * One salary, one instalment, one rent — and what actually happened to it.
@@ -63,7 +64,7 @@ export default function OccurrenceSheet({
   })();
 
   return (
-    <Modal isOpen toggle={onClose} centered fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered fullscreen="sm">
       <ModalHeader toggle={onClose}>
         <span className="d-block">{label}</span>
         <span className="d-block small fw-normal text-body-secondary">

@@ -5,6 +5,7 @@ import { FiMoreHorizontal } from "react-icons/fi";
 
 import { asHorizon, MAX_HORIZON_MONTHS, MIN_HORIZON_MONTHS, PLANNER_HORIZONS, THIS_MONTH, type PlannerHorizon } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 /** The pills a phone shows; the rest of `PLANNER_HORIZONS` sits behind "⋯" there. */
 const PHONE_HORIZONS: readonly number[] = [THIS_MONTH, 1, 3, 6, 12];
@@ -79,7 +80,7 @@ export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: H
       </div>
 
       {asking && (
-        <Modal isOpen toggle={() => setAsking(false)} centered size="sm">
+        <Modal {...FORM_MODAL} isOpen toggle={() => setAsking(false)} centered size="sm">
           <ModalHeader toggle={() => setAsking(false)}>
             <span style={{ fontSize: 15 }}>{t("planner.horizonCustom")}</span>
           </ModalHeader>

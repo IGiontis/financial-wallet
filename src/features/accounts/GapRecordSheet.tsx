@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Category, CreateTransactionDTO } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
 import { parseAmount } from "./accountsUtils";
+import { FORM_MODAL } from "../../shared/components/formModal";
 
 /**
  * "Do you know where it went?", asked in the middle of reading the banks.
@@ -73,7 +74,7 @@ export default function GapRecordSheet({
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm">
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
       <ModalHeader toggle={onClose}>{t(change < 0 ? "accounts.gap.titleOut" : "accounts.gap.titleIn", { amount: formatCurrency(Math.abs(change)) })}</ModalHeader>
       <ModalBody>
         <p className="small text-body-secondary">{t("accounts.gap.hint", { account: accountName })}</p>

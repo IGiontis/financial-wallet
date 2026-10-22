@@ -11,6 +11,7 @@ import { oneOffDate, REPEAT_CHOICES, repeatLabel } from "../plannerUtils";
 import { categoryLabel } from "../../../shared/utils/categories";
 import type { Category } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
+import { FORM_MODAL } from "../../../shared/components/formModal";
 
 export interface EntryDraft {
   id?: string;
@@ -173,7 +174,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   ];
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
         <span style={{ fontSize: 15 }}>{t(edit ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
       </ModalHeader>
