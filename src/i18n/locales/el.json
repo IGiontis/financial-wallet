@@ -1765,7 +1765,12 @@
     "rowLate": "καθυστερεί",
     "rowMoreDates_one": "και {{count}} ακόμα",
     "rowMoreDates_other": "και {{count}} ακόμα",
-    "groupExtra": "Έκτακτα"
+    "groupExtra": "Έκτακτα",
+    "factGoalTarget": "Ο στόχος",
+    "factGoalSaved": "Έχεις βάλει",
+    "factGoalLeft": "Μένουν για τον στόχο",
+    "factGoalEvery_monthly": "{{amount}} / μήνα",
+    "factGoalEvery_yearly": "{{amount}} / χρόνο"
   },
   "settings": {
     "title": "Ρυθμίσεις",

@@ -1765,7 +1765,12 @@
     "rowLate": "late",
     "rowMoreDates_one": "and {{count}} more",
     "rowMoreDates_other": "and {{count}} more",
-    "groupExtra": "One-off"
+    "groupExtra": "One-off",
+    "factGoalTarget": "The goal",
+    "factGoalSaved": "Put in so far",
+    "factGoalLeft": "Left to reach it",
+    "factGoalEvery_monthly": "{{amount}} / month",
+    "factGoalEvery_yearly": "{{amount}} / year"
   },
   "settings": {
     "title": "Settings",

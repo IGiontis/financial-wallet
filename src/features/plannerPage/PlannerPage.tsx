@@ -440,6 +440,22 @@ export function PlannerPage() {
   const rowFacts = (row: PlanRow): RowFact[] => {
     const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
     const facts: RowFact[] = [[t("planner.factTotal", { months: monthsLabel }), row.enabled ? signed(row.total) : t("planner.offRow")]];
+    // A goal, first: what it was set at, what is in it already, and what that
+    // leaves — the same «saved» the Goals page shows, from the same stats.
+    //
+    // Only a one-time goal has an amount to reach. On a monthly or yearly one
+    // `targetAmount` is the amount *each* month or year, so it is said as such
+    // and nothing is "left": the goal never runs out. An open-ended one has no
+    // amount at all — only what is in it.
+    const goal = row.source === "goal" ? goals.find((g) => g.id === row.id) : undefined;
+    if (goal) {
+      const saved = goal.totalSaved ?? 0;
+      const amount = goal.goalType === "targeted" && goal.targetAmount ? goal.targetAmount : undefined;
+      const every = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly" ? goal.targetPeriod : undefined;
+      if (amount !== undefined) facts.push([t("planner.factGoalTarget"), every ? t(`planner.factGoalEvery_${every}`, { amount: formatCurrency(amount) }) : formatCurrency(amount)]);
+      facts.push([t("planner.factGoalSaved"), formatCurrency(saved)]);
+      if (amount !== undefined && !every) facts.push([t("planner.factGoalLeft"), formatCurrency(Math.max(amount - saved, 0))]);
+    }
     if (row.each !== undefined) facts.push([t("planner.factEach"), formatCurrency(row.each)]);
     else if (row.perMonth !== undefined) facts.push([t("planner.factPerMonth"), formatCurrency(Math.abs(row.perMonth))]);
     if (row.occurrences !== undefined) facts.push([t("planner.factTimes"), String(row.occurrences)]);
@@ -453,7 +469,7 @@ export function PlannerPage() {
     // 85 € of power divided by half a month read as 163 € a month.
     if (row.enabled && row.total !== 0 && plan.monthsCovered >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
     // A goal meant to start later says from when: the reason nothing is asked before it.
-    const planStart = row.source === "goal" ? (() => { const goal = goals.find((g) => g.id === row.id); return goal ? goalPlanStart(goal, startOfToday) : undefined; })() : undefined;
+    const planStart = goal ? goalPlanStart(goal, startOfToday) : undefined;
     if (planStart) facts.push([t("goals.planFromShort"), new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }).format(planStart)]);
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     if (season) facts.push([t("planner.factSeason"), season]);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll, afterEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -24,7 +24,7 @@ import type { Bill, InvestmentGoalWithStats, Transaction } from "../../shared/ty
 const NOW = new Date(2026, 8, 30, 12);
 const JAN = new Date(2026, 0, 1);
 
-const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown, created: [] as unknown[] }));
+const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown, created: [] as unknown[], goals: undefined as unknown[] | undefined }));
 // What the page saves, kept so it is read back on the next render and so a
 // test can look at what an answer wrote.
 const settings = vi.hoisted(() => new Map<string, unknown>());
@@ -35,7 +35,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   // «Ήρθε» from an income's card writes through this.
   useCreateTransaction: () => ({ mutate: (dto: unknown) => data.created.push(dto) }),
 }));
-vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [GOAL], isLoading: false }) }));
+// [GOAL] unless a test puts its own goals here.
+vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: data.goals ?? [GOAL], isLoading: false }) }));
 vi.mock("../bills/useBills", () => ({ useBills: () => ({ data: BILLS, isLoading: false }) }));
 vi.mock("../debts/useDebts", () => ({ useDebts: () => ({ data: [] }) }));
 vi.mock("../../shared/hooks/useOpeningBalance", () => ({
@@ -528,5 +529,37 @@ describe("month by month", () => {
       await closeSheet();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
+  });
+});
+
+describe("a goal's sheet", () => {
+  // 2.000 to reach by June 2027, 550 in already; and 100 a month, 300 in so far.
+  const TRIP = { ...GOAL, id: "trip", name: "Trip", targetPeriod: "custom", targetAmount: 2000, totalSaved: 550, remaining: 1450, currentPeriodSaved: 0, deadline: new Date(2027, 5, 1) } as unknown as InvestmentGoalWithStats;
+  const MONTHLY = { ...GOAL, targetAmount: 100, totalSaved: 300 } as unknown as InvestmentGoalWithStats;
+  const boxes = (sheet: HTMLElement) => Object.fromEntries([...sheet.querySelectorAll("[class*=_factBox_]")].map((box) => [box.children[0].textContent, box.children[1].textContent]));
+
+  afterEach(() => {
+    data.goals = undefined;
+  });
+
+  it("says what a one-time goal was set at, what is in it, and what that leaves", async () => {
+    data.goals = [TRIP];
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Trip: details" }));
+    const facts = boxes(screen.getByRole("dialog"));
+    expect(facts).toMatchObject({ "The goal": "€2000.00", "Put in so far": "€550.00", "Left to reach it": "€1450.00" });
+    // A second way: what is left is the goal's own «remaining», the figure the plan paces by.
+    expect(2000 - 550).toBe((TRIP as { remaining: number }).remaining);
+  });
+
+  it("says a monthly goal's amount as a month's, and leaves nothing «left» of a goal that never runs out", async () => {
+    data.goals = [MONTHLY];
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Savings: details" }));
+    const facts = boxes(screen.getByRole("dialog"));
+    expect(facts).toMatchObject({ "The goal": "€100.00 / month", "Put in so far": "€300.00" });
+    expect(facts).not.toHaveProperty("Left to reach it");
   });
 });
