@@ -24,14 +24,14 @@ import type { Bill, InvestmentGoalWithStats, Transaction } from "../../shared/ty
 const NOW = new Date(2026, 8, 30, 12);
 const JAN = new Date(2026, 0, 1);
 
-const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown, created: [] as unknown[], goals: undefined as unknown[] | undefined }));
+const data = vi.hoisted(() => ({ transactions: [] as Transaction[], latest: undefined as unknown, created: [] as unknown[], goals: undefined as unknown[] | undefined, categories: [] as unknown[] }));
 // What the page saves, kept so it is read back on the next render and so a
 // test can look at what an answer wrote.
 const settings = vi.hoisted(() => new Map<string, unknown>());
 
 vi.mock("../transactions/hooks/useTransactions", () => ({
   useTransactions: () => ({ data: data.transactions, isLoading: false, isError: false, isSuccess: true }),
-  useCategories: () => ({ data: [] }),
+  useCategories: () => ({ data: data.categories }),
   // «Ήρθε» from an income's card writes through this.
   useCreateTransaction: () => ({ mutate: (dto: unknown) => data.created.push(dto) }),
   // The card's «Αναίρεση» deletes through this.
@@ -132,6 +132,7 @@ beforeEach(() => {
   settings.set("planner-horizon", 3);
   data.transactions = [payOnThe25th];
   data.latest = READING;
+  data.categories = [];
   watching = undefined;
 });
 
@@ -563,5 +564,100 @@ describe("a goal's sheet", () => {
     const facts = boxes(screen.getByRole("dialog"));
     expect(facts).toMatchObject({ "The goal": "€100.00 / month", "Put in so far": "€300.00" });
     expect(facts).not.toHaveProperty("Left to reach it");
+  });
+});
+
+describe("a budget line with categories", () => {
+  const FOOD = { ...OWN, label: "Food", categoryIds: ["groceries", "dining"] };
+  const spent = (categoryId: string, amount: number, date: Date) =>
+    ({ id: `${categoryId}-${amount}`, userId: "u", type: "expense", amount, categoryId, description: categoryId, date, createdAt: date, updatedAt: date }) as Transaction;
+
+  beforeEach(() => {
+    settings.set("planner-lines", [FOOD]);
+    data.categories = [
+      { id: "groceries", name: "Groceries", type: "expense", icon: "🛒" },
+      { id: "dining", name: "Dining", type: "expense", icon: "🍽" },
+    ];
+    data.transactions = [payOnThe25th, spent("groceries", 120, new Date(2026, 8, 10)), spent("dining", 40, new Date(2026, 8, 20)), spent("fuel", 50, new Date(2026, 8, 12)), spent("groceries", 90, new Date(2026, 7, 15))];
+  });
+
+  const openFood = async () => {
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Food: what was spent" }));
+    return screen.getByRole("dialog");
+  };
+  const rows = (sheet: HTMLElement) => within(within(sheet).getByRole("list", { name: "By category" })).getAllByRole("listitem").map((li) => li.textContent);
+
+  it("opens on what the month has taken, category by category, adding up to the limit's figure", async () => {
+    renderPage();
+    const sheet = await openFood();
+    expect(within(sheet).getByText("September 2026")).toBeInTheDocument();
+    expect(within(sheet).getByText("You spent €160.00 of €300.00")).toBeInTheDocument();
+    expect(rows(sheet)).toEqual(["🛒 Groceries (1)€120.00 · 75%", "🍽 Dining (1)€40.00 · 25%"]);
+    // A second way: what is left is the limit less the rows, and fuel is no row of it.
+    expect(within(sheet).getByText(`€${(300 - 120 - 40).toFixed(2)} left for the rest of the month`)).toBeInTheDocument();
+  });
+
+  it("steps back a month, and not past this one", async () => {
+    renderPage();
+    const sheet = await openFood();
+    expect(within(sheet).getByRole("button", { name: "Next month" })).toBeDisabled();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Previous month" }));
+    expect(within(sheet).getByText("August 2026")).toBeInTheDocument();
+    expect(within(sheet).getByText("You spent €90.00 of €300.00")).toBeInTheDocument();
+    expect(within(sheet).getByText("€210.00 of the limit was left")).toBeInTheDocument();
+  });
+
+  it("goes on to the editor from inside", async () => {
+    renderPage();
+    const sheet = await openFood();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Amount per month")).toHaveValue(300);
+  });
+
+  it("leaves a line with no categories opening straight on its editor", async () => {
+    settings.set("planner-lines", [OWN]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Amount per month")).toBeInTheDocument();
+  });
+});
+
+describe("«Month» on the card", () => {
+  const tile = (label: string) => screen.getByText(label).closest("[class*=_tile_]")!.children[1].textContent!;
+  const amount = (text: string) => (text.startsWith("−") ? -1 : 1) * Number(text.replace(/[^d.]/g, ""));
+
+  it("shows one month: what it starts with, what comes and goes, what it ends with — adding up", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "Month" }));
+    expect(screen.getByRole("button", { name: "September 2026 — pick another month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous month" })).toBeDisabled();
+    // This month starts from today, with the money there is.
+    expect(tile("From today")).toBe("€1000.00");
+    const septemberEnd = amount(tile("Month ends with"));
+    expect(Math.round((1000 + amount(tile("Coming in")) + amount(tile("Going out"))) * 100) / 100).toBe(septemberEnd);
+
+    await userEvent.click(screen.getByRole("button", { name: "Next month" }));
+    expect(screen.getByRole("button", { name: "October 2026 — pick another month" })).toBeInTheDocument();
+    // A second way: October starts where September ended.
+    expect(amount(tile("Month starts with"))).toBe(septemberEnd);
+    const sum = amount(tile("Month starts with")) + amount(tile("Coming in")) + amount(tile("Going out"));
+    expect(Math.round(sum * 100) / 100).toBe(amount(tile("Month ends with")));
+    expect(screen.getByText(/^Lowest in the month: /)).toBeInTheDocument();
+  });
+
+  it("goes straight to a month years away, and back to the period as it was", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "Month" }));
+    await userEvent.click(screen.getByRole("button", { name: "September 2026 — pick another month" }));
+    await userEvent.selectOptions(screen.getByLabelText("Year"), "2027");
+    await userEvent.selectOptions(screen.getByLabelText("Month"), "10");
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("button", { name: "November 2027 — pick another month" })).toBeInTheDocument();
+    expect(tile("Month starts with")).toMatch(money);
+
+    await userEvent.click(screen.getByRole("tab", { name: "Period" }));
+    expect(screen.getByRole("button", { name: /^You end with: / })).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { categoryOwners, lineSpentThisMonth, spentByCategory } from "./lineSpending";
+import { categoryOwners, lineMonthSpend, lineSpentThisMonth, spentByCategory } from "./lineSpending";
 import { buildPlan, THIS_MONTH, type BudgetLine } from "./plannerUtils";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -95,5 +95,42 @@ describe("a limit in the plan", () => {
     expect(plan.rows.find((r) => r.id === "ski")!.total).toBe(-500);
     expect(walked(plan)).toBe(500);
     expect(plan.rows.find((r) => r.id === "ski")!.spent).toBeUndefined();
+  });
+});
+
+describe("one line's month, category by category", () => {
+  it("lists each of its categories, biggest first, a quiet one at zero", () => {
+    const spend = lineMonthSpend(food({ categoryIds: ["groceries", "dining", "coffee"] }), october, NOW);
+    expect(spend.byCategory).toEqual([
+      { categoryId: "groceries", amount: 160, count: 1 },
+      { categoryId: "dining", amount: 50, count: 1 },
+      { categoryId: "coffee", amount: 0, count: 0 },
+    ]);
+  });
+
+  it("adds up to what the limit is charged with this month — the same figure, to the cent", () => {
+    const spend = lineMonthSpend(food(), october, NOW);
+    expect(spend.total).toBe(round2(spend.byCategory.reduce((sum, row) => sum + row.amount, 0)));
+    expect(spend.total).toBe(lineSpentThisMonth([food()], october, NOW).get("food"));
+    expect(spend.total).toBe(210);
+  });
+
+  it("reads an earlier month on its own, and leaves out what is not the line's", () => {
+    const september = lineMonthSpend(food(), october, new Date(2026, 8, 1));
+    expect(september.total).toBe(30);
+    expect(september.byCategory.map((r) => r.categoryId)).not.toContain("fuel");
+  });
+});
+
+describe("how many times", () => {
+  it("counts each spend in the month, and each counts toward the sum", () => {
+    const twice = [...october, tx("groceries", 20, new Date(2026, 9, 15))];
+    const spend = lineMonthSpend(food(), twice, NOW);
+    expect(spend.byCategory).toEqual([
+      { categoryId: "groceries", amount: 180, count: 2 },
+      { categoryId: "dining", amount: 50, count: 1 },
+    ]);
+    // A second way: the records themselves, in the month and of the line's categories.
+    expect(twice.filter((x) => x.date >= new Date(2026, 9, 1) && ["groceries", "dining"].includes(x.categoryId)).length).toBe(3);
   });
 });

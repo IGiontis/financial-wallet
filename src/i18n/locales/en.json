@@ -48,7 +48,8 @@
     "deleteConfirmNamed": "“{{name}}” will be deleted for good. This can't be undone.",
     "loadFailedRetrying": "Some data didn't load — trying again on its own.",
     "retryNow": "Try now",
-    "retrying": "Loading…"
+    "retrying": "Loading…",
+    "done": "Done"
   },
   "nav": {
     "groupStanding": "Where you stand",
@@ -1774,7 +1775,27 @@
     "factGoalLeft": "Left to reach it",
     "factGoalEvery_monthly": "{{amount}} / month",
     "factGoalEvery_yearly": "{{amount}} / year",
-    "note_undatedReturn": "no date set for it to come back — give it one on Debts for it to count"
+    "note_undatedReturn": "no date set for it to come back — give it one on Debts for it to count",
+    "viewLabel": "What the card shows",
+    "viewRange": "Period",
+    "viewMonth": "Month",
+    "monthStart": "Month starts with",
+    "monthFromToday": "From today",
+    "monthIn": "Coming in",
+    "monthOut": "Going out",
+    "monthEnd": "Month ends with",
+    "monthLowest": "Lowest in the month: {{amount}} on {{date}}",
+    "monthPrev": "Previous month",
+    "monthNext": "Next month",
+    "monthPick": "{{month}} — pick another month",
+    "monthPickMonth": "Month",
+    "monthPickYear": "Year",
+    "viewEntry": "{{name}}: what was spent",
+    "lineSpentOf": "You spent {{spent}} of {{limit}}",
+    "lineLeftThisMonth": "{{amount}} left for the rest of the month",
+    "lineLeftThen": "{{amount}} of the limit was left",
+    "lineOverBy": "Over the limit by {{amount}}",
+    "lineByCategory": "By category"
   },
   "settings": {
     "title": "Settings",

@@ -14,8 +14,8 @@ import type { BudgetLine } from "./plannerUtils";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** What actually left, per category, between two dates. */
-export function spentByCategory(transactions: Transaction[], from: Date, to: Date): Map<string, number> {
+/** What actually left, per category, between two dates — the sum and how many times. */
+function spendingByCategory(transactions: Transaction[], from: Date, to: Date): Map<string, { amount: number; count: number }> {
   const inRange = transactions.filter((tx) => {
     const date = firestoreToDate(tx.date);
     return date >= from && date <= to;
@@ -24,7 +24,12 @@ export function spentByCategory(transactions: Transaction[], from: Date, to: Dat
   // Through `categorySplit` rather than a fresh sum: it already knows that a
   // goal deposit is a transfer and not spending, and a second opinion on that
   // is the last thing this app needs.
-  return new Map(categorySplit(inRange, "expense", Number.MAX_SAFE_INTEGER).map((slice) => [slice.categoryId, round2(slice.amount)]));
+  return new Map(categorySplit(inRange, "expense", Number.MAX_SAFE_INTEGER).map((slice) => [slice.categoryId, { amount: round2(slice.amount), count: slice.count }]));
+}
+
+/** What actually left, per category, between two dates. */
+export function spentByCategory(transactions: Transaction[], from: Date, to: Date): Map<string, number> {
+  return new Map([...spendingByCategory(transactions, from, to)].map(([id, { amount }]) => [id, amount]));
 }
 
 /**
@@ -47,4 +52,25 @@ export function categoryOwners(lines: Pick<BudgetLine, "id" | "label" | "categor
   const owners = new Map<string, { id: string; label: string }>();
   for (const line of lines) for (const id of line.categoryIds ?? []) if (!owners.has(id)) owners.set(id, { id: line.id, label: line.label });
   return owners;
+}
+
+/** What one line's categories took in one month: each on its own, biggest first, and their sum. */
+export interface LineMonthSpend {
+  total: number;
+  /** `count`: how many times it was spent on — «Φαγητό (12)». */
+  byCategory: { categoryId: string; amount: number; count: number }[];
+}
+
+/**
+ * One line's month, category by category — what its view shows. The same
+ * `spentByCategory` the limit is charged from, so the total here is the
+ * «ξοδεύτηκαν» the plan uses for this month, to the cent. A category with
+ * nothing spent is listed at zero: it is one the line covers.
+ */
+export function lineMonthSpend(line: Pick<BudgetLine, "categoryIds">, transactions: Transaction[], month: Date): LineMonthSpend {
+  const spent = spendingByCategory(transactions, startOfMonth(month), endOfMonth(month));
+  const byCategory = (line.categoryIds ?? [])
+    .map((categoryId) => ({ categoryId, amount: spent.get(categoryId)?.amount ?? 0, count: spent.get(categoryId)?.count ?? 0 }))
+    .sort((a, b) => b.amount - a.amount);
+  return { total: round2(byCategory.reduce((sum, row) => sum + row.amount, 0)), byCategory };
 }

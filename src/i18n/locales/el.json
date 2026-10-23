@@ -48,7 +48,8 @@
     "deleteConfirmNamed": "Θα διαγραφεί οριστικά το «{{name}}». Δεν αναιρείται.",
     "loadFailedRetrying": "Κάποια δεδομένα δεν φόρτωσαν — ξαναδοκιμάζω μόνο μου.",
     "retryNow": "Δοκίμασε τώρα",
-    "retrying": "Φορτώνει…"
+    "retrying": "Φορτώνει…",
+    "done": "Έτοιμο"
   },
   "nav": {
     "groupStanding": "Πού είσαι",
@@ -1774,7 +1775,27 @@
     "factGoalLeft": "Μένουν για τον στόχο",
     "factGoalEvery_monthly": "{{amount}} / μήνα",
     "factGoalEvery_yearly": "{{amount}} / χρόνο",
-    "note_undatedReturn": "δεν έχει οριστεί πότε θα σου τα επιστρέψουν — βάλε ημερομηνία στα Χρέη για να μετρήσει"
+    "note_undatedReturn": "δεν έχει οριστεί πότε θα σου τα επιστρέψουν — βάλε ημερομηνία στα Χρέη για να μετρήσει",
+    "viewLabel": "Τι δείχνει η κάρτα",
+    "viewRange": "Διάστημα",
+    "viewMonth": "Μήνας",
+    "monthStart": "Αρχή μήνα",
+    "monthFromToday": "Από σήμερα",
+    "monthIn": "Μπαίνουν",
+    "monthOut": "Βγαίνουν",
+    "monthEnd": "Τέλος μήνα",
+    "monthLowest": "Χαμηλότερο μέσα στον μήνα: {{amount}} στις {{date}}",
+    "monthPrev": "Προηγούμενος μήνας",
+    "monthNext": "Επόμενος μήνας",
+    "monthPick": "{{month}} — διάλεξε άλλον μήνα",
+    "monthPickMonth": "Μήνας",
+    "monthPickYear": "Χρόνος",
+    "viewEntry": "{{name}}: τι ξοδεύτηκε",
+    "lineSpentOf": "Ξόδεψες {{spent}} από {{limit}}",
+    "lineLeftThisMonth": "Μένουν {{amount}} για τον υπόλοιπο μήνα",
+    "lineLeftThen": "Έμειναν {{amount}} από το όριο",
+    "lineOverBy": "Ξεπέρασες το όριο κατά {{amount}}",
+    "lineByCategory": "Ανά κατηγορία"
   },
   "settings": {
     "title": "Ρυθμίσεις",

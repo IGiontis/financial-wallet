@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { startOfMonth } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import IncomeQuickView from "../incomes/components/IncomeQuickView";
 import { Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
@@ -42,6 +43,9 @@ import PeriodCard from "./components/PeriodCard";
 import AnswerStrip from "./components/AnswerStrip";
 import PlannerTiles, { type PlannerSheet } from "./components/PlannerTiles";
 import PlanRowSheet, { type RowDate, type RowFact } from "./components/PlanRowSheet";
+import LineSpendSheet from "./components/LineSpendSheet";
+import { horizonForMonth, monthRange, planMonth } from "./planMonthView";
+import type { PlannerView } from "./components/PlannerTiles";
 import UnconfirmedQuestion from "./components/UnconfirmedQuestion";
 import PlannerTimeline from "./components/PlannerTimeline";
 import OccurrenceSheet from "./components/OccurrenceSheet";
@@ -182,6 +186,18 @@ export function PlannerPage() {
     [bills, goals, lines, oneOffs, debts, owedToMe, incomes, skipIds, now, actuals],
   );
   const plan = useMemo(() => buildPlan({ ...inputs, openingBalance, horizon }), [inputs, openingBalance, horizon]);
+  // «Μήνας»: one month, any up to the farthest a plan reaches — built from a
+  // plan just long enough to hold it, the window's own horizon left alone.
+  const [view, setView] = useState<PlannerView>("range");
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(now));
+  const monthBounds = useMemo(() => monthRange(now), [now]);
+  const monthData = useMemo(() => {
+    if (view !== "month") return undefined;
+    const reach = horizonForMonth(viewMonth, now);
+    return reach === undefined ? undefined : planMonth(buildPlan({ ...inputs, openingBalance, horizon: reach }), viewMonth);
+  }, [view, viewMonth, now, inputs, openingBalance]);
+  // A line with categories opens on what it has taken; its editor is one tap in.
+  const [viewLine, setViewLine] = useState<string | null>(null);
   // "Until pay day" is read off a plan exactly like the Overview's: the same
   // inputs, the same two months. Not off the one above, whose points thin out
   // to a week apart from four months on — and a weekly line has no point on
@@ -273,17 +289,17 @@ export function PlannerPage() {
 
   type Editor = { mode: "line" | "oneoff"; draft: EntryDraft };
 
+  const openLineEditor = (line: BudgetLine) =>
+    setEditor({
+      mode: "line",
+      draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until, categoryIds: line.categoryIds },
+    });
+
   /** Opens the editor for a row the user owns; undefined for rows the app keeps. */
   const editHandler = (row: PlanRow) => {
     if (row.source !== "line") return undefined;
     const line = lines.find((l) => l.id === row.id);
-    return line
-      ? () =>
-          setEditor({
-            mode: "line",
-            draft: { id: line.id, label: line.label, amount: String(line.amount), from: line.from, to: line.to, yearly: line.yearly, until: line.until, categoryIds: line.categoryIds },
-          })
-      : undefined;
+    return line ? () => openLineEditor(line) : undefined;
   };
 
   const saveEntry = (editor: Editor, draft: EntryDraft) => {
@@ -436,7 +452,12 @@ export function PlannerPage() {
     ...billRows.map((row) => ledgerItem(row, t("planner.groupBills"))),
     ...goalRows.map((row) => ledgerItem(row, t("planner.groupGoals"))),
     ...debtRows.map((row) => ledgerItem(row, t("debts.plannerGroup"))),
-    ...budgetRows.map((row) => ledgerItem(row, t("planner.groupMine"), editHandler(row), t("planner.editEntry"))),
+    ...budgetRows.map((row) => {
+      const line = lines.find((l) => l.id === row.id);
+      return (line?.categoryIds?.length ?? 0) > 0
+        ? ledgerItem(row, t("planner.groupMine"), () => setViewLine(row.id), t("planner.viewEntry", { name: row.label }))
+        : ledgerItem(row, t("planner.groupMine"), editHandler(row), t("planner.editEntry"));
+    }),
   ];
 
   /** What a row is made of, for its sheet: the words the list no longer carries. */
@@ -543,6 +564,12 @@ export function PlannerPage() {
             now={now}
             formatCurrency={formatCurrency}
             locale={lang}
+            view={view}
+            onView={setView}
+            month={viewMonth}
+            onMonth={setViewMonth}
+            months={monthBounds}
+            monthData={monthData}
           />
 
           {/* Stacked on a phone, the levers sat below the whole timeline, so
@@ -662,6 +689,26 @@ export function PlannerPage() {
           ))}
         </ModalBody>
       </Modal>
+      {viewLine &&
+        (() => {
+          const line = lines.find((l) => l.id === viewLine);
+          if (!line) return null;
+          return (
+            <LineSpendSheet
+              line={line}
+              categories={categories}
+              transactions={transactions}
+              now={now}
+              formatCurrency={formatCurrency}
+              locale={lang}
+              onClose={() => setViewLine(null)}
+              onEdit={() => {
+                setViewLine(null);
+                openLineEditor(line);
+              }}
+            />
+          );
+        })()}
       {sheetRow && (
         <PlanRowSheet
           row={sheetRow}

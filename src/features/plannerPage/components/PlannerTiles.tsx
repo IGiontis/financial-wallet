@@ -1,6 +1,10 @@
 import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
-import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
+import { addMonths, isSameMonth } from "date-fns";
+import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
+import { Input } from "reactstrap";
+import type { PlanMonth } from "../planMonthView";
+import segmented from "../../../shared/css/Segmented.module.css";
 
 import type { PaydayOutlook } from "../../overview/overviewTabs";
 import type { PlannerHorizon, PlannerPlan } from "../plannerUtils";
@@ -12,6 +16,9 @@ import styles from "../css/PlannerPage.module.css";
 
 /** Which sheet a tile opens: the pay-day answer in full, or the whole period. */
 export type PlannerSheet = "payday" | "period" | "questions";
+
+/** The whole window, as the horizon sets it; or one calendar month of it. */
+export type PlannerView = "range" | "month";
 
 interface PlannerTilesProps {
   plan: PlannerPlan;
@@ -27,6 +34,15 @@ interface PlannerTilesProps {
   formatCurrency: (n: number) => string;
   locale: string;
   cardRef?: Ref<HTMLDivElement>;
+  view: PlannerView;
+  onView: (view: PlannerView) => void;
+  /** The month shown in «Μήνας», its first day. */
+  month: Date;
+  onMonth: (month: Date) => void;
+  /** The months that can be shown: this one to the farthest a plan reaches. */
+  months: { first: Date; last: Date };
+  /** The month's figures and line; undefined while the plan for it is not there. */
+  monthData?: PlanMonth;
 }
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -41,7 +57,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
  * have) are all still there, one tap in, as are the questions about pay that
  * may already have arrived: here they are one line saying how many.
  */
-export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, questions, onOpen, now, formatCurrency, locale, cardRef }: PlannerTilesProps) {
+export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, questions, onOpen, now, formatCurrency, locale, cardRef, view, onView, month, onMonth, months, monthData }: PlannerTilesProps) {
   const { t } = useTranslation();
   // The eye on the line: every day something lands, and what is left after it.
   const [chartOpen, setChartOpen] = useState(false);
@@ -99,16 +115,83 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
     },
   ];
 
+  // «Μήνας»: what the month starts with, what comes and goes, what it ends
+  // with — the month list's own figures. This month starts from today.
+  const isMonth = view === "month" && !!monthData;
+  const monthTiles = monthData
+    ? [
+        { key: "start", label: t(isSameMonth(month, now) ? "planner.monthFromToday" : "planner.monthStart"), value: formatCurrency(monthData.slice.carried), color: red(monthData.slice.carried) },
+        { key: "in", label: t("planner.monthIn"), value: `+${formatCurrency(monthData.in)}`, color: "var(--color-income-text)" },
+        { key: "out", label: t("planner.monthOut"), value: `−${formatCurrency(monthData.out)}`, color: undefined },
+        { key: "end", label: t("planner.monthEnd"), value: formatCurrency(monthData.slice.close), color: red(monthData.slice.close) },
+      ]
+    : [];
+  const monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" });
+  const monthNames = Array.from({ length: 12 }, (_, m) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2024, m, 1)));
+  const years = Array.from({ length: months.last.getFullYear() - months.first.getFullYear() + 1 }, (_, i) => months.first.getFullYear() + i);
+  const [picking, setPicking] = useState(false);
+  /** Kept inside the months a plan can show. */
+  const clampMonth = (m: Date) => (m < months.first ? months.first : m > months.last ? months.last : m);
+  const shown = isMonth ? monthData!.view : plan;
+
   return (
     <section ref={cardRef} className="card mb-3" aria-label={t("planner.glance")}>
       <div className="card-body p-3 p-sm-4">
-        <div className="d-flex justify-content-between align-items-center gap-2">
-          <span className={styles.label}>{t("planner.wholePeriod")}</span>
-          <span className="small text-body-secondary">
-            {shortDate.format(plan.start)} – {dayDate.format(plan.end)}
-          </span>
+        {/* «Διάστημα» the window the horizon sets, «Μήνας» one month of it, any month up to the farthest a plan reaches. */}
+        <div className={`${segmented.group} ${segmented.even} mb-2`} role="tablist" aria-label={t("planner.viewLabel")}>
+          {(["range", "month"] as const).map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} className={`${segmented.item} ${view === v ? segmented.active : ""}`} onClick={() => onView(v)}>
+              {t(v === "range" ? "planner.viewRange" : "planner.viewMonth")}
+            </button>
+          ))}
         </div>
-        <HorizonPicker horizon={horizon} onChange={onHorizon} now={now} locale={locale} />
+
+        {view === "range" ? (
+          <>
+            <div className="d-flex justify-content-between align-items-center gap-2">
+              <span className={styles.label}>{t("planner.wholePeriod")}</span>
+              <span className="small text-body-secondary">
+                {shortDate.format(plan.start)} – {dayDate.format(plan.end)}
+              </span>
+            </div>
+            <HorizonPicker horizon={horizon} onChange={onHorizon} now={now} locale={locale} />
+          </>
+        ) : (
+          <div className={styles.monthNav}>
+            <button type="button" className={styles.monthStep} onClick={() => onMonth(clampMonth(addMonths(month, -1)))} disabled={month <= months.first} aria-label={t("planner.monthPrev")}>
+              <FiChevronLeft aria-hidden />
+            </button>
+            {picking ? (
+              // Straight to any month: a year away is twelve taps of ‹ ›.
+              <span className="d-flex gap-2">
+                <Input type="select" bsSize="sm" aria-label={t("planner.monthPickMonth")} value={month.getMonth()} onChange={(e) => onMonth(clampMonth(new Date(month.getFullYear(), Number(e.target.value), 1)))}>
+                  {monthNames.map((name, m) => (
+                    <option key={m} value={m}>
+                      {name}
+                    </option>
+                  ))}
+                </Input>
+                <Input type="select" bsSize="sm" aria-label={t("planner.monthPickYear")} value={month.getFullYear()} onChange={(e) => onMonth(clampMonth(new Date(Number(e.target.value), month.getMonth(), 1)))}>
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </Input>
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => setPicking(false)}>
+                  {t("common.done")}
+                </button>
+              </span>
+            ) : (
+              <button type="button" className={styles.monthName} onClick={() => setPicking(true)} aria-label={t("planner.monthPick", { month: monthFmt.format(month) })}>
+                {monthFmt.format(month)}
+              </button>
+            )}
+            <button type="button" className={styles.monthStep} onClick={() => onMonth(clampMonth(addMonths(month, 1)))} disabled={month >= months.last} aria-label={t("planner.monthNext")}>
+              <FiChevronRight aria-hidden />
+            </button>
+          </div>
+        )}
 
         {questions > 0 && (
           <button type="button" className={styles.questionsLine} onClick={() => onOpen("questions")}>
@@ -118,6 +201,25 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
           </button>
         )}
 
+        {isMonth ? (
+          <>
+            <div className={styles.tiles}>
+              {monthTiles.map((tile) => (
+                <div key={tile.key} className={styles.tile}>
+                  <span className={styles.tileHead}>
+                    <span className={styles.tileLabel}>{tile.label}</span>
+                  </span>
+                  <span className={styles.tileValue} style={{ color: tile.color }}>
+                    {tile.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="small text-body-secondary mt-2 mb-0">
+              {t("planner.monthLowest", { amount: formatCurrency(monthData!.slice.lowest), date: dayDate.format(monthData!.slice.lowestOn) })}
+            </p>
+          </>
+        ) : (
         <div className={styles.tiles}>
           {tiles.map((tile) => (
             // The eye opens the working, as on every chart: the tile itself is a figure to read.
@@ -136,15 +238,16 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
             </div>
           ))}
         </div>
+        )}
 
         <div className={styles.chartHead}>
           <span className={styles.label}>{t("planner.balanceTitle")}</span>
           <ZoomButton onClick={() => setChartOpen(true)} label={t("planner.daysTitle")} />
         </div>
         {/* Keyed by the window: a selected day was an index into the old one. */}
-        <BalanceScrub key={`${plan.months}-${plan.end.getTime()}`} plan={plan} formatCurrency={formatCurrency} locale={locale} />
+        <BalanceScrub key={`${view}-${shown.start.getTime()}-${shown.end.getTime()}`} plan={shown} formatCurrency={formatCurrency} locale={locale} />
       </div>
-      {chartOpen && <BalanceSheet plan={plan} onClose={() => setChartOpen(false)} formatCurrency={formatCurrency} locale={locale} />}
+      {chartOpen && <BalanceSheet plan={shown} onClose={() => setChartOpen(false)} formatCurrency={formatCurrency} locale={locale} />}
     </section>
   );
 }
