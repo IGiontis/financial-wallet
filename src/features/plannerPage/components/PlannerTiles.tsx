@@ -127,7 +127,8 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
       ]
     : [];
   const monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" });
-  const monthNames = Array.from({ length: 12 }, (_, m) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2024, m, 1)));
+  // The month out of «Οκτώβριος 2026»: on its own Greek gives «Οκτωβρίου», the genitive of a date.
+  const monthNames = Array.from({ length: 12 }, (_, m) => monthFmt.formatToParts(new Date(2024, m, 1)).find((part) => part.type === "month")!.value);
   const years = Array.from({ length: months.last.getFullYear() - months.first.getFullYear() + 1 }, (_, i) => months.first.getFullYear() + i);
   const [picking, setPicking] = useState(false);
   /** Kept inside the months a plan can show. */
@@ -164,14 +165,14 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
             {picking ? (
               // Straight to any month: a year away is twelve taps of ‹ ›.
               <span className="d-flex gap-2">
-                <Input type="select" bsSize="sm" aria-label={t("planner.monthPickMonth")} value={month.getMonth()} onChange={(e) => onMonth(clampMonth(new Date(month.getFullYear(), Number(e.target.value), 1)))}>
+                <Input type="select" bsSize="sm" className="w-auto" aria-label={t("planner.monthPickMonth")} value={month.getMonth()} onChange={(e) => onMonth(clampMonth(new Date(month.getFullYear(), Number(e.target.value), 1)))}>
                   {monthNames.map((name, m) => (
                     <option key={m} value={m}>
                       {name}
                     </option>
                   ))}
                 </Input>
-                <Input type="select" bsSize="sm" aria-label={t("planner.monthPickYear")} value={month.getFullYear()} onChange={(e) => onMonth(clampMonth(new Date(Number(e.target.value), month.getMonth(), 1)))}>
+                <Input type="select" bsSize="sm" className="w-auto" aria-label={t("planner.monthPickYear")} value={month.getFullYear()} onChange={(e) => onMonth(clampMonth(new Date(Number(e.target.value), month.getMonth(), 1)))}>
                   {years.map((y) => (
                     <option key={y} value={y}>
                       {y}
