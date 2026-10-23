@@ -98,6 +98,11 @@ export function plannableDebts(debts: DebtWithStatus[]): DebtWithStatus[] {
   return debts.filter((d) => d.direction === "owed_by_me" && !d.isSettled);
 }
 
+/** Money lent and not all back yet — what the plan counts as coming in, on the day it is due back. */
+export function receivableDebts(debts: DebtWithStatus[]): DebtWithStatus[] {
+  return debts.filter((d) => d.direction === "owed_to_me" && !d.isSettled);
+}
+
 /**
  * The order to throw spare money at, dearest first.
  *

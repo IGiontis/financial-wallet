@@ -320,6 +320,71 @@ describe("debts in the plan", () => {
   });
 });
 
+describe("money lent, coming back", () => {
+  // Lent 500 to a friend, 200 repaid already: 300 still to come back.
+  const lent = (over: Partial<DebtWithStatus> = {}): DebtWithStatus =>
+    ({
+      id: "lent",
+      userId: "u1",
+      person: "Μαρία",
+      direction: "owed_to_me",
+      amount: 500,
+      date: new Date(2026, 5, 1),
+      createdAt: new Date(2026, 5, 1),
+      updatedAt: new Date(2026, 5, 1),
+      payments: [],
+      paid: 200,
+      remaining: 300,
+      isSettled: false,
+      ...over,
+    }) as DebtWithStatus;
+
+  it("comes in on the day it is due back, for what is still owed — not what was lent", () => {
+    const without = buildPlan({ ...base, horizon: 3 });
+    const plan = buildPlan({ ...base, horizon: 3, owedToMe: [lent({ dueDate: new Date(2026, 8, 20) })] });
+
+    const back = plan.events.find((e) => e.debtId === "lent");
+    expect(back).toMatchObject({ kind: "income", amount: 300, date: new Date(2026, 8, 20) });
+    expect(plan.rows.find((r) => r.id === "lent")).toMatchObject({ source: "debt", kind: "income", total: 300, label: "Μαρία" });
+    // In with the money coming in, not out with the debts owed.
+    expect(plan.incomeTotal).toBeCloseTo(without.incomeTotal + 300, 2);
+    expect(plan.debtsTotal).toBe(0);
+    expect(plan.outgoingTotal).toBe(without.outgoingTotal);
+    // A second way: the line ends 300 higher, and nothing else moved.
+    expect(plan.endingBalance).toBeCloseTo(without.endingBalance + 300, 2);
+  });
+
+  it("holds one whose day has gone on today, marked late", () => {
+    const plan = buildPlan({ ...base, horizon: 1, owedToMe: [lent({ dueDate: new Date(2026, 6, 1) })] });
+    expect(plan.events.find((e) => e.debtId === "lent")).toMatchObject({ amount: 300, date: new Date(2026, 7, 14), late: true, expected: new Date(2026, 6, 1) });
+  });
+
+  it("lists one with no day agreed and counts it nowhere — money that may come back is not money to plan on", () => {
+    const without = buildPlan({ ...base, horizon: 3 });
+    const plan = buildPlan({ ...base, horizon: 3, owedToMe: [lent()] });
+    expect(plan.rows.find((r) => r.id === "lent")).toMatchObject({ total: 0, note: "undatedReturn", kind: "income" });
+    expect(plan.events.some((e) => e.debtId === "lent")).toBe(false);
+    expect(plan.endingBalance).toBe(without.endingBalance);
+  });
+
+  it("is switched off like every other row", () => {
+    const input = { ...base, horizon: 3 as const, owedToMe: [lent({ dueDate: new Date(2026, 8, 20) })] };
+    const on = buildPlan(input);
+    const off = buildPlan({ ...input, skipIds: new Set(["lent"]) });
+    expect(off.endingBalance).toBeCloseTo(on.endingBalance - 300, 2);
+  });
+
+  it("does not count one owed both ways at once: a debt owed and one owed back stay on their own sides", () => {
+    const owedOut = { ...lent({ id: "out", direction: "owed_by_me", person: "Τράπεζα", remaining: 2100, paid: 0, amount: 2100 }), dueDate: new Date(2026, 8, 1) } as DebtWithStatus;
+    const without = buildPlan({ ...base, horizon: 3 });
+    const plan = buildPlan({ ...base, horizon: 3, debts: [owedOut], owedToMe: [lent({ dueDate: new Date(2026, 8, 20) })] });
+    expect(plan.debtsTotal).toBe(2100);
+    expect(plan.incomeTotal).toBeCloseTo(without.incomeTotal + 300, 2);
+    // −2.100 + 300 on the line, and only that.
+    expect(plan.endingBalance).toBeCloseTo(without.endingBalance - 2100 + 300, 2);
+  });
+});
+
 describe("the user's own budget lines", () => {
   const food = (over: Partial<BudgetLine> = {}): BudgetLine => ({ id: "l1", label: "Φαγητό", amount: 200, kind: "expense", ...over });
 

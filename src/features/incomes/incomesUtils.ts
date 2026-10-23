@@ -352,6 +352,40 @@ export function incomeArrivals(income: Pick<Income, "id">, transactions: Transac
   return [...byDue.values()].sort((a, b) => b.date.getTime() - a.date.getTime() || b.due.localeCompare(a.due));
 }
 
+/**
+ * One time that came, and what undoing it takes. Settled either by its own
+ * records — undone by deleting them — or by a word with no record behind it
+ * («ήρθε», said from the Planner) — undone by taking the word back. Both kinds
+ * have to be undoable: only the first used to be, so a time marked by the
+ * second could not be taken back from anywhere.
+ */
+export interface ArrivalUndo {
+  /** The occurrence's key, where a word about it is kept; absent for records older than the times on hand. */
+  key?: string;
+  /** The time it was for. */
+  due: Date;
+  /** When it came. */
+  date: Date;
+  amount: number;
+  /** Its records, deleted on undo; empty when only a word settled it. */
+  transactionIds: string[];
+}
+
+/**
+ * Every time of this income that came, newest first: the settled times on
+ * hand, then any older «Ήρθε» records beyond them.
+ */
+export function undoableArrivals(income: Pick<Income, "id">, statuses: IncomeStatus[], transactions: Transaction[]): ArrivalUndo[] {
+  const fromStatuses: ArrivalUndo[] = statuses
+    .filter((s) => s.incomeId === income.id && s.state === "arrived" && s.arrival)
+    .map((s) => ({ key: s.key, due: s.date, date: s.arrival!.date, amount: s.arrival!.amount, transactionIds: s.arrival!.transactionIds }));
+  const covered = new Set(fromStatuses.flatMap((u) => u.transactionIds));
+  const older: ArrivalUndo[] = incomeArrivals(income, transactions)
+    .filter((a) => !a.transactions.some((tx) => covered.has(tx.id)))
+    .map((a) => ({ due: parseISODay(a.due) ?? a.date, date: a.date, amount: a.amount, transactionIds: a.transactions.map((tx) => tx.id) }));
+  return [...fromStatuses, ...older].sort((a, b) => b.date.getTime() - a.date.getTime() || b.due.getTime() - a.due.getTime());
+}
+
 export interface ExpectedAmount {
   /** What to plan with. */
   amount: number;

@@ -2,7 +2,6 @@ import { SubPageTabs } from "../../shared/components/SubPageTabs";
 import { useMemo, useState } from "react";
 import { Button, Col, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
 import { addMonths, startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
 import { SkeletonCard, SkeletonHeading, SkeletonRows, Skeleton } from "../../shared/components/Skeletons";
@@ -11,14 +10,15 @@ import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { toISOMonth } from "../../shared/utils/dates";
-import { useCategories, useDeleteTransaction } from "../transactions/hooks/useTransactions";
+import { useCategories } from "../transactions/hooks/useTransactions";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { mainAccount } from "../accounts/accountsUtils";
-import { useDeclinedSalaries, useIncomes, useRecordArrival } from "./useIncomes";
+import { useDeclinedSalaries, useIncomes, useRecordArrival, useUndoArrival } from "./useIncomes";
 import {
   KIND_ICON,
   expectedAmount,
-  incomeArrivals,
+  undoableArrivals,
+  type ArrivalUndo,
   incomeRows,
   incomeWindow,
   incomeYear,
@@ -26,9 +26,7 @@ import {
   monthSummary,
   salarySuggestion,
   suggestIncomeCategory,
-  type Income,
-  type IncomeArrival,
-  type IncomeStatus,
+  type Income,  type IncomeStatus,
   lateCount,
 } from "./incomesUtils";
 import { emptyDraft, incomeToDraft, type DraftStep, type IncomeDraft } from "./incomeForm";
@@ -71,7 +69,7 @@ interface FormState {
  * What waits for a yes. `back` is the income whose card the question was asked
  * from: the card makes way for the question, and comes back after it.
  */
-type Confirming = { kind: "delete"; income: Income; back?: string } | { kind: "undo"; income: Income; arrival: IncomeArrival; back?: string };
+type Confirming = { kind: "delete"; income: Income; back?: string } | { kind: "undo"; income: Income; arrival: ArrivalUndo; back?: string };
 
 interface ArrivingState {
   incomeId: string;
@@ -95,12 +93,12 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const showList = page === "record" || page === "all";
   const f = useMemo(() => makeFormats(i18n.resolvedLanguage ?? "en"), [i18n.resolvedLanguage]);
   const { format: formatCurrency, convert } = useCurrencyConverter();
-  const { incomes, statuses, transactions, lastReadingAt, now, isLoading, saveIncome, removeIncome, setOverride } = useIncomes();
+  const { incomes, statuses, transactions, overrides, lastReadingAt, now, isLoading, saveIncome, removeIncome, setOverride } = useIncomes();
   const { data: categories = [] } = useCategories();
   const accounts = useAccountList();
   const main = mainAccount(accounts);
   const recordArrival = useRecordArrival();
-  const deleteTransaction = useDeleteTransaction();
+  const undoArrival = useUndoArrival(overrides, setOverride);
   const deleteGuard = useOfflineGuard("delete");
   const [declined, decline] = useDeclinedSalaries();
 
@@ -168,13 +166,15 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     setConfirming({ kind: "delete", income, back });
   };
 
-  // From the row's ⋮: the latest «Ήρθε» of that income, named with its date
-  // on the question so it is clear which one goes.
-  const askUndo = (income: Income) => {
-    const arrival = incomeArrivals(income, transactions)[0];
+  // Every time that came, whatever settled it — its records or a word.
+  const undoable = (income: Income) => undoableArrivals(income, statuses, transactions);
+  // From the row's ⋮ the latest one; from the card the one tapped. Named with
+  // its date on the question so it is clear which one goes. From the card, the
+  // question gives way back to it.
+  const askUndo = (income: Income, arrival: ArrivalUndo | undefined = undoable(income)[0], back?: string) => {
     if (!arrival) return;
     setCardId(null);
-    setConfirming({ kind: "undo", income, arrival });
+    setConfirming({ kind: "undo", income, arrival, back });
   };
 
   const closeConfirm = (reopen: boolean) => {
@@ -189,7 +189,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
       closeConfirm(false);
       return;
     }
-    confirming.arrival.transactions.forEach((tx) => deleteTransaction.mutate({ id: tx.id }, { onError: () => toast.error(t("incomes.card.undoFailed")) }));
+    undoArrival(confirming.arrival);
     closeConfirm(false);
   };
 
@@ -337,7 +337,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 onRestore={(income) => saveIncome({ ...income, active: undefined })}
                 onDelete={(income) => askDelete(income)}
                 onThisTime={(income, status) => setThisTime({ incomeId: income.id, status })}
-                canUndoArrival={(income) => incomeArrivals(income, transactions).length > 0}
+                canUndoArrival={(income) => undoable(income).length > 0}
                 onUndoArrival={askUndo}
               />
             )}
@@ -373,7 +373,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           income={cardIncome}
           statuses={statuses}
           expected={expectedAmount(cardIncome, transactions)}
-          arrivals={incomeArrivals(cardIncome, transactions)}
+          arrivals={undoable(cardIncome)}
+          onUndoArrival={(income, arrival) => askUndo(income, arrival, income.id)}
           accountName={accountName(cardIncome.accountId)}
           formatCurrency={formatCurrency}
           f={f}
@@ -450,9 +451,14 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
       {confirming?.kind === "undo" && (
         <ConfirmSheet
           title={t("incomes.confirm.undoTitle")}
-          body={t("incomes.confirm.undoBody", { amount: formatCurrency(confirming.arrival.amount), date: f.weekdayDate.format(confirming.arrival.date), name: confirming.income.name })}
+          body={t(confirming.arrival.transactionIds.length > 0 ? "incomes.confirm.undoBody" : "incomes.confirm.undoBodyNoRecord", {
+            amount: formatCurrency(confirming.arrival.amount),
+            date: f.weekdayDate.format(confirming.arrival.date),
+            name: confirming.income.name,
+          })}
           confirmLabel={t("incomes.card.undoRecord")}
-          lockedReason={deleteGuard.locked ? deleteGuard.reason : undefined}
+          // Offline only a record cannot be deleted; a word can still be taken back.
+          lockedReason={deleteGuard.locked && confirming.arrival.transactionIds.length > 0 ? deleteGuard.reason : undefined}
           onConfirm={confirm}
           onClose={() => closeConfirm(true)}
         />

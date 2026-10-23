@@ -56,6 +56,10 @@ function BalanceLineBase({
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(FALLBACK);
   const dragging = useRef(false);
+  // A mouse that clicked: the day stays where it was put, as a finger's does,
+  // so the pointer can go off to read the figures without dragging the
+  // crosshair with it. Hovering only previews until then; Escape lets go.
+  const pinned = useRef(false);
 
   useLayoutEffect(() => {
     const box = boxRef.current;
@@ -136,6 +140,10 @@ function BalanceLineBase({
     if (index >= 0 && index !== selectedIndex) onSelect(index);
   };
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.key === "Escape") {
+      pinned.current = false;
+      return;
+    }
     const last = points.length - 1;
     const from = selectedIndex < 0 ? 0 : selectedIndex;
     const next =
@@ -205,13 +213,15 @@ function BalanceLineBase({
         onKeyDown={onKeyDown}
         onPointerDown={(event) => {
           dragging.current = true;
+          if (event.pointerType === "mouse") pinned.current = true;
           event.currentTarget.setPointerCapture?.(event.pointerId);
           pick(event);
         }}
         onPointerMove={(event) => {
-          // A mouse reads by hovering; a finger has to be down, or brushing
-          // past the chart while scrolling would move the selection.
-          if (dragging.current || event.pointerType === "mouse") pick(event);
+          // A finger has to be down, or brushing past the chart while scrolling
+          // would move the selection. A mouse previews by hovering — until it
+          // clicks, which pins the day; dragging with the button held still moves it.
+          if (dragging.current || (event.pointerType === "mouse" && !pinned.current)) pick(event);
         }}
         onPointerUp={() => (dragging.current = false)}
         onPointerCancel={() => (dragging.current = false)}

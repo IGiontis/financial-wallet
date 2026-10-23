@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { useWorkspace, useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
-import { useCreateTransaction, useTransactions } from "../transactions/hooks/useTransactions";
+import { useCreateTransaction, useDeleteTransaction, useTransactions } from "../transactions/hooks/useTransactions";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import type { OccurrenceOverride } from "../plannerPage/plannerActuals";
 import { PLANNER_KEYS, cleanOverrides, withOverride } from "../plannerPage/plannerInputs";
@@ -18,6 +18,7 @@ import {
   resolveIncomes,
   upsertIncome,
   type ArrivalInput,
+  type ArrivalUndo,
   type Income,
   type IncomeOccurrence,
   type IncomeStatus,
@@ -167,4 +168,19 @@ export function useRecordArrival() {
       saveWithoutWaiting(createTransaction, arrivalTransaction(income, occurrence, input), () => toast.error(t("incomes.arrived.failed"))),
     [createTransaction, t],
   );
+}
+
+/**
+ * Takes back one time that came — see `ArrivalUndo`. Its records are deleted,
+ * and the word that settled it («ήρθε» said with nothing written) is taken
+ * back, so the time is due again whichever way it had been settled. One for
+ * «Έσοδα» and for the card the Planner opens, so both undo the same way.
+ */
+export function useUndoArrival(overrides: Record<string, OccurrenceOverride>, setOverride: (key: string, value: OccurrenceOverride | undefined) => void) {
+  const { t } = useTranslation();
+  const deleteTransaction = useDeleteTransaction();
+  return (arrival: ArrivalUndo) => {
+    arrival.transactionIds.forEach((id) => deleteTransaction.mutate({ id }, { onError: () => toast.error(t("incomes.card.undoFailed")) }));
+    if (arrival.key && overrides[arrival.key]?.state === "received") setOverride(arrival.key, undefined);
+  };
 }

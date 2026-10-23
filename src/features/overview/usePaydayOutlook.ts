@@ -3,7 +3,7 @@ import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
-import { plannableDebts } from "../debts/debtsUtils";
+import { plannableDebts, receivableDebts } from "../debts/debtsUtils";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { buildPlan, type BudgetLine, type OneOff } from "../plannerPage/plannerUtils";
 import type { OccurrenceOverride } from "../plannerPage/plannerActuals";
@@ -51,11 +51,13 @@ export function usePaydayOutlook(now: Date, balance: number, lastReadingAt?: Dat
   const skipIds = useMemo(() => new Set(cleanSkipped(storedSkipped)), [storedSkipped]);
   const overrides = useMemo(() => cleanOverrides(storedOverrides), [storedOverrides]);
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
+  // Money lent and due back before pay day is money that arrives before it — the Planner counts it, so does this.
+  const owedToMe = useMemo(() => receivableDebts(allDebts), [allDebts]);
   const actuals = useMemo(() => ({ transactions, debts, overrides, lastReadingAt }), [transactions, debts, overrides, lastReadingAt]);
 
   const plan = useMemo(
-    () => buildPlan({ bills, goals, lines, oneOffs, debts, incomes, openingBalance: balance, skipIds, horizon: PAYDAY_HORIZON, now, actuals }),
-    [bills, goals, lines, oneOffs, debts, incomes, balance, skipIds, now, actuals],
+    () => buildPlan({ bills, goals, lines, oneOffs, debts, owedToMe, incomes, openingBalance: balance, skipIds, horizon: PAYDAY_HORIZON, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, owedToMe, incomes, balance, skipIds, now, actuals],
   );
   const outlook = useMemo(() => paydayOutlook(plan, now), [plan, now]);
 

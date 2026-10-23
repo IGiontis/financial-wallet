@@ -4,11 +4,13 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { mainAccount } from "../../accounts/accountsUtils";
-import { useIncomes, useRecordArrival } from "../useIncomes";
-import { expectedAmount, incomeArrivals, suggestIncomeCategory, type IncomeStatus } from "../incomesUtils";
+import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { useIncomes, useRecordArrival, useUndoArrival } from "../useIncomes";
+import { expectedAmount, suggestIncomeCategory, undoableArrivals, type ArrivalUndo, type IncomeStatus } from "../incomesUtils";
 import { makeFormats } from "../incomeText";
 import IncomeCard from "./IncomeCard";
 import ArrivedSheet from "./ArrivedSheet";
+import { ConfirmSheet } from "./ConfirmSheet";
 
 /**
  * An income's card, from anywhere that lists incomes — the Planner's rows —
@@ -20,16 +22,40 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
   const { t, i18n } = useTranslation();
   const f = useMemo(() => makeFormats(i18n.resolvedLanguage ?? "en"), [i18n.resolvedLanguage]);
   const { format: formatCurrency } = useCurrencyConverter();
-  const { incomes, statuses, transactions, now } = useIncomes();
+  const { incomes, statuses, transactions, overrides, setOverride, now } = useIncomes();
   const { data: categories = [] } = useCategories();
   const accounts = useAccountList();
   const recordArrival = useRecordArrival();
   const [arriving, setArriving] = useState<IncomeStatus | null>(null);
+  // One «Ήρθε» to take back, asked about first — as on «Έσοδα».
+  const [undoing, setUndoing] = useState<ArrivalUndo | null>(null);
+  const undoArrival = useUndoArrival(overrides, setOverride);
+  const deleteGuard = useOfflineGuard("delete");
 
   const income = incomes.find((i) => i.id === incomeId);
   if (!income) return null;
 
   const expected = expectedAmount(income, transactions);
+
+  if (undoing) {
+    return (
+      <ConfirmSheet
+        title={t("incomes.confirm.undoTitle")}
+        body={t(undoing.transactionIds.length > 0 ? "incomes.confirm.undoBody" : "incomes.confirm.undoBodyNoRecord", {
+          amount: formatCurrency(undoing.amount),
+          date: f.weekdayDate.format(undoing.date),
+          name: income.name,
+        })}
+        confirmLabel={t("incomes.card.undoRecord")}
+        lockedReason={deleteGuard.locked && undoing.transactionIds.length > 0 ? deleteGuard.reason : undefined}
+        onConfirm={() => {
+          undoArrival(undoing);
+          setUndoing(null);
+        }}
+        onClose={() => setUndoing(null)}
+      />
+    );
+  }
 
   if (arriving) {
     const category = categories.find((c) => c.id === income.categoryId && c.type === "income") ?? suggestIncomeCategory(income.kind, categories);
@@ -57,7 +83,8 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
       income={income}
       statuses={statuses}
       expected={expected}
-      arrivals={incomeArrivals(income, transactions)}
+      arrivals={undoableArrivals(income, statuses, transactions)}
+      onUndoArrival={(_, arrival) => setUndoing(arrival)}
       accountName={income.accountId ? accounts.find((a) => a.id === income.accountId)?.name : undefined}
       formatCurrency={formatCurrency}
       f={f}

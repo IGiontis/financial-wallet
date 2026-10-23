@@ -556,6 +556,8 @@ export interface PlannerEvent {
   incomeId?: string;
   /** The goal this puts money aside for — two goals can share a name. */
   goalId?: string;
+  /** The debt this pays, or the money lent this brings back. */
+  debtId?: string;
   /**
    * A time of the salary — the income marked «ο μισθός μου». Pay day is where
    * the plan is cut (`payCycles`) and what "until pay day" runs to
@@ -620,7 +622,7 @@ export interface PlanRow {
    * having nothing to charge, so every active bill and goal now gets a row and
    * this says which case it is.
    */
-  note?: "paid" | "undated" | "funded" | "outofseason" | "paused" | "later";
+  note?: "paid" | "undated" | "undatedReturn" | "funded" | "outofseason" | "paused" | "later";
   enabled: boolean;
 }
 
@@ -782,6 +784,8 @@ export interface PlanInput {
   oneOffs?: OneOff[];
   /** Only what the user owes — see `plannableDebts`. */
   debts?: DebtWithStatus[];
+  /** Money the user lent and is owed back — see `receivableDebts`. Counted as coming in on its due date. */
+  owedToMe?: DebtWithStatus[];
   /**
    * The regular money in, as «Έσοδα» keeps it: the salary (the one marked
    * «ο μισθός μου») and every other income. Archived ones count nowhere.
@@ -801,7 +805,7 @@ export interface PlanInput {
   actuals?: Actuals;
 }
 
-export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], incomes = [], openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date(), actuals }: PlanInput): PlannerPlan {
+export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], owedToMe = [], incomes = [], openingBalance = 0, skipIds = new Set(), horizon = MIN_HORIZON_MONTHS, now = new Date(), actuals }: PlanInput): PlannerPlan {
   const today = startOfDay(now);
   const end = horizonEnd(horizon, now);
   const days = Math.max(differenceInCalendarDays(end, today), 0);
@@ -1008,7 +1012,32 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     if (date > end) continue;
 
     rows.push({ id: debt.id, source: "debt", label: debt.person, total: enabled ? negate(debt.remaining) : 0, occurrences: 1, enabled });
-    if (enabled) events.push({ kind: "goal", label, amount: -debt.remaining, date });
+    if (enabled) events.push({ kind: "goal", label, amount: -debt.remaining, date, debtId: debt.id });
+  }
+
+  // ── Money lent, coming back ───────────────────────────────────────────────
+  // What is still owed back — the loan less what has been repaid — on the day
+  // it was agreed to come back. One whose day has gone and is still owed is
+  // held on today and marked late, as an income that has not come is.
+  //
+  // One with no agreed day is listed and counted nowhere: money that may come
+  // back some day is not money to plan the month on. Given a date on «Χρέη»,
+  // it counts.
+  for (const debt of owedToMe) {
+    const enabled = isOn(debt.id);
+    const label = debt.label || debt.person;
+    const remaining = round2(debt.remaining);
+    if (remaining <= 0) continue;
+    if (!debt.dueDate) {
+      rows.push({ id: debt.id, source: "debt", kind: "income", label: debt.person, total: 0, occurrences: 0, note: "undatedReturn", enabled });
+      continue;
+    }
+    const due = startOfDay(firestoreToDate(debt.dueDate));
+    const late = due < today;
+    const date = late ? today : due;
+    if (date > end) continue;
+    rows.push({ id: debt.id, source: "debt", kind: "income", label: debt.person, total: enabled ? remaining : 0, occurrences: 1, enabled });
+    if (enabled) events.push({ kind: "income", label, amount: remaining, date, debtId: debt.id, ...(late ? { late: true, expected: due } : {}) });
   }
 
   // ── Dated one-offs ────────────────────────────────────────────────────────
@@ -1252,7 +1281,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   const billsTotal = sumOf((r) => r.source === "bill");
   const goalsTotal = sumOf((r) => r.source === "goal");
   const budgetTotal = sumOf((r) => r.source === "line" && r.total < 0);
-  const debtsTotal = sumOf((r) => r.source === "debt");
+  const debtsTotal = sumOf((r) => r.source === "debt" && r.kind !== "income");
   const outgoingTotal = round2(billsTotal + goalsTotal + budgetTotal + debtsTotal);
 
   const endingBalance = points.length > 0 ? points[points.length - 1].balance : round2(openingBalance);

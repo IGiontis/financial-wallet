@@ -15,7 +15,7 @@ import { currentBalance } from "../../shared/utils/balance";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
-import { plannableDebts } from "../debts/debtsUtils";
+import { plannableDebts, receivableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
@@ -160,6 +160,7 @@ export function PlannerPage() {
   // Only what is owed: money owed *to* you is not income until it turns up, and
   // a plan that spent it in advance would be promising an unmade sale.
   const debts = useMemo(() => plannableDebts(allDebts), [allDebts]);
+  const owedToMe = useMemo(() => receivableDebts(allDebts), [allDebts]);
 
   // The one thing that is *typed* here is held back a moment before the
   // projection is rebuilt. Every other input — a switch, a horizon pill — is a
@@ -177,8 +178,8 @@ export function PlannerPage() {
 
   // Everything the plan is built from except where it starts and how far it looks.
   const inputs = useMemo(
-    () => ({ bills, goals, lines, oneOffs, debts, incomes, skipIds, now, actuals }),
-    [bills, goals, lines, oneOffs, debts, incomes, skipIds, now, actuals],
+    () => ({ bills, goals, lines, oneOffs, debts, owedToMe, incomes, skipIds, now, actuals }),
+    [bills, goals, lines, oneOffs, debts, owedToMe, incomes, skipIds, now, actuals],
   );
   const plan = useMemo(() => buildPlan({ ...inputs, openingBalance, horizon }), [inputs, openingBalance, horizon]);
   // "Until pay day" is read off a plan exactly like the Overview's: the same
@@ -248,7 +249,8 @@ export function PlannerPage() {
   const billRows = rowsOf((r) => r.source === "bill");
   const goalRows = rowsOf((r) => r.source === "goal");
   const budgetRows = rowsOf((r) => r.source === "line" && r.kind === "expense");
-  const debtRows = rowsOf((r) => r.source === "debt");
+  const debtRows = rowsOf((r) => r.source === "debt" && r.kind !== "income");
+  const owedBackRows = rowsOf((r) => r.source === "debt" && r.kind === "income");
   const oneOffRows = rowsOf((r) => r.source === "oneoff");
   // Soonest first, so the next thing to happen is the first thing read.
   const startOfToday = useMemo(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
@@ -427,6 +429,7 @@ export function PlannerPage() {
         openLabel: t("planner.editEntry"),
       };
     }),
+    ...owedBackRows.map((row) => ledgerItem(row, t("debts.plannerGroupIn"))),
   ];
 
   const ledgerOut: LedgerItem[] = [
@@ -487,7 +490,7 @@ export function PlannerPage() {
       .filter((e) => {
         if (row.source === "income") return e.incomeId === row.id;
         if (row.source === "bill") return e.billId === row.id;
-        if (row.source === "debt") return e.occurrenceKey?.startsWith(`loan:${row.id}:`) ?? false;
+        if (row.source === "debt") return e.debtId === row.id || (e.occurrenceKey?.startsWith(`loan:${row.id}:`) ?? false);
         if (row.source === "oneoff") return e.occurrenceKey ? e.occurrenceKey.startsWith(`oneoff:${row.id}:`) : e.kind === "income" && e.label === row.label;
         if (row.source === "goal") return e.goalId === row.id;
         return false;
@@ -502,7 +505,7 @@ export function PlannerPage() {
   };
 
   const rowGroup = (row: PlanRow): string | undefined =>
-    row.source === "bill" ? t("planner.groupBills") : row.source === "goal" ? t("planner.groupGoals") : row.source === "debt" ? t("debts.plannerGroup") : row.source === "line" ? t("planner.groupMine") : undefined;
+    row.source === "bill" ? t("planner.groupBills") : row.source === "goal" ? t("planner.groupGoals") : row.source === "debt" ? t(row.kind === "income" ? "debts.plannerGroupIn" : "debts.plannerGroup") : row.source === "line" ? t("planner.groupMine") : undefined;
 
   return (
     <PageShell>

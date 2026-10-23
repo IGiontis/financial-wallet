@@ -261,6 +261,40 @@ describe("what cannot be taken back asks first", () => {
     await waitFor(() => expect(api.deleteTransaction).toHaveBeenCalledTimes(1));
     expect(api.deleteTransaction.mock.calls[0][1]).toBe(salaryRecord.id);
   });
+
+  it("undoes an «ήρθε» said with no transaction — the word is taken back, nothing is deleted", async () => {
+    // September's allowance marked as come from the Planner: a word, no record.
+    api.transactions = [salaryRecord, ...others.filter((t) => t.incomeId !== "allow")];
+    api.user.workspace["planner-occurrences"] = { "income:allow:2026-09-20": { state: "received", date: "2026-09-21" } };
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Αναίρεση «Ήρθε»" }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText(/θα ξαναφαίνεται ότι το περιμένεις. Δεν γράφτηκε συναλλαγή/)).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Αναίρεση" }));
+
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-occurrences", {}), { timeout: 2000 });
+    expect(api.deleteTransaction).not.toHaveBeenCalled();
+  });
+
+  it("undoes one «Ήρθε» from the card's list, the one tapped, and goes back to the card if not", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Ιδιαίτερα μαθήματα: λεπτομέρειες" }));
+    // The May one, not the latest.
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Αναίρεση «Ήρθε» της .*28 Μαΐ 2026/ }));
+    let sheet = screen.getByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Ακύρωση" }));
+    // Back on the card it was asked from.
+    expect(await screen.findByRole("button", { name: /Αναίρεση «Ήρθε» της .*28 Μαΐ 2026/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Αναίρεση «Ήρθε» της .*28 Μαΐ 2026/ }));
+    sheet = screen.getByRole("dialog");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Αναίρεση" }));
+    await waitFor(() => expect(api.deleteTransaction).toHaveBeenCalledTimes(1));
+    const may = others.find((t) => t.incomeDue === "2026-05-28")!;
+    expect(api.deleteTransaction.mock.calls[0][1]).toBe(may.id);
+  });
 });
 
 describe("an income's card", () => {
@@ -274,11 +308,12 @@ describe("an income's card", () => {
     expect(within(card).getByText("Πόσο").nextElementSibling).toHaveTextContent(/≈ 320,00\s?€/);
     expect(within(card).getByText("Πού μπαίνουν").nextElementSibling).toHaveTextContent("Μετρητά");
 
-    // Nothing in the body is a control; the footer has the three.
+    // In the body only each «Ήρθε»'s undo, one per record; the footer has the three.
     const buttons = within(card)
       .getAllByRole("button")
       .map((b) => b.textContent?.trim() || b.getAttribute("aria-label"));
-    expect(buttons).toEqual(["Close", "Διαγραφή", "Επεξεργασία", "Ήρθε"]);
+    expect(buttons.filter((b) => !b?.startsWith("Αναίρεση"))).toEqual(["Close", "Διαγραφή", "Επεξεργασία", "Ήρθε"]);
+    expect(buttons.filter((b) => b?.startsWith("Αναίρεση"))).toHaveLength(3);
   });
 });
 

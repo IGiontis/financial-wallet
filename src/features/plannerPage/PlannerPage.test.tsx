@@ -34,6 +34,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   useCategories: () => ({ data: [] }),
   // «Ήρθε» from an income's card writes through this.
   useCreateTransaction: () => ({ mutate: (dto: unknown) => data.created.push(dto) }),
+  // The card's «Αναίρεση» deletes through this.
+  useDeleteTransaction: () => ({ mutate: vi.fn() }),
 }));
 // [GOAL] unless a test puts its own goals here.
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: data.goals ?? [GOAL], isLoading: false }) }));

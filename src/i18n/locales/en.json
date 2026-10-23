@@ -753,7 +753,9 @@
         "coming": "coming"
       },
       "wasDue": "Was due",
-      "editOnIncomes": "Change on Income"
+      "editOnIncomes": "Change on Income",
+      "noRecord": "no transaction",
+      "undoOne": "Undo «Arrived» of {{date}}"
     },
     "empty": {
       "title": "No income yet",
@@ -846,7 +848,8 @@
       "deleteBody": "Delete «{{name}}»?",
       "deleteHint": "The transactions written with «Arrived» stay in Transactions. To stop counting it but keep its history, archive it instead.",
       "undoTitle": "Undo «Arrived»",
-      "undoBody": "This deletes the {{amount}} transaction of {{date}}, and «{{name}}» goes back to waiting."
+      "undoBody": "This deletes the {{amount}} transaction of {{date}}, and «{{name}}» goes back to waiting.",
+      "undoBodyNoRecord": "«{{name}}» on {{date}} will show as expected again. No transaction was written for it, so none is deleted."
     },
     "thisTime": {
       "title": "{{name}} · this time",
@@ -1770,7 +1773,8 @@
     "factGoalSaved": "Put in so far",
     "factGoalLeft": "Left to reach it",
     "factGoalEvery_monthly": "{{amount}} / month",
-    "factGoalEvery_yearly": "{{amount}} / year"
+    "factGoalEvery_yearly": "{{amount}} / year",
+    "note_undatedReturn": "no date set for it to come back — give it one on Debts for it to count"
   },
   "settings": {
     "title": "Settings",
@@ -2207,7 +2211,8 @@
     "note": "Note",
     "noteOptional": "(optional)",
     "notePlaceholder": "e.g. handed over in cash, brought them round…",
-    "settledLine": "{{date}} · {{how}}"
+    "settledLine": "{{date}} · {{how}}",
+    "plannerGroupIn": "Owed to you"
   },
   "statement": {
     "title": "Statement",

@@ -5,7 +5,7 @@ import type { TFunction } from "i18next";
 import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, FiRotateCcw } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { parseISOMonth } from "../../../shared/utils/dates";
-import { KIND_ICON, incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeArrival, type IncomeStatus } from "../incomesUtils";
+import { KIND_ICON, incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeStatus, type ArrivalUndo } from "../incomesUtils";
 import { scheduleText, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
@@ -23,7 +23,10 @@ export interface IncomeCardProps {
   income: Income;
   statuses: IncomeStatus[];
   expected: ExpectedAmount;
-  arrivals: IncomeArrival[];
+  /** Every time that came, newest first — see `undoableArrivals`. */
+  arrivals: ArrivalUndo[];
+  /** Asks first. Left out where nothing is undone from here. */
+  onUndoArrival?: (income: Income, arrival: ArrivalUndo) => void;
   accountName?: string;
   formatCurrency: (n: number) => string;
   f: IncomeFormats;
@@ -103,7 +106,7 @@ function Fact({ icon: Icon, label, value, sub }: { icon: IconType; label: string
   );
 }
 
-export default function IncomeCard({ income, statuses, expected, arrivals, accountName, formatCurrency, f, now, onClose, onEdit, editLabel, onArrive, onRestore, onDelete }: IncomeCardProps) {
+export default function IncomeCard({ income, statuses, expected, arrivals, accountName, formatCurrency, f, now, onClose, onEdit, editLabel, onArrive, onRestore, onDelete, onUndoArrival }: IncomeCardProps) {
   const { t } = useTranslation();
   const mine = useMemo(() => statuses.filter((s) => s.incomeId === income.id), [statuses, income.id]);
   const chips = useMemo(() => incomeHistory(income, mine, now), [income, mine, now]);
@@ -204,12 +207,30 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
             </div>
             <div className={styles.readCard}>
               {arrivals.slice(0, 6).map((arrival) => (
-                <div key={arrival.due} className={styles.recordRow}>
+                <div key={`${arrival.due.getTime()}:${arrival.transactionIds.join(",")}`} className={styles.recordRow}>
                   <span>
                     <span className="d-block">{f.weekdayDate.format(arrival.date)}</span>
-                    <span className={styles.readSub}>{t("incomes.card.recordFor", { month: f.monthYearShort.format(new Date(`${arrival.due}T00:00:00`)) })}</span>
+                    <span className={styles.readSub}>
+                      {t("incomes.card.recordFor", { month: f.monthYearShort.format(arrival.due) })}
+                      {/* Said «ήρθε» with nothing written: the bank already had it. */}
+                      {arrival.transactionIds.length === 0 && ` · ${t("incomes.card.noRecord")}`}
+                    </span>
                   </span>
-                  <span className={`${styles.factAmount} ${styles.amountArrived}`}>{formatCurrency(arrival.amount)}</span>
+                  <span className="d-flex align-items-center gap-2">
+                    <span className={`${styles.factAmount} ${styles.amountArrived}`}>{formatCurrency(arrival.amount)}</span>
+                    {onUndoArrival && (
+                      <Button
+                        color="link"
+                        size="sm"
+                        className="p-1 text-body-secondary"
+                        onClick={() => onUndoArrival(income, arrival)}
+                        aria-label={t("incomes.card.undoOne", { date: f.weekdayDate.format(arrival.date) })}
+                        title={t("incomes.actions.undoArrival")}
+                      >
+                        <FiRotateCcw size={15} aria-hidden />
+                      </Button>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>

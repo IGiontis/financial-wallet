@@ -63,7 +63,10 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
-  min-height: 60px;
+  /* One height, whatever the day holds: the date and figure on the left, two
+     movements and «+N» on the right — so the line under it never jumps as the
+     finger passes a day with more on it. Opened, the rest scroll inside. */
+  height: 78px;
   margin-bottom: 0.375rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--border-radius-md);
@@ -93,7 +96,10 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  align-self: stretch;
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   font-size: 12px;
   text-align: right;
 }
