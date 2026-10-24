@@ -286,15 +286,14 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
           <Button color="secondary" outline size="sm" onClick={() => onViewHistory(goal)}>
             <FiClock size={14} aria-hidden /> {t("goals.history")}
           </Button>
+          {/* A finished goal still edits — a raised target simply opens it again. */}
+          <Button color="secondary" outline size="sm" onClick={() => onEdit(goal)}>
+            <FiEdit2 size={14} aria-hidden /> {t("common.edit")}
+          </Button>
           {!summary.isDone && (
-            <>
-              <Button color="secondary" outline size="sm" onClick={() => onEdit(goal)}>
-                <FiEdit2 size={14} aria-hidden /> {t("common.edit")}
-              </Button>
-              <Button color="secondary" outline size="sm" onClick={() => onTogglePause(goal)}>
-                {goal.isActive ? <FiPause size={14} aria-hidden /> : <FiPlay size={14} aria-hidden />} {t(goal.isActive ? "goals.pause" : "goals.resume")}
-              </Button>
-            </>
+            <Button color="secondary" outline size="sm" onClick={() => onTogglePause(goal)}>
+              {goal.isActive ? <FiPause size={14} aria-hidden /> : <FiPlay size={14} aria-hidden />} {t(goal.isActive ? "goals.pause" : "goals.resume")}
+            </Button>
           )}
         </div>
       </ModalBody>

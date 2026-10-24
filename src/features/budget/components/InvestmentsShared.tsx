@@ -366,7 +366,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           <RowMenu
             label={goal.name}
             entries={[
-              { label: i18n.t("common.edit"), onSelect: () => onEdit(goal), disabled: isEffectivelyCompleted },
+              { label: i18n.t("common.edit"), onSelect: () => onEdit(goal) },
               { label: i18n.t(goal.isActive ? "goals.pause" : "goals.resume"), onSelect: () => onTogglePause(goal), disabled: isEffectivelyCompleted },
               MENU_DIVIDER,
               { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
