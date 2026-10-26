@@ -95,4 +95,18 @@ describe("money as a tree", () => {
     // Nothing in this week is overdue yet, so nothing is filled red.
     expect(container.querySelectorAll("[class*=_late_]")).toHaveLength(0);
   });
+
+  it("says a goal's money for today is to put in, not to pay", () => {
+    const withGoal = { ...sources, goalEvents: [{ kind: "goal" as const, label: "Trip", goalId: "trip", amount: -100, date: new Date(2026, 9, 26) }] };
+    render(<MoneyTimeline side="out" sources={withGoal} first={new Date(2025, 9, 1)} last={new Date(2027, 9, 1)} formatCurrency={money} locale="en" />);
+    expect(screen.getByText("Trip").closest("li")).toHaveTextContent("to put in today");
+  });
+
+  it("holds the bills alone on «Πάγια», under their own name", () => {
+    const withGoal = { ...sources, goalEvents: [{ kind: "goal" as const, label: "Trip", goalId: "trip", amount: -100, date: new Date(2026, 9, 27) }] };
+    render(<MoneyTimeline side="out" kinds={["bill"]} sources={withGoal} first={new Date(2025, 9, 1)} last={new Date(2027, 9, 1)} formatCurrency={money} locale="en" />);
+    expect(screen.getByText("Bills timeline")).toBeInTheDocument();
+    expect(screen.getByText("Phone")).toBeInTheDocument();
+    expect(screen.queryByText("Trip")).toBeNull();
+  });
 });

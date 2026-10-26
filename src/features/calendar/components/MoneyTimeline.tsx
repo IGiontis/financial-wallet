@@ -4,7 +4,7 @@ import { addDays, addMonths, differenceInCalendarDays, endOfMonth, startOfDay, s
 import { FiAlertTriangle, FiCalendar, FiCheck, FiChevronLeft, FiChevronRight, FiClock } from "react-icons/fi";
 import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 import { MoneyTree, type TreeLeaf } from "../../../shared/components/MoneyTree";
-import { CALENDAR_KIND_ICON, calendarItemsBetween, type CalendarItem, type CalendarSources } from "../calendarDays";
+import { CALENDAR_KIND_ICON, calendarItemsBetween, type CalendarItem, type CalendarKind, type CalendarSources } from "../calendarDays";
 import styles from "../css/MoneyTimeline.module.css";
 
 /** What a timeline shows: money in, money out, or both — in to the left of the trunk, out to the right. */
@@ -31,6 +31,7 @@ function stretch(span: Span, anchor: Date): { from: Date; to: Date } {
  */
 export function MoneyTimeline({
   side,
+  kinds,
   sources,
   first,
   last,
@@ -38,6 +39,8 @@ export function MoneyTimeline({
   locale,
 }: {
   side: TimelineSide;
+  /** Only these kinds — «Πάγια» shows its bills, not the instalments and goals beside them. */
+  kinds?: readonly CalendarKind[];
   sources: CalendarSources;
   /** The earliest and latest months the sources hold. */
   first: Date;
@@ -51,7 +54,12 @@ export function MoneyTimeline({
   const [anchor, setAnchor] = useState(today);
   const { from, to } = useMemo(() => stretch(span, anchor), [span, anchor]);
 
-  const items = useMemo(() => calendarItemsBetween(from, to, sources).filter((item) => side === "all" || item.direction === side), [from, to, sources, side]);
+  const items = useMemo(
+    () => calendarItemsBetween(from, to, sources).filter((item) => (side === "all" || item.direction === side) && (!kinds || kinds.includes(item.kind))),
+    [from, to, sources, side, kinds],
+  );
+  // Named for what it holds: the bills alone, or a side of the money.
+  const heading = t(kinds?.length === 1 ? `timeline.title_${kinds[0]}` : `timeline.title_${side}`);
 
   // The days that have something, and today among them even when it has nothing — it is where the reader stands.
   const days = useMemo(() => {
@@ -89,7 +97,8 @@ export function MoneyTimeline({
     const note = late ? (
       <>
         <FiAlertTriangle size={11} aria-hidden />
-        {t(item.direction === "out" ? "timeline.state_toPay" : "timeline.state_late")}
+        {/* Money put aside for a goal is not a bill: it goes in, today. */}
+        {t(item.kind === "goal" ? "timeline.state_goalToday" : item.direction === "out" ? "timeline.state_toPay" : "timeline.state_late")}
       </>
     ) : upcoming ? (
       <>
@@ -107,9 +116,9 @@ export function MoneyTimeline({
   };
 
   return (
-    <section className={`card p-3 p-lg-4 ${styles.card}`} aria-label={t(`timeline.title_${side}`)}>
+    <section className={`card p-3 p-lg-4 ${styles.card}`} aria-label={heading}>
       <div className="stat-head d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>{t(`timeline.title_${side}`)}</span>
+        <span>{heading}</span>
         <ViewSwitch
           label={t("timeline.spanLabel")}
           value={span}

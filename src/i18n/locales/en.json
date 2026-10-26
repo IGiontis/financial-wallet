@@ -2703,6 +2703,8 @@
     "state_paid": "paid",
     "state_came": "came",
     "inDays_one": "in {{count}} day",
-    "inDays_other": "in {{count}} days"
+    "inDays_other": "in {{count}} days",
+    "state_goalToday": "to put in today",
+    "title_bill": "Bills timeline"
   }
 }

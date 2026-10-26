@@ -28,7 +28,7 @@ export function NewTransactionPage() {
   const handleCreate = (data: CreateTransactionDTO): Promise<void> => saveWithoutWaiting(createMutation, data, () => toast.error(t("transactions.saveFailed")));
 
   return (
-    <PageShell className="fill-page">
+    <PageShell className="form-page">
       <h1 className="h5 fw-semibold text-body-emphasis mb-3">{t(transfer ? "transactions.transfer.title" : "transactions.addTransaction")}</h1>
       {transfer ? (
         <TransferWizard asPage onClose={() => navigate("/transactions")} onBack={() => setTransfer(false)} />

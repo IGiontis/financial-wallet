@@ -853,6 +853,9 @@ export type BillsPageView = "overview" | "pay" | "manage" | "all";
 /** The views the «Πληρωμές» page lists with — «Ο μήνας» too, where a bill is opened and paid from its day. */
 const PAY_VIEWS = ["cards", "list", "tiles", "timeline", "tree"] as const;
 
+/** The timeline on «Πάγια» holds the bills alone — its total is theirs. */
+const BILLS_ONLY = ["bill"] as const;
+
 function BillCard({
   bill,
   category,
@@ -1383,7 +1386,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                 )}
 
                 {showList && billView === "tree" && (
-                  <CalendarTimeline side="out" formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
+                  <CalendarTimeline side="out" kinds={BILLS_ONLY} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
                 )}
 
                 {showList && billView === "months" && (

@@ -2703,6 +2703,8 @@
     "state_paid": "πληρώθηκε",
     "state_came": "ήρθε",
     "inDays_one": "σε {{count}} μέρα",
-    "inDays_other": "σε {{count}} μέρες"
+    "inDays_other": "σε {{count}} μέρες",
+    "state_goalToday": "να μπει σήμερα",
+    "title_bill": "Χρονολόγιο παγίων"
   }
 }

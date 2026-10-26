@@ -400,7 +400,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
         {/* ── 2. Which category ── */}
         {!saved && step === "category" && (
-          <div className={asPage ? styles.stepFill : undefined}>
+          <div>
             {/* Step 1 settled the type and step 1 is where it gets changed, so
                 from here on the badge carries it rather than a control. */}
             <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
@@ -413,7 +413,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               type={formik.values.type}
               onChange={chooseCategory}
               invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
-              fill={asPage}
+              onPage={asPage}
             />
             {/* Gated on `touched` like the picker's own invalid state. Ungated,
                 clearing the category — which is exactly what going back a step

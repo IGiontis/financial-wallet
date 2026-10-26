@@ -17,8 +17,8 @@ interface CategoryPickerProps {
   type: PickerType;
   onChange: (categoryId: string, category: Category) => void;
   invalid?: boolean;
-  /** Fill the room it is given — a page's — rather than a fixed-height box sized for a dialog. */
-  fill?: boolean;
+  /** On a page: the whole grid, scrolled with the page, rather than a box sized for a dialog that scrolls inside. */
+  onPage?: boolean;
 }
 
 /**
@@ -36,7 +36,7 @@ interface CategoryPickerProps {
  * The filter box earns its place past a couple of dozen categories: scanning a
  * grid is fast until it isn't, and typing two letters beats scrolling.
  */
-export default function CategoryPicker({ categories, value, type, onChange, invalid, fill = false }: CategoryPickerProps) {
+export default function CategoryPicker({ categories, value, type, onChange, invalid, onPage = false }: CategoryPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
@@ -49,7 +49,7 @@ export default function CategoryPicker({ categories, value, type, onChange, inva
   }, [categories, type, query, t]);
 
   return (
-    <div className={`${invalid ? styles.wrapInvalid : ""} ${fill ? styles.fill : ""}`}>
+    <div className={invalid ? styles.wrapInvalid : undefined}>
       <div className="d-flex gap-2 mb-2">
         <Input
           bsSize="sm"
@@ -67,7 +67,7 @@ export default function CategoryPicker({ categories, value, type, onChange, inva
       {visible.length === 0 ? (
         <p className={styles.empty}>{t("categories.noneMatch")}</p>
       ) : (
-        <div className={`${styles.grid} ${fill ? styles.gridFill : ""}`} role="listbox">
+        <div className={`${styles.grid} ${onPage ? styles.gridOnPage : ""}`} role="listbox">
           {visible.map((category) => {
             const selected = category.id === value;
             return (

@@ -101,24 +101,9 @@
   border-radius: var(--border-radius-md);
 }
 
-/* On a page: the picker takes the room it is given, and the grid all of it
-   below the filter, scrolling inside itself. */
-.fill {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.gridFill {
-  flex: 1 1 0;
-  min-height: 160px;
+/* On a page: every category, as tall as they need — the page scrolls, not
+   the grid. A dialog keeps the box above, which scrolls inside it. */
+.gridOnPage {
   max-height: none;
-  align-content: start;
-}
-
-@media (min-width: 576px) {
-  .gridFill {
-    max-height: none;
-  }
+  overflow-y: visible;
 }
