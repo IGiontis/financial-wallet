@@ -217,7 +217,7 @@ export function PaydayCard({
       {/* The action shares the label's line, not the figure's: beside the
           figure, "From my banks ▾" squeezed 1.000,00 € onto two lines on a
           phone, and the line under it into a column. */}
-      <div className="d-flex justify-content-between align-items-center gap-3">
+      <div className={`stat-head ${styles.heroHead} d-flex flex-wrap justify-content-between align-items-center column-gap-3 row-gap-2`}>
         <p className={styles.heroLabel}>{label}</p>
         {action}
       </div>

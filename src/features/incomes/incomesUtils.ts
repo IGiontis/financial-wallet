@@ -840,6 +840,55 @@ export function incomeYear(incomes: Income[], transactions: Transaction[], now: 
   return { from, to, total, perMonth: round2(total / months), rows, approximate: rows.some((r) => r.approximate && r.count > 0) };
 }
 
+export interface IncomeMonthAhead {
+  /** First day of the month. */
+  start: Date;
+  /** What every active income is expected to bring in it. */
+  total: number;
+  /** How many arrivals make that up. */
+  count: number;
+  /** Some of it is a variable income's estimate. */
+  approximate: boolean;
+}
+
+/** One time an income is expected in a month, at the figure the plans use. */
+export interface IncomeMonthItem {
+  income: Income;
+  date: Date;
+  /** No day yet: somewhere in the month. */
+  undated: boolean;
+  amount: number;
+  /** A variable income's estimate. */
+  approximate: boolean;
+}
+
+/** Every time an active income is expected in `month`, soonest first — what a month's bar is made of. */
+export function incomeMonthItems(incomes: Income[], transactions: Transaction[], month: Date): IncomeMonthItem[] {
+  const start = startOfMonth(month);
+  return incomes
+    .filter(isActiveIncome)
+    .flatMap((income) => {
+      const each = expectedAmount(income, transactions).amount;
+      return incomeOccurrences(income, start, endOfMonth(start)).map((o) => ({ income, date: o.date, undated: !!o.undated, amount: each, approximate: !!income.variable }));
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime() || b.amount - a.amount);
+}
+
+/**
+ * The same twelve months as `incomeYear`, one by one: what each brings. Counted
+ * the same way — each income's expected figure times its occurrences in the
+ * month — so the twelve add up to the year's total to the cent, and a paused
+ * month or a yearly bonus shows where it falls rather than spread thin. Each is
+ * the sum of its `incomeMonthItems`, the list its bar opens.
+ */
+export function incomeMonthsAhead(incomes: Income[], transactions: Transaction[], now: Date, months = 12): IncomeMonthAhead[] {
+  return Array.from({ length: months }, (_, i) => {
+    const start = addMonths(startOfMonth(now), i);
+    const items = incomeMonthItems(incomes, transactions, start);
+    return { start, total: round2(items.reduce((sum, item) => sum + item.amount, 0)), count: items.length, approximate: items.some((item) => item.approximate) };
+  });
+}
+
 // ─── The card's history ──────────────────────────────────────────────────────
 
 export interface HistoryChip {

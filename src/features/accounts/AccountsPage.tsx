@@ -215,7 +215,7 @@ export function AccountsPage() {
           {/* ── The total ── */}
           <Card className="mb-3">
             <CardBody className="p-3 p-sm-4">
-              <div className={styles.eyebrow}>{latest && since === 0 ? t("accounts.totalRead", { date: dayFmt.format(latest.at) }) : t("accounts.totalNow")}</div>
+              <div className="stat-head">{latest && since === 0 ? t("accounts.totalRead", { date: dayFmt.format(latest.at) }) : t("accounts.totalNow")}</div>
               <div className={styles.total}>{formatCurrency(projected)}</div>
               {latest && <div className="small text-body-secondary">{since > 0 ? t("accounts.sinceReading", { date: dayFmt.format(latest.at), count: since }) : t("accounts.nothingSince")}</div>}
 

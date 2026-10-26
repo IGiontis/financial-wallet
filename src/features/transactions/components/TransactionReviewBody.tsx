@@ -147,7 +147,7 @@ export function TransactionReviewBody({
               </span>
             )}
           </div>
-          <p style={{ fontSize: 20, fontWeight: 700, margin: 0, color: colors.amtTxt, flexShrink: 0 }}>
+          <p style={{ fontSize: "var(--stat-figure-size)", fontWeight: 700, margin: 0, color: colors.amtTxt, flexShrink: 0 }}>
             {colors.sign}
             {formatAmount(amount)}
           </p>

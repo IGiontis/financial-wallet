@@ -195,42 +195,46 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
     <div className="card p-3 mb-3">
       <span className={styles.label}>{t("planner.monthsTitle")}</span>
 
-      {/* What already happened near today, folded to one line. */}
-      {settled.length > 0 && (
-        <button type="button" className={styles.monthRow} onClick={() => setOpened("done")}>
-          <span className={`${styles.monthName} ${styles.monthDone}`}>{t("planner.doneTitle")}</span>
-          <b className={styles.monthEnd}>{settled.length}</b>
-          <span className={styles.monthChevron} aria-hidden>
-            <FiChevronRight size={15} />
-          </span>
-        </button>
-      )}
-
-      {shown.map((m) => {
-        // Another year's month carries its year beside it: "Jan 27" alone
-        // reads as the 27th of January.
-        const otherYear = m.start.getFullYear() !== today.getFullYear();
-        return (
-          <button
-            key={m.from}
-            type="button"
-            className={styles.monthRow}
-            onClick={() => setOpened(m.from)}
-            aria-label={t("planner.monthOpen", { month: formats.monthLong.format(m.start), amount: formatCurrency(m.close) })}
-          >
-            <b className={styles.monthName}>
-              {formats.month.format(m.start)}
-              {otherYear && <small>{m.start.getFullYear()}</small>}
-            </b>
-            <b className={styles.monthEnd} style={{ color: m.close < 0 ? "var(--color-expense-text)" : undefined }}>
-              {formatCurrency(m.close)}
-            </b>
+      {/* Rows on a phone; from a laptop up, small bubbles side by side — the
+          month and its figure together, not a screen's width apart. */}
+      <div className={styles.monthBubbles}>
+        {/* What already happened near today, folded to one line. */}
+        {settled.length > 0 && (
+          <button type="button" className={styles.monthRow} onClick={() => setOpened("done")}>
+            <span className={`${styles.monthName} ${styles.monthDone}`}>{t("planner.doneTitle")}</span>
+            <b className={styles.monthEnd}>{settled.length}</b>
             <span className={styles.monthChevron} aria-hidden>
               <FiChevronRight size={15} />
             </span>
           </button>
-        );
-      })}
+        )}
+
+        {shown.map((m) => {
+          // Another year's month carries its year beside it: "Jan 27" alone
+          // reads as the 27th of January.
+          const otherYear = m.start.getFullYear() !== today.getFullYear();
+          return (
+            <button
+              key={m.from}
+              type="button"
+              className={styles.monthRow}
+              onClick={() => setOpened(m.from)}
+              aria-label={t("planner.monthOpen", { month: formats.monthLong.format(m.start), amount: formatCurrency(m.close) })}
+            >
+              <b className={styles.monthName}>
+                {formats.month.format(m.start)}
+                {otherYear && <small>{m.start.getFullYear()}</small>}
+              </b>
+              <b className={styles.monthEnd} style={{ color: m.close < 0 ? "var(--color-expense-text)" : undefined }}>
+                {formatCurrency(m.close)}
+              </b>
+              <span className={styles.monthChevron} aria-hidden>
+                <FiChevronRight size={15} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {months.length > shown.length && (
         <button type="button" className={styles.cycleMore} onClick={() => setShowAll(true)}>

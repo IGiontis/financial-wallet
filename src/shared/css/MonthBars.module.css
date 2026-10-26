@@ -1,0 +1,165 @@
+/* A run of months as bars — see MonthBars.tsx. One list, two layouts. Rows on
+   a phone, where a 24px column cannot hold a month name; columns from `sm` up,
+   where they read faster. Only the bar changes: `--fill` is its length, and
+   which dimension grows is the layout's business. A month that stands out is
+   drawn in `--mark` / `--mark-text`, set by the caller's tone. */
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  background: transparent;
+  border-radius: var(--border-radius-sm);
+  text-align: left;
+}
+
+.pressable {
+  cursor: pointer;
+}
+
+.pressable:hover {
+  background: var(--color-background-secondary);
+}
+
+.pressable:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.month {
+  flex: 0 0 42px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.track {
+  flex: 1;
+  min-width: 0;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.fill {
+  position: relative;
+  display: block;
+  width: var(--fill, 0%);
+  height: 100%;
+  border-radius: 5px;
+  background: var(--bs-primary);
+  overflow: hidden;
+}
+
+/* The part of the month already done: the same bar, striped. From the start
+   of the bar on a phone, from its foot in the columns. */
+.paid,
+.swatch {
+  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
+}
+
+.paid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--paid, 0%);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background-color: var(--bs-primary);
+}
+
+.amount {
+  flex: 0 0 auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+/* The month that stands out, at either end. */
+.marked .fill {
+  background: var(--mark);
+}
+
+.marked .amount {
+  color: var(--mark-text);
+  font-weight: 700;
+}
+
+/* From here the months stand up as columns. */
+@media (min-width: 576px) {
+  .bars {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 4px;
+    height: 170px;
+  }
+
+  .item {
+    flex: 1;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 5px;
+    height: 100%;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .month {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+
+  .track {
+    flex: 1;
+    width: 100%;
+    height: auto;
+    display: flex;
+    align-items: flex-end;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .fill {
+    width: 100%;
+    height: var(--fill, 0%);
+    border-radius: 4px 4px 0 0;
+  }
+
+  .paid {
+    top: auto;
+    right: 0;
+    width: auto;
+    height: var(--paid, 0%);
+  }
+
+  .amount {
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+}

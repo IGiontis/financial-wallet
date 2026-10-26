@@ -96,4 +96,21 @@ describe("narrowing it", () => {
     expect(rev.days.flatMap((d) => d.rows.map((r) => r.tx.description))).toEqual(["Σούπερ μάρκετ"]);
     expect(buildLedger(RECORDS, { ...OCT, query: "καφ" }).out).toBe(3.5);
   });
+
+  it("to one category — its rows, and the out they add up to", () => {
+    const food = buildLedger(RECORDS, { ...OCT, categories: ["food"] });
+    const rows = food.days.flatMap((d) => d.rows);
+    expect(rows.every((r) => r.tx.categoryId === "food")).toBe(true);
+    // A second way: the counted rows of the category, added up by hand — the supermarket's 50, nothing of September's.
+    expect(food.out).toBe(Math.round(rows.filter((r) => r.counted && r.sign < 0).reduce((sum, r) => sum + r.amount, 0) * 100) / 100);
+    expect(buildLedger(RECORDS, { ...OCT, categories: ["rent"] }).out).toBe(400);
+    expect(buildLedger(RECORDS, { ...OCT, categories: ["rent"], kind: "in" }).count).toBe(0);
+  });
+
+  it("to a name that is both an income and an expense category: both, in and out", () => {
+    const both = buildLedger(RECORDS, { ...OCT, categories: ["salary", "rent"] });
+    expect([both.in, both.out]).toEqual([1450, 400]);
+    // A second way: the two on their own add up to the pair.
+    expect(buildLedger(RECORDS, { ...OCT, categories: ["salary"] }).count + buildLedger(RECORDS, { ...OCT, categories: ["rent"] }).count).toBe(both.count);
+  });
 });

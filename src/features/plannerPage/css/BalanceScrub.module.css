@@ -86,7 +86,7 @@
 }
 
 .readoutValue {
-  font-size: 1.25rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -133,4 +133,36 @@
   color: var(--color-text-secondary);
   margin: 0;
   align-self: center;
+}
+
+/* «+N ακόμα»: the day's every move, in a small sheet. */
+.allEvents {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.allEvents li,
+.allEventsEnd {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+.allEvents li + li {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.allEvents li > span:last-child,
+.allEventsEnd > span:last-child {
+  flex-shrink: 0;
+}
+
+.allEventsEnd {
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-primary);
+  font-weight: 600;
 }

@@ -40,7 +40,7 @@
 }
 
 .heroAmount {
-  font-size: 26px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;

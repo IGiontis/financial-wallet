@@ -1,4 +1,4 @@
-import { endOfMonth, startOfDay, startOfMonth } from "date-fns";
+import { addMonths, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import { monthForecast } from "../bills/billsUtils";
 import { isSettled, type IncomeStatus } from "../incomes/incomesUtils";
 import { buildPlan, oneOffDates, type OneOff, type PlannerEvent } from "../plannerPage/plannerUtils";
@@ -16,6 +16,9 @@ import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats } from "..
 // instalment that was paid) and "todo" when it is still on its way.
 
 export type CalendarKind = "bill" | "income" | "debt" | "goal";
+
+/** Each kind's mark, wherever a calendar item is drawn. */
+export const CALENDAR_KIND_ICON: Record<CalendarKind, string> = { bill: "🧾", income: "💰", debt: "🏦", goal: "🎯" };
 
 /** done: it happened. todo: still to come. late: its day has gone, or it wants an answer. */
 export type CalendarState = "done" | "todo" | "late";
@@ -173,6 +176,21 @@ export function calendarItems(month: Date, sources: CalendarSources): CalendarIt
   });
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime() || a.direction.localeCompare(b.direction) || a.label.localeCompare(b.label));
+}
+
+/**
+ * Every item from `from` to `to`, both days included, across as many months as
+ * the stretch touches — a week that runs into the next month takes both. The
+ * same items the calendar shows on those days, earliest first.
+ */
+export function calendarItemsBetween(from: Date, to: Date, sources: CalendarSources): CalendarItem[] {
+  const first = startOfDay(from);
+  const last = startOfDay(to);
+  const items: CalendarItem[] = [];
+  for (let month = startOfMonth(first); month <= last; month = addMonths(month, 1)) {
+    for (const item of calendarItems(month, sources)) if (item.date >= first && item.date <= last) items.push(item);
+  }
+  return items;
 }
 
 const side = (items: CalendarItem[]): DaySide | undefined =>

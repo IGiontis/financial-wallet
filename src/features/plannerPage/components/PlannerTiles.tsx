@@ -1,10 +1,10 @@
 import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { addMonths, isSameMonth } from "date-fns";
-import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
+import { FiAlertTriangle, FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
 import { Input } from "reactstrap";
 import type { PlanMonth } from "../planMonthView";
-import segmented from "../../../shared/css/Segmented.module.css";
+import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 
 import type { PaydayOutlook } from "../../overview/overviewTabs";
 import type { PlannerHorizon, PlannerPlan } from "../plannerUtils";
@@ -139,12 +139,17 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
     <section ref={cardRef} className="card mb-3" aria-label={t("planner.glance")}>
       <div className="card-body p-3 p-sm-4">
         {/* «Διάστημα» the window the horizon sets, «Μήνας» one month of it, any month up to the farthest a plan reaches. */}
-        <div className={`${segmented.group} ${segmented.even} mb-2`} role="tablist" aria-label={t("planner.viewLabel")}>
-          {(["range", "month"] as const).map((v) => (
-            <button key={v} type="button" role="tab" aria-selected={view === v} className={`${segmented.item} ${view === v ? segmented.active : ""}`} onClick={() => onView(v)}>
-              {t(v === "range" ? "planner.viewRange" : "planner.viewMonth")}
-            </button>
-          ))}
+        <div className="mb-2">
+          <ViewSwitch
+            block
+            label={t("planner.viewLabel")}
+            value={view}
+            onChange={onView}
+            options={[
+              { id: "range", label: t("planner.viewRange"), icon: FiClock },
+              { id: "month", label: t("planner.viewMonth"), icon: FiCalendar },
+            ]}
+          />
         </div>
 
         {view === "range" ? (

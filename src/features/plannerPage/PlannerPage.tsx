@@ -53,7 +53,7 @@ import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import PlanLedger, { type LedgerItem } from "./components/PlanLedger";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
-import segmented from "../../shared/css/Segmented.module.css";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import styles from "./css/PlannerPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
 
@@ -253,14 +253,23 @@ export function PlannerPage() {
   // Two decimals would read as noise; one says "not quite a whole month". The
   // plural is chosen from the same rounded figure that is printed, so 1.03
   // months reads "1 month" rather than "1 months".
-  const monthsShown = Math.round(plan.monthsCovered * 10) / 10;
+  // What «Τα ποσά σου» and a row's sheet speak for: the window, or on «Μήνας» that month alone —
+  // its rows, its events, its share of a month.
+  const shownRows = monthData?.rows ?? plan.rows;
+  const shownEvents = useMemo(
+    () => (monthData ? monthData.view.events.filter((e) => e.date >= monthData.slice.start && e.date <= monthData.slice.end) : plan.events),
+    [monthData, plan.events],
+  );
+  const shownMonths = monthData?.monthsCovered ?? plan.monthsCovered;
+  // «Μήνας» on the card: «Τα ποσά σου» speak for that month too, not the window.
+  const monthsShown = Math.round(shownMonths * 10) / 10;
   const monthsLabel = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(monthsShown);
 
   // Which section a budget line belongs to is its kind, not the sign of its
   // figure. Reading the sign meant a line sitting at zero matched neither
   // list — so clearing the box to type a new number made the whole row
   // disappear mid-keystroke, exactly as if it had been deleted.
-  const rowsOf = (match: (row: PlanRow) => boolean) => plan.rows.filter(match);
+  const rowsOf = (match: (row: PlanRow) => boolean) => shownRows.filter(match);
   const incomeRows = rowsOf((r) => r.source === "income");
   const billRows = rowsOf((r) => r.source === "bill");
   const goalRows = rowsOf((r) => r.source === "goal");
@@ -491,7 +500,7 @@ export function PlannerPage() {
     // What it averages a month over the window — how heavy it is, whatever its
     // rhythm. Only over two months or more: over the rest of this month alone,
     // 85 € of power divided by half a month read as 163 € a month.
-    if (row.enabled && row.total !== 0 && plan.monthsCovered >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / plan.monthsCovered)]);
+    if (row.enabled && row.total !== 0 && shownMonths >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / shownMonths)]);
     // A goal meant to start later says from when: the reason nothing is asked before it.
     const planStart = goal ? goalPlanStart(goal, startOfToday) : undefined;
     if (planStart) facts.push([t("goals.planFromShort"), new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }).format(planStart)]);
@@ -499,15 +508,15 @@ export function PlannerPage() {
     if (season) facts.push([t("planner.factSeason"), season]);
     // A zero row says why it is zero. "×0" would be true and useless.
     if (row.note) facts.push([t("planner.factNote"), t(`planner.note_${row.note}`)]);
-    const next = plan.events.find((e) => (e.incomeId === row.id || e.billId === row.id) && !e.late && e.date >= startOfToday);
+    const next = shownEvents.find((e) => (e.incomeId === row.id || e.billId === row.id) && !e.late && e.date >= startOfToday);
     if (next) facts.push([t("planner.factNext"), dateFmt.format(next.date)]);
     return facts;
   };
-  const sheetRow = rowSheet ? plan.rows.find((r) => r.id === rowSheet) : undefined;
+  const sheetRow = rowSheet ? shownRows.find((r) => r.id === rowSheet) : undefined;
 
   /** Every day a row lands on in the window, from the plan's own events. */
   const rowDates = (row: PlanRow): RowDate[] =>
-    plan.events
+    shownEvents
       .filter((e) => {
         if (row.source === "income") return e.incomeId === row.id;
         if (row.source === "bill") return e.billId === row.id;
@@ -520,7 +529,7 @@ export function PlannerPage() {
 
   /** Its part of everything on its own side of the plan, in percent. */
   const rowShare = (row: PlanRow): number | undefined => {
-    const sameSide = plan.rows.filter((r) => r.enabled && (row.total < 0 ? r.total < 0 : r.total > 0));
+    const sameSide = shownRows.filter((r) => r.enabled && (row.total < 0 ? r.total < 0 : r.total > 0));
     const whole = sameSide.reduce((sum, r) => sum + Math.abs(r.total), 0);
     return whole > 0 && row.total !== 0 ? (Math.abs(row.total) / whole) * 100 : undefined;
   };
@@ -578,13 +587,17 @@ export function PlannerPage() {
               third "both" tab: on a phone that is the scroll this replaced, and
               on a laptop both panes are already side by side, which is why the
               switch itself is gone from lg up. */}
-          <div className={`${segmented.group} ${segmented.even} d-lg-none mb-3`} role="tablist">
-            <button type="button" role="tab" aria-selected={pane === "months"} className={`${segmented.item} ${pane === "months" ? segmented.active : ""}`} onClick={() => setPane("months")}>
-              {t("planner.paneMonths")}
-            </button>
-            <button type="button" role="tab" aria-selected={pane === "numbers"} className={`${segmented.item} ${pane === "numbers" ? segmented.active : ""}`} onClick={() => setPane("numbers")}>
-              {t("planner.paneNumbers")}
-            </button>
+          <div className="d-lg-none mb-3">
+            <ViewSwitch
+              block
+              label={t("planner.paneLabel")}
+              value={pane}
+              onChange={setPane}
+              options={[
+                { id: "months", label: t("planner.paneMonths") },
+                { id: "numbers", label: t("planner.paneNumbers") },
+              ]}
+            />
           </div>
 
           <div className={pane === "months" ? "" : "d-none d-lg-block"}>
@@ -702,6 +715,7 @@ export function PlannerPage() {
               formatCurrency={formatCurrency}
               locale={lang}
               onClose={() => setViewLine(null)}
+              initialMonth={view === "month" ? viewMonth : undefined}
               onEdit={() => {
                 setViewLine(null);
                 openLineEditor(line);

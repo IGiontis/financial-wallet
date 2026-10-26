@@ -43,11 +43,9 @@ export function CushionCard({ available, formatCurrency }: { available: number; 
         {/* The question first, then its answer in time — "8 days" — and only then
             the figures behind it. Two euro amounts and a convention, on their own,
             said nothing anyone could act on. */}
-        <div className="fw-semibold" style={{ fontSize: 14 }}>
-          {t("cushion.title")}
-        </div>
+        <div className="stat-head">{t("cushion.title")}</div>
         <p className="small text-body-secondary mb-2">{t("cushion.question")}</p>
-        <div className="fw-bold mb-2" style={{ fontSize: 18, color: share >= 1 ? "var(--color-income-text)" : undefined }}>
+        <div className="fw-bold mb-2" style={{ fontSize: "var(--stat-figure-size)", color: share >= 1 ? "var(--color-income-text)" : undefined }}>
           {lastsText}
         </div>
         <Progress value={share * 100} color="success" style={{ height: 6 }} aria-label={t("cushion.title")} />

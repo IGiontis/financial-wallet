@@ -18,7 +18,8 @@ const MONTHS_BACK = 24;
  *
  * Read before it is edited — the question that sends someone to a limit is
  * usually "where did it go", and the editor answers nothing. Months step back
- * from this one; a month to come has spent nothing yet, so there are none.
+ * from this one — or from the month picked on «Μήνας», which it opens on; a
+ * month to come has spent nothing yet, and says how much of the limit it has.
  */
 export function LineSpendSheet({
   line,
@@ -29,6 +30,7 @@ export function LineSpendSheet({
   locale,
   onEdit,
   onClose,
+  initialMonth,
 }: {
   line: BudgetLine;
   categories: Category[];
@@ -38,10 +40,15 @@ export function LineSpendSheet({
   locale: string;
   onEdit: () => void;
   onClose: () => void;
+  /** The month to open on; this one when absent. */
+  initialMonth?: Date;
 }) {
   const { t } = useTranslation();
-  const [month, setMonth] = useState(() => startOfMonth(now));
+  const [month, setMonth] = useState(() => startOfMonth(initialMonth ?? now));
   const thisMonth = isSameMonth(month, now);
+  // No further on than this month, or the one it was opened on if that is later.
+  const latest = initialMonth && initialMonth > now ? startOfMonth(initialMonth) : startOfMonth(now);
+  const toCome = month > startOfMonth(now);
   const oldest = addMonths(startOfMonth(now), -MONTHS_BACK);
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }), [locale]);
 
@@ -61,7 +68,7 @@ export function LineSpendSheet({
             <FiChevronLeft aria-hidden />
           </Button>
           <span className="fw-semibold text-capitalize">{monthFmt.format(month)}</span>
-          <Button color="link" size="sm" className="p-1" onClick={() => setMonth(addMonths(month, 1))} disabled={thisMonth} aria-label={t("planner.monthNext")}>
+          <Button color="link" size="sm" className="p-1" onClick={() => setMonth(addMonths(month, 1))} disabled={month >= latest} aria-label={t("planner.monthNext")}>
             <FiChevronRight aria-hidden />
           </Button>
         </div>
@@ -73,7 +80,7 @@ export function LineSpendSheet({
         <div className="small text-body-secondary mb-3">
           {over
             ? t("planner.lineOverBy", { amount: formatCurrency(spend.total - limit) })
-            : t(thisMonth ? "planner.lineLeftThisMonth" : "planner.lineLeftThen", { amount: formatCurrency(left) })}
+            : t(thisMonth || toCome ? "planner.lineLeftThisMonth" : "planner.lineLeftThen", { amount: formatCurrency(left) })}
         </div>
 
         <ul className={styles.lineSpendList} aria-label={t("planner.lineByCategory")}>

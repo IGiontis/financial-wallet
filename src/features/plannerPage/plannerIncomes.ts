@@ -35,6 +35,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** One undated time, spread over the days of its month inside the window — day offsets, both included. */
 export interface IncomeSpread {
+  /** The income it is a time of. */
+  incomeId: string;
   from: number;
   to: number;
   /** The month's figure; the walk adds a day's share of it. */
@@ -156,7 +158,7 @@ export function planIncomes(incomes: Income[], { today, end, days, skipIds, now,
       const from = Math.max(differenceInCalendarDays(monthStart, today), 0);
       const to = Math.min(differenceInCalendarDays(endOfMonth(monthStart), today), days);
       if (to < from) return;
-      spreads.push({ from, to, amount });
+      spreads.push({ incomeId: income.id, from, to, amount });
       // Summed unrounded, rounded once below — as a budget line's total is.
       total += (amount * (to - from + 1)) / getDaysInMonth(monthStart);
       count += 1;

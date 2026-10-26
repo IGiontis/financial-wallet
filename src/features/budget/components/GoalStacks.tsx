@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { FiChevronDown, FiGrid, FiList, FiPlus } from "react-icons/fi";
+import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 import { useTranslation } from "react-i18next";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { formatDate, getStatusConfig, goalHeadline, relativeToNow, toDate } from "./goalDisplay";
@@ -197,25 +198,15 @@ export function GoalViewToggle({ view, onChange }: { view: GoalView; onChange: (
   const { t } = useTranslation();
 
   return (
-    <div className={styles.viewToggle} role="group" aria-label={t("goals.viewLabel")}>
-      <button
-        type="button"
-        className={`${styles.viewBtn} ${view === "cards" ? styles.viewBtnOn : ""}`}
-        aria-pressed={view === "cards"}
-        onClick={() => onChange("cards")}
-      >
-        <FiGrid size={13} aria-hidden />
-        <span className="d-none d-sm-inline">{t("goals.viewCards")}</span>
-      </button>
-      <button
-        type="button"
-        className={`${styles.viewBtn} ${view === "stacks" ? styles.viewBtnOn : ""}`}
-        aria-pressed={view === "stacks"}
-        onClick={() => onChange("stacks")}
-      >
-        <FiList size={13} aria-hidden />
-        <span className="d-none d-sm-inline">{t("goals.viewStacks")}</span>
-      </button>
-    </div>
+    <ViewSwitch
+      label={t("goals.viewLabel")}
+      value={view}
+      onChange={onChange}
+      iconOnlyOnPhone
+      options={[
+        { id: "cards", label: t("goals.viewCards"), icon: FiGrid },
+        { id: "stacks", label: t("goals.viewStacks"), icon: FiList },
+      ]}
+    />
   );
 }

@@ -1,10 +1,11 @@
 import { useId, useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiArrowDownLeft, FiArrowUpRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { FiArrowDownLeft, FiArrowUpRight, FiChevronDown, FiChevronRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { currentRate, debtProgress, isFloating, personProgress, type DebtProgress, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
 import { DateField } from "../../shared/components/DateField";
@@ -265,7 +266,6 @@ function PaymentPanel({
   );
 }
 
-type SheetTab = "pays" | "progress" | "whatif" | "details";
 
 /** How much of the debt is gone — not how much has been handed over. */
 function clearedPercent(debt: DebtWithStatus, loan: ReturnType<typeof loanState>): number {
@@ -335,25 +335,6 @@ function ProgressPanel({
   );
 }
 
-/** A circle that fills as the debt comes down. */
-function ProgressRing({ percent, label }: { percent: number; label: string }) {
-  const radius = 44;
-  const circumference = 2 * Math.PI * radius;
-  return (
-    <div className={styles.ring}>
-      <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden>
-        <circle cx="52" cy="52" r={radius} className={styles.ringTrack} />
-        {/* Nothing at 0%: a round cap on a zero-length stroke draws a stray dot. */}
-        {percent > 0 && <circle cx="52" cy="52" r={radius} className={styles.ringFill} strokeDasharray={`${(circumference * percent) / 100} ${circumference}`} />}
-      </svg>
-      <div className={styles.ringCentre}>
-        <strong>{Math.floor(percent)}%</strong>
-        <span>{label}</span>
-      </div>
-    </div>
-  );
-}
-
 /**
  * One person's loans, one loan at a time.
  *
@@ -400,15 +381,20 @@ export default function PersonDebtsModal({
   const [pickedId, setPickedId] = useState<string | undefined>(() => loans[0]?.id);
   // A deleted loan cannot stay in front; fall back to whatever is first.
   const debt = loans.find((d) => d.id === pickedId) ?? loans[0];
+  // The paid-off loans fold under their heading — open from the start when the
+  // one in front is among them, and from then the reader's to open and close.
+  const [showSettled, setShowSettled] = useState(() => debt?.isSettled ?? false);
 
-  const [tab, setTab] = useState<SheetTab>("pays");
   // One loan at a time, or every loan as a card down the screen. Remembered,
   // since whoever reads it as columns will want it that way next time too.
   const [view, setView] = useLocalStorage<"all" | "columns" | "one">("debts-sheet-view", "all");
+  // A loan opened from «Όλα μαζί» or the columns is shown on its own for now,
+  // without changing how the sheet opens next time.
+  const [visiting, setVisiting] = useState(false);
   // With a single loan there is nothing to list.
-  const asColumns = view === "columns" && loans.length > 1;
-  // Everything with the person at a glance, nothing to press — the first of the three.
-  const asAll = view === "all" && loans.length > 1;
+  const asColumns = !visiting && view === "columns" && loans.length > 1;
+  // Everything with the person at a glance — the first of the three.
+  const asAll = !visiting && view === "all" && loans.length > 1;
   // One panel open at a time: a new payment and a correction open together is
   // two half-finished forms and no way to tell which Save is which.
   const [panel, setPanel] = useState<{ kind: "edit"; payment: DebtPayment } | null>(null);
@@ -477,9 +463,7 @@ export default function PersonDebtsModal({
   const splits = loan ? loanSplits(debt) : undefined;
   const cleared = clearedPercent(debt, loan);
   const canWhatIf = !!loan && !debt.isSettled;
-  const shownTab: SheetTab = tab === "whatif" && !canWhatIf ? "pays" : tab;
   const saving = updateRepayment.isPending;
-  const lastPayment = debt.payments[0];
 
   // What the button says and what it fills in. On a loan that is the month's
   // payment — the thing actually being paid — or what is left, if that is less.
@@ -492,10 +476,11 @@ export default function PersonDebtsModal({
   const pick = (id: string) => {
     setPickedId(id);
     setPanel(null);
+    // A paid-off loan brought to the front is shown in its list, not folded away.
+    if (loans.find((d) => d.id === id)?.isSettled) setShowSettled(true);
   };
 
   const openRecord = () => {
-    setTab("pays");
     setPanel(null);
     // A part payment is one edit away from here; the month's payment, or settling, is the common case.
     setRecording(instalmentDue ?? debt.remaining);
@@ -510,16 +495,34 @@ export default function PersonDebtsModal({
   // Held at the top of the sheet while it scrolls: with many loans it rode up
   // and out of sight, under the cards, and there was no way back but up.
   const viewToggle = loans.length > 1 && (
-    <div className={`${segmented.group} ${styles.viewToggle}`} role="group" aria-label={t("debts.viewLabel")}>
-      {VIEWS.map(({ id, icon: Icon, label }) => (
-        <button key={id} type="button" className={`${segmented.item} ${shownView === id ? segmented.active : ""}`} aria-pressed={shownView === id} onClick={() => setView(id)}>
-          <Icon size={13} aria-hidden /> {t(label)}
-        </button>
-      ))}
-    </div>
+    <ViewSwitch
+      className={styles.viewToggle}
+      label={t("debts.viewLabel")}
+      value={shownView}
+      onChange={(next) => {
+        setVisiting(false);
+        setView(next);
+      }}
+      options={VIEWS.map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
+    />
   );
 
-  // «Όλα μαζί»: the person's totals, then each loan with how much of it is gone. To look at only.
+  // From a column: that loan in front, one at a time, where it can be corrected.
+  const openFromColumn = (d: DebtWithStatus) => {
+    pick(d.id);
+    setVisiting(true);
+  };
+
+  // From a column: the wizard for that loan, over the columns. Picked first,
+  // so the wizard and the figure it opens with are that loan's.
+  const recordFromColumn = (d: DebtWithStatus) => {
+    pick(d.id);
+    const state = loanState(d);
+    setRecording(state ? Math.min(state.instalment, d.remaining) : d.remaining);
+  };
+
+  // «Όλα μαζί»: the person's totals, then each loan with how much of it is gone — each row opening
+  // that loan, and a button beside an open one to record a payment.
   const allTogether = (
     <>
       <div className={styles.personTotal}>
@@ -538,12 +541,28 @@ export default function PersonDebtsModal({
           const tone = d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)";
           return (
             <li key={d.id} className={styles.allRow} style={{ borderLeftColor: tone }}>
-              <span className={styles.allMain}>
-                <span className={styles.allName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-                <span className={styles.allMeta}>{t("debts.of", { amount: formatCurrency(d.amount) })}</span>
-              </span>
-              <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
-              <MiniRing percent={clearedPercent(d, loanState(d))} tone={tone} label={t("debts.cleared")} />
+              {/* The row opens that loan on its own — its receipt, payments and actions. */}
+              <button type="button" className={styles.allOpen} onClick={() => openFromColumn(d)}>
+                <span className={styles.allMain}>
+                  <span className={styles.allName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
+                  <span className={styles.allMeta}>{t("debts.of", { amount: formatCurrency(d.amount) })}</span>
+                </span>
+                <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
+                <MiniRing percent={clearedPercent(d, loanState(d))} tone={tone} label={t("debts.cleared")} />
+              </button>
+              {!d.isSettled && (
+                <Button
+                  color="secondary"
+                  outline
+                  size="sm"
+                  className="flex-shrink-0 d-inline-flex align-items-center gap-1"
+                  aria-label={`${t(d.direction === "owed_by_me" ? "debts.payShortOut" : "debts.payShortIn")} — ${d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}`}
+                  onClick={() => recordFromColumn(d)}
+                >
+                  <FiPlus size={14} aria-hidden />
+                  <span className="d-none d-sm-inline">{t(d.direction === "owed_by_me" ? "debts.payShortOut" : "debts.payShortIn")}</span>
+                </Button>
+              )}
             </li>
           );
         })}
@@ -551,20 +570,19 @@ export default function PersonDebtsModal({
     </>
   );
 
-  // From a column: that loan in front, one at a time, where it can be corrected.
-  const openFromColumn = (d: DebtWithStatus) => {
-    pick(d.id);
-    setTab("pays");
-    setView("one");
-  };
-
-  // From a column: the wizard for that loan, over the columns. Picked first,
-  // so the wizard and the figure it opens with are that loan's.
-  const recordFromColumn = (d: DebtWithStatus) => {
-    pick(d.id);
-    const state = loanState(d);
-    setRecording(state ? Math.min(state.instalment, d.remaining) : d.remaining);
-  };
+  const openLoans = loans.filter((d) => !d.isSettled);
+  const settledLoans = loans.filter((d) => d.isSettled);
+  const pickRow = (d: DebtWithStatus) => (
+    <button key={d.id} type="button" className={`${styles.pick} ${d.id === debt.id ? styles.pickOn : ""}`} aria-pressed={d.id === debt.id} onClick={() => pick(d.id)}>
+      <span
+        className={styles.pickDot}
+        style={{ background: d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)" }}
+        aria-hidden
+      />
+      <span className={styles.pickName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
+      <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
+    </button>
+  );
 
   const openEdit = (payment: DebtPayment) => {
     // Tapping the open one again closes it, like any other row that expands.
@@ -602,36 +620,30 @@ export default function PersonDebtsModal({
       ? t("debts.interestFreeLoan")
       : t(isFloating(debt) ? "debts.rateFloatingShort" : "debts.rateFixedShort", { rate: pct.format(currentRate(debt)) });
 
-  // The four figures that describe this loan. A loan and money between people
-  // are different things, so they are described by different figures.
-  const stats: { label: string; value: string }[] = loan
+  const receipt = loanReceipt(debt);
+  const receiptLabel = (key: ReceiptLine["key"]) =>
+    key === "started"
+      ? `${t(borrowed ? "debts.took" : "debts.gave")}, ${dateFmt.format(firestoreToDate(debt.date))}`
+      : key === "handedBack"
+        ? t(borrowed ? "debts.repaidOut" : "debts.repaidIn")
+        : key === "interest"
+          ? t("debts.statInterest")
+          : key === "over"
+            ? t("debts.receiptOver")
+            : t("debts.forgivenTag");
+
+  // What a bank loan is besides its sum: the instalment, how many are left,
+  // when it ends, and the terms it was taken on.
+  const loanFacts: { label: string; value: string }[] = loan
     ? [
         { label: t("debts.statInstalment"), value: formatCurrency(loan.instalment) },
         { label: t("debts.statPaymentsLeft"), value: payoff ? String(payoff.months) : "—" },
         { label: t("debts.statFinishes"), value: payoff ? monthFmt.format(payoff.finishDate) : t("debts.settled") },
-        { label: t("debts.statInterest"), value: formatCurrency(loan.interestPaid) },
+        { label: t("debts.termMonths"), value: `${debt.termMonths} ${t("debts.monthsUnit")}` },
+        ...((debt.interestFreeMonths ?? 0) > 0 ? [{ label: t("debts.interestFree"), value: `${debt.interestFreeMonths} ${t("debts.monthsUnit")}` }] : []),
+        ...(isFloating(debt) ? [{ label: t("debts.interestRate"), value: `${rateText} (${t("debts.rateParts", { base: pct.format(debt.baseRate ?? 0), margin: pct.format(debt.margin ?? 0) })})` }] : []),
       ]
-    : [
-        { label: t("debts.statOriginal"), value: formatCurrency(debt.amount) },
-        { label: t(borrowed ? "debts.repaidOut" : "debts.repaidIn"), value: formatCurrency(debt.paid) },
-        { label: t("debts.statLast"), value: lastPayment ? shortFmt.format(firestoreToDate(lastPayment.date)) : "—" },
-        { label: t("debts.dueDate"), value: debt.dueDate ? shortFmt.format(firestoreToDate(debt.dueDate)) : "—" },
-      ];
-
-  const details: { label: string; value: string }[] = [
-    { label: t(borrowed ? "debts.took" : "debts.gave"), value: `${formatCurrency(debt.amount)} · ${dateFmt.format(firestoreToDate(debt.date))}` },
-    { label: t("debts.interestRate"), value: loan && isFloating(debt) ? `${rateText} (${t("debts.rateParts", { base: pct.format(debt.baseRate ?? 0), margin: pct.format(debt.margin ?? 0) })})` : rateText },
-    ...(loan ? [{ label: t("debts.termMonths"), value: `${debt.termMonths} ${t("debts.monthsUnit")}` }] : []),
-    ...(loan && (debt.interestFreeMonths ?? 0) > 0 ? [{ label: t("debts.interestFree"), value: `${debt.interestFreeMonths} ${t("debts.monthsUnit")}` }] : []),
-    ...(debt.dueDate ? [{ label: t("debts.dueDate"), value: dateFmt.format(firestoreToDate(debt.dueDate)) }] : []),
-  ];
-
-  const tabs: { id: SheetTab; label: string }[] = [
-    { id: "pays", label: `${t("debts.tabPayments")} · ${debt.payments.length}` },
-    { id: "progress", label: t("debts.tabProgress") },
-    ...(canWhatIf ? [{ id: "whatif" as const, label: t("debts.tabWhatIf") }] : []),
-    { id: "details", label: t("debts.tabDetails") },
-  ];
+    : [];
 
   const rest = (
     <>
@@ -651,202 +663,182 @@ export default function PersonDebtsModal({
           {viewToggle}
           {/* The person's totals are «Όλα μαζί», a tab of their own. */}
 
+          {/* Which loan is in front: a list, the open ones first and the paid-off
+              ones folded under them — every loan in sight, none off to the right,
+              and the chosen one marked by a bar, a tint and its weight. */}
           {loans.length > 1 && (
             <div className={styles.picker} role="group" aria-label={t("debts.pickerLabel")}>
-              {loans.map((d) => (
-                <button key={d.id} type="button" className={`${styles.pick} ${d.id === debt.id ? styles.pickOn : ""}`} aria-pressed={d.id === debt.id} onClick={() => pick(d.id)}>
-                  <span
-                    className={styles.pickDot}
-                    style={{ background: d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)" }}
-                    aria-hidden
-                  />
-                  <span className={styles.pickName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-                  <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
-                  <span className={styles.pickBar} aria-hidden>
-                    <span style={{ width: `${clearedPercent(d, loanState(d))}%` }} />
-                  </span>
+              {openLoans.length > 0 && <div className={styles.pickGroup}>{t("debts.pickOpen", { count: openLoans.length })}</div>}
+              {openLoans.map(pickRow)}
+              {settledLoans.length > 0 && (
+                <button type="button" className={styles.pickGroup} aria-expanded={showSettled} onClick={() => setShowSettled(!showSettled)}>
+                  {showSettled ? <FiChevronDown size={13} aria-hidden /> : <FiChevronRight size={13} aria-hidden />}
+                  {t("debts.pickSettled", { count: settledLoans.length })}
                 </button>
-              ))}
+              )}
+              {showSettled && settledLoans.map(pickRow)}
             </div>
           )}
 
-          <div className={styles.hero}>
-            <ProgressRing percent={cleared} label={t("debts.cleared")} />
-            <div className={styles.heroText}>
-              <div className={styles.heroName}>{debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent")}</div>
-              {debt.isSettled ? (
-                <>
-                  <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span>
-                  {/* Paid off: the day of the last payment, and where it went. */}
-                  {!debt.forgiven && debt.payments[0] && (
-                    <div className={styles.heroSub}>
-                      {t("debts.settledLine", { date: dateFmt.format(firestoreToDate(debt.payments[0].date)), how: moneyMovedName(debt.payments[0].accountId, accounts, t) })}
-                    </div>
-                  )}
-                  {/* What was let go, when, and why — the reason the debt is kept rather than deleted. */}
-                  {debt.forgiven && (
-                    <div className={styles.heroSub}>
-                      {t("debts.forgivenLine", { amount: formatCurrency(debt.forgiven.amount), date: dateFmt.format(firestoreToDate(debt.forgiven.date)) })}
-                      {debt.forgiven.note && <span className="d-block fst-italic">«{debt.forgiven.note}»</span>}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className={styles.heroLabel}>{t(borrowed ? "debts.leftToGive" : "debts.leftToGet")}</div>
-                  <div className={styles.heroAmount}>{formatCurrency(debt.remaining)}</div>
-                </>
-              )}
-              <div className={styles.heroSub}>
-                {t("debts.of", { amount: formatCurrency(debt.amount) })} · {rateText}
-              </div>
-            </div>
+          {/* The loan as a receipt: what started it, what came back, what is
+              left — a sum that adds up (loanReceipt), in place of a ring, four
+              tiles that repeated it, and a «Πορεία» tab that drew it again. */}
+          <div className={styles.receiptName}>
+            <span>{debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent")}</span>
+            {debt.isSettled && <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span>}
           </div>
-
-          <dl className={styles.stats}>
-            {stats.map((stat) => (
-              <div key={stat.label} className={styles.stat}>
-                <dt>{stat.label}</dt>
-                <dd>{stat.value}</dd>
+          <div className={styles.receipt}>
+            {receipt.map((line) => (
+              <div key={line.key} className={styles.receiptRow}>
+                <span>{receiptLabel(line.key)}</span>
+                {/* The sign by the line, not the figure: nothing handed back is −0, which printed «+ -0,00». */}
+                <span>
+                  {line.key === "started" ? "" : line.key === "handedBack" || line.key === "forgiven" ? "− " : "+ "}
+                  {formatCurrency(Math.abs(line.amount))}
+                </span>
               </div>
             ))}
-          </dl>
+            <div className={styles.receiptTotal}>
+              <span>{t(borrowed ? "debts.leftToGive" : "debts.leftToGet")}</span>
+              <span>{formatCurrency(debt.remaining)}</span>
+            </div>
+            <div className={styles.receiptBar} aria-hidden>
+              <span style={{ width: `${cleared}%` }} />
+            </div>
+            <div className={styles.receiptSub}>
+              {t("debts.receiptCleared", { percent: Math.floor(cleared) })}
+              {debt.dueDate && !debt.isSettled ? ` · ${t("debts.receiptBy", { date: shortFmt.format(firestoreToDate(debt.dueDate)) })}` : ""} · {rateText}
+            </div>
+          </div>
+          {/* Paid off: the day of the last payment, and where it went. Let go: when, and why. */}
+          {debt.isSettled && !debt.forgiven && debt.payments[0] && (
+            <div className={styles.heroSub}>{t("debts.settledLine", { date: dateFmt.format(firestoreToDate(debt.payments[0].date)), how: moneyMovedName(debt.payments[0].accountId, accounts, t) })}</div>
+          )}
+          {debt.forgiven && (
+            <div className={styles.heroSub}>
+              {t("debts.forgivenLine", { amount: formatCurrency(debt.forgiven.amount), date: dateFmt.format(firestoreToDate(debt.forgiven.date)) })}
+              {debt.forgiven.note && <span className="d-block fst-italic">«{debt.forgiven.note}»</span>}
+            </div>
+          )}
 
+          {/* A bank loan's own terms, which the receipt has no line for. */}
+          {loanFacts.length > 0 && (
+            <dl className={styles.details}>
+              {loanFacts.map((row) => (
+                <div key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
 
         <div className={styles.sheetRight}>
-          <div className={`nav nav-underline ${styles.tabs}`} role="tablist" aria-label={person.person}>
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                id={`debt-tab-${item.id}`}
-                aria-selected={shownTab === item.id}
-                aria-controls={`debt-panel-${item.id}`}
-                className={`nav-link ${shownTab === item.id ? "active" : ""}`}
-                onClick={() => setTab(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div role="tabpanel" id={`debt-panel-${shownTab}`} aria-labelledby={`debt-tab-${shownTab}`} className={styles.tabPanel}>
-            {shownTab === "pays" && (
-              <>
-                <ul className={styles.payList} aria-label={t("debts.tabPayments")}>
-                  {debt.payments.map((payment) => {
-                    const open = panel?.payment.id === payment.id;
-                    const split = splits?.get(payment.id);
-                    return (
-                      <li key={payment.id}>
-                        {/* The row is the way in: tap a payment to put it right. */}
-                        <button type="button" className={styles.payRow} onClick={() => openEdit(payment)} aria-expanded={open}>
-                          <span className={styles.payWhen}>
-                            <span>{shortFmt.format(firestoreToDate(payment.date))}</span>
-                            {/* How it went: into or out of which card, or no money at all. */}
-                            <span className={styles.payHow}>
-                              {payment.accountId === undefined ? <FiSlash size={11} aria-hidden /> : borrowed ? <FiArrowUpRight size={11} aria-hidden /> : <FiArrowDownLeft size={11} aria-hidden />}
-                              {moneyMovedName(payment.accountId, accounts, t)}
-                            </span>
-                            {split && <span className={styles.paySplit}>{t("debts.splitRow", { principal: formatCurrency(split.principal), interest: formatCurrency(split.interest) })}</span>}
-                            {payment.notes && <span className={styles.payNote}>«{payment.notes}»</span>}
-                          </span>
-                          <span className={styles.payAmount}>{formatCurrency(payment.amount)}</span>
-                          <FiEdit2 size={13} aria-hidden className={styles.payEdit} />
-                        </button>
-                        {open && (
-                          <PaymentPanel
-                            amount={panelAmount}
-                            date={panelDate}
-                            saving={saving}
-                            onAmount={setPanelAmount}
-                            onDate={setPanelDate}
-                            onSave={savePanel}
-                            onCancel={() => setPanel(null)}
-                            onDelete={deletePanelPayment}
-                            account={panelAccount}
-                            onAccount={setPanelAccount}
-                            notes={panelNotes}
-                            onNotes={setPanelNotes}
-                            income={!borrowed}
-                          />
-                        )}
-                      </li>
-                    );
-                  })}
-                  {/* Let go of: in the history like a payment, but not one — no money moved. */}
-                  {debt.forgiven && (
-                    <li className={`${styles.payRow} ${styles.payOrigin}`}>
+          {/* A section of its own colour, so the receipt and the payments read as two things. */}
+          <section className={styles.paysSection} aria-labelledby={`debt-pays-${debt.id}`}>
+            <h3 id={`debt-pays-${debt.id}`} className={styles.paysHead}>
+              {t("debts.tabPayments")} · {debt.payments.length}
+            </h3>
+            <ul className={styles.payList} aria-label={t("debts.tabPayments")}>
+              {debt.payments.map((payment) => {
+                const open = panel?.payment.id === payment.id;
+                const split = splits?.get(payment.id);
+                return (
+                  <li key={payment.id}>
+                    {/* The row is the way in: tap a payment to put it right. */}
+                    <button type="button" className={styles.payRow} onClick={() => openEdit(payment)} aria-expanded={open}>
                       <span className={styles.payWhen}>
-                        <span className="d-inline-flex align-items-center gap-1">
-                          <FiGift size={13} aria-hidden /> {t("debts.forgivenTag")}
+                        <span>{shortFmt.format(firestoreToDate(payment.date))}</span>
+                        {/* How it went: into or out of which card, or no money at all. */}
+                        <span className={styles.payHow}>
+                          {payment.accountId === undefined ? <FiSlash size={11} aria-hidden /> : borrowed ? <FiArrowUpRight size={11} aria-hidden /> : <FiArrowDownLeft size={11} aria-hidden />}
+                          {moneyMovedName(payment.accountId, accounts, t)}
                         </span>
-                        <span className={styles.paySplit}>
-                          {dateFmt.format(firestoreToDate(debt.forgiven.date))}
-                          {debt.forgiven.note ? ` · «${debt.forgiven.note}»` : ""}
-                        </span>
+                        {split && <span className={styles.paySplit}>{t("debts.splitRow", { principal: formatCurrency(split.principal), interest: formatCurrency(split.interest) })}</span>}
+                        {payment.notes && <span className={styles.payNote}>«{payment.notes}»</span>}
                       </span>
-                      <span className={styles.payAmount} style={{ color: "var(--color-text-secondary)" }}>
-                        {formatCurrency(debt.forgiven.amount)}
-                      </span>
-                    </li>
-                  )}
-                  {/* Where it started. Changed through the loan itself, in Details. */}
-                  <li className={`${styles.payRow} ${styles.payOrigin}`}>
-                    <span className={styles.payWhen}>
-                      <span>{t(borrowed ? "debts.took" : "debts.gave")}</span>
-                      <span className={styles.paySplit}>{dateFmt.format(firestoreToDate(debt.date))}</span>
-                    </span>
-                    <span className={styles.payAmount} style={{ color: "var(--color-text-primary)" }}>
-                      {formatCurrency(debt.amount)}
-                    </span>
+                      <span className={styles.payAmount}>{formatCurrency(payment.amount)}</span>
+                      <FiEdit2 size={13} aria-hidden className={styles.payEdit} />
+                    </button>
+                    {open && (
+                      <PaymentPanel
+                        amount={panelAmount}
+                        date={panelDate}
+                        saving={saving}
+                        onAmount={setPanelAmount}
+                        onDate={setPanelDate}
+                        onSave={savePanel}
+                        onCancel={() => setPanel(null)}
+                        onDelete={deletePanelPayment}
+                        account={panelAccount}
+                        onAccount={setPanelAccount}
+                        notes={panelNotes}
+                        onNotes={setPanelNotes}
+                        income={!borrowed}
+                      />
+                    )}
                   </li>
-                </ul>
-                {debt.payments.length === 0 && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
-              </>
-            )}
+                );
+              })}
+              {/* Let go of: in the history like a payment, but not one — no money moved. */}
+              {debt.forgiven && (
+                <li className={`${styles.payRow} ${styles.payOrigin}`}>
+                  <span className={styles.payWhen}>
+                    <span className="d-inline-flex align-items-center gap-1">
+                      <FiGift size={13} aria-hidden /> {t("debts.forgivenTag")}
+                    </span>
+                    <span className={styles.paySplit}>
+                      {dateFmt.format(firestoreToDate(debt.forgiven.date))}
+                      {debt.forgiven.note ? ` · «${debt.forgiven.note}»` : ""}
+                    </span>
+                  </span>
+                  <span className={styles.payAmount} style={{ color: "var(--color-text-secondary)" }}>
+                    {formatCurrency(debt.forgiven.amount)}
+                  </span>
+                </li>
+              )}
+              {/* Where it started. Changed through the loan itself, in Details. */}
+              <li className={`${styles.payRow} ${styles.payOrigin}`}>
+                <span className={styles.payWhen}>
+                  <span>{t(borrowed ? "debts.took" : "debts.gave")}</span>
+                  <span className={styles.paySplit}>{dateFmt.format(firestoreToDate(debt.date))}</span>
+                </span>
+                <span className={styles.payAmount} style={{ color: "var(--color-text-primary)" }}>
+                  {formatCurrency(debt.amount)}
+                </span>
+              </li>
+            </ul>
+            {debt.payments.length === 0 && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
+          </section>
 
-            {shownTab === "progress" && <ProgressPanel progress={debtProgress(debt)} borrowed={borrowed} formatCurrency={formatCurrency} />}
-
-            {shownTab === "whatif" && canWhatIf && (
-              <div className="d-flex flex-column gap-3">
+          {canWhatIf && (
+            <details className={styles.whatIf}>
+              <summary>{t("debts.tabWhatIf")}</summary>
+              <div className="d-flex flex-column gap-3 pt-2">
                 <PayMore debt={debt} formatCurrency={formatCurrency} />
                 {isFloating(debt) && <RateWatch debt={debt} formatCurrency={formatCurrency} locale={locale} />}
               </div>
-            )}
+            </details>
+          )}
 
-            {shownTab === "details" && (
-              <>
-                <dl className={styles.details}>
-                  {details.map((row) => (
-                    <div key={row.label}>
-                      <dt>{row.label}</dt>
-                      <dd>{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <div className={styles.detailButtons}>
-                  <Button color="secondary" outline onClick={() => setEditing(debt)}>
-                    <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
-                  </Button>
-                  {!debt.isSettled && (
-                    <Button color="secondary" outline onClick={() => setForgiving(true)}>
-                      <FiGift size={14} aria-hidden /> {t("debts.forgiveAction")}
-                    </Button>
-                  )}
-                  {debt.forgiven && (
-                    <Button color="secondary" outline disabled={unforgive.isPending} onClick={() => unforgive.mutate({ debtId: debt.id, data: { forgiven: null } })}>
-                      <FiRotateCcw size={14} aria-hidden /> {t("debts.unforgive")}
-                    </Button>
-                  )}
-                  <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
-                </div>
-                {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
-              </>
+          <div className={styles.detailButtons}>
+            <Button color="secondary" outline onClick={() => setEditing(debt)}>
+              <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
+            </Button>
+            {!debt.isSettled && (
+              <Button color="secondary" outline onClick={() => setForgiving(true)}>
+                <FiGift size={14} aria-hidden /> {t("debts.forgiveAction")}
+              </Button>
             )}
+            {debt.forgiven && (
+              <Button color="secondary" outline disabled={unforgive.isPending} onClick={() => unforgive.mutate({ debtId: debt.id, data: { forgiven: null } })}>
+                <FiRotateCcw size={14} aria-hidden /> {t("debts.unforgive")}
+              </Button>
+            )}
+            <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
           </div>
+          {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
         </div>
       </ModalBody>
       )}

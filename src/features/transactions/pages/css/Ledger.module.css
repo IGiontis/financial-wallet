@@ -79,12 +79,12 @@
 
 .sumLabel,
 .sumSub {
-  font-size: 11.5px;
+  font-size: var(--stat-tile-label-size);
   color: var(--color-text-secondary);
 }
 
 .sumValue {
-  font-size: 1.05rem;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

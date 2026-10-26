@@ -40,7 +40,7 @@ export function IncomeMonthCard({
 
   return (
     <section className={`${styles.card} p-3 p-lg-4 mb-3`} aria-labelledby="incomes-month-title">
-      <div id="incomes-month-title" className={styles.eyebrow}>
+      <div id="incomes-month-title" className="stat-head">
         {t("incomes.month.arrivedIn", { month: f.monthName(monthDate) })}
       </div>
 

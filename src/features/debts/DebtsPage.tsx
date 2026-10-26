@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiX } from "react-icons/fi";
 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useDebts, useHealDebtCash } from "./useDebts";
@@ -40,11 +40,17 @@ export function DebtsPage() {
   const wide = useNarrowScreen(WIDE_QUERY);
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The two tiles are the list's filter: «Χρωστάς» shows only those you owe,
+  // «Σου χρωστάνε» only those who owe you. They used to be figures to read and
+  // nothing else, which a tile that looks pressable makes a dead end.
+  const [side, setSide] = useState<"owe" | "owed" | null>(null);
 
   const people = useMemo(() => debtsByPerson(debts), [debts]);
   const totals = useMemo(() => debtTotals(people), [people]);
+  const shown = side === "owe" ? people.filter((p) => p.owedByMe > 0) : side === "owed" ? people.filter((p) => p.owedToMe > 0) : people;
   // Wide: the one chosen, or the first until one is. Narrow: only what was tapped.
-  const person = people.find((p) => p.person === openPerson) ?? (wide ? people[0] : undefined);
+  const person = shown.find((p) => p.person === openPerson) ?? (wide ? shown[0] : undefined);
+  const toggleSide = (next: "owe" | "owed") => setSide(side === next ? null : next);
   const netTone = totals.net > 0 ? "var(--color-income)" : totals.net < 0 ? "var(--color-expense)" : undefined;
 
   // The shape of what is coming, rather than a wheel. The whole page used to be
@@ -87,14 +93,26 @@ export function DebtsPage() {
           because "permission-denied" and "unavailable" need different fixes. */}
 
       <div className={styles.totals}>
-        <div className={`${styles.total} ${styles.totalOut} tone-tile tone-tile-expense`}>
-          <div className={styles.totalLabel}>{t("debts.youOwe")}</div>
-          <div className={styles.totalAmount}>{formatCurrency(totals.owedByMe)}</div>
-        </div>
-        <div className={`${styles.total} ${styles.totalIn} tone-tile tone-tile-income`}>
-          <div className={styles.totalLabel}>{t("debts.owedToYou")}</div>
-          <div className={styles.totalAmount}>{formatCurrency(totals.owedToMe)}</div>
-        </div>
+        <button
+          type="button"
+          className={`${styles.total} ${styles.totalOut} tone-tile tone-tile-expense ${side === "owe" ? styles.totalOn : ""}`}
+          aria-pressed={side === "owe"}
+          title={t("debts.filterHint")}
+          onClick={() => toggleSide("owe")}
+        >
+          <span className={styles.totalLabel}>{t("debts.youOwe")}</span>
+          <span className={styles.totalAmount}>{formatCurrency(totals.owedByMe)}</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.total} ${styles.totalIn} tone-tile tone-tile-income ${side === "owed" ? styles.totalOn : ""}`}
+          aria-pressed={side === "owed"}
+          title={t("debts.filterHint")}
+          onClick={() => toggleSide("owed")}
+        >
+          <span className={styles.totalLabel}>{t("debts.owedToYou")}</span>
+          <span className={styles.totalAmount}>{formatCurrency(totals.owedToMe)}</span>
+        </button>
 
         {/* Signed, because the sign is the answer: whether the pair above nets
             out for you or against you is the one thing the two tiles make you
@@ -111,14 +129,22 @@ export function DebtsPage() {
         </div>
       </div>
 
-      <div className={wide && people.length > 0 ? styles.split : undefined}>
+      <div className={wide && shown.length > 0 ? styles.split : undefined}>
         <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`}>
-          {people.length === 0 ? (
+          {side && (
+            <div className={styles.filterLine}>
+              <span>{t(side === "owe" ? "debts.filterOwe" : "debts.filterOwed")}</span>
+              <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1" onClick={() => setSide(null)}>
+                <FiX size={14} aria-hidden /> {t("debts.filterClear")}
+              </button>
+            </div>
+          )}
+          {shown.length === 0 ? (
             <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
-              {t("debts.empty")}
+              {t(side === "owe" ? "debts.filterEmptyOwe" : side === "owed" ? "debts.filterEmptyOwed" : "debts.empty")}
             </p>
           ) : (
-            people.map((p) => {
+            shown.map((p) => {
               const balance = balanceLabel(p.owedByMe, p.owedToMe);
               const selected = wide && person?.person === p.person;
               // How much of everything with them has come off, from the same split

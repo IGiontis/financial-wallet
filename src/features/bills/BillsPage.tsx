@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
-import { FiSquare, FiBarChart2, FiCalendar, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
+import { FiSquare, FiBarChart2, FiCalendar, FiGitCommit, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -67,7 +69,6 @@ import MonthBreakdownModal from "./MonthBreakdownModal";
 import SettleOverdueModal from "./SettleOverdueModal";
 import ActiveBillsModal from "./ActiveBillsModal";
 import RunwaySheet from "./RunwaySheet";
-import segmented from "../../shared/css/Segmented.module.css";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../shared/components/PageShell";
@@ -148,8 +149,8 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
       }}
       title={t("bills.seeBreakdown")}
     >
-      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-        <span className="text-uppercase fw-semibold text-body-secondary" style={{ fontSize: 11, letterSpacing: "0.05em" }}>
+      <div className="stat-head d-flex justify-content-between align-items-center gap-2">
+        <span>
           {settled ? t("bills.allSettled") : t("bills.toPayThisPeriod")}
         </span>
         <Badge color="secondary" pill style={{ fontSize: 10, fontWeight: 500 }}>
@@ -226,10 +227,8 @@ function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast
       }}
       title={t("bills.seeBreakdown")}
     >
-      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-        <span className="text-uppercase fw-semibold text-body-secondary" style={{ fontSize: 11, letterSpacing: "0.05em" }}>
-          {t("bills.nextMonthTitle")}
-        </span>
+      <div className="stat-head d-flex justify-content-between align-items-center gap-2">
+        <span>{t("bills.nextMonthTitle")}</span>
         <Badge color="secondary" pill style={{ fontSize: 10, fontWeight: 500 }}>
           {monthLabel}
         </Badge>
@@ -812,7 +811,7 @@ function BillLine({
   );
 }
 
-type BillView = "cards" | "list" | "tiles" | "months" | "timeline";
+type BillView = "cards" | "list" | "tiles" | "months" | "timeline" | "tree";
 
 const VIEW_BUTTONS = [
   { id: "cards", icon: FiGrid, label: "bills.viewCards" },
@@ -820,6 +819,7 @@ const VIEW_BUTTONS = [
   { id: "tiles", icon: FiSquare, label: "bills.viewTiles" },
   { id: "timeline", icon: FiCalendar, label: "bills.viewTimeline" },
   { id: "months", icon: FiBarChart2, label: "bills.viewMonths" },
+  { id: "tree", icon: FiGitCommit, label: "bills.viewTree" },
 ] as const;
 
 /** Cards or one line each — the same switch the goals list has. On «Πληρωμές», only the ones a bill is paid from. */
@@ -827,14 +827,13 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
   const { t } = useTranslation();
 
   return (
-    <div className={styles.viewToggle} role="group" aria-label={t("bills.viewLabel")}>
-      {VIEW_BUTTONS.filter((b) => !only || only.includes(b.id)).map(({ id, icon: Icon, label }) => (
-        <button key={id} type="button" className={`${styles.viewBtn} ${view === id ? styles.viewBtnOn : ""}`} aria-pressed={view === id} onClick={() => onChange(id)}>
-          <Icon size={13} aria-hidden />
-          <span>{t(label)}</span>
-        </button>
-      ))}
-    </div>
+    <ViewSwitch
+      label={t("bills.viewLabel")}
+      value={view}
+      onChange={onChange}
+      iconOnlyOnPhone
+      options={VIEW_BUTTONS.filter((b) => !only || only.includes(b.id)).map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
+    />
   );
 }
 
@@ -852,7 +851,7 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
 export type BillsPageView = "overview" | "pay" | "manage" | "all";
 
 /** The views the «Πληρωμές» page lists with — «Ο μήνας» too, where a bill is opened and paid from its day. */
-const PAY_VIEWS = ["cards", "list", "tiles", "timeline"] as const;
+const PAY_VIEWS = ["cards", "list", "tiles", "timeline", "tree"] as const;
 
 function BillCard({
   bill,
@@ -976,9 +975,7 @@ function YearlyProjection({
   return (
     <div className={`${styles.yearlyCard} p-3 p-lg-4`}>
       <div className="mb-3">
-        <div className="fw-semibold" style={{ fontSize: 14 }}>
-          {t("bills.yearlyProjection")}
-        </div>
+        <div className="stat-head">{t("bills.yearlyProjection")}</div>
         <div style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.yearlyProjectionHint")}</div>
       </div>
 
@@ -1315,20 +1312,17 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                 has the same fill and adds a border — which is what actually says
                 "this one" — and it is the switcher every other page uses. */}
             {view === "all" && compact && bills.length > 0 && (
-              <div className={`${segmented.group} ${segmented.even} mb-3`} role="tablist" aria-label={t("bills.title")}>
-                {(["bills", "year"] as const).map((view) => (
-                  <button
-                    key={view}
-                    type="button"
-                    role="tab"
-                    aria-selected={mobileView === view}
-                    className={`${segmented.item} ${mobileView === view ? segmented.active : ""}`}
-                    onClick={() => setMobileView(view)}
-                  >
-                    {t(view === "bills" ? "bills.tabBills" : "bills.tabYear")}
-                  </button>
-                ))}
-              </div>
+              <ViewSwitch
+                block
+                className="mb-3"
+                label={t("bills.title")}
+                value={mobileView}
+                onChange={setMobileView}
+                options={[
+                  { id: "bills", label: t("bills.tabBills") },
+                  { id: "year", label: t("bills.tabYear") },
+                ]}
+              />
             )}
 
             {bills.length === 0 ? (
@@ -1388,6 +1382,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                   <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
                 )}
 
+                {showList && billView === "tree" && (
+                  <CalendarTimeline side="out" formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
+                )}
+
                 {showList && billView === "months" && (
                   <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                 )}
@@ -1395,6 +1393,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                 {showList &&
                   billView !== "months" &&
                   billView !== "timeline" &&
+                  billView !== "tree" &&
                   sections.map((section) => (
                   <div key={section.key} className="mb-3">
                     <div className={styles.listSection}>

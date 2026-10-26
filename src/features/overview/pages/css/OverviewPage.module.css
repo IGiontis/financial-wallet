@@ -101,7 +101,7 @@
 /* Big enough to be the one figure that leads the page, not so big that a
    four-digit balance looks like a headline about somebody else's money. */
 .figure {
-  font-size: 1.8rem;
+  font-size: var(--stat-figure-size);
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -110,7 +110,7 @@
 
 @media (min-width: 992px) {
   .figure {
-    font-size: 2.1rem;
+    font-size: var(--stat-figure-size);
   }
 }
 
@@ -153,17 +153,15 @@
 }
 
 .statLabel {
-  font-size: 10.5px;
+  font-size: var(--stat-tile-label-size);
   font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--color-text-secondary);
   margin-bottom: 3px;
 }
 
 .statValue {
   white-space: nowrap;
-  font-size: 18px;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
@@ -289,18 +287,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.pairValue {
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ── The month's in and out, as one card ─────────────────────────────────── */
 
 .inOut {
@@ -333,12 +319,12 @@
 }
 
 .inOutLabel {
-  font-size: 12px;
+  font-size: var(--stat-tile-label-size);
   color: var(--color-text-secondary);
 }
 
 .inOutValue {
-  font-size: 20px;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 700;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
@@ -373,14 +359,14 @@
 
 @media (max-width: 400px) {
   .inOutValue {
-    font-size: 17px;
+    font-size: var(--stat-tile-figure-size);
   }
 }
 
 /* ── The month / position ─────────────────────────────────────────────────── */
 
 .verdictValue {
-  font-size: 1.8rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -477,14 +463,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-size: var(--stat-tile-label-size);
+  font-weight: var(--stat-label-weight);
+  color: var(--color-text-primary);
 }
 
 .tileValue {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--stat-tile-figure-size);
+  font-weight: var(--stat-figure-weight);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -565,19 +551,18 @@
 
 /* ── The hero: the money now, and whether it lasts until pay day ────────────── */
 
+/* The type and the hairline are the shared `.stat-head` (index.css). One
+   line: beside «Βάλε τράπεζες» it was squeezed onto three, and the button
+   goes under it instead when the two do not fit. */
 .heroLabel {
-  margin: 0 0 4px;
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .heroFigure {
   margin: 0 0 4px;
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--stat-figure-size);
+  font-weight: var(--stat-figure-weight);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -589,7 +574,7 @@
 }
 
 .heroLeft {
-  font-size: 1.5rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -768,6 +753,10 @@ a.attentionName {
   background-color: #0f3d7a;
   border-color: #0f3d7a;
   color: #ffffff;
+}
+
+:global([data-bs-theme="light"]) .heroMoney .heroHead {
+  border-bottom-color: rgba(255, 255, 255, 0.25);
 }
 
 :global([data-bs-theme="light"]) .heroMoney .heroLabel,

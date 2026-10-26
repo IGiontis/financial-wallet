@@ -148,7 +148,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
           </>
         ) : (
           <>
-            <p className="fw-semibold mb-1" style={{ fontSize: 22 }}>
+            <p className="fw-semibold mb-1" style={{ fontSize: "var(--stat-figure-size)" }}>
               {formatCurrency(goal.totalSaved)}
             </p>
             <p className="text-body-secondary mb-3" style={{ fontSize: 12.5 }}>

@@ -5,6 +5,7 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { FiCalendar } from "react-icons/fi";
 import { Fragment, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
@@ -330,12 +331,10 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           {goal.icon ?? "💰"}
         </span>
 
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {goal.name}
-          </p>
-          <p style={{ margin: 0, fontSize: 11.5, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bandSubtitle}</p>
-        </div>
+        {/* The name alone in the band, across all of it, and onto a second
+            line only when it does not fit: cut short, «Μετακόμιση & Νέο Σπ…»
+            lost the name. The deadline it shared the band with is in the body. */}
+        <p style={{ margin: 0, minWidth: 0, flex: 1, overflowWrap: "anywhere", fontSize: "var(--stat-card-title-size)", fontWeight: "var(--stat-label-weight)", lineHeight: 1.3, color: "var(--color-text-primary)" }}>{goal.name}</p>
 
         <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
           {isPaused && (
@@ -376,14 +375,14 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
       </div>
 
       {/* ── The figure, and where it is going ─────────────────────────────── */}
-      <CardBody style={{ padding: "14px", flex: "1 1 auto" }}>
+      <CardBody style={{ padding: "14px 14px 10px", flex: "1 1 auto", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {hasRing && <ProgressRing pct={ringPct} accent={accent} centre={`${Math.round(ringPct)}%`} />}
           <div style={{ minWidth: 0 }}>
             <p
               style={{
                 margin: 0,
-                fontSize: 25,
+                fontSize: "var(--stat-tile-figure-size)",
                 fontWeight: 650,
                 letterSpacing: "-0.02em",
                 lineHeight: 1.1,
@@ -402,7 +401,20 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           </div>
         </div>
 
-        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", margin: "12px 0 0" }}>{goal.notes}</p>}
+        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", margin: 0 }}>{goal.notes}</p>}
+
+        {/* When it is due and how long that leaves — or, without a date, what
+            kind of goal it is — on a row of its own across the card, not
+            squeezed into the column beside the ring. Last in the body and
+            pushed to its foot, so a card stretched to its row's height keeps
+            the room above the date rather than an empty band under it. */}
+        <p
+          className="d-flex align-items-center gap-2"
+          style={{ margin: "auto 0 0", paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: 12.5, color: "var(--color-text-secondary)" }}
+        >
+          {!isRecurring && deadlineDate && <FiCalendar size={13} aria-hidden style={{ flexShrink: 0 }} />}
+          {bandSubtitle}
+        </p>
       </CardBody>
 
       {/* ── Three figures, divided by rules ───────────────────────────────── */}

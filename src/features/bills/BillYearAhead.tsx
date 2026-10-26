@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { heaviestMonth, lightestMonth, type MonthAhead } from "./billsUtils";
+import type { MonthAhead } from "./billsUtils";
+import { monthExtremes } from "../../shared/utils/monthExtremes";
 import { standaloneMonthName } from "../../shared/utils/dates";
+import { MonthBars } from "../../shared/components/MonthBars";
 import styles from "./css/BillsPage.module.css";
 
 /**
@@ -34,76 +36,54 @@ export default function BillYearAhead({
 }) {
   const { t } = useTranslation();
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short" }), [locale]);
   // Named the way a sentence names a month, not the way a date does.
   const longName = useMemo(() => (date: Date) => standaloneMonthName(locale, date), [locale]);
 
-  const peak = months.reduce((most, month) => Math.max(most, month.total), 0);
   const total = months.reduce((sum, month) => sum + month.total, 0);
-  const heaviest = heaviestMonth(months);
-  // Only worth pointing out when it actually stands out; on a flat year every
-  // month is the heaviest and saying so is noise.
-  const notable = heaviest && total > 0 && heaviest.total > (total / months.length) * 1.25 ? heaviest : undefined;
-  // The other end, by the same measure: green only where a month is clearly the
-  // easy one, so a flat year stays plain at both ends.
-  const lightest = lightestMonth(months);
-  const easy = lightest && total > 0 && lightest !== heaviest && lightest.total < (total / months.length) * 0.75 ? lightest : undefined;
-  const anyPaid = months.some((month) => month.paid > 0);
+  // The dear months and the easy ones — every tied month at each end, as on
+  // «Έσοδα» — only where they stand a quarter off the average: on a flat year
+  // every month is the heaviest, and saying so is noise.
+  const { highs: notable, lows: easy } = monthExtremes(months, 0.25);
+  const names = (list: MonthAhead[]) => new Intl.ListFormat(locale, { type: "conjunction" }).format(list.map((m) => longName(m.start)));
 
   return (
     <div className={styles.yearAhead}>
-      <div className={styles.yearAheadHead}>
-        <div>
-          <div className="fw-semibold" style={{ fontSize: 14 }}>
-            {t("bills.yearAheadTitle")}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.yearAheadHint")}</div>
-        </div>
+      <div className="stat-head d-flex justify-content-between align-items-baseline gap-2">
+        <span>{t("bills.yearAheadTitle")}</span>
         <span className={styles.yearAheadTotal}>{formatCurrency(total)}</span>
       </div>
+      <div className={styles.yearAheadHint}>{t("bills.yearAheadHint")}</div>
 
-      <div className={styles.yearBars}>
-        {months.map((month, offset) => {
-          const share = peak > 0 ? Math.max((month.total / peak) * 100, month.total > 0 ? 4 : 0) : 0;
-          // Of the bar, the part already paid ahead — striped, so the month
-          // reads as what it costs and how much of that is already behind you.
-          const paidShare = month.total > 0 ? Math.min((month.paid / month.total) * 100, 100) : 0;
+      {/* The bars are shared with «Έσοδα»; the dear month red, the easy one green. */}
+      <MonthBars
+        months={months.map((month) => {
           const left = Math.round((month.total - month.paid) * 100) / 100;
-          return (
-            <button
-              key={month.start.toISOString()}
-              type="button"
-              className={`${styles.yearBarItem} ${month === notable ? styles.yearBarItemPeak : month === easy ? styles.yearBarItemLow : ""}`}
-              style={{ ["--fill" as string]: `${share}%`, ["--paid" as string]: `${paidShare}%` }}
-              onClick={() => onOpenMonth(offset)}
-              title={
-                month.paid > 0
-                  ? `${longName(month.start)} — ${formatCurrency(month.total)} · ${t("bills.yearAheadPaidTitle", { paid: formatCurrency(month.paid), left: formatCurrency(left) })}`
-                  : `${longName(month.start)} — ${formatCurrency(month.total)}`
-              }
-            >
-              <span className={styles.yearBarMonth}>{monthFmt.format(month.start)}</span>
-              <span className={styles.yearBarTrack}>
-                <span className={styles.yearBarFill}>{paidShare > 0 && <span className={styles.yearBarPaid} />}</span>
-              </span>
-              <span className={styles.yearBarAmount}>{month.total > 0 ? formatCurrency(month.total) : "—"}</span>
-            </button>
-          );
+          return {
+            ...month,
+            title:
+              month.paid > 0
+                ? `${longName(month.start)} — ${formatCurrency(month.total)} · ${t("bills.yearAheadPaidTitle", { paid: formatCurrency(month.paid), left: formatCurrency(left) })}`
+                : `${longName(month.start)} — ${formatCurrency(month.total)}`,
+          };
         })}
-      </div>
+        formatCurrency={formatCurrency}
+        locale={locale}
+        label={t("bills.yearAheadTitle")}
+        highs={notable}
+        lows={easy}
+        highTone="expense"
+        lowTone="income"
+        onOpen={onOpenMonth}
+        paidLegend={t("bills.yearAheadPrepaid")}
+      />
 
-      {anyPaid && (
-        <div className={styles.yearAheadLegend}>
-          <span className={styles.yearAheadSwatch} aria-hidden />
-          {t("bills.yearAheadPrepaid")}
-        </div>
-      )}
-
-      {(notable || easy) && (
+      {(notable.length > 0 || easy.length > 0) && (
         <p className={styles.yearAheadNote}>
-          {notable && t("bills.yearAheadPeak", { month: longName(notable.start), amount: formatCurrency(notable.total), count: notable.count })}
-          {notable && easy && " "}
-          {easy && t("bills.yearAheadLow", { month: longName(easy.start), amount: formatCurrency(easy.total) })}
+          {notable.length === 1 && t("bills.yearAheadPeak", { month: longName(notable[0].start), amount: formatCurrency(notable[0].total), count: notable[0].count })}
+          {notable.length > 1 && t("bills.yearAheadPeakMany", { months: names(notable), amount: formatCurrency(notable[0].total) })}
+          {notable.length > 0 && easy.length > 0 && " "}
+          {easy.length === 1 && t("bills.yearAheadLow", { month: longName(easy[0].start), amount: formatCurrency(easy[0].total) })}
+          {easy.length > 1 && t("bills.yearAheadLowMany", { months: names(easy), amount: formatCurrency(easy[0].total) })}
         </p>
       )}
     </div>

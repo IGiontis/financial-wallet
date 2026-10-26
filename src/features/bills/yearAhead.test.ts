@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computeBillStatus, heaviestMonth, lightestMonth, yearAhead } from "./billsUtils";
+import { computeBillStatus, yearAhead } from "./billsUtils";
+import { monthExtremes } from "../../shared/utils/monthExtremes";
 import type { Bill, BillPayment } from "../../shared/types/IndexTypes";
 
 // The twelve months ahead, as the bills fall into them.
@@ -67,7 +68,7 @@ describe("yearAhead", () => {
     // Second route, by hand: 420 + 210 + 130.
     expect(december.total).toBe(760);
     expect(december.count).toBe(3);
-    expect(heaviestMonth(months)).toBe(december);
+    expect(monthExtremes(months).highs).toEqual([december]);
   });
 
   it("leaves the paused months lighter", () => {
@@ -92,21 +93,23 @@ describe("yearAhead", () => {
     expect(october.paid).toBe(420);
   });
 
-  it("has no heaviest month when nothing is owed", () => {
-    expect(heaviestMonth(yearAhead([], NOW))).toBeUndefined();
+  it("has no dear or easy month when nothing is owed", () => {
+    expect(monthExtremes(yearAhead([], NOW))).toEqual({ highs: [], lows: [] });
   });
 
-  it("finds the lightest month at the other end — the first of them on a tie", () => {
-    // The holiday house off from November to March: November is the first of five empty months.
+  it("names every easy month on a tie, not only the first", () => {
+    // The holiday house off from November to March: five empty months, all of them the lightest.
     const house = status(makeBill({ amount: 60, pause: { from: "2026-11", to: "2027-03", yearly: true } }));
     const months = yearAhead([house], NOW);
-    const light = lightestMonth(months)!;
-    expect([light.start.getFullYear(), light.start.getMonth(), light.total]).toEqual([2026, 10, 0]);
-    // A second way: nothing in the year is cheaper.
-    expect(months.every((m) => m.total >= light.total)).toBe(true);
-  });
-
-  it("has no lightest month when nothing is owed", () => {
-    expect(lightestMonth(yearAhead([], NOW))).toBeUndefined();
+    const { lows } = monthExtremes(months, 0.25);
+    expect(lows.map((m) => [m.start.getFullYear(), m.start.getMonth(), m.total])).toEqual([
+      [2026, 10, 0],
+      [2026, 11, 0],
+      [2027, 0, 0],
+      [2027, 1, 0],
+      [2027, 2, 0],
+    ]);
+    // A second way: nothing in the year is cheaper than any of them.
+    expect(months.every((m) => m.total >= lows[0].total)).toBe(true);
   });
 });

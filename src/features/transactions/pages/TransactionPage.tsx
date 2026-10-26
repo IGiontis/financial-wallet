@@ -1,7 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Row, Col, Card, CardBody, Table, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
-import { FiEdit2, FiUsers } from "react-icons/fi";
+import { FiEdit2, FiGitCommit, FiList, FiUsers } from "react-icons/fi";
+import { ViewSwitch } from "../../../shared/components/ViewSwitch";
+import { MoneyTree, type TreeDay, type TreeLeaf } from "../../../shared/components/MoneyTree";
+import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { toast } from "react-toastify";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { useTransactions, useCategories, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from "../hooks/useTransactions";
@@ -242,6 +245,9 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
   );
 }
 
+/** Money in: an income, or money taken back out of a goal or an investment. */
+const isMoneyIn = (tx: Transaction) => (tx.isGoalTransaction || tx.isInvestmentTransaction ? tx.contributionType === "withdrawal" : tx.type === "income");
+
 /**
  * One record on the phone: its icon, name and category, and its amount — a
  * card to tap, which opens it with its Edit and Delete. Two buttons on every
@@ -252,7 +258,7 @@ function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Trans
   const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
-  const isPositive = tx.isGoalTransaction ? tx.contributionType === "withdrawal" : isInvestment ? tx.contributionType === "withdrawal" : tx.type === "income";
+  const isPositive = isMoneyIn(tx);
   // A tag only where it says more than the amount's sign and colour already
   // do: money into or out of a goal or an investment.
   const kind =
@@ -575,6 +581,28 @@ export function TransactionsPage() {
 
   const isLoading = txLoading || catLoading;
 
+  // Table or tree, per device — how one likes to read a list is not a fact about the money.
+  const [txView, setTxView] = useLocalStorage<"table" | "tree">("transactions-view", "table");
+  // The page's records by day, newest first as the table has them; in to the left of the trunk, out to the right.
+  const treeDays = useMemo<TreeDay[]>(() => {
+    const byDay = new Map<number, TreeLeaf[]>();
+    for (const tx of pagedTransactions) {
+      const day = midnight(firestoreToDate(tx.date));
+      const cat = resolveCategory(tx, categories);
+      const leaf: TreeLeaf = {
+        id: tx.id,
+        direction: isMoneyIn(tx) ? "in" : "out",
+        neutral: !!tx.transferId,
+        label: tx.description || categoryLabel(cat?.name, t) || "—",
+        amount: Math.abs(tx.amount),
+        icon: cat?.icon,
+        note: tx.transferId ? t("transactions.transfer.badge") : categoryLabel(cat?.name, t) || undefined,
+      };
+      byDay.set(day, [...(byDay.get(day) ?? []), leaf]);
+    }
+    return [...byDay.entries()].sort(([a], [b]) => b - a).map(([time, leaves]) => ({ date: new Date(time), leaves }));
+  }, [pagedTransactions, categories, t]);
+
   // How tall the held dates are, so each day's heading holds just under them
   // — the card changes height with the screen and the language.
   const datesRef = useRef<HTMLDivElement>(null);
@@ -670,10 +698,40 @@ export function TransactionsPage() {
             </Card>
 
 
+            <div className="mb-2">
+              <ViewSwitch
+                block
+                label={t("transactions.viewLabel")}
+                value={txView}
+                onChange={setTxView}
+                options={[
+                  { id: "table", label: t("transactions.viewTable"), icon: FiList },
+                  { id: "tree", label: t("transactions.viewTree"), icon: FiGitCommit },
+                ]}
+              />
+            </div>
+
             <Card className="border-0 shadow-sm">
-              <CardBody className="p-0">
+              <CardBody className={txView === "tree" ? "p-3" : "p-0"}>
                 {isLoading ? (
                   <SkeletonTable columns={5} rows={8} alignEnd={[3, 4]} />
+                ) : txView === "tree" ? (
+                  pagedTransactions.length === 0 ? (
+                    <p className="text-center text-muted py-4 mb-0">{t("transactions.noneFound")}</p>
+                  ) : (
+                    <MoneyTree
+                      days={treeDays}
+                      twoSided
+                      today={new Date(midnight(new Date()))}
+                      formatCurrency={formatCurrency}
+                      locale={i18n.resolvedLanguage ?? "en"}
+                      label={t("transactions.viewTree")}
+                      onOpen={(id) => {
+                        const tx = pagedTransactions.find((x) => x.id === id);
+                        if (tx) setViewTransaction(tx);
+                      }}
+                    />
+                  )
                 ) : (
                   <div className={styles.tableScroll}>
                     <Table hover className="mb-0">
@@ -683,11 +741,13 @@ export function TransactionsPage() {
                             {localeUpperCase(t("common.date"), i18n.resolvedLanguage)}
                           </th>
                           <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("transactions.payee"), i18n.resolvedLanguage)}</th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("common.category"), i18n.resolvedLanguage)}</th>
+                          <th className="d-none d-xl-table-cell" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                            {localeUpperCase(t("common.category"), i18n.resolvedLanguage)}
+                          </th>
                           <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.amount"), i18n.resolvedLanguage)}
                           </th>
-                          <th className="text-end pe-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                          <th className="text-end pe-3 d-none d-xl-table-cell" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.actions"), i18n.resolvedLanguage)}
                           </th>
                         </tr>
@@ -702,19 +762,21 @@ export function TransactionsPage() {
                         ) : (
                           pagedTransactions.map((tx) => {
                             const cat = resolveCategory(tx, categories);
-                            const isPositive = tx.isGoalTransaction
-                              ? tx.contributionType === "withdrawal"
-                              : tx.isInvestmentTransaction
-                                ? tx.contributionType === "withdrawal"
-                                : tx.type === "income";
+                            const isPositive = isMoneyIn(tx);
                             const chipStyle = getAmountChipStyle(tx);
                             return (
                               <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
                                   {formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
                                 </td>
-                                <td style={{ fontWeight: 500 }}>{tx.description}</td>
-                                <td>
+                                {/* On a laptop the category sits under the payee: five columns did not fit beside the dates, and the amounts were cut off. */}
+                                <td style={{ fontWeight: 500 }}>
+                                  {tx.description}
+                                  <span className="d-block d-xl-none small fw-normal text-body-secondary">
+                                    {cat?.icon} {categoryLabel(cat?.name, t) || "—"}
+                                  </span>
+                                </td>
+                                <td className="d-none d-xl-table-cell">
                                   <Badge color="light" className="text-dark">
                                     {cat?.icon} {categoryLabel(cat?.name, t) || "—"}
                                   </Badge>
@@ -736,7 +798,7 @@ export function TransactionsPage() {
                                     {formatCurrency(tx.amount)}
                                   </span>
                                 </td>
-                                <td className="text-end pe-3">
+                                <td className="text-end pe-3 d-none d-xl-table-cell">
                                   <div className="d-flex justify-content-end gap-2 align-items-center" onClick={(e) => e.stopPropagation()}>
                                     {tx.transferId && (
                                       <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: 10, ...tinted("--color-text-secondary") }}>{t("transactions.transfer.badge")}</span>

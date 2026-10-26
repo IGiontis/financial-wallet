@@ -576,7 +576,10 @@
     "sectionInactiveNote": "counted nowhere",
     "offTag": "Inactive",
     "activeSwitch": "Active",
-    "activeSwitchHint": "Off: it stays in the list but counts nowhere — not in payments, not in totals."
+    "activeSwitchHint": "Off: it stays in the list but counts nowhere — not in payments, not in totals.",
+    "viewTree": "Timeline",
+    "yearAheadPeakMany": "The dear ones are {{months}}, at {{amount}} each.",
+    "yearAheadLowMany": "The easiest are {{months}}, at {{amount}} each."
   },
   "incomes": {
     "title": "Income",
@@ -586,7 +589,8 @@
     "tabs": {
       "list": "List",
       "calendar": "Calendar",
-      "year": "The year"
+      "year": "The year",
+      "timeline": "Timeline"
     },
     "kind": {
       "salary": "Salary",
@@ -861,7 +865,16 @@
     "pageAll": "All",
     "pageManage": "Manage",
     "manageHint_one": "{{count}} income. Tap one to change it.",
-    "manageHint_other": "{{count}} incomes. Tap one to change it."
+    "manageHint_other": "{{count}} incomes. Tap one to change it.",
+    "ahead": {
+      "title": "The next 12 months",
+      "most": "The most: {{months}}, {{amount}}.",
+      "least": "The least: {{months}}, {{amount}}.",
+      "nothing": "Nothing is expected this month.",
+      "listLabel": "What comes in the month",
+      "noDay": "no day",
+      "total": "Total"
+    }
   },
   "transactions": {
     "title": "Transactions",
@@ -1042,7 +1055,10 @@
       "mainCard": "{{name}} (main)",
       "givenFrom": "Given",
       "returnedInto": "Given back"
-    }
+    },
+    "viewLabel": "How they are shown",
+    "viewTable": "Table",
+    "viewTree": "Tree"
   },
   "analytics": {
     "title": "Analytics",
@@ -1795,7 +1811,10 @@
     "lineLeftThisMonth": "{{amount}} left for the rest of the month",
     "lineLeftThen": "{{amount}} of the limit was left",
     "lineOverBy": "Over the limit by {{amount}}",
-    "lineByCategory": "By category"
+    "lineByCategory": "By category",
+    "dayEnds": "At the end of the day",
+    "periodEnds": "At the end of the stretch",
+    "paneLabel": "What the page shows"
   },
   "settings": {
     "title": "Settings",
@@ -2151,14 +2170,12 @@
     "statLast": "Last payment",
     "tabPayments": "Payments",
     "tabWhatIf": "What if…",
-    "tabDetails": "Details",
     "splitRow": "{{principal}} off the debt · {{interest}} interest",
     "noPayments": "No payments yet.",
     "newLoanShort": "New loan",
     "payAmountOut": "Pay {{amount}}",
     "payAmountIn": "Receive {{amount}}",
     "pickerLabel": "Loans",
-    "tabProgress": "Progress",
     "progressStartedOut": "You started with",
     "progressStartedIn": "You lent",
     "progressPaidOff": "Paid off",
@@ -2233,7 +2250,18 @@
     "noteOptional": "(optional)",
     "notePlaceholder": "e.g. handed over in cash, brought them round…",
     "settledLine": "{{date}} · {{how}}",
-    "plannerGroupIn": "Owed to you"
+    "plannerGroupIn": "Owed to you",
+    "filterHint": "Show only these in the list",
+    "filterOwe": "Only people you owe",
+    "filterOwed": "Only people who owe you",
+    "filterClear": "Everyone",
+    "filterEmptyOwe": "You don't owe anyone.",
+    "filterEmptyOwed": "Nobody owes you.",
+    "receiptOver": "Beyond the amount",
+    "receiptCleared": "{{percent}}% cleared",
+    "receiptBy": "by {{date}}",
+    "pickOpen": "Open · {{count}}",
+    "pickSettled": "Settled · {{count}}"
   },
   "statement": {
     "title": "Statement",
@@ -2439,7 +2467,9 @@
     "more_one": "Show one more ({{count}})",
     "more_other": "Show more ({{count}})",
     "whereOut": "Where it went",
-    "whereIn": "Where it came from"
+    "whereIn": "Where it came from",
+    "category": "Category",
+    "allCategories": "All categories"
   },
   "goalWizard": {
     "step_amount": "Amount",
@@ -2611,7 +2641,10 @@
     "keySign": "The figure in a day is what is left: what has not happened yet, in less out. It goes down as you pay, and once everything is done it shows the day's whole again.",
     "scope": "Only what is scheduled: incomes, bills, loan instalments and goals — not your transactions.",
     "groupUnpaid": "Unpaid",
-    "groupPaid": "Paid"
+    "groupPaid": "Paid",
+    "viewMonth": "Month",
+    "viewTimeline": "Timeline",
+    "viewLabel": "What it shows"
   },
   "debtOrder": {
     "title": "Which loan to attack first",
@@ -2648,5 +2681,28 @@
     "groupOff": "Inactive",
     "on": "Active",
     "activeName": "Active: {{name}}"
+  },
+  "timeline": {
+    "title_in": "Money-in timeline",
+    "title_out": "Money-out timeline",
+    "title_all": "Timeline",
+    "spanLabel": "Period",
+    "week": "Week",
+    "twoWeeks": "2 weeks",
+    "month": "Month",
+    "prev": "Previous period",
+    "next": "Next period",
+    "backToToday": "Back to today",
+    "today": "Today",
+    "in": "Coming in",
+    "out": "Going out",
+    "empty": "Nothing in this period.",
+    "state_late": "late",
+    "state_toPay": "to pay",
+    "state_coming": "to come",
+    "state_paid": "paid",
+    "state_came": "came",
+    "inDays_one": "in {{count}} day",
+    "inDays_other": "in {{count}} days"
   }
 }

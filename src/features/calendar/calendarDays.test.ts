@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calendarItems, calendarPlans, groupByDay, monthOffsetFrom, monthTotals, shownNet, type CalendarItem, type CalendarSources } from "./calendarDays";
+import { calendarItems, calendarItemsBetween, calendarPlans, groupByDay, monthOffsetFrom, monthTotals, shownNet, type CalendarItem, type CalendarSources } from "./calendarDays";
 import { goalMonthlyTarget } from "../plannerPage/plannerUtils";
 import { resolveIncomes } from "../incomes/incomesUtils";
 import { monthlyIncome, monthlySalary } from "../../test/incomes";
@@ -232,5 +232,23 @@ describe("the figure on a day", () => {
     expect(shownNet({ items: [{ ...pay, state: "done" }, ...bills] })).toBe(-800);
     // A late one is still to happen.
     expect(shownNet({ items: [{ ...pay, state: "done" }, { ...bills[0], state: "late" }, { ...bills[1], state: "done" }] })).toBe(-300);
+  });
+});
+
+describe("a stretch of days, across a month's end", () => {
+  it("takes from both months the days it covers, and nothing outside them", () => {
+    const rent = bill({ name: "Rent", amount: 400, dueDay: 5 });
+    const phone = bill({ name: "Phone", amount: 25, dueDay: 28 });
+    const s = sources({ bills: [rent, phone] });
+    // 26 October to 8 November: October's phone and November's rent, not October's rent.
+    const items = calendarItemsBetween(new Date(2026, 9, 26), new Date(2026, 10, 8), s);
+    expect(items.map((i) => [i.label, i.date.getMonth(), i.date.getDate()])).toEqual([
+      ["Phone", 9, 28],
+      ["Rent", 10, 5],
+    ]);
+    // A second way: the two months' own lists, cut to the same days.
+    const inStretch = (i: CalendarItem) => i.date >= new Date(2026, 9, 26) && i.date <= new Date(2026, 10, 8);
+    const both = [...calendarItems(OCT, s), ...calendarItems(new Date(2026, 10, 1), s)].filter(inStretch);
+    expect(items.map((i) => i.id)).toEqual(both.map((i) => i.id));
   });
 });

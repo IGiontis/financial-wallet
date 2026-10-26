@@ -12,6 +12,7 @@ import {
   isFloating,
   isLoan,
   loanPayoff,
+  loanReceipt,
   loanState,
   monthlyInstalment,
   payoffSaving,
@@ -906,3 +907,80 @@ describe("previewRepayment", () => {
     expect(saved.remaining).toBe(pv.remainingAfter);
   });
 });
+
+describe("a loan's receipt", () => {
+  const total = (d: DebtWithStatus) => round2(loanReceipt(d).reduce((sum, line) => sum + line.amount, 0));
+
+  it("between people: lent less handed back is what is left", () => {
+    const d = debt({ id: "r1" });
+    const s = computeDebtStatus(d, [repay("r1", 30, new Date(2026, 3, 1)), repay("r1", 25, new Date(2026, 4, 1))]);
+    expect(loanReceipt(s).map((l) => [l.key, l.amount])).toEqual([["started", 100], ["handedBack", -55]]);
+    expect(total(s)).toBe(s.remaining);
+    expect(s.remaining).toBe(45);
+  });
+
+  it("nothing paid yet: the whole, and a zero taken off it", () => {
+    const s = computeDebtStatus(debt({ id: "r0" }), []);
+    expect(total(s)).toBe(100);
+    expect(s.remaining).toBe(100);
+  });
+
+  it("handed back more than the whole: the extra is its own line, and nothing is left", () => {
+    const s = computeDebtStatus(debt({ id: "r2" }), [repay("r2", 120, new Date(2026, 3, 1))]);
+    expect(loanReceipt(s).find((l) => l.key === "over")?.amount).toBe(20);
+    expect(total(s)).toBe(0);
+    expect(s.remaining).toBe(0);
+  });
+
+  it("let go: what was forgiven is taken off, and the sum lands on zero", () => {
+    const s = computeDebtStatus(debt({ id: "r3", forgiven: { date: new Date(2026, 5, 1), amount: 60 } }), [repay("r3", 40, new Date(2026, 3, 1))]);
+    expect(loanReceipt(s).at(-1)).toEqual({ key: "forgiven", amount: -60 });
+    expect(total(s)).toBe(0);
+    expect(s.remaining).toBe(0);
+  });
+
+  it("a bank loan: the interest in the payments is added back, and the sum is the balance", () => {
+    const pays = [1, 2, 3].map((m) => repay("l1", 198.01, addMonthsTo(new Date(2026, 8, 9), m)));
+    const s = loan({}, pays);
+    const progress = debtProgress(s);
+    expect(progress.interest).toBeGreaterThan(0);
+    // Nothing run on unpaid: the split's own interest, within the cent its per-payment rounding drifts.
+    expect(Math.abs(Math.round(loanReceipt(s).find((l) => l.key === "interest")!.amount * 100) - Math.round(progress.interest * 100))).toBeLessThanOrEqual(1);
+    expect(total(s)).toBe(s.remaining);
+    // A second way: the balance against the principal less what came off it, to the same cent.
+    expect(Math.abs(Math.round((10000 - progress.principal) * 100) - Math.round(s.remaining * 100))).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("a bank loan's receipt with nothing paid yet", () => {
+  it("still adds up: the interest that has run on is a line, and the sum is the balance", () => {
+    const s = computeDebtStatus(debt({ id: "b0", amount: 8000, interestRate: 6.5, termMonths: 60, date: new Date(2025, 5, 1) }), [], new Date(2026, 9, 26));
+    const receipt = loanReceipt(s, debtProgress(s, new Date(2026, 9, 26)));
+    const interest = receipt.find((l) => l.key === "interest")!.amount;
+    expect(interest).toBeGreaterThan(0);
+    expect(round2(receipt.reduce((sum, l) => sum + l.amount, 0))).toBe(s.remaining);
+    // A second way: what is owed, less what was lent, is the interest — nothing has come back.
+    expect(round2(s.remaining - 8000)).toBe(interest);
+  });
+});
+
+describe("a bank loan paid off with more than it took", () => {
+  it("keeps the extra on a line of its own, and the interest at what the payments really paid of it", () => {
+    // 1.000 at 12% over a year, one payment of 1.100 a month in: about 10 of interest, the rest over.
+    const asOf = new Date(2026, 1, 1);
+    const s = computeDebtStatus(debt({ id: "b1", amount: 1000, interestRate: 12, termMonths: 12, date: new Date(2026, 0, 1) }), [repay("b1", 1100, new Date(2026, 1, 1))], asOf);
+    const progress = debtProgress(s, asOf);
+    const receipt = loanReceipt(s, progress);
+    const line = (key: string) => receipt.find((l) => l.key === key)?.amount ?? 0;
+    expect(s.remaining).toBe(0);
+    // A second way: the interest line is the split's own interest, not the 100 handed over beyond the 1.000.
+    expect(Math.abs(Math.round(line("interest") * 100) - Math.round(progress.interest * 100))).toBeLessThanOrEqual(1);
+    expect(line("interest")).toBeLessThan(20);
+    expect(line("over")).toBeGreaterThan(80);
+    expect(round2(receipt.reduce((sum, l) => sum + l.amount, 0))).toBe(0);
+  });
+});
+
+function addMonthsTo(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+}

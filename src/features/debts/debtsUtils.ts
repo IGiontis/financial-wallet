@@ -327,6 +327,46 @@ export function debtProgress(debt: DebtWithStatus, asOf: Date = new Date()): Deb
   return { started: debt.amount, handedBack: debt.paid, principal: round2(principal), interest: round2(interest), remaining: debt.remaining };
 }
 
+/** One line of a loan's receipt, signed: what it adds to, or takes off, what is owed. */
+export interface ReceiptLine {
+  key: "started" | "handedBack" | "interest" | "over" | "forgiven";
+  amount: number;
+}
+
+/**
+ * A loan as a sum that lands on what is still owed: what started it, less what
+ * was handed back, plus the interest charged so far, plus anything handed back
+ * beyond the whole, less what was let go. The lines add up to `remaining` to
+ * the cent — the sheet prints them as a receipt, and a receipt that does not
+ * add up is worse than none.
+ *
+ * On a bank loan the interest line is what the balance says was charged: the
+ * interest inside the payments, and what has run on since the last one and is
+ * not paid yet. A loan with nothing paid still owes more than it lent, and
+ * «8.000 − 0 = 8.729,42» is the receipt that does not add up. Between people
+ * there is none. Handing back more than the whole leaves its own line on
+ * either kind — on a paid-off bank loan, what is left once its principal and
+ * interest are taken out of what was handed over, so the extra is not read as
+ * interest.
+ */
+export function loanReceipt(debt: DebtWithStatus, progress: DebtProgress = debtProgress(debt)): ReceiptLine[] {
+  const forgiven = debt.forgiven?.amount ?? 0;
+  const over = isLoan(debt)
+    ? progress.remaining > 0
+      ? 0
+      : // The split books an overpayment as principal too; no more than the loan itself came off it.
+        Math.max(round2(progress.handedBack - progress.interest - Math.min(progress.principal, progress.started)), 0)
+    : round2(progress.handedBack - progress.principal);
+  const interest = isLoan(debt) ? round2(progress.remaining - progress.started + progress.handedBack + forgiven - over) : 0;
+  return [
+    { key: "started", amount: progress.started },
+    { key: "handedBack", amount: -progress.handedBack },
+    ...(interest > 0 ? [{ key: "interest" as const, amount: interest }] : []),
+    ...(over > 0 ? [{ key: "over" as const, amount: over }] : []),
+    ...(debt.forgiven ? [{ key: "forgiven" as const, amount: -forgiven }] : []),
+  ];
+}
+
 /**
  * Every loan with one person added up, one total per direction — "the bank lent
  * me" and "I lent them" are never netted into a single figure, because that

@@ -119,8 +119,18 @@ describe("which loan is in front", () => {
 
     // Open ones in the list's own order (newest first), the settled one after
     // them even though it is the newest of all.
-    expect(chips.map((c) => c.textContent)).toEqual([expect.stringMatching(/^March rent/), expect.stringMatching(/^Car/), expect.stringMatching(/^Concert tickets.*Settled/)]);
+    // The paid-off one is folded under its own heading until asked for.
+    expect(chips.map((c) => c.textContent)).toEqual([expect.stringMatching(/^March rent/), expect.stringMatching(/^Car/), "Settled · 1"]);
     expect(chips[0]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("opens the paid-off ones under their heading, and names how many are open", async () => {
+    renderSheet();
+    const list = screen.getByRole("group", { name: "Loans" });
+    expect(within(list).getByText("Open · 2")).toBeInTheDocument();
+
+    await userEvent.click(within(list).getByRole("button", { name: "Settled · 1" }));
+    expect(within(list).getByRole("button", { name: /^Concert tickets.*Settled/ })).toBeInTheDocument();
   });
 
   it("swaps the whole sheet to the loan picked", async () => {
@@ -128,13 +138,12 @@ describe("which loan is in front", () => {
     const dialog = sheet();
     // Second route: 500 − 120 − 80.
     expect(500 - 120 - 80).toBe(300);
-    expect(dialog.querySelector("[class*=_heroLabel_]")).toHaveTextContent("Left to pay back");
-    expect(dialog.querySelector("[class*=_heroAmount_]")).toHaveTextContent("€300.00");
-    expect(within(dialog).getByText("of €500.00 · no interest")).toBeInTheDocument();
+    expect(dialog.querySelector("[class*=_receiptTotal_]")).toHaveTextContent("Left to pay back€300.00");
+    expect(dialog.querySelector("[class*=_receiptSub_]")).toHaveTextContent("no interest");
 
     await userEvent.click(screen.getByRole("button", { name: /^Car/ }));
 
-    expect(within(dialog).getByText("of €6000.00 · 7% fixed")).toBeInTheDocument();
+    expect(dialog.querySelector("[class*=_receiptSub_]")).toHaveTextContent("7% fixed");
     expect(within(dialog).getByRole("button", { name: "Pay €185.26" })).toBeInTheDocument();
   });
 
@@ -335,16 +344,16 @@ describe("correcting a payment", () => {
   });
 });
 
-describe("the other tabs", () => {
+describe("the rest of the loan, on the one page", () => {
   it("asks 'what if' only of a loan, where paying more changes something", async () => {
     renderSheet([rent]);
-    expect(screen.queryByRole("tab", { name: "What if…" })).not.toBeInTheDocument();
+    expect(screen.queryByText("What if…")).not.toBeInTheDocument();
   });
 
   it("opens the pay-more question on a loan", async () => {
     renderSheet([car]);
 
-    await userEvent.click(screen.getByRole("tab", { name: "What if…" }));
+    await userEvent.click(screen.getByText("What if…"));
 
     expect(screen.getByText("Pay extra each month")).toBeInTheDocument();
   });
@@ -352,7 +361,6 @@ describe("the other tabs", () => {
   it("opens the loan form filled in, to correct the loan", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("tab", { name: "Details" }));
     await userEvent.click(screen.getByRole("button", { name: /Edit loan/ }));
 
     await screen.findAllByText("Edit loan");
@@ -362,7 +370,6 @@ describe("the other tabs", () => {
 
   it("will not delete a loan offline", async () => {
     renderSheet([rent]);
-    await userEvent.click(screen.getByRole("tab", { name: "Details" }));
 
     Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
     act(() => {
@@ -384,36 +391,42 @@ describe("a new loan from the sheet", () => {
   });
 });
 
-describe("the progress tab", () => {
-  const detail = (label: string) => within(screen.getByRole("tabpanel")).getByText(label).closest("div")!.querySelector("dd")!.textContent;
+describe("the receipt", () => {
+  /** A receipt line's amount, by its label, as a signed number. */
+  const line = (label: RegExp | string) => {
+    const text = screen.getByText(label).parentElement!.lastElementChild!.textContent!;
+    return (text.startsWith("−") ? -1 : 1) * Number(text.replace(/[^\d.]/g, ""));
+  };
+  const left = () => Number(document.querySelector("[class*=_receiptTotal_]")!.lastElementChild!.textContent!.replace(/[^\d.]/g, ""));
 
-  it("between people: started with, paid off, left — and no interest line", async () => {
+  it("between people: started with, less what came back, is what is left — and no interest line", () => {
     renderSheet([rent]);
-    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
 
-    expect(screen.getByText("You started with").nextSibling).toHaveTextContent("€500.00");
-    expect(detail("Paid off")).toBe("€200.00");
-    expect(detail("Left to pay back")).toBe("€300.00");
-    expect(screen.queryByText("Interest you paid")).not.toBeInTheDocument();
+    expect(line(/^You took, /)).toBe(500);
+    expect(line("You paid back")).toBe(-200);
+    expect(left()).toBe(300);
+    // A second way: the sum of the lines.
+    expect(500 - 200).toBe(left());
+    expect(screen.queryByText("Interest so far")).not.toBeInTheDocument();
   });
 
-  it("on a loan: what came off the debt and the interest add up to what was handed over", async () => {
+  it("on a loan: the interest in the payments is added back, and the lines land on the balance", () => {
     renderSheet([car]);
-    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
 
-    const paidOff = parseFloat(detail("Paid off")!.replace("€", ""));
-    const interest = parseFloat(detail("Interest you paid")!.replace("€", ""));
+    const handed = line("You paid back");
     // Second route: 3 × 185,26 handed over.
-    expect(paidOff + interest).toBeCloseTo(3 * 185.26, 1);
-    expect(screen.getByText(/You have handed over €555\.78 in all/)).toBeInTheDocument();
+    expect(handed).toBeCloseTo(-3 * 185.26, 2);
+    const interest = line("Interest so far");
+    expect(interest).toBeGreaterThan(0);
+    expect(Math.round((line(/^You took, /) + handed + interest) * 100) / 100).toBe(left());
   });
 
-  it("turns the words round when the money was lent", async () => {
+  it("turns the words round when the money was lent", () => {
     renderSheet([{ ...rent, direction: "owed_to_me" }]);
-    await userEvent.click(screen.getByRole("tab", { name: "Progress" }));
 
-    expect(screen.getByText("You lent")).toBeInTheDocument();
-    expect(detail("Got back")).toBe("€200.00");
+    expect(line(/^You gave, /)).toBe(500);
+    expect(line("You got back")).toBe(-200);
+    expect(screen.getByText("Left to get back")).toBeInTheDocument();
   });
 });
 
@@ -444,15 +457,47 @@ describe("the total with one person", () => {
 describe("all together", () => {
   beforeEach(() => localStorage.clear());
 
-  it("opens first, of the three in their order, to look at only", () => {
+  it("opens first, of the three in their order", () => {
     renderSheet();
     const views = within(screen.getByRole("group", { name: "View" })).getAllByRole("button");
     expect(views.map((v) => v.textContent?.trim())).toEqual(["All together", "Columns", "One at a time"]);
     expect(views[0]).toHaveAttribute("aria-pressed", "true");
-    // Each loan with what is left, and nothing to press: no pay button anywhere.
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("€300.00");
-    expect(within(dialog).queryByRole("button", { name: /^Pay/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("€300.00");
+  });
+
+  it("opens a loan from its row, on its own", async () => {
+    renderSheet();
+    await userEvent.click(screen.getByRole("button", { name: /^March rent/ }));
+
+    expect(screen.getByRole("button", { name: "One at a time" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector("[class*=_receiptTotal_]")).toHaveTextContent("€300.00");
+  });
+
+  it("opens it without changing how the sheet opens next time", async () => {
+    renderSheet();
+    await userEvent.click(screen.getByRole("button", { name: /^March rent/ }));
+    // Shown on its own now; «All together» is still what is remembered.
+    expect(localStorage.getItem("debts-sheet-view") ?? "").not.toContain("one");
+  });
+
+  it("folds the paid-off ones away again, even with one of them in front", async () => {
+    renderSheet();
+    await userEvent.click(screen.getByRole("button", { name: /^Concert tickets/ }));
+    const list = screen.getByRole("group", { name: "Loans" });
+    const fold = within(list).getByRole("button", { name: "Settled · 1" });
+    expect(fold).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(fold);
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("records a payment from beside an open loan, and offers none on a settled one", async () => {
+    renderSheet();
+    expect(screen.queryByRole("button", { name: "Payment — Concert tickets" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Payment — Car" }));
+    const wizard = screen.getAllByRole("dialog").at(-1)!;
+    // The month's payment, as the loan's own button fills in.
+    expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
   });
 });
 

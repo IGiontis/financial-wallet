@@ -1,0 +1,88 @@
+/* The small switch between two or three views of the same rows — see
+   ViewSwitch.tsx. One outlined strip, sized to its words, the chosen one
+   tinted in the nav style's own colour (`--view-switch-*`, index.css and
+   navStyles.css): nothing like the full-width tabs of a page. */
+
+.switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  max-width: 100%;
+  border: 1px solid var(--view-switch-border);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 11px;
+  min-height: 32px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.option + .option {
+  border-left: 1px solid var(--view-switch-border);
+}
+
+.option:hover:not(.on) {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.on {
+  background: var(--view-switch-on);
+  color: var(--view-switch-on-text);
+  font-weight: 600;
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+/* Across the row, each option an equal share. */
+.block {
+  display: flex;
+  width: 100%;
+}
+
+.block .option {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A thumb's height on a phone; still only as wide as its words. Never an
+   option cut off: a strip wider than the screen scrolls sideways, and a page
+   with many views passes `iconOnlyOnPhone` so it fits to begin with. */
+@media (max-width: 575.98px) {
+  .switch {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .switch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .option {
+    flex-shrink: 0;
+    min-height: 38px;
+    padding: 5px 12px;
+  }
+
+  .block .option {
+    flex-shrink: 1;
+  }
+}

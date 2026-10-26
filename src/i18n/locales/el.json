@@ -576,7 +576,10 @@
     "sectionInactiveNote": "δεν μετράνε πουθενά",
     "offTag": "Ανενεργό",
     "activeSwitch": "Ενεργό",
-    "activeSwitchHint": "Κλειστό: μένει στη λίστα, αλλά δεν μετράει πουθενά — ούτε σε πληρωμές ούτε στα σύνολα."
+    "activeSwitchHint": "Κλειστό: μένει στη λίστα, αλλά δεν μετράει πουθενά — ούτε σε πληρωμές ούτε στα σύνολα.",
+    "viewTree": "Χρονολόγιο",
+    "yearAheadPeakMany": "Οι βαριοί είναι {{months}}, με {{amount}} ο καθένας.",
+    "yearAheadLowMany": "Οι πιο ελαφριοί είναι {{months}}, με {{amount}} ο καθένας."
   },
   "incomes": {
     "title": "Έσοδα",
@@ -586,7 +589,8 @@
     "tabs": {
       "list": "Λίστα",
       "calendar": "Ημερολόγιο",
-      "year": "Η χρονιά"
+      "year": "Η χρονιά",
+      "timeline": "Χρονολόγιο"
     },
     "kind": {
       "salary": "Μισθός",
@@ -861,7 +865,16 @@
     "pageAll": "Όλα",
     "pageManage": "Διαχείριση",
     "manageHint_one": "{{count}} έσοδο. Πάτα ένα για να το αλλάξεις.",
-    "manageHint_other": "{{count}} έσοδα. Πάτα ένα για να το αλλάξεις."
+    "manageHint_other": "{{count}} έσοδα. Πάτα ένα για να το αλλάξεις.",
+    "ahead": {
+      "title": "Οι επόμενοι 12 μήνες",
+      "most": "Τα περισσότερα: {{months}}, {{amount}}.",
+      "least": "Τα λιγότερα: {{months}}, {{amount}}.",
+      "nothing": "Τίποτα δεν περιμένεις αυτόν τον μήνα.",
+      "listLabel": "Τι έρχεται τον μήνα",
+      "noDay": "χωρίς μέρα",
+      "total": "Σύνολο"
+    }
   },
   "transactions": {
     "title": "Συναλλαγές",
@@ -1042,7 +1055,10 @@
       "mainCard": "{{name}} (κύρια)",
       "givenFrom": "Δόθηκαν",
       "returnedInto": "Επιστράφηκαν"
-    }
+    },
+    "viewLabel": "Πώς φαίνονται",
+    "viewTable": "Πίνακας",
+    "viewTree": "Δέντρο"
   },
   "analytics": {
     "title": "Στατιστικά",
@@ -1795,7 +1811,10 @@
     "lineLeftThisMonth": "Μένουν {{amount}} για τον υπόλοιπο μήνα",
     "lineLeftThen": "Έμειναν {{amount}} από το όριο",
     "lineOverBy": "Ξεπέρασες το όριο κατά {{amount}}",
-    "lineByCategory": "Ανά κατηγορία"
+    "lineByCategory": "Ανά κατηγορία",
+    "dayEnds": "Στο τέλος της μέρας",
+    "periodEnds": "Στο τέλος του διαστήματος",
+    "paneLabel": "Τι δείχνει η σελίδα"
   },
   "settings": {
     "title": "Ρυθμίσεις",
@@ -2151,14 +2170,12 @@
     "statLast": "Τελευταία πληρωμή",
     "tabPayments": "Πληρωμές",
     "tabWhatIf": "Τι αν…",
-    "tabDetails": "Στοιχεία",
     "splitRow": "κεφάλαιο {{principal}} · τόκος {{interest}}",
     "noPayments": "Καμία πληρωμή ακόμη.",
     "newLoanShort": "Νέο δάνειο",
     "payAmountOut": "Πληρωμή {{amount}}",
     "payAmountIn": "Είσπραξη {{amount}}",
     "pickerLabel": "Δάνεια",
-    "tabProgress": "Πορεία",
     "progressStartedOut": "Ξεκίνησες με",
     "progressStartedIn": "Δάνεισες",
     "progressPaidOff": "Ξεπλήρωσες",
@@ -2233,7 +2250,18 @@
     "noteOptional": "(προαιρετικό)",
     "notePlaceholder": "π.χ. τα έδωσε στο χέρι, τα έφερε στο σπίτι…",
     "settledLine": "{{date}} · {{how}}",
-    "plannerGroupIn": "Σου χρωστάνε"
+    "plannerGroupIn": "Σου χρωστάνε",
+    "filterHint": "Δείξε μόνο αυτούς στη λίστα",
+    "filterOwe": "Μόνο σε όσους χρωστάς",
+    "filterOwed": "Μόνο όσοι σου χρωστάνε",
+    "filterClear": "Όλοι",
+    "filterEmptyOwe": "Δεν χρωστάς σε κανέναν.",
+    "filterEmptyOwed": "Κανείς δεν σου χρωστάει.",
+    "receiptOver": "Πάνω από το ποσό",
+    "receiptCleared": "{{percent}}% εξοφλήθηκε",
+    "receiptBy": "ως {{date}}",
+    "pickOpen": "Ανοιχτά · {{count}}",
+    "pickSettled": "Εξοφλημένα · {{count}}"
   },
   "statement": {
     "title": "Κατάσταση",
@@ -2439,7 +2467,9 @@
     "more_one": "Δείξε κι άλλη ({{count}})",
     "more_other": "Δείξε κι άλλες ({{count}})",
     "whereOut": "Πού πήγαν",
-    "whereIn": "Από πού ήρθαν"
+    "whereIn": "Από πού ήρθαν",
+    "category": "Κατηγορία",
+    "allCategories": "Όλες οι κατηγορίες"
   },
   "goalWizard": {
     "step_amount": "Ποσό",
@@ -2611,7 +2641,10 @@
     "keySign": "Το ποσό μέσα σε κάθε μέρα είναι ό,τι μένει: όσα δεν έχουν γίνει ακόμα, ό,τι μπαίνει μείον ό,τι βγαίνει. Μικραίνει καθώς πληρώνεις, και όταν γίνουν όλα ξαναδείχνει το σύνολο της μέρας.",
     "scope": "Μόνο ό,τι είναι προγραμματισμένο: έσοδα, πάγια, δόσεις δανείων και στόχοι — όχι οι συναλλαγές σου.",
     "groupUnpaid": "Απλήρωτα",
-    "groupPaid": "Πληρωμένα"
+    "groupPaid": "Πληρωμένα",
+    "viewMonth": "Μήνας",
+    "viewTimeline": "Χρονολόγιο",
+    "viewLabel": "Τι δείχνει"
   },
   "debtOrder": {
     "title": "Σε ποιο δάνειο να ρίξεις πρώτα",
@@ -2648,5 +2681,28 @@
     "groupOff": "Ανενεργά",
     "on": "Ενεργό",
     "activeName": "Ενεργό: {{name}}"
+  },
+  "timeline": {
+    "title_in": "Χρονολόγιο εσόδων",
+    "title_out": "Χρονολόγιο εξόδων",
+    "title_all": "Χρονολόγιο",
+    "spanLabel": "Διάστημα",
+    "week": "Εβδομάδα",
+    "twoWeeks": "2 εβδομάδες",
+    "month": "Μήνας",
+    "prev": "Προηγούμενο διάστημα",
+    "next": "Επόμενο διάστημα",
+    "backToToday": "Πίσω στο σήμερα",
+    "today": "Σήμερα",
+    "in": "Μπαίνουν",
+    "out": "Βγαίνουν",
+    "empty": "Τίποτα σε αυτό το διάστημα.",
+    "state_late": "αργεί",
+    "state_toPay": "πρέπει να πληρωθεί",
+    "state_coming": "έρχεται",
+    "state_paid": "πληρώθηκε",
+    "state_came": "ήρθε",
+    "inDays_one": "σε {{count}} μέρα",
+    "inDays_other": "σε {{count}} μέρες"
   }
 }

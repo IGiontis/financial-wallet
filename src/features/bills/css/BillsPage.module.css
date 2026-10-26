@@ -11,9 +11,9 @@
 }
 
 .bigAmount {
-  font-size: 2rem;
+  font-size: var(--stat-figure-size);
   line-height: 1.1;
-  font-weight: 700;
+  font-weight: var(--stat-figure-weight);
   font-variant-numeric: tabular-nums;
   color: var(--color-expense);
 }
@@ -70,7 +70,7 @@
 }
 
 .statValue {
-  font-size: 1.0625rem;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -81,10 +81,8 @@
 }
 
 .statLabel {
-  font-size: 10px;
+  font-size: var(--stat-tile-label-size);
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   margin-top: 1px;
 }
 
@@ -194,7 +192,7 @@
 
 .forecastTotal {
   flex-shrink: 0;
-  font-size: 1.5rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -217,7 +215,7 @@
 
 @media (min-width: 992px) {
   .forecastTotal {
-    font-size: 1.875rem;
+    font-size: var(--stat-figure-size);
   }
 
   .forecastLabel,
@@ -706,7 +704,7 @@
 }
 
 .yearlyAmount {
-  font-size: 1.75rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -739,7 +737,7 @@
 
 @media (min-width: 992px) {
   .bigAmount {
-    font-size: 2.5rem;
+    font-size: var(--stat-figure-size);
   }
 
   .billRow {
@@ -774,7 +772,7 @@
   }
 
   .runwayAmount {
-    font-size: 1rem;
+    font-size: var(--stat-figure-size);
   }
 }
 
@@ -795,7 +793,7 @@
 }
 
 .runwayAmount {
-  font-size: 1.125rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
@@ -1211,7 +1209,7 @@
 }
 
 .leaveAmount {
-  font-size: 1.375rem;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
@@ -1260,75 +1258,6 @@
    list and the year become a pair of tabs instead. */
 
 
-
-/* ── Cards or one line each ──────────────────────────────────────────────────
-   The switch, copied from the goals list so the two read as the same control.
-   The border on the selected one is what marks it: the fill is `--color-surface`
-   against `--color-background-secondary`, which in dark mode is 1.03:1 and
-   invisible on its own. */
-
-.viewToggle {
-  display: flex;
-  gap: var(--segment-gap);
-  padding: var(--segment-pad);
-  border-radius: var(--border-radius-md);
-  background: var(--segment-track);
-  flex-shrink: 0;
-}
-
-.viewBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--segment-item-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--segment-item);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 6px 10px;
-  min-height: 34px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.viewBtn:hover:not(.viewBtnOn) {
-  border-color: var(--segment-item-hover-border);
-  color: var(--color-text-primary);
-}
-
-.viewBtnOn {
-  background: var(--color-segment-active);
-  border-color: var(--color-segment-active-border);
-  color: var(--color-segment-active-text);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
-.viewBtn:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 1px;
-}
-
-/* On a phone the switch takes the width it needs to be tappable: three targets
-   sized to an icon, side by side, is a game of chance. 40px is the smallest
-   height a thumb finds reliably. */
-@media (max-width: 575.98px) {
-  .viewToggle {
-    width: 100%;
-  }
-
-  .viewBtn {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-    min-height: 40px;
-    padding: 6px 4px;
-  }
-}
 
 /* ── One bill per line ─────────────────────────────────────────────────────── */
 
@@ -1473,10 +1402,7 @@
 }
 
 /* ── The twelve months ahead ─────────────────────────────────────────────────
-   One list, two layouts. Rows on a phone, where a 24px column cannot hold a
-   month name; columns from `sm` up, where they read faster. Only the bar
-   changes: `--fill` is its length, and which dimension grows is the layout's
-   business. */
+   The card around the bars; the bars themselves are the shared MonthBars. */
 
 .yearAhead {
   background: var(--color-surface);
@@ -1485,12 +1411,11 @@
   padding: 1rem;
 }
 
-.yearAheadHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.875rem;
+/* What the card shows, under its `.stat-head` title. */
+.yearAheadHint {
+  margin: -0.25rem 0 0.875rem;
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .yearAheadTotal {
@@ -1500,179 +1425,12 @@
   white-space: nowrap;
 }
 
-.yearBars {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.yearBarItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 5px 6px;
-  border: none;
-  background: transparent;
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  text-align: left;
-}
-
-.yearBarItem:hover {
-  background: var(--color-background-secondary);
-}
-
-.yearBarItem:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: -2px;
-}
-
-.yearBarMonth {
-  flex: 0 0 42px;
-  font-size: 11.5px;
-  color: var(--color-text-secondary);
-}
-
-.yearBarTrack {
-  flex: 1;
-  min-width: 0;
-  height: 10px;
-  border-radius: 5px;
-  background: var(--color-background-secondary);
-  overflow: hidden;
-}
-
-.yearBarFill {
-  position: relative;
-  display: block;
-  width: var(--fill, 0%);
-  height: 100%;
-  border-radius: 5px;
-  background: var(--bs-primary);
-  overflow: hidden;
-}
-
-/* The part of the month already paid ahead: the same bar, striped. From the
-   start of the bar on a phone, from its foot in the columns. */
-.yearBarPaid,
-.yearAheadSwatch {
-  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
-}
-
-.yearBarPaid {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--paid, 0%);
-}
-
-.yearAheadLegend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 0.5rem;
-  font-size: 11.5px;
-  color: var(--color-text-secondary);
-}
-
-.yearAheadSwatch {
-  display: inline-block;
-  width: 14px;
-  height: 10px;
-  border-radius: 3px;
-  background-color: var(--bs-primary);
-}
-
-/* The dearest month, which is the one the view exists to find. */
-.yearBarItemPeak .yearBarFill {
-  background: var(--color-expense);
-}
-
-.yearBarItemPeak .yearBarAmount {
-  color: var(--color-expense-text);
-  font-weight: 700;
-}
-
-/* The easy month, in green — the other end of the same scale. */
-.yearBarItemLow .yearBarFill {
-  background: var(--color-income);
-}
-
-.yearBarItemLow .yearBarAmount {
-  color: var(--color-income-text);
-  font-weight: 700;
-}
-
-.yearBarAmount {
-  flex: 0 0 auto;
-  font-size: 12.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-
 .yearAheadNote {
   margin: 0.75rem 0 0;
   padding-top: 0.625rem;
   border-top: 1px solid var(--color-border-tertiary);
   font-size: 12.5px;
   color: var(--color-text-secondary);
-}
-
-/* From here the twelve stand up as columns. */
-@media (min-width: 576px) {
-  .yearBars {
-    flex-direction: row;
-    align-items: flex-end;
-    gap: 4px;
-    height: 170px;
-  }
-
-  .yearBarItem {
-    flex: 1;
-    flex-direction: column-reverse;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 5px;
-    height: 100%;
-    padding: 0;
-    min-width: 0;
-  }
-
-  .yearBarMonth {
-    flex: 0 0 auto;
-    text-align: center;
-  }
-
-  .yearBarTrack {
-    flex: 1;
-    width: 100%;
-    height: auto;
-    display: flex;
-    align-items: flex-end;
-    background: transparent;
-    overflow: visible;
-  }
-
-  .yearBarFill {
-    width: 100%;
-    height: var(--fill, 0%);
-    border-radius: 4px 4px 0 0;
-  }
-
-  .yearBarPaid {
-    top: auto;
-    right: 0;
-    width: auto;
-    height: var(--paid, 0%);
-  }
-
-  .yearBarAmount {
-    font-size: 10.5px;
-    font-weight: 500;
-  }
 }
 
 /* ── The month in order ──────────────────────────────────────────────────────
@@ -1879,7 +1637,7 @@
 }
 
 .runwayHeroAmount {
-  font-size: 28px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;

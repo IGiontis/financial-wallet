@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getDaysInMonth } from "date-fns";
+import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { BalanceLine } from "../BalanceLine";
 import type { PlannerPlan } from "../plannerUtils";
 import styles from "../css/BalanceScrub.module.css";
@@ -25,12 +26,10 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
   // every point passed, and each change would re-render every editor below.
   const [selected, setSelected] = useState(-1);
   // A month can hold a dozen bills and only two fit above the line; the rest
-  // open on request, and close again when the finger moves on.
+  // open in a small sheet of their own. Opened in the readout, they pushed the
+  // chart down and scrolled inside a box two lines high.
   const [allEvents, setAllEvents] = useState(false);
-  const select = useCallback((index: number) => {
-    setSelected(index);
-    setAllEvents(false);
-  }, []);
+  const select = useCallback((index: number) => setSelected(index), []);
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
   const periodFmt = useMemo(() => new Intl.DateTimeFormat(locale, plan.pointStep === "month" ? { month: "long", year: "numeric" } : { day: "numeric", month: "short" }), [locale, plan.pointStep]);
@@ -69,7 +68,7 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
               {events.length === 0 ? (
                 lineSpend > 0 && <span className="text-body-secondary">{t("planner.justBudget", { amount: formatCurrency(lineSpend) })}</span>
               ) : (
-                (allEvents ? events : events.slice(0, SHOWN)).map((event, i) => (
+                events.slice(0, SHOWN).map((event, i) => (
                   <span key={i} className={styles.readoutEvent}>
                     <span className="text-truncate">{event.label}</span>
                     <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
@@ -79,7 +78,7 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
                   </span>
                 ))
               )}
-              {events.length > SHOWN && !allEvents && (
+              {events.length > SHOWN && (
                 <button type="button" className={styles.readoutMore} onClick={() => setAllEvents(true)}>
                   {t("planner.moreEvents", { count: events.length - SHOWN })}
                 </button>
@@ -107,6 +106,30 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
         <span>{t("planner.today")}</span>
         <span>{dateFmt.format(plan.end)}</span>
       </div>
+
+      {/* Everything on the day, to read: a view, so a tap outside closes it. */}
+      {point && (
+        <Modal isOpen={allEvents} toggle={() => setAllEvents(false)} centered size="sm" scrollable>
+          <ModalHeader toggle={() => setAllEvents(false)}>{pointLabel(point.date)}</ModalHeader>
+          <ModalBody className="pt-2">
+            <ul className={styles.allEvents} aria-label={pointLabel(point.date)}>
+              {events.map((event, i) => (
+                <li key={i}>
+                  <span>{event.label}</span>
+                  <span style={{ color: event.amount > 0 ? "var(--figure-income)" : "var(--figure-expense)" }}>
+                    {event.amount > 0 ? "+" : "−"}
+                    {formatCurrency(Math.abs(event.amount))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className={styles.allEventsEnd}>
+              <span>{t(plan.pointStep === "day" ? "planner.dayEnds" : "planner.periodEnds")}</span>
+              <span style={{ color: point.balance < 0 ? "var(--color-expense-text)" : undefined }}>{formatCurrency(point.balance)}</span>
+            </div>
+          </ModalBody>
+        </Modal>
+      )}
     </div>
   );
 }

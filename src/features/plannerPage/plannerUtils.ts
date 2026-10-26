@@ -558,6 +558,8 @@ export interface PlannerEvent {
   goalId?: string;
   /** The debt this pays, or the money lent this brings back. */
   debtId?: string;
+  /** The one-off this is a time of. */
+  oneOffId?: string;
   /**
    * A time of the salary — the income marked «ο μισθός μου». Pay day is where
    * the plan is cut (`payCycles`) and what "until pay day" runs to
@@ -581,6 +583,20 @@ export interface PlannerEvent {
   late?: boolean;
   /** The day it was expected, when it now sits on another. */
   expected?: Date;
+}
+
+/**
+ * A row charged by the day rather than on dates — a budget line, an income
+ * with no day — over a run of day offsets, both ends included. `rate` is the
+ * month's figure, signed (+ in, − out); a day takes `rate / days in its month`,
+ * exactly as the walk adds it. Kept so a part of the window — one month — can
+ * say what each such row cost in it, which the walk's daily totals cannot.
+ */
+export interface RateStretch {
+  rowId: string;
+  from: number;
+  to: number;
+  rate: number;
 }
 
 /** "income": an income from «Έσοδα», the salary among them. */
@@ -734,6 +750,8 @@ export interface PlannerPlan {
   pointStep: PointStep;
   /** Every day of the walk, for the questions a sampled line cannot answer — see `DailyWalk`. */
   daily: DailyWalk;
+  /** What the rows charged by the day run at, and over which days — see `RateStretch`. */
+  stretches: RateStretch[];
   lowestBalance: number;
   /**
    * The day `lowestBalance` is reached — the first such day, when the line sits
@@ -1003,7 +1021,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
         perMonth: -instalment,
         enabled,
       });
-      for (const p of placed) events.push({ kind: "goal", label, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
+      for (const p of placed) events.push({ kind: "goal", label, amount: p.amount, date: p.date, debtId: debt.id, occurrenceKey: p.key, late: p.late, expected: p.expected });
       continue;
     }
 
@@ -1056,7 +1074,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     const placed = enabled ? settle(dates.map((date) => ({ key: occurrenceKey("oneoff", oneOff.id, date), source: "oneoff" as const, refId: oneOff.id, label: oneOff.label, amount, date }))) : [];
 
     rows.push({ id: oneOff.id, source: "oneoff", label: oneOff.label, total: enabled ? round2(placed.reduce((sum, p) => sum + p.amount, 0)) : 0, occurrences: enabled ? placed.length : dates.length, kind: "income", enabled });
-    for (const p of placed) events.push({ kind: "income", label: oneOff.label, amount: p.amount, date: p.date, occurrenceKey: p.key, late: p.late, expected: p.expected });
+    for (const p of placed) events.push({ kind: "income", label: oneOff.label, amount: p.amount, date: p.date, oneOffId: oneOff.id, occurrenceKey: p.key, late: p.late, expected: p.expected });
   }
 
   // ── The user's own budget lines ───────────────────────────────────────────
@@ -1074,12 +1092,14 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
   // net rate cannot be taken apart again afterwards.
   const rateIn = new Float64Array(days + 2);
   const rateOut = new Float64Array(days + 2);
+  const stretches: RateStretch[] = [];
 
   // An income with no day yet — one carried over from the old income lines —
   // runs the same way: its month's figure spread over the month's days.
   for (const spread of incomePlan.spreads) {
     rateIn[spread.from] += spread.amount;
     rateIn[spread.to + 1] -= spread.amount;
+    stretches.push({ rowId: spread.incomeId, from: spread.from, to: spread.to, rate: spread.amount });
   }
 
   // Money in is the incomes' now; an income line an older Planner stored is
@@ -1131,14 +1151,17 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
         const rate = (leftThisMonth * daysThisMonth) / (restEnd + 1);
         rateOut[0] += rate;
         rateOut[restEnd + 1] -= rate;
+        stretches.push({ rowId: line.id, from: 0, to: restEnd, rate: -rate });
         if (season.to > restEnd) {
           rateOut[restEnd + 1] += line.amount;
           rateOut[season.to + 1] -= line.amount;
+          stretches.push({ rowId: line.id, from: restEnd + 1, to: season.to, rate: -line.amount });
         }
         continue;
       }
       rateOut[season.from] += line.amount;
       rateOut[season.to + 1] -= line.amount;
+      stretches.push({ rowId: line.id, from: season.from, to: season.to, rate: -line.amount });
     }
   }
 
@@ -1325,6 +1348,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     points,
     pointStep: pointStepFor(days),
     daily,
+    stretches,
     lowestBalance: round2(lowestBalance),
     lowestOn,
     breaksOn,

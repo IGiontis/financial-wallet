@@ -41,6 +41,21 @@ export function LedgerPage() {
   const { format } = useCurrencyConverter();
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: categories = [] } = useCategories();
+  // One entry per name, over every category something was written in: «Άλλο»
+  // as an income and «Άλλο» as an expense are one choice, both shown, and the
+  // «Είδος» filter beside it is what splits money in from money out.
+  const categoryNames = useMemo(() => {
+    const used = new Set(transactions.map((tx) => tx.categoryId));
+    const byName = new Map<string, { icon?: string; ids: string[] }>();
+    for (const c of categories) {
+      if (!used.has(c.id)) continue;
+      const name = categoryLabel(c.name, t);
+      const entry = byName.get(name) ?? { icon: c.icon, ids: [] };
+      entry.ids.push(c.id);
+      byName.set(name, entry);
+    }
+    return [...byName.entries()].map(([name, e]) => ({ name, ...e })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [transactions, categories, t]);
   const accounts = useAccountList();
   const main = mainAccount(accounts);
 
@@ -48,6 +63,9 @@ export function LedgerPage() {
   const [offset, setOffset] = useState(0);
   const [kind, setKind] = useState<LedgerKind>("all");
   const [account, setAccount] = useState("");
+  const [category, setCategory] = useState("");
+  // The ids behind the name picked — one name can be an income and an expense category.
+  const categoryIds = categoryNames.find((c) => c.name === category)?.ids;
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<Transaction | null>(null);
 
@@ -58,12 +76,12 @@ export function LedgerPage() {
   }, [span, offset, now]);
 
   const ledger = useMemo(
-    () => buildLedger(transactions, { from, to, now, kind, query, account: account || undefined, accountOf: (tx) => accountOf(tx, accounts, main) }),
-    [transactions, from, to, now, kind, query, account, accounts, main],
+    () => buildLedger(transactions, { from, to, now, kind, query, account: account || undefined, categories: categoryIds, accountOf: (tx) => accountOf(tx, accounts, main) }),
+    [transactions, from, to, now, kind, query, account, categoryIds, accounts, main],
   );
 
   // Every change of what is shown is a new list, read from its top.
-  const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kind}|${account}|${query}`);
+  const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kind}|${account}|${category}|${query}`);
 
   const periodLabel = useMemo(
     () => (span === "year" ? String(from.getFullYear()) : new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(from)),
@@ -207,6 +225,15 @@ export function LedgerPage() {
             ))}
           </Input>
         )}
+        {/* Only categories something was ever written in: an unused one would offer a page of nothing. */}
+        <Input type="select" bsSize="sm" value={category} onChange={(e) => setCategory(e.target.value)} aria-label={t("ledger.category")} className={styles.cardSelect}>
+          <option value="">{t("ledger.allCategories")}</option>
+          {categoryNames.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.icon} {c.name}
+            </option>
+          ))}
+        </Input>
         <div className={styles.search}>
           <SearchInput value={query} onChange={setQuery} placeholder={t("transactions.searchShort")} block />
         </div>

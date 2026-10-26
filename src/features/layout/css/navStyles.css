@@ -69,13 +69,15 @@
 /* The light theme's page, by menu style: Α's faint blue, Β a clearer blue
    beside its navy bar, Γ a cooler grey beside its slate. Cards stay white on
    all three — the page around them takes the style, so text never sits on a
-   tint. The dark theme's page is the same for all three. */
+   tint. The dark theme's, by style, is at the end of the file. */
 :root[data-bs-theme="light"][data-nav-style="b"] {
   --color-background-primary: #e8effa;
   /* The chosen tab filled in the bar's navy. */
   --color-segment-active: #10224a;
   --color-segment-active-border: #10224a;
   --color-segment-active-text: #ffffff;
+  --view-switch-on: #dde5f3;
+  --view-switch-on-text: #10224a;
 }
 
 :root[data-bs-theme="light"][data-nav-style="c"] {
@@ -84,4 +86,57 @@
   --color-segment-active: #26354d;
   --color-segment-active-border: #26354d;
   --color-segment-active-text: #ffffff;
+  --view-switch-on: #e1e6ee;
+  --view-switch-on-text: #26354d;
+}
+
+/* The dark theme, by menu style — each the light one's colour, far darker.
+   Quiet on purpose: the page and cards keep almost all of the charcoal and
+   take only a cast of the style's hue, so text contrast stays where the base
+   dark theme (index.css) put it. What carries the colour is what is chosen —
+   the active tab and the view switch. Α a cast of the Aegean blue, Β of the
+   navy bar, Γ of the slate. */
+:root[data-bs-theme="dark"][data-nav-style="a"] {
+  --color-background-primary: #121821;
+  --color-background-secondary: #18202b;
+  --color-surface: #1a2331;
+  --color-surface-raised: #212c3d;
+  --color-border-primary: #344358;
+  --color-border-tertiary: #273449;
+  --color-segment-active: #2a3f60;
+  --color-segment-active-border: #4d8ef0;
+  --color-segment-active-text: #e6efff;
+  --view-switch-border: #33435a;
+  --view-switch-on: #23395c;
+  --view-switch-on-text: #bcd6ff;
+}
+
+:root[data-bs-theme="dark"][data-nav-style="b"] {
+  --color-background-primary: #0d1424;
+  --color-background-secondary: #121b30;
+  --color-surface: #151f36;
+  --color-surface-raised: #1b2843;
+  --color-border-primary: #33416a;
+  --color-border-tertiary: #24304d;
+  --color-segment-active: #2a4a8c;
+  --color-segment-active-border: #2a4a8c;
+  --color-segment-active-text: #ffffff;
+  --view-switch-border: #2c3a5c;
+  --view-switch-on: #1f3566;
+  --view-switch-on-text: #cddcff;
+}
+
+:root[data-bs-theme="dark"][data-nav-style="c"] {
+  --color-background-primary: #14181f;
+  --color-background-secondary: #191e26;
+  --color-surface: #1d232c;
+  --color-surface-raised: #242c37;
+  --color-border-primary: #3c4756;
+  --color-border-tertiary: #2e3744;
+  --color-segment-active: #3d4f6b;
+  --color-segment-active-border: #3d4f6b;
+  --color-segment-active-text: #ffffff;
+  --view-switch-border: #384353;
+  --view-switch-on: #2e3b50;
+  --view-switch-on-text: #d3dceb;
 }

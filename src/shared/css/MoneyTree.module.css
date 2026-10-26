@@ -1,0 +1,284 @@
+/* Money as a tree — see MoneyTree.tsx. A trunk down the middle, each day a
+   node on it, what lands on the day as leaves on a short branch either side.
+   On a phone the trunk moves to the left edge and every leaf hangs right. */
+
+/* Measured by its own width, not the screen's — see the @container at the end. */
+.frame {
+  container-type: inline-size;
+}
+
+.tree {
+  position: relative;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The trunk. */
+.tree::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: var(--color-border-primary);
+}
+
+.day {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.day:last-child {
+  margin-bottom: 0;
+}
+
+/* The day, a node on the trunk. */
+.node {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.nodeWeekday {
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.nodeDate {
+  font-weight: 600;
+}
+
+/* Today: the node in the style's own colour — where the reader stands. */
+.today .node {
+  border-color: var(--bs-primary);
+  background: var(--view-switch-on);
+  color: var(--view-switch-on-text);
+}
+
+.today .nodeWeekday {
+  color: inherit;
+  font-weight: 600;
+}
+
+.past .node {
+  opacity: 0.7;
+}
+
+.left,
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── A leaf: what lands on the day ───────────────────────────────────────── */
+
+.leaf {
+  position: relative;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  animation: leaf-in 0.28s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+}
+
+/* The branch from the leaf to the trunk. */
+.leaf::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.75rem;
+  height: 2px;
+  background: var(--color-border-primary);
+}
+
+.left .leaf::after {
+  right: calc(-0.75rem - 1px);
+}
+
+.right .leaf::after {
+  left: calc(-0.75rem - 1px);
+}
+
+.leafIn {
+  border-left: 3px solid var(--income-edge-strong);
+}
+
+.leafOut {
+  border-left: 3px solid var(--expense-edge-strong);
+}
+
+.leafIcon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.leafText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.leafName {
+  overflow-wrap: break-word;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.leafNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* What is on the leaf: its mark, its name and note, its figure. */
+.leafBody {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+}
+
+/* A leaf that opens what it stands for: the whole leaf is the button. */
+.leafButton {
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.leaf:has(.leafButton):hover {
+  border-color: var(--bs-primary);
+}
+
+.leafButton:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}
+
+.leafAmount {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.leafIn .leafAmount {
+  color: var(--color-income-text);
+}
+
+/* Three weights, read from across the room:
+   late     — it wants doing (a bill to pay, money that has not come): filled red;
+   upcoming — still to come: light orange, a dashed outline;
+   done     — it happened: faded and struck through. */
+.late {
+  border-color: var(--expense-edge-strong);
+  border-left: 4px solid var(--color-expense);
+  background: var(--expense-wash-strong-solid);
+}
+
+.late .leafNote {
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+
+.upcoming {
+  border-color: var(--pending-edge);
+  border-style: dashed;
+  border-left: 4px solid var(--pending-edge-strong);
+  background: var(--pending-wash-solid);
+}
+
+.upcoming .leafNote {
+  color: var(--color-pending-text);
+}
+
+.done {
+  opacity: 0.6;
+}
+
+.done .leafName {
+  text-decoration: line-through;
+}
+
+@keyframes leaf-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaf {
+    animation: none;
+  }
+}
+
+/* ── Narrow: the trunk at the left edge, every leaf to its right ─────────── */
+/* By the tree's own width — a phone, or a side column on a desk — since two
+   sides of a narrow tree broke «Σούπερ μάρκετ» into syllables. */
+@container (max-width: 40rem) {
+  .tree::before {
+    left: 2.5rem;
+  }
+
+  .day {
+    grid-template-columns: 5rem minmax(0, 1fr);
+    grid-template-areas:
+      "node left"
+      "node right";
+    row-gap: 0.5rem;
+  }
+
+  .node {
+    grid-area: node;
+  }
+
+  .left {
+    grid-area: left;
+  }
+
+  .right {
+    grid-area: right;
+  }
+
+  .left:empty,
+  .right:empty {
+    display: none;
+  }
+
+  .left .leaf::after,
+  .right .leaf::after {
+    right: auto;
+    left: calc(-0.75rem - 1px);
+  }
+}

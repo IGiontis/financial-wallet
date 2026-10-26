@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { FiEye, FiEyeOff, FiPlus } from "react-icons/fi";
+import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 import styles from "../css/PlannerPage.module.css";
 
 /** One line of the plan, ready to show. */
@@ -102,15 +103,19 @@ export function PlanLedger({
       </div>
       <p className={styles.scaleWindow}>{t("planner.ledgerWindow", { count: months, months: monthsLabel })}</p>
 
-      <div className={styles.scaleSides} role="tablist" aria-label={t("planner.paneNumbers")}>
-        {(["in", "out"] as const).map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={side === key} className={side === key ? styles.scaleSideOn : ""} onClick={() => setSide(key)}>
-            {t(key === "in" ? "planner.ledgerIn" : "planner.ledgerOut")} <span className={styles.scaleCount}>{(key === "in" ? inItems : outItems).length}</span>
-          </button>
-        ))}
-      </div>
+      <ViewSwitch
+        block
+        className={styles.scaleSwitch}
+        label={t("planner.paneNumbers")}
+        value={side}
+        onChange={setSide}
+        options={[
+          { id: "in", label: `${t("planner.ledgerIn")} · ${inItems.length}` },
+          { id: "out", label: `${t("planner.ledgerOut")} · ${outItems.length}` },
+        ]}
+      />
 
-      <div role="tabpanel">
+      <div>
         {items.length === 0 && side === "out" && <p className={styles.scaleEmpty}>{t("planner.ledgerEmptyOut")}</p>}
         {groupsOf(items).map(({ group, rows }) => (
           <section key={group ?? "-"} aria-label={group}>

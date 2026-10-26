@@ -21,6 +21,7 @@ import {
   type ArrivalUndo,
   incomeRows,
   incomeWindow,
+  incomeMonthsAhead,
   incomeYear,
   isActiveIncome,
   monthSummary,
@@ -36,12 +37,15 @@ import { IncomeList } from "./components/IncomeList";
 import { IncomeManage } from "./components/IncomeManage";
 import { IncomeCalendar } from "./components/IncomeCalendar";
 import { IncomeYearCard } from "./components/IncomeYearCard";
+import { IncomeMonthsAhead } from "./components/IncomeMonthsAhead";
 import ArrivedSheet from "./components/ArrivedSheet";
 import IncomeCard from "./components/IncomeCard";
 import IncomeFormModal from "./components/IncomeFormModal";
 import { ConfirmSheet } from "./components/ConfirmSheet";
 import ThisTimeSheet from "./components/ThisTimeSheet";
-import segmented from "../../shared/css/Segmented.module.css";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { FiBarChart2, FiCalendar, FiGitCommit, FiList } from "react-icons/fi";
+import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
 import styles from "./css/IncomesPage.module.css";
 
 // «Έσοδα»: the one place the regular money in lives — salary, a rent you
@@ -55,7 +59,7 @@ import styles from "./css/IncomesPage.module.css";
 // χρονιά» sits beside the list on a desktop and is the third tab on a phone,
 // as on the Bills page.
 
-type IncomesView = "list" | "calendar" | "year";
+type IncomesView = "list" | "calendar" | "timeline" | "year";
 
 interface FormState {
   draft: IncomeDraft;
@@ -110,7 +114,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   // The year is a tab only on «Όλα» on a phone: «Εισπράξεις» has no year, and on
   // «Σύνοψη» it is part of the page.
   const yearTab = compact && page === "all";
-  const view: IncomesView = storedView === "year" && !yearTab ? "list" : storedView === "calendar" || storedView === "year" ? storedView : "list";
+  const view: IncomesView = storedView === "year" && !yearTab ? "list" : storedView === "calendar" || storedView === "timeline" || storedView === "year" ? storedView : "list";
 
   const [form, setForm] = useState<FormState | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
@@ -127,6 +131,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const nextSummary = useMemo(() => monthSummary(statuses, toISOMonth(nextMonthDate)), [statuses, nextMonthDate]);
   const rows = useMemo(() => incomeRows(incomes, statuses, now), [incomes, statuses, now]);
   const year = useMemo(() => incomeYear(incomes, transactions, now), [incomes, transactions, now]);
+  const monthsAhead = useMemo(() => incomeMonthsAhead(incomes, transactions, now), [incomes, transactions, now]);
   const bounds = useMemo(() => incomeWindow(now), [now]);
   const salaryIncome = incomes.find((i) => i.isSalary && isActiveIncome(i));
   // Only on an empty page, and never a second time for the same salary.
@@ -287,6 +292,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
               <>
                 <IncomeMonthCard summary={summary} incomes={byId} formatCurrency={formatCurrency} f={f} monthDate={now} />
                 <IncomeTiles year={year} incomes={incomes} formatCurrency={formatCurrency} now={now} />
+                <IncomeMonthsAhead months={monthsAhead} incomes={incomes} transactions={transactions} formatCurrency={formatCurrency} f={f} locale={i18n.resolvedLanguage ?? "en"} />
               </>
             )}
 
@@ -308,12 +314,19 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
             {page === "overview" && compact && <IncomeYearCard year={year} formatCurrency={formatCurrency} f={f} />}
 
             {showList && (
-            <div className={`${segmented.group} ${segmented.even} mb-3`} role="tablist" aria-label={t("incomes.title")}>
-              {(yearTab ? (["list", "calendar", "year"] as const) : (["list", "calendar"] as const)).map((tab) => (
-                <button key={tab} type="button" role="tab" aria-selected={view === tab} className={`${segmented.item} ${view === tab ? segmented.active : ""}`} onClick={() => setView(tab)}>
-                  {t(`incomes.tabs.${tab}`)}
-                </button>
-              ))}
+            <div className="d-flex justify-content-end mb-3">
+              <ViewSwitch
+                label={t("incomes.title")}
+                value={view}
+                onChange={setView}
+                iconOnlyOnPhone
+                options={[
+                  { id: "list", label: t("incomes.tabs.list"), icon: FiList },
+                  { id: "calendar", label: t("incomes.tabs.calendar"), icon: FiCalendar },
+                  { id: "timeline", label: t("incomes.tabs.timeline"), icon: FiGitCommit },
+                  ...(yearTab ? [{ id: "year" as const, label: t("incomes.tabs.year"), icon: FiBarChart2 }] : []),
+                ]}
+              />
             </div>
             )}
 
@@ -340,6 +353,11 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 canUndoArrival={(income) => undoable(income).length > 0}
                 onUndoArrival={askUndo}
               />
+            )}
+
+            {showList && view === "timeline" && (
+              // The calendar's own sources, so a day there and on «Ημερολόγιο» agree.
+              <CalendarTimeline side="in" formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
             )}
 
             {showList && view === "calendar" && (

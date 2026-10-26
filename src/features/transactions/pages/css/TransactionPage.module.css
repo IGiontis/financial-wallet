@@ -50,7 +50,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 20px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

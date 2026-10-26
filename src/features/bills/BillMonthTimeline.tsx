@@ -52,17 +52,13 @@ export default function BillMonthTimeline({
 
   return (
     <div className={styles.yearAhead}>
-      <div className={styles.yearAheadHead}>
-        <div>
-          <div className="fw-semibold" style={{ fontSize: 14 }}>
-            {standaloneMonthName(locale, timeline.monthStart)}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.timelineHint")}</div>
-        </div>
+      <div className="stat-head d-flex justify-content-between align-items-baseline gap-2">
+        <span>{standaloneMonthName(locale, timeline.monthStart)}</span>
         <span className={styles.yearAheadTotal} style={{ color: "var(--color-expense-text)" }}>
           −{formatCurrency(timeline.out)}
         </span>
       </div>
+      <div className={styles.yearAheadHint}>{t("bills.timelineHint")}</div>
 
       {bills.length === 0 ? (
         <p className="mb-0" style={{ fontSize: 13, opacity: 0.75 }}>

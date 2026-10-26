@@ -15,19 +15,54 @@
   margin-bottom: 1rem;
 }
 
+/* Buttons: each shows only its side of the list (DebtsPage). */
 .total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  border: 0;
   border-radius: var(--border-radius-lg);
   padding: 0.875rem 1rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.total:hover:not(.totalOn) {
+  box-shadow: 0 0 0 1px var(--tile-tone);
+}
+
+.total:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+/* The side the list is showing: ringed in its own colour. */
+.totalOn {
+  box-shadow: 0 0 0 2px var(--tile-tone);
+}
+
+.filterLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
 }
 
 /* Their colours are the shared `tone-tile` (index.css), as on the Calendar. */
 .totalLabel {
-  font-size: 11.5px;
+  font-size: var(--stat-tile-label-size);
+  font-weight: var(--stat-label-weight);
 }
 
 .totalAmount {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--stat-tile-figure-size);
+  font-weight: var(--stat-figure-weight);
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
 }
@@ -47,12 +82,12 @@
 }
 
 .netLabel {
-  font-size: 11.5px;
+  font-size: var(--stat-tile-label-size);
   color: var(--color-text-secondary);
 }
 
 .netAmount {
-  font-size: 1.125rem;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -504,36 +539,62 @@
   flex-shrink: 0;
 }
 
-/* Which loan is in front: chips that scroll sideways on a phone. */
+/* Which loan is in front: one list in every layout — the open loans, then
+   the paid-off ones under a folding heading. The chosen row is marked three
+   ways at once (a bar at its edge, a tint, its weight): an underline alone
+   did not show which one was open. */
 .picker {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  margin-inline: calc(-1 * var(--bs-modal-padding));
-  padding: 0 var(--bs-modal-padding) 2px;
-  scrollbar-width: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pickGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pickGroup:first-child {
+  margin-top: 0;
 }
 
 .pick {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  width: 100%;
   min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border-primary);
-  border-radius: 999px;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
   background: none;
-  color: var(--color-text-primary);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
   font-weight: 500;
-  white-space: nowrap;
+  text-align: left;
+}
+
+.pick:hover:not(.pickOn) {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
 }
 
 .pickOn {
-  border-color: var(--color-segment-active-border);
-  background: var(--color-segment-active);
-  color: var(--color-segment-active-text);
+  border-left-color: var(--bs-primary);
+  background: var(--view-switch-on);
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .pickDot {
@@ -543,13 +604,13 @@
   flex-shrink: 0;
 }
 
-.pickAmount {
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
+.pickName {
+  overflow-wrap: anywhere;
 }
 
-.pickBar {
-  display: none;
+.pickAmount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .pick:focus-visible,
@@ -558,52 +619,10 @@
   outline-offset: 2px;
 }
 
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.heroText {
-  min-width: 0;
-}
-
-.heroName {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.heroLabel {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.heroAmount {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
 .heroSub {
   font-size: 12px;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-}
-
-.ring {
-  position: relative;
-  width: 104px;
-  height: 104px;
-  flex-shrink: 0;
-}
-
-.ring svg {
-  position: absolute;
-  inset: 0;
-  transform: rotate(-90deg);
 }
 
 .ringTrack {
@@ -619,53 +638,6 @@
   stroke-linecap: round;
 }
 
-.ringCentre {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.1;
-}
-
-.ringCentre strong {
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
-}
-
-.ringCentre span {
-  font-size: 10.5px;
-  color: var(--color-text-secondary);
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 0;
-}
-
-.stat {
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: var(--border-radius-sm);
-  background: var(--color-background-secondary);
-}
-
-.stat dt {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.stat dd {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 /* The sheet's one action, in its footer: at the foot of the screen, where a thumb finds it. */
 .ctaFooter {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
@@ -677,31 +649,6 @@
   justify-content: center;
   gap: 6px;
   min-height: 44px;
-}
-
-.tabs {
-  --bs-nav-link-color: var(--color-text-secondary);
-  --bs-nav-link-hover-color: var(--color-text-primary);
-  --bs-nav-underline-link-active-color: var(--color-text-primary);
-  --bs-nav-underline-gap: 1.25rem;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--color-border-tertiary);
-  scrollbar-width: none;
-}
-
-.tabs :global(.nav-link) {
-  padding-block: 0.625rem;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-
-.tabs :global(.nav-link.active) {
-  border-bottom-color: var(--bs-primary);
-}
-
-.tabPanel {
-  padding-block: 0.25rem 1rem;
 }
 
 .payList {
@@ -814,7 +761,7 @@ button.payRow[aria-expanded="true"] {
 }
 
 .progressStart strong {
-  font-size: 18px;
+  font-size: var(--stat-figure-size);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -904,45 +851,6 @@ button.payRow[aria-expanded="true"] {
     display: block;
     min-width: 0;
     padding: 0.5rem 1.25rem 1.25rem;
-  }
-
-  .picker {
-    flex-direction: column;
-    gap: 6px;
-    margin: 0;
-    padding: 0;
-    overflow: visible;
-  }
-
-  .pick {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    row-gap: 6px;
-    padding: 9px 10px;
-    border-radius: var(--border-radius-md);
-    text-align: left;
-    white-space: normal;
-  }
-
-  .pickName {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .pickBar {
-    display: block;
-    grid-column: 1 / -1;
-    height: 4px;
-    overflow: hidden;
-    border-radius: 2px;
-    background: var(--color-background-secondary);
-  }
-
-  .pickBar span {
-    display: block;
-    height: 100%;
-    background: var(--color-income);
   }
 
   /* Beside the figures rather than pinned: the column is never taller than the screen. */
@@ -1057,18 +965,6 @@ button.payRow[aria-expanded="true"] {
 
 /* ── The sheet's two ways of reading: one loan, or every loan as a card ── */
 
-.viewToggle {
-  flex-wrap: nowrap;
-}
-
-.viewToggle > button {
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
 .columnsBody {
   display: flex;
   flex-direction: column;
@@ -1149,7 +1045,7 @@ button.payRow[aria-expanded="true"] {
 }
 
 .cardAmount {
-  font-size: 18px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
@@ -1299,22 +1195,6 @@ button.payRow[aria-expanded="true"] {
   flex-shrink: 0;
 }
 
-.pane .picker {
-  order: 1;
-  flex-direction: row;
-  margin-inline: 0;
-  padding: 0 0 2px;
-  overflow-x: auto;
-}
-
-.pane .hero {
-  order: 2;
-}
-
-.pane .stats {
-  order: 3;
-}
-
 .pane .personTotal {
   order: 4;
 }
@@ -1339,8 +1219,9 @@ button.payRow[aria-expanded="true"] {
 }
 
 /* ── The sheet's three views ─────────────────────────────────────────────── */
-/* The switch stays at the top while the sheet scrolls. */
+/* The switch stays at the top while the sheet scrolls, at its own width. */
 .viewToggle {
+  align-self: flex-start;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -1389,11 +1270,36 @@ button.payRow[aria-expanded="true"] {
 .allRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 12px;
+  gap: 8px;
+  padding: 0 8px 0 0;
   border: 1px solid var(--color-border-tertiary);
   border-left: 4px solid;
   border-radius: var(--border-radius-md);
+}
+
+/* The row itself opens the loan; the pay button beside it records a payment. */
+.allOpen {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.allOpen:hover .allName {
+  text-decoration: underline;
+}
+
+.allOpen:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+  border-radius: var(--border-radius-sm);
 }
 
 .allMain {
@@ -1435,4 +1341,106 @@ button.payRow[aria-expanded="true"] {
   font-style: italic;
   color: var(--color-text-secondary);
   overflow-wrap: anywhere;
+}
+
+/* ── One loan, as a receipt ──────────────────────────────────────────────────
+   What started it, what came back, what is left: a sum that adds up
+   (`loanReceipt`), set like the bottom of a receipt — rows of label and
+   amount, a dashed rule, and the total. It replaced a ring, four tiles that
+   repeated it, and three tabs. */
+.receiptName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--stat-label-size);
+  font-weight: var(--stat-label-weight);
+}
+
+.receipt {
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.receiptRow,
+.receiptTotal {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.receiptRow {
+  padding: 3px 0;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}
+
+.receiptRow > span:last-child {
+  color: var(--color-text-primary);
+}
+
+/* The label on one line; the figure goes under it only when the column is too narrow for both. */
+.receiptTotal {
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border-primary);
+  font-weight: var(--stat-label-weight);
+}
+
+.receiptTotal > span:first-child {
+  white-space: nowrap;
+}
+
+.receiptTotal > span:last-child {
+  font-size: var(--stat-figure-size);
+  font-weight: var(--stat-figure-weight);
+}
+
+.receiptBar {
+  height: 6px;
+  margin: 8px 0 6px;
+  border-radius: 3px;
+  background: var(--color-border-tertiary);
+  overflow: hidden;
+}
+
+.receiptBar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-income);
+}
+
+.receiptSub {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.paysSection {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--section-tint-edge);
+  border-radius: var(--border-radius-md);
+  background: var(--section-tint);
+}
+
+.paysHead {
+  margin: 0 0 0.25rem;
+  font-size: var(--stat-label-size);
+  font-weight: var(--stat-label-weight);
+}
+
+/* «Τι αν…»: a bank loan's what-ifs, folded until asked for. */
+.whatIf {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-border-tertiary);
+  padding-top: 0.75rem;
+}
+
+.whatIf > summary {
+  cursor: pointer;
+  font-weight: var(--stat-label-weight);
+  color: var(--color-link);
 }

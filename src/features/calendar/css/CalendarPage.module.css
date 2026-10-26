@@ -77,15 +77,13 @@
 }
 
 .totalLabel {
-  font-size: 11px;
+  font-size: var(--stat-tile-label-size);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .totalIn strong,
 .totalOut strong {
-  font-size: 17px;
+  font-size: var(--stat-tile-figure-size);
   line-height: 1.2;
 }
 

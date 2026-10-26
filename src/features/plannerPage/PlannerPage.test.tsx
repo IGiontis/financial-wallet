@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
 import { PlannerPage } from "./PlannerPage";
 import { buildPlan, type BudgetLine } from "./plannerUtils";
+import { horizonForMonth, planMonth } from "./planMonthView";
 import { incomeOccurrenceKey } from "../incomes/incomesUtils";
 import { monthlyIncome, monthlySalary, SALARY_ID } from "../../test/incomes";
 import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
@@ -91,6 +92,8 @@ const overviewAnswer = () =>
 
 const en = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", options);
 const money = /^[+−]?€-?\d+\.\d\d$/;
+/** A figure as the page's formatter writes it. */
+const asEuro = (n: number) => `€${n.toFixed(2)}`;
 const sumOf = (texts: string[]) => Math.round(texts.reduce((sum, text) => sum + (text.startsWith("−") ? -1 : 1) * Number(text.replace(/[^\d.]/g, "")), 0) * 100) / 100;
 
 const renderPage = () =>
@@ -333,6 +336,24 @@ describe("the whole period", () => {
     expect(within(readout()).getByText("€94.35")).toBeInTheDocument();
   });
 
+  it("opens a busy day's every move in a small sheet, not in the readout", async () => {
+    // 1 October: the rent, the goal, and two incomes on the 1st — four moves, two shown.
+    settings.set("incomes", [SALARY, monthlyIncome("tips", "Tips", 40, 1), monthlyIncome("bonus", "Bonus", 60, 1)]);
+    renderPage();
+    const chart = screen.getByRole("img", { name: "What is left, day by day" });
+    chart.focus();
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    const readout = document.querySelector('[aria-live="polite"]') as HTMLElement;
+    const dayBalance = within(readout).getAllByText(money)[0].textContent;
+
+    await userEvent.click(within(readout).getByRole("button", { name: "+ 2 more" }));
+    const sheet = screen.getByRole("dialog");
+    const rows = within(within(sheet).getByRole("list")).getAllByRole("listitem");
+    expect(rows.map((r) => r.firstElementChild!.textContent).sort()).toEqual(["Bonus", "Rent", "Savings", "Tips"]);
+    // A second way: the day's end in the sheet is the readout's own figure.
+    expect(within(sheet).getByText("At the end of the day").nextElementSibling!.textContent).toBe(dayBalance);
+  });
+
   it("keeps one line for a year, from today to the window's end", () => {
     settings.set("planner-horizon", 12);
     renderPage();
@@ -416,7 +437,7 @@ describe("the incomes, from «Έσοδα»", () => {
     renderPage();
     expect(screen.queryByText("Room")).toBeNull();
 
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     const amount = screen.getByLabelText("Amount per month");
     await userEvent.clear(amount);
@@ -469,6 +490,29 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
     expect(screen.getByText("The months leave +€2795.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
   });
 
+  it("speak for the month on «Month»: the same in and out as the month's own tiles", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Month" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next month" }));
+    // November: 1.450 + 400 in; out the bills 515, the goal 100 and 300 of one's own.
+    const tileIn = screen.getByText("Coming in").closest("[class*=_tile_]")!.children[1].textContent;
+    const tileOut = screen.getByText("Going out").closest("[class*=_tile_]")!.children[1].textContent;
+    expect(tileIn).toBe("+€1850.00");
+    expect(tileOut).toBe("−€915.00");
+    // A second way: the scales add up the rows under them, now cut to the month.
+    expect(screen.getByText("+€1850.00", { selector: "[class*=_scale] *" })).toBeInTheDocument();
+    expect(screen.getByText("−€915.00", { selector: "[class*=_scale] *" })).toBeInTheDocument();
+    // A second way: the same month cut from a plan built here, apart from the page.
+    const november = new Date(2026, 10, 1);
+    const incomes = [SALARY, monthlyIncome("rent-in", "Rent I collect", 400, 5)];
+    const month = planMonth(
+      buildPlan({ bills: BILLS, goals: [GOAL], lines: [OWN], debts: [], incomes, openingBalance: 1000, horizon: horizonForMonth(november, NOW)!, now: NOW, actuals: { transactions: data.transactions, debts: [], overrides: {} } }),
+      november,
+    )!;
+    expect(asEuro(month.in)).toBe(tileIn!.slice(1));
+    expect(asEuro(month.out)).toBe(tileOut!.slice(1));
+  });
+
   it("takes a row out with a tap on its eye, and puts it back with another", async () => {
     renderPage();
     const rent = screen.getByRole("switch", { name: /^Rent I collect: / });
@@ -487,7 +531,7 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
 describe("a row the app keeps", () => {
   it("opens its facts in boxes, with every day it lands on, and the eye to take it out", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     // The row opens it; the eye at its end is its switch.
     const power = screen.getByRole("button", { name: "Power: details" });
     expect(power).toHaveTextContent(/Power−€195\.00$/);
@@ -548,7 +592,7 @@ describe("a goal's sheet", () => {
   it("says what a one-time goal was set at, what is in it, and what that leaves", async () => {
     data.goals = [TRIP];
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Trip: details" }));
     const facts = boxes(screen.getByRole("dialog"));
     expect(facts).toMatchObject({ "The goal": "€2000.00", "Put in so far": "€550.00", "Left to reach it": "€1450.00" });
@@ -559,7 +603,7 @@ describe("a goal's sheet", () => {
   it("says a monthly goal's amount as a month's, and leaves nothing «left» of a goal that never runs out", async () => {
     data.goals = [MONTHLY];
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Savings: details" }));
     const facts = boxes(screen.getByRole("dialog"));
     expect(facts).toMatchObject({ "The goal": "€100.00 / month", "Put in so far": "€300.00" });
@@ -582,7 +626,7 @@ describe("a budget line with categories", () => {
   });
 
   const openFood = async () => {
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Food: what was spent" }));
     return screen.getByRole("dialog");
   };
@@ -618,7 +662,7 @@ describe("a budget line with categories", () => {
   it("leaves a line with no categories opening straight on its editor", async () => {
     settings.set("planner-lines", [OWN]);
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: /^Out/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Amount per month")).toBeInTheDocument();
   });
@@ -630,7 +674,7 @@ describe("«Month» on the card", () => {
 
   it("shows one month: what it starts with, what comes and goes, what it ends with — adding up", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: "Month" }));
+    await userEvent.click(screen.getByRole("button", { name: "Month" }));
     expect(screen.getByRole("button", { name: "September 2026 — pick another month" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous month" })).toBeDisabled();
     // This month starts from today, with the money there is.
@@ -649,7 +693,7 @@ describe("«Month» on the card", () => {
 
   it("goes straight to a month years away, and back to the period as it was", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: "Month" }));
+    await userEvent.click(screen.getByRole("button", { name: "Month" }));
     await userEvent.click(screen.getByRole("button", { name: "September 2026 — pick another month" }));
     await userEvent.selectOptions(screen.getByLabelText("Year"), "2027");
     await userEvent.selectOptions(screen.getByLabelText("Month"), "10");
@@ -657,7 +701,7 @@ describe("«Month» on the card", () => {
     expect(screen.getByRole("button", { name: "November 2027 — pick another month" })).toBeInTheDocument();
     expect(tile("Month starts with")).toMatch(money);
 
-    await userEvent.click(screen.getByRole("tab", { name: "Period" }));
+    await userEvent.click(screen.getByRole("button", { name: "Period" }));
     expect(screen.getByRole("button", { name: /^You end with: / })).toBeInTheDocument();
   });
 });

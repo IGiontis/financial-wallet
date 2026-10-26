@@ -7,14 +7,9 @@
    cut into each account's share, in the same colours as the rows below — so
    the list reads as a key to the bar without a legend of its own. */
 
-.eyebrow {
-  font-size: 12.5px;
-  color: var(--color-text-secondary);
-}
-
 .total {
-  font-size: 2.25rem;
-  font-weight: 700;
+  font-size: var(--stat-figure-size);
+  font-weight: var(--stat-figure-weight);
   line-height: 1.1;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;

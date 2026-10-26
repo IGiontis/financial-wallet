@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import { addMonths, endOfMonth, getDaysInMonth } from "date-fns";
 import { buildPlan, horizonEnd, MAX_HORIZON_MONTHS, THIS_MONTH, type BudgetLine, type PlanInput } from "./plannerUtils";
 import { planMonths } from "./payCycles";
-import { horizonForMonth, monthRange, planMonth } from "./planMonthView";
-import { monthlySalary } from "../../test/incomes";
+import { apportion, horizonForMonth, monthRange, planMonth, rowsBetween } from "./planMonthView";
+import { monthlySalary, undatedIncome } from "../../test/incomes";
 import { computeBillStatus } from "../bills/billsUtils";
-import type { Bill } from "../../shared/types/IndexTypes";
+import type { Bill, Transaction } from "../../shared/types/IndexTypes";
 
 // «Μήνας» on the Planner's card: one calendar month, any up to the farthest a
 // plan reaches. Each figure is checked a second way — against the plan's own
@@ -93,5 +93,79 @@ describe("this month", () => {
 
   it("is undefined for a month the plan does not hold", () => {
     expect(planMonth(planTo(THIS_MONTH), NOV_2027)).toBeUndefined();
+  });
+});
+
+describe("«Τα ποσά σου» for one month", () => {
+  // A line with a limit running this month, an undated income, a goal — every kind of row.
+  const LIMIT: BudgetLine = { id: "food", label: "Food", amount: 250, kind: "expense", categoryIds: ["groceries"] };
+  const plan = planTo(MAX_HORIZON_MONTHS, { lines: [OWN, LIMIT], incomes: [monthlySalary(1450, 30), undatedIncome("room", "Room", 200)] });
+  const inOf = (rows: { total: number }[]) => round2(rows.filter((r) => r.total > 0).reduce((sum, r) => sum + r.total, 0));
+  const outOf = (rows: { total: number }[]) => round2(-rows.filter((r) => r.total < 0).reduce((sum, r) => sum + r.total, 0));
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  it("add up to the month's own in and out — this month, a month to come, and a far one", () => {
+    for (const month of [new Date(2026, 9, 1), new Date(2026, 10, 1), NOV_2027]) {
+      const m = planMonth(plan, month)!;
+      // To the cent: the list under the tiles adds up to the tiles.
+      expect(inOf(m.rows)).toBe(m.in);
+      expect(outOf(m.rows)).toBe(m.out);
+    }
+  });
+
+  it("charge a full month's line in a month to come, and the rent on its day", () => {
+    const m = planMonth(plan, NOV_2027)!;
+    const row = (id: string) => m.rows.find((r) => r.id === id)!;
+    expect(row("own").total).toBe(-300);
+    expect(row("food").total).toBe(-250);
+    expect(row("room").total).toBe(200);
+    expect(row("rent").total).toBe(-400);
+    expect(row("rent").occurrences).toBe(1);
+    expect(m.monthsCovered).toBe(1);
+  });
+
+  it("add up over every month of the window to each row's own window total", () => {
+    // A second way: the rows' window totals, against the twelve-and-more months cut and added back.
+    const months = planMonths(plan);
+    for (const row of plan.rows) {
+      const summed = round2(months.reduce((sum, s) => sum + rowsBetween(plan, s.from, s.to).find((r) => r.id === row.id)!.total, 0));
+      expect(Math.abs(summed - row.total)).toBeLessThanOrEqual(0.01 * months.length);
+    }
+  });
+
+  it("say this month is part of one: it starts today", () => {
+    // 23 to 31 October: nine of its thirty-one days.
+    expect(planMonth(plan, new Date(2026, 9, 1))!.monthsCovered).toBe(round2(9 / 31));
+  });
+});
+
+describe("a limit's spending, month by month", () => {
+  const LIMIT: BudgetLine = { id: "food", label: "Food", amount: 250, kind: "expense", categoryIds: ["groceries"] };
+  const spentToday = { id: "t1", userId: "u", type: "expense", amount: 55, categoryId: "groceries", description: "x", date: new Date(2026, 9, 20), createdAt: new Date(2026, 9, 20), updatedAt: new Date(2026, 9, 20) } as Transaction;
+  const plan = planTo(MAX_HORIZON_MONTHS, { lines: [LIMIT], actuals: { transactions: [spentToday], debts: [], overrides: {} } });
+
+  it("says what this month has spent in this month only", () => {
+    expect(planMonth(plan, new Date(2026, 9, 1))!.rows.find((r) => r.id === "food")!.spent).toBe(55);
+  });
+
+  it("starts every later month at nothing spent, the whole limit to come", () => {
+    const november = planMonth(plan, new Date(2026, 10, 1))!.rows.find((r) => r.id === "food")!;
+    expect(november.spent).toBeUndefined();
+    expect(november.total).toBe(-250);
+    // A second way: the window's own row still knows October's 55.
+    expect(plan.rows.find((r) => r.id === "food")!.spent).toBe(55);
+  });
+});
+
+describe("cents shared out so a list adds up", () => {
+  it("gives the missing cent to the figure that lost most in the rounding", () => {
+    // Two lines of 10 over 17 of 31 days: 5,4838… each, 10,9677 together — 10,97, not 10,96.
+    const each = (10 * 17) / 31;
+    expect(apportion([each, each], 10.97)).toEqual([5.49, 5.48]);
+    expect(apportion([each, each], 10.97).reduce((a, b) => a + b, 0)).toBeCloseTo(10.97, 10);
+  });
+
+  it("leaves figures already in cents as they are", () => {
+    expect(apportion([400, 300, 15.5], 715.5)).toEqual([400, 300, 15.5]);
   });
 });

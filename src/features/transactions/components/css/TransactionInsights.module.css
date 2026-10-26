@@ -29,13 +29,13 @@
 }
 
 .statLabel {
-  font-size: 10.5px;
+  font-size: var(--stat-tile-label-size);
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .statValue {
-  font-size: 17px;
+  font-size: var(--stat-tile-figure-size);
   font-weight: 700;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
@@ -121,7 +121,7 @@
 /* The hole only ever holds a percentage now — the money figure lives in the
    card header, where it can be any length without being clipped. */
 .donutTotal {
-  font-size: 17px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
@@ -136,7 +136,7 @@
 
 /* Card headline — the big money figure at the top right of a card */
 .headlineAmount {
-  font-size: 18px;
+  font-size: var(--stat-figure-size);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -443,7 +443,7 @@
 }
 
 .zoomed .donutTotal {
-  font-size: 34px;
+  font-size: var(--stat-figure-size);
 }
 
 .zoomed .donutCaption {

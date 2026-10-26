@@ -1,0 +1,52 @@
+/* The timeline's frame — its period, its ‹ ›, its totals. The tree itself is
+   the shared MoneyTree. */
+
+.card {
+  overflow: hidden;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.step:disabled {
+  opacity: 0.4;
+}
+
+.range {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.todayLink {
+  font-size: 0.8125rem;
+}
+
+.totals {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.totals b {
+  color: var(--color-text-primary);
+}

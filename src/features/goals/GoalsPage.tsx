@@ -99,10 +99,10 @@ function GoalsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWit
             }}
           >
             <div className="d-flex align-items-center justify-content-between mb-1">
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{c.label}</p>
+              <p style={{ fontSize: "var(--stat-tile-label-size)", color: "var(--color-text-primary)", margin: 0, fontWeight: 600 }}>{c.label}</p>
               <span style={{ fontSize: 14 }}>{c.icon}</span>
             </div>
-            <p style={{ fontSize: 20, fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.2 }}>{c.value}</p>
+            <p style={{ fontSize: "var(--stat-tile-figure-size)", fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.2 }}>{c.value}</p>
             <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub} </p>
           </div>
         </Col>

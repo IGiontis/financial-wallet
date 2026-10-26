@@ -68,6 +68,11 @@ export interface LedgerOptions {
   /** The account a record belongs to (see `accountOf`); with `account`, only that one's. */
   accountOf?: (tx: Transaction) => string | undefined;
   account?: string;
+  /**
+   * Only the records of these categories — several ids when one name is both
+   * an income and an expense category, which the reader picks as one.
+   */
+  categories?: readonly string[];
   query?: string;
 }
 
@@ -94,7 +99,7 @@ function categories(rows: LedgerRow[], pick: (row: LedgerRow) => boolean): Ledge
 }
 
 export function buildLedger(transactions: Transaction[], options: LedgerOptions): Ledger {
-  const { from, to, now = new Date(), kind = "all", account, query = "" } = options;
+  const { from, to, now = new Date(), kind = "all", account, categories: only, query = "" } = options;
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const end = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999);
   const needle = query.trim().toLowerCase();
@@ -104,6 +109,7 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
     const date = firestoreToDate(tx.date);
     if (date < start || date > end) continue;
     if (account !== undefined && options.accountOf?.(tx) !== account) continue;
+    if (only !== undefined && !only.includes(tx.categoryId)) continue;
     if (needle && !tx.description.toLowerCase().includes(needle)) continue;
     const counted = isEarning(tx) || isSpending(tx);
     const sign = signOf(tx);

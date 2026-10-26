@@ -22,7 +22,7 @@ export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; 
 
   return (
     <section className={`${styles.yearCard} p-3 p-lg-4`} aria-labelledby="incomes-year-title">
-      <div id="incomes-year-title" className="fw-semibold" style={{ fontSize: 14 }}>
+      <div id="incomes-year-title" className="stat-head mb-1">
         {t("incomes.year.title")}
       </div>
       <div style={{ fontSize: 12, opacity: 0.75 }}>{t("incomes.year.range", { from: f.monthYearShort.format(year.from), to: f.monthYearShort.format(year.to) })}</div>
