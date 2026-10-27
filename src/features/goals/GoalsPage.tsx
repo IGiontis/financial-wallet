@@ -31,6 +31,7 @@ import { useInvestmentGoals, useCreateGoal, useAddContribution, useCloseGoal, us
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
+import { isSavingsGoal } from "../budget/goalKinds";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,9 +50,8 @@ const TAB_LABEL_KEYS: Record<GoalsFilterTab, string> = {
 /** A targeted goal has a deadline, so every dimension here means something. */
 const GOAL_GROUPINGS: GoalGroupBy[] = ["deadline", "progress", "status", "category"];
 
-const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
 
-const belongsHere = (g: InvestmentGoalWithStats) => g.goalType === "targeted" && !isRecurring(g);
+const belongsHere = isSavingsGoal;
 
 // ─── GoalsSummaryCards ────────────────────────────────────────────────────────
 

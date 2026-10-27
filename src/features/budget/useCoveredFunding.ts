@@ -5,13 +5,10 @@ import { investmentKeys } from "./useInvestments";
 import { useDebtRefresh } from "../debts/useDebts";
 import { insertTransaction, transactionKeys } from "../transactions/hooks/useTransactions";
 import { confirmList, editList, idsFor, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
-import type { CreateDebtDTO, CreateInvestmentContributionDTO, CreateTransactionDTO, InvestmentContribution, Transaction } from "../../shared/types/IndexTypes";
+import type { InvestmentContribution, Transaction } from "../../shared/types/IndexTypes";
+import type { CoveredFundingVars } from "./coveredFunding";
 
-export interface CoveredFundingVars {
-  contribution: CreateInvestmentContributionDTO;
-  debt: CreateDebtDTO;
-  expense: CreateTransactionDTO;
-}
+export type { CoveredFundingVars } from "./coveredFunding";
 
 /** One set of ids per save, shared by the rows on screen and the write — see `idsFor`. */
 const fundingIds = new WeakMap<CoveredFundingVars, { contributionId: string; debtId: string; expenseId: string }>();

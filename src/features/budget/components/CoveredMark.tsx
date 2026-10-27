@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { FiUsers } from "react-icons/fi";
+import { FiAlertTriangle } from "react-icons/fi";
+import { toneChip } from "../../../shared/utils/tone";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useDebts } from "../../debts/useDebts";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 
 /**
- * «550 € με χρέος στον Νίκο» — on a goal that someone else paid part of.
+ * «⚠ 550 € χρέος · Νίκος» — on a goal that someone else paid part of: a small
+ * yellow warning, since it is money still owed on a goal that reads as funded.
  *
  * The goal reads as funded, because it is; this is the one thing that says what
  * it cost you to get there. It shows what is still owed, so it shrinks as the
@@ -37,10 +39,17 @@ export function CoveredMark({ goal, compact = false }: { goal: Pick<InvestmentGo
           to="/debts"
           onClick={(event) => event.stopPropagation()}
           title={t("goalWizard.coveredMarkOpen")}
-          className="d-inline-flex align-items-center gap-1 text-decoration-none"
-          style={{ fontSize: compact ? 11.5 : 12.5, fontWeight: 600, color: "var(--color-goal-text)" }}
+          className="d-inline-flex align-items-center gap-1 text-decoration-none align-self-start"
+          style={{
+            ...toneChip("goal", true),
+            border: "1px solid var(--goal-edge)",
+            borderRadius: 999,
+            padding: compact ? "1px 7px" : "2px 9px",
+            fontSize: compact ? 11.5 : 12,
+            fontWeight: 600,
+          }}
         >
-          <FiUsers size={compact ? 11 : 13} aria-hidden />
+          <FiAlertTriangle size={compact ? 11 : 12} aria-hidden />
           {t("goalWizard.coveredMark", { amount: format(c.owed), who: c.person })}
         </Link>
       ))}

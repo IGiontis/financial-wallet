@@ -1444,3 +1444,10 @@ button.payRow[aria-expanded="true"] {
   font-weight: var(--stat-label-weight);
   color: var(--color-link);
 }
+
+/* Borrowed for a goal: the goal, and the category of what was paid. */
+.toGoal {
+  padding: 0.625rem 0.75rem;
+  border: 1px dashed var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+}

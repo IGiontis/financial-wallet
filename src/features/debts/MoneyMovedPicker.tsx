@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { FormGroup, Input, Label } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import AccountPicker from "../accounts/AccountPicker";
@@ -15,7 +15,18 @@ import AccountPicker from "../accounts/AccountPicker";
  * ordinary card choice and moves that card. Switched off, `undefined`: only
  * the debt is written, and no transaction with it — see `debtCashRecords`.
  */
-export function MoneyMovedPicker({ value, onChange, income }: { value: string | undefined; onChange: (next: string | undefined) => void; income: boolean }) {
+export function MoneyMovedPicker({
+  value,
+  onChange,
+  income,
+  toGoal,
+}: {
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+  income: boolean;
+  /** Money borrowed that went straight to a goal — offered only where a new debt is being written. */
+  toGoal?: ReactNode;
+}) {
   const { t } = useTranslation();
   const id = useId();
   const moved = value !== undefined;
@@ -31,7 +42,11 @@ export function MoneyMovedPicker({ value, onChange, income }: { value: string | 
       {moved ? (
         <AccountPicker value={value} onChoose={onChange} income={income} />
       ) : (
-        <p className="small text-body-secondary mb-0">{t("debts.noMoneyHint")}</p>
+        <>
+          {/* What a debt with no money moving looks like, from the side it is on. */}
+          <p className="small text-body-secondary mb-2">{t(income ? "debts.noMoneyHintIn" : "debts.noMoneyHintOut")}</p>
+          {toGoal}
+        </>
       )}
     </div>
   );

@@ -1,0 +1,138 @@
+/* A goal's parts — see GoalPartsEditor.tsx and GoalPartsSheet.tsx. */
+
+/* ── Writing them ─────────────────────────────────────────────────────────── */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem 2rem;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.head {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.remove {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+.remove:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.problem {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--color-expense-text);
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--color-border-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Reading them: each part, what it holds of its «έως», a mark at its «από» ── */
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item + .item {
+  margin-top: 0.875rem;
+}
+
+.itemHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemEmpty .itemHead {
+  color: var(--color-text-secondary);
+}
+
+.bar {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+/* Green once its «από» is met; orange while it is still filling towards it. */
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 0.25rem;
+  background: var(--color-pending);
+}
+
+.reached .fill {
+  background: var(--color-income);
+}
+
+/* Where its «από» is, on the way to its «έως». */
+.minMark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-text-primary);
+  opacity: 0.6;
+}
+
+.legend {
+  margin: 0.875rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* The 👁 on the goal card: the goal has parts to look at. */
+.eye {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+.eye:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}

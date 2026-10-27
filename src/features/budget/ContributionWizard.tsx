@@ -19,6 +19,7 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
 import { goalHolding } from "./goalHolding";
 import { useCoveredFunding } from "./useCoveredFunding";
+import { coveredFundingVars } from "./coveredFunding";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -197,13 +198,15 @@ export default function ContributionWizard({
         const who = person.trim();
         await saveWithoutWaiting(
           coveredFunding,
-          {
-            contribution: { goalId: goal.id, amount: totalInBase, contributionType: "deposit", date: when, notes: notes.trim() || t("goalWizard.coveredNote", { who }), coveredBy: who },
-            // The loan's money is written on the main account, beside the expense: the two
-            // cancel there, so the balance does not move for money that never reached it.
-            debt: { person: who, direction: "owed_by_me", label: goal.name, amount: totalInBase, date: when, accountId: "", forGoalId: goal.id },
-            expense: { amount: totalInBase, type: "expense", categoryId: category, date: when, description: goal.name, notes: t("goalWizard.coveredExpenseNote", { who }) },
-          },
+          coveredFundingVars({
+            goal,
+            who,
+            amount: totalInBase,
+            date: when,
+            categoryId: category,
+            notes: notes.trim() || t("goalWizard.coveredNote", { who }),
+            expenseNotes: t("goalWizard.coveredExpenseNote", { who }),
+          }),
           () => toast.error(t("goalWizard.coveredFailed")),
         );
         toast.success(doneMessage());

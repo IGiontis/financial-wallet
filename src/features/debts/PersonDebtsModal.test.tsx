@@ -28,6 +28,10 @@ vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
 // The accounts a payment names; empty unless a test fills it.
 const accounts = vi.hoisted(() => ({ list: [] as { id: string; name: string; kind: "bank" | "cash"; main?: boolean }[] }));
 vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => accounts.list }));
+// The new-loan form can send borrowed money to a goal; none here.
+vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [] }) }));
+vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }) }));
+vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: vi.fn() }) }));
 vi.mock("./useDebts", () => ({
   useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),

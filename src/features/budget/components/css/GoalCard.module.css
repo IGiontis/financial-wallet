@@ -1,0 +1,48 @@
+/* The goal card's lines — see GoalCard in InvestmentsShared.tsx. */
+
+/* The deadline: a line of its own across the card, a rule above it. */
+.infoLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.infoLine b {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Beside the ring: a month's and a week's worth, label and figure on a line each. */
+.askList {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.askList > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.askList dt {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.askList dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}

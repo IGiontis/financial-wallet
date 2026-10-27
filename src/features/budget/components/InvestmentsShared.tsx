@@ -5,7 +5,7 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { FiCalendar } from "react-icons/fi";
+import { FiCalendar, FiEye } from "react-icons/fi";
 import { Fragment, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
@@ -27,6 +27,9 @@ import i18n from "../../../i18n";
 import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
+import { GoalPartsSheet } from "./GoalPartsSheet";
+import partStyles from "./css/GoalParts.module.css";
+import styles from "./css/GoalCard.module.css";
 
 // ─── Progress ring ────────────────────────────────────────────────────────────
 // The share of the target, drawn once and read at a glance. It replaced a row
@@ -199,6 +202,9 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
     if (isEffectivelyCompleted) return undefined;
 
     if (projection) {
+      // Ahead or behind is already the chip in the band; the sentence saying
+      // so again only made the card taller.
+      if (goal.status === "ahead" || goal.status === "behind") return undefined;
       const when = i18n.t("goals.finishesIn", { month: monthYear(projection.date) });
       if (projection.monthsLate) return { text: `${when} · ${i18n.t("goals.monthsPastDeadline", { count: projection.monthsLate })}`, tone: "var(--color-expense-text)" };
       if (projection.monthsEarly) return { text: `${when} · ${i18n.t("goals.monthsToSpare", { count: projection.monthsEarly })}`, tone: "var(--color-income-text)" };
@@ -279,6 +285,27 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   const ringPct = isRecurring ? displayPct : pct;
   const hasRing = (isRecurring && targetAmount > 0) || (isTargetedGoal && !!goal.targetAmount);
   const heroAmount = isRecurring ? currentPeriodSaved : goal.totalSaved;
+  // A goal to reach once, with its amount: what is in it, of the whole, and what that leaves.
+  // The card read top to bottom: the ring, with what to do about it and what it
+  // asks a month and a week beside it; when it is due; and its money in three boxes —
+  // put in, the whole, what is left. Its figures used to share a line with
+  // their «από» and «μένουν» and wrapped into prose on a narrow card.
+  const reachOnce = !isRecurring && isTargetedGoal && !!goal.targetAmount;
+  const moneyBoxes = reachOnce
+    ? [
+        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved) },
+        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0) },
+        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), tone: remaining <= 0 ? "var(--color-income-text)" : undefined },
+      ]
+    : undefined;
+  const askLines =
+    reachOnce && goal.monthlyRequired
+      ? [
+          { label: i18n.t("goals.infoMonth"), value: formatCurrency(goal.monthlyRequired) },
+          { label: i18n.t("goals.infoWeek"), value: formatCurrency(perWeek(goal.monthlyRequired)) },
+        ]
+      : [];
+  const [partsOpen, setPartsOpen] = useState(false);
   const heroSubtitle = isRecurring
     ? i18n.t("goals.ofTarget", { amount: formatCurrency(targetAmount) })
     : goal.targetAmount
@@ -334,7 +361,15 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
         {/* The name alone in the band, across all of it, and onto a second
             line only when it does not fit: cut short, «Μετακόμιση & Νέο Σπ…»
             lost the name. The deadline it shared the band with is in the body. */}
-        <p style={{ margin: 0, minWidth: 0, flex: 1, overflowWrap: "anywhere", fontSize: "var(--stat-card-title-size)", fontWeight: "var(--stat-label-weight)", lineHeight: 1.3, color: "var(--color-text-primary)" }}>{goal.name}</p>
+        <p style={{ margin: 0, minWidth: 0, flex: 1, overflowWrap: "anywhere", fontSize: "var(--stat-card-title-size)", fontWeight: "var(--stat-label-weight)", lineHeight: 1.3, color: "var(--color-text-primary)" }}>
+          {goal.name}
+          {/* A goal written as its parts: the eye opens them, each with what it holds. */}
+          {goal.parts && goal.parts.length > 0 && (
+            <button type="button" className={partStyles.eye} onClick={() => setPartsOpen(true)} aria-label={i18n.t("goals.partsShow", { name: goal.name })} title={i18n.t("goals.partsTitle")}>
+              <FiEye size={14} aria-hidden />
+            </button>
+          )}
+        </p>
 
         <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
           {isPaused && (
@@ -378,26 +413,41 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
       <CardBody style={{ padding: "14px 14px 10px", flex: "1 1 auto", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {hasRing && <ProgressRing pct={ringPct} accent={accent} centre={`${Math.round(ringPct)}%`} />}
-          <div style={{ minWidth: 0 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "var(--stat-tile-figure-size)",
-                fontWeight: 650,
-                letterSpacing: "-0.02em",
-                lineHeight: 1.1,
-                color: "var(--color-text-primary)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {formatCurrency(heroAmount)}
-            </p>
-            <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
-            {note && <p style={{ margin: "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
-            {/* What someone else paid and is still owed to them. */}
-            <div style={{ marginTop: 6 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {reachOnce ? null : (
+              <>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "var(--stat-tile-figure-size)",
+                    fontWeight: 650,
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.1,
+                    color: "var(--color-text-primary)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {formatCurrency(heroAmount)}
+                </p>
+                <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
+              </>
+            )}
+            {note && <p style={{ margin: reachOnce ? 0 : "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
+            {/* What someone else paid and is still owed to them: with the card's other words, above the figures. */}
+            <div style={{ marginTop: note ? 6 : 0 }}>
               <CoveredMark goal={goal} />
             </div>
+            {/* What it asks a month and a week, beside the ring where there is room — the card stays short. */}
+            {askLines.length > 0 && (
+              <dl className={styles.askList}>
+                {askLines.map((line) => (
+                  <div key={line.label}>
+                    <dt>{line.label}</dt>
+                    <dd>{line.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
         </div>
 
@@ -408,13 +458,14 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             squeezed into the column beside the ring. Last in the body and
             pushed to its foot, so a card stretched to its row's height keeps
             the room above the date rather than an empty band under it. */}
-        <p
-          className="d-flex align-items-center gap-2"
-          style={{ margin: "auto 0 0", paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: 12.5, color: "var(--color-text-secondary)" }}
-        >
-          {!isRecurring && deadlineDate && <FiCalendar size={13} aria-hidden style={{ flexShrink: 0 }} />}
-          {bandSubtitle}
-        </p>
+        <div style={{ marginTop: "auto" }}>
+          <p className={styles.infoLine}>
+            <span className="d-flex align-items-center gap-2">
+              {!isRecurring && deadlineDate && <FiCalendar size={13} aria-hidden style={{ flexShrink: 0 }} />}
+              {bandSubtitle}
+            </span>
+          </p>
+        </div>
       </CardBody>
 
       {/* ── Three figures, divided by rules ───────────────────────────────── */}
@@ -425,7 +476,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           background: "color-mix(in srgb, var(--color-text-primary) 3%, transparent)",
         }}
       >
-        {figures.map((figure, index) => (
+        {(moneyBoxes ?? figures).map((figure, index) => (
           <Fragment key={figure.label}>
             {index > 0 && FIGURE_DIVIDER}
             <Figure {...figure} />
@@ -449,6 +500,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           {i18n.t("goals.history")}
         </Button>
       </div>
+      {partsOpen && goal.parts && <GoalPartsSheet name={goal.name} parts={goal.parts} saved={goal.totalSaved} formatCurrency={formatCurrency} onClose={() => setPartsOpen(false)} />}
     </Card>
   );
 }

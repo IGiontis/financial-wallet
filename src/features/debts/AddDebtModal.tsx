@@ -13,6 +13,14 @@ import { parseISODay, toISODay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { toast } from "react-toastify";
+import { useInvestmentGoals } from "../budget/useInvestments";
+import { isSavingsGoal } from "../budget/goalKinds";
+import { useCoveredFunding } from "../budget/useCoveredFunding";
+import { coveredFundingVars } from "../budget/coveredFunding";
+import { useCategories } from "../transactions/hooks/useTransactions";
+import { categoryLabel } from "../../shared/utils/categories";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -50,6 +58,7 @@ export default function AddDebtModal({
   const create = useCreateDebt();
   const edit = useEditDebt();
   const saving = create.isPending || edit.isPending;
+  const [savingCovered, setSavingCovered] = useState(false);
 
   const [direction, setDirection] = useState<DebtDirection>(debt?.direction ?? "owed_by_me");
   const [person, setPerson] = useState(debt?.person ?? defaultPerson ?? "");
@@ -71,6 +80,18 @@ export default function AddDebtModal({
   // card" (the main account) and moves money; `undefined` is a debt with no
   // money handed over — switched off below, or one saved before cards existed.
   const [account, setAccount] = useState<string | undefined>(debt ? debt.accountId : "");
+  // Borrowed, with no money reaching a card, because it went to a goal — the
+  // friend who paid the ski hotel. Only on a new debt: it writes the goal's
+  // deposit and the expense with it, as «Το πλήρωσε κάποιος για μένα» does.
+  const { data: allGoals = [] } = useInvestmentGoals();
+  const goals = allGoals.filter((g) => isSavingsGoal(g) && g.isActive && !g.isCompleted);
+  const { data: categories = [] } = useCategories();
+  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const otherExpense = expenseCategories.find((c) => c.name === "Other Expense")?.id ?? expenseCategories[0]?.id ?? "";
+  const [goalId, setGoalId] = useState("");
+  const [goalCategory, setGoalCategory] = useState("");
+  const coveredFunding = useCoveredFunding();
+  const forGoal = !debt && direction === "owed_by_me" && account === undefined ? goals.find((g) => g.id === goalId) : undefined;
 
   const value = parseFloat(amount);
   const termValue = parseInt(term, 10);
@@ -144,6 +165,28 @@ export default function AddDebtModal({
       accountId: account,
     };
 
+    if (forGoal) {
+      const who = person.trim();
+      setSavingCovered(true);
+      void saveWithoutWaiting(
+        coveredFunding,
+        coveredFundingVars({
+          goal: forGoal,
+          who,
+          amount: value,
+          date: when,
+          categoryId: goalCategory || otherExpense,
+          notes: t("goalWizard.coveredNote", { who }),
+          expenseNotes: t("goalWizard.coveredExpenseNote", { who }),
+          debt: { label: data.label ?? forGoal.name, dueDate: data.dueDate },
+        }),
+        () => toast.error(t("goalWizard.coveredFailed")),
+      ).finally(() => {
+        setSavingCovered(false);
+        onClose();
+      });
+      return;
+    }
     if (debt) edit.mutate({ debtId: debt.id, data }, { onSuccess: onClose });
     else create.mutate(data, { onSuccess: onClose });
   };
@@ -311,7 +354,43 @@ export default function AddDebtModal({
               neither income nor spending. */}
           <FormGroup>
             <Label className="small fw-medium">{t(direction === "owed_by_me" ? "debts.loanInto" : "debts.loanFrom")}</Label>
-            <MoneyMovedPicker value={account} onChange={setAccount} income={direction === "owed_by_me"} />
+            <MoneyMovedPicker
+              value={account}
+              onChange={setAccount}
+              income={direction === "owed_by_me"}
+              toGoal={
+                !debt && direction === "owed_by_me" && goals.length > 0 ? (
+                  <div className={styles.toGoal}>
+                    <Label className="small fw-medium" for="debt-goal">
+                      {t("debts.toGoal")}
+                    </Label>
+                    <Input id="debt-goal" type="select" bsSize="sm" value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+                      <option value="">{t("debts.toGoalNone")}</option>
+                      {goals.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.icon ?? "🎯"} {g.name}
+                        </option>
+                      ))}
+                    </Input>
+                    {forGoal && (
+                      <>
+                        <Label className="small fw-medium mt-2" for="debt-goal-category">
+                          {t("debts.toGoalCategory")}
+                        </Label>
+                        <Input id="debt-goal-category" type="select" bsSize="sm" value={goalCategory || otherExpense} onChange={(e) => setGoalCategory(e.target.value)}>
+                          {expenseCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.icon} {categoryLabel(c.name, t)}
+                            </option>
+                          ))}
+                        </Input>
+                        <p className="small text-body-secondary mb-0 mt-2">{t("debts.toGoalHint", { goal: forGoal.name })}</p>
+                      </>
+                    )}
+                  </div>
+                ) : undefined
+              }
+            />
           </FormGroup>
 
           <FormGroup className="mb-0">
@@ -325,8 +404,8 @@ export default function AddDebtModal({
           <Button color="secondary" outline type="button" onClick={onClose} disabled={saving}>
             {t("common.cancel")}
           </Button>
-          <Button color="primary" type="submit" disabled={saving}>
-            {saving ? t("common.saving") : t("common.save")}
+          <Button color="primary" type="submit" disabled={saving || savingCovered}>
+            {saving || savingCovered ? t("common.saving") : t("common.save")}
           </Button>
         </ModalFooter>
       </Form>

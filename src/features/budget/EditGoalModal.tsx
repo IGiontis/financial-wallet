@@ -8,7 +8,10 @@ import { DateField } from "../../shared/components/DateField";
 import { PlanFromField } from "./components/PlanFromField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
-import type { InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import type { GoalPart, InvestmentGoalWithStats, UpdateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { GoalPartsEditor } from "./components/GoalPartsEditor";
+import { useGoalPartsField } from "./components/useGoalPartsField";
 import { format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -80,6 +83,7 @@ function ReviewScreen({
   onConfirm,
   isSubmitting,
   formatCurrency,
+  parts,
 }: {
   values: EditGoalFormValues;
   goal: InvestmentGoalWithStats;
@@ -87,6 +91,8 @@ function ReviewScreen({
   onConfirm: () => void;
   isSubmitting: boolean;
   formatCurrency: (n: number) => string;
+  /** What the target is made of, when it is given in parts. */
+  parts?: GoalPart[];
 }) {
   const { t } = useTranslation();
   const isTargeted = values.goalType === "targeted";
@@ -95,6 +101,7 @@ function ReviewScreen({
   const rows = [
     { label: t("goals.typeLabel"), value: isTargeted ? t("goals.kindTargeted") : t("goals.kindOpenEnded") },
     ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
+    ...(parts && parts.length > 0 ? [{ label: t("goals.partsTitle"), value: parts.map((p) => `${p.label} ${p.min === p.max ? formatCurrency(p.max) : `${formatCurrency(p.min)}–${formatCurrency(p.max)}`}`).join(" · ") }] : []),
     ...(isTargeted && !isGoalsPageGoal ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "yearly" ? t("goals.periodYearly") : t("goals.periodMonthly") }] : []),
     ...(isTargeted && isGoalsPageGoal && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
     ...(isTargeted && isGoalsPageGoal && values.planFrom ? [{ label: t("goals.planFromShort"), value: format(new Date(values.planFrom), "dd/MM/yyyy") }] : []),
@@ -185,6 +192,8 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
           deadline: isTargeted && isGoalsPageGoal && values.deadline ? new Date(values.deadline) : undefined,
           // Cleared: `null`, so the date already saved is taken off rather than kept.
           planFrom: isTargeted && isGoalsPageGoal ? values.planFrom || (goal.planFrom ? null : undefined) : undefined,
+          // Back to one figure: `null`, so the parts already saved are taken off.
+          parts: isTargeted && isGoalsPageGoal ? (partsField.usingParts ? partsField.parts : goal.parts?.length ? null : undefined) : undefined,
         };
         await onSubmit(goal.id, data);
         toast.success(t("goals.updatedSuccess", { name: values.name }));
@@ -198,6 +207,9 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
     },
   });
 
+  // A trip's target written as its parts — see `goalParts`. The amount follows their «έως» total.
+  const partsField = useGoalPartsField(goal.parts, (amount) => formik.setFieldValue("targetAmount", amount));
+
   const handleClose = () => {
     formik.resetForm();
     setStep("form");
@@ -206,6 +218,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
+    if (!partsField.check()) return;
     if (Object.keys(errors).length === 0) {
       setStep("review");
     } else {
@@ -225,6 +238,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
           onConfirm={() => formik.submitForm()}
           isSubmitting={formik.isSubmitting}
           formatCurrency={formatCurrency}
+          parts={partsField.usingParts ? partsField.parts : undefined}
         />
       ) : (
         <>
@@ -252,7 +266,23 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                   {isGoalsPageGoal ? (
                     /* GoalsPage goal — target amount + deadline side by side */
                     <>
+                    <FormGroup>
+                      <ViewSwitch
+                        block
+                        className="mb-2"
+                        label={t("goals.amountHow")}
+                        value={partsField.usingParts ? "parts" : "one"}
+                        onChange={(v) => partsField.choose(v === "parts")}
+                        options={[
+                          { id: "one", label: t("goals.amountOne") },
+                          { id: "parts", label: t("goals.amountParts") },
+                        ]}
+                      />
+                      {partsField.usingParts && <GoalPartsEditor drafts={partsField.drafts} onChange={partsField.setDrafts} formatCurrency={formatCurrency} showErrors={partsField.showErrors} />}
+                    </FormGroup>
                     <Row className="g-3">
+                      {/* Given in parts, the parts above are the amount. */}
+                      {!partsField.usingParts && (
                       <Col xs={6}>
                         <FormGroup className="mb-0">
                           <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
@@ -270,6 +300,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                           <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
                         </FormGroup>
                       </Col>
+                      )}
                       <Col xs={6}>
                         <FormGroup className="mb-0">
                           <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.deadline")} *</Label>

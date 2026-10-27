@@ -390,6 +390,7 @@ export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmen
     ...cleaned,
     // Taken off: `clean()` would drop a null, and the old date would stay.
     ...(data.planFrom === null ? { planFrom: deleteField() } : {}),
+    ...(data.parts === null ? { parts: deleteField() } : {}),
     updatedAt: serverTimestamp(),
   });
 };

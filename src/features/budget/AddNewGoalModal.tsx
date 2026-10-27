@@ -24,7 +24,10 @@ import { DateField } from "../../shared/components/DateField";
 import { PlanFromField } from "./components/PlanFromField";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
-import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import type { CreateInvestmentGoalDTO, GoalPart, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
+import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { GoalPartsEditor } from "./components/GoalPartsEditor";
+import { useGoalPartsField } from "./components/useGoalPartsField";
 import { addMonths, format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -104,6 +107,7 @@ function ReviewScreen({
   onConfirm,
   isSubmitting,
   formatCurrency,
+  parts,
 }: {
   values: GoalFormValues;
   isGoalsPage: boolean;
@@ -111,6 +115,8 @@ function ReviewScreen({
   onConfirm: () => void;
   isSubmitting: boolean;
   formatCurrency: (n: number) => string;
+  /** What the target is made of, when it was given in parts. */
+  parts?: GoalPart[];
 }) {
   const { t } = useTranslation();
   const isTargeted = values.goalType === "targeted";
@@ -122,6 +128,7 @@ function ReviewScreen({
       value: kindLabel,
     },
     ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
+    ...(parts && parts.length > 0 ? [{ label: t("goals.partsTitle"), value: parts.map((p) => `${p.label} ${p.min === p.max ? formatCurrency(p.max) : `${formatCurrency(p.min)}–${formatCurrency(p.max)}`}`).join(" · ") }] : []),
     // Show Period row only for InvestmentsPage recurring goals
     ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? t("goals.periodMonthly") : t("goals.periodYearly") }] : []),
     // Show Deadline row only for GoalsPage (custom period)
@@ -236,6 +243,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           targetPeriod: values.goalType === "targeted" ? values.targetPeriod : undefined,
           deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
           planFrom: isGoalsPage && values.goalType === "targeted" && values.planFrom ? values.planFrom : undefined,
+          parts: isGoalsPage && values.goalType === "targeted" && partsField.usingParts ? partsField.parts : undefined,
         };
         await onSubmit(dto, values.isActive);
         toast.success(t("goals.createdSuccess", { name: values.name }));
@@ -257,6 +265,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
 
   const handleReview = async () => {
     const errors = await formik.validateForm();
+    if (!partsField.check()) return;
     if (Object.keys(errors).length === 0) {
       setStep("review");
     } else {
@@ -265,6 +274,8 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   };
 
   const isTargeted = formik.values.goalType === "targeted";
+  // A trip's target written as its parts — see `goalParts`. The amount follows their «έως» total.
+  const partsField = useGoalPartsField(undefined, (amount) => formik.setFieldValue("targetAmount", amount));
 
   return (
     <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
@@ -278,6 +289,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           onConfirm={() => formik.submitForm()}
           isSubmitting={formik.isSubmitting}
           formatCurrency={formatCurrency}
+          parts={partsField.usingParts ? partsField.parts : undefined}
         />
       ) : (
         <>
@@ -349,8 +361,25 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {/* ── Targeted fields ── */}
               {isTargeted && (
                 <>
+                  {isGoalsPage && (
+                    <FormGroup>
+                      <ViewSwitch
+                        block
+                        className="mb-2"
+                        label={t("goals.amountHow")}
+                        value={partsField.usingParts ? "parts" : "one"}
+                        onChange={(v) => partsField.choose(v === "parts")}
+                        options={[
+                          { id: "one", label: t("goals.amountOne") },
+                          { id: "parts", label: t("goals.amountParts") },
+                        ]}
+                      />
+                      {partsField.usingParts && <GoalPartsEditor drafts={partsField.drafts} onChange={partsField.setDrafts} formatCurrency={formatCurrency} showErrors={partsField.showErrors} />}
+                    </FormGroup>
+                  )}
                   <Row className="g-3">
-                    {/* Target amount — always half width */}
+                    {/* Target amount — always half width; given in parts, the parts above are it. */}
+                    {!partsField.usingParts && (
                     <Col xs={6}>
                       <FormGroup className="mb-0">
                         <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
@@ -368,6 +397,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                         <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
                       </FormGroup>
                     </Col>
+                    )}
 
                     {/* GoalsPage → deadline | InvestmentsPage → period dropdown */}
                     <Col xs={6}>

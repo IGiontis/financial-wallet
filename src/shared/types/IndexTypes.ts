@@ -293,6 +293,18 @@ export interface UpdateRecurringTransactionDTO {
 // INVESTMENT TYPES
 // ============================================================================
 
+/**
+ * One part of a goal — «Σπίτι 150–200» of a ski trip — when the goal is built
+ * from what each thing roughly costs instead of one figure. The goal's target
+ * is the parts' `max` added up; see `goalParts`.
+ */
+export interface GoalPart {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+}
+
 export interface InvestmentGoal {
   id: string;
   userId: string;
@@ -311,6 +323,8 @@ export interface InvestmentGoal {
    * earlier; it simply is not planned for.
    */
   planFrom?: string;
+  /** What the target is made of, in the order they fill. Absent: one figure. */
+  parts?: GoalPart[];
   isActive: boolean;
   isCompleted: boolean;
   completedAt?: Date;
@@ -329,6 +343,7 @@ export interface CreateInvestmentGoalDTO {
   deadline?: Date;
   /** See `InvestmentGoal.planFrom`. */
   planFrom?: string;
+  parts?: GoalPart[];
 }
 
 export interface UpdateInvestmentGoalDTO {
@@ -341,6 +356,8 @@ export interface UpdateInvestmentGoalDTO {
   deadline?: Date;
   /** See `InvestmentGoal.planFrom`. `null` takes it off. */
   planFrom?: string | null;
+  /** `null` takes them off: back to one figure. */
+  parts?: GoalPart[] | null;
   isActive?: boolean;
   isCompleted?: boolean;
   completedAt?: Date;
