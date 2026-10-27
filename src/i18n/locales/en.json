@@ -2291,7 +2291,9 @@
     "toGoal": "It went to a goal",
     "toGoalNone": "No goal",
     "toGoalCategory": "Expense category",
-    "toGoalHint": "«{{goal}}» goes up by the amount, and the debt and the expense are recorded. No card moves."
+    "toGoalHint": "«{{goal}}» goes up by the amount, and the debt and the expense are recorded. No card moves.",
+    "cancelledTag": "Cancelled",
+    "cancelledLine": "Cancelled on {{date}}: the {{amount}} was refunded to them, so nothing is owed."
   },
   "statement": {
     "title": "Statement",
@@ -2623,7 +2625,16 @@
     "bankLeftFrom": "The {{amount}} that was in your bank — which card did it leave?",
     "givesBack": "{{who}} gives back",
     "alreadyLeft": "{{who}} already had it",
-    "coveredNote": "{{who}} paid {{amount}}: the debt and the expense stay whatever becomes of the goal — find the debt under Debts."
+    "coveredNote": "{{who}} paid {{amount}}: the debt and the expense stay whatever becomes of the goal — find the debt under Debts.",
+    "askCovered": "What became of the {{amount}} {{who}} paid?",
+    "coveredKept": "I still owe it",
+    "coveredKeptHint": "The debt and the expense stay. You'll find the debt on Debts.",
+    "coveredRefunded": "Cancelled — they got it back",
+    "coveredRefundedHint": "They got the {{amount}} back, so you owe nothing: the debt closes as cancelled and the expense goes.",
+    "theDebt": "Debt · {{who}}",
+    "debtCancelled": "closes as cancelled",
+    "theExpense": "Expense {{amount}}",
+    "expenseCancelled": "goes"
   },
   "calendar": {
     "prev": "Previous month",

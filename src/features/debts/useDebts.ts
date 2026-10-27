@@ -3,7 +3,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/
 import { toast } from "react-toastify";
 import i18n from "../../i18n";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, editDebt, getDebtPayments, getDebts, syncDebtCash, updateDebt, updateDebtPayment } from "../../firebase/firestore";
+import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, editDebt, getDebtPayments, getDebts, syncDebtCash, updateDebt, updateDebtPayment, cancelCoveredDebt } from "../../firebase/firestore";
 import { transactionKeys } from "../transactions/hooks/useTransactions";
 import { allDebtCashIds, debtCashDrift, debtCashIds, debtCashRecords, type DebtCashRecord } from "./debtCash";
 import { confirmList } from "../../lib/listCache";
@@ -130,6 +130,25 @@ export function useUpdateDebt() {
 export function useEditDebt() {
   const { sync } = useDebtRefresh();
   return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: CreateDebtDTO }) => editDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
+}
+
+/**
+ * Covered debts called off with their goal — see `cancelCoveredDebt`. Each is
+ * synced after, so the loan record the debt wrote on the main account goes too.
+ */
+export function useCancelCoveredDebts() {
+  const queryClient = useQueryClient();
+  const { userId, sync } = useDebtRefresh();
+  return useMutation({
+    mutationFn: async (items: { debtId: string; expenseId?: string; amount: number }[]) => {
+      for (const item of items) {
+        await cancelCoveredDebt(item.debtId, item.expenseId, { date: new Date(), amount: item.amount, refund: true });
+        await sync(item.debtId);
+      }
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
+    onError: failed("debts.saveFailed"),
+  });
 }
 
 export function useDeleteDebt() {

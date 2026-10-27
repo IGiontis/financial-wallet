@@ -5,7 +5,7 @@ import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { FiArrowDownLeft, FiArrowUpRight, FiChevronDown, FiChevronRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { forgivenTag, currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
 import { DateField } from "../../shared/components/DateField";
@@ -547,7 +547,7 @@ export default function PersonDebtsModal({
                   <span className={styles.allName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
                   <span className={styles.allMeta}>{t("debts.of", { amount: formatCurrency(d.amount) })}</span>
                 </span>
-                <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
+                <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? forgivenTag(d) : "debts.settled") : formatCurrency(d.remaining)}</span>
                 <MiniRing percent={clearedPercent(d, loanState(d))} tone={tone} label={t("debts.cleared")} />
               </button>
               {!d.isSettled && (
@@ -580,7 +580,7 @@ export default function PersonDebtsModal({
         aria-hidden
       />
       <span className={styles.pickName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-      <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? "debts.forgivenTag" : "debts.settled") : formatCurrency(d.remaining)}</span>
+      <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? forgivenTag(d) : "debts.settled") : formatCurrency(d.remaining)}</span>
     </button>
   );
 
@@ -630,7 +630,7 @@ export default function PersonDebtsModal({
           ? t("debts.statInterest")
           : key === "over"
             ? t("debts.receiptOver")
-            : t("debts.forgivenTag");
+            : t(forgivenTag(debt));
 
   // What a bank loan is besides its sum: the instalment, how many are left,
   // when it ends, and the terms it was taken on.
@@ -685,7 +685,7 @@ export default function PersonDebtsModal({
               tiles that repeated it, and a «Πορεία» tab that drew it again. */}
           <div className={styles.receiptName}>
             <span>{debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent")}</span>
-            {debt.isSettled && <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span>}
+            {debt.isSettled && <span className={styles.settledTag}>{t(debt.forgiven ? forgivenTag(debt) : "debts.settled")}</span>}
           </div>
           <div className={styles.receipt}>
             {receipt.map((line) => (
@@ -716,7 +716,7 @@ export default function PersonDebtsModal({
           )}
           {debt.forgiven && (
             <div className={styles.heroSub}>
-              {t("debts.forgivenLine", { amount: formatCurrency(debt.forgiven.amount), date: dateFmt.format(firestoreToDate(debt.forgiven.date)) })}
+              {t(debt.forgiven.refund ? "debts.cancelledLine" : "debts.forgivenLine", { amount: formatCurrency(debt.forgiven.amount), date: dateFmt.format(firestoreToDate(debt.forgiven.date)) })}
               {debt.forgiven.note && <span className="d-block fst-italic">«{debt.forgiven.note}»</span>}
             </div>
           )}
@@ -786,7 +786,7 @@ export default function PersonDebtsModal({
                 <li className={`${styles.payRow} ${styles.payOrigin}`}>
                   <span className={styles.payWhen}>
                     <span className="d-inline-flex align-items-center gap-1">
-                      <FiGift size={13} aria-hidden /> {t("debts.forgivenTag")}
+                      {debt.forgiven.refund ? <FiRotateCcw size={13} aria-hidden /> : <FiGift size={13} aria-hidden />} {t(forgivenTag(debt))}
                     </span>
                     <span className={styles.paySplit}>
                       {dateFmt.format(firestoreToDate(debt.forgiven.date))}
@@ -831,7 +831,8 @@ export default function PersonDebtsModal({
                 <FiGift size={14} aria-hidden /> {t("debts.forgiveAction")}
               </Button>
             )}
-            {debt.forgiven && (
+            {/* A refund went with its goal and its expense: taking it back would leave a debt for nothing. */}
+            {debt.forgiven && !debt.forgiven.refund && (
               <Button color="secondary" outline disabled={unforgive.isPending} onClick={() => unforgive.mutate({ debtId: debt.id, data: { forgiven: null } })}>
                 <FiRotateCcw size={14} aria-hidden /> {t("debts.unforgive")}
               </Button>

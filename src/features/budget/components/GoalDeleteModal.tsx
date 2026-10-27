@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { Trans, useTranslation } from "react-i18next";
 import type { CreateTransactionDTO, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
@@ -14,6 +14,8 @@ import { useCategories } from "../../transactions/hooks/useTransactions";
 import { closingRecords, goalHolding, ownSaved, undoByAccount } from "../goalHolding";
 import wizard from "../../transactions/components/css/TransactionWizard.module.css";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
+import { useDebts } from "../../debts/useDebts";
+import { coveredRefunds, type RefundItem } from "../coveredRefund";
 
 /** What deleting a goal means for its money. */
 export interface GoalEnding {
@@ -24,6 +26,11 @@ export interface GoalEnding {
    * `closingRecords`), and its history stays in Transactions.
    */
   close?: CreateTransactionDTO[];
+  /**
+   * What someone paid of the goal, called off with it: the debt to them and
+   * the expense beside it — what it paid for was cancelled and refunded to them.
+   */
+  refunded?: RefundItem[];
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -53,9 +60,18 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   const undo = useMemo(() => undoByAccount(goal.id, transactions), [goal.id, transactions]);
   const held = goal.totalSaved > 0;
   const inBanks = holding.inBanks > 0.005;
+  // What someone else paid of it, and of that what can be called off — see `coveredRefunds`.
+  const { data: debts = [] } = useDebts();
+  const refunds = useMemo(() => coveredRefunds(goal, debts, transactions), [goal, debts, transactions]);
+  // Per person: true, called off and refunded to them; false, still owed. Nothing is chosen for you.
+  const [refunded, setRefunded] = useState<Record<string, boolean>>({});
+  const refundsChosen = refunds.every((r) => refunded[r.person] !== undefined);
+  const calledOff = refunds.filter((r) => refunded[r.person]).flatMap((r) => r.items);
+  // Asked only of money that was yours: a goal paid all by someone else has none to free or spend.
+  const ownHeld = ownSaved(goal) > 0.005;
 
   const [stage, setStage] = useState<"choose" | "review">(held ? "choose" : "review");
-  const [ending, setEnding] = useState<"dropped" | "spent" | null>(held ? null : "dropped");
+  const [ending, setEnding] = useState<"dropped" | "spent" | null>(held && ownHeld ? null : "dropped");
   const [account, setAccount] = useState("");
   const [cardPicked, setCardPicked] = useState(false);
   const [picked, setPicked] = useState("");
@@ -65,7 +81,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   const category = picked || otherExpense;
   const categoryName = category ? categoryLabel(categories.find((c) => c.id === category)?.name, t) : "—";
   // A card is asked for only where money leaves one now: what sat in your bank.
-  const ready = ending === "dropped" || (ending === "spent" && (!inBanks || cardPicked) && !!category);
+  const ready = refundsChosen && (ending === "dropped" || (ending === "spent" && (!inBanks || cardPicked) && !!category));
 
   // ── Card by card ──
   const main = mainAccount(accounts);
@@ -129,17 +145,46 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                 {inBanks && ` · ${t("goalDelete.inBanksNote", { amount: format(holding.inBanks) })}`}
               </p>
             )}
-            {/* What someone else paid stays: the expense was written the day they paid and the
-                debt is still owed, whatever becomes of the goal. */}
-            {goal.covered && goal.covered.length > 0 && (
-              <p className="small text-body-secondary mb-2">
-                {goal.covered.map((c) => t("goalDelete.coveredNote", { who: c.person, amount: format(c.amount) })).join(" · ")}
-              </p>
-            )}
+            {/* What someone else paid: still owed, or called off — the hotel refunded them. */}
+            {refunds.map((r) => (
+              <div key={r.person} className="mb-3">
+                <p className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+                  {t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}
+                </p>
+                <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}>
+                  {([false, true] as const).map((value) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      role="radio"
+                      aria-checked={refunded[r.person] === value}
+                      className={`btn text-start ${refunded[r.person] === value ? "btn-primary" : "btn-outline-secondary"}`}
+                      onClick={() => setRefunded({ ...refunded, [r.person]: value })}
+                    >
+                      <div className="fw-semibold">{t(value ? "goalDelete.coveredRefunded" : "goalDelete.coveredKept")}</div>
+                      <div className="small" style={{ opacity: 0.8 }}>
+                        {t(value ? "goalDelete.coveredRefundedHint" : "goalDelete.coveredKeptHint", { who: r.person, amount: format(r.amount) })}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {tried && refunded[r.person] === undefined && <div className="small text-danger mt-2">{t("goalDelete.pickOne")}</div>}
+              </div>
+            ))}
+            {/* Paid back in part already: what is left of it stays owed, whatever becomes of the goal. */}
+            {(goal.covered ?? [])
+              .filter((c) => !refunds.some((r) => r.person === c.person))
+              .map((c) => (
+                <p key={c.person} className="small text-body-secondary mb-2">
+                  {t("goalDelete.coveredNote", { who: c.person, amount: format(c.amount) })}
+                </p>
+              ))}
+            {ownHeld && (
+            <>
             <p className="fw-semibold mb-2" style={{ fontSize: 14 }}>
-              {t("goalDelete.ask", { amount: format(goal.totalSaved) })}
+              {t("goalDelete.ask", { amount: format(own) })}
             </p>
-            <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.ask", { amount: format(goal.totalSaved) })}>
+            <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.ask", { amount: format(own) })}>
               {(["dropped", "spent"] as const).map((value) => (
                 <button
                   key={value}
@@ -157,6 +202,8 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
               ))}
             </div>
             {tried && ending === null && <div className="small text-danger mt-2">{t("goalDelete.pickOne")}</div>}
+            </>
+            )}
 
             {ending === "spent" && (
               <div className="mt-3">
@@ -220,10 +267,13 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                   {goal.icon} {goal.name} · {format(goal.totalSaved)}
                 </strong>
               </button>
-              <button type="button" onClick={() => setStage("choose")}>
-                <span>{t("goalDelete.rowChoice")}</span>
-                <strong>{t(`goalDelete.${ending}`)}</strong>
-              </button>
+              {/* Only money of his own was asked about; a goal someone else paid in full had no such question. */}
+              {ownHeld && (
+                <button type="button" onClick={() => setStage("choose")}>
+                  <span>{t("goalDelete.rowChoice")}</span>
+                  <strong>{t(`goalDelete.${ending}`)}</strong>
+                </button>
+              )}
               {ending === "spent" && (
                 <button type="button" onClick={() => setStage("choose")}>
                   <span>{t("common.category")}</span>
@@ -240,6 +290,20 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                 <span>{t("goalDelete.theGoal")}</span>
                 <strong>{t("goalDelete.goesAway")}</strong>
               </div>
+              {refunds
+                .filter((r) => refunded[r.person])
+                .map((r) => (
+                  <Fragment key={r.person}>
+                    <div>
+                      <span>{t("goalDelete.theDebt", { who: r.person })}</span>
+                      <strong>{t("goalDelete.debtCancelled")}</strong>
+                    </div>
+                    <div>
+                      <span>{t("goalDelete.theExpense", { amount: format(r.amount) })}</span>
+                      <strong>{t("goalDelete.expenseCancelled")}</strong>
+                    </div>
+                  </Fragment>
+                ))}
               {ending === "dropped" ? (
                 <>
                   {holding.holders.map((h) => (
@@ -255,12 +319,14 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                       <strong>{t("goalDelete.backToSpendable")}</strong>
                     </div>
                   )}
-                  <div>
-                    <span>{t("goalDelete.spendable")}</span>
-                    <strong>
-                      {format(spendable)} → {format(round2(spendable + own))}
-                    </strong>
-                  </div>
+                  {ownHeld && (
+                    <div>
+                      <span>{t("goalDelete.spendable")}</span>
+                      <strong>
+                        {format(spendable)} → {format(round2(spendable + own))}
+                      </strong>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -303,7 +369,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
             {t("common.next")} ›
           </Button>
         ) : (
-          <Button color="danger" disabled={isDeleting || deleteGuard.locked || !ready || moneyLoading} onClick={() => onConfirm(ending === "spent" ? { close: closing } : {})}>
+          <Button color="danger" disabled={isDeleting || deleteGuard.locked || !ready || moneyLoading} onClick={() => onConfirm({ ...(ending === "spent" ? { close: closing } : {}), ...(calledOff.length > 0 ? { refunded: calledOff } : {}) })}>
             {isDeleting ? t("common.deleting") : t(ending === "spent" ? "goalDelete.confirmSpent" : "common.delete")}
           </Button>
         )}

@@ -32,6 +32,7 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { isSavingsGoal } from "../budget/goalKinds";
+import { useCancelCoveredDebts } from "../debts/useDebts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,10 +155,20 @@ export default function GoalsPage() {
   // Given up on: the goal and every record of it go, so money handed to
   // someone comes back to the card it left. Done: it is closed instead — the
   // closing records and the deletion in one batch, its history kept.
-  const handleDeleteGoal = (ending: GoalEnding) => {
+  const cancelCovered = useCancelCoveredDebts();
+
+  const handleDeleteGoal = async (ending: GoalEnding) => {
     if (!deleteGoal) return;
     const goal = deleteGoal;
     const failed = () => toast.error(t("goals.deleteFailed"));
+    // Called off with the goal: the debts to whoever paid it and their expenses, before it goes.
+    if (ending.refunded?.length) {
+      try {
+        await cancelCovered.mutateAsync(ending.refunded);
+      } catch {
+        return;
+      }
+    }
     if (ending.close) {
       closeGoalMutation.mutate(
         { goalId: goal.id, records: ending.close },

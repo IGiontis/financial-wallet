@@ -2,7 +2,7 @@ import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronRight, FiPlus } from "react-icons/fi";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { loanState } from "./debtsUtils";
+import { forgivenTag, loanState } from "./debtsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import styles from "./css/DebtsPage.module.css";
 
@@ -93,7 +93,7 @@ export function LoanCards({
             </button>
 
             <div className={styles.cardRight}>
-              {debt.isSettled ? <span className={styles.settledTag}>{t(debt.forgiven ? "debts.forgivenTag" : "debts.settled")}</span> : <span className={styles.cardAmount}>{formatCurrency(debt.remaining)}</span>}
+              {debt.isSettled ? <span className={styles.settledTag}>{t(debt.forgiven ? forgivenTag(debt) : "debts.settled")}</span> : <span className={styles.cardAmount}>{formatCurrency(debt.remaining)}</span>}
               {/* How much of it is gone, as the ring the one-at-a-time view draws — the
                   owner's pick over a bar — beside the button to pay. */}
               <span className={styles.cardRow}>

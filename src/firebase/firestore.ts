@@ -33,6 +33,7 @@ import type {
   UpdateBillDTO,
   BillPayment,
   CreateBillPaymentDTO,
+  DebtForgiveness,
 } from "../shared/types/IndexTypes";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 import { transferIds, type TransferRecord } from "../features/transactions/transfers";
@@ -509,7 +510,7 @@ export const createCoveredFunding = async (
   const stamp = () => ({ createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   const batch = writeBatch(db);
   batch.set(doc(db, "investmentContributions", ids.contributionId), { ...clean({ ...data.contribution, userId, debtId: ids.debtId }), ...stamp() });
-  batch.set(doc(db, "debts", ids.debtId), { ...clean({ ...data.debt, userId }), ...stamp() });
+  batch.set(doc(db, "debts", ids.debtId), { ...clean({ ...data.debt, userId, coveredExpenseId: ids.expenseId }), ...stamp() });
   batch.set(doc(db, "transactions", ids.expenseId), { ...clean({ ...data.expense, userId }), ...stamp() });
   await batch.commit();
   return ids;
@@ -755,6 +756,22 @@ export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
     ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
     updatedAt: serverTimestamp(),
   });
+};
+
+/**
+ * A debt someone took on to pay part of a goal, called off: what it paid for
+ * was cancelled and refunded to them, so nothing is owed and nothing was spent.
+ * The debt is settled as a refund and moves no money any more (its loan record
+ * goes with the sync that follows), and the expense written beside it goes —
+ * together, so the balance never sees one without the other. `expenseId` only
+ * when that expense is known to exist: deleting a missing document fails the
+ * whole batch under the rules.
+ */
+export const cancelCoveredDebt = async (debtId: string, expenseId: string | undefined, refund: DebtForgiveness) => {
+  const batch = writeBatch(db);
+  batch.update(doc(db, "debts", debtId), { accountId: deleteField(), forgiven: clean({ ...refund }), updatedAt: serverTimestamp() });
+  if (expenseId) batch.delete(doc(db, "transactions", expenseId));
+  await batch.commit();
 };
 
 /** Deleting a loan takes its repayments with it — they mean nothing alone. */

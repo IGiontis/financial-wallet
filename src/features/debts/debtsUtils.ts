@@ -36,6 +36,9 @@ export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[], now: D
   return { ...debt, payments, paid, remaining, isSettled: remaining <= 0 };
 }
 
+/** How a debt settled without being paid is named: called off for a refund, or forgiven. */
+export const forgivenTag = (debt: Pick<DebtWithStatus, "forgiven">) => (debt.forgiven?.refund ? "debts.cancelledTag" : "debts.forgivenTag");
+
 /** What letting a debt go writes: what is still owed today, the day, and the reason. */
 export function forgiveness(debt: Pick<DebtWithStatus, "remaining">, date: Date, note: string): DebtForgiveness {
   const trimmed = note.trim();

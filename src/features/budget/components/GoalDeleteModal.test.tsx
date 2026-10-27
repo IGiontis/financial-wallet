@@ -9,6 +9,9 @@ import type { InvestmentGoalWithStats, Transaction } from "../../../shared/types
 // card by card — then delete. The owner's case: 500 of the trip handed to
 // Athanasia from Eurobank, 200 kept in his own bank (Revolut).
 
+// What someone paid of a goal is read from the debts; none of these goals has any open.
+const debtList = vi.hoisted(() => ({ data: [] as unknown[] }));
+vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: debtList.data }) }));
 vi.mock("../../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
 vi.mock("../../accounts/AccountPicker", () => ({
@@ -44,6 +47,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  debtList.data = [];
   store.transactions = [mirror("m1", 500, "eurobank", "Athanasia"), mirror("m2", 200, "revolut")];
 });
 
@@ -138,5 +142,47 @@ describe("deleting a goal someone else paid part of", () => {
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete & record the expense" }));
     const { close } = onConfirm.mock.calls[0][0];
     expect(close.filter((r: { type: string }) => r.type === "expense").map((e: { amount: number }) => e.amount)).toEqual([200]);
+  });
+});
+
+describe("deleting a goal someone else paid for", () => {
+  // The ski trip: Keki paid the hotel, 180 €, and the hotel refunded him in full.
+  const covered = { id: "ski", name: "Ski", icon: "🎿", totalSaved: 180, totalCovered: 180, covered: [{ person: "Keki", amount: 180, debtIds: ["d1"] }] } as unknown as InvestmentGoalWithStats;
+  const expense = { id: "e1", userId: "u", type: "expense", amount: 180, categoryId: "other", description: "Ski", date: day, createdAt: day, updatedAt: day } as Transaction;
+
+  beforeEach(() => {
+    store.transactions = [expense];
+    debtList.data = [{ id: "d1", person: "Keki", direction: "owed_by_me", label: "Ski", amount: 180, date: day, payments: [], paid: 0, remaining: 180, isSettled: false, coveredExpenseId: "e1" }];
+  });
+
+  it("asks what became of Keki's 180, and nothing of money of his own he never put in", () => {
+    render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={vi.fn()} onClose={() => {}} />);
+    expect(screen.getByText("What became of the €180.00 Keki paid?")).toBeInTheDocument();
+    // The old question about his own money, at 0,00 €, is gone.
+    expect(screen.queryByText(/What became of the €180.00 of the goal/)).toBeNull();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+  });
+
+  it("cancelled and refunded: the debt is called off and its expense goes, said before it is done", async () => {
+    const onConfirm = vi.fn();
+    render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: /Cancelled — they got it back/ }));
+    await next();
+    expect(check()).toHaveTextContent("Debt · Kekicloses as cancelled");
+    expect(check()).toHaveTextContent("Expense €180.00goes");
+    // No money of his own: nothing was asked of it, and spendable does not move.
+    expect(check()).not.toHaveTextContent("Spendable");
+    expect(screen.queryByText("Choice")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onConfirm).toHaveBeenCalledWith({ refunded: [{ debtId: "d1", expenseId: "e1", amount: 180 }] });
+  });
+
+  it("still owed: the debt and the expense stay, and nothing is called off", async () => {
+    const onConfirm = vi.fn();
+    render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: /I still owe it/ }));
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onConfirm).toHaveBeenCalledWith({});
   });
 });

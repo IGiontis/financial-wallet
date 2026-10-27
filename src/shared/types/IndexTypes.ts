@@ -750,6 +750,12 @@ export interface DebtForgiveness {
   /** What was still owed when it was forgiven. */
   amount: number;
   note?: string;
+  /**
+   * Not forgiven but called off: what it paid for was cancelled and the money
+   * went back to the one who lent it — the hotel refunded the friend who paid
+   * it. Settled the same way; said «Ακυρώθηκε», not «Χαρίστηκε».
+   */
+  refund?: boolean;
 }
 
 export interface Debt {
@@ -808,6 +814,11 @@ export interface Debt {
   accountId?: string;
   /** The goal this debt paid for a part of, if it did — see `InvestmentContribution.coveredBy`. */
   forGoalId?: string;
+  /**
+   * The expense written with this debt when someone paid part of a goal (see
+   * `createCoveredFunding`) — so calling it off can take that expense back.
+   */
+  coveredExpenseId?: string;
   /** Let go of — see `DebtForgiveness`. Nothing is owed from its date on. */
   forgiven?: DebtForgiveness;
   createdAt: Date;
