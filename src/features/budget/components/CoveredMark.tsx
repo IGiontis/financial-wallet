@@ -5,17 +5,20 @@ import { toneChip } from "../../../shared/utils/tone";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useDebts } from "../../debts/useDebts";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
+import styles from "./css/CoveredMark.module.css";
 
 /**
  * «⚠ 550 € χρέος · Νίκος» — on a goal that someone else paid part of: a small
  * yellow warning, since it is money still owed on a goal that reads as funded.
+ * As a chip in lists; on the goal's card plain words beside the ring
+ * (`variant="text"`), a link and nothing around it.
  *
  * The goal reads as funded, because it is; this is the one thing that says what
  * it cost you to get there. It shows what is still owed, so it shrinks as the
  * debt is paid back, and goes when it is cleared — or when the debt itself is
  * gone. Tapping it goes to the debts.
  */
-export function CoveredMark({ goal, compact = false }: { goal: Pick<InvestmentGoalWithStats, "covered">; compact?: boolean }) {
+export function CoveredMark({ goal, compact = false, variant = "chip" }: { goal: Pick<InvestmentGoalWithStats, "covered">; compact?: boolean; variant?: "chip" | "text" }) {
   const { t } = useTranslation();
   const { format } = useCurrencyConverter();
   const { data: debts } = useDebts();
@@ -30,6 +33,18 @@ export function CoveredMark({ goal, compact = false }: { goal: Pick<InvestmentGo
     })
     .filter((c) => c.owed > 0.005);
   if (open.length === 0) return null;
+
+  if (variant === "text")
+    return (
+      <span className="d-flex flex-column gap-1">
+        {open.map((c) => (
+          <Link key={c.person} to="/debts" onClick={(event) => event.stopPropagation()} title={t("goalWizard.coveredMarkOpen")} className={styles.text}>
+            <FiAlertTriangle aria-hidden />
+            {t("goalWizard.coveredMark", { amount: format(c.owed), who: c.person })}
+          </Link>
+        ))}
+      </span>
+    );
 
   return (
     <span className={compact ? "d-flex flex-wrap gap-1" : "d-flex flex-column gap-1"}>

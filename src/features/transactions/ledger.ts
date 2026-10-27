@@ -45,6 +45,8 @@ export interface LedgerCategory {
   count: number;
   /** Of the side's total, 0–1. */
   share: number;
+  /** The records behind it, newest first — what a tap on the category lists. */
+  rows: LedgerRow[];
 }
 
 export interface Ledger {
@@ -84,17 +86,18 @@ function signOf(tx: Transaction): 1 | -1 {
 const isMove = (tx: Transaction) => isMoneyMove(tx) || (isTransfer(tx) && tx.contributionType !== "withdrawal");
 
 function categories(rows: LedgerRow[], pick: (row: LedgerRow) => boolean): LedgerCategory[] {
-  const by = new Map<string, { amount: number; count: number }>();
+  const by = new Map<string, { amount: number; rows: LedgerRow[] }>();
   for (const row of rows) {
     if (!pick(row)) continue;
-    const entry = by.get(row.tx.categoryId) ?? { amount: 0, count: 0 };
+    const entry = by.get(row.tx.categoryId) ?? { amount: 0, rows: [] };
     entry.amount += row.amount;
-    entry.count += 1;
+    entry.rows.push(row);
     by.set(row.tx.categoryId, entry);
   }
   const total = [...by.values()].reduce((sum, e) => sum + e.amount, 0);
   return [...by.entries()]
-    .map(([categoryId, e]) => ({ categoryId, amount: round2(e.amount), count: e.count, share: total > 0 ? e.amount / total : 0 }))
+    // `rows` arrive oldest first, as the running net is counted.
+    .map(([categoryId, e]) => ({ categoryId, amount: round2(e.amount), count: e.rows.length, share: total > 0 ? e.amount / total : 0, rows: e.rows.reverse() }))
     .sort((a, b) => b.amount - a.amount);
 }
 

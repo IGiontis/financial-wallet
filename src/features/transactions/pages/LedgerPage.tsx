@@ -13,7 +13,8 @@ import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { accountOf, mainAccount } from "../../accounts/accountsUtils";
 import { useLoadMore } from "../../../shared/hooks/useLoadMore";
 import TransactionViewModal from "../components/TransactionsViewModal";
-import { buildLedger, type LedgerKind, type LedgerRow } from "../ledger";
+import LedgerCategoryModal from "../components/LedgerCategoryModal";
+import { buildLedger, type LedgerCategory, type LedgerKind, type LedgerRow } from "../ledger";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Ledger.module.css";
 
@@ -68,6 +69,8 @@ export function LedgerPage() {
   const categoryIds = categoryNames.find((c) => c.name === category)?.ids;
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<Transaction | null>(null);
+  // A line of «Πού πήγαν» / «Από πού ήρθαν» opened out, with the colour of its side.
+  const [openedCategory, setOpenedCategory] = useState<{ entry: LedgerCategory; tone: string } | null>(null);
 
   const [now] = useState(() => new Date());
   const { from, to } = useMemo(() => {
@@ -88,15 +91,17 @@ export function LedgerPage() {
     [span, from, lang],
   );
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short" }), [lang]);
+  // A category's records on one line each: the day without its weekday.
+  const shortDayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
   const timeFmt = useMemo(() => new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }), [lang]);
 
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${format(Math.abs(n))}`;
   const tone = (n: number) => (n > 0 ? "var(--color-income-text)" : n < 0 ? "var(--color-expense-text)" : undefined);
-  const nameOf = (tx: Transaction) => {
-    if (tx.isGoalTransaction) return { icon: "🎯", name: categoryLabel("Goal", t) };
-    const category = findCategory(categories, tx.categoryId);
+  const categoryOf = (categoryId: string) => {
+    const category = findCategory(categories, categoryId);
     return { icon: category?.icon ?? "•", name: category ? categoryLabel(category.name, t) : t("analytics.unknownCategory") };
   };
+  const nameOf = (tx: Transaction) => (tx.isGoalTransaction ? { icon: "🎯", name: categoryLabel("Goal", t) } : categoryOf(tx.categoryId));
   const cardOf = (tx: Transaction) => accounts.find((a) => a.id === accountOf(tx, accounts, main))?.name;
 
   // A change of what is shown starts the list from the top again.
@@ -145,17 +150,15 @@ export function LedgerPage() {
     );
   };
 
-  const categoryList = (title: string, list: typeof ledger.spending, color: string) =>
+  const categoryList = (title: string, list: typeof ledger.spending, color: string, tone: string) =>
     list.length > 0 && (
       <section className={styles.catSection}>
         <h2 className={styles.sideTitle}>{title}</h2>
         {list.slice(0, 8).map((c) => {
-          const { icon, name } = (() => {
-            const category = findCategory(categories, c.categoryId);
-            return { icon: category?.icon ?? "•", name: category ? categoryLabel(category.name, t) : t("analytics.unknownCategory") };
-          })();
+          const { icon, name } = categoryOf(c.categoryId);
           return (
-            <div key={c.categoryId} className={styles.cat}>
+            // A tap lists the records behind the line.
+            <button key={c.categoryId} type="button" className={styles.cat} onClick={() => setOpenedCategory({ entry: c, tone })}>
               <div className={styles.catHead}>
                 <span className="text-truncate">
                   {icon} {name} <span className={styles.catCount}>· {c.count}</span>
@@ -165,7 +168,7 @@ export function LedgerPage() {
               <div className={styles.catTrack}>
                 <span style={{ width: `${Math.max(c.share * 100, 2)}%`, background: color }} />
               </div>
-            </div>
+            </button>
           );
         })}
       </section>
@@ -315,12 +318,26 @@ export function LedgerPage() {
         </div>
 
         <aside className={styles.side}>
-          {categoryList(t("ledger.whereOut"), ledger.spending, "var(--color-expense)")}
-          {categoryList(t("ledger.whereIn"), ledger.earning, "var(--color-income)")}
+          {categoryList(t("ledger.whereOut"), ledger.spending, "var(--color-expense)", "var(--color-expense-text)")}
+          {categoryList(t("ledger.whereIn"), ledger.earning, "var(--color-income)", "var(--color-income-text)")}
         </aside>
       </div>
 
-      {/* To look at only: no Edit, no Delete. */}
+      {openedCategory && (
+        <LedgerCategoryModal
+          {...categoryOf(openedCategory.entry.categoryId)}
+          entry={openedCategory.entry}
+          period={periodLabel}
+          tone={openedCategory.tone}
+          formatCurrency={format}
+          dayFmt={shortDayFmt}
+          cardOf={cardOf}
+          onOpen={setViewing}
+          onClose={() => setOpenedCategory(null)}
+        />
+      )}
+
+      {/* To look at only: no Edit, no Delete. Over the category's list, when opened from it. */}
       {viewing && <TransactionViewModal transaction={viewing} categories={categories} formatCurrency={format} onClose={() => setViewing(null)} />}
     </PageShell>
   );

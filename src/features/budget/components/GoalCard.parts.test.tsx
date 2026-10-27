@@ -50,10 +50,12 @@ const renderCard = (goal = SKI) =>
   );
 
 describe("a goal card", () => {
-  it("puts its money in the three boxes: put in, the total, what is left", () => {
+  it("puts its money in the three boxes: put in, what is left, the total", () => {
     const { container } = renderCard();
-    const box = (label: string) => screen.getByText(label).parentElement!.firstElementChild!.textContent;
-    expect([box("put in"), box("total"), box("left")]).toEqual(["€280.00", "€690.00", "€410.00"]);
+    const box = (label: string) => screen.getByText(label).previousElementSibling!.textContent;
+    expect([box("put in"), box("left"), box("total")]).toEqual(["€280.00", "€410.00", "€690.00"]);
+    // In that order on the card, left to right.
+    expect([...container.querySelectorAll("p")].map((p) => p.textContent).filter((x) => ["put in", "left", "total"].includes(x ?? ""))).toEqual(["put in", "left", "total"]);
     // A second way: what is left is the whole less what is in.
     expect(690 - 280).toBe(410);
     // And no figure beside the ring: the status alone.

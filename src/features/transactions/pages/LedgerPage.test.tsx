@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../../i18n";
@@ -50,5 +50,22 @@ describe("the ledger page", () => {
     expect(screen.getByText("Odd job")).toBeInTheDocument();
     expect(screen.getByText("Gift")).toBeInTheDocument();
     expect(screen.queryByText("Groceries")).toBeNull();
+  });
+
+  it("a line of «Where it went» opens the records behind it, with its total", async () => {
+    render(
+      <MemoryRouter>
+        <LedgerPage />
+      </MemoryRouter>,
+    );
+    const whereOut = screen.getByRole("heading", { name: "Where it went" }).parentElement!;
+    await userEvent.click(within(whereOut).getByRole("button", { name: /Food/ }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText("1 record · October 2026")).toBeInTheDocument();
+    expect(within(sheet).getByText("€50.00", { selector: "strong" })).toBeInTheDocument();
+    expect(within(sheet).getByText("Groceries")).toBeInTheDocument();
+    // Only the food: the gift is another category, the odd job money in.
+    expect(within(sheet).queryByText("Gift")).toBeNull();
+    expect(within(sheet).queryByText("Odd job")).toBeNull();
   });
 });

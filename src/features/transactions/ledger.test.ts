@@ -80,6 +80,26 @@ describe("the ledger of a month", () => {
     expect(ledger.spending.reduce((s, c) => s + c.share, 0)).toBeCloseTo(1, 10);
     expect(ledger.earning.map((c) => c.categoryId)).toEqual(["salary", "food"]);
   });
+
+  it("keeps each category's records — only the counted ones, newest first, adding up to its figure", () => {
+    // «food» out is the supermarket alone: the transfer and the goal deposit carry the same category but are moves.
+    const food = ledger.spending.find((c) => c.categoryId === "food")!;
+    expect(food.rows.map((r) => r.tx.description)).toEqual(["Σούπερ μάρκετ"]);
+    // «food» in is the 30 back from the goal, not the supermarket.
+    expect(ledger.earning.find((c) => c.categoryId === "food")!.rows.map((r) => r.tx.description)).toEqual(["Από στόχο"]);
+    // A second way: every category's rows sum to its amount and number its count, and the side's rows to its total.
+    for (const c of [...ledger.spending, ...ledger.earning]) {
+      expect(c.rows.reduce((s, r) => s + r.amount, 0)).toBeCloseTo(c.amount, 10);
+      expect(c.rows).toHaveLength(c.count);
+    }
+    expect(ledger.spending.flatMap((c) => c.rows).reduce((s, r) => s + r.amount, 0)).toBe(ledger.out);
+    // Newest first: two coffees a day apart list the later one on top.
+    const two = buildLedger(
+      [tx({ categoryId: "coffee", amount: 2, description: "first", date: at(2, 9), createdAt: at(2, 9) }), tx({ categoryId: "coffee", amount: 3, description: "second", date: at(4, 9), createdAt: at(4, 9) })],
+      OCT,
+    );
+    expect(two.spending[0].rows.map((r) => r.tx.description)).toEqual(["second", "first"]);
+  });
 });
 
 describe("narrowing it", () => {

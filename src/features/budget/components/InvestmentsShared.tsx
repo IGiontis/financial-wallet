@@ -5,8 +5,9 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { FiCalendar, FiEye } from "react-icons/fi";
-import { Fragment, useState } from "react";
+import { FiCalendar, FiClock, FiDatabase, FiEye, FiTarget } from "react-icons/fi";
+import type { IconType } from "react-icons";
+import { Fragment, useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   Badge,
@@ -82,7 +83,13 @@ function ProgressRing({ pct, accent, centre }: { pct: number; accent: string; ce
 // Three of these along the bottom, divided by rules rather than boxed. Boxes
 // give every figure the same weight; rules let the numbers themselves carry it.
 
-function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+interface FigureProps {
+  label: string;
+  value: string;
+  tone?: string;
+}
+
+function Figure({ label, value, tone }: FigureProps) {
   return (
     <div style={{ flex: 1, minWidth: 0, padding: "9px 6px", textAlign: "center" }}>
       <p
@@ -105,6 +112,28 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: s
 }
 
 const FIGURE_DIVIDER = <div style={{ width: 1, background: "var(--color-border-tertiary)", alignSelf: "stretch" }} />;
+
+// ─── Money tile ───────────────────────────────────────────────────────────────
+// A goal to reach once shows its money as three soft tiles — put in, left, the
+// whole — each in a wash of its own colour with its icon above the figure.
+
+interface MoneyTileProps {
+  label: string;
+  value: string;
+  icon: IconType;
+  /** The tile's colour, a CSS colour: its wash and its icon. */
+  color: string;
+}
+
+function MoneyTile({ label, value, icon: Icon, color }: MoneyTileProps) {
+  return (
+    <div className={styles.tile} style={{ "--tile": color } as CSSProperties}>
+      <Icon className={styles.tileIcon} aria-hidden />
+      <p className={styles.tileValue}>{value}</p>
+      <p className={styles.tileLabel}>{label}</p>
+    </div>
+  );
+}
 
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
 
@@ -224,7 +253,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   // ── The three figures along the foot ───────────────────────────────────────
   const lastMoveValue = quietDays === undefined ? i18n.t("goals.neverShort") : i18n.t("goals.daysShort", { count: quietDays });
 
-  const figures: { label: string; value: string; tone?: string }[] = isRecurring
+  const figures: FigureProps[] = isRecurring
     ? hasDebt
       ? [
           { label: i18n.t(isYearly ? "goals.yearsBehindCount" : "goals.monthsBehindCount", { count: missedMonths }), value: String(missedMonths), tone: "var(--color-expense-text)" },
@@ -288,14 +317,16 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   // A goal to reach once, with its amount: what is in it, of the whole, and what that leaves.
   // The card read top to bottom: the ring, with what to do about it and what it
   // asks a month and a week beside it; when it is due; and its money in three boxes —
-  // put in, the whole, what is left. Its figures used to share a line with
-  // their «από» and «μένουν» and wrapped into prose on a narrow card.
+  // put in, what is left, the whole. Its figures used to share a line with
+  // their «από» and «μένουν» and wrapped into prose on a narrow card. Each is a
+  // tile of its own colour — green what is in, blue what is left (green once
+  // nothing is), violet the whole — so they catch the eye before they are read.
   const reachOnce = !isRecurring && isTargetedGoal && !!goal.targetAmount;
-  const moneyBoxes = reachOnce
+  const moneyTiles: MoneyTileProps[] | undefined = reachOnce
     ? [
-        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved) },
-        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0) },
-        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), tone: remaining <= 0 ? "var(--color-income-text)" : undefined },
+        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved), icon: FiDatabase, color: "var(--color-income)" },
+        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), icon: FiClock, color: remaining <= 0 ? "var(--color-income)" : "var(--bs-primary)" },
+        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0), icon: FiTarget, color: "var(--color-invest)" },
       ]
     : undefined;
   const askLines =
@@ -433,9 +464,9 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
               </>
             )}
             {note && <p style={{ margin: reachOnce ? 0 : "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
-            {/* What someone else paid and is still owed to them: with the card's other words, above the figures. */}
+            {/* What someone else paid and is still owed to them: a line of words beside the ring, above the figures. */}
             <div style={{ marginTop: note ? 6 : 0 }}>
-              <CoveredMark goal={goal} />
+              <CoveredMark goal={goal} variant="text" />
             </div>
             {/* What it asks a month and a week, beside the ring where there is room — the card stays short. */}
             {askLines.length > 0 && (
@@ -458,31 +489,32 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             squeezed into the column beside the ring. Last in the body and
             pushed to its foot, so a card stretched to its row's height keeps
             the room above the date rather than an empty band under it. */}
-        <div style={{ marginTop: "auto" }}>
-          <p className={styles.infoLine}>
-            <span className="d-flex align-items-center gap-2">
-              {!isRecurring && deadlineDate && <FiCalendar size={13} aria-hidden style={{ flexShrink: 0 }} />}
-              {bandSubtitle}
-            </span>
-          </p>
-        </div>
+        <p className={styles.deadline} style={{ marginTop: "auto" }}>
+          {!isRecurring && deadlineDate && <FiCalendar aria-hidden />}
+          <span>{bandSubtitle}</span>
+        </p>
+
+        {/* ── Its money: three tiles ───────────────────────────────────────── */}
+        {moneyTiles && (
+          <div className={styles.tiles}>
+            {moneyTiles.map((tile) => (
+              <MoneyTile key={tile.label} {...tile} />
+            ))}
+          </div>
+        )}
       </CardBody>
 
       {/* ── Three figures, divided by rules ───────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          borderTop: "1px solid var(--color-border-tertiary)",
-          background: "color-mix(in srgb, var(--color-text-primary) 3%, transparent)",
-        }}
-      >
-        {(moneyBoxes ?? figures).map((figure, index) => (
-          <Fragment key={figure.label}>
-            {index > 0 && FIGURE_DIVIDER}
-            <Figure {...figure} />
-          </Fragment>
-        ))}
-      </div>
+      {!moneyTiles && (
+        <div style={{ display: "flex", borderTop: "1px solid var(--color-border-tertiary)", background: "color-mix(in srgb, var(--color-text-primary) 3%, transparent)" }}>
+          {figures.map((figure, index) => (
+            <Fragment key={figure.label}>
+              {index > 0 && FIGURE_DIVIDER}
+              <Figure {...figure} />
+            </Fragment>
+          ))}
+        </div>
+      )}
 
       {/* ── Actions ───────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "11px 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
