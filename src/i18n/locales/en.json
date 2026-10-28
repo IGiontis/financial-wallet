@@ -264,7 +264,11 @@
     "heroLessGoals": "Held for goals",
     "heroMonthIn": "in",
     "heroMonthOut": "out",
-    "heroThisMonth": "This month"
+    "heroThisMonth": "This month",
+    "pathLabel": "Your money until payday. Lowest: {{amount}} on {{date}}.",
+    "pathToday": "today",
+    "pathLow": "low {{amount}} · {{date}}",
+    "pathPay": "payday"
   },
   "bills": {
     "title": "Bills",
@@ -2815,5 +2819,98 @@
     "saved": "Saved: {{name}} {{amount}}",
     "amount": "Amount",
     "category": "Category"
+  },
+  "tour": {
+    "next": "Next",
+    "start": "Let's go",
+    "skip": "Skip",
+    "progress": "Step {{step}} of {{count}}",
+    "settingsTitle": "Tour",
+    "settingsSubtitle": "A quick look at what the app does",
+    "settingsButton": "Take the tour again",
+    "welcome": {
+      "title": "Welcome to MyFiWallet",
+      "body": "All your money in one place: what comes in, what goes out, what is due and what you are saving. A look round in a minute."
+    },
+    "quick": {
+      "title": "An expense in two taps",
+      "body": "The «+» at the bottom right is on every page. It learns your usual ones, like coffee or groceries, by itself."
+    },
+    "transactions": {
+      "title": "Transactions & ledger",
+      "body": "Every record, day by day. The ledger shows where the money went and where it came from, by category."
+    },
+    "bills": {
+      "title": "Bills",
+      "body": "Electricity, water, rent, subscriptions. It reminds you before they are due, and you tap «Paid» when you pay."
+    },
+    "incomes": {
+      "title": "Income",
+      "body": "Salary, rent, benefits. Tap «Arrived» when they come in, and always know what you are still waiting for."
+    },
+    "goals": {
+      "title": "Goals",
+      "body": "Put money aside for a trip or a home. See what is in, what is left and what it needs a month."
+    },
+    "banks": {
+      "title": "Banks & cash",
+      "body": "Type the balance your bank shows and the app shows the difference from what you have recorded. Half a minute, when you are in a hurry."
+    },
+    "planner": {
+      "title": "Planner",
+      "body": "What you will have by the end of the month, with what is due and what will come in. Ready — let's go!"
+    },
+    "demo": {
+      "in": "In",
+      "out": "Out",
+      "net": "Net",
+      "coffee": "Coffee",
+      "market": "Groceries",
+      "fuel": "Fuel",
+      "today": "Today",
+      "power": "Electricity",
+      "water": "Water",
+      "rent": "Rent",
+      "lateBy": "overdue 2 days",
+      "inDays": "in 3 days",
+      "paid": "paid",
+      "salary": "Salary",
+      "onThe30th": "on the 30th",
+      "came": "Arrived",
+      "rentIn": "Rent I collect",
+      "waiting": "on its way",
+      "trip": "Trip",
+      "perMonth": "A month",
+      "cash": "Cash",
+      "unlogged": "Not recorded",
+      "monthEnd": "At the end of the month",
+      "etf": "World ETF",
+      "monthly": "€100 every month",
+      "crypto": "Bitcoin",
+      "gain": "Gain so far",
+      "carLoan": "Car loan",
+      "loanRate": "6.5% · 48 payments",
+      "owesMe": "Maria",
+      "dueBy": "owes you · by 30 Nov",
+      "netDebt": "Net",
+      "calOut": "money out",
+      "calIn": "money in"
+    },
+    "stats": {
+      "title": "Statistics",
+      "body": "Where your money goes by category and by month, and how you are doing against before."
+    },
+    "calendar": {
+      "title": "Calendar",
+      "body": "The whole month at a glance: what is paid and what comes in each day. Tap a day to see what is on it."
+    },
+    "investments": {
+      "title": "Investments",
+      "body": "ETFs, shares, crypto: what you put in, what it is worth now, and your gain or loss."
+    },
+    "debts": {
+      "title": "Debts & loans",
+      "body": "What you owe and what you are owed: loans with interest, money from friends. Record each payment and see what is left."
+    }
   }
 }

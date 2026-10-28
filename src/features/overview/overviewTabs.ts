@@ -98,6 +98,12 @@ export interface PaydayOutlook {
   breaksAt?: string;
   /** What is left per day of the window, never below zero. */
   perDay: number;
+  /**
+   * The money day by day, from today to the last day before pay day — and pay
+   * day itself, with the pay landed, when one is planned (`pay`). The same
+   * walk as `left` and `lowest`, so the line and the figures agree.
+   */
+  path: { date: Date; balance: number; pay?: boolean }[];
 }
 
 /**
@@ -133,9 +139,15 @@ export function paydayOutlook(plan: PlanWalk, now: Date): PaydayOutlook {
   let lowest = plan.openingBalance;
   let breaksOn: Date | undefined;
   let breaksAt: string | undefined;
+  const path: PaydayOutlook["path"] = [];
 
   for (const point of plan.points) {
-    if (point.date.getTime() >= endExclusive) break;
+    if (point.date.getTime() >= endExclusive) {
+      // Pay day: the one point past the window, to show the pay landing.
+      if (nextPay && startOfDay(point.date).getTime() === nextPay.getTime()) path.push({ date: point.date, balance: round(point.balance), pay: true });
+      break;
+    }
+    path.push({ date: point.date, balance: round(point.balance) });
     for (const event of point.events) {
       if (event.amount >= 0) incoming += event.amount;
       else if (event.kind === "bill") bills -= event.amount;
@@ -169,6 +181,7 @@ export function paydayOutlook(plan: PlanWalk, now: Date): PaydayOutlook {
     breaksOn,
     breaksAt,
     perDay: left > 0 ? Math.floor((left / days) * 100) / 100 : 0,
+    path,
   };
 }
 

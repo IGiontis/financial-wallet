@@ -1,0 +1,420 @@
+/* The welcome tour — see WelcomeTour.tsx — and its drawings of the pages (TourPreviews.tsx). */
+
+/* ── The card ── */
+
+.step {
+  text-align: center;
+}
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+  font-size: 1.375rem;
+}
+
+.title {
+  margin: 0 0 0.375rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.body {
+  margin: 0 auto 1rem;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* Where it is: a dot a step. */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 1rem;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-border-primary);
+  cursor: pointer;
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.dotOn {
+  width: 1.25rem;
+  border-radius: 999px;
+  background: var(--bs-primary);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.footer > div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ── The drawings ── */
+
+.preview {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  min-height: 9.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+  text-align: left;
+  font-size: 0.8125rem;
+  /* A drawing: nothing in it is pressed. */
+  pointer-events: none;
+  user-select: none;
+}
+
+.in {
+  color: var(--color-income-text);
+}
+
+.out,
+.late {
+  color: var(--color-expense-text);
+}
+
+.soon {
+  color: var(--color-goal-text);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  text-align: center;
+  min-width: 0;
+}
+
+.tile small {
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+}
+
+.tile b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tileIn,
+.tileLeft,
+.tileAll {
+  background: color-mix(in srgb, var(--tone) var(--tone-wash), var(--color-surface));
+}
+
+.tileIn {
+  --tone: var(--color-income);
+}
+
+.tileLeft {
+  --tone: var(--bs-primary);
+}
+
+.tileAll {
+  --tone: var(--color-invest);
+}
+
+.tileIn svg,
+.tileLeft svg,
+.tileAll svg {
+  color: var(--tone);
+}
+
+.bar {
+  display: flex;
+  height: 0.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barOut {
+  background: var(--color-expense);
+}
+
+.barIn {
+  background: var(--color-income);
+}
+
+.line,
+.incomeRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.incomeRow {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.lineIcon {
+  display: grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: var(--color-background-secondary);
+}
+
+.lineIcon.late {
+  background: var(--expense-wash-strong);
+}
+
+.lineIcon.soon {
+  background: var(--goal-wash-strong);
+}
+
+.lineText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lineText b,
+.lineText small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineText small {
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+}
+
+.lineAmount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cameButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-income);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dayHead,
+.gap {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gap {
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.gap span {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.catBar {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.catBar i {
+  display: block;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--color-expense);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.chip {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.75rem;
+}
+
+.chipOn {
+  border-color: var(--bs-primary);
+  color: var(--color-link);
+  font-weight: 600;
+}
+
+.amount {
+  padding: 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.relative {
+  padding-bottom: 3.25rem;
+}
+
+.fab {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: #fff;
+  font-size: 1.25rem;
+}
+
+.goalTop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ring {
+  transform: rotate(-90deg);
+  flex-shrink: 0;
+}
+
+.ringTrack {
+  stroke: var(--goal-wash-strong);
+}
+
+.ringFill {
+  stroke: var(--color-goal);
+}
+
+.ringPct {
+  position: absolute;
+  left: 0;
+  width: 64px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.planner {
+  width: 100%;
+  height: 5rem;
+}
+
+.planner polyline {
+  stroke: var(--bs-primary);
+}
+
+/* A month on the calendar card: seven to a row, a dot for a day with money on it. */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.1875rem;
+}
+
+.calDay {
+  position: relative;
+  padding: 0.1875rem 0 0.375rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-surface);
+  font-size: 0.6875rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.calToday {
+  outline: 1.5px solid var(--bs-primary);
+}
+
+.calIn,
+.calOut {
+  position: absolute;
+  left: 50%;
+  bottom: 0.125rem;
+  width: 0.3125rem;
+  height: 0.3125rem;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.calIn {
+  background: var(--color-income);
+}
+
+.calOut {
+  background: var(--color-expense);
+}
+
+/* What the dots mean, under the month. */
+.calLegend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.calLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.calLegend i {
+  position: static;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    transition: none;
+  }
+}

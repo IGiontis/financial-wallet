@@ -153,6 +153,28 @@ describe("paydayOutlook", () => {
     expect(plan(1000).points.find((p) => p.date.getTime() === new Date(2026, 9, 19).getTime())?.balance).toBe(Math.round((expected + 1450) * 100) / 100);
   });
 
+  it("draws the money day by day to pay day, agreeing with every figure beside it", () => {
+    const outlook = paydayOutlook(plan(1000), TODAY);
+    const { path } = outlook;
+    // The ten days of the window, the 10th to the 19th, and pay day after them.
+    expect(path.map((p) => p.date.getDate())).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+    expect(path.map((p) => !!p.pay)).toEqual([...Array(10).fill(false), true]);
+    // The last day before pay is «what is left»; the lowest of them is «lowest».
+    const before = path.filter((p) => !p.pay);
+    expect(before.at(-1)!.balance).toBe(outlook.left);
+    expect(Math.min(...before.map((p) => p.balance))).toBe(outlook.lowest);
+    // A second way: the water's day, by hand — 1000 less three days of food and 68,40.
+    expect(path[2].balance).toBe(Math.round((1000 - 30 - 68.4) * 100) / 100);
+    // Pay day: the pay landed on the eve's money, less the day's food.
+    expect(path.at(-1)!.balance).toBe(Math.round((outlook.left + 1450 - 10) * 100) / 100);
+  });
+
+  it("draws to the month's end and no pay day when none is planned", () => {
+    const { path } = paydayOutlook(plan(1000, false), TODAY);
+    expect(path).toHaveLength(21);
+    expect(path.some((p) => p.pay)).toBe(false);
+  });
+
   it("names the day it goes under, and the bill that did it", () => {
     const outlook = paydayOutlook(plan(50), TODAY);
     // 50 − 3 × 10 = 20 on the 12th before the water, then − 68,40.

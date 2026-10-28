@@ -6,6 +6,8 @@ import { FiAlertCircle, FiAlertTriangle } from "react-icons/fi";
 import { hasUnseenAlert, reachFor, reachParts, type BillAlert } from "./billAlerts";
 import { BILL_ALERTS_SETTINGS, useBillAlerts } from "./useBillAlerts";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { TOUR_PARAM, TOUR_SEEN_KEY } from "../tour/tourState";
 import styles from "./css/BillAlertPopup.module.css";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -28,16 +30,19 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function BillAlertPopup() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { format } = useCurrencyConverter();
   const [now] = useState(() => new Date());
   const { loaded, enabled, reach, byBill, alerts, seen, setSeen } = useBillAlerts(now);
   const [closed, setClosed] = useState(false);
   const [putAway, setPutAway] = useState(false);
+  // After the welcome tour, never over it: on a first visit it is the tour's turn.
+  const [tourSeen] = useWorkspaceSetting(TOUR_SEEN_KEY, false);
+  const touring = !tourSeen || new URLSearchParams(search).get(TOUR_PARAM) === "1";
 
   // Not before the account's own list has arrived: this device's copy could be missing what another put away.
   // Nor over the settings, where its own are being changed — it waits for the next page.
-  const open = !closed && enabled && loaded && !pathname.startsWith("/settings") && hasUnseenAlert(alerts, seen);
+  const open = !closed && enabled && loaded && !touring && !pathname.startsWith("/settings") && hasUnseenAlert(alerts, seen);
 
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const money = (alert: BillAlert) => `${alert.approximate ? "≈" : ""}${format(alert.amount)}`;

@@ -11,6 +11,7 @@ import { AppFooter } from "./AppFooter";
 import { LoadErrorBar } from "../../shared/components/LoadErrorBar";
 import { BillAlertPopup } from "../bills/BillAlertPopup";
 import { QuickExpense } from "../transactions/components/QuickExpense";
+import { TourGate } from "../tour/TourGate";
 
 /** Below Bootstrap's `lg` the sidebar is a drawer behind ☰; from it up, a fixed bar. */
 const DRAWER_QUERY = "(max-width: 991.98px)";
@@ -119,6 +120,8 @@ export function MainLayout() {
       <BillAlertPopup />
       {/* The «+» for an expense as it is paid, on every page. */}
       <QuickExpense />
+      {/* The welcome tour, once — and again when the settings ask. */}
+      <TourGate />
     </div>
   );
 }

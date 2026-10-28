@@ -13,6 +13,7 @@ import ResetDataSection from "../components/ResetDataSection";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import StatementSection from "../components/StatementSection";
 import BillAlertSetting from "../components/BillAlertSetting";
+import { TOUR_PARAM } from "../../tour/tourState";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
@@ -516,6 +517,14 @@ export function SettingsPage() {
                   the sidebar and top bar change behind the card. */}
               <Section title={t("settings.navStyle")} subtitle={t("settings.navStyleSubtitle")} fill>
                 <NavStylePicker />
+              </Section>
+            </Col>
+            <Col xs={12}>
+              {/* ── The welcome tour, again ───────────────────────────────────── */}
+              <Section title={t("tour.settingsTitle")} subtitle={t("tour.settingsSubtitle")} fill>
+                <Button color="primary" outline onClick={() => navigate(`/?${TOUR_PARAM}=1`)}>
+                  {t("tour.settingsButton")}
+                </Button>
               </Section>
             </Col>
             <Col xs={12}>

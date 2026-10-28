@@ -6,6 +6,7 @@ import { FiCheckCircle, FiXCircle } from "react-icons/fi";
 import { Skeleton } from "../../../shared/components/Skeletons";
 import type { PaydayOutlook } from "../overviewTabs";
 import { OUTGOING_COLOURS } from "./paydayParts";
+import { PaydayPath } from "./PaydayPath";
 import styles from "../pages/css/OverviewPage.module.css";
 
 type Money = (n: number) => string;
@@ -94,6 +95,9 @@ export function PaydayAnswer({ outlook, now, formatCurrency, locale }: { outlook
       ) : (
         <ShortSum outlook={outlook} formatCurrency={formatCurrency} dayDate={dayDate} />
       )}
+
+      {/* The money day by day to pay day: where it dips, and the pay landing. */}
+      <PaydayPath path={outlook.path} formatCurrency={formatCurrency} dayDate={dayDate} />
     </>
   );
 }

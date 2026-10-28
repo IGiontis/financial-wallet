@@ -30,7 +30,8 @@ beforeAll(async () => {
 });
 afterAll(() => vi.useRealTimers());
 beforeEach(() => {
-  settings.values = {};
+  // The welcome tour already seen: the popup's turn.
+  settings.values = { "tour-seen": true };
   settings.writes = [];
 });
 
@@ -54,7 +55,7 @@ describe("the bills popup", () => {
   });
 
   it("says the money is needed now when every one has gone — not by the oldest deadline", () => {
-    settings.values = { "bill-alerts-reach": "1d" }; // the water off: only the late electricity
+    settings.values = { "tour-seen": true, "bill-alerts-reach": "1d" }; // the water off: only the late electricity
     renderPopup();
     expect(screen.getByText("You need now")).toBeInTheDocument();
     expect(screen.queryByText(/You need by/)).toBeNull();
@@ -74,18 +75,18 @@ describe("the bills popup", () => {
   });
 
   it("stays away once they are put away, and when switched off", () => {
-    settings.values = { "bill-alerts-seen": billAlerts(BILLS, NOW).map((a) => a.key) };
+    settings.values = { "tour-seen": true, "bill-alerts-seen": billAlerts(BILLS, NOW).map((a) => a.key) };
     const { unmount } = renderPopup();
     expect(screen.queryByRole("dialog")).toBeNull();
     unmount();
 
-    settings.values = { "bill-alerts": false };
+    settings.values = { "tour-seen": true, "bill-alerts": false };
     renderPopup();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("leaves out the bills switched off in the settings", () => {
-    settings.values = { "bill-alerts-off": ["power"] };
+    settings.values = { "tour-seen": true, "bill-alerts-off": ["power"] };
     renderPopup();
     expect(screen.queryByText("ΔΕΗ")).toBeNull();
     expect(screen.getByText("Νερό")).toBeInTheDocument();
@@ -99,20 +100,20 @@ describe("the bills popup", () => {
 
   it("takes a bill's own reach over the general one", () => {
     // The water on one day: it goes, though the rest look five days ahead.
-    settings.values = { "bill-alerts-scope": "bill", "bill-alerts-by-bill": { water: "1d" } };
+    settings.values = { "tour-seen": true, "bill-alerts-scope": "bill", "bill-alerts-by-bill": { water: "1d" } };
     renderPopup();
     expect(screen.queryByText("Νερό")).toBeNull();
     expect(screen.getByText("ΔΕΗ")).toBeInTheDocument();
   });
 
   it("ignores the bills' own reaches while one reach is for all", () => {
-    settings.values = { "bill-alerts-scope": "all", "bill-alerts-by-bill": { water: "1d" } };
+    settings.values = { "tour-seen": true, "bill-alerts-scope": "all", "bill-alerts-by-bill": { water: "1d" } };
     renderPopup();
     expect(screen.getByText("Νερό")).toBeInTheDocument();
   });
 
   it("looks as far as the settings say: a day only leaves the water out", () => {
-    settings.values = { "bill-alerts-reach": "1d" };
+    settings.values = { "tour-seen": true, "bill-alerts-reach": "1d" };
     renderPopup();
     expect(screen.queryByRole("region", { name: /Within/ })).toBeNull();
     expect(screen.getByText("ΔΕΗ")).toBeInTheDocument();
