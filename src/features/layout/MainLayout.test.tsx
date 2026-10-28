@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({ billsDue: 0, incomesWaiting: 0, narrow: false 
 
 vi.mock("../bills/useBills", () => ({ useBillsNeedingAttention: () => state.billsDue }));
 vi.mock("../bills/BillAlertPopup", () => ({ BillAlertPopup: () => null }));
+vi.mock("../transactions/components/QuickExpense", () => ({ QuickExpense: () => null }));
 vi.mock("../incomes/useIncomes", () => ({ useIncomesNeedingAttention: () => state.incomesWaiting }));
 vi.mock("../../shared/hooks/useAuth", () => ({
   useAuth: () => ({ currentUser: { uid: "u1", email: "ilias@example.com", displayName: null, providerData: [{ providerId: "password" }] }, loading: false }),

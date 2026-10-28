@@ -120,7 +120,8 @@ export function App() {
           <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
           {ReactQueryDevtools && (
             <Suspense fallback={null}>
-              <ReactQueryDevtools initialIsOpen={false} />
+              {/* Bottom left: the bottom right is the «+» of a quick expense. */}
+              <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
             </Suspense>
           )}
         </AuthProvider>

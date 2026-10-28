@@ -2793,5 +2793,22 @@
     "needNow": "You need now",
     "putAway_one": "Don't show me this payment again",
     "putAway_other": "Don't show me these {{count}} payments again"
+  },
+  "quick": {
+    "open": "Quick expense",
+    "title": "New expense",
+    "favorites": "Your usual",
+    "lastTime": "last time {{amount}}",
+    "otherCategory": "Other category…",
+    "card": "Card",
+    "description": "What it was (optional)",
+    "when": "When",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "other": "Another day",
+    "fullForm": "Full form",
+    "saved": "Saved: {{name}} {{amount}}",
+    "amount": "Amount",
+    "category": "Category"
   }
 }

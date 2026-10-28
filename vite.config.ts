@@ -45,6 +45,15 @@ export default defineConfig({
         background_color: "#ffffff",
         display: "standalone", // makes it feel like a native app
         start_url: "/",
+        // A long press on the installed app's icon: straight to a new expense (QuickExpense).
+        shortcuts: [
+          {
+            name: "Νέο έξοδο",
+            short_name: "Έξοδο",
+            url: "/?quick=expense",
+            icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+          },
+        ],
         icons: [
           {
             src: "/icon-192.png",
