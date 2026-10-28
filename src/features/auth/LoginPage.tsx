@@ -9,6 +9,7 @@ import { loginWithEmail, loginWithGoogle } from "../../firebase/auth";
 import { ensureGoogleProfile } from "./googleProfile";
 import styles from "./css/Auth.module.css";
 import { AgeTermsNotice } from "../legal/AgeTermsConsent";
+import { AuthLanguagePicker } from "./AuthLanguagePicker";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -85,6 +86,9 @@ export default function LoginPage() {
       <Container>
         <Row className="justify-content-center">
           <Col xs={12} sm={10} md={7} lg={5} xl={4}>
+            {/* The language first: the page is read in it. */}
+            <AuthLanguagePicker />
+
             {/* Brand */}
             <div className="text-center mb-4">
               <div className={`${styles.brandBadge} mx-auto mb-3`}>💳</div>
@@ -125,7 +129,7 @@ export default function LoginPage() {
                       type="email"
                       name="email"
                       autoComplete="email"
-                      placeholder="you@example.com"
+                      placeholder={t("auth.emailExample")}
                       value={formik.values.email}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}

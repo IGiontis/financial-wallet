@@ -24,9 +24,9 @@ const renderPage = () =>
   );
 
 const fillForm = async () => {
-  await userEvent.type(screen.getByPlaceholderText("John"), "Maria");
-  await userEvent.type(screen.getByPlaceholderText("Doe"), "Papa");
-  await userEvent.type(screen.getByPlaceholderText("john_doe"), "maria_p");
+  await userEvent.type(screen.getByPlaceholderText("e.g. John"), "Maria");
+  await userEvent.type(screen.getByPlaceholderText("e.g. Doe"), "Papa");
+  await userEvent.type(screen.getByPlaceholderText("e.g. john_doe"), "maria_p");
   await userEvent.type(screen.getByPlaceholderText("you@example.com"), "maria@example.test");
   const [password, confirm] = screen.getAllByPlaceholderText("••••••••");
   await userEvent.type(password, "secret123");

@@ -53,19 +53,30 @@
 }
 
 /* Neutral third-party (Google) button */
+/* A plain surface button, its words in the text colour. Bootstrap's secondary
+   button underneath kept its white text, and on the light theme's white surface
+   «Συνέχεια με Google» could not be read. Set through the button's own
+   variables, so hover, press and disabled keep it too. */
 .googleBtn {
+  --bs-btn-color: var(--color-text-primary);
+  --bs-btn-bg: var(--color-surface);
+  --bs-btn-border-color: var(--color-border-primary);
+  --bs-btn-hover-color: var(--color-text-primary);
+  --bs-btn-hover-bg: var(--color-background-secondary);
+  --bs-btn-hover-border-color: var(--color-border-primary);
+  --bs-btn-active-color: var(--color-text-primary);
+  --bs-btn-active-bg: var(--color-background-secondary);
+  --bs-btn-active-border-color: var(--color-border-primary);
+  --bs-btn-disabled-color: var(--color-text-secondary);
+  --bs-btn-disabled-bg: var(--color-surface);
+  --bs-btn-disabled-border-color: var(--color-border-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 44px; /* comfortable touch target */
-  border: 1px solid var(--color-border-primary) !important;
   border-radius: var(--border-radius-md);
-  background: var(--color-surface);
   font-weight: 500;
-}
-.googleBtn:hover:not(:disabled) {
-  background: var(--color-background-secondary);
 }
 
 /* In-app browser advisory */

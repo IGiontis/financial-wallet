@@ -11,6 +11,7 @@ import { validationMessage } from "../../shared/utils/validationMessage";
 import styles from "./css/Auth.module.css";
 import { LegalLinks } from "../legal/LegalLinks";
 import { AgeTermsConsent } from "../legal/AgeTermsConsent";
+import { AuthLanguagePicker } from "./AuthLanguagePicker";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -117,6 +118,9 @@ export default function RegisterPage() {
       <Container>
         <Row className="justify-content-center">
           <Col xs={12} sm={10} md={7} lg={6} xl={5}>
+            {/* The language first: the page is read in it. */}
+            <AuthLanguagePicker />
+
             {/* Brand */}
             <div className="text-center mb-4">
               <div className={`${styles.brandBadge} mx-auto mb-3`}>💳</div>
@@ -168,7 +172,7 @@ export default function RegisterPage() {
                           type="text"
                           name="firstName"
                           autoComplete="given-name"
-                          placeholder="John"
+                          placeholder={t("auth.firstNameExample")}
                           value={formik.values.firstName}
                           onChange={formik.handleChange}
                           onBlur={formik.handleBlur}
@@ -184,7 +188,7 @@ export default function RegisterPage() {
                           type="text"
                           name="lastName"
                           autoComplete="family-name"
-                          placeholder="Doe"
+                          placeholder={t("auth.lastNameExample")}
                           value={formik.values.lastName}
                           onChange={formik.handleChange}
                           onBlur={formik.handleBlur}
@@ -201,7 +205,7 @@ export default function RegisterPage() {
                       type="text"
                       name="username"
                       autoComplete="username"
-                      placeholder="john_doe"
+                      placeholder={t("auth.usernameExample")}
                       value={formik.values.username}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -216,7 +220,7 @@ export default function RegisterPage() {
                       type="email"
                       name="email"
                       autoComplete="email"
-                      placeholder="you@example.com"
+                      placeholder={t("auth.emailExample")}
                       value={formik.values.email}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}

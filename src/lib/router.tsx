@@ -5,7 +5,7 @@ import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // Route components and lazy page chunks live in their own modules so this file
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
-import { PageLoader, ProtectedRoute, PublicOnlyRoute } from "./routeGuards";
+import { AuthLoader, PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
 import { OverviewPage, TransactionsPage, NewTransactionPage, LedgerPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: (
-          <Suspense fallback={<PageLoader />}>
+          <Suspense fallback={<AuthLoader />}>
             <LoginPage />
           </Suspense>
         ),
@@ -40,199 +40,205 @@ export const router = createBrowserRouter([
       {
         path: "/register",
         element: (
-          <Suspense fallback={<PageLoader />}>
+          <Suspense fallback={<AuthLoader />}>
             <RegisterPage />
           </Suspense>
         ),
       },
     ],
   },
+  // Signed out, the session gate goes to /login before any of the app's frame is drawn.
   {
-    path: "/",
-    element: <MainLayout />,
-    errorElement: <ErrorBoundary />,
+    element: <SessionGate />,
     children: [
       {
-        element: <ProtectedRoute />,
+        path: "/",
+        element: <MainLayout />,
+        errorElement: <ErrorBoundary />,
         children: [
           {
-            index: true,
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <OverviewPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "transactions",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <TransactionsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "transactions/new",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <NewTransactionPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "transactions/ledger",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <LedgerPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "analytics",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <AnalyticsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "investments",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <InvestmentsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "goals",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <GoalsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "bills",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <BillsPage view="overview" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "bills/pay",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <BillsPage view="pay" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "bills/manage",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <BillsPage view="manage" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "bills/all",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <BillsPage view="all" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "incomes",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <IncomesPage view="overview" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "incomes/record",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <IncomesPage view="record" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "incomes/manage",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <IncomesPage view="manage" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "incomes/all",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <IncomesPage view="all" />
-              </Suspense>
-            ),
-          },
-          {
-            path: "planner",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <PlannerPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "calendar",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <CalendarPage />
-              </Suspense>
-            ),
-          },
-          // The Allocation page became the Planner's limits; an old bookmark lands there.
-          { path: "allocation", element: <Navigate to="/planner" replace /> },
-          {
-            path: "debts",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <DebtsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "accounts",
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <AccountsPage />
-              </Suspense>
-            ),
-          },
-          {
-            // One address per tab, so a link can open Settings exactly where it
-            // is needed — /settings/data for the statement, say. The page itself
-            // turns an unknown tab back into Profile. Being one route with a
-            // parameter, switching tabs keeps the same page mounted: a profile
-            // edit left unsaved is still there when you come back to it.
-            path: "settings",
+            element: <ProtectedRoute />,
             children: [
-              { index: true, element: <Navigate to="profile" replace /> },
               {
-                path: ":tab",
+                index: true,
                 element: (
                   <Suspense fallback={<PageLoader />}>
-                    <SettingsPage />
+                    <OverviewPage />
                   </Suspense>
                 ),
               },
+              {
+                path: "transactions",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <TransactionsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "transactions/new",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <NewTransactionPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "transactions/ledger",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <LedgerPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "analytics",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <AnalyticsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "investments",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <InvestmentsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "goals",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <GoalsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "bills",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <BillsPage view="overview" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "bills/pay",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <BillsPage view="pay" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "bills/manage",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <BillsPage view="manage" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "bills/all",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <BillsPage view="all" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "incomes",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <IncomesPage view="overview" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "incomes/record",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <IncomesPage view="record" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "incomes/manage",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <IncomesPage view="manage" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "incomes/all",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <IncomesPage view="all" />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "planner",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <PlannerPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "calendar",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <CalendarPage />
+                  </Suspense>
+                ),
+              },
+              // The Allocation page became the Planner's limits; an old bookmark lands there.
+              { path: "allocation", element: <Navigate to="/planner" replace /> },
+              {
+                path: "debts",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <DebtsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "accounts",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <AccountsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                // One address per tab, so a link can open Settings exactly where it
+                // is needed — /settings/data for the statement, say. The page itself
+                // turns an unknown tab back into Profile. Being one route with a
+                // parameter, switching tabs keeps the same page mounted: a profile
+                // edit left unsaved is still there when you come back to it.
+                path: "settings",
+                children: [
+                  { index: true, element: <Navigate to="profile" replace /> },
+                  {
+                    path: ":tab",
+                    element: (
+                      <Suspense fallback={<PageLoader />}>
+                        <SettingsPage />
+                      </Suspense>
+                    ),
+                  },
+                ],
+              },
             ],
           },
+          {
+            path: "*",
+            element: <NotFoundPage />,
+          },
         ],
-      },
-      {
-        path: "*",
-        element: <NotFoundPage />,
       },
     ],
   },

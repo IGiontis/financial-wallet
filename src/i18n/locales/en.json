@@ -88,7 +88,8 @@
     "allTransactions": "All transactions",
     "ledger": "Ledger",
     "goHome": "MyFiWallet — to the Overview",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "language": "Language"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -113,7 +114,11 @@
     "createOne": "Create one",
     "haveAccount": "Already have an account?",
     "inAppBrowserWarning": "For the best experience, open this link in Chrome or Safari. Google login may not work inside Messenger, Instagram or LinkedIn.",
-    "openInBrowserForGoogle": "Open in Chrome or Safari to use Google login"
+    "openInBrowserForGoogle": "Open in Chrome or Safari to use Google login",
+    "firstNameExample": "e.g. John",
+    "lastNameExample": "e.g. Doe",
+    "usernameExample": "e.g. john_doe",
+    "emailExample": "you@example.com"
   },
   "overview": {
     "title": "Financial Overview",

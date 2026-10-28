@@ -88,7 +88,8 @@
     "allTransactions": "Όλες οι συναλλαγές",
     "ledger": "Βιβλίο κινήσεων",
     "goHome": "MyFiWallet — στην Επισκόπηση",
-    "calendar": "Ημερολόγιο"
+    "calendar": "Ημερολόγιο",
+    "language": "Γλώσσα"
   },
   "auth": {
     "welcomeBack": "Καλώς ήρθες ξανά",
@@ -113,7 +114,11 @@
     "createOne": "Δημιούργησε έναν",
     "haveAccount": "Έχεις ήδη λογαριασμό;",
     "inAppBrowserWarning": "Για την καλύτερη εμπειρία, άνοιξε τον σύνδεσμο σε Chrome ή Safari. Η σύνδεση με Google μπορεί να μη λειτουργεί μέσα σε Messenger, Instagram ή LinkedIn.",
-    "openInBrowserForGoogle": "Άνοιξε τη σελίδα σε Chrome ή Safari για να συνδεθείς με Google"
+    "openInBrowserForGoogle": "Άνοιξε τη σελίδα σε Chrome ή Safari για να συνδεθείς με Google",
+    "firstNameExample": "π.χ. Γιάννης",
+    "lastNameExample": "π.χ. Παπαδόπουλος",
+    "usernameExample": "π.χ. giannis_p",
+    "emailExample": "onoma@example.com"
   },
   "overview": {
     "title": "Οικονομική επισκόπηση",

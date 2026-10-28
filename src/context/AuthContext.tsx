@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { type User } from "firebase/auth";
 import { onAuthStateChange } from "../firebase/auth";
 import { AuthContext } from "./authContextValue";
+import { rememberSession } from "../lib/sessionHint";
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Firebase calls this immediately on startup with the current user
     // and again every time the user logs in or out
     const unsubscribe = onAuthStateChange((user) => {
+      rememberSession(!!user);
       setCurrentUser(user);
       setLoading(false);
     });
