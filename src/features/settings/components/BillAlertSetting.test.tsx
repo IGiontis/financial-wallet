@@ -1,29 +1,35 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../../i18n";
 import BillAlertSetting from "./BillAlertSetting";
+import { billAlerts } from "../../bills/billAlerts";
+import { computeBillStatus } from "../../bills/billsUtils";
+import type { Bill, BillWithStatus } from "../../../shared/types/IndexTypes";
 
 // The popup's settings: nothing is written until «Save», and «Save» first says what changes.
 
 const settings = vi.hoisted(() => ({ values: {} as Record<string, unknown>, writes: [] as [string, unknown][] }));
 vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({
+  useWorkspace: () => ({ isSuccess: true }),
   useWorkspaceSetting: (key: string, initial: unknown) => [key in settings.values ? settings.values[key] : initial, (value: unknown) => settings.writes.push([key, value])],
 }));
-vi.mock("../../bills/useBills", () => ({
-  useBills: () => ({
-    data: [
-      { id: "power", name: "ΔΕΗ", isActive: true },
-      { id: "water", name: "Νερό", isActive: true },
-    ],
-  }),
-}));
+// 28 October: electricity late since the 10th, water due the 30th.
+const NOW = new Date(2026, 9, 28, 10);
+const bill = (id: string, name: string, dueDay: number) =>
+  ({ id, userId: "u", name, amount: 60, categoryId: "c", frequency: "monthly", dueDay, isActive: true, createdAt: new Date(2026, 9, 1), updatedAt: new Date(2026, 9, 1) }) as Bill;
+const BILLS = vi.hoisted(() => ({ list: [] as BillWithStatus[] }));
+vi.mock("../../bills/useBills", () => ({ useBills: () => ({ data: BILLS.list }) }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn() } }));
 
 beforeAll(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  BILLS.list = [bill("power", "ΔΕΗ", 10), bill("water", "Νερό", 30)].map((b) => computeBillStatus(b, [], NOW));
   await i18n.changeLanguage("en");
 });
+afterAll(() => vi.useRealTimers());
 beforeEach(() => {
   settings.values = {};
   settings.writes = [];
@@ -35,6 +41,22 @@ const renderSetting = () =>
       <BillAlertSetting />
     </MemoryRouter>,
   );
+
+describe("what «don't show again» hid", () => {
+  it("says which payments are hidden, keeps the popup on, and shows them again on a tap", async () => {
+    settings.values = { "bill-alerts-seen": billAlerts(BILLS.list, NOW).map((a) => a.key) };
+    renderSetting();
+    expect(screen.getByRole("switch")).toBeChecked();
+    expect(screen.getByText(/You've hidden 2 payments \(ΔΕΗ, Νερό\) until a new one comes\./)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show them again" }));
+    expect(settings.writes).toEqual([["bill-alerts-seen", []]]);
+  });
+
+  it("says nothing when nothing is hidden", () => {
+    renderSetting();
+    expect(screen.queryByText(/You've hidden/)).toBeNull();
+  });
+});
 
 describe("the bills popup's settings", () => {
   it("starts on one reach for all, with nothing saved", () => {

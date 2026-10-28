@@ -1950,7 +1950,11 @@
     "billAlertsRevert": "Επαναφορά",
     "billAlertsConfirmTitle": "Αποθήκευση αυτών των αλλαγών;",
     "billAlertsSaved": "Οι ειδοποιήσεις αποθηκεύτηκαν.",
-    "billAlertsReachAll": "Πόσο νωρίς, για όλα"
+    "billAlertsReachAll": "Πόσο νωρίς, για όλα",
+    "billAlertsPutAway_one": "Έχεις κρύψει 1 πληρωμή ({{names}}) μέχρι να έρθει κάποια νέα.",
+    "billAlertsPutAway_other": "Έχεις κρύψει {{count}} πληρωμές ({{names}}) μέχρι να έρθει κάποια νέα.",
+    "billAlertsShowAgain": "Δείξ' τες ξανά",
+    "billAlertsShownAgain": "Θα τις ξαναδείς την επόμενη φορά που θα ανοίξεις την εφαρμογή."
   },
   "validation": {
     "required": "Το πεδίο είναι υποχρεωτικό",
@@ -2778,7 +2782,6 @@
     "today": "λήγει σήμερα",
     "inDays_one": "αύριο · {{date}}",
     "inDays_other": "σε {{count}} μέρες · {{date}}",
-    "putAway": "Μην μου τα ξαναδείξεις",
     "offHint": "Θα ξαναβγεί μόνο για νέα πληρωμή ή όταν λήξει κάποια από αυτές.",
     "toBills": "Στα πάγια",
     "groupSoon_d_one": "Μέσα σε 1 μέρα",
@@ -2787,6 +2790,8 @@
     "groupSoon_m_other": "Μέσα σε {{count}} μήνες",
     "toSettings": "Ρυθμίσεις: ποια πάγια, πόσο νωρίς ή να μη βγαίνει ποτέ",
     "groupSoonMixed": "Έρχονται",
-    "needNow": "Χρειάζεσαι τώρα"
+    "needNow": "Χρειάζεσαι τώρα",
+    "putAway_one": "Μην μου ξαναδείξεις αυτή την πληρωμή",
+    "putAway_other": "Μην μου ξαναδείξεις αυτές τις {{count}} πληρωμές"
   }
 }

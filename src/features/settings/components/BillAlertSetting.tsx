@@ -3,11 +3,12 @@ import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { FiInfo } from "react-icons/fi";
 import { useWorkspaceSetting } from "../../../shared/hooks/useWorkspaceSetting";
 import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { useBills } from "../../bills/useBills";
-import { BILL_ALERTS_BY_BILL_KEY, BILL_ALERTS_KEY, BILL_ALERTS_MODE_KEY, BILL_ALERTS_OFF_KEY, BILL_ALERTS_REACH_KEY, type BillAlertsMode } from "../../bills/BillAlertPopup";
+import { BILL_ALERTS_BY_BILL_KEY, BILL_ALERTS_KEY, BILL_ALERTS_MODE_KEY, BILL_ALERTS_OFF_KEY, BILL_ALERTS_REACH_KEY, useBillAlerts, type BillAlertsMode } from "../../bills/useBillAlerts";
 import { ALERT_REACHES, asReach, DEFAULT_REACH, reachParts, type AlertReach, type ReachByBill } from "../../bills/billAlerts";
 import styles from "../css/BillAlertSetting.module.css";
 
@@ -27,7 +28,9 @@ interface Draft {
  * holds on every device.
  *
  * Changes are a draft until «Αποθήκευση», which first lists them to be
- * confirmed; «Επαναφορά» puts the draft back as it was saved.
+ * confirmed; «Επαναφορά» puts the draft back as it was saved. Under the switch,
+ * what «Μην μου ξαναδείξεις» has hidden, with a way to show it again — the
+ * switch stays on, since those payments are all it hid.
  *
  * The bills are the query the menu's badge already holds: no reads of its own.
  * Saving writes the user document once per setting changed. The popup links
@@ -51,6 +54,15 @@ export default function BillAlertSetting() {
   const draft: Draft = useMemo(() => ({ ...saved, ...edits }), [saved, edits]);
   const edit = (patch: Partial<Draft>) => setEdits((current) => ({ ...current, ...patch }));
   const [confirming, setConfirming] = useState(false);
+
+  // The payments put away that the popup would name today, as it is saved.
+  const [now] = useState(() => new Date());
+  const { alerts, seen, setSeen } = useBillAlerts(now);
+  const hidden = alerts.filter((alert) => seen.includes(alert.key));
+  const showAgain = () => {
+    setSeen([]);
+    toast.success(t("settings.billAlertsShownAgain"));
+  };
 
   // What saving would change, a line each, in words — for the confirmation.
   const changes = useMemo(() => {
@@ -121,6 +133,17 @@ export default function BillAlertSetting() {
           {t("settings.billAlertsSwitch")}
         </Label>
       </FormGroup>
+      {saved.enabled && hidden.length > 0 && (
+        <p className={styles.hidden}>
+          <FiInfo aria-hidden />
+          <span>
+            {t("settings.billAlertsPutAway", { count: hidden.length, names: hidden.map((alert) => alert.bill.name).join(", ") })}{" "}
+            <button type="button" className={styles.showAgain} onClick={showAgain}>
+              {t("settings.billAlertsShowAgain")}
+            </button>
+          </span>
+        </p>
+      )}
 
       <fieldset disabled={!draft.enabled}>
         <legend className={styles.legend}>{t("settings.billAlertsReach")}</legend>

@@ -120,3 +120,33 @@
 .section :global(.form-check-input:disabled ~ .form-check-label) {
   cursor: default;
 }
+
+/* What «Μην μου ξαναδείξεις» has hidden, under the switch. */
+.hidden {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: -0.25rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.hidden svg {
+  flex-shrink: 0;
+  position: relative;
+  top: 0.125rem;
+}
+
+.showAgain {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

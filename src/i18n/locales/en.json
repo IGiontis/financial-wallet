@@ -1950,7 +1950,11 @@
     "billAlertsRevert": "Revert",
     "billAlertsConfirmTitle": "Save these changes?",
     "billAlertsSaved": "Notifications saved.",
-    "billAlertsReachAll": "How early, for all"
+    "billAlertsReachAll": "How early, for all",
+    "billAlertsPutAway_one": "You've hidden 1 payment ({{names}}) until a new one comes.",
+    "billAlertsPutAway_other": "You've hidden {{count}} payments ({{names}}) until a new one comes.",
+    "billAlertsShowAgain": "Show them again",
+    "billAlertsShownAgain": "You'll see them the next time you open the app."
   },
   "validation": {
     "required": "This field is required",
@@ -2778,7 +2782,6 @@
     "today": "due today",
     "inDays_one": "tomorrow · {{date}}",
     "inDays_other": "in {{count}} days · {{date}}",
-    "putAway": "Don't show me these again",
     "offHint": "It comes back only for a new payment, or when one of these goes overdue.",
     "toBills": "Go to bills",
     "groupSoon_d_one": "Within 1 day",
@@ -2787,6 +2790,8 @@
     "groupSoon_m_other": "Within {{count}} months",
     "toSettings": "Settings: which bills, how early, or never",
     "groupSoonMixed": "Coming up",
-    "needNow": "You need now"
+    "needNow": "You need now",
+    "putAway_one": "Don't show me this payment again",
+    "putAway_other": "Don't show me these {{count}} payments again"
   }
 }

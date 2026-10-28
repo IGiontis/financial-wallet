@@ -68,7 +68,7 @@ describe("the bills popup", () => {
 
   it("«Don't show me these again» keeps exactly the payments listed", async () => {
     renderPopup();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Don't show me these again" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Don't show me these 2 payments again" }));
     await userEvent.click(screen.getByRole("button", { name: "Go to bills" }));
     expect(settings.writes).toEqual([["bill-alerts-seen", billAlerts(BILLS, NOW).map((a) => a.key)]]);
   });
