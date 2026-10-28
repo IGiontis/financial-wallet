@@ -126,10 +126,11 @@ export function MoneyTimeline({
             setSpan(next);
             setAnchor(next === "month" ? startOfMonth(today) : today);
           }}
+          // On the narrowest phones a calendar with its days — 7, 14 — and a calendar alone for the month.
           options={[
-            { id: "week", label: t("timeline.week") },
-            { id: "twoWeeks", label: t("timeline.twoWeeks") },
-            { id: "month", label: t("timeline.month"), icon: FiCalendar },
+            { id: "week", label: t("timeline.week"), short: <><FiCalendar aria-hidden />7</> },
+            { id: "twoWeeks", label: t("timeline.twoWeeks"), short: <><FiCalendar aria-hidden />14</> },
+            { id: "month", label: t("timeline.month"), icon: FiCalendar, short: <FiCalendar aria-hidden /> },
           ]}
         />
       </div>

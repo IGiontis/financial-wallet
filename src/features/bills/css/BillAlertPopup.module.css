@@ -1,0 +1,160 @@
+/* The bills to pay, on arrival — see BillAlertPopup.tsx. Every row on one
+   line: the name gives way (an ellipsis), the date and the figure never wrap. */
+
+/* What the days ahead ask for, all told. */
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.total strong {
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A group: to pay now (red, «!»), or coming (amber, ⚠). */
+.danger {
+  --tone: var(--color-expense);
+  --tone-text: var(--color-expense-text);
+}
+
+.warning {
+  --tone: var(--color-goal);
+  --tone-text: var(--color-goal-text);
+}
+
+.danger + .warning {
+  margin-top: 0.75rem;
+}
+
+.groupHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tone-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mark, name, when, figure — one line. */
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border-tertiary);
+  font-size: 0.875rem;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  color: var(--tone-text);
+}
+
+.mark svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.when {
+  font-size: 0.75rem;
+  color: var(--tone-text);
+  white-space: nowrap;
+}
+
+.amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.danger .amount {
+  color: var(--tone-text);
+}
+
+/* As wide as its box and words: across the row, a tap anywhere on it ticked it. */
+.putAway {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.putAway,
+.putAway input {
+  cursor: pointer;
+}
+
+.putAway input {
+  margin: 0;
+}
+
+.hint {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* To its settings: words in a line of words, a link and nothing round it. */
+.settingsLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+}
+
+/* A phone: the when under the name, so the name keeps its room. */
+@media (max-width: 575.98px) {
+  .row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "mark name amount"
+      "mark when amount";
+    row-gap: 0;
+  }
+
+  .mark {
+    grid-area: mark;
+  }
+
+  .name {
+    grid-area: name;
+  }
+
+  .when {
+    grid-area: when;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .amount {
+    grid-area: amount;
+  }
+}

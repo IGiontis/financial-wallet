@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react";
 import type { IconType } from "react-icons";
 import styles from "../css/ViewSwitch.module.css";
 
@@ -5,6 +6,12 @@ export interface ViewSwitchOption<T extends string> {
   id: T;
   label: string;
   icon?: IconType;
+  /**
+   * What it shows on the narrowest phones in place of its icon and name —
+   * an icon with a figure, «📅7» for a week. The name stays for screen
+   * readers and as the tooltip. Only with `short` on every option.
+   */
+  short?: ReactNode;
 }
 
 /**
@@ -14,16 +21,21 @@ export interface ViewSwitchOption<T extends string> {
  * changes how the same rows are laid out. Drawn alike, the two were mistaken
  * for one another, so this one is deliberately the quieter of the two.
  *
- * `iconOnlyOnPhone` keeps a switch that sits beside a button to its icons on a
- * phone; each keeps its name for screen readers. `block` stretches it across
- * its row, the options sharing it equally — for a switch that leads a card.
+ * `stackOnPhone` is for a switch of several views: on a phone it fills its
+ * row, each option its icon above its name, tall enough for a thumb. It used
+ * to keep to its icons there, and nobody could tell them apart. Up to four sit
+ * on one row; more go on two even rows (six as three and three), since a strip
+ * scrolling sideways hid the ones past the edge. A name too long for its share
+ * breaks onto a second line.
+ * `block` stretches it across its row, the options sharing it equally — for
+ * a switch that leads a card.
  */
 export function ViewSwitch<T extends string>({
   label,
   options,
   value,
   onChange,
-  iconOnlyOnPhone,
+  stackOnPhone,
   block,
   className,
 }: {
@@ -31,23 +43,33 @@ export function ViewSwitch<T extends string>({
   options: readonly ViewSwitchOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  iconOnlyOnPhone?: boolean;
+  stackOnPhone?: boolean;
   block?: boolean;
   className?: string;
 }) {
   return (
-    <div className={`${styles.switch} ${block ? styles.block : ""} ${className ?? ""}`} role="group" aria-label={label}>
-      {options.map(({ id, label: name, icon: Icon }) => (
+    <div
+      className={`${styles.switch} ${block ? styles.block : ""} ${stackOnPhone ? styles.stack : ""} ${options.every((o) => o.short) ? styles.tiny : ""} ${className ?? ""}`}
+      style={stackOnPhone ? ({ "--stack-columns": options.length <= 4 ? options.length : Math.ceil(options.length / 2) } as CSSProperties) : undefined}
+      role="group"
+      aria-label={label}
+    >
+      {options.map(({ id, label: name, icon: Icon, short }) => (
         <button
           key={id}
           type="button"
           className={`${styles.option} ${value === id ? styles.on : ""}`}
           aria-pressed={value === id}
-          aria-label={iconOnlyOnPhone ? name : undefined}
+          title={short ? name : undefined}
           onClick={() => onChange(id)}
         >
           {Icon && <Icon size={13} aria-hidden />}
-          <span className={iconOnlyOnPhone ? "d-none d-sm-inline" : undefined}>{name}</span>
+          <span className={styles.name}>{name}</span>
+          {short && (
+            <span className={styles.short} aria-hidden>
+              {short}
+            </span>
+          )}
         </button>
       ))}
     </div>

@@ -1,17 +1,29 @@
 /* The goal card's parts — see GoalCard in InvestmentsShared.tsx. */
 
-/* The deadline: a soft rounded box across the card. */
+/* The deadline: a soft rounded box across the card, opening the goal's details. */
 .deadline {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
   margin: 0;
   padding: 0.55rem 0.75rem;
+  border: 0;
   border-radius: var(--border-radius-md);
+  text-align: left;
   background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.deadline:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 11%, transparent);
+}
+
+.deadline:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
 }
 
 .deadline svg {
@@ -19,6 +31,12 @@
   width: 1rem;
   height: 1rem;
   color: var(--bs-primary);
+}
+
+/* The chevron: at the far end, quieter than the calendar. */
+.deadline .deadlineMore {
+  margin-left: auto;
+  color: var(--color-text-secondary);
 }
 
 /* Its money: three tiles, each a wash of its own colour (--tile), icon above the figure. */

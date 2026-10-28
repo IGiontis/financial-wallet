@@ -12,6 +12,7 @@ import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import StatementSection from "../components/StatementSection";
+import BillAlertSetting from "../components/BillAlertSetting";
 import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
@@ -515,6 +516,12 @@ export function SettingsPage() {
                   the sidebar and top bar change behind the card. */}
               <Section title={t("settings.navStyle")} subtitle={t("settings.navStyleSubtitle")} fill>
                 <NavStylePicker />
+              </Section>
+            </Col>
+            <Col xs={12}>
+              {/* ── Notifications ─────────────────────────────────────────────── */}
+              <Section title={t("settings.notifications")} subtitle={t("settings.notificationsSubtitle")} fill>
+                <BillAlertSetting />
               </Section>
             </Col>
           </Row>

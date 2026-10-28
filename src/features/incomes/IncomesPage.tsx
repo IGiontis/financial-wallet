@@ -319,7 +319,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 label={t("incomes.title")}
                 value={view}
                 onChange={setView}
-                iconOnlyOnPhone
+                stackOnPhone
                 options={[
                   { id: "list", label: t("incomes.tabs.list"), icon: FiList },
                   { id: "calendar", label: t("incomes.tabs.calendar"), icon: FiCalendar },

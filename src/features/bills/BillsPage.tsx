@@ -831,7 +831,7 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
       label={t("bills.viewLabel")}
       value={view}
       onChange={onChange}
-      iconOnlyOnPhone
+      stackOnPhone
       options={VIEW_BUTTONS.filter((b) => !only || only.includes(b.id)).map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
     />
   );

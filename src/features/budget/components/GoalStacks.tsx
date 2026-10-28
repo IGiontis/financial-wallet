@@ -202,7 +202,6 @@ export function GoalViewToggle({ view, onChange }: { view: GoalView; onChange: (
       label={t("goals.viewLabel")}
       value={view}
       onChange={onChange}
-      iconOnlyOnPhone
       options={[
         { id: "cards", label: t("goals.viewCards"), icon: FiGrid },
         { id: "stacks", label: t("goals.viewStacks"), icon: FiList },

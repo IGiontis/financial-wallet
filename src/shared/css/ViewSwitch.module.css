@@ -63,9 +63,14 @@
   min-width: 0;
 }
 
+/* What an option shows on the narrowest phones (`short`, ViewSwitch.tsx). */
+.short {
+  display: none;
+}
+
 /* A thumb's height on a phone; still only as wide as its words. Never an
    option cut off: a strip wider than the screen scrolls sideways, and a page
-   with many views passes `iconOnlyOnPhone` so it fits to begin with. */
+   with many views passes `stackOnPhone` so it fits to begin with. */
 @media (max-width: 575.98px) {
   .switch {
     overflow-x: auto;
@@ -84,5 +89,80 @@
 
   .block .option {
     flex-shrink: 1;
+  }
+
+  /* Several views: the row's width, each its icon above its name, in
+     --stack-columns equal columns (ViewSwitch.tsx) — one row up to four, two
+     even rows past that. The rules between them are the 1px gaps showing the
+     border colour behind; a long name wraps inside its own cell. */
+  .stack {
+    display: grid;
+    grid-template-columns: repeat(var(--stack-columns), minmax(0, 1fr));
+    gap: 1px;
+    width: 100%;
+    overflow: hidden;
+    background: var(--view-switch-border);
+  }
+
+  .stack .option {
+    flex-direction: column;
+    min-width: 0;
+    background: var(--color-surface);
+    gap: 0.1875rem;
+    min-height: 3.25rem;
+    padding: 0.375rem 0.25rem;
+    font-size: 0.6875rem;
+    line-height: 1.15;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .stack .option + .option {
+    border-left: 0;
+  }
+
+  .stack .option.on {
+    background: var(--view-switch-on);
+  }
+
+  .stack .option svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+/* The narrowest phones: a switch whose options all have a `short` shows only
+   that — «Εβδομάδα | 2 εβδομάδες | Μήνας» no longer fit beside one another
+   under 360px and scrolled. Each name stays, hidden, for screen readers. */
+@media (max-width: 359.98px) {
+  .tiny .option {
+    position: relative;
+    min-width: 3rem;
+  }
+
+  .tiny .option > svg {
+    display: none;
+  }
+
+  .tiny .name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tiny .short {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tiny .short svg {
+    width: 1rem;
+    height: 1rem;
   }
 }

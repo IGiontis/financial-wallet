@@ -282,3 +282,16 @@
     left: calc(-0.75rem - 1px);
   }
 }
+
+/* The narrowest phones: the figure under the name. Beside it, the mark and the
+   figure took all but 14px of a 146px leaf and «ΔΕΗ» stood one letter a line. */
+@container (max-width: 17rem) {
+  .leafBody {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 0.125rem;
+  }
+
+  .leafAmount {
+    grid-column: 2;
+  }
+}

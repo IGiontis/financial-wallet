@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../../i18n";
@@ -72,5 +72,16 @@ describe("a goal card", () => {
   it("has no eye on a goal of one figure", () => {
     renderCard({ ...SKI, parts: undefined } as InvestmentGoalWithStats);
     expect(screen.queryByRole("button", { name: /The parts of/ })).toBeNull();
+  });
+
+  it("opens the goal's details from its deadline", async () => {
+    renderCard();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ski: details and actions" }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText("Ski")).toBeInTheDocument();
+    // The sheet's own close, in its foot, puts it away again.
+    await userEvent.click(within(sheet).getAllByRole("button", { name: "Close" }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

@@ -5,7 +5,7 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { FiCalendar, FiClock, FiDatabase, FiEye, FiTarget } from "react-icons/fi";
+import { FiCalendar, FiChevronRight, FiClock, FiDatabase, FiEye, FiTarget } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Fragment, useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -29,6 +29,7 @@ import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
 import { GoalPartsSheet } from "./GoalPartsSheet";
+import { GoalDetailsModal } from "./GoalDetailsModal";
 import partStyles from "./css/GoalParts.module.css";
 import styles from "./css/GoalCard.module.css";
 
@@ -337,6 +338,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
         ]
       : [];
   const [partsOpen, setPartsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const heroSubtitle = isRecurring
     ? i18n.t("goals.ofTarget", { amount: formatCurrency(targetAmount) })
     : goal.targetAmount
@@ -489,10 +491,12 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             squeezed into the column beside the ring. Last in the body and
             pushed to its foot, so a card stretched to its row's height keeps
             the room above the date rather than an empty band under it. */}
-        <p className={styles.deadline} style={{ marginTop: "auto" }}>
+        {/* The deadline opens the goal's details — the sheet a row of the list opens. */}
+        <button type="button" className={styles.deadline} style={{ marginTop: "auto" }} onClick={() => setDetailsOpen(true)} aria-label={i18n.t("goals.openDetails", { name: goal.name })}>
           {!isRecurring && deadlineDate && <FiCalendar aria-hidden />}
           <span>{bandSubtitle}</span>
-        </p>
+          <FiChevronRight className={styles.deadlineMore} aria-hidden />
+        </button>
 
         {/* ── Its money: three tiles ───────────────────────────────────────── */}
         {moneyTiles && (
@@ -532,6 +536,19 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           {i18n.t("goals.history")}
         </Button>
       </div>
+      {detailsOpen && (
+        <GoalDetailsModal
+          goal={goal}
+          formatCurrency={formatCurrency}
+          onViewHistory={onViewHistory}
+          onAddDeposit={onAddDeposit}
+          onWithdraw={onWithdraw}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          onTogglePause={onTogglePause}
+          onClose={() => setDetailsOpen(false)}
+        />
+      )}
       {partsOpen && goal.parts && <GoalPartsSheet name={goal.name} parts={goal.parts} saved={goal.totalSaved} formatCurrency={formatCurrency} onClose={() => setPartsOpen(false)} />}
     </Card>
   );
