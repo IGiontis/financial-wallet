@@ -1,8 +1,9 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Container } from "reactstrap";
-import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../shared/components/Skeletons";
+import { SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../shared/components/Skeletons";
 import { useAuth } from "../shared/hooks/useAuth";
 import { hadSession } from "./sessionHint";
+import { AuthSkeleton } from "../features/auth/AuthSkeleton";
 
 /**
  * Stands in for a lazy route chunk.
@@ -31,20 +32,6 @@ export function PageLoader() {
   );
 }
 
-/** The login/register form's outline — all that sits behind PublicOnlyRoute, and the forms' own chunks. */
-export function AuthLoader() {
-  return (
-    <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: "80vh" }}>
-      <SkeletonCard style={{ width: "100%", maxWidth: 380 }}>
-        <SkeletonHeading width="55%" />
-        <Skeleton height={38} style={{ borderRadius: "var(--border-radius-md)" }} />
-        <Skeleton height={38} style={{ borderRadius: "var(--border-radius-md)", marginTop: 12 }} />
-        <Skeleton height={38} style={{ borderRadius: "var(--border-radius-md)", marginTop: 20 }} />
-      </SkeletonCard>
-    </Container>
-  );
-}
-
 /**
  * Around the app's layout: while the session is being found, the app's frame
  * only for a device that was signed in — otherwise the form's outline — and
@@ -54,7 +41,7 @@ export function SessionGate() {
   const { currentUser, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return hadSession() ? <Outlet /> : <AuthLoader />;
+  if (loading) return hadSession() ? <Outlet /> : <AuthSkeleton />;
   if (!currentUser) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 }
@@ -75,7 +62,7 @@ export function ProtectedRoute() {
 export function PublicOnlyRoute() {
   const { currentUser, loading } = useAuth();
 
-  if (loading) return <AuthLoader />;
+  if (loading) return <AuthSkeleton />;
   if (currentUser) return <Navigate to="/" replace />;
   return <Outlet />;
 }

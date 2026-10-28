@@ -5,7 +5,8 @@ import { NotFoundPage } from "../features/errors/NotFoundPage";
 import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // Route components and lazy page chunks live in their own modules so this file
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
-import { AuthLoader, PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
+import { PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
+import { AuthSkeleton } from "../features/auth/AuthSkeleton";
 import { OverviewPage, TransactionsPage, NewTransactionPage, LedgerPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
@@ -32,7 +33,7 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: (
-          <Suspense fallback={<AuthLoader />}>
+          <Suspense fallback={<AuthSkeleton />}>
             <LoginPage />
           </Suspense>
         ),
@@ -40,7 +41,7 @@ export const router = createBrowserRouter([
       {
         path: "/register",
         element: (
-          <Suspense fallback={<AuthLoader />}>
+          <Suspense fallback={<AuthSkeleton />}>
             <RegisterPage />
           </Suspense>
         ),
