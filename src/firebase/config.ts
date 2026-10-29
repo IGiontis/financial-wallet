@@ -1,8 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
-import { connectAuthEmulator, getAuth } from "firebase/auth";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
-import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
+import { isDemo } from "../demo/demoMode";
 
 /**
  * Development against the local emulators instead of the real project
@@ -35,6 +36,34 @@ const app = initializeApp(firebaseConfig);
 export const firebaseApp = app;
 
 /**
+ * The demo (see `demo/demoMode`) never talks to Firebase: its data lives in
+ * memory and its user is a stand-in. So none of what follows is started for it
+ * — no App Check token fetched, no Auth restoring a session, no Firestore cache
+ * opened — and a visitor to the demo costs the project nothing. The app object
+ * above is only configuration and makes no request of its own.
+ *
+ * Decided as the page loads, as the demo itself is: a page leaves the demo only
+ * by loading again.
+ */
+const demo = isDemo();
+
+/**
+ * What stands in for Auth and Firestore in the demo. Every call that could
+ * reach them is sent elsewhere before it gets here (`firestoreApi`, `auth.ts`),
+ * so anything that still asks this for something is a path that was missed —
+ * and says so, rather than quietly opening a connection.
+ */
+function notInDemo<T extends object>(service: string): T {
+  return new Proxy({} as T, {
+    get(_target, key) {
+      // What `await`, logging and serialising look for: answered, not refused.
+      if (typeof key === "symbol" || key === "then" || key === "toJSON") return undefined;
+      throw new Error(`Firebase ${service} is not available in the demo (asked for "${key}").`);
+    },
+  });
+}
+
+/**
  * App Check: every request to Firestore and Auth carries a token saying it came
  * from this app, in a real browser — not from a script that copied the config
  * out of the bundle (which is public, and has to be). Once it is enforced in the
@@ -55,7 +84,7 @@ export const firebaseApp = app;
  * request before it can be signed.
  */
 const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
-export const appCheckEnabled = !useEmulators && !!appCheckSiteKey;
+export const appCheckEnabled = !demo && !useEmulators && !!appCheckSiteKey;
 if (appCheckEnabled) {
   if (import.meta.env.DEV) (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true;
   try {
@@ -67,8 +96,8 @@ if (appCheckEnabled) {
   }
 }
 
-export const auth = getAuth(app);
-if (useEmulators && !auth.emulatorConfig) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+export const auth: Auth = demo ? notInDemo<Auth>("Auth") : getAuth(app);
+if (!demo && useEmulators && !auth.emulatorConfig) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
 /**
  * Firestore with an on-disk cache rather than the default in-memory one.
  *
@@ -109,12 +138,12 @@ function openFirestore() {
   }
 }
 
-export const db = openFirestore();
+export const db: Firestore = demo ? notInDemo<Firestore>("Firestore") : openFirestore();
 
 // Connecting twice throws, and Vite's hot reload re-runs this module; the flag
 // on the instance is how the second run knows the first already did it.
 const emulatorFlag = "__myfiwalletEmulator";
-if (useEmulators && !(db as unknown as Record<string, unknown>)[emulatorFlag]) {
+if (!demo && useEmulators && !(db as unknown as Record<string, unknown>)[emulatorFlag]) {
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   (db as unknown as Record<string, unknown>)[emulatorFlag] = true;
 }

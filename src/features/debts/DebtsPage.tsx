@@ -130,7 +130,7 @@ export function DebtsPage() {
       </div>
 
       <div className={wide && shown.length > 0 ? styles.split : undefined}>
-        <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`}>
+        <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`} data-tour="debts-people">
           {side && (
             <div className={styles.filterLine}>
               <span>{t(side === "owe" ? "debts.filterOwe" : "debts.filterOwed")}</span>

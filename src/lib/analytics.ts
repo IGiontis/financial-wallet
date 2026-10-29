@@ -1,4 +1,5 @@
 import { firebaseApp } from "../firebase/config";
+import { isDemo } from "../demo/demoMode";
 
 // Google Analytics for Firebase: how many people open the app, from where, on
 // what — the Firebase Console's Analytics page.
@@ -21,8 +22,11 @@ export type Consent = "granted" | "denied";
 
 const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined;
 
-/** Whether there is anything to ask about: the live build, with a measurement id set. */
-export const analyticsConfigured = import.meta.env.PROD && !!measurementId;
+/**
+ * Whether there is anything to ask about: the live build, with a measurement id
+ * set — and not the demo, which sends Firebase nothing at all, this included.
+ */
+export const analyticsConfigured = import.meta.env.PROD && !!measurementId && !isDemo();
 
 export function readConsent(): Consent | undefined {
   try {

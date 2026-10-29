@@ -234,7 +234,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   const canArrive = section === "waiting" && focus?.canArrive && !asking;
 
   return (
-    <div className={`${styles.lineWrap} ${section === "later" ? styles.lineQuiet : ""}`}>
+    <div className={`${styles.lineWrap} ${section === "later" ? styles.lineQuiet : ""}`} data-tour="income-line">
       <div className={styles.line}>
         <button type="button" className={styles.lineButton} onClick={() => onOpen(income)} aria-label={t("incomes.list.openCard", { name: income.name })}>
           <span className={styles.lineIcon} aria-hidden>

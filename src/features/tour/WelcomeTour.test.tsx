@@ -6,6 +6,11 @@ import i18n from "../../i18n";
 import { WelcomeTour } from "./WelcomeTour";
 import { TourGate } from "./TourGate";
 
+// Whole pages, many clicks each: alone they take a second or two, but under a
+// full parallel run the 5 s default was missed now and then. Room, not a fix
+// for slowness — a test that genuinely hangs still fails.
+vi.setConfig({ testTimeout: 20_000 });
+
 // The welcome tour: a card a page, Next through to the end or Skip from the start;
 // shown once, the first time, and again when the settings ask.
 

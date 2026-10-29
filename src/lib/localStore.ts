@@ -1,3 +1,5 @@
+import { isDemo } from "../demo/demoMode";
+
 // ─── A small key-value store on the device ───────────────────────────────────
 //
 // IndexedDB, not localStorage: a few thousand records is a few hundred
@@ -8,6 +10,9 @@
 // window in some browsers, the test environment) reads come back empty and
 // writes do nothing, and whatever relies on this simply reads from the server
 // as it always did.
+//
+// In the demo nothing is kept at all, the same way: its account is made up and
+// lives in memory, and a refresh is meant to start it over (see `demo/demoMode`).
 
 const DB_NAME = "myfiwallet-local";
 const STORE = "kv";
@@ -32,6 +37,7 @@ function open(): Promise<IDBDatabase | null> {
 }
 
 function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => IDBRequest | void): Promise<T | undefined> {
+  if (isDemo()) return Promise.resolve(undefined);
   return open().then(
     (db) =>
       new Promise<T | undefined>((resolve) => {

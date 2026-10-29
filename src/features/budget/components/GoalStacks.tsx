@@ -199,6 +199,7 @@ export function GoalViewToggle({ view, onChange }: { view: GoalView; onChange: (
 
   return (
     <ViewSwitch
+      data-tour="goal-views"
       label={t("goals.viewLabel")}
       value={view}
       onChange={onChange}

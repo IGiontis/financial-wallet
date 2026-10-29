@@ -347,6 +347,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 
   return (
     <Card
+      data-tour="goal-card"
       className="mb-3 h-100"
       style={{
         border: "1px solid var(--color-border-tertiary)",

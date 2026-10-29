@@ -1,4 +1,4 @@
-import { collection, deleteField, doc, FieldPath, getDoc, getDocs, query, Timestamp, updateDoc, where, type DocumentData, type DocumentSnapshot } from "firebase/firestore";
+import { collection, deleteField, doc, FieldPath, getDoc, getDocs, query, Timestamp, updateDoc, where, type DocumentData, type DocumentSnapshot } from "./firestoreApi";
 import { db } from "./config";
 import { localDeletePrefix, localGet, localSet } from "../lib/localStore";
 import { meterRead } from "../lib/readMeter";

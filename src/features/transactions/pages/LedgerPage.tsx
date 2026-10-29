@@ -317,7 +317,7 @@ export function LedgerPage() {
           )}
         </div>
 
-        <aside className={styles.side}>
+        <aside className={styles.side} data-tour="ledger-categories">
           {categoryList(t("ledger.whereOut"), ledger.spending, "var(--color-expense)", "var(--color-expense-text)")}
           {categoryList(t("ledger.whereIn"), ledger.earning, "var(--color-income)", "var(--color-income-text)")}
         </aside>

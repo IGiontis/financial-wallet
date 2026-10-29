@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
 import { BillAlertPopup } from "./BillAlertPopup";
+import { enterDemo, exitDemo } from "../../demo/demoMode";
 import { billAlerts } from "./billAlerts";
 import { computeBillStatus } from "./billsUtils";
 import type { Bill, BillWithStatus } from "../../shared/types/IndexTypes";
@@ -90,6 +91,19 @@ describe("the bills popup", () => {
     renderPopup();
     expect(screen.queryByText("ΔΕΗ")).toBeNull();
     expect(screen.getByText("Νερό")).toBeInTheDocument();
+  });
+
+  it("does not open in the demo, with the same bills due — the visitor sees the app first", () => {
+    enterDemo();
+    try {
+      renderPopup();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      exitDemo();
+    }
+    // The same page outside it: the popup is there, so it was the demo that kept it away.
+    renderPopup();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("links to its settings", async () => {

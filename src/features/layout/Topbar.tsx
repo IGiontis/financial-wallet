@@ -10,6 +10,10 @@ import { MENU_DIVIDER, RowMenu } from "../../shared/components/RowMenu";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import { useProfile, useSignOut } from "./useProfile";
 import { LanguageToggle } from "./LanguageToggle";
+import { isDemo } from "../../demo/demoMode";
+import { DemoAccountActions, DemoBadge } from "../../demo/DemoChrome";
+import demoStyles from "../../demo/css/DemoChrome.module.css";
+import { GuidedTourButton } from "../../demo/guidedTour/GuidedTourButton";
 
 interface TopbarProps {
   toggleSidebar: () => void;
@@ -26,6 +30,8 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
   // The same cached user document the sidebar reads — one read, two places.
   const { displayName, email, initials, loaded } = useProfile();
   const signOut = useSignOut();
+  // Decided as the page loads and fixed while it is open (see `demo/demoMode`).
+  const demo = isDemo();
 
   return (
     // `container={false}`: reactstrap otherwise wraps the bar in a second
@@ -44,6 +50,14 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
           <FiMenu aria-hidden />
           {!!billsDue && <span className={styles.menuDot} aria-hidden />}
         </Button>
+
+        {/* In the demo, what this is and the tour of it, at the start of the bar. */}
+        {demo && (
+          <div className={demoStyles.lead}>
+            <DemoBadge />
+            <GuidedTourButton />
+          </div>
+        )}
 
         <div className={styles.rightContent}>
           <Button
@@ -64,30 +78,37 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
               styles draw the account as a shape of its own and hide this. */}
           <span className={`${styles.divider} d-none d-md-block`} aria-hidden />
 
-          {/* Γ moves the account into the sidebar's foot on a wide screen and
-              hides this one there; on a phone it stays up here for every style. */}
-          <RowMenu
-            label={displayName || email || t("nav.settings")}
-            className={styles.userButton}
-            menuClassName={styles.userDropdown}
-            header={
-              <div className={styles.userInfo}>
-                <div className={`${styles.userAvatar} ${styles.userInfoAvatar}`}>{initials}</div>
-                {displayName && <div className={styles.userInfoName}>{displayName}</div>}
-                <div className={styles.userInfoEmail}>{email}</div>
-              </div>
-            }
-            entries={[
-              { label: t("nav.settings"), onSelect: () => navigate("/settings"), icon: <FiSettings size={18} /> },
-              MENU_DIVIDER,
-              { label: t("nav.signOut"), onSelect: signOut, icon: <FiLogOut size={18} />, danger: true },
-            ]}
-          >
-            <div className={styles.userAvatar}>{initials}</div>
-            {/* Only show name once Firestore has loaded — prevents flash */}
-            {loaded && displayName && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
-            <IoChevronDown className={`${styles.userChevron} d-none d-md-inline`} aria-hidden />
-          </RowMenu>
+          {/* The demo's user is no one: in place of their menu, the way to an
+              account of your own — in every navigation style, Γ's wide screen
+              included, where the real account moves to the sidebar. */}
+          {demo ? (
+            <DemoAccountActions />
+          ) : (
+            /* Γ moves the account into the sidebar's foot on a wide screen and
+                hides this one there; on a phone it stays up here for every style. */
+            <RowMenu
+              label={displayName || email || t("nav.settings")}
+              className={styles.userButton}
+              menuClassName={styles.userDropdown}
+              header={
+                <div className={styles.userInfo}>
+                  <div className={`${styles.userAvatar} ${styles.userInfoAvatar}`}>{initials}</div>
+                  {displayName && <div className={styles.userInfoName}>{displayName}</div>}
+                  <div className={styles.userInfoEmail}>{email}</div>
+                </div>
+              }
+              entries={[
+                { label: t("nav.settings"), onSelect: () => navigate("/settings"), icon: <FiSettings size={18} /> },
+                MENU_DIVIDER,
+                { label: t("nav.signOut"), onSelect: signOut, icon: <FiLogOut size={18} />, danger: true },
+              ]}
+            >
+              <div className={styles.userAvatar}>{initials}</div>
+              {/* Only show name once Firestore has loaded — prevents flash */}
+              {loaded && displayName && <span className={`${styles.userName} d-none d-md-inline`}>{displayName}</span>}
+              <IoChevronDown className={`${styles.userChevron} d-none d-md-inline`} aria-hidden />
+            </RowMenu>
+          )}
         </div>
       </Container>
     </Navbar>

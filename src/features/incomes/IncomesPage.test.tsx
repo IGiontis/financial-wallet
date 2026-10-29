@@ -8,6 +8,11 @@ import type { Category, Transaction } from "../../shared/types/IndexTypes";
 import type { Income } from "./incomesUtils";
 import IncomesPage from "./IncomesPage";
 
+// Whole pages, many clicks each: alone they take a second or two, but under a
+// full parallel run the 5 s default was missed now and then. Room, not a fix
+// for slowness — a test that genuinely hangs still fails.
+vi.setConfig({ testTimeout: 20_000 });
+
 // The page against the real hooks, with only Firestore and the signed-in user
 // stood in for. What these pin down is what leaves the page: the transaction
 // «Ήρθε» writes, and the words it keeps — because that is what every other

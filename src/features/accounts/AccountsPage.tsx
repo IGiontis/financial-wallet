@@ -529,7 +529,7 @@ function LatestFinding({
   if (!latest) return null;
   const date = dayFmt.format(latest.at);
   const box = (color: string, Icon: typeof FiCheckCircle, text: string, actions?: ReactNode) => (
-    <Alert color={color} className="small py-2 d-flex gap-2 align-items-start">
+    <Alert color={color} className="small py-2 d-flex gap-2 align-items-start" data-tour="accounts-finding">
       <Icon size={16} className="flex-shrink-0 mt-1" aria-hidden />
       <span>
         {text}

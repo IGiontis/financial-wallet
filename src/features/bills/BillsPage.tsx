@@ -1398,7 +1398,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                   billView !== "timeline" &&
                   billView !== "tree" &&
                   sections.map((section) => (
-                  <div key={section.key} className="mb-3">
+                  <div key={section.key} className="mb-3" data-tour={section.key === "outstanding" ? "bills-outstanding" : undefined}>
                     <div className={styles.listSection}>
                       <span className={styles.listSectionTitle} style={{ color: section.tone }}>
                         {section.title}

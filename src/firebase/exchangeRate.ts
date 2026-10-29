@@ -2,6 +2,8 @@
 // Rates are relative to USD — e.g. { EUR: 0.92, GBP: 0.79 }
 // Cached for 1 hour via TanStack Query — only 1 API call per session
 
+import { isDemo } from "../demo/demoMode";
+
 const API_KEY = import.meta.env.VITE_EXCHANGE_RATE_API_KEY;
 const BASE = "USD";
 
@@ -66,7 +68,14 @@ export const writeStoredRates = (data: ExchangeRates, now: number, storage: Pick
   }
 };
 
+/**
+ * What the demo converts with: round, recent-looking figures, fixed. A visitor
+ * trying another display currency must not spend the API's quota — or its key.
+ */
+export const DEMO_RATES: ExchangeRates = { base: BASE, rates: { USD: 1, EUR: 0.92, GBP: 0.79 } };
+
 export const fetchExchangeRates = async (): Promise<ExchangeRates> => {
+  if (isDemo()) return DEMO_RATES;
   const res = await fetch(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/${BASE}`);
   if (!res.ok) throw new Error("Failed to fetch exchange rates");
   const data = await res.json();

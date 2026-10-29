@@ -108,6 +108,7 @@ export default function CalendarPage() {
       <div className="mb-3">
         <ViewSwitch
           block
+          data-tour="calendar-views"
           label={t("calendar.viewLabel")}
           value={calendarView}
           onChange={setCalendarView}
@@ -190,7 +191,7 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        <div className={styles.grid} role="group" aria-label={monthTitle}>
+        <div className={styles.grid} role="group" aria-label={monthTitle} data-tour="calendar-grid">
           {cells.map((date) => {
             const inside = date.getMonth() === month.getMonth();
             if (!inside) return <span key={date.toISOString()} className={styles.outside} aria-hidden />;

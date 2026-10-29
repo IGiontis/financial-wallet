@@ -12,6 +12,7 @@ import styles from "./css/Auth.module.css";
 import { LegalLinks } from "../legal/LegalLinks";
 import { AgeTermsConsent } from "../legal/AgeTermsConsent";
 import { AuthLanguagePicker } from "./AuthLanguagePicker";
+import { BackToDemoLink } from "../../demo/DemoChrome";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -280,6 +281,9 @@ export default function RegisterPage() {
                 </p>
               </CardBody>
             </Card>
+
+            {/* Only for someone who has not signed in here yet — who came from the demo. */}
+            <BackToDemoLink />
           </Col>
         </Row>
       </Container>

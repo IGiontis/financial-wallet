@@ -250,12 +250,13 @@ export function PaydayCard({
       <div ref={cardRef} className={`row g-3 mb-3 ${className ?? ""}`}>
         <div className="col-12 col-lg-5 d-flex">
           {/* The page's one strong card in the light theme — see `.heroMoney`. */}
-          <Card className={`mb-0 w-100 ${styles.heroMoney}`}>
+          {/* The demo's tour points at these two (see `demo/guidedTour`); only the Overview splits. */}
+          <Card className={`mb-0 w-100 ${styles.heroMoney}`} data-tour="overview-money">
             <CardBody className="p-3 p-sm-4">{money}</CardBody>
           </Card>
         </div>
         <div className="col-12 col-lg-7 d-flex">
-          <Card className="mb-0 w-100">
+          <Card className="mb-0 w-100" data-tour="overview-payday">
             <CardBody className="p-3 p-sm-4">{isLoading ? <Skeleton height={60} /> : answer}</CardBody>
           </Card>
         </div>

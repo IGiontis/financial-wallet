@@ -135,7 +135,7 @@ export function DashboardKpis({
   const toneClass: Record<Tone, string> = { good: styles.kpiGood, bad: styles.kpiBad, quiet: styles.kpiQuiet };
 
   return (
-    <div className={styles.kpis}>
+    <div className={styles.kpis} data-tour="analytics-kpis">
       {tiles.map((tile) => (
         <section key={tile.key} className={styles.kpi} style={{ ["--kpi" as string]: tile.color }} aria-label={`${tile.label} · ${rangeLabel}`}>
           <div className={styles.kpiTop}>

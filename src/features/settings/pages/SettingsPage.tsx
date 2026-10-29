@@ -29,6 +29,8 @@ import { SettingsTabs } from "../components/SettingsTabs";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
 import { FiLogOut } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
+import { isDemo } from "../../../demo/demoMode";
+import { DemoAccountNote } from "../../../demo/DemoChrome";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -563,7 +565,12 @@ export function SettingsPage() {
           </>
         )}
 
-        {tab === "account" && (
+        {/* The demo's account is a stand-in with no Firebase behind it: its
+            email, password, signing out and deleting it would only be refused
+            (see `firebase/auth`). One card says so and leads to a real one. */}
+        {tab === "account" && isDemo() && <DemoAccountNote />}
+
+        {tab === "account" && !isDemo() && (
           <>
             {googleUser ? (
               <>

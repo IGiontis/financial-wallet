@@ -13,6 +13,11 @@ import { computeBillStatus } from "../bills/billsUtils";
 import type { CheckInReading } from "../accounts/accountsUtils";
 import type { Bill, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
+// Whole pages, many clicks each: alone they take a second or two, but under a
+// full parallel run the 5 s default was missed now and then. Room, not a fix
+// for slowness — a test that genuinely hangs still fails.
+vi.setConfig({ testTimeout: 20_000 });
+
 // The Planner page on the mockup's case: Wednesday 30 September 2026, 1,000 in
 // hand (banks 1,200 read the evening before), pay of 1,450 on the 30th that
 // came early on the 25th, bills of 515 a month on the 1st, 5th, 8th and 10th,

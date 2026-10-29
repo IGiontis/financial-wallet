@@ -414,7 +414,7 @@ export const OverviewPage = () => {
 
       {/* First, under the page's name: which view is the first thing chosen.
           Labelled and full width, so on a phone each is a real target. */}
-      <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")}>
+      <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")} data-tour="overview-tabs">
         {TABS.map(({ id, labelKey, icon: Icon }) => (
           <button
             key={id}

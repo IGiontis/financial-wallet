@@ -1809,11 +1809,11 @@
   color: var(--color-text-secondary);
 }
 
-/* The light theme's strong card is the deep Aegean blue, here as on the
+/* The light theme's strong card in the style's strong colour, here as on the
    Overview's money card — not the tooltip's near-black, which sat in the light
    page like a piece of the dark theme left behind. */
 :global([data-bs-theme="light"]) .yearlyCard {
-  background: #0f3d7a;
+  background: var(--color-accent-strong);
 }
 
 /* ── A switched-off bill, the same in every view ──────────────────────────────

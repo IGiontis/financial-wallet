@@ -378,7 +378,7 @@ export interface OverviewTile {
 /** One tile per part of the app, each with the one figure that matters there. */
 export function TileGrid({ tiles }: { tiles: OverviewTile[] }) {
   return (
-    <div className={styles.tiles}>
+    <div className={styles.tiles} data-tour="overview-tiles">
       {tiles.map((tile) => (
         <Link key={tile.to} to={tile.to} className={styles.tile}>
           <span className={styles.tileLabel}>

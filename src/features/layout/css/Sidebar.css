@@ -19,6 +19,17 @@
   --nav-rule: rgba(255, 255, 255, 0.07);
   --nav-hover: rgba(255, 255, 255, 0.06);
   --nav-focus: #7fb0ff;
+  /* The current page's icon and the bar on the panel's edge. */
+  --nav-current-icon: #7fb0ff;
+  --nav-current-bar: #4d8dff;
+}
+
+/* Α «Πεύκο» in the dark theme: the same white-on-dark bar, its marks in the
+   pine's petrol. Icon 9.3:1 on the bar, focus ring 10:1 on the page. */
+:root[data-bs-theme="dark"][data-nav-style="a"] .sidebar {
+  --nav-focus: #74cfd8;
+  --nav-current-icon: #74cfd8;
+  --nav-current-bar: #45b3bd;
 }
 
 /* ── The bar ───────────────────────────────────────────────────────────────── */
@@ -314,7 +325,7 @@
 }
 
 .sidebar .sidebar-link.nav-link-current .nav-icon {
-  color: #7fb0ff;
+  color: var(--nav-current-icon);
 }
 
 .sidebar .sidebar-link.nav-link-current::before {
@@ -325,7 +336,7 @@
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: #4d8dff;
+  background: var(--nav-current-bar);
 }
 
 /* ── Badges ────────────────────────────────────────────────────────────────── */
@@ -1159,7 +1170,7 @@
 
 /* One of its pages is on screen: the icon says so, the page itself carries the bar. */
 .sidebar .sidebar-parent.nav-link-within .nav-icon {
-  color: #7fb0ff;
+  color: var(--nav-current-icon);
 }
 
 /* Open: the item and its pages on one panel of their own, so the pages read
@@ -1213,7 +1224,7 @@
     bottom: 8px;
     width: 3px;
     border-radius: 0 3px 3px 0;
-    background: #4d8dff;
+    background: var(--nav-current-bar);
   }
 }
 
@@ -1271,103 +1282,99 @@
   opacity: 1;
 }
 
-/* ── Α in the light theme: «Αιγαίο» ────────────────────────────────────────────
+/* ── Α in the light theme: «Πεύκο» ─────────────────────────────────────────────
    The bar used to be the same dark navy in both themes, and in the light one it
-   read as a second app bolted to the side of the first. Here it is the page's
-   own pale blue, the current page a white tab with a blue edge. Β and Γ are
-   chosen for a dark bar, and keep it. */
+   read as a second app bolted to the side of the first. Here it is a calm pine
+   green, a step deeper than the page and level with the top bar beside it, the
+   current page a white tab with a petrol edge. Β and Γ are chosen for a dark
+   bar, and keep it. Every colour is a token on the bar, so the rules below
+   name no colour of their own.
+     text 9.9:1 · group names 4.9:1 · icons 3.7:1, at the bar's deeper foot
+     the current page 10.7:1 on its white tab */
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar {
-  --nav-bg: #eef4fb;
-  --nav-bg-2: #eef4fb;
-  --nav-text: #23395b;
-  --nav-icon: #5b76a0;
-  --nav-group: #4f6687;
-  --nav-rule: #d6e2f1;
-  --nav-hover: rgba(15, 61, 122, 0.06);
-  --nav-focus: #1f5fbf;
-  border-right: 1px solid #d6e2f1;
+  --nav-bg: #d4e8e0;
+  --nav-bg-2: #cbe2d9;
+  --nav-text: #1d3b34;
+  --nav-text-2: #3a5a51;
+  --nav-icon: #4c776c;
+  --nav-group: #3f6359;
+  --nav-rule: #bcd6cc;
+  --nav-hover: rgba(13, 69, 73, 0.07);
+  --nav-hover-strong: rgba(13, 69, 73, 0.11);
+  --nav-open: rgba(13, 69, 73, 0.045);
+  --nav-focus: #0f6170;
+  --nav-strong: #0d4549;
+  --nav-current-bg: #ffffff;
+  --nav-current-icon: #0f6170;
+  --nav-current-bar: #0f6170;
+  --nav-current-shadow: 0 1px 2px rgba(13, 69, 73, 0.1);
+  /* A dark thumb on the light bar: the dark bar's near-white one measured
+     1:1 here, which is to say it was not there. 3:1, as everywhere. */
+  --scrollbar-thumb: rgba(29, 59, 52, 0.6);
+  --scrollbar-thumb-hover: rgba(29, 59, 52, 0.8);
+  border-right: 1px solid var(--nav-rule);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-logo {
-  background: #0f3d7a;
+  background: var(--nav-strong);
   color: #ffffff;
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-home:hover .sidebar-logo {
-  background: #1f5fbf;
+  background: var(--nav-focus);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-brand,
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-who-name {
-  color: #0f3d7a;
+  color: var(--nav-strong);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-who-email {
-  color: #4f6687;
+  color: var(--nav-group);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-close {
-  background: rgba(15, 61, 122, 0.06);
-  color: #3d5a80;
+  background: var(--nav-hover);
+  color: var(--nav-text-2);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-close:hover,
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-collapse:hover {
-  background: rgba(15, 61, 122, 0.1);
-  color: #0f3d7a;
+  background: var(--nav-hover-strong);
+  color: var(--nav-strong);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar-collapse {
-  color: #5b76a0;
+  color: var(--nav-icon);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link:hover,
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link:focus-visible {
-  color: #0f3d7a;
+  color: var(--nav-strong);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link:hover .nav-icon {
-  color: #1f5fbf;
+  color: var(--nav-current-icon);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link.nav-link-current {
-  background-color: #ffffff;
-  color: #0f3d7a;
-  box-shadow: 0 1px 2px rgba(15, 61, 122, 0.08);
+  background-color: var(--nav-current-bg);
+  color: var(--nav-strong);
+  box-shadow: var(--nav-current-shadow);
 }
 
-:root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link.nav-link-current .nav-icon,
-:root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-parent.nav-link-within .nav-icon {
-  color: #1f5fbf;
-}
-
-:root[data-bs-theme="light"][data-nav-style="a"] .sidebar .sidebar-link.nav-link-current::before {
-  background: #1f5fbf;
-}
-
-/* An open section: a slightly deeper wash of the bar's blue, not a white glaze. */
+/* An open section: a slightly deeper wash of the bar's green, not a white glaze. */
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .nav-item.sidebar-group-open {
-  background: rgba(15, 61, 122, 0.04);
-  box-shadow: inset 0 0 0 1px rgba(15, 61, 122, 0.06);
+  background: var(--nav-open);
+  box-shadow: inset 0 0 0 1px var(--nav-hover);
 }
 
 :root[data-bs-theme="light"][data-nav-style="a"] .sidebar .nav-item.sidebar-group-open > .sidebar-parent:hover {
-  background: rgba(15, 61, 122, 0.06);
+  background: var(--nav-hover);
 }
 
 @media (min-width: 992px) {
   :root[data-bs-theme="light"][data-nav-style="a"] .sidebar.collapsed .sidebar-group-label {
-    background: #d6e2f1;
+    background: var(--nav-rule);
   }
-
-  :root[data-bs-theme="light"][data-nav-style="a"] .sidebar.collapsed .sidebar-parent.nav-link-within::before {
-    background: #1f5fbf;
-  }
-}
-
-/* Α's light bar needs a dark thumb: the dark bar's near-white one measured
-   1:1 on it, which is to say it was not there. 3:1, as everywhere. */
-:root[data-bs-theme="light"][data-nav-style="a"] .sidebar {
-  --scrollbar-thumb: rgba(35, 57, 91, 0.55);
-  --scrollbar-thumb-hover: rgba(35, 57, 91, 0.75);
 }

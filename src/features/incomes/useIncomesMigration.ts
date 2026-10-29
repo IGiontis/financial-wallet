@@ -8,6 +8,7 @@ import { PLANNER_KEYS } from "../plannerPage/plannerInputs";
 import { detectSalary } from "./detectSalary";
 import { PLANNER_SALARY_KEY, migratePlannerIncomes, migrationStep, type MigrationOptions } from "./incomeMigration";
 import { INCOMES_KEY, type Income } from "./incomesUtils";
+import { isDemo } from "../../demo/demoMode";
 
 /**
  * Accounts this session has already moved. Outside React: three screens call
@@ -24,6 +25,8 @@ export function resetIncomesMigration() {
 
 /** This device holds an `incomes` of its own not yet on the account — written offline, say. It goes up by itself. */
 function cachedOnDevice(): boolean {
+  // The demo's account is the fixtures' alone: nothing on the device speaks for it.
+  if (isDemo()) return false;
   try {
     return localStorage.getItem(INCOMES_KEY) !== null;
   } catch {

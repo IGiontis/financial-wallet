@@ -12,8 +12,9 @@
   flex: none;
   height: var(--topbar-height);
   padding: 0;
-  background-color: var(--color-surface);
-  border-color: var(--color-border-tertiary) !important;
+  /* White, or the menu style's own tint (Α «Πεύκο»: the menu's pine) — index.css, navStyles.css. */
+  background-color: var(--topbar-bg);
+  border-color: var(--topbar-border) !important;
 }
 
 .topbarContainer {
@@ -52,14 +53,14 @@
 
 .iconButton:hover,
 .iconButton:focus-visible {
-  background-color: var(--color-background-secondary);
+  background-color: var(--topbar-hover);
   color: var(--color-text-primary);
 }
 
 /* ☰ gets an outline rather than the grey block it had: it is the way into the
    whole menu on a phone, and it should look like a control, not a patch. */
 .menuButton {
-  border: 1px solid var(--color-border-tertiary);
+  border: 1px solid var(--topbar-border);
   color: var(--color-text-primary);
   font-size: 20px;
 }
@@ -81,7 +82,7 @@
   background: var(--color-expense);
   /* Against the bar's own colour, so it reads as a dot rather than as part of
      the icon whatever the theme is doing. */
-  box-shadow: 0 0 0 2px var(--color-surface);
+  box-shadow: 0 0 0 2px var(--topbar-bg);
 }
 
 /* Α's hairline between the controls and the account. */
@@ -90,7 +91,7 @@
   width: 1px;
   height: 24px;
   margin: 0 8px;
-  background: var(--color-border-tertiary);
+  background: var(--topbar-border);
 }
 
 /* ── User button ──────────────────────────────────────────────────────────── */
@@ -110,7 +111,7 @@
 }
 
 .userButton:hover {
-  background-color: var(--color-background-secondary);
+  background-color: var(--topbar-hover);
 }
 
 .userAvatar {
@@ -376,5 +377,5 @@
   width: 1px;
   height: 22px;
   margin: 0 4px;
-  background: var(--color-border-tertiary);
+  background: var(--topbar-border);
 }

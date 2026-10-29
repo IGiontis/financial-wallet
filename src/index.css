@@ -45,19 +45,42 @@
      few with markup of their own (the Bills and Goals view switches). On white
      each tab is a tab of its own, with an edge; the chosen one takes the menu
      style's colour, set per style in navStyles.css — Α's blue edge here. */
+  /* A tab that is not chosen sits a shade under the white around it, with an
+     edge you can see: white tabs with a #dce6f2 hairline measured 1.26:1 on a
+     card and read as no control at all. Text on them 6:1. */
   --segment-track: transparent;
   --segment-pad: 0;
   --segment-gap: 6px;
-  --segment-item: var(--color-surface);
-  --segment-item-border: var(--color-border-tertiary);
-  --segment-item-hover-border: var(--color-border-primary);
+  --segment-item: #e6edf6;
+  --segment-item-border: #9fb3cd; /* 2.1:1 on white */
+  --segment-item-hover-border: #7f97b8; /* 3:1 */
   --color-segment-active: #ffffff;
   --color-segment-active-border: #1f5fbf;
   --color-segment-active-text: #0f3d7a;
   /* The small view switch (ViewSwitch): an outline and a tint, never a page tab's fill. */
-  --view-switch-border: #c9d6e6;
-  --view-switch-on: #e3edfb;
+  --view-switch-border: #97abc6; /* 2.3:1 on white; was 1.47 */
+  --view-switch-on: #d3e2f7;
   --view-switch-on-text: #0f3d7a;
+
+  /* The brand: buttons, checked boxes, focus. One set of tokens so a menu
+     style can bring its own (navStyles.css) without restating every rule. */
+  --brand: #1f5fbf;
+  --brand-rgb: 31, 95, 191;
+  --brand-hover: #1a52a6;
+  --brand-active: #164689;
+  --brand-text: #0f3d7a;
+  --brand-subtle: #e3ecf8;
+  --brand-border-subtle: #b7cbe8;
+  --brand-focus-border: #8fb0de;
+  --color-link-rgb: 26, 85, 173;
+  --color-link-hover: #0f3d7a;
+  --color-link-hover-rgb: 15, 61, 122;
+
+  /* The top bar, and what a control on it lights up with. White by default;
+     a menu style may tint it (navStyles.css). */
+  --topbar-bg: #ffffff;
+  --topbar-border: var(--color-border-tertiary);
+  --topbar-hover: var(--color-background-secondary);
 
   /* Elevation — shadows in the accent's own deep blue, not a neutral grey. */
   --shadow-sm: 0 1px 2px rgba(15, 61, 122, 0.06);
@@ -165,18 +188,24 @@
   --color-border-tertiary: #2d3641;
 
   /* See the light theme for why this is a token. */
-  --segment-track: var(--color-background-secondary);
+  /* A track a step lighter than the card (it was 1.02:1 against it — not
+     there), the chosen tab lighter again with an edge of 4.3:1 on the track. */
+  --segment-track: #2a323d;
   --segment-pad: 4px;
   --segment-gap: 4px;
   --segment-item: transparent;
   --segment-item-border: transparent;
   --segment-item-hover-border: transparent;
-  --color-segment-active: #4a525c;
-  --color-segment-active-border: #5f6b7a;
-  --color-segment-active-text: var(--color-text-primary);
-  --view-switch-border: #3a4452;
-  --view-switch-on: #2c3e5c;
-  --view-switch-on-text: #cfe0ff;
+  --color-segment-active: #566170;
+  --color-segment-active-border: #8a96a6;
+  --color-segment-active-text: var(--color-text-primary); /* 5.6:1 */
+  --view-switch-border: #4b5666; /* 2:1 on the card */
+  --view-switch-on: #334a6e;
+  --view-switch-on-text: #d6e6ff; /* 7.1:1 */
+
+  --topbar-bg: var(--color-surface);
+  --topbar-border: var(--color-border-tertiary);
+  --topbar-hover: var(--color-background-secondary);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
@@ -1087,54 +1116,64 @@ body {
 
 /* ── «Αιγαίο»: the light theme's own blue ────────────────────────────────────
    Bootstrap's stock #0d6efd was the one colour the light theme had not chosen.
-   Light only: the dark theme keeps its blue. White on #1f5fbf is 6.4:1. */
-[data-bs-theme="light"] {
-  --bs-primary: #1f5fbf;
-  --bs-primary-rgb: 31, 95, 191;
-  --bs-primary-text-emphasis: #0f3d7a;
-  --bs-primary-bg-subtle: #e3ecf8;
-  --bs-primary-border-subtle: #b7cbe8;
-  --bs-link-color: #1a55ad;
-  --bs-link-color-rgb: 26, 85, 173;
-  --bs-link-hover-color: #0f3d7a;
-  --bs-link-hover-color-rgb: 15, 61, 122;
-  --bs-focus-ring-color: rgba(31, 95, 191, 0.25);
+   Light only: the dark theme keeps Bootstrap's blue — except under a menu
+   style that brings a brand of its own for the dark theme too (Α's «Πεύκο»,
+   navStyles.css), which these rules then read from the same tokens.
+   White on #1f5fbf is 6.4:1. */
+[data-bs-theme="light"],
+:root[data-bs-theme="dark"][data-nav-style="a"] {
+  --bs-primary: var(--brand);
+  --bs-primary-rgb: var(--brand-rgb);
+  --bs-primary-text-emphasis: var(--brand-text);
+  --bs-primary-bg-subtle: var(--brand-subtle);
+  --bs-primary-border-subtle: var(--brand-border-subtle);
+  --bs-link-color: var(--color-link);
+  --bs-link-color-rgb: var(--color-link-rgb);
+  --bs-link-hover-color: var(--color-link-hover);
+  --bs-link-hover-color-rgb: var(--color-link-hover-rgb);
+  --bs-focus-ring-color: rgba(var(--brand-rgb), 0.25);
 }
 
-[data-bs-theme="light"] .btn-primary {
-  --bs-btn-bg: #1f5fbf;
-  --bs-btn-border-color: #1f5fbf;
-  --bs-btn-hover-bg: #1a52a6;
-  --bs-btn-hover-border-color: #1a52a6;
-  --bs-btn-active-bg: #164689;
-  --bs-btn-active-border-color: #164689;
-  --bs-btn-disabled-bg: #1f5fbf;
-  --bs-btn-disabled-border-color: #1f5fbf;
-  --bs-btn-focus-shadow-rgb: 31, 95, 191;
+[data-bs-theme="light"] .btn-primary,
+:root[data-bs-theme="dark"][data-nav-style="a"] .btn-primary {
+  --bs-btn-bg: var(--brand);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-bg: var(--brand-hover);
+  --bs-btn-hover-border-color: var(--brand-hover);
+  --bs-btn-active-bg: var(--brand-active);
+  --bs-btn-active-border-color: var(--brand-active);
+  --bs-btn-disabled-bg: var(--brand);
+  --bs-btn-disabled-border-color: var(--brand);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
 }
 
-[data-bs-theme="light"] .btn-outline-primary {
-  --bs-btn-color: #1f5fbf;
-  --bs-btn-border-color: #1f5fbf;
-  --bs-btn-hover-bg: #1f5fbf;
-  --bs-btn-hover-border-color: #1f5fbf;
-  --bs-btn-active-bg: #1a52a6;
-  --bs-btn-active-border-color: #1a52a6;
-  --bs-btn-disabled-color: #1f5fbf;
-  --bs-btn-disabled-border-color: #1f5fbf;
-  --bs-btn-focus-shadow-rgb: 31, 95, 191;
+[data-bs-theme="light"] .btn-outline-primary,
+:root[data-bs-theme="dark"][data-nav-style="a"] .btn-outline-primary {
+  --bs-btn-color: var(--brand-outline-text, var(--brand));
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-bg: var(--brand);
+  --bs-btn-hover-border-color: var(--brand);
+  --bs-btn-active-bg: var(--brand-hover);
+  --bs-btn-active-border-color: var(--brand-hover);
+  --bs-btn-disabled-color: var(--brand-outline-text, var(--brand));
+  --bs-btn-disabled-border-color: var(--brand);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
 }
 
-[data-bs-theme="light"] .form-check-input:checked {
-  background-color: #1f5fbf;
-  border-color: #1f5fbf;
+[data-bs-theme="light"] .form-check-input:checked,
+:root[data-bs-theme="dark"][data-nav-style="a"] .form-check-input:checked {
+  background-color: var(--brand);
+  border-color: var(--brand);
 }
 
 [data-bs-theme="light"] .form-control:focus,
 [data-bs-theme="light"] .form-select:focus,
-[data-bs-theme="light"] .form-check-input:focus {
-  border-color: #8fb0de;
-  box-shadow: 0 0 0 0.25rem rgba(31, 95, 191, 0.2);
+[data-bs-theme="light"] .form-check-input:focus,
+:root[data-bs-theme="dark"][data-nav-style="a"] .form-control:focus,
+:root[data-bs-theme="dark"][data-nav-style="a"] .form-select:focus,
+:root[data-bs-theme="dark"][data-nav-style="a"] .form-check-input:focus {
+  border-color: var(--brand-focus-border);
+  box-shadow: 0 0 0 0.25rem rgba(var(--brand-rgb), 0.2);
 }
 
 /* ── A total in a meaning's colour: «Χρωστάς», «Έσοδα του μήνα» ───────────────

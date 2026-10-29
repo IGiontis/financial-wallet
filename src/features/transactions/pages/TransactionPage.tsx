@@ -295,7 +295,7 @@ function MobileSummary({ transactions, formatCurrency }: { transactions: Transac
   const { t } = useTranslation();
   const { earned, spent, net, count } = useMemo(() => computeFilterTotals(transactions), [transactions]);
   return (
-    <div className="mb-3">
+    <div className="mb-3" data-tour="transactions-list">
       <div className={styles.sumBoxes}>
         <div className={styles.sumBox}>
           <span className={styles.sumLabel}>{t("transactions.totalSpent")}</span>
@@ -711,7 +711,7 @@ export function TransactionsPage() {
               />
             </div>
 
-            <Card className="border-0 shadow-sm">
+            <Card className="border-0 shadow-sm" data-tour="transactions-list">
               <CardBody className={txView === "tree" ? "p-3" : "p-0"}>
                 {isLoading ? (
                   <SkeletonTable columns={5} rows={8} alignEnd={[3, 4]} />

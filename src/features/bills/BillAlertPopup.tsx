@@ -8,6 +8,7 @@ import { BILL_ALERTS_SETTINGS, useBillAlerts } from "./useBillAlerts";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { TOUR_PARAM, TOUR_SEEN_KEY } from "../tour/tourState";
+import { isDemo } from "../../demo/demoMode";
 import styles from "./css/BillAlertPopup.module.css";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -42,7 +43,8 @@ export function BillAlertPopup() {
 
   // Not before the account's own list has arrived: this device's copy could be missing what another put away.
   // Nor over the settings, where its own are being changed — it waits for the next page.
-  const open = !closed && enabled && loaded && !touring && !pathname.startsWith("/settings") && hasUnseenAlert(alerts, seen);
+  // Nor in the demo: a visitor meets the app first, before a list of what to pay.
+  const open = !closed && enabled && loaded && !touring && !isDemo() && !pathname.startsWith("/settings") && hasUnseenAlert(alerts, seen);
 
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const money = (alert: BillAlert) => `${alert.approximate ? "≈" : ""}${format(alert.amount)}`;

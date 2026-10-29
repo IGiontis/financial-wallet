@@ -35,24 +35,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme: ResolvedTheme = preference === "system" ? systemTheme : preference;
 
   // Drive Bootstrap 5.3's native colour mode + the browser UI colour
+  // The menu style on <html>, next to `data-bs-theme`, so one selector can ask
+  // for both — the sidebars and the top bar have a light and a dark shade per
+  // style — and so it also reaches what is portalled out of the shell, like the
+  // rail's tooltips.
   useEffect(() => {
-    document.documentElement.setAttribute("data-bs-theme", theme);
+    const root = document.documentElement;
+    root.setAttribute("data-bs-theme", theme);
+    root.setAttribute("data-nav-style", navStyle);
     // The phone's own bar above the app takes the top bar's colour, so the two
-    // read as one. It was the page's darker ground in the dark theme — a shade
-    // band over the top bar — and Bootstrap blue in the light one. Read from the
-    // token the top bar itself is painted with, now that the theme has switched.
-    const surface = getComputedStyle(document.documentElement).getPropertyValue("--color-surface").trim();
+    // read as one. Read from the token the top bar is painted with, now that
+    // both attributes are set: it changes with the menu style as well as the
+    // theme — the pine top bar of style Α left a white band above it otherwise.
+    const topbar = getComputedStyle(root).getPropertyValue("--topbar-bg").trim();
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", surface || (theme === "dark" ? "#1f262f" : "#ffffff"));
-  }, [theme]);
-
-  // On <html>, next to `data-bs-theme`, so one selector can ask for both —
-  // the blue and glass sidebars have a light-theme and a dark-theme shade — and
-  // so it also reaches what is portalled out of the shell, like the rail's
-  // tooltips.
-  useEffect(() => {
-    document.documentElement.setAttribute("data-nav-style", navStyle);
-  }, [navStyle]);
+    if (meta) meta.setAttribute("content", topbar || (theme === "dark" ? "#1f262f" : "#ffffff"));
+  }, [theme, navStyle]);
 
   const toggleTheme = useCallback(() => {
     setPreference(theme === "dark" ? "light" : "dark");

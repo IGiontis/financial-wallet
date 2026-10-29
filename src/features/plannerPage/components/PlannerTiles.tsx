@@ -136,7 +136,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
   const shown = isMonth ? monthData!.view : plan;
 
   return (
-    <section ref={cardRef} className="card mb-3" aria-label={t("planner.glance")}>
+    <section ref={cardRef} className="card mb-3" aria-label={t("planner.glance")} data-tour="planner-glance">
       <div className="card-body p-3 p-sm-4">
         {/* «Διάστημα» the window the horizon sets, «Μήνας» one month of it, any month up to the farthest a plan reaches. */}
         <div className="mb-2">

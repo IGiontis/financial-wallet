@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import i18n from "../../../i18n";
 import { SettingsPage } from "./SettingsPage";
+import { enterDemo, exitDemo, leaveDemo } from "../../../demo/demoMode";
 
 // Settings in four tabs, each at its own address — the same cards as before,
 // each where it belongs. What the cards do is theirs and tested with them; here,
@@ -26,6 +27,8 @@ vi.mock("../../../firebase/auth", () => ({
   reauthenticate: vi.fn(),
   deleteAccount: vi.fn(),
 }));
+// Leaving the demo is a full page load: watched, not run.
+vi.mock("../../../demo/demoMode", async (original) => ({ ...(await original<typeof import("../../../demo/demoMode")>()), leaveDemo: vi.fn() }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ exchangeRateKeys: { user: (uid: string) => ["userCurrency", uid], rates: () => ["exchangeRates"] } }));
 // The data cards are each their own world; stand-ins are enough to see where they land.
 vi.mock("../../categories/CategoryManager", () => ({ default: () => <p>category manager</p> }));
@@ -136,5 +139,32 @@ describe("settings tabs", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Preferences" }));
     await userEvent.click(screen.getByRole("tab", { name: "Profile" }));
     expect(city()).toHaveValue("Athens");
+  });
+});
+
+describe("settings in the demo", () => {
+  afterEach(() => exitDemo());
+
+  it("puts one card in place of email, password, signing out and deleting, leading to a real account", async () => {
+    enterDemo();
+    renderAt("/settings/account");
+    expect(await within(panel()).findByRole("heading", { name: "This is a demo" })).toBeInTheDocument();
+    expect(within(panel()).queryByText("Email address")).not.toBeInTheDocument();
+    expect(within(panel()).queryByText("Change password")).not.toBeInTheDocument();
+    expect(within(panel()).queryByRole("button", { name: "Sign Out" })).not.toBeInTheDocument();
+    expect(within(panel()).queryByRole("button", { name: "Delete account" })).not.toBeInTheDocument();
+
+    await userEvent.click(within(panel()).getByRole("button", { name: "Create account" }));
+    expect(leaveDemo).toHaveBeenCalledWith("/register");
+  });
+
+  it("keeps the profile, the preferences and the data cards as they are", async () => {
+    enterDemo();
+    renderAt("/settings/profile");
+    expect(await screen.findByText(/First name/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Data" }));
+    expect(within(panel()).getByText("statement button")).toBeInTheDocument();
+    expect(within(panel()).getByText("reset button")).toBeInTheDocument();
+    expect(within(panel()).queryByText("This is a demo")).not.toBeInTheDocument();
   });
 });

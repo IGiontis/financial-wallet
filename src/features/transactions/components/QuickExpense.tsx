@@ -44,7 +44,7 @@ export function QuickExpense() {
   return (
     <>
       {!onFullForm && (
-        <button type="button" className={styles.fab} onClick={() => setOpen(true)} aria-label={t("quick.open")} title={t("quick.open")}>
+        <button type="button" className={styles.fab} onClick={() => setOpen(true)} aria-label={t("quick.open")} title={t("quick.open")} data-tour="quick-expense">
           <FiPlus aria-hidden />
         </button>
       )}

@@ -10,6 +10,7 @@ import { ensureGoogleProfile } from "./googleProfile";
 import styles from "./css/Auth.module.css";
 import { AgeTermsNotice } from "../legal/AgeTermsConsent";
 import { AuthLanguagePicker } from "./AuthLanguagePicker";
+import { BackToDemoLink } from "../../demo/DemoChrome";
 
 // ─── In-app browser detection ─────────────────────────────────────────────────
 
@@ -168,6 +169,9 @@ export default function LoginPage() {
                 <RecaptchaNotice className="text-center mt-3" />
               </CardBody>
             </Card>
+
+            {/* Only for someone who has not signed in here yet — who came from the demo. */}
+            <BackToDemoLink />
           </Col>
         </Row>
       </Container>

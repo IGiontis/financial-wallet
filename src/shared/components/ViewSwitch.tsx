@@ -38,6 +38,7 @@ export function ViewSwitch<T extends string>({
   stackOnPhone,
   block,
   className,
+  "data-tour": tourMark,
 }: {
   label: string;
   options: readonly ViewSwitchOption<T>[];
@@ -46,6 +47,13 @@ export function ViewSwitch<T extends string>({
   stackOnPhone?: boolean;
   block?: boolean;
   className?: string;
+  /**
+   * A mark for the demo's guided tour (see `demo/guidedTour`): a step whose
+   * element shows in one of these views only presses the option it needs,
+   * found by its `data-view`, before pointing — the view chosen last is
+   * remembered on the device, and may be the other one.
+   */
+  "data-tour"?: string;
 }) {
   return (
     <div
@@ -53,11 +61,13 @@ export function ViewSwitch<T extends string>({
       style={stackOnPhone ? ({ "--stack-columns": options.length <= 4 ? options.length : Math.ceil(options.length / 2) } as CSSProperties) : undefined}
       role="group"
       aria-label={label}
+      data-tour={tourMark}
     >
       {options.map(({ id, label: name, icon: Icon, short }) => (
         <button
           key={id}
           type="button"
+          data-view={id}
           className={`${styles.option} ${value === id ? styles.on : ""}`}
           aria-pressed={value === id}
           title={short ? name : undefined}

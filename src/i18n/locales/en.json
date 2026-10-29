@@ -2912,5 +2912,90 @@
       "title": "Debts & loans",
       "body": "What you owe and what you are owed: loans with interest, money from friends. Record each payment and see what is left."
     }
+  },
+  "demoMode": {
+    "badgeTitle": "You're viewing a demo with made-up data — nothing is saved",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "createAccountShort": "Sign up",
+    "noteTitle": "This is a demo",
+    "noteBody": "Create an account to keep your data. Changing your email and password, signing out and deleting the account come with a real account.",
+    "backToDemo": "Back to the demo"
+  },
+  "guidedTour": {
+    "button": "Tour",
+    "buttonTitle": "Take a tour of the app",
+    "next": "Next",
+    "back": "Back",
+    "done": "Done",
+    "close": "Close",
+    "progress": "{{current}} / {{total}}",
+    "createAccount": "Create account",
+    "steps": {
+      "money": {
+        "title": "Money you have",
+        "body": "What's in your banks and cash right now. Underneath, where that figure comes from."
+      },
+      "payday": {
+        "title": "Do you make it to payday?",
+        "body": "What's left until the next pay, once bills and instalments are out. The chart follows your money day by day."
+      },
+      "tiles": {
+        "title": "Everything at a glance",
+        "body": "Bills, income, goals, debts: each tile sums up a page and takes you there in one tap."
+      },
+      "quick": {
+        "title": "Quick expense",
+        "body": "The + is on every page: amount, category, card, and the coffee is recorded as you pay for it."
+      },
+      "transactions": {
+        "title": "Transactions",
+        "body": "Every record, day by day, with search and a category filter. Tap one to see or change it."
+      },
+      "ledger": {
+        "title": "Where it went",
+        "body": "The month by category. Tap a category to see the records behind it."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "body": "Income, spending and savings over the months you choose; further down, your habits."
+      },
+      "incomes": {
+        "title": "Did the pay come in?",
+        "body": "Regular income waits here. When one lands, press “Arrived” and it's recorded for you."
+      },
+      "bills": {
+        "title": "Bills still to pay",
+        "body": "One is already late, another is due this week. Tap a bill to pay it."
+      },
+      "calendar": {
+        "title": "Calendar",
+        "body": "The month day by day: when income comes in and when bills and instalments go out."
+      },
+      "planner": {
+        "title": "Will I make it?",
+        "body": "With your own figures: what's left at the end of each month, as far ahead as you want to look."
+      },
+      "goals": {
+        "title": "Goals",
+        "body": "The ring shows how close you are. Below it, what you've put in, what's left and the target as a whole."
+      },
+      "accounts": {
+        "title": "Banks & cash",
+        "body": "Now and then you note what each bank shows. Whatever you spent without recording it turns up here as “not recorded”."
+      },
+      "investments": {
+        "title": "Investments",
+        "body": "Regular contributions or simple tracking, like this ETF: what you've put in and where it stands."
+      },
+      "debts": {
+        "title": "Debts & loans",
+        "body": "What you owe and what you're owed, by bank or person: the car loan, the friend who owes you."
+      },
+      "finish": {
+        "title": "That's it!",
+        "body": "All of this ran on made-up data that starts over on every refresh. Create an account to keep your own."
+      }
+    }
   }
 }

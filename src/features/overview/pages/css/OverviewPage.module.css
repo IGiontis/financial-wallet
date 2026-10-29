@@ -743,15 +743,16 @@ a.attentionName {
   color: var(--color-text-primary);
 }
 
-/* «Λεφτά που έχεις» in the light theme: filled in the deep Aegean blue — the
+/* «Λεφτά που έχεις» in the light theme: filled in the style's strong colour
+   (--color-accent-strong: deep Aegean blue, pine in style Α) — the
    one strong thing on the page, where every card used to weigh the same. The
    dark theme keeps its card: there the figure already stands out. */
 /* `background-color` itself: index.css paints every `.card` with `--color-surface` directly. */
 :global([data-bs-theme="light"]) .heroMoney {
-  --bs-card-bg: #0f3d7a;
-  --bs-card-border-color: #0f3d7a;
-  background-color: #0f3d7a;
-  border-color: #0f3d7a;
+  --bs-card-bg: var(--color-accent-strong);
+  --bs-card-border-color: var(--color-accent-strong);
+  background-color: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
   color: #ffffff;
 }
 
@@ -761,7 +762,7 @@ a.attentionName {
 
 :global([data-bs-theme="light"]) .heroMoney .heroLabel,
 :global([data-bs-theme="light"]) .heroMoney :global(.text-body-secondary) {
-  color: #c9daf2 !important;
+  color: color-mix(in srgb, #ffffff 78%, var(--color-accent-strong)) !important;
 }
 
 :global([data-bs-theme="light"]) .heroMoney .strip {
@@ -779,11 +780,11 @@ a.attentionName {
 :global([data-bs-theme="light"]) .heroMoney :global(.btn-outline-secondary) {
   --bs-btn-color: #ffffff;
   --bs-btn-border-color: rgba(255, 255, 255, 0.4);
-  --bs-btn-hover-color: #0f3d7a;
+  --bs-btn-hover-color: var(--color-accent-strong);
   --bs-btn-hover-bg: #ffffff;
   --bs-btn-hover-border-color: #ffffff;
-  --bs-btn-active-color: #0f3d7a;
-  --bs-btn-active-bg: #e3ecf8;
+  --bs-btn-active-color: var(--color-accent-strong);
+  --bs-btn-active-bg: var(--color-accent-soft);
 }
 
 :global([data-bs-theme="light"]) .heroMoney :focus-visible {

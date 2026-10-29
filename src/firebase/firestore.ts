@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, type Query } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, type Query } from "./firestoreApi";
 import { db } from "./config";
 import { noteDeleted, noteRecreated, noteReset, syncedList } from "./syncList";
 import { meterRead } from "../lib/readMeter";

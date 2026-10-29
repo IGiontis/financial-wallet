@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { getUser, saveWorkspaceValue } from "../../firebase/firestore";
 import { exchangeRateKeys } from "./useCurrencyConverter";
+import { isDemo, onDemoReseed } from "../../demo/demoMode";
 
 // The planner's own state, kept with the account.
 //
@@ -25,7 +26,15 @@ export const workspaceKeys = {
  *  fires sixty times a second; the account does not need to hear about each. */
 const SETTLE_MS = 700;
 
+/**
+ * The demo's stand-in for localStorage: the same role, kept in memory. Its
+ * account is made up and a refresh starts it over, so none of it may be left on
+ * the device — least of all under the keys a real account's plan is cached by.
+ */
+const demoCache = new Map<string, string>();
+
 const readRaw = (key: string): string | null => {
+  if (isDemo()) return demoCache.get(key) ?? null;
   try {
     return localStorage.getItem(key);
   } catch {
@@ -45,6 +54,10 @@ const parseRaw = <T,>(raw: string | null): T | undefined => {
 const readCache = <T,>(key: string): T | undefined => parseRaw<T>(readRaw(key));
 
 const writeCache = (key: string, value: unknown) => {
+  if (isDemo()) {
+    demoCache.set(key, JSON.stringify(value));
+    return;
+  }
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -62,6 +75,26 @@ const writeCache = (key: string, value: unknown) => {
  * writes in flight, not about any one component, and two screens share it.
  */
 const writtenAt = new Map<string, number>();
+
+/**
+ * Bumped when the demo's account is made afresh. A save waiting out its pause
+ * remembers the one it was made under, and is dropped if that has changed: it
+ * would write the old account's value into the new one.
+ */
+let generation = 0;
+
+/**
+ * Forgets every copy this module keeps of the demo's workspace — the device
+ * stand-in, the write times and any save still waiting — once its account is
+ * made again (`demo/demoSession`). Keys the new account does not set would
+ * otherwise go on showing, or saving, what the visitor had before.
+ */
+export function resetWorkspaceDeviceCache() {
+  demoCache.clear();
+  writtenAt.clear();
+  generation += 1;
+}
+onDemoReseed(resetWorkspaceDeviceCache);
 
 /** The whole workspace object for the signed-in user. */
 export function useWorkspace() {
@@ -190,7 +223,10 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
 
       if (!userId) return;
       if (timer.current) clearTimeout(timer.current);
-      pending.current = () => void saveWorkspaceValue(userId, key, resolved);
+      const madeUnder = generation;
+      pending.current = () => {
+        if (madeUnder === generation) void saveWorkspaceValue(userId, key, resolved);
+      };
       timer.current = setTimeout(() => {
         timer.current = null;
         const send = pending.current;

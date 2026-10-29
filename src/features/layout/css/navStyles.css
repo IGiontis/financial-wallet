@@ -8,8 +8,8 @@
    so the previews in Settings can show all three side by side whichever one
    the shell is wearing. */
 
-/* Α — the sidebar's own token from index.css, unchanged: the same colour the
-   app always had, in both themes. */
+/* Α — the sidebar's own token from index.css; «Πεύκο» gives it a pine cast
+   in the dark theme (below), and its light bar lives in Sidebar.css. */
 :root,
 .nav-style-a {
   --nav-bg: var(--sidebar-bg);
@@ -66,18 +66,73 @@
   }
 }
 
-/* The light theme's page, by menu style: Α's faint blue, Β a clearer blue
-   beside its navy bar, Γ a cooler grey beside its slate. Cards stay white on
-   all three — the page around them takes the style, so text never sits on a
-   tint. The dark theme's, by style, is at the end of the file. */
+/* The light theme's page, by menu style: Α «Πεύκο» a pine-green shell, Β a
+   clearer blue beside its navy bar, Γ a cooler grey beside its slate. Cards
+   stay white on all three — the page around them takes the style, so text
+   never sits on a tint. The dark theme's, by style, is at the end of the file. */
+
+/* Α «Πεύκο». The page, the top bar and the menu (Sidebar.css) take a calm
+   pine green, so the shell is no longer white on white; the cards stay white,
+   so every figure keeps the contrast it had. The brand leans to petrol rather
+   than green — buttons and links must not be read as money coming in: it sits
+   ΔE 35–40 from the income green, where a green brand would sit near 10.
+     text 14.2:1 on the page · secondary 7.6:1 on a card, 5.6:1 on the menu
+     white on the brand 7.1:1 · links 8.1:1 on white, 7.0:1 on the page */
+:root[data-bs-theme="light"][data-nav-style="a"] {
+  --color-background-primary: #e8f2ed;
+  --color-background-secondary: #dfece6;
+  --color-text-primary: #11241f;
+  --color-text-secondary: #3a5a51;
+  --color-border-primary: #8fb3a7;
+  --color-border-tertiary: #d3e4dc;
+
+  --brand: #0f6170;
+  --brand-rgb: 15, 97, 112;
+  --brand-hover: #0c5260;
+  --brand-active: #0a4450;
+  --brand-text: #0d4549;
+  --brand-subtle: #dcedeb;
+  --brand-border-subtle: #a6cdc8;
+  --brand-focus-border: #86b9bf;
+  --color-link: #0e5866;
+  --color-link-rgb: 14, 88, 102;
+  --color-link-hover: #0b3f49;
+  --color-link-hover-rgb: 11, 63, 73;
+  --color-accent-strong: #0d4549;
+  --color-accent-soft: #dcedeb;
+
+  /* The top bar joins the menu: one pine frame round the page. */
+  --topbar-bg: #d4e8e0;
+  --topbar-border: #b3cfc4;
+  --topbar-hover: rgba(13, 69, 73, 0.08);
+
+  /* Tabs: a shade under the card, the chosen one filled in the brand. */
+  --segment-item: #dfece6;
+  --segment-item-border: #93b8aa; /* 2.2:1 on white */
+  --segment-item-hover-border: #6f998b;
+  --color-segment-active: #0f6170;
+  --color-segment-active-border: #0f6170;
+  --color-segment-active-text: #ffffff; /* 7.1:1 */
+  --view-switch-border: #8fb3a7;
+  --view-switch-on: #cbe5dd;
+  --view-switch-on-text: #0d4549; /* 8:1 */
+
+  --shadow-sm: 0 1px 2px rgba(13, 69, 73, 0.07);
+  --shadow-md: 0 4px 14px rgba(13, 69, 73, 0.08);
+  --shadow-lg: 0 12px 32px rgba(13, 69, 73, 0.11);
+  --color-tooltip-bg: #11241f;
+  --scrollbar-thumb: rgba(58, 90, 81, 0.65);
+  --scrollbar-thumb-hover: rgba(58, 90, 81, 0.85);
+}
+
 :root[data-bs-theme="light"][data-nav-style="b"] {
   --color-background-primary: #e8effa;
   /* The chosen tab filled in the bar's navy. */
   --color-segment-active: #10224a;
   --color-segment-active-border: #10224a;
   --color-segment-active-text: #ffffff;
-  --view-switch-on: #dde5f3;
-  --view-switch-on-text: #10224a;
+  --view-switch-on: #cfdcf1;
+  --view-switch-on-text: #10224a; /* 11:1 */
 }
 
 :root[data-bs-theme="light"][data-nav-style="c"] {
@@ -86,29 +141,61 @@
   --color-segment-active: #26354d;
   --color-segment-active-border: #26354d;
   --color-segment-active-text: #ffffff;
-  --view-switch-on: #e1e6ee;
-  --view-switch-on-text: #26354d;
+  --view-switch-on: #d3dbe7;
+  --view-switch-on-text: #26354d; /* 8.9:1 */
 }
 
 /* The dark theme, by menu style — each the light one's colour, far darker.
    Quiet on purpose: the page and cards keep almost all of the charcoal and
    take only a cast of the style's hue, so text contrast stays where the base
    dark theme (index.css) put it. What carries the colour is what is chosen —
-   the active tab and the view switch. Α a cast of the Aegean blue, Β of the
-   navy bar, Γ of the slate. */
+   the active tab and the view switch. Α a cast of the pine, Β of the navy
+   bar, Γ of the slate. Each tab track is a step lighter than the card it sits
+   on and the chosen tab lighter again, so the row reads as a control. */
+:root[data-bs-theme="dark"][data-nav-style="a"],
+[data-bs-theme="dark"] .nav-style-a {
+  /* The menu, a pine charcoal a touch deeper at the foot. */
+  --nav-bg: #13201c;
+  --nav-bg-2: #0e1815;
+}
+
 :root[data-bs-theme="dark"][data-nav-style="a"] {
-  --color-background-primary: #121821;
-  --color-background-secondary: #18202b;
-  --color-surface: #1a2331;
-  --color-surface-raised: #212c3d;
-  --color-border-primary: #344358;
-  --color-border-tertiary: #273449;
-  --color-segment-active: #2a3f60;
-  --color-segment-active-border: #4d8ef0;
-  --color-segment-active-text: #e6efff;
-  --view-switch-border: #33435a;
-  --view-switch-on: #23395c;
-  --view-switch-on-text: #bcd6ff;
+  --color-background-primary: #101816;
+  --color-background-secondary: #15201d;
+  --color-surface: #17231f;
+  --color-surface-raised: #1e2d29;
+  --color-text-primary: #edf3f1; /* 16:1 on the page */
+  --color-text-secondary: #adc4bd; /* 8.8:1 on a card */
+  --color-border-primary: #33473f;
+  --color-border-tertiary: #263631;
+
+  /* The brand for the dark theme: white on it 5.6:1 (Bootstrap's #0d6efd
+     is 4.5:1); lettering in it is the lighter petrol, 8.4:1 on a card. */
+  --brand: #127282;
+  --brand-rgb: 18, 114, 130;
+  --brand-hover: #0f6372;
+  --brand-active: #0d5562;
+  --brand-text: #67c9d3;
+  --brand-outline-text: #67c9d3;
+  --brand-subtle: #1c3c3e;
+  --brand-border-subtle: #2f6a6e;
+  --brand-focus-border: #3f9aa3;
+  --color-link: #67c9d3;
+  --color-link-rgb: 103, 201, 211;
+  --color-link-hover: #9be0e6;
+  --color-link-hover-rgb: 155, 224, 230;
+  --color-accent-strong: #d3ebe8;
+  --color-accent-soft: #213732;
+  --color-accent-on-strong: #0e1714;
+  --color-tooltip-bg: #22332e;
+
+  --segment-track: #22332e; /* 1.22:1 on the card, was 1.02 */
+  --color-segment-active: #2b6466;
+  --color-segment-active-border: #5cc4cc; /* 6.5:1 on the track */
+  --color-segment-active-text: #effbfb; /* 6.4:1 */
+  --view-switch-border: #3f5c55;
+  --view-switch-on: #24504f;
+  --view-switch-on-text: #c4f0f3; /* 7.3:1 */
 }
 
 :root[data-bs-theme="dark"][data-nav-style="b"] {
@@ -118,12 +205,13 @@
   --color-surface-raised: #1b2843;
   --color-border-primary: #33416a;
   --color-border-tertiary: #24304d;
-  --color-segment-active: #2a4a8c;
-  --color-segment-active-border: #2a4a8c;
-  --color-segment-active-text: #ffffff;
-  --view-switch-border: #2c3a5c;
-  --view-switch-on: #1f3566;
-  --view-switch-on-text: #cddcff;
+  --segment-track: #1d2a47;
+  --color-segment-active: #3459a3;
+  --color-segment-active-border: #3459a3;
+  --color-segment-active-text: #ffffff; /* 6.8:1 */
+  --view-switch-border: #3e5080;
+  --view-switch-on: #2a4785;
+  --view-switch-on-text: #dfe8ff; /* 7.3:1 */
 }
 
 :root[data-bs-theme="dark"][data-nav-style="c"] {
@@ -133,10 +221,11 @@
   --color-surface-raised: #242c37;
   --color-border-primary: #3c4756;
   --color-border-tertiary: #2e3744;
-  --color-segment-active: #3d4f6b;
-  --color-segment-active-border: #3d4f6b;
-  --color-segment-active-text: #ffffff;
-  --view-switch-border: #384353;
-  --view-switch-on: #2e3b50;
-  --view-switch-on-text: #d3dceb;
+  --segment-track: #262e39;
+  --color-segment-active: #4c6285;
+  --color-segment-active-border: #4c6285;
+  --color-segment-active-text: #ffffff; /* 6.2:1 */
+  --view-switch-border: #4b5869;
+  --view-switch-on: #3c4d68;
+  --view-switch-on-text: #e2e9f5; /* 7:1 */
 }
