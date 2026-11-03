@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Input, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Alert, Button, Input, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiPrinter } from "react-icons/fi";
+import { FiDownload, FiPrinter } from "react-icons/fi";
 
 import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
 import { SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
@@ -11,8 +11,50 @@ import { standaloneMonthName } from "../../shared/utils/dates";
 import { buildStatement, monthRange, yearRange, yearsWithRecords, type StatementLine } from "./statementUtils";
 import styles from "./css/Statement.module.css";
 import { findCategory } from "../../shared/utils/categories";
+import type { PdfStatement, PdfTable } from "./statementPdf";
 
 const WHOLE_YEAR = "all";
+
+/**
+ * A phone, or the app installed on one: where printing fails — an installed
+ * app on iOS ignores `window.print()` outright — and a PDF file is offered
+ * instead (see `statementPdf`). A computer keeps the print dialogue, which
+ * makes a better PDF (real text), and gets the file as a second choice.
+ */
+const prefersPdfFile = () =>
+  typeof window !== "undefined" &&
+  (!!window.matchMedia?.("(pointer: coarse)").matches || !!window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+
+/**
+ * Paper is light whatever the screen is: for as long as the print dialogue is
+ * open, the page is in the light mode, so the printed sheet reads the light
+ * mode's roles. The mode on screen comes back the moment it closes.
+ */
+function usePrintInLight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    let before: string | null | undefined;
+    const toLight = () => {
+      before = root.getAttribute("data-bs-theme");
+      root.setAttribute("data-bs-theme", "light");
+    };
+    const back = () => {
+      if (before === undefined) return;
+      if (before === null) root.removeAttribute("data-bs-theme");
+      else root.setAttribute("data-bs-theme", before);
+      before = undefined;
+    };
+    window.addEventListener("beforeprint", toLight);
+    window.addEventListener("afterprint", back);
+    return () => {
+      window.removeEventListener("beforeprint", toLight);
+      window.removeEventListener("afterprint", back);
+      back();
+    };
+  }, []);
+}
+
+type PdfState = { phase: "idle" } | { phase: "making" } | { phase: "ready"; blob: Blob } | { phase: "failed" };
 
 /**
  * A period's figures, laid out to be printed.
@@ -46,6 +88,9 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
     document.body.classList.add("statement-open");
     return () => document.body.classList.remove("statement-open");
   }, []);
+  usePrintInLight();
+  const [pdfFirst] = useState(prefersPdfFile);
+  const [pdf, setPdf] = useState<PdfState>({ phase: "idle" });
 
   const nameFor = useMemo(() => {
     const byId = new Map(categories.map((c) => [c.id, c]));
@@ -68,6 +113,73 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
 
   const percent = useMemo(() => new Intl.NumberFormat(lang, { style: "percent", maximumFractionDigits: 0 }), [lang]);
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
+
+  // ── The file ──
+  const fileName = `MyFiWallet-${month === WHOLE_YEAR ? year : `${year}-${String(Number(month) + 1).padStart(2, "0")}`}.pdf`;
+
+  /** The same figures as the sheet on screen, as words the file draws. */
+  const pdfModel = (): PdfStatement => {
+    const lineTable = (title: string, lines: StatementLine[], total: number, tone: "income" | "expense"): PdfTable => ({
+      title,
+      columns: [t("common.category"), t("statement.entries"), t("common.amount"), t("statement.share")],
+      rows: [
+        ...lines.map((line) => ({ cells: [{ text: `${line.icon} ${line.label}` }, { text: String(line.count) }, { text: formatCurrency(line.amount), tone }, { text: percent.format(line.share) }] })),
+        { total: true, cells: [{ text: t("common.total") }, { text: String(lines.reduce((n, l) => n + l.count, 0)) }, { text: formatCurrency(total), tone }, { text: "" }] },
+      ],
+    });
+    const tables: PdfTable[] = [];
+    if (statement.expenseLines.length) tables.push(lineTable(t("statement.expensesByCategory"), statement.expenseLines, statement.expenses, "expense"));
+    if (statement.incomeLines.length) tables.push(lineTable(t("statement.incomeByCategory"), statement.incomeLines, statement.income, "income"));
+    if (statement.months.length > 1) {
+      const netTone = (n: number) => (n < 0 ? ("expense" as const) : ("income" as const));
+      tables.push({
+        title: t("statement.byMonth"),
+        columns: [t("statement.month"), t("transactions.income"), t("transactions.expense"), t("statement.net")],
+        rows: [
+          ...statement.months.map((m) => ({ cells: [{ text: shortMonth.format(m.start) }, { text: formatCurrency(m.income) }, { text: formatCurrency(m.expenses) }, { text: signed(m.net), tone: netTone(m.net) }] })),
+          { total: true, cells: [{ text: t("common.total") }, { text: formatCurrency(statement.income) }, { text: formatCurrency(statement.expenses) }, { text: signed(statement.net), tone: netTone(statement.net) }] },
+        ],
+      });
+    }
+    return {
+      brand: "MyFiWallet",
+      heading: `${t("statement.title")} — ${periodLabel}`,
+      generated: t("statement.generated", { date: generatedAt }),
+      summary: [
+        { label: t("transactions.income"), value: { text: formatCurrency(statement.income), tone: "income" } },
+        { label: t("transactions.expense"), value: { text: formatCurrency(statement.expenses), tone: "expense" } },
+        { label: t("statement.net"), value: { text: signed(statement.net), tone: statement.net < 0 ? "expense" : "income" } },
+      ],
+      tables,
+      empty: statement.count === 0 ? t("statement.empty") : undefined,
+      pageLabel: (page, total) => t("statement.pageOf", { page, total }),
+    };
+  };
+
+  /** Hands a made file over; a share sheet that wants a fresh tap gets a button for it. */
+  const hand = async (blob: Blob) => {
+    const { deliverPdf } = await import("./statementPdf");
+    try {
+      await deliverPdf(blob, fileName, `${t("statement.title")} — ${periodLabel}`);
+      setPdf({ phase: "idle" });
+    } catch {
+      setPdf({ phase: "ready", blob });
+    }
+  };
+
+  const makePdf = async () => {
+    setPdf({ phase: "making" });
+    try {
+      const { buildStatementPdf } = await import("./statementPdf");
+      const blob = await buildStatementPdf(pdfModel());
+      await hand(blob);
+    } catch {
+      setPdf({ phase: "failed" });
+    }
+  };
+
+  // A changed period makes a made file stale.
+  useEffect(() => setPdf({ phase: "idle" }), [year, month]);
 
   const renderLines = (title: string, lines: StatementLine[], total: number, tone: string) => {
     if (lines.length === 0) return null;
@@ -115,7 +227,7 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
             from being handled correctly. */}
         <div className={`${styles.noPrint} d-flex flex-wrap align-items-end gap-2 mb-4`}>
           <div>
-            <label className="form-label mb-1" style={{ fontSize: 12 }} htmlFor="statement-year">
+            <label className="form-label mb-1 small" htmlFor="statement-year">
               {t("statement.period")}
             </label>
             <div className="d-flex gap-2">
@@ -137,11 +249,33 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <Button color="primary" size="sm" onClick={() => window.print()} className="ms-auto">
-            <FiPrinter size={15} className="me-1" />
-            {t("statement.print")}
-          </Button>
+          <div className="ms-auto d-flex flex-wrap gap-2">
+            {/* On a phone the file is the way; on a computer, the print
+                dialogue first (real text), the file beside it. */}
+            {!pdfFirst && (
+              <Button color="primary" size="sm" onClick={() => window.print()} disabled={isLoading}>
+                <FiPrinter size={15} className="me-1" aria-hidden />
+                {t("statement.print")}
+              </Button>
+            )}
+            {pdf.phase === "ready" ? (
+              <Button color="primary" size="sm" onClick={() => void hand(pdf.blob)}>
+                <FiDownload size={15} className="me-1" aria-hidden />
+                {t("statement.savePdf")}
+              </Button>
+            ) : (
+              <Button color="primary" outline={!pdfFirst} size="sm" onClick={() => void makePdf()} disabled={isLoading || pdf.phase === "making"}>
+                <FiDownload size={15} className="me-1" aria-hidden />
+                {pdf.phase === "making" ? t("statement.makingPdf") : t("statement.pdf")}
+              </Button>
+            )}
+          </div>
         </div>
+        {pdf.phase === "failed" && (
+          <Alert color="danger" className={`${styles.noPrint} small py-2`} toggle={() => setPdf({ phase: "idle" })}>
+            {t("statement.pdfFailed")}
+          </Alert>
+        )}
 
         <div className={styles.sheet}>
           <header className={styles.head}>

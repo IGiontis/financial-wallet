@@ -107,25 +107,6 @@ export const updateUser = async (uid: string, data: UpdateUserDTO) => {
   });
 };
 
-/**
- * Sets or clears the starting balance.
- *
- * Clearing needs `deleteField()` rather than `undefined`: `clean()` drops
- * undefined keys, so passing one would leave the old figure sitting in the
- * document while the form showed the box as empty — and the balance would go
- * on quietly counting from a number the user thought they had removed.
- *
- * The two fields always move together. An amount with no date would count every
- * backfilled record against it, which is the double-subtraction the pairing
- * exists to prevent.
- */
-export const setOpeningBalance = async (uid: string, opening: { amount: number; date: Date } | null) => {
-  await updateDoc(doc(db, "users", uid), {
-    openingBalance: opening ? opening.amount : deleteField(),
-    openingBalanceDate: opening ? opening.date : deleteField(),
-    updatedAt: serverTimestamp(),
-  });
-};
 
 /**
  * One key of the workspace, written on its own.
@@ -663,7 +644,8 @@ export const updateBillPayment = async (payment: { id: string; transactionId?: s
 
   batch.update(doc(db, "billPayments", payment.id), fields);
 
-  if (payment.transactionId) {
+  // An update of a missing document fails the batch as a delete does.
+  if (payment.transactionId && (await stillThere("transactions", payment.transactionId))) {
     batch.update(doc(db, "transactions", payment.transactionId), {
       // The transaction calls the same day `date`; the payment calls it `paidDate`.
       ...clean({ amount: changes.amount, date: changes.paidDate }),
@@ -702,11 +684,30 @@ export const markBillPeriodsSettled = async (
 };
 
 export const unmarkBillPaid = async (userId: string, payment: { id: string; transactionId?: string }) => {
+  // The expense may be gone already — deleted from the ledger before deleting it
+  // took its payment with it. Naming it anyway, the rules refuse the delete and
+  // the whole batch with it: the payment came back with an error toast.
+  const expenseId = payment.transactionId && (await stillThere("transactions", payment.transactionId)) ? payment.transactionId : undefined;
   const batch = writeBatch(db);
-  if (payment.transactionId) batch.delete(doc(db, "transactions", payment.transactionId));
+  if (expenseId) batch.delete(doc(db, "transactions", expenseId));
   batch.delete(doc(db, "billPayments", payment.id));
   await batch.commit();
-  if (payment.transactionId) await noteDeleted(userId, "transactions", [payment.transactionId]);
+  if (expenseId) await noteDeleted(userId, "transactions", [expenseId]);
+};
+
+/**
+ * Whether a document a batch is about to delete or update is still there; one
+ * read, for the rare write that names a record another one points at. Unsure
+ * (offline, no cached copy) counts as there: the write is then what it was.
+ */
+const stillThere = async (collectionName: string, id: string) => {
+  try {
+    const snap = await getDoc(doc(db, collectionName, id));
+    meterRead(collectionName, 1, !!snap.metadata?.fromCache);
+    return snap.exists();
+  } catch {
+    return true;
+  }
 };
 
 // ─── DEBTS ────────────────────────────────────────────────────────────────────
@@ -966,4 +967,45 @@ export const deleteAllUserData = async (userId: string) => {
     refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
     await batch.commit();
   }
+};
+
+// ─── RECORDS FOR A BANK READING'S DIFFERENCE ─────────────────────────────────
+// See `features/accounts/gapRecords`.
+
+/**
+ * Writes every record the owner listed for one account's difference in one
+ * batch: all of them or none, so the difference never closes by half. Each is
+ * the document its own form would write — expenses and incomes, both halves of
+ * a transfer, a debt or repayment with the money it moved (written here rather
+ * than by the debt's later sync, so nothing is left for a second write to
+ * finish). Sets only: nothing here is deleted, so the rules have nothing to
+ * refuse.
+ */
+export const saveGapRecords = async (
+  userId: string,
+  writes: {
+    transactions: { id: string; data: CreateTransactionDTO }[];
+    transfers: (TransferRecord & { inReading?: boolean })[];
+    debts: { id: string; data: CreateDebtDTO & { inReading?: boolean } }[];
+    payments: { id: string; data: CreateDebtPaymentDTO & { inReading?: boolean } }[];
+    debtCash: DebtCashRecord[];
+  },
+) => {
+  const batch = writeBatch(db);
+  for (const { id, data } of writes.transactions) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  for (const { id, ...record } of writes.transfers) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  for (const { id, data } of writes.debts) {
+    batch.set(doc(db, "debts", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  for (const { id, data } of writes.payments) {
+    batch.set(doc(db, "debtPayments", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp() });
+  }
+  for (const { id, ...record } of writes.debtCash) {
+    batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
 };

@@ -5,7 +5,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: var(--space-0);
   border: 0;
   background: transparent;
   color: var(--color-text-secondary);
@@ -36,7 +36,7 @@
   gap: 10px;
   width: 100%;
   min-height: 44px; /* comfortable touch target */
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   border: 0;
   background: transparent;
   color: var(--color-text-primary);

@@ -58,6 +58,16 @@ const open = async () => {
 };
 
 describe("the quick expense", () => {
+  it("is the app's usual dialog: a title, Cancel on the left, Save on the right, the full form a link in the body", async () => {
+    const dialog = await open();
+    expect(within(dialog).getByText("New expense")).toBeInTheDocument();
+    const buttons = within(dialog.querySelector(".modal-footer") as HTMLElement).getAllByRole("button");
+    expect(buttons.map((b) => b.textContent)).toEqual(["Cancel", "Save"]);
+    expect(within(dialog.querySelector(".modal-body") as HTMLElement).getByRole("button", { name: /Full form/ })).toBeInTheDocument();
+    await userEvent.click(buttons[0]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("puts the coffee in with two taps: always 3,50, on the card it always goes on", async () => {
     const dialog = await open();
     await userEvent.click(within(dialog).getByRole("button", { name: /Καφές/ }));

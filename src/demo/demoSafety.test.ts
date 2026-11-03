@@ -118,7 +118,8 @@ describe("the demo never reaches Firebase", () => {
     expect(user?.locale).toBe("el");
     expect(transactions.length).toBeGreaterThan(100);
     expect(categories.some((c) => c.isDefault)).toBe(true);
-    expect(bills.length).toBe(6);
+    // Six running, one stopped («Σταματημένα»), one that starts later («Ξεκινά …»).
+    expect(bills.length).toBe(8);
     expect(payments.length).toBeGreaterThan(10);
     expect(goals.length).toBe(3);
     expect(contributions.length).toBeGreaterThan(5);
@@ -154,8 +155,6 @@ describe("the demo never reaches Firebase", () => {
     const workspace = memoryCollection("users")[uid].workspace as Record<string, unknown>;
     expect(workspace["planner-horizon"]).toBe(6);
     expect(workspace["tour-seen"]).toBe(true);
-    await data.setOpeningBalance(uid, null);
-    expect(memoryCollection("users")[uid]).not.toHaveProperty("openingBalance");
     expect(sdk.calls).toEqual([]);
   });
 

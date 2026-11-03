@@ -3,7 +3,7 @@ import type { Bill, BillPayment, Category, Debt, DebtPayment, InvestmentContribu
 import { DEFAULT_CATEGORIES } from "../firebase/defaultCategories";
 import { ACCOUNTS_KEY, CHECK_INS_KEY, accountOf, mainAccount, realDelta, type BalanceCheckIn, type MoneyAccount } from "../features/accounts/accountsUtils";
 import { isAfterReading } from "../shared/utils/balance";
-import { getPeriodDueDate, getPeriodKey, getPeriodStart, shiftPeriodStart } from "../features/bills/billsUtils";
+import { getPeriodDueDate, getPeriodKey, getPeriodStart, isPausedOn, shiftPeriodStart } from "../features/bills/billsUtils";
 import { computeDebtStatus, monthlyInstalment } from "../features/debts/debtsUtils";
 import { debtCashRecords } from "../features/debts/debtCash";
 import { coveredFundingVars } from "../features/budget/coveredFunding";
@@ -68,8 +68,8 @@ export interface DemoData {
 /** The ids the rest of the account — and its tests — refer to. */
 export const DEMO_IDS = {
   accounts: { main: "acc-main", card: "acc-card", savings: "acc-savings", cash: "acc-cash" },
-  incomes: { salary: "inc-salary", rent: "inc-rent" },
-  bills: { electricity: "bill-electricity", water: "bill-water", internet: "bill-internet", phone: "bill-phone", netflix: "bill-netflix", rent: "bill-rent" },
+  incomes: { salary: "inc-salary", rent: "inc-rent", storage: "inc-storage" },
+  bills: { electricity: "bill-electricity", water: "bill-water", internet: "bill-internet", phone: "bill-phone", netflix: "bill-netflix", rent: "bill-rent", gym: "bill-gym", carInsurance: "bill-car-insurance" },
   /** The bill left unpaid past its day, and the one due within the week. */
   lateBill: "bill-internet",
   soonBill: "bill-phone",
@@ -93,7 +93,8 @@ const WORDS = {
     accounts: { main: "Alpha Bank", card: "Viva Wallet", savings: "Πειραιώς Αποταμίευση", cash: "Μετρητά" },
     salary: "Μισθός",
     rentIncome: "Ενοίκιο γκαρσονιέρας",
-    bills: { electricity: "ΔΕΗ", water: "ΕΥΔΑΠ", internet: "Cosmote Internet", phone: "Vodafone κινητό", netflix: "Netflix", rent: "Ενοίκιο σπιτιού" },
+    storageIncome: "Ενοίκιο αποθήκης",
+    bills: { electricity: "ΔΕΗ", water: "ΕΥΔΑΠ", internet: "Cosmote Internet", phone: "Vodafone κινητό", netflix: "Netflix", rent: "Ενοίκιο σπιτιού", gym: "Γυμναστήριο", carInsurance: "Ασφάλεια αυτοκινήτου" },
     market: "Λαϊκή",
     presents: "Δώρα",
     rental: "Ενοίκια",
@@ -127,7 +128,8 @@ const WORDS = {
     accounts: { main: "Alpha Bank", card: "Viva Wallet", savings: "Piraeus Savings", cash: "Cash" },
     salary: "Salary",
     rentIncome: "Studio rent",
-    bills: { electricity: "Electricity", water: "Water", internet: "Home internet", phone: "Mobile phone", netflix: "Netflix", rent: "Rent" },
+    storageIncome: "Storage unit rent",
+    bills: { electricity: "Electricity", water: "Water", internet: "Home internet", phone: "Mobile phone", netflix: "Netflix", rent: "Rent", gym: "Gym membership", carInsurance: "Car insurance" },
     market: "Farmers' market",
     presents: "Presents",
     rental: "Rental income",
@@ -232,6 +234,10 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
   const incomes: Income[] = [
     { id: ids.incomes.salary, name: w.salary, kind: "salary", amount: 1720, frequency: "monthly", day: 30, start: toISODay(subMonths(start, 30)).slice(0, 7), accountId: ids.accounts.main, categoryId: cat("Salary", "income"), isSalary: true },
     { id: ids.incomes.rent, name: w.rentIncome, kind: "rent", amount: 350, frequency: "monthly", day: 5, start: toISODay(subMonths(start, 14)).slice(0, 7), accountId: ids.accounts.main, categoryId: "cat-rental" },
+    // Let from the 1st, three months on: shows «Ξεκινά …», and has not come yet,
+    // so it moves nothing in the months the demo covers — nor before the next
+    // payday, whatever day today is.
+    { id: ids.incomes.storage, name: w.storageIncome, kind: "rent", amount: 120, frequency: "monthly", day: 1, start: toISODay(addMonths(startOfMonth(today), 3)).slice(0, 7), accountId: ids.accounts.main, categoryId: "cat-rental" },
   ];
   for (const income of incomes) {
     for (const occurrence of incomeOccurrences(income, start, now)) {
@@ -408,6 +414,11 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     bill(ids.bills.phone, w.bills.phone, cat("Subscriptions"), 15, soonDue.getDate(), { icon: "📱" }),
     bill(ids.bills.netflix, w.bills.netflix, cat("Subscriptions"), 13.99, 8, { icon: "🎬" }),
     bill(ids.bills.rent, w.bills.rent, cat("Rent"), 450, 3, { icon: "🏠" }),
+    // Stopped since before the records begin: listed under «Σταματημένα», and
+    // nothing owed or paid in the months the demo covers.
+    bill(ids.bills.gym, w.bills.gym, cat("Gym"), 35, 1, { icon: "🏋️", pause: { from: toISODay(startOfMonth(start)).slice(0, 7) } }),
+    // Added now, first charged three months on: «Ξεκινά …», and nothing owed before.
+    bill(ids.bills.carInsurance, w.bills.carInsurance, cat("Insurance"), 42, 15, { icon: "🚗", startsOn: toISODay(addMonths(startOfMonth(today), 3)).slice(0, 7), anchorDate: today, createdAt: today, updatedAt: today }),
   ];
   const electricityBills = [58.4, 71.25, 66.1, 74.9, 62.35, 81.7, 69.45];
 
@@ -417,6 +428,8 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     for (let n = 0; period <= now; n++, period = shiftPeriodStart(b, period, 1)) {
       const due = getPeriodDueDate(b, period);
       if (!due) continue;
+      // Stopped, or not started yet: nothing to pay.
+      if (isPausedOn(b, due)) continue;
       const key = getPeriodKey(b, period);
       // Left unpaid on purpose: the late one, and the one coming up.
       if (b.id === ids.lateBill && key === getPeriodKey(b, lateDue)) continue;
@@ -470,7 +483,6 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
   // What each account held when the records begin. The savings account holds
   // the goals' money and a little of its own; the rest is spendable.
   const opening: Record<string, number> = { [ids.accounts.main]: 1640, [ids.accounts.card]: 120, [ids.accounts.cash]: 85, [ids.accounts.savings]: round2(heldAtStart + 300) };
-  const spendableAtStart = round2(1640 + 120 + 85 + 300);
   const main = mainAccount(accounts);
   const inWindow = transactions.filter((tx) => tx.date >= start);
   /** Each account as a reading at `when` would find it, from the records alone. */
@@ -483,7 +495,10 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     }
     return amounts;
   };
-  const firstAt = at(addDays(today, -35), 21);
+  // The first reading the morning the records begin: every month the demo
+  // covers is counted from a reading, as a real account's are — there is no
+  // other starting figure (the Settings «Αρχικό υπόλοιπο» is gone).
+  const firstAt = at(start, 7);
   const latestAt = at(addDays(today, -3), 21, 30);
   const latest = balancesAt(latestAt);
   latest[ids.accounts.cash] = round2(latest[ids.accounts.cash] + DEMO_UNLOGGED);
@@ -518,12 +533,11 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     username: w.firstName,
     firstName: w.firstName,
     lastName: w.lastName,
+    // The name the top bar shows (Settings → Profile).
+    displayName: `${w.firstName} ${w.lastName}`,
     currency: "EUR",
     baseCurrency: "EUR",
     locale: lang,
-    // The figure the records start from: what could be spent on their first day.
-    openingBalance: spendableAtStart,
-    openingBalanceDate: start,
     workspace: {
       [ACCOUNTS_KEY]: accounts,
       [CHECK_INS_KEY]: checkIns,

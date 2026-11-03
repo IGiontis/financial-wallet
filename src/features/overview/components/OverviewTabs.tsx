@@ -1,3 +1,4 @@
+import { toneChip } from "../../../shared/utils/tone";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card, CardBody } from "reactstrap";
@@ -162,7 +163,8 @@ export function TodayPanel({ transactions, categories, now, formatCurrency }: { 
   const spent = Math.round(today.filter(isPlainExpense).reduce((sum, tx) => sum + Math.abs(tx.amount), 0) * 100) / 100;
 
   const categoryOf = (tx: Transaction) => findCategory(categories, tx.categoryId);
-  const nameOf = (tx: Transaction) => tx.description?.trim() || categoryLabel(categoryOf(tx)?.name, t) || "—";
+  // A record whose category was deleted (before deleting was guarded) still says what it is.
+  const nameOf = (tx: Transaction) => tx.description?.trim() || categoryLabel(categoryOf(tx)?.name, t) || t("analytics.unknownCategory");
 
   return (
     <Panel
@@ -223,7 +225,8 @@ export function MonthInOut({ income, expenses, formatCurrency, sub, unlogged = 0
   // how much, and the line under that — read across, not down a column.
   const side = (tone: "income" | "expense", label: string, amount: number, note?: ReactNode) => (
     <div className={styles.inOutSide}>
-      <span className={styles.inOutIcon} style={{ color: `var(--color-${tone}-text)`, background: `color-mix(in srgb, var(--color-${tone}) 14%, transparent)` }} aria-hidden>
+      {/* The tone scale's strong wash, as every money chip in the app has it. */}
+      <span className={styles.inOutIcon} style={toneChip(tone, true)} aria-hidden>
         {tone === "income" ? <FiArrowDownLeft size={18} /> : <FiArrowUpRight size={18} />}
       </span>
       <span className={styles.inOutText}>

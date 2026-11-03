@@ -24,7 +24,7 @@
   /* 300px at most, and never wider than a 320px screen less its edges. */
   min-width: min(15.5rem, calc(100vw - 1.5rem));
   max-width: min(20rem, calc(100vw - 1.5rem));
-  padding: 1rem 1rem 0.875rem;
+  padding: var(--space-4) var(--space-4) 0.875rem;
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg, 0.875rem);
   background-color: var(--color-surface-raised);
@@ -105,8 +105,8 @@
 .driver-popover.mfw-tour .driver-popover-next-btn,
 .driver-popover.mfw-tour .mfw-tour-cta {
   border-color: var(--bs-primary);
-  background-color: var(--bs-primary);
-  color: #fff;
+  background-color: var(--brand);
+  color: var(--on-brand);
 }
 
 .driver-popover.mfw-tour .driver-popover-next-btn:hover,

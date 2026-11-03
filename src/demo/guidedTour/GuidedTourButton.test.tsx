@@ -38,6 +38,8 @@ const renderButton = (path = "/goals") =>
   );
 
 beforeAll(async () => {
+  // A wide screen: on a phone the tour is in the «DEMO ▾» menu instead (DemoChrome.test).
+  window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
   await i18n.changeLanguage("en");
 });
 afterEach(() => {

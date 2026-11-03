@@ -37,10 +37,10 @@ function readPalette(): ChartPalette {
     text: token(styles, "--color-text-primary", "#16202e"),
     textSecondary,
     border: token(styles, "--color-border-tertiary", "#dde3ea"),
-    surface: token(styles, "--color-surface", "#ffffff"),
+    surface: token(styles, "--color-surface", "#fcfdfe"),
     background: token(styles, "--color-background-secondary", "#f1f4f8"),
     tooltipBg: token(styles, "--color-tooltip-bg", "#1e293b"),
-    tooltipText: token(styles, "--color-tooltip-text", "#ffffff"),
+    tooltipText: token(styles, "--color-tooltip-text", "#f4f7fb"),
     primary,
     income,
     expense,
@@ -92,6 +92,6 @@ export function tooltipStyle(palette: ChartPalette) {
     borderWidth: 0,
     padding: [10, 14] as [number, number],
     textStyle: { color: palette.tooltipText, fontSize: 12.5 },
-    extraCssText: "border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.25);",
+    extraCssText: "border-radius: var(--radius-md); box-shadow: var(--shadow-lg);",
   };
 }

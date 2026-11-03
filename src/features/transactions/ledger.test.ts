@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLedger } from "./ledger";
+import { buildLedger, toggleSide, LEDGER_SIDES } from "./ledger";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
 // October 2026, read on the 14th. Every figure worked out by hand first, then
@@ -104,11 +104,47 @@ describe("the ledger of a month", () => {
 
 describe("narrowing it", () => {
   it("to money in, money out, or the moves", () => {
-    expect(buildLedger(RECORDS, { ...OCT, kind: "in" }).count).toBe(2);
-    expect(buildLedger(RECORDS, { ...OCT, kind: "out" }).count).toBe(3);
-    const moves = buildLedger(RECORDS, { ...OCT, kind: "moves" });
+    expect(buildLedger(RECORDS, { ...OCT, kinds: ["in"] }).count).toBe(2);
+    expect(buildLedger(RECORDS, { ...OCT, kinds: ["out"] }).count).toBe(3);
+    const moves = buildLedger(RECORDS, { ...OCT, kinds: ["moves"] });
     expect(moves.days.flatMap((d) => d.rows.map((r) => r.tx.description)).sort()).toEqual(["Revolut → Eurobank", "Δάνειο", "Στόχος"].sort());
     expect([moves.in, moves.out]).toEqual([0, 0]);
+  });
+
+  it("to two kinds at once — each pair is the two singles together, and its totals theirs", () => {
+    const single = Object.fromEntries(LEDGER_SIDES.map((side) => [side, buildLedger(RECORDS, { ...OCT, kinds: [side] })]));
+    // The three kinds split the month with nothing left over and nothing twice.
+    expect(single.in.count + single.out.count + single.moves.count).toBe(buildLedger(RECORDS, OCT).count);
+
+    const inOut = buildLedger(RECORDS, { ...OCT, kinds: ["in", "out"] });
+    expect(inOut.count).toBe(5);
+    // Without the moves the in, out and net are the whole month's: moves count in neither.
+    expect([inOut.in, inOut.out, inOut.net]).toEqual([1480, 453.5, 1026.5]);
+
+    const inMoves = buildLedger(RECORDS, { ...OCT, kinds: ["in", "moves"] });
+    expect(inMoves.count).toBe(single.in.count + single.moves.count);
+    expect([inMoves.in, inMoves.out]).toEqual([1480, 0]);
+    expect(inMoves.days.flatMap((d) => d.rows.map((r) => r.tx.description)).sort()).toEqual(["Μισθός", "Από στόχο", "Revolut → Eurobank", "Στόχος", "Δάνειο"].sort());
+
+    const outMoves = buildLedger(RECORDS, { ...OCT, kinds: ["out", "moves"] });
+    expect(outMoves.count).toBe(6);
+    expect([outMoves.in, outMoves.out, outMoves.net]).toEqual([0, 453.5, -453.5]);
+    // A second way: the running net ends on the net, and the spending list on the out.
+    expect([...outMoves.days].reverse().flatMap((d) => [...d.rows].reverse()).at(-1)!.running).toBe(outMoves.net);
+    expect(outMoves.spending.reduce((s, c) => s + c.amount, 0)).toBe(outMoves.out);
+    expect(outMoves.earning).toEqual([]);
+
+    // All three named is the same as none named.
+    expect(buildLedger(RECORDS, { ...OCT, kinds: ["moves", "in", "out"] })).toEqual(buildLedger(RECORDS, OCT));
+  });
+
+  it("from the chips: a first tap picks one alone, later taps add and remove, the last one stays on", () => {
+    expect(toggleSide(LEDGER_SIDES, "out")).toEqual(["out"]);
+    expect(toggleSide(["out"], "in")).toEqual(["in", "out"]);
+    expect(toggleSide(["in", "out"], "out")).toEqual(["in"]);
+    expect(toggleSide(["in"], "in")).toEqual(["in"]);
+    expect(toggleSide(["in", "out"], "moves")).toEqual(LEDGER_SIDES);
+    expect(toggleSide(["moves"], "in")).toEqual(["in", "moves"]);
   });
 
   it("to one card, and to a word", () => {
@@ -124,7 +160,7 @@ describe("narrowing it", () => {
     // A second way: the counted rows of the category, added up by hand — the supermarket's 50, nothing of September's.
     expect(food.out).toBe(Math.round(rows.filter((r) => r.counted && r.sign < 0).reduce((sum, r) => sum + r.amount, 0) * 100) / 100);
     expect(buildLedger(RECORDS, { ...OCT, categories: ["rent"] }).out).toBe(400);
-    expect(buildLedger(RECORDS, { ...OCT, categories: ["rent"], kind: "in" }).count).toBe(0);
+    expect(buildLedger(RECORDS, { ...OCT, categories: ["rent"], kinds: ["in"] }).count).toBe(0);
   });
 
   it("to a name that is both an income and an expense category: both, in and out", () => {

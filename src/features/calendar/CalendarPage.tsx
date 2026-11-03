@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { FiChevronDown, FiChevronLeft, FiChevronRight, FiGitCommit, FiGrid } from "react-icons/fi";
 import { addMonths, endOfMonth, isSameDay, startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
@@ -14,6 +15,9 @@ import { MoneyTimeline } from "./components/MoneyTimeline";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { CALENDAR_KIND_ICON, calendarItems, groupByDay, monthTotals, shownNet, type CalendarDay, type CalendarItem, type CalendarKind } from "./calendarDays";
+import { InfoLegend, type LegendEntry } from "../../shared/components/InfoLegend";
+import { dayTone } from "./dayTone";
+import { dayKey } from "./components/dayKey";
 import styles from "./css/CalendarPage.module.css";
 
 // The calendar: the month on one screen, each day showing what comes in above
@@ -24,18 +28,6 @@ import styles from "./css/CalendarPage.module.css";
 // names left for the sheet a tap opens.
 
 const KIND_PATH: Record<CalendarKind, string> = { bill: "/bills/pay", income: "/incomes/record", debt: "/debts", goal: "/goals" };
-
-/** The colours explained, in the order they are met. */
-const KEY: { classes: string[]; text: string; dot?: boolean }[] = [
-  { classes: ["onlyIn"], text: "calendar.keyIn" },
-  { classes: ["onlyIn", "inPale"], text: "calendar.keyInDone" },
-  { classes: ["onlyOut"], text: "calendar.keyOut" },
-  { classes: ["onlyOut", "outPale"], text: "calendar.keyOutDone" },
-  { classes: ["both"], text: "calendar.keyBoth" },
-  { classes: ["both", "inPale", "outPale", "allDone"], text: "calendar.keyAllDone" },
-  { classes: [], text: "calendar.keyLate", dot: true },
-  { classes: ["today"], text: "calendar.keyToday" },
-];
 
 /** Below a tablet: the day's list sits under the month instead of in a dialog. */
 const PHONE_QUERY = "(max-width: 767.98px)";
@@ -169,8 +161,14 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* What it is drawn from, said once: it is not the transactions' calendar. */}
-        <p className={styles.scope}>{t("calendar.scope")}</p>
+        {/* What it is drawn from, said once: it is not the transactions' calendar.
+            The key to the colours sits beside it, behind the ⓘ. */}
+        <div className={styles.scopeRow}>
+          <p className={styles.scope}>{t("calendar.scope")}</p>
+          <InfoLegend title={t("calendar.keyTitle")} entries={calendarKey(t)}>
+            <p>{t("calendar.keySign")}</p>
+          </InfoLegend>
+        </div>
 
         <div className={styles.totals}>
           <span className={`${styles.totalIn} tone-tile tone-tile-income`}>
@@ -201,7 +199,7 @@ export default function CalendarPage() {
               <button
                 key={date.toISOString()}
                 type="button"
-                className={`${styles.day} ${day ? dayClass(day) : ""} ${isToday ? styles.today : ""} ${selected && isSameDay(date, selected) ? styles.selected : ""}`}
+                className={`${styles.day} ${dayTone({ ...(day ? daySides(day) : {}), today: isToday, selected: !!selected && isSameDay(date, selected) })}`}
                 aria-pressed={!!selected && isSameDay(date, selected)}
                 onClick={() => setSelected(date)}
                 aria-label={`${dayTitle.format(date)}${day ? ` · ${day.items.map((i) => `${i.label} ${i.direction === "in" ? "+" : "−"}${formatCurrency(i.amount)}`).join(", ")}` : ""}`}
@@ -214,7 +212,6 @@ export default function CalendarPage() {
                       <span className={styles.withCurrency}>{withCurrency(netOf(day))}</span>
                       <span className={styles.plain}>{plain(netOf(day))}</span>
                     </span>
-                    {day.items.some((i) => i.state === "late") && <span className={styles.lateDot} aria-hidden />}
                   </>
                 )}
               </button>
@@ -250,22 +247,6 @@ export default function CalendarPage() {
           </Modal>
         )}
 
-        {/* What each colour means, each drawn with the classes a day itself uses —
-            so the key cannot drift from the cells it explains. */}
-        <section className={styles.key} aria-label={t("calendar.keyTitle")}>
-          <div className={styles.keyTitle}>{t("calendar.keyTitle")}</div>
-          <ul className={styles.keyList}>
-            {KEY.map((entry) => (
-              <li key={entry.text}>
-                <span className={`${styles.keyCell} ${entry.classes.map((name) => styles[name]).join(" ")}`} aria-hidden>
-                  {entry.dot && <span className={styles.lateDot} />}
-                </span>
-                <span>{t(entry.text)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className={styles.dayHint}>{t("calendar.keySign")}</p>
-        </section>
         </>
       )}
     </PageShell>
@@ -279,17 +260,30 @@ const netOf = (day: CalendarDay) => shownNet(day);
 const sign = (day: CalendarDay) => (netOf(day) > 0 ? "+" : netOf(day) < 0 ? "−" : "");
 
 /**
- * The cell's colours, side by side: green for money in, red for money out, a
- * diagonal from one to the other when a day has both — and each side pale once
- * everything on it has happened, whatever the other side is doing.
+ * What is on a day, in the calendars' shared colour language (`dayTone`):
+ * green for money in, red for money out, a diagonal when a day has both — and
+ * each side pale once everything on it has happened, whatever the other side
+ * is doing. All of it done is struck through; anything late carries the dot.
  */
-function dayClass(day: CalendarDay): string {
-  return [
-    day.in?.allDone ? styles.inPale : "", day.out?.allDone ? styles.outPale : "", day.in && day.out ? styles.both : day.in ? styles.onlyIn : styles.onlyOut,
-    // All of it happened: struck through with green.
-    day.items.every((item) => item.state === "done") ? styles.allDone : "",
-  ].join(" ");
+function daySides(day: CalendarDay) {
+  return {
+    in: day.in ? (day.in.allDone ? "done" : "todo") : undefined,
+    out: day.out ? (day.out.allDone ? "done" : "todo") : undefined,
+    late: day.items.some((i) => i.state === "late"),
+  } as const;
 }
+
+/** The colours explained, in the order they are met — each drawn with the classes a day itself uses. */
+const calendarKey = (t: TFunction): LegendEntry[] => [
+  dayKey("in", { in: "todo" }, t("calendar.keyIn")),
+  dayKey("inDone", { in: "done" }, t("calendar.keyInDone")),
+  dayKey("out", { out: "todo" }, t("calendar.keyOut")),
+  dayKey("outDone", { out: "done" }, t("calendar.keyOutDone")),
+  dayKey("both", { in: "todo", out: "todo" }, t("calendar.keyBoth")),
+  dayKey("allDone", { in: "done", out: "done" }, t("calendar.keyAllDone")),
+  dayKey("late", { late: true }, t("calendar.keyLate")),
+  dayKey("today", { today: true }, t("calendar.keyToday")),
+];
 
 /** Signed, with its currency: "+70,00 €", "−25,98 €". */
 const signedMoney = (n: number, formatCurrency: (n: number) => string) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;

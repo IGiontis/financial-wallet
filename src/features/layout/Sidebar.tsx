@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 import { FloatingPortal, autoUpdate, offset, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import { useIncomesNeedingAttention } from "../incomes/useIncomes";
-import { useProfile } from "./useProfile";
-import "./css/navStyles.css";
 import "./css/Sidebar.css";
 
 import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
@@ -145,8 +143,7 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
           closeTip();
           onNavigate();
         }}
-        // `aria-current="page"` comes from NavLink itself; the class is only for
-        // the look, which each menu style draws its own way.
+        // `aria-current="page"` comes from NavLink itself; the class is only for the look.
         className={({ isActive }) => `nav-link sidebar-link ${isActive ? "nav-link-current" : ""}`}
         aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}
       >
@@ -286,7 +283,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
   const incomesWaiting = useIncomesNeedingAttention();
-  const profile = useProfile();
   const closeRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -410,28 +406,15 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
   const settingsItem: NavItemProp = { path: "/settings", label: t("nav.settings"), icon: FiSettings };
 
   const navigate = () => onClose(false);
-  const avatar = (
-    <span className="sidebar-avatar" aria-hidden>
-      {profile.initials}
-    </span>
-  );
-  // Before the user document arrives the name would flash from the email's to
-  // the real one; the email is known from the start.
-  const who = (
-    <span className="sidebar-who">
-      {profile.loaded && profile.displayName && <span className="sidebar-who-name">{profile.displayName}</span>}
-      <span className="sidebar-who-email">{profile.email}</span>
-    </span>
-  );
 
   return (
     <>
       <div className={`sidebar-overlay d-lg-none ${isOpen ? "show" : ""}`} onClick={() => onClose(true)} aria-hidden />
 
-      <nav id="app-sidebar" aria-label={t("nav.mainNavigation")} className={`sidebar ${isOpen ? "open" : ""} ${isCollapsed ? "collapsed" : ""} ${hasMore ? "has-more" : ""}`}>
-        {/* Everything each style might show up here is in the document, and the
-            style decides what is drawn: the logo and name, or (Β, on a phone)
-            who is signed in; the ✕ only where the bar is a drawer. */}
+      {/* `app-shell`: painted with the top bar and the footer as one frame, the
+          text inside it in the shell's own colours (styles/theme.css). */}
+      <nav id="app-sidebar" aria-label={t("nav.mainNavigation")} className={`sidebar app-shell ${isOpen ? "open" : ""} ${isCollapsed ? "collapsed" : ""} ${hasMore ? "has-more" : ""}`}>
+        {/* The logo and the name; the ✕ only where the bar is a drawer. */}
         <div className="sidebar-header">
           {/* The name is the way home, as on most sites: to the Overview. */}
           <Link to="/" onClick={navigate} className="sidebar-home" aria-label={t("nav.goHome")}>
@@ -440,10 +423,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
             </span>
             <span className="sidebar-brand">MyFiWallet</span>
           </Link>
-          <div className="sidebar-profile">
-            {avatar}
-            {who}
-          </div>
           <button ref={closeRef} type="button" className="sidebar-close d-lg-none" onClick={() => onClose(true)} aria-label={t("nav.closeMenu")}>
             <FiX aria-hidden />
           </button>
@@ -476,12 +455,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
 
         <div className="sidebar-foot">
           <ul className="nav flex-column flex-nowrap">
-            {/* Γ turns this link into a card with who is signed in, the gear on
-                its end; the others show it as the plain row it always was. */}
-            <SidebarLink item={settingsItem} railTips={railTips} onNavigate={navigate}>
-              {avatar}
-              {who}
-            </SidebarLink>
+            <SidebarLink item={settingsItem} railTips={railTips} onNavigate={navigate} />
           </ul>
 
           <button

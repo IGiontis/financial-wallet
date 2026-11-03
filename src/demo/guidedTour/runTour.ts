@@ -2,9 +2,21 @@ import { driver, type Driver, type DriveStep, type PopoverDOM } from "driver.js"
 import "driver.js/dist/driver.css";
 import "./css/guidedTour.css";
 import type { TFunction } from "i18next";
-import { leaveDemo } from "../demoMode";
+import { openAuthDialog } from "../authDialog";
 import { TOUR_STEPS, type TourStep } from "./tourSteps";
 import { TARGET_TIMEOUT_MS, findShown, waitForTarget } from "./waitForTarget";
+
+/**
+ * The dim behind the tour's popover, as a colour driver.js can take: the
+ * darkest of the theme's own roles — the text colour in daylight, the page
+ * itself in the dark — read as the tour starts, so it follows the colourway.
+ */
+function dimInk(): string {
+  if (typeof window === "undefined") return "";
+  const root = document.documentElement;
+  const role = root.getAttribute("data-bs-theme") === "dark" ? "--page" : "--text";
+  return getComputedStyle(root).getPropertyValue(role).trim();
+}
 
 // ─── The guided tour itself ──────────────────────────────────────────────────
 //
@@ -79,10 +91,21 @@ export function runTour({ navigate, t, onEnd, steps = TOUR_STEPS, timeoutMs = TA
   // element and moving it down. So the cut-out and the popover are measured
   // again on any scroll anywhere (caught on the way down, since a scroll does
   // not bubble), and a few times a second besides.
+  //
+  // Never while a step is being moved to, though. For the 400ms that driver.js
+  // takes to slide the cut-out across, its «active element» is still the
+  // PREVIOUS step's: measured then, a page that has changed since has no such
+  // element any more and the cut-out snaps to an empty box in the corner of the
+  // screen (and the popover to where that box would have been) for a frame —
+  // the flicker on «Επόμενο». The timer, a scroll from driver.js scrolling the
+  // new element into view and the resize watch on the old element all land in
+  // that window; `moving` keeps them out of it until `onHighlighted` says the
+  // slide has finished.
   const follow = () => {
-    if (tour.isActive() && waiting === 0) tour.refresh();
+    if (tour.isActive() && waiting === 0 && !moving) tour.refresh();
   };
   let waiting = 0;
+  let moving = false;
 
   /** Over: whatever is waiting stops, and the button is told. Once. */
   const finish = () => {
@@ -117,7 +140,7 @@ export function runTour({ navigate, t, onEnd, steps = TOUR_STEPS, timeoutMs = TA
     button.textContent = t("guidedTour.createAccount");
     button.addEventListener("click", () => {
       close();
-      leaveDemo("/register");
+      openAuthDialog("register");
     });
     popover.footer.before(button);
   };
@@ -143,7 +166,7 @@ export function runTour({ navigate, t, onEnd, steps = TOUR_STEPS, timeoutMs = TA
     // A stray tap on the dim, on a phone, should not throw the tour away.
     overlayClickBehavior: "none",
     // The app's own ink rather than pure black: a dim, not a blackout.
-    overlayColor: "#0b1626",
+    overlayColor: dimInk(),
     overlayOpacity: 0.55,
     disableActiveInteraction: true,
     allowKeyboardControl: true,
@@ -162,9 +185,10 @@ export function runTour({ navigate, t, onEnd, steps = TOUR_STEPS, timeoutMs = TA
     // A page whose figures arrive after it has been pointed at grows under the
     // cut-out; following its size keeps the hole round what is there now.
     onHighlighted: (element) => {
+      moving = false;
       resizeWatch?.disconnect();
       if (!element || typeof ResizeObserver === "undefined") return;
-      resizeWatch = new ResizeObserver(() => tour.refresh());
+      resizeWatch = new ResizeObserver(follow);
       resizeWatch.observe(element);
     },
     // ×, Esc: driver.js asks before closing, so that the closing is ours.
@@ -188,6 +212,7 @@ export function runTour({ navigate, t, onEnd, steps = TOUR_STEPS, timeoutMs = TA
     }
     if (stale()) return;
     if (shown !== undefined) {
+      moving = true;
       if (tour.isActive()) tour.moveTo(shown);
       else tour.drive(shown);
       return;

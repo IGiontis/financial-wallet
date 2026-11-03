@@ -7,12 +7,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
-  padding-top: max(2rem, env(safe-area-inset-top));
-  padding-bottom: max(2rem, env(safe-area-inset-bottom));
-  background:
-    radial-gradient(1100px 520px at 50% -10%, rgba(13, 110, 253, 0.1), transparent 60%),
-    var(--color-background-primary);
+  padding: var(--space-6) var(--space-4);
+  padding-top: max(var(--space-6), env(safe-area-inset-top));
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  /* The page a shade deeper at its top left, easing into the page colour:
+     dark to light, corner to corner, in either mode (the shadow ink is the
+     dark one in both). */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--shadow-ink) 7%, var(--color-background-primary)), var(--color-background-primary) 70%);
 }
 
 /* Gradient brand badge holding the logo emoji */
@@ -23,15 +24,16 @@
   align-items: center;
   justify-content: center;
   font-size: 26px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #4f7cff 0%, #7c3aed 100%);
-  box-shadow: 0 10px 22px rgba(79, 124, 255, 0.35);
+  border-radius: var(--radius-xl);
+  /* The brand, its pressed (darker) step first. */
+  background: linear-gradient(135deg, var(--brand-active), var(--brand));
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 /* Elevated form card */
 .card {
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   background: var(--color-surface);
   overflow: hidden;
@@ -75,15 +77,23 @@
   justify-content: center;
   gap: 8px;
   min-height: 44px; /* comfortable touch target */
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   font-weight: 500;
 }
 
 /* In-app browser advisory */
 .inAppWarn {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  border-radius: var(--border-radius-md);
+  background: var(--pending-wash-solid);
+  border: 1px solid var(--pending-edge);
+  color: var(--color-pending-text);
+  border-radius: var(--radius-md);
   line-height: 1.5;
+}
+
+/* «Δημιούργησε έναν» / «Σύνδεση» as a button in the dialog, read as the link it
+   is on the page: the sentence's size and baseline, the link colour. */
+.switchLink {
+  font-size: inherit;
+  vertical-align: baseline;
+  color: var(--color-link);
 }

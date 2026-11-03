@@ -1,7 +1,7 @@
 // features/budget/InvestmentsPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Recurring + open-ended tracking goals.
-// Tabs: All · Recurring · Tracking · Paused · Completed
+// Tabs: Overview · Cards · List, each list with its own search and status menu.
 //
 // File location: src/features/budget/InvestmentsPage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,187 +14,31 @@ import { GoalStacks } from "./components/GoalStacks";
 import { GoalsWorkbench } from "./components/GoalsWorkbench";
 import { groupGoals } from "./components/goalGrouping";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
-import type { GoalView } from "./components/GoalStacks";
 import type { GoalGroupBy } from "./components/goalGrouping";
 import ContributionWizard from "./ContributionWizard";
-import { SkeletonCardGrid, SkeletonStats } from "../../shared/components/Skeletons";
+import { GoalsOverview, type OverviewTile } from "./components/GoalsOverview";
+import { investmentRunning, investmentsSummary, isRecurringGoal, isTrackingGoal, monthlyMoves, nearestToDone, type GoalStatusOption, type PeriodTotals } from "./components/goalOverview";
 import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
+import { useAllContributions, useInvestmentGoals, useCreateGoal, useAddContribution, useDeleteGoal, useUpdateGoal } from "./useInvestments";
 import { useTranslation } from "react-i18next";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type InvestmentsFilterTab = "all" | "recurring" | "tracking" | "paused";
-
-const TAB_LABEL_KEYS: Record<InvestmentsFilterTab, string> = {
-  all: "common.all",
-  recurring: "investments.recurring",
-  tracking: "investments.tracking",
-  paused: "common.paused",
-};
-
-// ─── Scope helpers ────────────────────────────────────────────────────────────
+// ─── Scope ────────────────────────────────────────────────────────────────────
 
 /** Nothing on this screen has a deadline, so that dimension is not offered. */
 const INVESTMENT_GROUPINGS: GoalGroupBy[] = ["kind", "progress", "status", "category"];
 
-const isRecurring = (g: InvestmentGoalWithStats) => g.targetPeriod === "monthly" || g.targetPeriod === "yearly";
-const isTracking = (g: InvestmentGoalWithStats) => g.goalType === "open_ended";
-const belongsHere = (g: InvestmentGoalWithStats) => isRecurring(g) || isTracking(g);
-
-const effectivelyActive = (g: InvestmentGoalWithStats) => (isRecurring(g) ? g.isActive : g.isActive && !g.isCompleted);
-
-// ─── InvestmentsSummaryCards ──────────────────────────────────────────────────
-
-function InvestmentsSummaryCards({ goals, formatCurrency }: { goals: InvestmentGoalWithStats[]; formatCurrency: (n: number) => string }) {
-  const { t } = useTranslation();
-  const mine = goals.filter(belongsHere);
-  const active = mine.filter(effectivelyActive);
-
-  const totalSaved = mine.reduce((s, g) => s + g.totalSaved, 0);
-
-  // ── Monthly effective totals ───────────────────────────────────────────────
-  const activeMonthly = mine.filter((g) => g.targetPeriod === "monthly" && effectivelyActive(g));
-
-  const monthlyTotalDue = activeMonthly.reduce((s, g) => {
-    const credit = g.periodCredit ?? 0;
-    const arrears = g.arrears ?? 0;
-    return s + Math.max((g.targetAmount ?? 0) - credit, 0) + arrears;
-  }, 0);
-  const monthlyTotalRemaining = activeMonthly.reduce((s, g) => s + (g.remaining ?? 0), 0);
-  const monthlyEffectivePaid = Math.max(monthlyTotalDue - monthlyTotalRemaining, 0);
-
-  // ── Yearly effective totals ────────────────────────────────────────────────
-  const activeYearly = mine.filter((g) => g.targetPeriod === "yearly" && effectivelyActive(g));
-
-  const yearlyTotalDue = activeYearly.reduce((s, g) => {
-    const credit = g.periodCredit ?? 0;
-    const arrears = g.arrears ?? 0;
-    return s + Math.max((g.targetAmount ?? 0) - credit, 0) + arrears;
-  }, 0);
-  const yearlyTotalRemaining = activeYearly.reduce((s, g) => s + (g.remaining ?? 0), 0);
-  const yearlyEffectivePaid = Math.max(yearlyTotalDue - yearlyTotalRemaining, 0);
-
-  // ── Behind / ahead aggregates ─────────────────────────────────────────────
-  const recurringActive = active.filter(isRecurring);
-
-  const behindGoals = recurringActive.filter((g) => g.status === "behind");
-  const aheadGoals = recurringActive.filter((g) => g.status === "ahead");
-  const totalBehind = behindGoals.reduce((s, g) => s + (g.remaining ?? 0), 0);
-  const totalAheadBuffer = aheadGoals.reduce((s, g) => s + (g.periodSurplus ?? 0), 0);
-  const netPosition = totalAheadBuffer - totalBehind;
-
-  const recurringCount = recurringActive.length;
-
-  // ── Labels ─────────────────────────────────────────────────────────────────
-  const monthlyLabel = activeMonthly.length === 0 ? "—" : monthlyTotalDue === 0 ? t("investments.allCovered") : `${formatCurrency(monthlyEffectivePaid)} / ${formatCurrency(monthlyTotalDue)}`;
-
-  const yearlyLabel = activeYearly.length === 0 ? "—" : yearlyTotalDue === 0 ? t("investments.allCovered") : `${formatCurrency(yearlyEffectivePaid)} / ${formatCurrency(yearlyTotalDue)}`;
-
-  // ── Card definitions ───────────────────────────────────────────────────────
-  type SummaryCard = { label: string; value: string; sub: string; accent: string; icon: string; small: boolean };
-
-  const cards: SummaryCard[] = [
-    {
-      label: t("investments.totalSaved"),
-      value: formatCurrency(totalSaved),
-      sub: t("investments.allTimeAcross"),
-      accent: "var(--color-income)",
-      icon: "📈",
-      small: false,
-    },
-    {
-      label: t("investments.monthlyTarget"),
-      value: monthlyLabel,
-      sub: monthlyTotalDue === 0 && activeMonthly.length > 0 ? t("investments.creditCoversMonth") : t("investments.paidThisMonth"),
-      accent: monthlyTotalDue === 0 && activeMonthly.length > 0 ? "#059669" : "#3B82F6",
-      icon: "📅",
-      small: monthlyTotalDue > 0,
-    },
-    {
-      label: t("investments.recurring"),
-      value: String(recurringCount),
-      sub: recurringCount === 1 ? t("investments.activeGoal") : t("investments.activeGoals"),
-      accent: "var(--color-invest)",
-      icon: "🔁",
-      small: false,
-    },
-    {
-      label: t("investments.yearlyTarget"),
-      value: yearlyLabel,
-      sub: yearlyTotalDue === 0 && activeYearly.length > 0 ? t("investments.creditCoversYear") : t("investments.paidThisYear"),
-      accent: yearlyTotalDue === 0 && activeYearly.length > 0 ? "#059669" : "#F59E0B",
-      icon: "📆",
-      small: yearlyTotalDue > 0,
-    },
-  ];
-
-  // Show a single net status card.
-  // Net = (surplus across ahead goals) - (remaining across behind goals).
-  // Positive → net ahead. Negative → net behind. Zero → show nothing.
-  if (netPosition < 0) {
-    cards.push({
-      label: t("investments.behind"),
-      value: formatCurrency(Math.abs(netPosition)),
-      sub: t("investments.goalsInArrears", { count: behindGoals.length }),
-      accent: "var(--color-expense)",
-      icon: "⚠️",
-      small: true,
-    });
-  } else if (netPosition > 0) {
-    cards.push({
-      label: t("investments.ahead"),
-      value: formatCurrency(netPosition),
-      sub: t("investments.netAcrossGoals", { count: recurringActive.length }),
-      accent: "var(--color-income)",
-      icon: "🚀",
-      small: true,
-    });
-  }
-
-  return (
-    <Row className="g-3 mb-4">
-      {cards.map((c) => (
-        <Col xs={6} md={4} xl={2} key={c.label} className="d-flex">
-          <div
-            style={{
-              width: "100%",
-              borderRadius: 12,
-              background: "var(--color-surface)",
-              border: "0.5px solid var(--color-border-tertiary)",
-              borderTop: `3px solid ${c.accent}`,
-              padding: "14px 16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
-            <div className="d-flex align-items-center justify-content-between mb-1">
-              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{c.label}</p>
-              <span style={{ fontSize: 14 }}>{c.icon}</span>
-            </div>
-            <p style={{ fontSize: c.small ? 14 : 20, fontWeight: 600, margin: 0, color: c.accent, lineHeight: 1.3, wordBreak: "break-word" }}>{c.value}</p>
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{c.sub}</p>
-          </div>
-        </Col>
-      ))}
-    </Row>
-  );
-}
+const belongsHere = (g: InvestmentGoalWithStats) => isRecurringGoal(g) || isTrackingGoal(g);
 
 // ─── InvestmentsPage ──────────────────────────────────────────────────────────
 
 export default function InvestmentsPage() {
   const { t } = useTranslation();
-  const [filter, setFilter] = useState<InvestmentsFilterTab>("all");
-  const [view, setView] = useLocalStorage<GoalView>("investments:view", "cards");
   const [groupBy, setGroupBy] = useLocalStorage<GoalGroupBy>("investments:groupBy", "kind");
-  const [search, setSearch] = useState("");
   const [historyGoal, setHistoryGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [withdrawGoal, setWithdrawGoal] = useState<InvestmentGoalWithStats | null>(null);
@@ -203,6 +47,8 @@ export default function InvestmentsPage() {
   const [editGoal, setEditGoal] = useState<InvestmentGoalWithStats | null>(null);
 
   const { data: goals = [], isLoading, isError } = useInvestmentGoals();
+  // The list `useInvestmentGoals` has just read for the goals' stats — no second read.
+  const { data: contributions = [] } = useAllContributions();
   const { format: formatCurrency } = useCurrencyConverter();
 
   const createGoalMutation = useCreateGoal();
@@ -237,130 +83,138 @@ export default function InvestmentsPage() {
     [updateGoalMutation],
   );
 
-  const isSearching = search.trim().length > 0;
+  // ── The tabs ──────────────────────────────────────────────────────────────
 
-  // One pass, once per change of what it depends on, rather than two predicates
-  // rebuilt every render and a full scan on every keystroke.
-  const filtered = useMemo(() => {
-    const query = search.toLowerCase().trim();
-    return goals.filter((g) => {
-      if (!belongsHere(g)) return false;
-      // Search reaches across the tabs on purpose: something you are looking for
-      // by name should not be hidden by which tab happens to be open.
-      if (isSearching) return g.name.toLowerCase().includes(query) || (g.notes?.toLowerCase().includes(query) ?? false);
-      if (filter === "all") return effectivelyActive(g);
-      if (filter === "recurring") return isRecurring(g) && g.isActive;
-      if (filter === "tracking") return isTracking(g) && g.isActive && !g.isCompleted;
-      return !g.isActive;
-    });
-  }, [goals, isSearching, search, filter]);
+  const mine = useMemo(() => goals.filter(belongsHere), [goals]);
 
-  const stacks = useMemo(() => groupGoals(filtered, groupBy), [filtered, groupBy]);
-
-  // Each count used to run two passes over every goal, and the strip asked for
-  // four of them on every render — eight passes for numbers that only change
-  // when the goals do.
-  const counts = useMemo(() => {
-    const mine = goals.filter(belongsHere);
-    return {
-      all: mine.filter(effectivelyActive).length,
-      recurring: mine.filter((g) => isRecurring(g) && g.isActive).length,
-      tracking: mine.filter((g) => isTracking(g) && g.isActive && !g.isCompleted).length,
-      paused: mine.filter((g) => !g.isActive).length,
-    } as Record<InvestmentsFilterTab, number>;
-  }, [goals]);
-
-  const tabs = useMemo(
-    () => (["all", "recurring", "tracking", "paused"] as InvestmentsFilterTab[]).map((tab) => ({ id: tab, label: t(TAB_LABEL_KEYS[tab]), count: counts[tab] })),
-    [counts, t],
+  // «Όλα ▾»: everything on the screen first, then running, by kind, and paused.
+  const statuses = useMemo<GoalStatusOption[]>(
+    () => [
+      { id: "all", label: t("common.all"), test: () => true },
+      { id: "active", label: t("common.active"), test: investmentRunning },
+      { id: "recurring", label: t("investments.recurring"), test: (g) => isRecurringGoal(g) && g.isActive },
+      { id: "tracking", label: t("investments.tracking"), test: (g) => isTrackingGoal(g) && g.isActive && !g.isCompleted },
+      { id: "paused", label: t("common.paused"), test: (g) => !g.isActive },
+    ],
+    [t],
   );
 
-  const emptyLabel = isSearching ? t("investments.noResultsFor", { query: search }) : t("investments.noneYet");
+  const summary = useMemo(() => investmentsSummary(mine), [mine]);
+  const near = useMemo(() => nearestToDone(mine, (g) => isRecurringGoal(g) && investmentRunning(g)), [mine]);
+  const moves = useMemo(() => monthlyMoves(contributions, new Set(mine.map((g) => g.id))), [contributions, mine]);
 
-  // A missing strip is worse than a placeholder one: the row would appear a
-  // moment later and shove everything under it down the page.
-  const summary = isLoading ? <SkeletonStats /> : isError ? undefined : <InvestmentsSummaryCards goals={goals} formatCurrency={formatCurrency} />;
+  // The figures the screen's boxes always showed — see `investmentsSummary`.
+  const periodValue = (period: PeriodTotals) =>
+    period.count === 0 ? "—" : period.due === 0 ? t("investments.allCovered") : `${formatCurrency(period.paid)} / ${formatCurrency(period.due)}`;
+  const tiles: OverviewTile[] = [
+    { label: t("investments.totalSaved"), value: formatCurrency(summary.totalSaved), sub: t("investments.allTimeAcross"), tone: "income", icon: "📈" },
+    {
+      label: t("investments.monthlyTarget"),
+      value: periodValue(summary.monthly),
+      sub: summary.monthly.due === 0 && summary.monthly.count > 0 ? t("investments.creditCoversMonth") : t("investments.paidThisMonth"),
+      tone: "brand",
+      icon: "📅",
+    },
+    {
+      label: t("investments.recurring"),
+      value: String(summary.recurring),
+      sub: summary.recurring === 1 ? t("investments.activeGoal") : t("investments.activeGoals"),
+      tone: "invest",
+      icon: "🔁",
+    },
+    {
+      label: t("investments.yearlyTarget"),
+      value: periodValue(summary.yearly),
+      sub: summary.yearly.due === 0 && summary.yearly.count > 0 ? t("investments.creditCoversYear") : t("investments.paidThisYear"),
+      tone: "goal",
+      icon: "📆",
+    },
+  ];
+  // One box for where the recurring ones stand together, and none when level.
+  if (summary.net < 0) {
+    tiles.push({ label: t("investments.behind"), value: formatCurrency(Math.abs(summary.net)), sub: t("investments.goalsInArrears", { count: summary.behindCount }), tone: "expense", icon: "⚠️" });
+  } else if (summary.net > 0) {
+    tiles.push({ label: t("investments.ahead"), value: formatCurrency(summary.net), sub: t("investments.netAcrossGoals", { count: summary.recurring }), tone: "income", icon: "🚀" });
+  }
+
+  const newButton = (
+    <Button color="primary" onClick={() => setShowNewGoal(true)}>
+      <span className="d-none d-sm-inline">+ {t("investments.newInvestment")}</span>
+      <span className="d-sm-none">+ {t("bills.new")}</span>
+    </Button>
+  );
 
   return (
     <PageShell>
       <GoalsWorkbench
+        screen="investments"
         title={t("investments.title")}
         subtitle={t("investments.subtitle")}
-        action={
-          <Button color="primary" onClick={() => setShowNewGoal(true)}>
-            <span className="d-none d-sm-inline">+ {t("investments.newInvestment")}</span>
-            <span className="d-sm-none">+ {t("bills.new")}</span>
-          </Button>
+        action={newButton}
+        goals={mine}
+        isLoading={isLoading}
+        isError={isError}
+        statuses={statuses}
+        overview={
+          <GoalsOverview
+            loading={isLoading}
+            tiles={tiles}
+            nearTitle={t("investments.nearTitle")}
+            nearEmpty={t("investments.nearEmpty")}
+            near={near}
+            moves={moves}
+            chartTone="invest"
+            formatCurrency={formatCurrency}
+          />
         }
-        stats={summary}
-        tabs={tabs}
-        activeTab={filter}
-        onTab={(id) => setFilter(id as InvestmentsFilterTab)}
-        search={search}
-        onSearch={setSearch}
         searchPlaceholder={t("investments.searchPlaceholder")}
         groupOptions={INVESTMENT_GROUPINGS}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
-        view={view}
-        onView={setView}
-      >
-        {isLoading && <SkeletonCardGrid count={6} />}
-
-        {!isLoading && !isError && (
-          <>
-            {isSearching && (
-              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("investments.showingResults", { count: filtered.length })}</p>
-            )}
-
-            {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--color-text-secondary)" }}>
-                <p style={{ fontSize: 40 }}>{filter === "paused" ? "⏸️" : "📈"}</p>
-                <p style={{ fontWeight: 500 }}>{emptyLabel}</p>
-                {!isSearching && filter !== "paused" && (
-                  <>
-                    <p style={{ fontSize: 14 }}>{t("investments.startTrackingHint")}</p>
-                    <Button color="primary" onClick={() => setShowNewGoal(true)}>
-                      + {t("investments.newInvestment")}
-                    </Button>
-                  </>
-                )}
-              </div>
-            ) : view === "stacks" ? (
-              /* Nothing here has a deadline, so "kind" is the natural stack —
-                 the rest are the reader's to pick. See `goalGrouping`. */
-              <GoalStacks
-                groups={stacks}
-                storageKey={`investments:stack:${groupBy}`}
-                formatCurrency={formatCurrency}
-                onViewHistory={setHistoryGoal}
-                onAddDeposit={setDepositGoal}
-                onWithdraw={setWithdrawGoal}
-                onDelete={setDeleteGoal}
-                onEdit={setEditGoal}
-                onTogglePause={handleTogglePause}
-              />
-            ) : (
-              <Row className="g-3">
-                {filtered.map((goal) => (
-                  <Col xs={12} md={6} xl={3} key={goal.id}>
-                    <GoalCard
-                      goal={goal}
-                      formatCurrency={formatCurrency}
-                      onViewHistory={setHistoryGoal}
-                      onAddDeposit={setDepositGoal}
-                      onWithdraw={setWithdrawGoal}
-                      onDelete={setDeleteGoal}
-                      onEdit={setEditGoal}
-                      onTogglePause={handleTogglePause}
-                    />
-                  </Col>
-                ))}
-              </Row>
-            )}
-          </>
+        renderCards={(shown) => (
+          <Row className="g-3">
+            {shown.map((goal) => (
+              <Col xs={12} md={6} xl={3} key={goal.id}>
+                <GoalCard
+                  goal={goal}
+                  formatCurrency={formatCurrency}
+                  onViewHistory={setHistoryGoal}
+                  onAddDeposit={setDepositGoal}
+                  onWithdraw={setWithdrawGoal}
+                  onDelete={setDeleteGoal}
+                  onEdit={setEditGoal}
+                  onTogglePause={handleTogglePause}
+                />
+              </Col>
+            ))}
+          </Row>
         )}
-      </GoalsWorkbench>
+        renderList={(shown) => (
+          /* Nothing here has a deadline, so "kind" is the natural stack —
+             the rest are the reader's to pick. See `goalGrouping`. */
+          <GoalStacks
+            groups={groupGoals(shown, groupBy)}
+            storageKey={`investments:stack:${groupBy}`}
+            formatCurrency={formatCurrency}
+            onViewHistory={setHistoryGoal}
+            onAddDeposit={setDepositGoal}
+            onWithdraw={setWithdrawGoal}
+            onDelete={setDeleteGoal}
+            onEdit={setEditGoal}
+            onTogglePause={handleTogglePause}
+          />
+        )}
+        empty={
+          <div className="text-center py-5 text-body-secondary">
+            <p className="fs-1 mb-2" aria-hidden>
+              📈
+            </p>
+            <p className="fw-medium">{t("investments.noneYet")}</p>
+            <p className="small">{t("investments.startTrackingHint")}</p>
+            {newButton}
+          </div>
+        }
+      />
 
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={false} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}

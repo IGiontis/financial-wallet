@@ -6,7 +6,7 @@ import type { IconType } from "react-icons";
 import { MENU_DIVIDER, RowMenu, type RowMenuEntry } from "../../../shared/components/RowMenu";
 import { currentPause } from "../../bills/billsUtils";
 import { KIND_ICON, isActiveIncome, isSettled, type Income, type IncomeRow, type IncomeStatus, type MonthSummary, type RowSection } from "../incomesUtils";
-import { shortSchedule, statusTag, type IncomeFormats } from "../incomeText";
+import { incomeEndText, incomeStartText, shortSchedule, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
 // Option 1, «Λίστα σαν τα Πάγια»: the Bills page the other way round.
@@ -76,7 +76,7 @@ function lineMenu(income: Income, t: TFunction, actions: IncomeListActions, opti
 }
 
 /** What a chip says, which sets its colour: the same kind of fact is the same colour on every row. */
-type TagKind = "when" | "schedule" | "account" | "variable" | "pause" | "more";
+type TagKind = "when" | "schedule" | "account" | "variable" | "pause" | "more" | "start";
 
 interface Tag {
   icon: IconType;
@@ -195,6 +195,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   const account = accountName(income.accountId);
   const approx = focus?.approximate ? "≈" : "";
   const pause = currentPause(income, now);
+  const starts = incomeStartText(income, now, t, f);
 
   const tags: Tag[] = [];
   let amount: string;
@@ -216,11 +217,16 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   } else {
     amount = `${income.variable ? "≈" : ""}${formatCurrency(focus?.expected ?? income.amount)}`;
     const upcoming = focus && !isSettled(focus) && focus.state !== "skipped" && focus.state !== "missed" ? focus : next;
-    if (pause?.state === "paused" && pause.to) tags.push({ icon: FiPauseCircle, text: t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }), kind: "pause" });
+    // Not running yet: when it starts, plainly — «Επόμενη 1 Μαρ» read as one more of a running income.
+    if (starts) tags.push({ icon: FiCalendar, text: starts, kind: "start" });
+    else if (pause?.state === "paused" && pause.to) tags.push({ icon: FiPauseCircle, text: t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }), kind: "pause" });
     else if (pause?.state === "ended") tags.push({ icon: FiPauseCircle, text: t("incomes.list.stopped"), kind: "pause" });
     else if (upcoming) tags.push({ icon: FiCalendar, text: t("incomes.list.nextOn", { date: f.dayMonth.format(upcoming.expectedDate) }), kind: "when" });
     else tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
   }
+  // Its last month, where it has one still to come.
+  const ends = incomeEndText(income, now, t, f);
+  if (ends) tags.push({ icon: FiPauseCircle, text: ends, kind: "pause" });
   // Where it lands, in every section: it was only on the ones waiting, so an
   // income already in, or still to come, never said which card it goes to.
   if (account) tags.push({ icon: FiCreditCard, text: account, kind: "account" });

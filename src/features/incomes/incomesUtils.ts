@@ -316,6 +316,27 @@ export function nextIncomeOccurrence(income: Income, from: Date): IncomeOccurren
   return incomeOccurrences(income, from, addMonths(from, 60))[0];
 }
 
+/**
+ * The first time it comes, while that is still ahead — rent from 1 March, set
+ * up in November. Until then it is not running, and every view of it says when
+ * it starts rather than looking like an income already coming in. Undefined
+ * once the first time has come (or for one with no start at all).
+ */
+export function incomeStartsLater(income: Income, now: Date): Date | undefined {
+  const start = incomeStart(income);
+  if (!start) return undefined;
+  const today = startOfDay(now);
+  if (start <= today && incomeOccurrences(income, start, today).length > 0) return undefined;
+  const first = nextIncomeOccurrence(income, start > today ? start : today);
+  return first && first.date > today ? first.date : undefined;
+}
+
+/** Its last month, while that is still to come (or is this one): «Λήγει Μαρ 2027». */
+export function incomeEndsOn(income: Pick<Income, "end">, now: Date): Date | undefined {
+  const last = income.end ? parseISOMonth(income.end) : null;
+  return last && last >= startOfMonth(now) ? last : undefined;
+}
+
 // ─── What it brings ──────────────────────────────────────────────────────────
 
 /** How many arrivals a variable income needs before its own record replaces the estimate. */

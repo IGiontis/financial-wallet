@@ -6,15 +6,26 @@ export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 
 /**
- * How the sidebar and the top bar are drawn: Α «Κλασικό», Β «Μπλε τόνος», Γ «Γυαλί».
- * The same menu in all three — the same groups, links and badges — finished
- * three ways. Stored as the letters the owner picked them by.
+ * The colourway: «Μπλε εμπιστοσύνης» (blue) or «Μαύρο & χρυσό» (gold). Colour
+ * and nothing else — the shell, the cards and every button are built the same
+ * in both (styles/tokens.css holds the palettes). Named
+ * `NavStyle` and kept on `data-nav-style` / the `nav-style` key because that is
+ * where the choice has always lived on this device; it used to pick among three
+ * menu finishes (a, b, c), which `toNavStyle` maps forward.
  */
-export type NavStyle = "a" | "b" | "c";
+export type NavStyle = "blue" | "gold";
 
-/** In the order Settings offers them. Α is the default: the sidebar as it always
- * was, tidied — nothing to get used to again. */
-export const NAV_STYLES: readonly NavStyle[] = ["a", "b", "c"];
+/** In the order Settings offers them. Blue is the default. */
+export const NAV_STYLES: readonly NavStyle[] = ["blue", "gold"];
+
+/**
+ * What a stored value means now. The three old menu finishes were all blue
+ * shells (Α a pine green for a few days, Β navy, Γ slate), so each lands on the
+ * default blue; anything unknown — a later version's value, a hand-edited key,
+ * or a colourway since dropped — «Μπεζ» ("sand") and «Γραφίτης» ("graphite"),
+ * each offered for a few days — does too, rather than leaving the shell with no palette at all.
+ */
+export const toNavStyle = (stored: unknown): NavStyle => (NAV_STYLES as readonly unknown[]).includes(stored) ? (stored as NavStyle) : "blue";
 
 export interface ThemeContextType {
   preference: ThemePreference; // what the user chose ("system" = follow OS)
@@ -32,6 +43,6 @@ export const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   setPreference: () => {},
   toggleTheme: () => {},
-  navStyle: "a",
+  navStyle: "blue",
   setNavStyle: () => {},
 });

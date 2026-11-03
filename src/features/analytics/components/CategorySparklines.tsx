@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import styles from "./css/Sparklines.module.css";
 import type { CategorySeries } from "../analyticsUtils";
+import { signedPercent } from "./chartTheme";
 
 /**
  * One tiny chart per category, all on the same footprint.
@@ -53,8 +54,7 @@ export default function CategorySparklines({
               <span>{formatCurrency(row.total)}</span>
               {Math.abs(row.trend) > 0.1 && (
                 <span style={{ color: tone }}>
-                  {row.trend > 0 ? "+" : "−"}
-                  {Math.round(Math.abs(row.trend) * 100)}%
+                  {signedPercent(row.trend * 100)}
                 </span>
               )}
             </div>

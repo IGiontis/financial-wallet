@@ -2,7 +2,7 @@
 
 .card {
   margin-top: 1rem;
-  padding: 1rem 1.25rem;
+  padding: var(--space-4) 1.25rem;
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
   background: var(--color-surface);
@@ -25,7 +25,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 0;
+  padding: var(--space-2) 0;
   border-top: 1px solid var(--color-border-primary);
 }
 
@@ -35,7 +35,7 @@
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--expense-wash);
   color: var(--color-expense-text);
   font-size: 11px;

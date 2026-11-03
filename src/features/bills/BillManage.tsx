@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ManageList, type ManageGroup } from "../../shared/components/ManageList";
-import { currentPause, getFrequencyLabel, startsLater } from "./billsUtils";
+import { currentPause, getFrequencyLabel, isStoppedNow, startsLater } from "./billsUtils";
 import type { BillWithStatus, Category } from "../../shared/types/IndexTypes";
 
 /**
@@ -67,7 +67,8 @@ export function BillManage({
     });
     const sorted = [...bills].sort((a, b) => a.name.localeCompare(b.name, locale));
     return [
-      { key: "on", title: t("manage.groupOn"), tone: "success", items: sorted.filter((b) => b.isActive).map(item) },
+      // The ones resting this period — paused, stopped, not begun — after the running ones, each with its tag.
+      { key: "on", title: t("manage.groupOn"), tone: "success", items: [...sorted.filter((b) => b.isActive && !isStoppedNow(b, now)), ...sorted.filter((b) => b.isActive && isStoppedNow(b, now))].map(item) },
       { key: "off", title: t("manage.groupOff"), tone: "secondary", items: sorted.filter((b) => !b.isActive).map(item) },
     ];
   }, [bills, categoryFor, locale, now, t]);

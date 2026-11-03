@@ -35,7 +35,7 @@ const renderList = (props: Partial<Parameters<typeof BillManage>[0]> = {}) => {
 };
 
 describe("the bills' manage list", () => {
-  it("lists the active bills, then the inactive ones, alphabetical, with no amounts", () => {
+  it("lists the running bills, then the resting ones, then the inactive ones, each alphabetical, with no amounts", () => {
     renderList();
     expect(screen.getByText("6 bills. Tap one to change it.")).toBeInTheDocument();
     const names = (region: string) =>
@@ -43,7 +43,8 @@ describe("the bills' manage list", () => {
         .getAllByRole("button", { name: /^Edit: / })
         .filter((_, i) => i % 2 === 0)
         .map((b) => b.getAttribute("aria-label"));
-    expect(names("Active")).toEqual(["Edit: Car insurance", "Edit: Cleaner", "Edit: Gym", "Edit: Later", "Edit: Netflix"]);
+    // The running ones by name, then the ones resting this period (paused, not begun), by name.
+    expect(names("Active")).toEqual(["Edit: Car insurance", "Edit: Cleaner", "Edit: Netflix", "Edit: Gym", "Edit: Later"]);
     expect(names("Inactive")).toEqual(["Edit: Old phone"]);
     // Not a figure on the page.
     expect(document.body.textContent).not.toMatch(/€|\d+[.,]\d\d/);

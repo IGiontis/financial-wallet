@@ -41,8 +41,8 @@ export default defineConfig({
         name: "MyFiWallet",
         short_name: "MyFiWallet",
         description: "Track spending, bills, savings goals and investments in one place.",
-        theme_color: "#ffffff",
-        background_color: "#ffffff",
+        theme_color: "#0c2a63", // the shell's dark end (tokens.css --shell-dark): no pure white anywhere
+        background_color: "#f6f3ec", // the light page, so the splash matches the app
         display: "standalone", // makes it feel like a native app
         start_url: "/",
         // A long press on the installed app's icon: straight to a new expense (QuickExpense).

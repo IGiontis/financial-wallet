@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import styles from "./css/Waterfall.module.css";
 import type { WaterfallStep } from "../analyticsUtils";
+import { amountWith } from "./chartTheme";
 
 /**
  * Income, then each big category taken off it, then what went into goals and
@@ -58,7 +59,7 @@ export default function MonthWaterfall({ steps, nameFor, formatCurrency, compact
             {formatCurrency(Math.abs(row.amount))}
           </span>
           {row.takesFrom && !compact && (
-            <span className={styles.left}>{t("analytics.waterfall.leftShort", { amount: formatCurrency(row.balance) })}</span>
+            <span className={styles.left}>{t("analytics.waterfall.leftShort", { amount: amountWith(formatCurrency)(row.balance) })}</span>
           )}
         </div>
       ))}

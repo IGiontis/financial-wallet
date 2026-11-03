@@ -74,8 +74,8 @@ function CashFlowTooltip({
       style={{
         background: "var(--color-tooltip-bg)",
         color: "var(--color-tooltip-text)",
-        borderRadius: "var(--border-radius-md)",
-        padding: "12px 16px",
+        borderRadius: "var(--radius-md)",
+        padding: "var(--space-3) var(--space-4)",
         minWidth: 190,
         boxShadow: "var(--shadow-lg)",
       }}
@@ -98,7 +98,7 @@ function CashFlowTooltip({
           </div>
         ))}
 
-      <div className="d-flex justify-content-between pt-2 mt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", gap: 16 }}>
+      <div className="d-flex justify-content-between pt-2 mt-1" style={{ borderTop: "1px solid color-mix(in srgb, var(--color-tooltip-text) 15%, transparent)", gap: 16 }}>
         <span style={{ fontSize: 13, opacity: 0.75 }}>{t("overview.moneyLeft")}</span>
         <span className="fw-bold" style={{ fontSize: 13, color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
           {moneyLeft >= 0 ? "+" : ""}
@@ -131,7 +131,7 @@ export default function CashFlowChart({ data, formatCurrency, compact = false }:
           tickLine={false}
           width={compact ? 40 : 64}
         />
-        <Tooltip content={<CashFlowTooltip formatCurrency={formatCurrency} />} cursor={{ fill: "rgba(128,128,128,0.08)", radius: 4 }} />
+        <Tooltip content={<CashFlowTooltip formatCurrency={formatCurrency} />} cursor={{ fill: "var(--color-text-primary)", fillOpacity: 0.08, radius: 4 }} />
         {SERIES.map((s) => (
           <Bar key={s.key} dataKey={s.key} maxBarSize={28} shape={<RoundedBar />}>
             {data.map((_, i) => (

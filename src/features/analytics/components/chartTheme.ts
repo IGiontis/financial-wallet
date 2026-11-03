@@ -32,7 +32,7 @@ export const seriesDash = (index: number): string | undefined => {
 
 export const AXIS_TICK = { fontSize: 11, fill: "var(--color-text-secondary)" } as const;
 export const GRID_STROKE = "var(--color-border-tertiary)";
-export const CURSOR_FILL = { fill: "rgba(128,128,128,0.08)", radius: 4 } as const;
+export const CURSOR_FILL = { fill: "color-mix(in srgb, var(--color-text-secondary) 10%, transparent)", radius: 4 } as const;
 
 /**
  * Short weekday names, Monday first, matching how the app buckets weeks
@@ -81,5 +81,29 @@ export function amountTicks(max: number, target = 5): number[] {
 }
 
 
-/** "+12,00 €" / "−12,00 €" — a change, signed with a true minus. */
+// ─── Signs ───────────────────────────────────────────────────────────────────
+//
+// One rule for every figure on the Statistics page, its tooltips, tables and
+// legends. A figure that is a CHANGE or a NET — the month's net, a difference,
+// what is left after the bills — is signed both ways: «+» for in or up, «−»
+// for out or down, nothing on a zero. A figure that is an AMOUNT — what came
+// in, what was spent — carries no sign; the label says which way it went, and
+// should one ever be below zero it reads «−», never the hyphen `Intl` writes.
+// The minus is always the true one (U+2212). Colour follows as a second cue,
+// never as the only one: a red figure with no sign is the inconsistency the
+// owner kept finding, «−42» in one card and a bare red «42» in the next.
+
+/** "+12,00 €" / "−12,00 €" — a change or a net, signed with a true minus. */
 export const signedWith = (format: (n: number) => string) => (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${format(Math.abs(n))}`;
+
+/** "12,00 €" / "−12,00 €" — an amount: unsigned, but a negative one with a true minus, not `Intl`'s hyphen. */
+export const amountWith = (format: (n: number) => string) => (n: number) => `${n < 0 ? "−" : ""}${format(Math.abs(n))}`;
+
+/** "+12%" / "−12%" — a change as a share, whole percent. */
+export const signedPercent = (n: number) => {
+  const whole = Math.round(n);
+  return `${whole > 0 ? "+" : whole < 0 ? "−" : ""}${Math.abs(whole)}%`;
+};
+
+/** An axis tick that can go below zero: compact, with a true minus. */
+export const signedCompact = (n: number) => (n < 0 ? `−${compactNumber(-n)}` : compactNumber(n));

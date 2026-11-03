@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, compactNumber } from "./chartTheme";
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, compactNumber, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 export interface IncomeMonth {
@@ -23,7 +23,7 @@ function IncomeTooltip({ active, payload, average, formatCurrency }: { active?: 
       <TooltipRow
         color="var(--color-text-secondary)"
         label={t("analytics.income.vsAverage")}
-        value={gap === undefined ? (row.running ? t("analytics.ledger.running") : "—") : `${gap >= 0 ? "+" : "−"}${formatCurrency(Math.abs(gap))}`}
+        value={gap === undefined ? (row.running ? t("analytics.ledger.running") : "—") : signedWith(formatCurrency)(gap)}
       />
     </TooltipShell>
   );
@@ -47,7 +47,7 @@ export default function IncomeMonthsChart({ data, average, formatCurrency, compa
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
         <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<IncomeTooltip average={average} formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
-        <Bar dataKey="income" fill="var(--color-income)" fillOpacity={0.85} maxBarSize={34} radius={[3, 3, 0, 0]}>
+        <Bar dataKey="income" fill="var(--color-income)" fillOpacity={0.85} maxBarSize={34} radius={[3, 3, 0, 0]} isAnimationActive={false}>
           {data.map((row) => (
             <Cell key={row.label} fillOpacity={row.running ? 0.4 : 0.85} />
           ))}

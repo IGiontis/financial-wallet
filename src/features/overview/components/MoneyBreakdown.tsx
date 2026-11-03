@@ -62,9 +62,13 @@ export function MoneyBreakdown({
         <div className={`${styles.breakdownRow} ${styles.breakdownMonth}`}>
           <span>{month.label}</span>
           <span>
-            <span className="visually-hidden">{t("overview.heroMonthIn")} </span>+{formatCurrency(month.income)}
+            <span className={styles.monthIn}>
+              <span className="visually-hidden">{t("overview.heroMonthIn")} </span>+{formatCurrency(month.income)}
+            </span>
             <span aria-hidden> / </span>
-            <span className="visually-hidden">, {t("overview.heroMonthOut")} </span>−{formatCurrency(month.expenses)}
+            <span className={styles.monthOut}>
+              <span className="visually-hidden">, {t("overview.heroMonthOut")} </span>−{formatCurrency(month.expenses)}
+            </span>
           </span>
         </div>
       )}

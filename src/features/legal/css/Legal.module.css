@@ -35,9 +35,9 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  background: var(--bs-primary);
-  color: #fff;
+  border-radius: var(--radius-bs-lg);
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 .back {
@@ -57,7 +57,7 @@
   width: calc(100% - 2rem);
   max-width: 760px;
   margin: 0.5rem auto 1.5rem;
-  padding: 1.5rem 1.25rem;
+  padding: var(--space-5) 1.25rem;
   border-radius: var(--border-radius-lg);
   background: var(--color-surface);
   font-size: 15px;
@@ -66,7 +66,7 @@
 
 @media (min-width: 576px) {
   .body {
-    padding: 2rem 2.25rem;
+    padding: var(--space-6) 2.25rem;
   }
 }
 
@@ -111,7 +111,7 @@
 
 .contact {
   margin: 2rem 0 0;
-  padding-top: 1rem;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--color-border-tertiary);
 }
 

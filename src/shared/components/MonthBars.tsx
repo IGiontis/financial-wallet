@@ -13,7 +13,7 @@ export interface MonthBar {
 }
 
 /** The colour a month that stands out is drawn in — the meaning, not a hue. */
-export type MonthBarTone = "income" | "expense" | "goal";
+export type MonthBarTone = "income" | "expense" | "goal" | "invest";
 
 /**
  * A run of months, each as long as its figure: rows on a phone, columns from

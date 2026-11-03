@@ -6,9 +6,9 @@ import { toast } from "react-toastify";
 import { Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from "reactstrap";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
+import { DISPLAY_NAME_MAX, cleanDisplayName } from "../displayName";
 import CategoryManager from "../../categories/CategoryManager";
 import { SkeletonCard, SkeletonHeading, SkeletonRows } from "../../../shared/components/Skeletons";
-import OpeningBalanceSection from "../components/OpeningBalanceSection";
 import ResetDataSection from "../components/ResetDataSection";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import StatementSection from "../components/StatementSection";
@@ -128,7 +128,7 @@ export function SettingsPage() {
     validationSchema: Yup.object({
       firstName: Yup.string().required("validation.firstNameRequired").max(50, "validation.maxChars|50"),
       lastName: Yup.string().required("validation.lastNameRequired").max(50, "validation.maxChars|50"),
-      displayName: Yup.string().max(50, "validation.maxChars|50"),
+      displayName: Yup.string().trim().max(DISPLAY_NAME_MAX, `validation.maxChars|${DISPLAY_NAME_MAX}`),
       username: Yup.string()
         .required("validation.usernameRequired")
         .min(3, "validation.minChars|3")
@@ -143,7 +143,8 @@ export function SettingsPage() {
         const data: UpdateUserDTO = {
           firstName: values.firstName,
           lastName: values.lastName,
-          displayName: values.displayName || undefined,
+          // "" clears it: the name shown goes back to Google's or the username (see `resolveDisplayName`).
+          displayName: cleanDisplayName(values.displayName),
           username: values.username,
           age: values.age ? Number(values.age) : undefined,
           city: values.city || undefined,
@@ -320,13 +321,13 @@ export function SettingsPage() {
                     width: 56,
                     height: 56,
                     borderRadius: "50%",
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    background: "linear-gradient(135deg, var(--brand-active), var(--brand))",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 20,
                     fontWeight: 600,
-                    color: "#ffffff",
+                    color: "var(--on-brand)",
                     flexShrink: 0,
                   }}
                 >
@@ -409,7 +410,17 @@ export function SettingsPage() {
                           value={profileForm.values.displayName}
                           onChange={profileForm.handleChange}
                           onBlur={profileForm.handleBlur}
+                          maxLength={DISPLAY_NAME_MAX}
+                          invalid={!!(profileForm.touched.displayName && profileForm.errors.displayName)}
+                          aria-describedby="display-name-count"
                         />
+                        {/* What the top bar will show, and how much room is left for it. */}
+                        <div id="display-name-count" className="d-flex justify-content-between gap-2 mt-1 small text-body-secondary">
+                          <span>{t("settings.displayNameShown")}</span>
+                          <span className="tabular-nums">
+                            {Array.from(profileForm.values.displayName.trim()).length}/{DISPLAY_NAME_MAX}
+                          </span>
+                        </div>
                       </FormGroup>
                     </Col>
                     <Col xs={12} md={4}>
@@ -514,10 +525,10 @@ export function SettingsPage() {
               </Section>
             </Col>
             <Col xs={12}>
-              {/* ── Menu style ────────────────────────────────────────────────── */}
+              {/* ── Colours ───────────────────────────────────────────────────── */}
               {/* Like the theme: on this device, and applied as it is pressed —
                   the sidebar and top bar change behind the card. */}
-              <Section title={t("settings.navStyle")} subtitle={t("settings.navStyleSubtitle")} fill>
+              <Section title={t("settings.colourway")} subtitle={t("settings.colourwaySubtitle")} fill>
                 <NavStylePicker />
               </Section>
             </Col>
@@ -540,11 +551,6 @@ export function SettingsPage() {
 
         {tab === "data" && (
           <>
-            {/* ── Starting balance ────────────────────────────────────────────────── */}
-            <Section title={t("settings.openingBalance")} subtitle={t("settings.openingBalanceSubtitle")}>
-              <OpeningBalanceSection user={userData} onSaved={(patch) => setUserData((u) => (u ? { ...u, ...patch } : u))} />
-            </Section>
-
             {/* ── Custom categories ───────────────────────────────────────────────── */}
             <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
               <CategoryManager />

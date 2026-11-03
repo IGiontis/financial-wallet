@@ -7,10 +7,10 @@ import i18n from "../../i18n";
 import { ThemeProvider } from "../../context/ThemeContext";
 import { MainLayout } from "./MainLayout";
 
-// The shell's navigation in each of the three menu styles. The styles are CSS
+// The shell's navigation in each of the three colourways. A colourway is CSS
 // only — the stylesheets are not loaded here — so what these check is the part
-// the styles must not change: the same links in the same groups and order, the
-// same badge, the same drawer behaviour, whichever one is chosen.
+// it must not change: the same links in the same groups and order, the same
+// badge, the same drawer behaviour, whichever one is chosen.
 
 const state = vi.hoisted(() => ({ billsDue: 0, incomesWaiting: 0, narrow: false }));
 
@@ -93,12 +93,19 @@ beforeEach(() => {
   document.documentElement.removeAttribute("data-nav-style");
 });
 
-describe.each(["a", "b", "c"] as const)("menu style %s", (style) => {
+describe.each(["blue", "gold"] as const)("colourway %s", (style) => {
   beforeEach(() => localStorage.setItem("nav-style", JSON.stringify(style)));
 
-  it("is the style the shell wears", () => {
+  it("is the colourway the app wears", () => {
     renderAt("/");
     expect(document.documentElement).toHaveAttribute("data-nav-style", style);
+  });
+
+  it("paints the sidebar, the top bar and the footer as one shell", () => {
+    renderAt("/");
+    expect(sidebar()).toHaveClass("app-shell");
+    expect(document.querySelector(".main-content nav.navbar")).toHaveClass("app-shell");
+    expect(document.querySelector("footer")).toHaveClass("app-shell");
   });
 
   it("lists the same links, in the same four groups and the same order", () => {
@@ -183,16 +190,16 @@ describe("the badge", () => {
   });
 });
 
-describe("the menu style", () => {
-  it("is Α for anyone who never chose", () => {
+describe("the colourway", () => {
+  it("is blue for anyone who never chose", () => {
     renderAt("/");
-    expect(document.documentElement).toHaveAttribute("data-nav-style", "a");
+    expect(document.documentElement).toHaveAttribute("data-nav-style", "blue");
   });
 
-  it("falls back to Α for a stored value it does not recognise", () => {
-    localStorage.setItem("nav-style", JSON.stringify("z"));
+  it.each(["a", "b", "c", "z"])("reads a stored %j — an old menu style or nothing it knows — as blue", (stored) => {
+    localStorage.setItem("nav-style", JSON.stringify(stored));
     renderAt("/");
-    expect(document.documentElement).toHaveAttribute("data-nav-style", "a");
+    expect(document.documentElement).toHaveAttribute("data-nav-style", "blue");
   });
 });
 

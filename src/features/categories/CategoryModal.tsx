@@ -5,6 +5,7 @@ import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
 import { cleanCategoryName, findScopeDuplicates, firstGrapheme, type CategoryScope } from "../../shared/utils/categoryNames";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { allowedScopes } from "./categoryScope";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
 const ICON_CHOICES = ["🧾", "💳", "🏦", "🚗", "🏠", "🛠️", "📚", "🎁", "🍼", "🐶", "💊", "✂️", "📦", "🎓", "⚖️", "🧳"];
@@ -33,7 +34,8 @@ interface CategoryModalProps {
  * The scope is a three-way choice because plenty of categories genuinely work
  * both ways: betting, taxes, a loan, freelance work you sometimes refund.
  * Choosing "both" writes one document per type, which is how the seeded list
- * has always handled it.
+ * has always handled it. Editing, a one-sided category may still be widened to
+ * «both», never turned to the other side — see `categoryScope`.
  */
 export default function CategoryModal({ existing, scope: initialScope, category, isSaving, onClose, onSubmit }: CategoryModalProps) {
   const { t } = useTranslation();
@@ -113,14 +115,14 @@ export default function CategoryModal({ existing, scope: initialScope, category,
                   outline={scope !== option.value}
                   active={scope === option.value}
                   onClick={() => setScope(option.value)}
-                  disabled={!!category}
+                  disabled={!!category && !allowedScopes(category.scope).includes(option.value)}
                   style={{ fontSize: 13 }}
                 >
                   {t(option.labelKey)}
                 </Button>
               ))}
             </div>
-            <FormText style={{ fontSize: 11 }}>{category ? t("categories.scopeLocked") : t("categories.scopeHint")}</FormText>
+            <FormText style={{ fontSize: 11 }}>{!category ? t("categories.scopeHint") : category.scope === "both" ? t("categories.scopeBothLocked") : t("categories.scopeWiden")}</FormText>
           </FormGroup>
 
           {/* What this category should fill in for you. The point of the whole
@@ -176,8 +178,8 @@ export default function CategoryModal({ existing, scope: initialScope, category,
                     lineHeight: 1,
                     cursor: "pointer",
                     borderRadius: "var(--border-radius-md)",
-                    background: icon === choice ? "color-mix(in srgb, var(--bs-primary) 15%, transparent)" : "var(--color-background-secondary)",
-                    border: `1px solid ${icon === choice ? "var(--bs-primary)" : "transparent"}`,
+                    background: icon === choice ? "var(--brand-soft)" : "var(--color-background-secondary)",
+                    border: `1px solid ${icon === choice ? "var(--brand)" : "transparent"}`,
                   }}
                 >
                   {choice}

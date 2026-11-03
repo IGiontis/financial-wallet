@@ -1,8 +1,6 @@
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import type { Transaction } from "../../../shared/types/IndexTypes";
-import { excludedByOpeningDate, type OpeningBalance } from "../../../shared/utils/balance";
 import type { PaydayOutlook } from "../overviewTabs";
 import { PaydayCard } from "./PaydayCard";
 import { moneyOrigin } from "./paydayParts";
@@ -26,8 +24,6 @@ type Money = (n: number) => string;
  */
 export default function OverviewHero({
   balance,
-  transactions,
-  opening,
   source,
   isLoading,
   banks,
@@ -41,9 +37,7 @@ export default function OverviewHero({
   month,
 }: {
   balance: number;
-  transactions: Transaction[];
-  opening?: OpeningBalance;
-  source?: "readings" | "settings";
+  source?: "readings";
   isLoading: boolean;
   /** Banks and cash as the latest reading and the records since put them, goals included. */
   banks?: number;
@@ -61,16 +55,12 @@ export default function OverviewHero({
 }) {
   const { t } = useTranslation();
 
-  // Only the Settings figure holds records back by date; after a bank reading
-  // nearly every record is older than it, and saying so would be noise.
-  const excluded = useMemo(() => (source === "settings" ? excludedByOpeningDate(transactions, opening) : 0), [transactions, opening, source]);
-
   return (
     <PaydayCard
       split
       label={t("overview.currentBalance")}
       figure={balance}
-      origin={moneyOrigin(t, { source, banks, inGoals, opening, locale, formatCurrency })}
+      origin={moneyOrigin(t, { source, banks, inGoals, formatCurrency })}
       // Until the banks have been read the figure is only as complete as the
       // history entered — and the place to fix that is the banks.
       action={
@@ -86,11 +76,6 @@ export default function OverviewHero({
         <>
           {!isLoading && (
             <MoneyBreakdown accounts={source === "readings" ? accounts : []} inGoals={inGoals} figure={balance} month={month} formatCurrency={formatCurrency} />
-          )}
-          {excluded > 0 && (
-            <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
-              ⓘ {t("overview.currentBalanceExcluded", { count: excluded })}
-            </p>
           )}
           {bankStrip}
         </>

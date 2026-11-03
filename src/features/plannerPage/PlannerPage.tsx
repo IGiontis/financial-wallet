@@ -400,7 +400,8 @@ export function PlannerPage() {
     const to = name(line?.to);
     // A yearly season with no closing month is a single month — one trip in
     // August — so it reads as that month rather than as "from August on".
-    const span = from && to ? `${from} — ${to}` : from ? (line?.yearly ? from : t("planner.seasonFromOnly", { month: from })) : t("planner.seasonToOnly", { month: to });
+    // A single month («Μία φορά») reads as that month, not "Aug — Aug".
+    const span = from && to ? (line?.from === line?.to ? (line?.yearly ? from : seasonYearFmt.format(monthStart(line.from)!)) : `${from} — ${to}`) : from ? (line?.yearly ? from : t("planner.seasonFromOnly", { month: from })) : t("planner.seasonToOnly", { month: to });
     if (!line?.yearly) return span;
 
     const stop = monthStart(line.until);
@@ -668,7 +669,6 @@ export function PlannerPage() {
             source={balanceSource}
             banks={banksNow}
             inGoals={inGoals}
-            opening={balanceFrom}
             realLeft={realLeft}
             openingInput={openingInput}
             onOpening={setOpeningInput}

@@ -17,13 +17,10 @@ export interface User {
   currency: Currency;
   baseCurrency: Currency;
   locale: string;
-  /**
-   * Money already in the account when tracking began. Paired with
-   * `openingBalanceDate`, which is what keeps it honest: only movements from
-   * that day onward change the balance, so backfilling older payments that
-   * this figure ALREADY reflects does not subtract them a second time.
-   */
-  openingBalance?: number;
+  // `openingBalance` / `openingBalanceDate` («Αρχικό υπόλοιπο» in Settings) may
+  // still sit on older documents. They are no longer read or written: the bank
+  // and cash readings are where the money is counted from. Left in place, not
+  // deleted — nothing reads them, and a delete would be a write per account.
   /**
    * The planner's own state, kept with the account
    * rather than with the browser.
@@ -37,8 +34,6 @@ export interface User {
    * collapsed) stay in `localStorage`, where they belong.
    */
   workspace?: Record<string, unknown>;
-  /** The day `openingBalance` was true. Undefined when no balance is set. */
-  openingBalanceDate?: Date;
   /** Payee list the user maintains for quick pick when adding a transaction. */
   savedPayees?: string[];
   createdAt: Date;
@@ -821,6 +816,8 @@ export interface Debt {
   coveredExpenseId?: string;
   /** Let go of — see `DebtForgiveness`. Nothing is owed from its date on. */
   forgiven?: DebtForgiveness;
+  /** Written from a bank reading on the reading's own day; its money carries it — see `Transaction.inReading`. */
+  inReading?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -840,6 +837,8 @@ export interface DebtPayment {
   /** Why, or how, in the user's words: «τα έδωσε στο χέρι». Read back in the history. */
   notes?: string;
   createdAt: Date;
+  /** Written from a bank reading on the reading's own day; its money carries it — see `Transaction.inReading`. */
+  inReading?: boolean;
 }
 
 export interface CreateDebtDTO {

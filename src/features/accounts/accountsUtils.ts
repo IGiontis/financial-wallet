@@ -212,7 +212,7 @@ export interface CheckInReading {
  * already yours, just not listed. Counting it as found money would report a
  * windfall every time an account was added.
  */
-export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[], transactions: Transaction[], legacy?: OpeningBalance): CheckInReading[] {
+export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[], transactions: Transaction[]): CheckInReading[] {
   const ids = new Set(accounts.map((a) => a.id));
   const sorted = sortedCheckIns(checkIns);
 
@@ -223,9 +223,11 @@ export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[
 
     if (index === 0) {
       // What the balance card said before any reading existed, in the same
-      // terms as the reading: spendable money plus what sat in goals.
-      const counted = transactions.filter((tx) => !isAfterReading(tx, at) && (!legacy || affectsLegacy(tx, legacy)));
-      const cash = (legacy?.amount ?? 0) + counted.reduce((sum, tx) => sum + balanceDelta(tx), 0);
+      // terms as the reading: spendable money plus what sat in goals. Every
+      // record before it, from nothing — there is no other starting figure
+      // (the Settings «Αρχικό υπόλοιπο» is gone; the readings replaced it).
+      const counted = transactions.filter((tx) => !isAfterReading(tx, at));
+      const cash = counted.reduce((sum, tx) => sum + balanceDelta(tx), 0);
       const appSaid = round2(cash + goalHeldAt(transactions, at));
       return { checkIn, at, total, added: present, appSaid };
     }
@@ -243,26 +245,17 @@ export function readCheckIns(checkIns: BalanceCheckIn[], accounts: MoneyAccount[
   });
 }
 
-/** The Settings figure counts whole days from its date — the rule it has always had. */
-function affectsLegacy(tx: Transaction, legacy: OpeningBalance): boolean {
-  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  return day(firestoreToDate(tx.date)) >= day(firestoreToDate(legacy.date));
-}
-
 /**
  * The points the balance is counted from, oldest first.
  *
  * Each reading becomes one: the money you could spend at that moment — the real
  * total less what was sitting in goals — and the exact time, so the records
- * written after it and only those are added on. The figure typed in Settings is
- * kept in front of them for the months before the first reading, and set aside
- * once readings exist: from then on it is older news than they are.
+ * written after it and only those are added on. Before the first reading there
+ * is no anchor: the months before it are not invented (the old Settings
+ * «Αρχικό υπόλοιπο», which once stood in front of them, is no longer read).
  */
-export function balanceAnchors(readings: CheckInReading[], transactions: Transaction[], legacy?: OpeningBalance): OpeningBalance[] {
-  const fromReadings = readings.map((r) => ({ amount: round2(r.total - goalHeldAt(transactions, r.at)), date: r.at, at: r.at }));
-  const first = fromReadings[0];
-  const keepLegacy = legacy && (!first || firestoreToDate(legacy.date).getTime() < first.at.getTime());
-  return keepLegacy ? [legacy, ...fromReadings] : fromReadings;
+export function balanceAnchors(readings: CheckInReading[], transactions: Transaction[]): OpeningBalance[] {
+  return readings.map((r) => ({ amount: round2(r.total - goalHeldAt(transactions, r.at)), date: r.at, at: r.at }));
 }
 
 /** The anchor in force at `when`: the latest one taken before it. */

@@ -114,23 +114,34 @@ describe("the theme", () => {
   });
 });
 
-// The menu's finish — Α, Β or Γ — kept on the device beside the theme, and
-// applied to the shell the moment it is pressed.
+// The colourway — blue or gold — kept on the device beside the theme,
+// and applied to the whole app the moment it is pressed.
 const navStyle = () => document.documentElement.getAttribute("data-nav-style");
 
-describe("the menu style", () => {
-  it("is Α until one is chosen, and the choice shows as pressed", () => {
+describe("the colourway", () => {
+  it("is Trust blue until one is chosen, and the choice shows as pressed", () => {
     fakeColourScheme(false);
     render(
       <ThemeProvider>
         <NavStylePicker />
       </ThemeProvider>,
     );
-    expect(navStyle()).toBe("a");
-    expect(pressed()).toEqual(["A Classic"]);
+    expect(navStyle()).toBe("blue");
+    expect(pressed()).toEqual(["Trust blue"]);
   });
 
-  it("changes the shell at once and remembers it, whatever the theme", async () => {
+  it("offers the two, in order, as a group named for colour", () => {
+    fakeColourScheme(false);
+    render(
+      <ThemeProvider>
+        <NavStylePicker />
+      </ThemeProvider>,
+    );
+    const group = screen.getByRole("group", { name: "Colours" });
+    expect([...group.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Trust blue", "Black & gold"]);
+  });
+
+  it("changes the app at once and remembers it, whatever the theme", async () => {
     const device = fakeColourScheme(false);
     render(
       <ThemeProvider>
@@ -138,41 +149,66 @@ describe("the menu style", () => {
         <NavStylePicker />
       </ThemeProvider>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "C Glass" }));
-    expect(navStyle()).toBe("c");
-    expect(localStorage.getItem("nav-style")).toBe(JSON.stringify("c"));
+    await userEvent.click(screen.getByRole("button", { name: "Black & gold" }));
+    expect(navStyle()).toBe("gold");
+    expect(localStorage.getItem("nav-style")).toBe(JSON.stringify("gold"));
 
     // Independent of the theme, in either direction.
     await userEvent.click(screen.getByRole("button", { name: "Dark" }));
     device.set(true);
-    expect(navStyle()).toBe("c");
-    await userEvent.click(screen.getByRole("button", { name: "B Blue tone" }));
+    expect(navStyle()).toBe("gold");
+    await userEvent.click(screen.getByRole("button", { name: "Trust blue" }));
     expect(shown()).toBe("dark");
-    expect(navStyle()).toBe("b");
-    expect(pressed()).toEqual(["Dark", "B Blue tone"]);
+    expect(navStyle()).toBe("blue");
+    expect(localStorage.getItem("nav-style")).toBe(JSON.stringify("blue"));
+    expect(pressed()).toEqual(["Dark", "Trust blue"]);
   });
 
   it("keeps what was saved on this device", () => {
     fakeColourScheme(false);
-    localStorage.setItem("nav-style", JSON.stringify("b"));
+    localStorage.setItem("nav-style", JSON.stringify("gold"));
     render(
       <ThemeProvider>
         <NavStylePicker />
       </ThemeProvider>,
     );
-    expect(navStyle()).toBe("b");
-    expect(pressed()).toEqual(["B Blue tone"]);
+    expect(navStyle()).toBe("gold");
+    expect(pressed()).toEqual(["Black & gold"]);
   });
 
-  it("falls back to Α for a value it does not know", () => {
+  // The phone's own bar takes the shell's top-left colour — its dark end — so
+  // the bar and the frame under it read as one.
+  it("gives the phone's bar the shell's dark end", () => {
     fakeColourScheme(false);
-    localStorage.setItem("nav-style", JSON.stringify("glass"));
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.append(meta);
+    document.documentElement.style.setProperty("--shell-dark", "#123456");
+    try {
+      render(
+        <ThemeProvider>
+          <NavStylePicker />
+        </ThemeProvider>,
+      );
+      expect(meta.getAttribute("content")).toBe("#123456");
+    } finally {
+      document.documentElement.style.removeProperty("--shell-dark");
+      meta.remove();
+    }
+  });
+
+  // The key once held the three old menu styles, and for a few days each the
+  // dropped colourways «Μπεζ» ("sand") and «Γραφίτης» ("graphite"); whoever
+  // chose one of them, and anything else unrecognised, lands on the default.
+  it.each(["a", "b", "c", "sand", "graphite", "glass", 42, null])("reads a stored %j as Trust blue", (stored) => {
+    fakeColourScheme(false);
+    localStorage.setItem("nav-style", JSON.stringify(stored));
     render(
       <ThemeProvider>
         <NavStylePicker />
       </ThemeProvider>,
     );
-    expect(navStyle()).toBe("a");
-    expect(pressed()).toEqual(["A Classic"]);
+    expect(navStyle()).toBe("blue");
+    expect(pressed()).toEqual(["Trust blue"]);
   });
 });

@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import { standaloneMonthName } from "../../shared/utils/dates";
-import { EARLY_LABEL_DAYS, everyOf, type Income, type IncomeStatus } from "./incomesUtils";
+import { differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
+import { EARLY_LABEL_DAYS, everyOf, incomeEndsOn, incomeStartsLater, type Income, type IncomeStatus } from "./incomesUtils";
 
 // The words the page puts on an income and on one of its times. Kept out of
 // the components so the list, the calendar and the card say "late 2 days" the
@@ -102,4 +103,31 @@ export function statusTag(status: IncomeStatus, t: TFunction, f: IncomeFormats):
       return { text: t("incomes.status.inDays", { count: status.daysUntil ?? 0, date: f.dayMonth.format(status.expectedDate) }), tone: status.state === "due" ? "due" : "muted" };
     }
   }
+}
+
+/**
+ * How far off a first time is, in the unit a person would say: «σε 12 μέρες»
+ * inside a month, «σε 4 μήνες» beyond it. The same words for an income and a
+ * bill, which is why it takes the namespace.
+ */
+export function timeUntil(date: Date, now: Date, t: TFunction, ns: "incomes" | "bills"): string {
+  const days = differenceInCalendarDays(date, now);
+  if (days < 31) return t(`${ns}.startsInDays`, { count: Math.max(days, 1) });
+  return t(`${ns}.startsInMonths`, { count: Math.max(differenceInCalendarMonths(date, now), 1) });
+}
+
+/**
+ * «Ξεκινά 1 Μαρ 2027 · σε 4 μήνες» for an income not running yet, or nothing.
+ * Its year always: a first time months away, read as "1 Mar", looks like the
+ * one just gone.
+ */
+export function incomeStartText(income: Income, now: Date, t: TFunction, f: IncomeFormats): string | undefined {
+  const first = incomeStartsLater(income, now);
+  return first ? `${t("incomes.startsOn", { date: f.dayMonth.format(first) })} · ${timeUntil(first, now, t, "incomes")}` : undefined;
+}
+
+/** «Λήγει Μαρ 2027» while its last month is still to come, or nothing. */
+export function incomeEndText(income: Income, now: Date, t: TFunction, f: IncomeFormats): string | undefined {
+  const last = incomeEndsOn(income, now);
+  return last ? t("incomes.endsOn", { month: f.monthYearShort.format(last) }) : undefined;
 }

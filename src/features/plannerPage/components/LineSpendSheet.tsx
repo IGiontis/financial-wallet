@@ -2,15 +2,18 @@ import { useMemo, useState } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { addMonths, isSameMonth, startOfMonth } from "date-fns";
-import { FiChevronLeft, FiChevronRight, FiEdit2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronLeft, FiChevronRight, FiEdit2 } from "react-icons/fi";
 import { categoryLabel } from "../../../shared/utils/categories";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
-import { lineMonthSpend } from "../lineSpending";
+import { firestoreToDate } from "../../../shared/utils/dates";
+import { lineMonthRecords, lineMonthSpend } from "../lineSpending";
 import type { BudgetLine } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
 
 /** How far back the months go: two years of what a limit took is plenty to compare with. */
 const MONTHS_BACK = 24;
+/** How many records an opened category shows before «Δείξε άλλες»: a month of groceries can be forty. */
+const PAGE = 8;
 
 /**
  * A line with categories, opened: what its month has taken against its limit,
@@ -20,6 +23,10 @@ const MONTHS_BACK = 24;
  * usually "where did it go", and the editor answers nothing. Months step back
  * from this one — or from the month picked on «Μήνας», which it opens on; a
  * month to come has spent nothing yet, and says how much of the limit it has.
+ *
+ * Each category starts closed — its name and its figure, the answer to "where
+ * did it go" at a glance — and opens on the records behind that figure, a few
+ * at a time.
  */
 export function LineSpendSheet({
   line,
@@ -58,6 +65,18 @@ export function LineSpendSheet({
   const left = Math.max(limit - spend.total, 0);
   const share = limit > 0 ? Math.min((spend.total / limit) * 100, 100) : 0;
   const byId = new Map(categories.map((c) => [c.id, c]));
+  const records = useMemo(() => lineMonthRecords(line, transactions, month), [line, transactions, month]);
+  // Which categories are open, and how many of each one's records show. A new
+  // month starts closed again: its records are other ones.
+  const [open, setOpen] = useState<{ month: number; shown: Record<string, number> }>({ month: month.getTime(), shown: {} });
+  const shown = open.month === month.getTime() ? open.shown : {};
+  const setShown = (categoryId: string, n: number | undefined) => {
+    const next = { ...shown };
+    if (n === undefined) delete next[categoryId];
+    else next[categoryId] = n;
+    setOpen({ month: month.getTime(), shown: next });
+  };
+  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
 
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
@@ -86,15 +105,48 @@ export function LineSpendSheet({
         <ul className={styles.lineSpendList} aria-label={t("planner.lineByCategory")}>
           {spend.byCategory.map(({ categoryId, amount, count }) => {
             const category = byId.get(categoryId);
+            const name = categoryLabel(category?.name, t) || "—";
+            const rows = records.get(categoryId) ?? [];
+            const limitShown = shown[categoryId];
+            const expanded = limitShown !== undefined;
+            const panelId = `line-cat-${categoryId}`;
             return (
               <li key={categoryId}>
-                <span className="text-truncate">
-                  <span aria-hidden>{category?.icon ?? "•"}</span> {categoryLabel(category?.name, t) || "—"} <span className="text-body-secondary">({count})</span>
-                </span>
-                <span className="text-nowrap">
-                  {formatCurrency(amount)}
-                  {spend.total > 0 && <span className="text-body-secondary small"> · {Math.round((amount / spend.total) * 100)}%</span>}
-                </span>
+                <button
+                  type="button"
+                  className={styles.lineSpendHead}
+                  aria-expanded={expanded}
+                  aria-controls={expanded ? panelId : undefined}
+                  disabled={count === 0}
+                  onClick={() => setShown(categoryId, expanded ? undefined : PAGE)}
+                >
+                  <span className={styles.lineSpendName}>
+                    <span aria-hidden>{category?.icon ?? "•"}</span> {name} <span className="text-body-secondary">({count})</span>
+                  </span>
+                  <span className={styles.lineSpendAmount}>
+                    {formatCurrency(amount)}
+                    {spend.total > 0 && <span className="text-body-secondary small"> · {Math.round((amount / spend.total) * 100)}%</span>}
+                  </span>
+                  <FiChevronDown size={15} className={`${styles.lineSpendChevron} ${expanded ? styles.lineSpendChevronOpen : ""}`} aria-hidden />
+                </button>
+                {expanded && (
+                  <div id={panelId}>
+                    <ul className={styles.lineSpendRecords} aria-label={name}>
+                      {rows.slice(0, limitShown).map((tx) => (
+                        <li key={tx.id}>
+                          <span className={styles.lineSpendRecordName}>{tx.description?.trim() || name}</span>
+                          <span className={styles.lineSpendRecordDate}>{dayFmt.format(firestoreToDate(tx.date))}</span>
+                          <span className={styles.lineSpendAmount}>{formatCurrency(Math.abs(tx.amount))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {rows.length > limitShown && (
+                      <Button color="link" size="sm" className={styles.lineSpendMore} onClick={() => setShown(categoryId, limitShown + PAGE)}>
+                        {t("planner.lineShowMore", { count: Math.min(PAGE, rows.length - limitShown) })}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}

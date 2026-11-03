@@ -74,3 +74,28 @@ export function lineMonthSpend(line: Pick<BudgetLine, "categoryIds">, transactio
     .sort((a, b) => b.amount - a.amount);
   return { total: round2(byCategory.reduce((sum, row) => sum + row.amount, 0)), byCategory };
 }
+
+/**
+ * The records behind each of a line's categories in one month, newest first —
+ * what a category of the line's view opens on. Each record is asked of
+ * `categorySplit` on its own, so exactly the ones that make up that category's
+ * figure are listed (a goal deposit filed under «Σούπερ μάρκετ» is a transfer
+ * there too, and is left out here as well): the rows under a category add up
+ * to the figure beside it.
+ */
+export function lineMonthRecords(line: Pick<BudgetLine, "categoryIds">, transactions: Transaction[], month: Date): Map<string, Transaction[]> {
+  const covered = new Set(line.categoryIds ?? []);
+  const from = startOfMonth(month);
+  const to = endOfMonth(month);
+  const records = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    if (!covered.has(tx.categoryId)) continue;
+    const date = firestoreToDate(tx.date);
+    if (date < from || date > to) continue;
+    const slice = categorySplit([tx], "expense", 1)[0];
+    if (slice?.categoryId !== tx.categoryId) continue;
+    records.set(tx.categoryId, [...(records.get(tx.categoryId) ?? []), tx]);
+  }
+  for (const list of records.values()) list.sort((a, b) => firestoreToDate(b.date).getTime() - firestoreToDate(a.date).getTime());
+  return records;
+}

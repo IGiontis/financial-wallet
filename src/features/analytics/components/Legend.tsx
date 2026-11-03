@@ -11,7 +11,7 @@ export function Legend({ items }: { items: { color: string; label: string }[] })
       {items.map((item) => (
         <span key={item.label} className={styles.legendItem}>
           <span className={styles.swatch} style={{ background: item.color }} />
-          <span className="text-truncate">{item.label}</span>
+          <span className="text-break">{item.label}</span>
         </span>
       ))}
     </div>

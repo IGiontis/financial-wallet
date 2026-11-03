@@ -1,10 +1,12 @@
-/* Topbar — only what Bootstrap can't express. All colours come from tokens
-   so the bar themes automatically in light and dark mode.
+/* Topbar — only what Bootstrap can't express.
 
-   Style Α «Κλασικό» first, then Β «Μπλε τόνος» and Γ «Γυαλί» as overrides
-   keyed on `data-nav-style` on <html> (set by ThemeProvider). The height is the
-   style's `--topbar-height`, shared with the sidebar's header so the two lines
-   meet. */
+   The Classic layout in every colourway. The bar is part of the shell: the
+   same viewport-anchored gradient as the sidebar beside it and the footer
+   (`--shell-gradient`), and `.app-shell` on it (Topbar.tsx) so whatever sits
+   here — the theme and language buttons, the account, the demo's chip and
+   buttons — reads in the shell's own colours (styles/theme.css). The height
+   is `--topbar-height` (styles/shape.css), shared with the sidebar's header
+   so the two lines meet. */
 
 .topbar {
   /* Not a flex item that gives way: in the shell's fixed-height column a tall
@@ -12,15 +14,14 @@
   flex: none;
   height: var(--topbar-height);
   padding: 0;
-  /* White, or the menu style's own tint (Α «Πεύκο»: the menu's pine) — index.css, navStyles.css. */
-  background-color: var(--topbar-bg);
-  border-color: var(--topbar-border) !important;
+  background: var(--shell-gradient) fixed;
+  border-color: var(--shell-rule) !important;
 }
 
 .topbarContainer {
   height: 100%;
   gap: 4px;
-  padding: 0 16px 0 20px;
+  padding: 0 var(--space-4) 0 20px;
 }
 
 .rightContent {
@@ -41,9 +42,9 @@
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 0;
-  color: var(--color-text-secondary);
+  color: var(--shell-text-2);
   font-size: 18px;
   text-decoration: none;
   transition:
@@ -53,15 +54,15 @@
 
 .iconButton:hover,
 .iconButton:focus-visible {
-  background-color: var(--topbar-hover);
-  color: var(--color-text-primary);
+  background-color: var(--shell-hover);
+  color: var(--shell-text);
 }
 
-/* ☰ gets an outline rather than the grey block it had: it is the way into the
-   whole menu on a phone, and it should look like a control, not a patch. */
+/* ☰ gets an outline rather than a grey block: it is the way into the whole
+   menu on a phone, and it should look like a control, not a patch. */
 .menuButton {
-  border: 1px solid var(--topbar-border);
-  color: var(--color-text-primary);
+  border: 1px solid var(--shell-rule);
+  color: var(--shell-text);
   font-size: 20px;
 }
 
@@ -78,20 +79,20 @@
   right: 6px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--color-expense);
+  border-radius: var(--radius-round);
+  background: var(--shell-badge);
   /* Against the bar's own colour, so it reads as a dot rather than as part of
      the icon whatever the theme is doing. */
-  box-shadow: 0 0 0 2px var(--topbar-bg);
+  box-shadow: 0 0 0 2px var(--shell-dark);
 }
 
-/* Α's hairline between the controls and the account. */
+/* The hairline between the controls and the account. */
 .divider {
   flex: none;
   width: 1px;
   height: 24px;
   margin: 0 8px;
-  background: var(--topbar-border);
+  background: var(--shell-rule);
 }
 
 /* ── User button ──────────────────────────────────────────────────────────── */
@@ -103,24 +104,26 @@
   background: transparent;
   border: none;
   height: 44px; /* comfortable touch target */
-  padding: 4px 10px 4px 4px;
+  padding: var(--space-1) 10px var(--space-1) var(--space-1);
   border-radius: 12px;
   cursor: pointer;
-  color: var(--color-text-primary);
+  color: var(--shell-text);
   transition: background-color 0.2s ease;
 }
 
 .userButton:hover {
-  background-color: var(--topbar-hover);
+  background-color: var(--shell-hover);
 }
 
+/* The initials on the shell's own solid mark — the logo's colours, 8:1 — so
+   the account is there in every colourway and mode. */
 .userAvatar {
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  border-radius: var(--radius-round);
+  background: var(--shell-logo);
+  color: var(--shell-on-logo);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,32 +135,34 @@
 .userName {
   font-weight: 600;
   font-size: 14px;
-  color: var(--color-text-primary);
+  color: var(--shell-text);
 }
 
 .userChevron {
   flex: none;
   width: 14px;
   height: 14px;
-  color: var(--color-text-secondary);
+  color: var(--shell-text-2);
 }
 
 /* A phone shows the avatar alone, so the button hugs it. */
 @media (max-width: 767.98px) {
   .userButton {
-    padding: 4px;
+    padding: var(--space-1);
   }
 }
 
 @media (max-width: 991.98px) {
   .topbarContainer {
-    padding: 0 12px;
+    padding: 0 var(--space-3);
   }
 }
 
 /* ── User dropdown ────────────────────────────────────────────────────────── */
+/* Rendered on the body, outside the shell: it is drawn as the app's menus are,
+   from the page's roles.
 
-/* No `top`/`right`/`left` here any more. They were pinned with `!important`,
+   No `top`/`right`/`left` here any more. They were pinned with `!important`,
    which beat the positioning the menu is given inline — so once the menu moved
    to Floating UI it was dragged back to the top-right corner of the screen and
    looked, from the button, as though nothing had opened at all. */
@@ -168,7 +173,7 @@
 }
 
 .userInfo {
-  padding: 1rem;
+  padding: var(--space-4);
   background-color: var(--color-background-secondary);
 }
 
@@ -197,169 +202,6 @@
   }
 }
 
-/* ══ Β — Μπλε τόνος ═══════════════════════════════════════════════════════════
-   Rounder: the theme switch is a disc, the account a capsule with its name
-   inside, ☰ a soft square — each with a hairline ring instead of a border. */
-
-:global([data-nav-style="b"]) .topbar {
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-}
-
-:global([data-nav-style="b"]) .topbarContainer {
-  gap: 10px;
-  padding: 0 20px;
-}
-
-:global([data-nav-style="b"]) .rightContent {
-  gap: 10px;
-}
-
-:global([data-nav-style="b"]) .divider {
-  display: none !important;
-}
-
-:global([data-nav-style="b"]) .themeToggle {
-  border-radius: 50%;
-  background: var(--color-background-secondary);
-  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
-}
-
-:global([data-nav-style="b"]) .menuButton {
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--color-background-secondary);
-  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
-}
-
-/* Off the corner rather than inside it: bigger, and clear of the icon. */
-:global([data-nav-style="b"]) .menuDot {
-  top: -3px;
-  right: -3px;
-  width: 12px;
-  height: 12px;
-  box-shadow: 0 0 0 2.5px var(--color-surface);
-}
-
-:global([data-nav-style="b"]) .userButton {
-  height: 42px;
-  padding: 3px 12px 3px 3px;
-  border-radius: 999px;
-  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
-}
-
-:global([data-nav-style="b"]) .userButton .userAvatar {
-  width: 34px;
-  height: 34px;
-}
-
-@media (max-width: 991.98px) {
-  :global([data-nav-style="b"]) .topbarContainer {
-    padding: 0 14px;
-  }
-}
-
-/* The capsule is for the name; around the avatar alone it is just a ring. */
-@media (max-width: 767.98px) {
-  :global([data-nav-style="b"]) .userButton {
-    padding: 0;
-    box-shadow: none;
-  }
-}
-
-/* ══ Γ — Γυαλί ════════════════════════════════════════════════════════════════
-   Frosted: laid over the page (MainLayout.css pads the page down to match), so
-   what scrolls up blurs behind it. Where `backdrop-filter` is missing the bar
-   falls back to the plain surface — see the @supports block. On a wide screen
-   the account lives in the sidebar's foot card, so it leaves the bar there. */
-
-:global([data-nav-style="c"]) .topbar {
-  position: absolute;
-  top: env(safe-area-inset-top);
-  left: 0;
-  right: 0;
-  z-index: 1020; /* over the page and its sticky headers, under the sidebar */
-  background-color: rgba(255, 255, 255, 0.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  border-color: rgba(15, 23, 42, 0.07) !important;
-  box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.45);
-}
-
-:global([data-nav-style="c"][data-bs-theme="dark"]) .topbar {
-  background-color: rgba(31, 38, 47, 0.55);
-  border-color: rgba(255, 255, 255, 0.07) !important;
-  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, 0.9);
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :global([data-nav-style="c"]) .topbar,
-  :global([data-nav-style="c"][data-bs-theme="dark"]) .topbar {
-    background-color: var(--color-surface);
-  }
-}
-
-:global([data-nav-style="c"]) .topbarContainer {
-  gap: 8px;
-  padding: 0 20px;
-}
-
-:global([data-nav-style="c"]) .rightContent {
-  gap: 8px;
-}
-
-:global([data-nav-style="c"]) .divider {
-  display: none !important;
-}
-
-:global([data-nav-style="c"]) .iconButton {
-  width: 38px;
-  height: 38px;
-  border: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-  color: var(--color-text-primary);
-  font-size: 17px;
-}
-
-:global([data-nav-style="c"][data-bs-theme="dark"]) .iconButton {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-:global([data-nav-style="c"]) .iconButton:hover,
-:global([data-nav-style="c"]) .iconButton:focus-visible {
-  background: var(--color-surface);
-}
-
-:global([data-nav-style="c"]) .menuButton {
-  font-size: 19px;
-}
-
-:global([data-nav-style="c"]) .menuDot {
-  top: 7px;
-  right: 7px;
-}
-
-:global([data-nav-style="c"]) .userButton {
-  height: auto;
-  padding: 3px;
-}
-
-@media (min-width: 992px) {
-  :global([data-nav-style="c"]) .userButton {
-    display: none;
-  }
-}
-
-@media (max-width: 991.98px) {
-  :global([data-nav-style="c"]) .topbarContainer {
-    padding: 0 12px;
-  }
-}
-
 /* The language: a round flag, the same size as the theme button beside it. */
 .languageToggle {
   padding: 0;
@@ -367,15 +209,21 @@
 
 .languageToggle svg {
   display: block;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 
-/* Between light/dark and the language — on every screen and every navigation
-   style, unlike the divider before the account, which some styles hide. */
+/* Between light/dark and the language. */
 .controlDivider {
   flex: none;
   width: 1px;
   height: 22px;
   margin: 0 4px;
-  background: var(--topbar-border);
+  background: var(--shell-rule);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iconButton,
+  .userButton {
+    transition: none;
+  }
 }

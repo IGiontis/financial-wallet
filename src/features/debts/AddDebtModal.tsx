@@ -351,9 +351,9 @@ export default function AddDebtModal({
 
           {/* Borrowed: which card it came into. Lent: which card it left. It
               moves that card, as a transaction would — and, being a loan, is
-              neither income nor spending. */}
+              neither income nor spending. The picker asks it as its own
+              question, so no label above it. */}
           <FormGroup>
-            <Label className="small fw-medium">{t(direction === "owed_by_me" ? "debts.loanInto" : "debts.loanFrom")}</Label>
             <MoneyMovedPicker
               value={account}
               onChange={setAccount}

@@ -17,7 +17,7 @@ const spent = (over: Partial<Transaction> = {}) =>
 
 /** What each card shows with these readings and this one record. */
 const holds = (checkIns: BalanceCheckIn[], record: Transaction) => {
-  const readings = readCheckIns(checkIns, accounts, [record], undefined);
+  const readings = readCheckIns(checkIns, accounts, [record]);
   return expectedByAccount(accounts, readings.at(-1), [record]);
 };
 

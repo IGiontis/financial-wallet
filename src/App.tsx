@@ -16,6 +16,13 @@ import { seedDefaultCategories } from "./firebase/seedCategories";
 import { useOnlineStatus } from "./shared/hooks/useOnlineStatus";
 import { useCurrencyConverter } from "./shared/hooks/useCurrencyConverter";
 import { UpdatePrompt } from "./shared/components/UpdatePrompt";
+import { installModalMotion } from "./shared/components/modalMotion";
+import { installToastDefaults, TOAST_CONTAINER } from "./lib/toastDefaults";
+
+// Before the first dialog or toast: every dialog fades and rises the same way,
+// and errors and warnings stay longer than the rest (see each for why).
+installModalMotion();
+installToastDefaults();
 
 // Devtools are a development-only aid — lazily imported so the bundle Vite ships
 // to users never contains them.
@@ -59,7 +66,7 @@ function OfflineBanner() {
         fontWeight: 500,
         padding: "8px 16px",
         paddingBottom: "calc(8px + env(safe-area-inset-bottom))",
-        boxShadow: "0 -2px 12px rgba(0,0,0,0.2)",
+        boxShadow: "0 -2px 12px color-mix(in srgb, var(--shadow-ink) 20%, transparent)",
       }}
     >
       📡 {t("common.offline")}
@@ -117,7 +124,7 @@ export function App() {
               worker, and it draws nothing until there is a version waiting. */}
           <UpdatePrompt />
           <CookieBanner />
-          <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
+          <ToastContainer {...TOAST_CONTAINER} />
           {ReactQueryDevtools && (
             <Suspense fallback={null}>
               {/* Bottom left: the bottom right is the «+» of a quick expense. */}

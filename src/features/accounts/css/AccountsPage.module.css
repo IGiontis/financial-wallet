@@ -22,7 +22,7 @@
   height: 10px;
   margin: 0.75rem 0 0.25rem;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-background-secondary);
 }
 
@@ -45,7 +45,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 2px 0;
+  padding: var(--space-0) 0;
 }
 
 .sum dt {
@@ -79,7 +79,7 @@
   align-items: center;
   gap: 4px;
   margin-top: 2px;
-  padding: 2px 0;
+  padding: var(--space-0) 0;
   border: 0;
   background: transparent;
   color: var(--bs-primary);
@@ -114,7 +114,7 @@
   display: inline-block;
   margin-left: 6px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--pending-wash);
   color: var(--color-pending-text);
   font-size: 11px;
@@ -126,7 +126,7 @@
   align-items: center;
   gap: 0.75rem;
   min-height: 60px;
-  padding: 0.5rem 0;
+  padding: var(--space-2) 0;
   border-top: 1px solid var(--color-border-tertiary);
 }
 
@@ -222,7 +222,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.5rem 0;
+  padding: var(--space-2) 0;
   border-top: 1px solid var(--color-border-tertiary);
   font-size: 13px;
 }
@@ -243,7 +243,7 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   background: color-mix(in srgb, var(--tone) 22%, var(--color-surface));
 }
@@ -277,10 +277,10 @@
   width: 30px;
   height: 30px;
   border: 2px solid var(--color-surface);
-  border-radius: 50%;
-  background: var(--bs-danger);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-round);
+  background: var(--danger-solid);
+  color: var(--on-danger-solid);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--shadow-ink) 20%, transparent);
 }
 
 .cardDelete:disabled {
@@ -313,9 +313,9 @@
   width: 40px;
   height: 26px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--card);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--shadow-ink) 12%, transparent);
 }
 
 .swatch[aria-pressed="true"] {
@@ -327,6 +327,86 @@
 .listHead {
   min-height: 40px;
   margin-bottom: 1.25rem;
-  padding-bottom: 0.5rem;
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+/* ── «Ξέρεις πού πήγαν;»: the records of a difference ─────────────────────── */
+
+/* What is still unexplained, always in sight above the next record. */
+.gapCounter {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-tile);
+  background: var(--neutral-soft);
+  color: var(--on-neutral-soft);
+  font-weight: 600;
+}
+
+.gapFigure {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gapList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-tile);
+}
+
+.gapList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 13.5px;
+}
+
+.gapList li + li {
+  border-top: 1px solid var(--border-soft);
+}
+
+/* The description takes the room and wraps; the figure never does. */
+.gapWhat {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gapForm {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-tile);
+}
+
+.gapKinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.gapSums {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0 0;
+  font-size: 13.5px;
+}
+
+.gapSums dd {
+  margin: 0;
+  text-align: end;
+}
+
+.gapSums dt:last-of-type,
+.gapSums dd:last-of-type {
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-soft);
+  font-weight: 600;
 }

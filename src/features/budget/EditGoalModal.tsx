@@ -116,7 +116,7 @@ function ReviewScreen({
           style={{
             border: `2px solid ${values.color || "#3B82F6"}`,
             borderRadius: "var(--border-radius-lg)",
-            padding: "1rem",
+            padding: "var(--space-4)",
             marginBottom: "1rem",
           }}
         >
@@ -130,7 +130,7 @@ function ReviewScreen({
               style={{
                 width: 16,
                 height: 16,
-                borderRadius: "50%",
+                borderRadius: "var(--radius-round)",
                 background: values.color || "#3B82F6",
                 marginLeft: "auto",
                 flexShrink: 0,
@@ -381,7 +381,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                         fontSize: 20,
                         border: `2px solid ${formik.values.icon === icon ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
                         borderRadius: "var(--border-radius-md)",
-                        padding: "4px 6px",
+                        padding: "var(--space-1) 6px",
                         background: "transparent",
                         cursor: "pointer",
                         lineHeight: 1.2,
@@ -419,7 +419,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                       style={{
                         width: 28,
                         height: 28,
-                        borderRadius: "50%",
+                        borderRadius: "var(--radius-round)",
                         background: color,
                         border: `3px solid ${formik.values.color === color ? "var(--color-text-primary)" : "transparent"}`,
                         cursor: "pointer",
@@ -476,8 +476,8 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit }: EditG
                     style={{
                       width: 14,
                       height: 14,
-                      borderRadius: "50%",
-                      background: formik.values.color ?? "#ccc",
+                      borderRadius: "var(--radius-round)",
+                      background: formik.values.color ?? "var(--border)",
                       flexShrink: 0,
                     }}
                   />

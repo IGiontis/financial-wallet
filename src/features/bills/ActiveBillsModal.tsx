@@ -1,6 +1,6 @@
 import { Badge, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { cadenceTone, getFrequencyLabel, groupByCadence } from "./billsUtils";
+import { cadenceTone, getFrequencyLabel, groupByCadence, isStoppedNow } from "./billsUtils";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import styles from "./css/BillsPage.module.css";
 
@@ -60,7 +60,8 @@ export default function ActiveBillsModal({ isOpen, bills, formatCurrency, onClos
 
               <div className={styles.activeCards}>
                 {group.bills.map((bill) => (
-                  <button key={bill.id} type="button" className={styles.activeCard} onClick={() => onOpenBill(bill)}>
+                  // Resting this period — paused, stopped, not begun: last and greyed, as on the list.
+                  <button key={bill.id} type="button" className={`${styles.activeCard} ${isStoppedNow(bill) ? styles.activeCardResting : ""}`} onClick={() => onOpenBill(bill)}>
                     <span className={styles.activeCardName}>{bill.name}</span>
                     <Badge pill color="light" className={`text-body border ${styles.activeCardChip}`}>
                       {bill.isVariableAmount ? "~" : ""}

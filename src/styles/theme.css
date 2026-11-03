@@ -1,0 +1,1162 @@
+/* ============================================================================
+   MyFiWallet — the theme layer. Roles in, Bootstrap and the app out.
+
+   tokens.css holds the colours of each colourway, shape.css the sizes. This
+   file reads both and never states a hex value or a pixel: it points
+   Bootstrap's own variables (--bs-primary, --bs-card-bg, --bs-btn-* …) at the
+   roles, so every Reactstrap component is themed without CSS of its own, and
+   it dresses the few Bootstrap pieces that variables alone cannot reach.
+
+   The hierarchy, top to bottom:
+     1. Bootstrap classes and variables      (this file overrides the variables)
+     2. CSS modules, only for what Bootstrap cannot express
+     3. plain CSS, last
+   ============================================================================ */
+
+/* ── Names the stylesheets already use ───────────────────────────────────────
+   About six hundred places read --color-text-primary, --color-surface and the
+   rest. They stay as aliases of the roles in tokens.css so no component had to
+   move; new code should use the roles. */
+
+/* ── Inside the shell ─────────────────────────────────────────────────────────
+   The sidebar, the top bar and the footer carry `.app-shell`. There the text
+   roles are the shell's own, and the names below are declared again on the
+   shell so they follow — so a button, a link or a chip placed in the top bar
+   reads on the gradient without a rule of its own. */
+
+.app-shell {
+  --text: var(--shell-text);
+  --text-2: var(--shell-text-2);
+  --link: var(--shell-text);
+  --link-hover: var(--shell-text);
+  --brand-text: var(--shell-text);
+  --focus: var(--shell-focus);
+  color: var(--shell-text);
+}
+
+:root,
+.app-shell {
+  --color-background-primary: var(--page);
+  --color-background-secondary: var(--page-inset);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-text-primary: var(--text);
+  --color-text-secondary: var(--text-2);
+  --color-text-tertiary: var(--text-2);
+  --color-border-primary: var(--border);
+  --color-border-secondary: var(--border-soft);
+  --color-border-tertiary: var(--border-soft);
+
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --brand-subtle: var(--brand-soft);
+  --brand-border-subtle: var(--brand-edge);
+  --brand-focus-border: var(--brand-edge);
+  --brand-outline-text: var(--brand-text);
+
+  /* The strong accent: the money card's fill, a chosen day. */
+  --color-accent-strong: var(--brand);
+  --color-accent-on-strong: var(--on-brand);
+  --color-accent-soft: var(--brand-soft);
+
+  --color-income: var(--income);
+  --color-income-text: var(--income-text);
+  --color-expense: var(--expense);
+  --color-expense-text: var(--expense-text);
+  --color-goal: var(--goal);
+  --color-goal-text: var(--goal-text);
+  --color-invest: var(--invest);
+  --color-invest-text: var(--invest-text);
+  --color-pending: var(--pending);
+  --color-pending-text: var(--pending-text);
+
+  /* The text on a tooltip is the page's own ground, and the tooltip the text's
+     colour: the pair inverts, so it clears 8:1 whichever way the mode goes. */
+  --color-tooltip-bg: var(--text);
+  --color-tooltip-text: var(--page);
+
+  /* The shell: sidebar, top bar and footer share one gradient, anchored to the
+     viewport (`background-attachment: fixed` where they use it) so the three
+     pieces read as a single frame running corner to corner — dark at the top
+     left, light at the bottom right, in every colourway and mode, as every
+     decorative gradient in the app does. */
+  --shell-gradient: linear-gradient(135deg, var(--shell-dark), var(--shell-light));
+
+  /* Tabs. A tab at rest is a neutral chip with an edge you can see; the chosen
+     one is the brand, filled. The small view switch uses the same pair. */
+  --segment-track: transparent;
+  --segment-pad: 0;
+  --segment-gap: 0.375rem;
+  --segment-item: var(--neutral-soft);
+  --segment-item-border: var(--border);
+  --segment-item-hover-border: var(--text-2);
+  --color-segment-active: var(--brand);
+  --color-segment-active-border: var(--brand);
+  --color-segment-active-text: var(--on-brand);
+  --view-switch-border: var(--border);
+  --view-switch-on: var(--brand);
+  --view-switch-on-text: var(--on-brand);
+
+  --scrollbar-thumb: color-mix(in srgb, var(--text-2) 65%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--text-2) 85%, transparent);
+}
+
+:root,
+[data-bs-theme="light"] {
+  --shadow-ink: var(--text);
+  --tint-border: 85%;
+  /* Every money figure in its meaning's colour, in daylight too: the owner's
+     one red and one green (2026-11-03, tokens.css), the same on a row, a chip
+     and a total. */
+  --figure-income: var(--income-text);
+  --figure-expense: var(--expense-text);
+  --figure-chip-wash: 0%;
+  --figure-chip-income: var(--income-text);
+  --figure-chip-expense: var(--expense-text);
+  --figure-chip-goal: var(--goal-text);
+  --figure-chip-invest: var(--invest-text);
+  /* Over a dialog's dimmed backdrop, a dialog taller than the screen scrolls
+     on a light thumb: the card's own near-white. */
+  --scrollbar-thumb-backdrop: color-mix(in srgb, var(--surface) 85%, transparent);
+  --scrollbar-thumb-backdrop-hover: var(--surface);
+}
+
+/* In the dark the ink is tokens.css's near-black `--shadow-ink`, declared on
+   the dark mode's own selector so it outranks the `:root` line above. */
+[data-bs-theme="dark"] {
+  --tint-border: 26%;
+  --figure-income: var(--income-text);
+  --figure-expense: var(--expense-text);
+  --figure-chip-wash: 12%;
+  --figure-chip-income: var(--income-text);
+  --figure-chip-expense: var(--expense-text);
+  --figure-chip-goal: var(--goal-text);
+  --figure-chip-invest: var(--invest-text);
+  --scrollbar-thumb-backdrop: color-mix(in srgb, var(--text-2) 50%, transparent);
+  --scrollbar-thumb-backdrop-hover: color-mix(in srgb, var(--text-2) 72%, transparent);
+}
+
+/* The Settings previews draw each colourway inside `.nav-style-<name>`; the
+   gradient is declared again there so it is made of that colourway's ends. */
+.nav-style-blue,
+.nav-style-gold {
+  --shell-gradient: linear-gradient(135deg, var(--shell-dark), var(--shell-light));
+}
+
+/* ── Bootstrap, pointed at the roles ──────────────────────────────────────────
+   The three selectors are Bootstrap's own, so this wins over its light and dark
+   blocks by coming after them; `.app-shell` takes them again from its own
+   roles. */
+
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"],
+.app-shell {
+  --bs-body-bg: var(--page);
+  --bs-body-bg-rgb: var(--page-rgb);
+  --bs-body-color: var(--text);
+  --bs-body-color-rgb: var(--text-rgb);
+  --bs-emphasis-color: var(--text);
+  --bs-emphasis-color-rgb: var(--text-rgb);
+  --bs-heading-color: var(--text);
+  --bs-secondary-color: var(--text-2);
+  --bs-secondary-color-rgb: var(--text-2-rgb);
+  --bs-tertiary-color: var(--text-2);
+  --bs-secondary-bg: var(--page-inset);
+  --bs-tertiary-bg: var(--page-inset);
+  --bs-border-color: var(--border-soft);
+  --bs-border-color-translucent: var(--border-soft);
+  --bs-highlight-bg: var(--brand-soft);
+  --bs-highlight-color: var(--on-brand-soft);
+
+  /* Bootstrap's own scale, at its own defaults (0.375 / 0.25 / 0.5 / 1 / 2rem). */
+  --bs-border-radius: var(--radius-base);
+  --bs-border-radius-sm: var(--radius-xs);
+  --bs-border-radius-lg: var(--radius-bs-lg);
+  --bs-border-radius-xl: var(--radius-xl);
+  --bs-border-radius-xxl: var(--radius-xxl);
+  --bs-border-radius-pill: var(--radius-pill);
+  --bs-box-shadow: var(--shadow-md);
+  --bs-box-shadow-sm: var(--shadow-sm);
+  --bs-box-shadow-lg: var(--shadow-lg);
+
+  --bs-primary: var(--brand);
+  --bs-primary-rgb: var(--brand-rgb);
+  --bs-primary-text-emphasis: var(--brand-text);
+  --bs-primary-bg-subtle: var(--brand-soft);
+  --bs-primary-border-subtle: var(--brand-edge);
+  /* Bootstrap's "info" is the same blue as its primary here: the app has one brand. */
+  --bs-info: var(--brand);
+  --bs-info-rgb: var(--brand-rgb);
+  --bs-info-text-emphasis: var(--brand-text);
+  --bs-info-bg-subtle: var(--brand-soft);
+  --bs-info-border-subtle: var(--brand-edge);
+  --bs-secondary: var(--text-2);
+  --bs-secondary-rgb: var(--text-2-rgb);
+  --bs-secondary-text-emphasis: var(--on-neutral-soft);
+  --bs-secondary-bg-subtle: var(--neutral-soft);
+  --bs-secondary-border-subtle: var(--border-soft);
+
+  --bs-link-color: var(--link);
+  --bs-link-color-rgb: var(--link-rgb);
+  --bs-link-hover-color: var(--link-hover);
+  --bs-link-hover-color-rgb: var(--link-hover-rgb);
+  --bs-focus-ring-color: color-mix(in srgb, var(--focus) 35%, transparent);
+
+  /* Meanings, from the same scale as the app's own chips (index.css, «Tones»). */
+  --bs-success: var(--success-solid);
+  --bs-success-rgb: var(--success-solid-rgb);
+  --bs-success-text-emphasis: var(--income-text);
+  --bs-success-bg-subtle: var(--income-wash-strong-solid);
+  --bs-success-border-subtle: var(--income-edge);
+  --bs-danger: var(--danger-solid);
+  --bs-danger-rgb: var(--danger-solid-rgb);
+  --bs-danger-text-emphasis: var(--expense-text);
+  --bs-danger-bg-subtle: var(--expense-wash-strong-solid);
+  --bs-danger-border-subtle: var(--expense-edge);
+  --bs-warning: var(--warning-solid);
+  --bs-warning-rgb: var(--warning-solid-rgb);
+  --bs-warning-text-emphasis: var(--goal-text);
+  --bs-warning-bg-subtle: var(--goal-wash-strong-solid);
+  --bs-warning-border-subtle: var(--goal-edge);
+  --bs-form-valid-color: var(--income-text);
+  --bs-form-valid-border-color: var(--income);
+  --bs-form-invalid-color: var(--expense-text);
+  --bs-form-invalid-border-color: var(--expense);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+html {
+  background-color: var(--page);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* ── Long words stay in their box ─────────────────────────────────────────────
+   Greek compounds and long English words ("Επαναλαμβανόμενες",
+   "Subscriptions") are longer than a phone tile. Three rules, once, here:
+
+   1. Everywhere, `break-word`: a word breaks only when it alone is wider than
+      its box, and the box's minimum width is left as it was — tables, flex
+      rows and grids lay out exactly as before; only a word that used to spill
+      out now wraps inside.
+   2. Titles and tabs, which sit in boxes that must be allowed to shrink, also
+      get `anywhere` (it lets the box's minimum width account for the break)
+      and hyphenation, which follows <html lang>, set by i18n. `:where()` keeps
+      this at zero weight, so rule 3 always wins over it.
+   3. A money figure never splits: anything marked tabular, nowrap or named
+      for an amount, and everything inside it, wraps only at its spaces. */
+
+body {
+  overflow-wrap: break-word;
+}
+
+:where(h1, h2, h3, h4, h5, h6, .card-title, .modal-title, .stat-head, .nav-link, .form-label, legend) {
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+:is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]),
+:is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]) * {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+/* The default size only; `.btn-sm`, `.btn-lg` and the button-group sizes keep
+   Bootstrap's own. `:where()` holds this at `.btn`'s own weight, so a module
+   class that sizes its button still wins as it did. */
+.btn:where(:not(.btn-sm, .btn-lg)) {
+  --bs-btn-padding-x: var(--pad-button-x);
+  --bs-btn-padding-y: var(--pad-button-y);
+  --bs-btn-border-radius: var(--radius-button);
+}
+
+.btn-primary {
+  --bs-btn-color: var(--on-brand);
+  --bs-btn-bg: var(--brand);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-hover-bg: var(--brand-hover);
+  --bs-btn-hover-border-color: var(--brand-hover);
+  --bs-btn-active-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-active);
+  --bs-btn-active-border-color: var(--brand-active);
+  --bs-btn-disabled-color: var(--on-brand);
+  --bs-btn-disabled-bg: var(--brand);
+  --bs-btn-disabled-border-color: var(--brand);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--brand-text);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-hover-bg: var(--brand);
+  --bs-btn-hover-border-color: var(--brand);
+  --bs-btn-active-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-hover);
+  --bs-btn-active-border-color: var(--brand-hover);
+  --bs-btn-disabled-color: var(--brand-text);
+  --bs-btn-disabled-border-color: var(--brand);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+}
+
+/* Bootstrap's "info" button is the brand too. */
+.btn-info {
+  --bs-btn-color: var(--on-brand);
+  --bs-btn-bg: var(--brand);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-hover-bg: var(--brand-hover);
+  --bs-btn-hover-border-color: var(--brand-hover);
+  --bs-btn-active-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-active);
+  --bs-btn-active-border-color: var(--brand-active);
+  --bs-btn-disabled-color: var(--on-brand);
+  --bs-btn-disabled-bg: var(--brand);
+  --bs-btn-disabled-border-color: var(--brand);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+}
+
+.btn-outline-info {
+  --bs-btn-color: var(--brand-text);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-hover-bg: var(--brand);
+  --bs-btn-hover-border-color: var(--brand);
+  --bs-btn-active-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-hover);
+  --bs-btn-active-border-color: var(--brand-hover);
+  --bs-btn-disabled-color: var(--brand-text);
+  --bs-btn-disabled-border-color: var(--brand);
+}
+
+.btn-secondary,
+.btn-light {
+  --bs-btn-color: var(--on-neutral-soft);
+  --bs-btn-bg: var(--neutral-soft);
+  --bs-btn-border-color: var(--border);
+  --bs-btn-hover-color: var(--text);
+  --bs-btn-hover-bg: var(--page-inset);
+  --bs-btn-hover-border-color: var(--text-2);
+  --bs-btn-active-color: var(--text);
+  --bs-btn-active-bg: var(--page-inset);
+  --bs-btn-active-border-color: var(--text-2);
+  --bs-btn-disabled-color: var(--text-2);
+  --bs-btn-disabled-bg: var(--neutral-soft);
+  --bs-btn-disabled-border-color: var(--border-soft);
+  --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+}
+
+.btn-outline-secondary,
+.btn-outline-light {
+  --bs-btn-color: var(--text-2);
+  --bs-btn-border-color: var(--border);
+  --bs-btn-hover-color: var(--text);
+  --bs-btn-hover-bg: var(--page-inset);
+  --bs-btn-hover-border-color: var(--text-2);
+  --bs-btn-active-color: var(--text);
+  --bs-btn-active-bg: var(--page-inset);
+  --bs-btn-active-border-color: var(--text-2);
+  --bs-btn-disabled-color: var(--text-2);
+  --bs-btn-disabled-border-color: var(--border-soft);
+  --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+}
+
+.btn-dark {
+  --bs-btn-color: var(--page);
+  --bs-btn-bg: var(--text);
+  --bs-btn-border-color: var(--text);
+  --bs-btn-hover-color: var(--page);
+  --bs-btn-hover-bg: var(--text-2);
+  --bs-btn-hover-border-color: var(--text-2);
+  --bs-btn-active-color: var(--page);
+  --bs-btn-active-bg: var(--text-2);
+  --bs-btn-active-border-color: var(--text-2);
+}
+
+.btn-outline-dark {
+  --bs-btn-color: var(--text);
+  --bs-btn-border-color: var(--text);
+  --bs-btn-hover-color: var(--page);
+  --bs-btn-hover-bg: var(--text);
+  --bs-btn-hover-border-color: var(--text);
+  --bs-btn-active-color: var(--page);
+  --bs-btn-active-bg: var(--text-2);
+  --bs-btn-active-border-color: var(--text-2);
+}
+
+.btn-success {
+  --bs-btn-color: var(--on-success-solid);
+  --bs-btn-bg: var(--success-solid);
+  --bs-btn-border-color: var(--success-solid);
+  --bs-btn-hover-color: var(--on-success-solid);
+  --bs-btn-hover-bg: var(--success-solid-hover);
+  --bs-btn-hover-border-color: var(--success-solid-hover);
+  --bs-btn-active-color: var(--on-success-solid);
+  --bs-btn-active-bg: var(--success-solid-active);
+  --bs-btn-active-border-color: var(--success-solid-active);
+  --bs-btn-disabled-color: var(--on-success-solid);
+  --bs-btn-disabled-bg: var(--success-solid);
+  --bs-btn-disabled-border-color: var(--success-solid);
+  --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+}
+
+.btn-danger {
+  --bs-btn-color: var(--on-danger-solid);
+  --bs-btn-bg: var(--danger-solid);
+  --bs-btn-border-color: var(--danger-solid);
+  --bs-btn-hover-color: var(--on-danger-solid);
+  --bs-btn-hover-bg: var(--danger-solid-hover);
+  --bs-btn-hover-border-color: var(--danger-solid-hover);
+  --bs-btn-active-color: var(--on-danger-solid);
+  --bs-btn-active-bg: var(--danger-solid-active);
+  --bs-btn-active-border-color: var(--danger-solid-active);
+  --bs-btn-disabled-color: var(--on-danger-solid);
+  --bs-btn-disabled-bg: var(--danger-solid);
+  --bs-btn-disabled-border-color: var(--danger-solid);
+  --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+}
+
+.btn-warning {
+  --bs-btn-color: var(--on-warning-solid);
+  --bs-btn-bg: var(--warning-solid);
+  --bs-btn-border-color: var(--warning-solid);
+  --bs-btn-hover-color: var(--on-warning-solid);
+  --bs-btn-hover-bg: var(--warning-solid-hover);
+  --bs-btn-hover-border-color: var(--warning-solid-hover);
+  --bs-btn-active-color: var(--on-warning-solid);
+  --bs-btn-active-bg: var(--warning-solid-active);
+  --bs-btn-active-border-color: var(--warning-solid-active);
+  --bs-btn-disabled-color: var(--on-warning-solid);
+  --bs-btn-disabled-bg: var(--warning-solid);
+  --bs-btn-disabled-border-color: var(--warning-solid);
+  --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+}
+
+/* An outlined meaning-button is lettered in the meaning's own text colour and
+   fills with its solid on hover. */
+.btn-outline-success {
+  --bs-btn-color: var(--income-text);
+  --bs-btn-border-color: var(--income-text);
+  --bs-btn-hover-color: var(--on-success-solid);
+  --bs-btn-hover-bg: var(--success-solid);
+  --bs-btn-hover-border-color: var(--success-solid);
+  --bs-btn-active-color: var(--on-success-solid);
+  --bs-btn-active-bg: var(--success-solid-active);
+  --bs-btn-active-border-color: var(--success-solid-active);
+  --bs-btn-disabled-color: var(--income-text);
+  --bs-btn-disabled-border-color: var(--income-text);
+  --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--expense-text);
+  --bs-btn-border-color: var(--expense-text);
+  --bs-btn-hover-color: var(--on-danger-solid);
+  --bs-btn-hover-bg: var(--danger-solid);
+  --bs-btn-hover-border-color: var(--danger-solid);
+  --bs-btn-active-color: var(--on-danger-solid);
+  --bs-btn-active-bg: var(--danger-solid-active);
+  --bs-btn-active-border-color: var(--danger-solid-active);
+  --bs-btn-disabled-color: var(--expense-text);
+  --bs-btn-disabled-border-color: var(--expense-text);
+  --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--goal-text);
+  --bs-btn-border-color: var(--goal-text);
+  --bs-btn-hover-color: var(--on-warning-solid);
+  --bs-btn-hover-bg: var(--warning-solid);
+  --bs-btn-hover-border-color: var(--warning-solid);
+  --bs-btn-active-color: var(--on-warning-solid);
+  --bs-btn-active-bg: var(--warning-solid-active);
+  --bs-btn-active-border-color: var(--warning-solid-active);
+  --bs-btn-disabled-color: var(--goal-text);
+  --bs-btn-disabled-border-color: var(--goal-text);
+  --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+}
+
+.btn-link {
+  --bs-btn-color: var(--link);
+  --bs-btn-hover-color: var(--link-hover);
+  --bs-btn-active-color: var(--link-hover);
+  --bs-btn-disabled-color: var(--text-2);
+  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+}
+
+/* In daylight the green cannot carry near-white lettering (4.4:1 on the
+   owner's #12855A), so a success button and an outlined one under the
+   pointer are the green on its own wash — the chip's style — and fill no
+   further. The dark mode's pale green is lettered dark and keeps its fill. */
+[data-bs-theme="light"] .btn-success,
+[data-bs-theme="light"] .btn-outline-success {
+  --bs-btn-color: var(--income-text);
+  --bs-btn-bg: var(--income-wash-solid);
+  --bs-btn-border-color: var(--income);
+  --bs-btn-hover-color: var(--income-text);
+  --bs-btn-hover-bg: var(--income-wash-strong-solid);
+  --bs-btn-hover-border-color: var(--income);
+  --bs-btn-active-color: var(--income-text);
+  --bs-btn-active-bg: var(--income-wash-strong-solid);
+  --bs-btn-active-border-color: var(--income);
+  --bs-btn-disabled-color: var(--income-text);
+  --bs-btn-disabled-bg: var(--income-wash-solid);
+  --bs-btn-disabled-border-color: var(--income);
+}
+
+[data-bs-theme="light"] .btn-outline-success {
+  --bs-btn-bg: transparent;
+  --bs-btn-disabled-bg: transparent;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────────
+   Bootstrap letters every badge in white, which is wrong for a light fill: in
+   the dark modes the brand and the meaning-solids are pale. Each fill gets the
+   role that sits on it. */
+
+.badge {
+  --bs-badge-padding-x: var(--pad-chip-x);
+  --bs-badge-padding-y: var(--pad-chip-y);
+  --bs-badge-border-radius: var(--radius-chip);
+}
+
+.badge.bg-primary,
+.badge.bg-info,
+.badge.text-bg-primary,
+.badge.text-bg-info {
+  color: var(--on-brand) !important;
+}
+
+.badge.bg-success,
+.badge.text-bg-success {
+  color: var(--on-success-solid) !important;
+}
+
+/* The green badge in daylight: a chip, the green on its wash (see the success
+   button above for why). */
+[data-bs-theme="light"] .badge.bg-success,
+[data-bs-theme="light"] .badge.text-bg-success {
+  background-color: var(--income-wash-strong-solid) !important;
+  color: var(--income-text) !important;
+  box-shadow: inset 0 0 0 1px var(--income-edge);
+}
+
+.badge.bg-danger,
+.badge.text-bg-danger {
+  color: var(--on-danger-solid) !important;
+}
+
+.badge.bg-warning,
+.badge.text-bg-warning {
+  color: var(--on-warning-solid) !important;
+}
+
+.badge.bg-secondary,
+.badge.text-bg-secondary,
+.badge.bg-dark,
+.badge.text-bg-dark {
+  color: var(--page) !important;
+}
+
+.badge.bg-dark,
+.badge.text-bg-dark {
+  background-color: var(--text) !important;
+}
+
+.badge.bg-light,
+.badge.text-bg-light {
+  background-color: var(--neutral-soft) !important;
+  color: var(--on-neutral-soft) !important;
+}
+
+/* `.text-dark` forces readable text on a light badge; in the dark modes that is
+   near-black on a dark chip. */
+.badge.text-dark {
+  color: var(--on-neutral-soft) !important;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.card {
+  --bs-card-bg: var(--surface);
+  --bs-card-border-color: var(--border-soft);
+  --bs-card-border-radius: var(--radius-card);
+  --bs-card-inner-border-radius: calc(var(--radius-card) - 1px);
+  --bs-card-spacer-x: var(--pad-card-x);
+  --bs-card-spacer-y: var(--pad-card-y);
+  --bs-card-cap-bg: var(--surface);
+  --bs-card-cap-padding-x: var(--pad-card-x);
+  --bs-card-cap-padding-y: calc(var(--pad-card-y) * 0.5);
+  --bs-card-box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Modals ───────────────────────────────────────────────────────────────── */
+
+.modal {
+  --bs-modal-bg: var(--surface-raised);
+  --bs-modal-border-color: var(--border-soft);
+  --bs-modal-border-radius: var(--radius-modal);
+  --bs-modal-inner-border-radius: calc(var(--radius-modal) - 1px);
+  --bs-modal-padding: var(--pad-modal);
+  --bs-modal-header-padding: var(--pad-modal) var(--pad-modal);
+  --bs-modal-header-border-color: var(--border-soft);
+  --bs-modal-footer-border-color: var(--border-soft);
+  --bs-modal-box-shadow: var(--shadow-lg);
+}
+
+/* ── Every dialog and sheet arrives and leaves the same way ──────────────────
+   A fade with a slight rise, the backdrop fading with it. Bootstrap's own was
+   a 0.15s fade over a 0.3s, 50px slide DOWN: the fade finished while the
+   dialog was still travelling, so it seemed to drop into place with a jump
+   (the update prompt), and its last part — the footer and its buttons —
+   landed after everything else had stopped looking like it was moving.
+
+   Now one duration for both, so the opacity and the rise end together, and
+   the opacity is on `.modal`, the box that holds header, body and footer
+   alike: nothing in a dialog can be ahead of the rest of it. Reactstrap only
+   adds `.show` once its own timer runs out (300ms of an invisible dialog
+   first); shared/components/modalMotion.ts sets that timer so the fade starts
+   straight away, and waits out the fade on the way out.
+
+   Under reduced motion the tokens are ~0 (shape.css): it simply appears. */
+.modal.fade {
+  transition: opacity var(--motion-modal) var(--ease-out);
+}
+
+.modal.fade .modal-dialog {
+  transform: translateY(var(--rise));
+  transition: transform var(--motion-modal) var(--ease-out);
+}
+
+/* Bootstrap's own two, again, after the rule above so they still win. */
+.modal.show .modal-dialog {
+  transform: none;
+}
+
+.modal.modal-static .modal-dialog {
+  transform: scale(1.02);
+}
+
+.modal-backdrop.fade {
+  transition: opacity var(--motion-modal) linear;
+}
+
+/* The ink under a dialog: the page's text colour in daylight, the near-black
+   in the dark (`--shadow-ink`), never black. */
+.modal-backdrop {
+  --bs-backdrop-bg: var(--shadow-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal.fade,
+  .modal.fade .modal-dialog,
+  .modal-backdrop.fade {
+    transition: none;
+  }
+
+  .modal.fade .modal-dialog {
+    transform: none;
+  }
+}
+
+/* ── Dropdowns ──────────────────────────────────────────────────────────────
+   Always a solid raised surface, never taller than the viewport, never wider
+   than the screen (an overflowing menu pushed the page sideways), and above the
+   drawer and dialogs: menus are rendered on the body now, so one opened from a
+   row must still draw over the chrome it was opened from. */
+
+.dropdown-menu {
+  --bs-dropdown-bg: var(--surface-raised);
+  --bs-dropdown-color: var(--text);
+  --bs-dropdown-border-color: var(--border-soft);
+  --bs-dropdown-border-radius: var(--radius-menu);
+  --bs-dropdown-inner-border-radius: calc(var(--radius-menu) - 1px);
+  --bs-dropdown-divider-bg: var(--border-soft);
+  --bs-dropdown-box-shadow: var(--shadow-lg);
+  --bs-dropdown-link-color: var(--text);
+  --bs-dropdown-link-hover-color: var(--text);
+  --bs-dropdown-link-hover-bg: var(--page-inset);
+  --bs-dropdown-link-active-color: var(--on-brand);
+  --bs-dropdown-link-active-bg: var(--brand);
+  --bs-dropdown-link-disabled-color: var(--text-2);
+  --bs-dropdown-header-color: var(--text-2);
+  --bs-dropdown-item-padding-x: var(--pad-menu-item-x);
+  --bs-dropdown-item-padding-y: var(--pad-menu-item-y);
+  max-height: min(70vh, 26.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-width: calc(100vw - 1rem);
+  z-index: var(--z-menu);
+}
+
+.dropdown-item {
+  min-height: 2.75rem; /* comfortable touch target */
+  display: flex;
+  align-items: center;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────────
+   Bootstrap tables are transparent, which showed the page through; pin them to
+   the card surface, with the head a step under it. */
+
+.table {
+  --bs-table-bg: var(--surface);
+  --bs-table-color: var(--text);
+  --bs-table-border-color: var(--border-soft);
+  --bs-table-striped-bg: var(--page-inset);
+  --bs-table-striped-color: var(--text);
+  --bs-table-hover-bg: var(--page-inset);
+  --bs-table-hover-color: var(--text);
+  --bs-table-active-bg: var(--brand-soft);
+  --bs-table-active-color: var(--on-brand-soft);
+}
+
+.table > :not(caption) > * > * {
+  background-color: var(--bs-table-bg);
+  color: var(--bs-table-color);
+}
+
+/* The cell padding, at the weight of Bootstrap's own two rules and after them. */
+.table > :not(caption) > * > * {
+  padding: var(--pad-table-cell);
+}
+
+.table-sm > :not(caption) > * > * {
+  padding: var(--pad-table-cell-sm);
+}
+
+/* ── Forms ────────────────────────────────────────────────────────────────────
+   Bootstrap fills a field with --bs-body-bg, the page colour, so inputs blended
+   into the ground. They sit on the surface instead, with an edge that clears
+   3:1. Their size and corners are Bootstrap's, read from --bs-border-radius
+   (shape.css: --radius-base). */
+
+.form-control,
+.form-select,
+.input-group-text {
+  background-color: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--focus) 30%, transparent);
+}
+
+/* The placeholder is secondary text: the same 8:1 as the rest. */
+.form-control::placeholder {
+  color: var(--text-2);
+  opacity: 1;
+}
+
+.form-control:disabled,
+.form-control[readonly],
+.form-select:disabled {
+  background-color: var(--page-inset);
+  color: var(--text-2);
+}
+
+.form-check-input {
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+.form-check-input:checked,
+.form-check-input[type="checkbox"]:indeterminate {
+  background-color: var(--brand);
+  border-color: var(--brand);
+}
+
+.form-check-input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--focus) 30%, transparent);
+}
+
+/* Bootstrap draws the tick, the dot and the switch's knob in white — right on a
+   dark brand, invisible on the pale brand the dark modes use. */
+[data-bs-theme="dark"] .form-check-input:checked[type="checkbox"] {
+  --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23111' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+[data-bs-theme="dark"] .form-check-input[type="checkbox"]:indeterminate {
+  --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23111' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+}
+
+[data-bs-theme="dark"] .form-check-input:checked[type="radio"] {
+  --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23111'/%3e%3c/svg%3e");
+}
+
+[data-bs-theme="dark"] .form-switch .form-check-input:checked {
+  --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23111'/%3e%3c/svg%3e");
+}
+
+/* ── Navs, list groups, progress, pagination, popovers ──────────────────────── */
+
+.nav {
+  --bs-nav-link-color: var(--link);
+  --bs-nav-link-hover-color: var(--link-hover);
+  --bs-nav-link-disabled-color: var(--text-2);
+  --bs-nav-link-padding-x: var(--pad-tab-x);
+  --bs-nav-link-padding-y: var(--pad-tab-y);
+}
+
+.nav-tabs {
+  --bs-nav-tabs-border-color: var(--border-soft);
+  --bs-nav-tabs-border-radius: var(--radius-tab);
+  --bs-nav-tabs-link-hover-border-color: var(--border-soft) var(--border-soft) var(--border-soft);
+  --bs-nav-tabs-link-active-color: var(--text);
+  --bs-nav-tabs-link-active-bg: var(--surface);
+  --bs-nav-tabs-link-active-border-color: var(--border) var(--border) var(--surface);
+}
+
+.nav-pills {
+  --bs-nav-pills-border-radius: var(--radius-tab);
+  --bs-nav-pills-link-active-color: var(--on-brand);
+  --bs-nav-pills-link-active-bg: var(--brand);
+}
+
+.list-group {
+  --bs-list-group-bg: var(--surface);
+  --bs-list-group-color: var(--text);
+  --bs-list-group-border-color: var(--border-soft);
+  --bs-list-group-border-radius: var(--radius-base);
+  --bs-list-group-action-color: var(--text);
+  --bs-list-group-action-hover-color: var(--text);
+  --bs-list-group-action-hover-bg: var(--page-inset);
+  --bs-list-group-action-active-color: var(--text);
+  --bs-list-group-action-active-bg: var(--brand-soft);
+  --bs-list-group-active-color: var(--on-brand);
+  --bs-list-group-active-bg: var(--brand);
+  --bs-list-group-active-border-color: var(--brand);
+  --bs-list-group-disabled-color: var(--text-2);
+  --bs-list-group-disabled-bg: var(--page-inset);
+}
+
+.progress {
+  --bs-progress-bg: var(--page-inset);
+  --bs-progress-bar-bg: var(--brand);
+  --bs-progress-bar-color: var(--on-brand);
+  --bs-progress-border-radius: var(--radius-progress);
+}
+
+.pagination {
+  --bs-pagination-color: var(--link);
+  --bs-pagination-bg: var(--surface);
+  --bs-pagination-border-color: var(--border);
+  --bs-pagination-hover-color: var(--link-hover);
+  --bs-pagination-hover-bg: var(--page-inset);
+  --bs-pagination-hover-border-color: var(--border);
+  --bs-pagination-focus-color: var(--link-hover);
+  --bs-pagination-focus-bg: var(--page-inset);
+  --bs-pagination-active-color: var(--on-brand);
+  --bs-pagination-active-bg: var(--brand);
+  --bs-pagination-active-border-color: var(--brand);
+  --bs-pagination-disabled-color: var(--text-2);
+  --bs-pagination-disabled-bg: var(--page-inset);
+  --bs-pagination-disabled-border-color: var(--border-soft);
+}
+
+.popover {
+  --bs-popover-bg: var(--surface-raised);
+  --bs-popover-border-color: var(--border-soft);
+  --bs-popover-border-radius: var(--radius-popover);
+  --bs-popover-header-bg: var(--page-inset);
+  --bs-popover-header-color: var(--text);
+  --bs-popover-body-color: var(--text);
+  --bs-popover-box-shadow: var(--shadow-lg);
+}
+
+.tooltip {
+  --bs-tooltip-bg: var(--color-tooltip-bg);
+  --bs-tooltip-color: var(--color-tooltip-text);
+  --bs-tooltip-border-radius: var(--radius-tooltip);
+}
+
+.alert {
+  --bs-alert-border-radius: var(--radius-base);
+}
+
+/* ── Toasts (react-toastify) ──────────────────────────────────────────────────
+   A card, not a coloured slab: the raised surface with the body text on it
+   (8:1 like every other card), the meaning in a stripe down its leading edge
+   and in its icon — green for done, red for failed, amber for a warning, the
+   brand for news. On a phone it is a full-width card along the bottom, where
+   the thumb and the eye already are; on a wide screen a card in the
+   bottom-right corner — at every width just above the «+» and the home bar. It stays long enough to be
+   read (6s, errors 10s, warnings 8s — lib/toastDefaults.ts), waits while the
+   pointer or focus is on it or the window is in the background, and can be
+   swiped away. It rises and fades in like a dialog (`toast-enter`).
+
+   react-toastify's sheet loads after this one, so its variables are set on
+   `html:root` and its classes are qualified by `.Toastify`, to win. */
+
+html:root {
+  --toastify-z-index: var(--z-toast);
+  --toastify-font-family: inherit;
+  --toastify-toast-width: 22.5rem;
+  --toastify-toast-offset: var(--space-4);
+  /* Above the «+» at every width (3.25rem, 1rem from the bottom right —
+     QuickExpense), so the toast a quick expense raises never covers the
+     button for the next one; and above the home bar. */
+  --toastify-toast-bottom: calc(var(--space-4) + 3.25rem + var(--space-3) + env(safe-area-inset-bottom, 0px));
+  --toastify-toast-min-height: 3.5rem;
+  --toastify-toast-padding: var(--space-3) var(--space-7) var(--space-3) var(--space-3);
+  --toastify-toast-bd-radius: var(--radius-menu);
+  --toastify-toast-shadow: var(--shadow-lg);
+  --toastify-color-light: var(--surface-raised);
+  --toastify-text-color-light: var(--text);
+  --toastify-color-dark: var(--surface-raised);
+  --toastify-text-color-dark: var(--text);
+  --toastify-icon-color-info: var(--brand-text);
+  --toastify-icon-color-success: var(--income);
+  --toastify-icon-color-warning: var(--goal);
+  --toastify-icon-color-error: var(--expense);
+  --toastify-color-progress-light: var(--brand);
+  --toastify-color-progress-dark: var(--brand);
+  --toastify-color-progress-info: var(--brand);
+  --toastify-color-progress-success: var(--income);
+  --toastify-color-progress-warning: var(--goal);
+  --toastify-color-progress-error: var(--expense);
+  --toastify-color-progress-bgo: 0.15;
+  --toastify-spinner-color: var(--text-2);
+  --toastify-spinner-color-empty-area: var(--border-soft);
+}
+
+.Toastify .Toastify__toast-container {
+  color: var(--text);
+}
+
+.Toastify .Toastify__toast {
+  /* The edge a toast's meaning is drawn on. */
+  --toast-tone: var(--brand);
+  border: 1px solid var(--border-soft);
+  border-inline-start: 4px solid var(--toast-tone);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: var(--space-2);
+}
+
+.Toastify .Toastify__toast--success {
+  --toast-tone: var(--income);
+}
+
+.Toastify .Toastify__toast--error {
+  --toast-tone: var(--expense);
+}
+
+.Toastify .Toastify__toast--warning {
+  --toast-tone: var(--goal);
+}
+
+.Toastify .Toastify__toast-icon {
+  width: 1.375rem;
+  margin-inline-end: var(--space-3);
+}
+
+/* A ✕ you can hit: the library's is a 14px glyph at 30% opacity. */
+.Toastify .Toastify__close-button {
+  top: var(--space-1);
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  opacity: 1;
+  transition: background-color var(--motion-fast) ease;
+}
+
+.Toastify .Toastify__close-button:hover,
+.Toastify .Toastify__close-button:focus-visible {
+  background: var(--page-inset);
+  color: var(--text);
+}
+
+.Toastify .Toastify__close-button:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: 0;
+}
+
+/* The time left, as a hairline along the bottom rather than a 5px bar. */
+.Toastify .Toastify__progress-bar--wrp {
+  height: 3px;
+}
+
+/* A phone: one card the width of the screen less its gutters, along the
+   bottom, clear of the «+» (3.25rem, 1rem from the edge — QuickExpense) and of
+   the home bar. The library's own phone rule made it a square, edge-to-edge
+   slab pressed against the very bottom. */
+@media (max-width: 575.98px) {
+  .Toastify .Toastify__toast-container {
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    bottom: var(--toastify-toast-bottom);
+    transform: none;
+    align-items: stretch;
+  }
+
+  .Toastify .Toastify__toast {
+    --toastify-toast-width: 100%;
+    margin-bottom: var(--space-2);
+    border-radius: var(--radius-menu);
+    font-size: 0.9375rem;
+  }
+}
+
+/* In and out: a rise and a fade, the dialogs' own motion (App.tsx hands this
+   to the container as its transition). */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise));
+  }
+}
+
+@keyframes toast-exit {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--rise) * 0.5));
+  }
+}
+
+.toast-enter {
+  animation: toast-enter var(--motion-toast) var(--ease-out) both;
+}
+
+.toast-exit {
+  animation: toast-exit var(--motion-toast) var(--ease-standard) both;
+}
+
+/* ── Save feedback: the row that just changed ─────────────────────────────────
+   After a save the dialog closes and the page looks as it did — was anything
+   saved? `.row-flash` on the new or edited row answers it: the brand's tint
+   washes over the row and fades out over a second and a half, with a ring
+   that goes with it. Put on and taken off by `useRowFlash`
+   (shared/hooks/useRowFlash.ts). Under reduced motion the tint holds still for
+   the same time and then goes at once: a highlight, no movement. */
+@keyframes row-flash {
+  from,
+  25% {
+    background-color: var(--brand-soft);
+    box-shadow: inset 0 0 0 1px var(--brand-edge);
+  }
+}
+
+.row-flash {
+  animation: row-flash var(--motion-flash) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-flash {
+    animation: none;
+    background-color: var(--brand-soft);
+    box-shadow: inset 0 0 0 1px var(--brand-edge);
+  }
+}
+
+/* ── The app's touch: what answers a press ────────────────────────────────────
+   Small, quick and the same everywhere: a button gives a little under the
+   finger; a card or row that is itself a control lifts on hover and settles
+   when pressed; a menu fades in. Every duration is a token, ~0 under reduced
+   motion, and the movement itself is switched off there too. */
+
+.btn {
+  transition:
+    color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.btn:active:not(:disabled, .disabled, .btn-link, [class*="translate-"]) {
+  transform: translateY(1px) scale(0.985);
+}
+
+:is(a.card, button.card, .card[role="button"], .list-group-item-action) {
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+:is(a.card, button.card, .card[role="button"]):hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+:is(a.card, button.card, .card[role="button"], .list-group-item-action):active {
+  transform: scale(0.995);
+}
+
+/* Opacity only: the menu is placed by a transform of its own (Floating UI). */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.dropdown-menu.show {
+  animation: menu-in var(--motion-fast) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled, .disabled, .btn-link, [class*="translate-"]),
+  :is(a.card, button.card, .card[role="button"]):hover,
+  :is(a.card, button.card, .card[role="button"], .list-group-item-action):active {
+    transform: none;
+  }
+
+  .dropdown-menu.show {
+    animation: none;
+  }
+}
+
+/* ── Smooth theme change, unless the reader asked for less motion ───────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .card,
+  .modal-content,
+  .dropdown-menu {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
+}

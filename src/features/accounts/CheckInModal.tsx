@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiPlus } from "react-icons/fi";
-import type { Category, CreateTransactionDTO } from "../../shared/types/IndexTypes";
+import type { Category } from "../../shared/types/IndexTypes";
 import GapRecordSheet from "./GapRecordSheet";
 import { parseAmount, type MoneyAccount, type PendingRecord } from "./accountsUtils";
 import { firestoreToDate } from "../../shared/utils/dates";
@@ -41,7 +41,7 @@ export default function CheckInModal({
   baseCurrency,
   formatCurrency,
   categories,
-  onAddRecord,
+  earliest,
   onSave,
   onClose,
 }: {
@@ -54,8 +54,8 @@ export default function CheckInModal({
   baseCurrency: string;
   formatCurrency: (n: number) => string;
   categories: Category[];
-  /** Writes the record the difference turned out to be. */
-  onAddRecord: (data: CreateTransactionDTO) => Promise<unknown>;
+  /** "YYYY-MM-DD": the last reading's day, the earliest a record of the difference can be. */
+  earliest?: string;
   onSave: (amounts: Record<string, number>) => void;
   onClose: () => void;
 }) {
@@ -160,9 +160,10 @@ export default function CheckInModal({
           accountName={gap.account.name}
           change={gap.change}
           categories={categories}
+          accounts={accounts}
+          earliest={earliest}
           baseCurrency={baseCurrency}
           formatCurrency={formatCurrency}
-          onAdd={onAddRecord}
           onClose={() => setGap(null)}
         />
       )}

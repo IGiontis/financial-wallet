@@ -48,7 +48,7 @@
   width: 44px;
   height: 44px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
   font-size: 20px;
@@ -71,8 +71,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 8px 12px;
-  border-radius: var(--border-radius-md);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   font-variant-numeric: tabular-nums;
 }
 
@@ -87,12 +87,9 @@
   line-height: 1.2;
 }
 
+/* A sentence with a figure in it: it may wrap between words, never inside the figure (the formatter's own no-break spaces). */
 .totalSub {
-  overflow: hidden;
   font-size: 11px;
-  opacity: 0.8;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── The grid ─────────────────────────────────────────────────────────────── */
@@ -121,12 +118,10 @@
   display: block;
 }
 
-/* A day, as on the Incomes calendar: lit in the colour of what is on it, with an
-   outline of the same colour, and nothing inside but the number of the day and
-   the figure. Money in is green, money out is red; a day with both is a diagonal
-   from red at the top left to green at the bottom right, and its figure is the
-   difference. What has happened goes pale, each side on its own: the income that
-   came beside a bill still to pay is a pale green with the red as strong as ever. */
+/* A day: lit in the colour of what is on it, with an outline of the same
+   colour, and nothing inside but the number of the day and the figure. The
+   colours are every calendar's — DayTone.module.css, through `dayTone` — and
+   this is only the day's shape. */
 .day {
   position: relative;
   display: flex;
@@ -136,10 +131,7 @@
   min-width: 0;
   min-height: 0;
   padding: 4px 5px 6px;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--color-border-tertiary) border-box;
-  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
   text-align: left;
   overflow: hidden;
   font-variant-numeric: tabular-nums;
@@ -152,20 +144,15 @@
 }
 
 .day:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 
-/* Today is an outline of its own, so the border stays free for green and red. */
-.today {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 1px;
-}
-
+/* The body text, not the secondary: on a lit day the secondary text falls under 8:1. */
 .num {
   font-size: 12px;
   font-weight: 650;
-  color: var(--color-text-secondary);
+  color: var(--text);
   line-height: 1.2;
 }
 
@@ -175,52 +162,6 @@
   font-weight: 700;
   line-height: 1.1;
   white-space: nowrap;
-}
-
-/* The two colours, for a day and for its miniature in the key alike — set
-   here, before the pale ones, so that a pale class always has the last word.
-   (Set again on the key's cell further down, they overrode it: the key's
-   "came" and "paid" were drawn as strong as "to come" and "to pay".) */
-.day,
-.keyCell {
-  --c-in: var(--color-income);
-  --c-out: var(--color-expense);
-}
-
-/* Pale: the same hue, mostly surface. */
-.inPale {
-  --c-in: var(--income-wash-strong-solid);
-}
-
-.outPale {
-  --c-out: var(--expense-wash-strong-solid);
-}
-
-.onlyIn {
-  background: linear-gradient(color-mix(in srgb, var(--c-in) 36%, transparent), color-mix(in srgb, var(--c-in) 36%, transparent)) padding-box,
-    linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--c-in) border-box;
-}
-
-.onlyOut {
-  background: linear-gradient(color-mix(in srgb, var(--c-out) 36%, transparent), color-mix(in srgb, var(--c-out) 36%, transparent)) padding-box,
-    linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--c-out) border-box;
-}
-
-/* Both: red at the top left, green at the bottom right, in the fill and the outline. */
-.both {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--c-out) 40%, transparent), color-mix(in srgb, var(--c-in) 40%, transparent)) padding-box,
-    linear-gradient(var(--color-surface), var(--color-surface)) padding-box, linear-gradient(135deg, var(--c-out), var(--c-in)) border-box;
-}
-
-/* Overdue, or waiting to be told whether it came. */
-.lateDot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-goal);
 }
 
 /* The figure fits a phone's cell without its currency; a desktop's has room for it. */
@@ -259,7 +200,7 @@
   min-height: 44px;
   padding: 0 10px;
   border: 0;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text-primary);
 }
@@ -269,55 +210,11 @@
 }
 
 .titleButton:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--focus);
 }
 
 .titleButton h1 {
   text-transform: capitalize;
-}
-
-/* ── Key ──────────────────────────────────────────────────────────────────── */
-
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
-.legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-}
-
-.swatchIn {
-  background: var(--color-income);
-}
-
-.swatchOut {
-  background: var(--color-expense);
-}
-
-.swatchBoth {
-  background: linear-gradient(135deg, var(--color-expense), var(--color-income));
-}
-
-.swatchDone {
-  background: var(--income-wash-strong-solid);
-}
-
-.swatchLate {
-  background: var(--color-goal);
-  border-radius: 50%;
 }
 
 /* ── A day's sheet ────────────────────────────────────────────────────────── */
@@ -345,7 +242,7 @@
   align-items: center;
   gap: 10px;
   min-height: 52px;
-  padding: 8px 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--color-border-tertiary);
   color: inherit;
   text-decoration: none;
@@ -361,7 +258,7 @@
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-background-secondary);
   font-size: 16px;
 }
@@ -442,8 +339,8 @@
 
   .day {
     aspect-ratio: 1 / 1;
-    padding: 3px 4px 4px;
-    border-radius: 8px;
+    padding: var(--space-0) var(--space-1) var(--space-1);
+    border-radius: var(--radius-bs-lg);
   }
 
   .net {
@@ -451,7 +348,8 @@
     letter-spacing: -0.02em;
   }
 
-  .lateDot {
+  /* The late dot, smaller in a phone's square. */
+  .grid .day::before {
     top: 3px;
     right: 3px;
     width: 6px;
@@ -459,35 +357,13 @@
   }
 }
 
-/* ── Everything on the day has happened: struck through ────────────────────── */
-/* Pale as it is, and crossed with thin green lines over the whole day — the
-   month's settled days read as done at a glance, the rest stand out. */
-.allDone::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(135deg, var(--income-fill) 0 1.5px, transparent 1.5px 6px);
-}
-
-.num,
-.net {
-  position: relative;
-  z-index: 1;
-}
-
 /* ── The chosen day, and its list under the month ──────────────────────────── */
-
-.selected {
-  box-shadow: 0 0 0 2px var(--color-text-primary);
-}
 
 .dayPanel {
   flex: none;
   padding: 14px 16px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
@@ -516,68 +392,11 @@
   }
 }
 
-/* ── What the colours mean ─────────────────────────────────────────────────── */
-
-.key {
-  flex: none;
-  padding: 16px 18px;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-  background: var(--color-surface);
-}
-
-.keyList {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-}
-
-.keyList li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* A day in miniature, coloured by the same classes. */
-.keyCell {
-  position: relative;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border: 2px solid transparent;
-  border-radius: 7px;
-  overflow: hidden;
-}
-
-/* Only the plain one gets the plain ground; written after the colours, a ground
-   here would paint over every one of them. */
-.keyCell:not(.onlyIn):not(.onlyOut):not(.both) {
-  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--color-border-tertiary) border-box;
-}
-
-.keyCell .lateDot {
-  top: 3px;
-  right: 3px;
-  width: 7px;
-  height: 7px;
-}
-
-@media (min-width: 768px) {
-  .keyList {
-    grid-template-columns: 1fr 1fr;
-    column-gap: 24px;
-  }
-}
-
 /* ── Room to breathe ───────────────────────────────────────────────────────── */
 
 .page {
   gap: 16px;
-  padding-bottom: 1.5rem;
+  padding-bottom: var(--space-5);
 }
 
 .grid {
@@ -614,9 +433,9 @@
   max-width: 100%;
   padding: 1px 7px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -630,25 +449,18 @@
 
 @media (max-width: 575.98px) {
   .day {
-    padding: 2px 2px 3px;
+    padding: var(--space-0) var(--space-0) var(--space-0);
   }
 
   .num {
-    padding-left: 2px;
+    padding-left: var(--space-0);
   }
 
   .net {
-    padding: 0 4px;
+    padding: 0 var(--space-1);
     font-size: 10.5px;
     letter-spacing: -0.03em;
   }
-}
-
-/* The key's title is a sentence, not a date. */
-.keyTitle {
-  margin-bottom: 12px;
-  font-size: 15px;
-  font-weight: 650;
 }
 
 /* On a phone the chip's colour carries the sign, and the room goes to the digits. */
@@ -662,9 +474,18 @@
   }
 }
 
-/* What the calendar is made of, under the month. */
+/* What the calendar is made of, under the month, with the key's ⓘ beside it. */
+.scopeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: -6px;
+}
+
 .scope {
-  margin: -6px 0 0;
+  margin: 0;
+  min-width: 0;
   text-align: center;
   font-size: 12.5px;
   color: var(--color-text-secondary);
@@ -675,7 +496,9 @@
   color: var(--color-income-text);
 }
 
+/* Quieter by weight and colour, not by opacity: faded, they fell under 8:1. */
 .sheetListPaid .sheetName,
 .sheetListPaid .sheetAmount {
-  opacity: 0.7;
+  font-weight: 500;
+  color: var(--text-2);
 }

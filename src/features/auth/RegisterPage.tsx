@@ -1,118 +1,18 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useFormik } from "formik";
-import * as Yup from "yup";
-import { Container, Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Alert } from "reactstrap";
+import { useNavigate } from "react-router-dom";
+import { Container, Row, Col, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { registerWithEmail, loginWithGoogle } from "../../firebase/auth";
-import { createUser } from "../../firebase/firestore";
-import { ensureGoogleProfile } from "./googleProfile";
-import { validationMessage } from "../../shared/utils/validationMessage";
 import styles from "./css/Auth.module.css";
-import { LegalLinks } from "../legal/LegalLinks";
-import { AgeTermsConsent } from "../legal/AgeTermsConsent";
 import { AuthLanguagePicker } from "./AuthLanguagePicker";
 import { BackToDemoLink } from "../../demo/DemoChrome";
-
-// ─── In-app browser detection ─────────────────────────────────────────────────
-
-const isInAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Messenger|LinkedIn/i.test(navigator.userAgent);
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-// Messages are i18n keys ("key|count" for counted ones); FormFeedback
-// translates them at render time through validationMessage.
-
-const validationSchema = Yup.object({
-  firstName: Yup.string().required("validation.nameRequired").max(50, "validation.maxChars|50"),
-  lastName: Yup.string().required("validation.nameRequired").max(50, "validation.maxChars|50"),
-  username: Yup.string()
-    .required("validation.required")
-    .min(3, "validation.minChars|3")
-    .max(30, "validation.maxChars|30")
-    .matches(/^[a-zA-Z0-9_]+$/, "validation.usernameFormat"),
-  email: Yup.string().email("validation.emailInvalid").required("validation.emailRequired"),
-  password: Yup.string().required("validation.passwordRequired").min(6, "validation.passwordMin"),
-  confirmPassword: Yup.string().required("validation.required").oneOf([Yup.ref("password")], "validation.passwordsNoMatch"),
-});
-
-// ─── Firebase error messages ──────────────────────────────────────────────────
-// Returns an i18n key so the message follows the selected language.
-
-const getErrorKey = (code: string): string => {
-  switch (code) {
-    case "auth/email-already-in-use":
-      return "errors.emailInUse";
-    case "auth/invalid-email":
-      return "validation.emailInvalid";
-    case "auth/weak-password":
-      return "errors.weakPassword";
-    default:
-      return "errors.generic";
-  }
-};
+import { RegisterForm } from "./RegisterForm";
+import { completeSignUp } from "./pendingSignUp";
+import { isInAppBrowser } from "./inAppBrowser";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation();
-  const [error, setError] = useState<string | null>(null);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  // Ticked before either way of signing up goes ahead — see `AgeTermsConsent`.
-  const [accepted, setAccepted] = useState(false);
-  const [askedToAccept, setAskedToAccept] = useState(false);
-  /** False, and the box marked, when it is not ticked yet. */
-  const consentGiven = () => {
-    if (!accepted) setAskedToAccept(true);
-    return accepted;
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      firstName: "",
-      lastName: "",
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
-    validationSchema,
-    onSubmit: async (values) => {
-      setError(null);
-      if (!consentGiven()) return;
-      try {
-        const firebaseUser = await registerWithEmail(values.email, values.password);
-        await createUser(firebaseUser.uid, {
-          email: values.email,
-          username: values.username,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          locale: i18n.resolvedLanguage ?? "en",
-        });
-        navigate("/", { replace: true });
-      } catch (err) {
-        setError(getErrorKey((err as { code?: string }).code ?? ""));
-      }
-    },
-  });
-
-  const handleGoogleRegister = async () => {
-    setError(null);
-    if (!consentGiven()) return;
-    setGoogleLoading(true);
-    try {
-      const firebaseUser = await loginWithGoogle();
-      // Someone who already has an account and taps Google here is signing in,
-      // not starting over — their profile must survive it.
-      await ensureGoogleProfile(firebaseUser, i18n.resolvedLanguage ?? "en");
-      navigate("/", { replace: true });
-    } catch (err) {
-      setError(getErrorKey((err as { code?: string }).code ?? ""));
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
+  const { t } = useTranslation();
 
   return (
     <div className={styles.page}>
@@ -133,152 +33,12 @@ export default function RegisterPage() {
 
             <Card className={styles.card}>
               <CardBody className="p-4 p-sm-5">
-                <h1 className="h5 fw-semibold text-body-emphasis mb-1">{t("auth.createAccount")}</h1>
-                <p className="small text-body-secondary mb-4">{t("auth.createAccountSubtitle")}</p>
-
-                {error && (
-                  <Alert color="danger" className="small py-2">
-                    {t(error)}
-                  </Alert>
-                )}
-
-                <AgeTermsConsent
-                  checked={accepted}
-                  invalid={askedToAccept && !accepted}
-                  onChange={(next) => {
-                    setAccepted(next);
-                    if (next) setAskedToAccept(false);
+                <RegisterForm
+                  onSignedIn={async (step) => {
+                    await completeSignUp(step);
+                    navigate("/", { replace: true });
                   }}
                 />
-
-                <Button
-                  type="button"
-                  className={`${styles.googleBtn} w-100`}
-                  onClick={handleGoogleRegister}
-                  disabled={googleLoading || formik.isSubmitting || isInAppBrowser}
-                  title={isInAppBrowser ? t("auth.openInBrowserForGoogle") : undefined}
-                >
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" width={18} height={18} />
-                  {googleLoading ? t("auth.signingUp") : t("auth.continueWithGoogle")}
-                </Button>
-
-                <div className={`${styles.divider} text-body-secondary small`}>{t("auth.or")}</div>
-
-                <form onSubmit={formik.handleSubmit} noValidate>
-                  <Row>
-                    <Col xs={6}>
-                      <FormGroup>
-                        <Label className="small fw-medium">{t("auth.firstName")} *</Label>
-                        <Input
-                          type="text"
-                          name="firstName"
-                          autoComplete="given-name"
-                          placeholder={t("auth.firstNameExample")}
-                          value={formik.values.firstName}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.firstName && formik.errors.firstName)}
-                        />
-                        <FormFeedback>{validationMessage(formik.errors.firstName, t)}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                    <Col xs={6}>
-                      <FormGroup>
-                        <Label className="small fw-medium">{t("auth.lastName")} *</Label>
-                        <Input
-                          type="text"
-                          name="lastName"
-                          autoComplete="family-name"
-                          placeholder={t("auth.lastNameExample")}
-                          value={formik.values.lastName}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.lastName && formik.errors.lastName)}
-                        />
-                        <FormFeedback>{validationMessage(formik.errors.lastName, t)}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                  </Row>
-
-                  <FormGroup>
-                    <Label className="small fw-medium">{t("auth.username")} *</Label>
-                    <Input
-                      type="text"
-                      name="username"
-                      autoComplete="username"
-                      placeholder={t("auth.usernameExample")}
-                      value={formik.values.username}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      invalid={!!(formik.touched.username && formik.errors.username)}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.username, t)}</FormFeedback>
-                  </FormGroup>
-
-                  <FormGroup>
-                    <Label className="small fw-medium">{t("auth.email")} *</Label>
-                    <Input
-                      type="email"
-                      name="email"
-                      autoComplete="email"
-                      placeholder={t("auth.emailExample")}
-                      value={formik.values.email}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      invalid={!!(formik.touched.email && formik.errors.email)}
-                    />
-                    <FormFeedback>{validationMessage(formik.errors.email, t)}</FormFeedback>
-                  </FormGroup>
-
-                  <Row>
-                    <Col xs={12} sm={6}>
-                      <FormGroup>
-                        <Label className="small fw-medium">{t("auth.password")} *</Label>
-                        <Input
-                          type="password"
-                          name="password"
-                          autoComplete="new-password"
-                          placeholder="••••••••"
-                          value={formik.values.password}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.password && formik.errors.password)}
-                        />
-                        <FormFeedback>{validationMessage(formik.errors.password, t)}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <FormGroup className="mb-4">
-                        <Label className="small fw-medium">{t("auth.confirmPassword")} *</Label>
-                        <Input
-                          type="password"
-                          name="confirmPassword"
-                          autoComplete="new-password"
-                          placeholder="••••••••"
-                          value={formik.values.confirmPassword}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.confirmPassword && formik.errors.confirmPassword)}
-                        />
-                        <FormFeedback>{validationMessage(formik.errors.confirmPassword, t)}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                  </Row>
-
-                  <Button type="submit" color="primary" className="w-100" disabled={formik.isSubmitting || googleLoading}>
-                    {formik.isSubmitting ? t("auth.creatingAccount") : t("auth.createAccount")}
-                  </Button>
-                </form>
-
-                <p className="text-center small text-body-secondary mt-4 mb-0">
-                  {t("auth.haveAccount")}{" "}
-                  <Link to="/login" className="fw-medium text-decoration-none">
-                    {t("auth.signIn")}
-                  </Link>
-                </p>
-                <p className="text-center mt-3 mb-0">
-                  <LegalLinks promise={false} />
-                </p>
               </CardBody>
             </Card>
 

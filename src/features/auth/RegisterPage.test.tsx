@@ -13,7 +13,8 @@ const auth = vi.hoisted(() => ({
   loginWithGoogle: vi.fn(async () => ({ uid: "google-user" })),
 }));
 vi.mock("../../firebase/auth", () => auth);
-vi.mock("../../firebase/firestore", () => ({ createUser: vi.fn(async () => {}) }));
+const store = vi.hoisted(() => ({ createUser: vi.fn(async () => {}), getUser: vi.fn(async () => null) }));
+vi.mock("../../firebase/firestore", () => store);
 vi.mock("./googleProfile", () => ({ ensureGoogleProfile: vi.fn(async () => {}) }));
 
 const renderPage = () =>
@@ -61,6 +62,10 @@ describe("signing up", () => {
     await userEvent.click(screen.getByRole("checkbox"));
     await userEvent.click(screen.getByRole("button", { name: "Create your account" }));
     expect(auth.registerWithEmail).toHaveBeenCalledWith("maria@example.test", "secret123");
+    // The new account's profile, from what was typed — checked for first, so a
+    // profile already there is never overwritten.
+    await vi.waitFor(() => expect(store.createUser).toHaveBeenCalledWith("new-user", { email: "maria@example.test", username: "maria_p", firstName: "Maria", lastName: "Papa", locale: "en" }));
+    expect(store.getUser).toHaveBeenCalledWith("new-user");
     // Six fields typed key by key: slow in a full run, so more than the default 5s.
   }, 20_000);
 

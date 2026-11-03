@@ -68,7 +68,7 @@
 @media (min-width: 600px) {
   .button {
     width: auto;
-    padding: 0 0.75rem 0 0.625rem;
+    padding: 0 var(--space-3) 0 0.625rem;
   }
 
   .label {

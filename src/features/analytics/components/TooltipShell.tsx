@@ -11,7 +11,7 @@ export function TooltipShell({ title, children }: { title?: ReactNode; children:
       style={{
         background: "var(--color-tooltip-bg)",
         color: "var(--color-tooltip-text)",
-        borderRadius: "var(--border-radius-md)",
+        borderRadius: "var(--radius-md)",
         padding: "10px 14px",
         minWidth: 150,
         boxShadow: "var(--shadow-lg)",

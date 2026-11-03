@@ -162,7 +162,7 @@ export const OverviewPage = () => {
       total,
       parts: parts.map((part) => {
         const category = findCategory(categories, part.categoryId);
-        return { label: part.categoryId ? `${category?.icon ?? ""} ${categoryLabel(category?.name, t) || "—"}`.trim() : t("overview.everythingElse"), amount: part.amount };
+        return { label: part.categoryId ? `${category?.icon ?? ""} ${categoryLabel(category?.name, t) || t("analytics.unknownCategory")}`.trim() : t("overview.everythingElse"), amount: part.amount };
       }),
     };
   }, [monthTransactions, categories, t]);
@@ -440,8 +440,6 @@ export const OverviewPage = () => {
             <OverviewHero
               bankStrip={<BankStrip inCard hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />}
               balance={balance}
-              transactions={transactions}
-              opening={opening}
               source={openingSource}
               isLoading={openingLoading}
               banks={banksNow}
@@ -521,7 +519,7 @@ export const OverviewPage = () => {
         <Card className="mb-0">
           <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.totalIncome")}</span>
-            <span className={styles.statValue} style={{ color: "var(--color-income)" }}>
+            <span className={styles.statValue} style={{ color: "var(--color-income-text)" }}>
               {formatCurrency(metrics.totalIncome)}
             </span>
           </CardBody>
@@ -530,7 +528,7 @@ export const OverviewPage = () => {
         <Card className="mb-0">
           <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.totalExpenses")}</span>
-            <span className={styles.statValue} style={{ color: "var(--color-expense)" }}>
+            <span className={styles.statValue} style={{ color: "var(--color-expense-text)" }}>
               {formatCurrency(metrics.totalExpenses)}
             </span>
           </CardBody>
@@ -539,7 +537,7 @@ export const OverviewPage = () => {
         <Card className={`${styles.wide} mb-0`}>
           <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.netIncome")}</span>
-            <span className={styles.statValue} style={{ color: metrics.netIncome >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+            <span className={styles.statValue} style={{ color: metrics.netIncome >= 0 ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
               {formatCurrency(metrics.netIncome)}
             </span>
             {/* The same two figures again as one rule: "net" is a subtraction,
@@ -574,7 +572,7 @@ export const OverviewPage = () => {
         <Card className={`${styles.wide} mb-0`}>
           <CardBody className={styles.stat}>
             <span className={styles.statLabel}>{t("overview.moneyLeft")}</span>
-            <span className={styles.statValue} style={{ color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+            <span className={styles.statValue} style={{ color: moneyLeft >= 0 ? "var(--color-income-text)" : "var(--color-expense-text)" }}>
               {formatCurrency(moneyLeft)}
             </span>
           </CardBody>

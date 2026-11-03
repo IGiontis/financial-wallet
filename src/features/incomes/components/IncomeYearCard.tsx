@@ -25,24 +25,24 @@ export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; 
       <div id="incomes-year-title" className="stat-head mb-1">
         {t("incomes.year.title")}
       </div>
-      <div style={{ fontSize: 12, opacity: 0.75 }}>{t("incomes.year.range", { from: f.monthYearShort.format(year.from), to: f.monthYearShort.format(year.to) })}</div>
+      <div className={styles.yearMuted}>{t("incomes.year.range", { from: f.monthYearShort.format(year.from), to: f.monthYearShort.format(year.to) })}</div>
 
       {rows.length === 0 ? (
-        <p className="mb-0 mt-3" style={{ fontSize: 13, opacity: 0.8 }}>
+        <p className={`${styles.yearMuted} mb-0 mt-3`}>
           {t("incomes.year.empty")}
         </p>
       ) : (
         <>
           <div className="d-flex align-items-baseline justify-content-between gap-2 mt-3">
-            <span style={{ fontSize: 12, opacity: 0.75 }}>{t("incomes.year.total")}</span>
+            <span className={styles.yearMuted}>{t("incomes.year.total")}</span>
             <span className={styles.yearAmount}>
               {approx}
               {formatCurrency(year.total)}
             </span>
           </div>
           <div className="d-flex align-items-baseline justify-content-between gap-2 mt-1">
-            <span style={{ fontSize: 12, opacity: 0.75 }}>{t("incomes.year.perMonth")}</span>
-            <span className="fw-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <span className={styles.yearMuted}>{t("incomes.year.perMonth")}</span>
+            <span className="fw-semibold tabular-nums">
               {approx}
               {formatCurrency(year.perMonth)}
             </span>
@@ -54,10 +54,10 @@ export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; 
             {rows.map((row) => (
               <div key={row.income.id}>
                 <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12.5 }}>
-                  <span className="text-truncate">
+                  <span className="text-break" style={{ minWidth: 0 }}>
                     <span aria-hidden>{KIND_ICON[row.income.kind]}</span> {row.income.name}
                   </span>
-                  <span className="flex-shrink-0" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <span className="flex-shrink-0 tabular-nums">
                     {row.approximate ? "≈" : ""}
                     {formatCurrency(row.total)}
                   </span>

@@ -14,7 +14,28 @@ import { oneRowPerTransfer } from "./transfers";
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export type LedgerKind = "all" | "in" | "out" | "moves";
+/** The three kinds of record: money in, money out, and money that only changed pockets. */
+export type LedgerSide = "in" | "out" | "moves";
+
+export const LEDGER_SIDES: readonly LedgerSide[] = ["in", "out", "moves"];
+
+/**
+ * The kind filter after a tap on one of its chips.
+ *
+ * With all three on («Όλα») a tap picks that one alone — the single choice the
+ * filter always was, so the first tap still means "show me only this". After
+ * that each tap adds or takes away one, which is how two of the three are had
+ * (income and expenses without the moves, say). The last one on stays on: a
+ * filter showing nothing is a filter nobody asked for. Back at all three is
+ * «Όλα» again.
+ */
+export function toggleSide(current: readonly LedgerSide[], side: LedgerSide): LedgerSide[] {
+  const all = LEDGER_SIDES.every((s) => current.includes(s));
+  if (all) return [side];
+  if (!current.includes(side)) return LEDGER_SIDES.filter((s) => s === side || current.includes(s));
+  const rest = current.filter((s) => s !== side);
+  return rest.length === 0 ? [...current] : LEDGER_SIDES.filter((s) => rest.includes(s));
+}
 
 export interface LedgerRow {
   tx: Transaction;
@@ -66,7 +87,13 @@ export interface LedgerOptions {
   /** Inclusive, to the end of its day. */
   to: Date;
   now?: Date;
-  kind?: LedgerKind;
+  /**
+   * Which kinds of record to keep — any of them; absent, or all three, is
+   * everything. A record is kept when it is of a kind that is on, so the
+   * totals are those of what is listed: with the moves and the income on, out
+   * is nothing.
+   */
+  kinds?: readonly LedgerSide[];
   /** The account a record belongs to (see `accountOf`); with `account`, only that one's. */
   accountOf?: (tx: Transaction) => string | undefined;
   account?: string;
@@ -102,7 +129,9 @@ function categories(rows: LedgerRow[], pick: (row: LedgerRow) => boolean): Ledge
 }
 
 export function buildLedger(transactions: Transaction[], options: LedgerOptions): Ledger {
-  const { from, to, now = new Date(), kind = "all", account, categories: only, query = "" } = options;
+  const { from, to, now = new Date(), kinds, account, categories: only, query = "" } = options;
+  // Undefined when every kind is on: then nothing is asked of a record's kind at all.
+  const on = kinds && !LEDGER_SIDES.every((s) => kinds.includes(s)) ? new Set(kinds) : undefined;
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const end = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999);
   const needle = query.trim().toLowerCase();
@@ -116,9 +145,7 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
     if (needle && !tx.description.toLowerCase().includes(needle)) continue;
     const counted = isEarning(tx) || isSpending(tx);
     const sign = signOf(tx);
-    if (kind === "in" && !(counted && sign > 0)) continue;
-    if (kind === "out" && !(counted && sign < 0)) continue;
-    if (kind === "moves" && !isMove(tx)) continue;
+    if (on && !((on.has("in") && counted && sign > 0) || (on.has("out") && counted && sign < 0) || (on.has("moves") && isMove(tx)))) continue;
     const created = tx.createdAt ? firestoreToDate(tx.createdAt) : undefined;
     rows.push({ tx, date, recordedAt: created && !Number.isNaN(created.getTime()) ? created : undefined, sign, amount: round2(Math.abs(tx.amount)), counted, running: 0 });
   }

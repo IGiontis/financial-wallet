@@ -206,7 +206,6 @@ function PaymentPanel({
 }) {
   const { t } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
-  const accountLabelId = useId();
   const dateId = useId();
   const value = parseFloat(amount);
   const amountValid = Number.isFinite(value) && value > 0;
@@ -240,11 +239,9 @@ function PaymentPanel({
         </div>
       </div>
       {/* Which card it left or reached, as on any transaction — it moves that
-          card. Or none: settled without money changing hands. */}
-      <div className={styles.paymentAccount} role="group" aria-labelledby={accountLabelId}>
-        <div id={accountLabelId} className={styles.paymentAccountLabel}>
-          {t(income ? "debts.paidInto" : "debts.paidFrom")}
-        </div>
+          card. Or none: settled without money changing hands. The picker asks
+          that as its own question. */}
+      <div className={styles.paymentAccount}>
         <MoneyMovedPicker value={account} onChange={onAccount} income={income} />
       </div>
       <PaymentNote value={notes} onChange={onNotes} className="mb-2" small />

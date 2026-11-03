@@ -444,11 +444,11 @@ describe("the incomes, from «Έσοδα»", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const amount = screen.getByLabelText("Amount per month");
+    // Three steps — how often, then what and how much, then the check with Save.
+    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
+    const amount = screen.getByLabelText("Amount each month");
     await userEvent.clear(amount);
     await userEvent.type(amount, "350");
-    // Three steps, and Save only on the last; an existing figure lets the rail jump.
-    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
     await userEvent.click(screen.getByRole("button", { name: /Next/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(settings.get("planner-lines")).toEqual([{ ...OWN, amount: 350 }, room]);
@@ -661,7 +661,10 @@ describe("a budget line with categories", () => {
     renderPage();
     const sheet = await openFood();
     await userEvent.click(within(sheet).getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Amount per month")).toHaveValue(300);
+    // It opens on how often the line comes round; the amount is the next step.
+    expect(screen.getByRole("radio", { name: /^Every month/ })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
+    expect(screen.getByLabelText("Amount each month")).toHaveValue(300);
   });
 
   it("leaves a line with no categories opening straight on its editor", async () => {
@@ -669,7 +672,7 @@ describe("a budget line with categories", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: /^Out/ }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Amount per month")).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "How often" })).toBeInTheDocument();
   });
 });
 

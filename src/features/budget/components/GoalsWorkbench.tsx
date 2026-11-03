@@ -1,253 +1,168 @@
-import { useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Input, Offcanvas, OffcanvasBody, OffcanvasHeader } from "reactstrap";
+import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiGrid, FiList, FiSliders } from "react-icons/fi";
+import { FiFilter, FiLayers } from "react-icons/fi";
 import { SearchInput } from "../../../shared/components/SearchInput";
-import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
-import { GoalViewToggle } from "./GoalStacks";
+import { SkeletonCardGrid, SkeletonRows } from "../../../shared/components/Skeletons";
+import { GoalTabs } from "./GoalTabs";
+import { GoalPickMenu } from "./GoalPickMenu";
 import { GROUP_BY_OPTIONS } from "./goalGrouping";
+import { countByStatus, filterGoals, type GoalStatusOption } from "./goalOverview";
+import { goalTabIds, useGoalTab, type GoalTab } from "./useGoalTab";
 import styles from "./css/GoalsWorkbench.module.css";
-import type { GoalView } from "./GoalStacks";
 import type { GoalGroupBy } from "./goalGrouping";
+import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 
-// The chrome both goal screens sit in.
+// The chrome both goal screens sit in: heading, then three tabs —
+// «Επισκόπηση · Κάρτες · Λίστα».
 //
-// They had a copy each of the same header, the same tab strip and the same
-// search box, drifting a little apart every time one of them was touched. This
-// is the one of them — and the one place the three shapes are decided: a phone
-// puts the filters in a sheet, a laptop puts them in the row under the summary,
-// a wide screen moves the tabs and the grouping into a rail and gives the list
-// its width back.
+// Each tab stands on its own. The overview is the screen's figures; the cards
+// and the list each have their own search and their own «Όλοι ▾», so looking
+// for one goal in the list does not leave the cards filtered behind it. The tab
+// is in the address and remembered on the device (`useGoalTab`).
 
-/** Where the filters live, which is the only thing the width changes. */
-const SHEET_QUERY = "(max-width: 767.98px)";
-
-export interface WorkbenchTab {
-  id: string;
-  label: string;
-  count: number;
+/** What a tab of goals keeps of its own: what is typed and which status. */
+interface BrowseState {
+  search: string;
+  status: string;
 }
 
 export interface GoalsWorkbenchProps {
+  /** «goals» or «investments»: the keys the tab and the stacks are remembered under. */
+  screen: string;
   title: string;
   subtitle: string;
   /** The primary button — "new goal". Placed by the shell, owned by the page. */
   action: ReactNode;
-  /** The summary boxes, which differ per screen. */
-  stats?: ReactNode;
-  tabs: WorkbenchTab[];
-  activeTab: string;
-  onTab: (id: string) => void;
-  search: string;
-  onSearch: (value: string) => void;
+  /** This screen's goals, every status. */
+  goals: InvestmentGoalWithStats[];
+  isLoading: boolean;
+  isError: boolean;
+  /** The «Όλοι ▾» choices, the first being where a tab starts. */
+  statuses: GoalStatusOption[];
+  /** The «Επισκόπηση» tab, whole. */
+  overview: ReactNode;
   searchPlaceholder: string;
   /** Which dimensions this screen can stack by — deadlines mean nothing on a recurring one. */
   groupOptions: GoalGroupBy[];
   groupBy: GoalGroupBy;
   onGroupBy: (by: GoalGroupBy) => void;
-  view: GoalView;
-  onView: (view: GoalView) => void;
-  children: ReactNode;
+  renderCards: (goals: InvestmentGoalWithStats[]) => ReactNode;
+  renderList: (goals: InvestmentGoalWithStats[]) => ReactNode;
+  /** What an empty tab says, when nothing is searched and every status is shown. */
+  empty: ReactNode;
 }
 
 export function GoalsWorkbench({
+  screen,
   title,
   subtitle,
   action,
-  stats,
-  tabs,
-  activeTab,
-  onTab,
-  search,
-  onSearch,
+  goals,
+  isLoading,
+  isError,
+  statuses,
+  overview,
   searchPlaceholder,
   groupOptions,
   groupBy,
   onGroupBy,
-  view,
-  onView,
-  children,
+  renderCards,
+  renderList,
+  empty,
 }: GoalsWorkbenchProps) {
   const { t } = useTranslation();
-  const narrow = useNarrowScreen(SHEET_QUERY);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const base = useId();
+  const [tab, setTab] = useGoalTab(screen);
+  const start: BrowseState = { search: "", status: statuses[0]?.id ?? "" };
+  const [browse, setBrowse] = useState<Record<Exclude<GoalTab, "overview">, BrowseState>>({ cards: start, list: start });
 
-  const options = GROUP_BY_OPTIONS.filter((option) => groupOptions.includes(option.value));
-  // Grouping only reaches the screen in the list view, so the control that sets
-  // it has nothing to say while the cards are up.
-  const grouping = view === "stacks" && options.length > 1;
-  // On a phone, anything chosen that is not the first choice gets a dot on the
-  // one button, so a regrouped list is never a mystery.
-  const changed = view === "stacks" && options.length > 0 && groupBy !== options[0].value;
-
-  const tabStrip = (
-    <div className={styles.tabs} role="tablist" aria-label={title}>
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={tab.id === activeTab}
-          className={`${styles.tab} ${tab.id === activeTab ? styles.tabOn : ""}`}
-          onClick={() => onTab(tab.id)}
-        >
-          <span>{tab.label}</span>
-          <span className={styles.tabCount}>{tab.count}</span>
-        </button>
-      ))}
-    </div>
+  const counts = useMemo(() => countByStatus(goals, statuses), [goals, statuses]);
+  const statusPicks = useMemo(() => statuses.map((s) => ({ id: s.id, label: s.label, count: counts[s.id] })), [statuses, counts]);
+  const groupPicks = useMemo(
+    () => GROUP_BY_OPTIONS.filter((option) => groupOptions.includes(option.value)).map((option) => ({ id: option.value, label: t(option.labelKey) })),
+    [groupOptions, t],
   );
+
+  const panel = (which: GoalTab, body: ReactNode) => {
+    const ids = goalTabIds(base, which);
+    return (
+      <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab} tabIndex={0} className={styles.panel}>
+        {body}
+      </div>
+    );
+  };
+
+  const browseTab = (which: Exclude<GoalTab, "overview">) => {
+    const state = browse[which];
+    const set = (patch: Partial<BrowseState>) => setBrowse((prev) => ({ ...prev, [which]: { ...prev[which], ...patch } }));
+    const option = statuses.find((s) => s.id === state.status) ?? statuses[0];
+    const shown = filterGoals(goals, option, state.search);
+    const searching = state.search.trim().length > 0;
+    const narrowed = option !== statuses[0];
+
+    return (
+      <>
+        {/* The row follows the page down from a tablet up: twenty goals is four
+            screens, and coming back to the top to search again is the reason
+            nobody does. Phones keep it in place — the height is the scarce thing. */}
+        <div className={styles.controls}>
+          <div className={styles.toolbar}>
+            <div className={styles.search}>
+              <SearchInput value={state.search} onChange={(search) => set({ search })} placeholder={searchPlaceholder} block />
+            </div>
+            <GoalPickMenu label={t("goals.statusLabel")} value={option?.id ?? ""} options={statusPicks} onChange={(status) => set({ status })} icon={FiFilter} />
+            {which === "list" && groupPicks.length > 1 && (
+              <GoalPickMenu label={t("goals.groupBy")} value={groupBy} options={groupPicks} onChange={(by) => onGroupBy(by as GoalGroupBy)} icon={FiLayers} compact />
+            )}
+          </div>
+          {searching && <p className={styles.results}>{t("investments.showingResults", { count: shown.length })}</p>}
+        </div>
+
+        {isLoading ? (
+          which === "cards" ? (
+            <SkeletonCardGrid count={6} />
+          ) : (
+            <SkeletonRows count={6} />
+          )
+        ) : isError ? null : shown.length > 0 ? (
+          which === "cards" ? (
+            renderCards(shown)
+          ) : (
+            renderList(shown)
+          )
+        ) : searching || narrowed ? (
+          <div className={styles.empty}>
+            <p className="fw-medium mb-2">{searching ? t("investments.noResultsFor", { query: state.search.trim() }) : t("goals.noneWithStatus", { status: option?.label ?? "" })}</p>
+            {narrowed && (
+              <Button color="secondary" outline size="sm" onClick={() => set({ status: statuses[0].id })}>
+                {t("goals.showAllStatuses", { status: statuses[0].label })}
+              </Button>
+            )}
+          </div>
+        ) : (
+          empty
+        )}
+      </>
+    );
+  };
 
   return (
     <>
       <div className={styles.header}>
-        <div style={{ minWidth: 0 }}>
+        <div className={styles.headText}>
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{title}</h1>
           <p className="small text-body-secondary mb-0">{subtitle}</p>
         </div>
         <div className={styles.headActions}>{action}</div>
       </div>
 
-      <div className={styles.layout}>
-        {/* Wide screens only. The same two lists as the tab strip and the
-            grouping control, laid out where there is room for them to be read
-            rather than squeezed. */}
-        <aside className={styles.rail}>
-          <p className={styles.railTitle}>{title}</p>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`${styles.railItem} ${tab.id === activeTab ? styles.railItemOn : ""}`}
-              aria-pressed={tab.id === activeTab}
-              onClick={() => onTab(tab.id)}
-            >
-              <span>{tab.label}</span>
-              <span className={styles.railCount}>{tab.count}</span>
-            </button>
-          ))}
+      <GoalTabs base={base} label={title} value={tab} onChange={setTab} />
 
-          {grouping && (
-            <>
-              <div className={styles.railRule} />
-              <p className={styles.railTitle}>{t("goals.groupBy")}</p>
-              {options.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`${styles.railItem} ${option.value === groupBy ? styles.railItemOn : ""}`}
-                  aria-pressed={option.value === groupBy}
-                  onClick={() => onGroupBy(option.value)}
-                >
-                  <span>{t(option.labelKey)}</span>
-                </button>
-              ))}
-            </>
-          )}
-        </aside>
-
-        <main className={styles.main}>
-          {/* On a phone the boxes are one row that scrolls sideways, rather
-              than three rows that filled the whole first screen. */}
-          {stats && <div className={styles.stats}>{stats}</div>}
-
-          {/* The controls follow the page down. Twenty goals is four screens of
-              scrolling, and having to come back to the top to change tab or
-              regrouping is the reason nobody does it. */}
-          <div className={styles.controls}>
-            {tabStrip}
-            <div className={styles.toolbar}>
-              <div className={styles.search}>
-                <SearchInput value={search} onChange={onSearch} placeholder={searchPlaceholder} block />
-              </div>
-
-              {/* A phone gets one button beside the field — how to look at the
-                  goals, and how to group them, in a sheet from the bottom — in
-                  place of a filter button and a view toggle squeezed in beside
-                  a search box with no room left to type in. */}
-              {narrow ? (
-                <button type="button" className={styles.filterBtn} onClick={() => setSheetOpen(true)} aria-label={t("goals.viewAndGroup")}>
-                  <FiSliders size={15} aria-hidden />
-                  {view === "stacks" ? <FiList size={15} aria-hidden /> : <FiGrid size={15} aria-hidden />}
-                  {changed && <span className={styles.filterMark} aria-hidden />}
-                </button>
-              ) : (
-              <>
-              {/* A menu where there is room beside the field, and none once the
-                  rail is carrying the same choice. */}
-              <span className={styles.groupSlot}>
-                {grouping && (
-                    <Input
-                      type="select"
-                      bsSize="sm"
-                      className={styles.groupPick}
-                      value={groupBy}
-                      onChange={(event) => onGroupBy(event.target.value as GoalGroupBy)}
-                      aria-label={t("goals.groupBy")}
-                    >
-                      {options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {t("goals.groupBy")}: {t(option.labelKey)}
-                        </option>
-                      ))}
-                    </Input>
-                  )}
-              </span>
-
-              <GoalViewToggle view={view} onChange={onView} />
-              </>
-              )}
-            </div>
-          </div>
-
-          {children}
-        </main>
-      </div>
-
-      {/* From the bottom, where a thumb is, over the page rather than instead
-          of it; every choice applies as it is tapped. */}
-      <Offcanvas isOpen={narrow && sheetOpen} toggle={() => setSheetOpen(false)} direction="bottom" className={styles.sheet}>
-        <OffcanvasHeader toggle={() => setSheetOpen(false)}>{t("goals.viewAndGroup")}</OffcanvasHeader>
-        <OffcanvasBody>
-          <div className={styles.sheetGroup}>
-            <p className={styles.railTitle} style={{ marginLeft: 2 }}>
-              {t("goals.viewLabel")}
-            </p>
-            <div className={styles.sheetSeg} role="group" aria-label={t("goals.viewLabel")}>
-              <button type="button" className={`${styles.pick} ${view === "cards" ? styles.pickOn : ""}`} aria-pressed={view === "cards"} onClick={() => onView("cards")}>
-                <FiGrid size={15} aria-hidden /> {t("goals.viewCards")}
-              </button>
-              <button type="button" className={`${styles.pick} ${view === "stacks" ? styles.pickOn : ""}`} aria-pressed={view === "stacks"} onClick={() => onView("stacks")}>
-                <FiList size={15} aria-hidden /> {t("goals.viewStacks")}
-              </button>
-            </div>
-          </div>
-
-          {/* Grouping shapes the list only; with the cards up it would be a
-              choice that changes nothing on screen. */}
-          {grouping && (
-            <div className={styles.sheetGroup}>
-              <p className={styles.railTitle} style={{ marginLeft: 2 }}>
-                {t("goals.groupBy")}
-              </p>
-              <div className={styles.sheetPicks}>
-                {options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`${styles.pick} ${option.value === groupBy ? styles.pickOn : ""}`}
-                    aria-pressed={option.value === groupBy}
-                    onClick={() => onGroupBy(option.value)}
-                  >
-                    {t(option.labelKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </OffcanvasBody>
-      </Offcanvas>
+      {tab === "overview" && panel("overview", overview)}
+      {tab === "cards" && panel("cards", browseTab("cards"))}
+      {tab === "list" && panel("list", browseTab("list"))}
     </>
   );
 }

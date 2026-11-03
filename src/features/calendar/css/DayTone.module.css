@@ -1,0 +1,145 @@
+/* ── The calendars' colour language ───────────────────────────────────────────
+   One set of colours for every day or month square in the app, the one the
+   «Ημερολόγιο» page drew first (see dayTone.ts):
+
+     money in            green — strong while it is to come, pale once it came
+     money out           red   — strong while it is to pay,  pale once paid
+     both on one day     a diagonal, red at the top left to green at the bottom right
+     all of it happened  struck through with thin green lines
+     later on            the colour as a dashed edge only: coming, not yet due
+     off                 a dashed neutral edge: nothing is owed or expected
+     late / wants you    an amber dot in the corner
+     today               an outline in the style's own colour
+
+   Each calendar keeps its own layout (size, padding, what is written inside)
+   and takes its colours from here, so a paid bill on «Πάγια» is the same pale
+   red as a paid bill on «Ημερολόγιο».
+
+   The fill is the meaning's colour at 20% over the surface, with the colour at
+   full strength as the edge — the edge is what is read from across the month.
+   Stronger than the tone scale's washes on purpose, and mixed through the
+   --c-in / --c-out variables, so the pale ones are the tone scale's own strong
+   solid wash. 20%, not the 36% the calendar had: measured in the browser, the
+   body text on a 36% fill was 5.9:1 (green) and 7.7:1 (red) in dark mode; at
+   20% it is 8.8:1 and 10.2:1 dark, 12.2:1 and 11.6:1 light. Lettering on a
+   fill must be the body text: the secondary text falls to 6–8:1 there. */
+
+.cell {
+  --c-in: var(--income);
+  --c-out: var(--expense);
+  position: relative;
+  border: 2px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--border-soft) border-box;
+  color: var(--text);
+}
+
+/* Pale: the same hue, mostly surface. Before the fills, so they read it. */
+.inDone {
+  --c-in: var(--income-wash-strong-solid);
+}
+
+.outDone {
+  --c-out: var(--expense-wash-strong-solid);
+}
+
+.in {
+  background:
+    linear-gradient(color-mix(in srgb, var(--c-in) 20%, transparent), color-mix(in srgb, var(--c-in) 20%, transparent)) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--c-in) border-box;
+}
+
+.out {
+  background:
+    linear-gradient(color-mix(in srgb, var(--c-out) 20%, transparent), color-mix(in srgb, var(--c-out) 20%, transparent)) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--c-out) border-box;
+}
+
+/* Both: red at the top left, green at the bottom right, in the fill and the outline. */
+.both {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--c-out) 20%, transparent), color-mix(in srgb, var(--c-in) 20%, transparent)) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, var(--c-out), var(--c-in)) border-box;
+}
+
+/* Later on: the colour as an edge, dashed, on a plain day — it is coming, and
+   it is not today's business. (A dashed line cannot be drawn with the
+   border-box trick above, so these use a real border.) */
+.aheadIn,
+.aheadOut,
+.off {
+  border-style: dashed;
+  background: var(--surface);
+}
+
+.aheadIn {
+  border-color: var(--income-edge-strong);
+}
+
+.aheadOut {
+  border-color: var(--expense-edge-strong);
+}
+
+/* Off: nothing owed, nothing expected — no colour at all. */
+.off {
+  border-color: var(--border);
+  color: var(--text-2);
+}
+
+/* All of it happened: thin green lines over the whole square. The square's
+   own contents sit above them (see `.cell > *`). */
+.allDone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(135deg, var(--income-fill) 0 1.5px, transparent 1.5px 6px);
+}
+
+.cell > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Late, or waiting to be told whether it came: an amber dot in the corner. */
+.late::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-round);
+  background: var(--goal);
+}
+
+/* Today is an outline of its own, so the edge stays free for the colours. */
+.today {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.selected {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+/* A square in miniature for a key: the same classes, at a fixed size. */
+.swatch {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.swatch.late::before {
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+}

@@ -7,7 +7,7 @@ import { addDays, addHours, startOfMonth, subMonths } from "date-fns";
 import { ALLOCATION_MOVED_KEY, DEMO_IDS, DEMO_UNLOGGED, demoCollections, demoData, type DemoData, type DemoLanguage } from "./fixtures";
 import { DEMO_UID } from "./demoUser";
 import { billOverdue, billUrgency, billsNeedingAttention, computeBillStatus, daysUntilDeadline } from "../features/bills/billsUtils";
-import { ACCOUNTS_KEY, CHECK_INS_KEY, accountOf, mainAccount, projectedTotal, readCheckIns, realDelta, type BalanceCheckIn, type MoneyAccount } from "../features/accounts/accountsUtils";
+import { ACCOUNTS_KEY, CHECK_INS_KEY, accountOf, balanceAnchors, mainAccount, projectedTotal, readCheckIns, realDelta, type BalanceCheckIn, type MoneyAccount } from "../features/accounts/accountsUtils";
 import { currentBalance, isAfterReading } from "../shared/utils/balance";
 import { computeDebtStatus } from "../features/debts/debtsUtils";
 import { debtCashDrift } from "../features/debts/debtCash";
@@ -99,38 +99,38 @@ function problems(data: DemoData, now: Date): string[] {
   if (!salary) fail("no salary");
   const salaries = data.transactions.filter((t) => t.incomeId === DEMO_IDS.incomes.salary);
   if (salaries.length < 5) fail(`only ${salaries.length} salaries recorded`);
-  // The Settings figure, as `useMoneyAccounts` hands it to the readings.
-  const legacy = { amount: data.user.openingBalance!, date: data.user.openingBalanceDate! };
-  const latest = readCheckIns(checkInsOf(data), accounts, data.transactions, legacy).at(-1);
+  const latest = readCheckIns(checkInsOf(data), accounts, data.transactions).at(-1);
   const incomeStatuses = resolveIncomes(incomesOf(data), { transactions: data.transactions, now, lastReadingAt: latest?.at }, subMonths(now, 6), now);
   if (lateCount(incomeStatuses) !== 0) fail(`${lateCount(incomeStatuses)} incomes late`);
 
-  // ── Banks & cash: the first reading agrees with the app, the latest finds the coffee ──
-  const readings = readCheckIns(checkInsOf(data), accounts, data.transactions, legacy);
+  // ── Banks & cash: the first reading is where the records begin, the latest finds the coffee ──
+  const readings = readCheckIns(checkInsOf(data), accounts, data.transactions);
   if (readings.length !== 2) fail(`${readings.length} readings`);
   else {
-    if (readings[0].appSaid !== readings[0].total) fail(`first reading: banks ${readings[0].total}, app ${readings[0].appSaid}`);
+    // No spending or income before it — every month the demo shows is counted
+    // from a reading. (Goals' deposits from before the records began are in
+    // the goals, which the reading's savings account holds.)
+    const before = data.transactions.filter((tx) => !isAfterReading(tx, readings[0].at) && !tx.isGoalTransaction && !tx.isInvestmentTransaction);
+    if (before.length) fail(`${before.length} records before the first reading`);
     if (readings[1].unlogged !== DEMO_UNLOGGED) fail(`latest reading finds ${readings[1].unlogged} unrecorded`);
     const ageDays = (now.getTime() - readings[1].at.getTime()) / 86_400_000;
     if (ageDays < 2 || ageDays > 4) fail(`latest reading is ${ageDays.toFixed(1)} days old`);
   }
 
-  // A second way: walk every account through every record since the start,
-  // from the figures the first reading implies, and check none ever goes
-  // below zero — a card the demo overdraws is not a real person's card.
-  const start = startOfMonth(subMonths(now, 6));
+  // A second way: walk every account through every record after the first
+  // reading, from the figures it found, and check none ever goes below zero —
+  // a card the demo overdraws is not a real person's card.
   const main = mainAccount(accounts);
   const first = checkInsOf(data)[0];
   const balances: Record<string, number> = { ...first.amounts };
-  for (const tx of data.transactions) if (tx.date >= start && !isAfterReading(tx, new Date(first.at))) balances[accountOf(tx, accounts, main)!] -= realDelta(tx);
   for (const tx of data.transactions) {
-    if (tx.date < start) continue;
+    if (!isAfterReading(tx, new Date(first.at))) continue;
     const account = accountOf(tx, accounts, main)!;
     balances[account] = round2(balances[account] + realDelta(tx));
     if (balances[account] < 0) fail(`${account} goes to ${balances[account]} on ${toDay(tx.date)}`);
   }
   // And the spendable balance the Overview opens with is a sensible figure.
-  const spendable = currentBalance(data.transactions, legacy);
+  const spendable = currentBalance(data.transactions, balanceAnchors(readings, data.transactions).at(-1));
   if (spendable < 500 || spendable > 10_000) fail(`spendable balance is ${spendable}`);
   if (readings[1] && Math.abs(projectedTotal(readings[1], data.transactions) - Object.values(balances).reduce((a, b) => a + b, 0) - DEMO_UNLOGGED) > 0.01) fail("the readings and the walk disagree");
 

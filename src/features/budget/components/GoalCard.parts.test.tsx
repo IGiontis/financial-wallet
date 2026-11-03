@@ -67,6 +67,36 @@ describe("a goal card", () => {
     await userEvent.click(screen.getByRole("button", { name: "The parts of «Ski»" }));
     const rows = within(screen.getByRole("list", { name: "The parts" })).getAllByRole("listitem");
     expect(rows.map((r) => r.firstElementChild!.textContent)).toEqual(["House€150.00 / €200.00", "Lift€50.00 / €90.00", "Travel€80.00 / €200.00", "Food€0.00 / €200.00"]);
+    // Each row its range and where it stands; 150 + 50 + 80 + 0 is the 280 in.
+    expect(rows.map((r) => r.lastElementChild!.textContent)).toEqual([
+      "from €150.00 to €200.00reached its «from»",
+      "from €50.00 to €90.00reached its «from»",
+      "from €100.00 to €200.00filling",
+      "from €150.00 to €200.00nothing yet",
+    ]);
+  });
+
+  it("fills «put in» and drains «left» as shares of the whole, the whole always full", () => {
+    renderCard();
+    const level = (label: string) => (screen.getByText(label).parentElement as HTMLElement).style.getPropertyValue("--level");
+    expect(parseFloat(level("put in"))).toBeCloseTo((280 / 690) * 100, 5);
+    expect(parseFloat(level("left"))).toBeCloseTo((410 / 690) * 100, 5);
+    // A second way: the two tanks together hold exactly the whole.
+    expect(parseFloat(level("put in")) + parseFloat(level("left"))).toBeCloseTo(100, 5);
+    expect(level("total")).toBe("100%");
+  });
+
+  it("an empty goal's «put in» tank is empty, with no surface to ripple", () => {
+    renderCard({ ...SKI, totalSaved: 0, remaining: 690 } as InvestmentGoalWithStats);
+    const tile = screen.getByText("put in").parentElement as HTMLElement;
+    expect(tile.style.getPropertyValue("--level")).toBe("0%");
+    expect(tile.dataset.surface).toBe("empty");
+    expect((screen.getByText("left").parentElement as HTMLElement).dataset.surface).toBe("full");
+  });
+
+  it("says on the card how many parts it has", () => {
+    renderCard();
+    expect(screen.getByRole("button", { name: "The parts of «Ski»" })).toHaveTextContent("4 parts");
   });
 
   it("has no eye on a goal of one figure", () => {

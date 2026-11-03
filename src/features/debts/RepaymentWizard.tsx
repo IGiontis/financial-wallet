@@ -158,7 +158,7 @@ export default function RepaymentWizard({
 
           {step === "3" && (
             <>
-              <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} />
+              <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} hideQuestion />
               <PaymentNote value={notes} onChange={setNotes} className="mt-3" />
             </>
           )}

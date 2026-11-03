@@ -539,7 +539,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                   </p>
                 </div>
                 <div style={{ width: 40, height: 22, borderRadius: 11, background: formik.values.showFuelDetails ? "var(--bs-primary)" : "var(--color-border-primary)", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                  <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "var(--color-surface)", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                  <div style={{ position: "absolute", top: 3, left: formik.values.showFuelDetails ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "var(--color-surface)", transition: "left 0.2s", boxShadow: "var(--shadow-sm)" }} />
                 </div>
               </div>
             )}

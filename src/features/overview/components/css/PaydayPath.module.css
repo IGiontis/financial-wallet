@@ -40,7 +40,7 @@
   width: 0.625rem;
   height: 0.625rem;
   border: 2px solid var(--color-surface);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   transform: translate(-50%, -50%);
 }
 

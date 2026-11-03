@@ -26,16 +26,34 @@
 
 /* ── Section heading ──────────────────────────────────────────────────────── */
 
+/* A group of cards: clearly bigger than the card titles under it (13.5px) and
+   led by an icon in the brand's soft tint, so each group catches the eye as
+   the page scrolls by. */
 .sectionTitle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 1.75rem 0 0.75rem;
-  color: var(--color-text-secondary);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  gap: var(--space-2);
+  margin: var(--space-6) 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sectionIcon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--brand-soft);
+  color: var(--on-brand-soft);
+  font-size: 1rem;
+}
+
+.sectionText {
+  min-width: 0;
 }
 
 .sectionTitle::after {
@@ -46,7 +64,7 @@
 }
 
 .sectionTitle:first-of-type {
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
 }
 
 /* ── Card ─────────────────────────────────────────────────────────────────── */
@@ -55,9 +73,9 @@
   display: flex;
   flex-direction: column;
   min-width: 0; /* lets the chart shrink instead of forcing the grid wider */
-  padding: 1rem;
+  padding: var(--pad-card-y) var(--pad-card-x);
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
@@ -83,7 +101,7 @@
 }
 
 .cardHint {
-  margin: 2px 0 0;
+  margin: var(--space-0) 0 0;
   color: var(--color-text-secondary);
   font-size: 11.5px;
   line-height: 1.35;
@@ -170,10 +188,23 @@
   justify-content: center;
   height: 100%;
   margin: 0;
-  padding: 0 1rem;
+  padding: 0 var(--space-4);
   color: var(--color-text-secondary);
   font-size: 12.5px;
   text-align: center;
+}
+
+/* The chart's place while it is on its way: the box's own size, so nothing
+   moves when it lands. The shimmer stops under reduced motion (index.css). */
+.chartSkeleton {
+  display: block;
+  height: 100%;
+  line-height: 1;
+}
+
+.chartSkeleton :global(.react-loading-skeleton) {
+  display: block;
+  border-radius: var(--radius-md);
 }
 
 /* ── Shared legend (stacked area, pace, combo) ────────────────────────────── */
@@ -199,6 +230,165 @@
   height: 9px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+/* A line series in a key: a short stroke, not a block. */
+.swatchLine {
+  width: 14px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
+/* The striped bars of a month still to come (IncomesBillsChart). A functional
+   pattern, the key's copy of the chart's own stripes. */
+.swatchHatch {
+  border: 1px solid var(--color-text-secondary);
+  background: repeating-linear-gradient(45deg, var(--color-text-secondary) 0 2px, transparent 2px 4px);
+}
+
+/* «προγρ.» beside a month in a table: the figure is the plan, not the record. */
+.plannedTag {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px dashed var(--color-border-primary);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Card toolbars: a stepper, small segmented pickers, chips ─────────────── */
+
+.trendTools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.smallSeg {
+  min-height: 30px;
+  padding: var(--space-1) 0.625rem;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.trendTools .stepper {
+  margin-bottom: 0;
+}
+
+.stepBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.stepBtn:disabled {
+  opacity: 0.35;
+}
+
+.stepBtn:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+.stepLabel {
+  min-width: 4rem;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-transform: capitalize;
+}
+
+.trendChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.trendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: var(--space-0) var(--space-2);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-pill);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.trendChipX {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: calc(-1 * var(--space-1));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.trendChipX:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.trendChipX:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+}
+
+/* The category chooser's ticks: a row per category, the name free to wrap. */
+.chooserList {
+  display: flex;
+  flex-direction: column;
+}
+
+.chooserRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--color-border-tertiary);
+  cursor: pointer;
+}
+
+.chooserRow :global(.form-check-input) {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.chooserName {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.chooserTotal {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ── Heatmap ──────────────────────────────────────────────────────────────── */
@@ -287,43 +477,26 @@
   border-radius: 2px;
 }
 
-/* ── Treemap tiles ────────────────────────────────────────────────────────── */
-
-.treemapLabel {
-  fill: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  pointer-events: none;
-}
-
-.treemapSub {
-  fill: rgba(255, 255, 255, 0.75);
-  font-size: 10px;
-  pointer-events: none;
-}
-
 /* Opens a bigger copy of a chart the card is too small to hold. Sits with the
    headline figure rather than over the plot, which is a tap target itself. */
 
 /* ── Where income comes from ─────────────────────────────────────────────── */
 
+/* A payee's name wraps rather than trailing off: it is the row's whole point. */
 .sourceName {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--color-text-primary);
 }
 
 .sourceTrack {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: var(--color-background-secondary);
   overflow: hidden;
 }
 
 .sourceFill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: var(--color-income);
 }

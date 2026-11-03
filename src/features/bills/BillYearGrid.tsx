@@ -4,6 +4,9 @@ import type { IconType } from "react-icons";
 import { FiAlertCircle, FiCheck, FiClock } from "react-icons/fi";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { billCoverage, billCoverageYears, supportsMonthStrip, type MonthCell, type MonthCellStatus } from "./billsUtils";
+import { InfoLegend } from "../../shared/components/InfoLegend";
+import { dayTone, type DayToneInput } from "../calendar/dayTone";
+import { dayKey } from "../calendar/components/dayKey";
 import styles from "./css/BillsPage.module.css";
 
 interface BillYearGridProps {
@@ -25,10 +28,36 @@ const STATUS_ICON: Partial<Record<MonthCellStatus, IconType>> = {
 };
 
 /**
+ * A month in the calendars' shared colours (`dayTone`): red while it is to
+ * pay, the amber dot when it is late, pale red and struck through once paid, a
+ * dashed red edge for the months still to come, a dashed grey one for a month
+ * off. An instalment square answers for itself — handed over or still owed —
+ * not for the stretch it sits in.
+ */
+function monthLook(cell: MonthCell): DayToneInput {
+  if (cell.installment) return { out: cell.installment.paid ? "done" : "todo" };
+  switch (cell.status) {
+    case "paid":
+    case "partial":
+      return { out: "done" };
+    case "overdue":
+      return { out: "todo", late: true };
+    case "due":
+      return { out: "todo" };
+    case "future":
+      return { out: "ahead" };
+    case "paused":
+      return { off: true };
+    default:
+      return {};
+  }
+}
+
+/**
  * Every month the bill covers, laid out a year to a row.
  *
  * Colour is coverage, not due dates: a yearly subscription paid in October runs
- * green through the following September and turns over in October, which is
+ * paid through the following September and turns over in October, which is
  * what having paid it actually feels like. Any square is a place to pay, so a
  * payment made two years ago is filed by pressing the month it was made in —
  * the thing the old four-option dropdown made impossible.
@@ -75,9 +104,7 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
       <button
         key={cell.month}
         type="button"
-        className={`${styles.monthCell} ${styles[`monthCell_${cell.status}`]} ${marked ? styles.monthCellStart : ""} ${
-          cell.installment ? (cell.installment.paid ? styles.monthCellPartPaid : styles.monthCellPartOwed) : ""
-        }`}
+        className={`${styles.monthCell} ${dayTone(monthLook(cell))} ${marked ? styles.monthCellStart : ""}`}
         onClick={() => (settled ? onOpenPayment(cell) : onPay(cell))}
         title={`${name} ${cell.year} · ${when} · ${formatCurrency(money)}`}
         aria-label={`${name} ${cell.year} — ${cell.installment ? t("bills.installmentOf", { index: cell.installment.index + 1, count: cell.installment.count }) + " — " : ""}${t(`bills.monthState_${cell.status}`)} — ${formatCurrency(money)}`}
@@ -96,8 +123,23 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
 
   return (
     <div className="mb-3">
-      <div className="text-uppercase text-body-secondary mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>
-        {t("bills.payByMonth")}
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+        <span className="text-uppercase text-body-secondary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>
+          {t("bills.payByMonth")}
+        </span>
+        {/* The key behind the ⓘ, each line drawn with the squares' own classes. */}
+        <InfoLegend
+          title={t("calendar.keyTitle")}
+          entries={[
+            dayKey("due", { out: "todo" }, t("bills.monthState_due")),
+            dayKey("overdue", { out: "todo", late: true }, t("bills.monthState_overdue")),
+            dayKey("paid", { out: "done" }, t("bills.monthState_paid")),
+            dayKey("future", { out: "ahead" }, t("bills.monthState_future")),
+            dayKey("paused", { off: true }, t("bills.monthState_paused")),
+          ]}
+        >
+          <p>{t("bills.coverageHint")}</p>
+        </InfoLegend>
       </div>
 
       {years.map((year) => (
@@ -107,18 +149,6 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
         </div>
       ))}
 
-      <div className={styles.yearLegend}>
-        <span>
-          <FiCheck size={11} style={{ color: "var(--color-income)" }} aria-hidden /> {t("bills.monthState_paid")}
-        </span>
-        <span>
-          <FiAlertCircle size={11} style={{ color: "var(--color-expense)" }} aria-hidden /> {t("bills.monthState_overdue")}
-        </span>
-        <span>
-          <FiClock size={11} style={{ color: "var(--color-goal)" }} aria-hidden /> {t("bills.monthState_due")}
-        </span>
-        <span>{t("bills.coverageHint")}</span>
-      </div>
     </div>
   );
 }

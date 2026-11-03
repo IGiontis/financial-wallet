@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { percentChange, type PeriodTotals } from "../dashboardUtils";
+import { signedWith } from "./chartTheme";
 import styles from "./css/Dashboard.module.css";
 
 // The four figures at the top of the page: what came in, what went out, what
@@ -111,7 +112,8 @@ export function DashboardKpis({
       label: t("analytics.flow.net"),
       icon: "Σ",
       color: "var(--chart-net)",
-      value: formatCurrency(current.net),
+      // A net: signed both ways, as every month's net on the page is.
+      value: signedWith(formatCurrency)(current.net),
       delta:
         netChange === undefined
           ? noComparison

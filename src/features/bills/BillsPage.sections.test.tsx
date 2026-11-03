@@ -171,13 +171,38 @@ describe("a switched-off bill", () => {
   it("is not among what is to pay, but last, under a heading of its own with no total", () => {
     render(<BillsPage />, { wrapper: MemoryRouter });
     const list = headings();
-    expect(list.map((h) => h.title.replace(/\d+ bills?$/, ""))).toEqual(["Still to pay", "Paid", "Inactive"]);
+    expect(list.map((h) => h.title.replace(/\d+ bills?$/, ""))).toEqual(["Still to pay", "Paid", "Stopped", "Inactive"]);
     // Still to pay is the same €255 it was without it: its €25 is not in it.
     expect(list[0].total).toBe("€255.00");
-    expect(list[2].total).toBe("");
+    expect(list[3].total).toBe("");
 
     const name = screen.getByText("Old phone");
     // Marked where it stands: the tag beside the name.
     expect(name.parentElement).toHaveTextContent("Inactive");
+  });
+});
+
+describe("a stopped or paused bill", () => {
+  it("sinks to the foot of the list, greyed, under «Stopped», and adds nothing", () => {
+    render(<BillsPage />, { wrapper: MemoryRouter });
+    const sections = [...document.querySelectorAll("[data-tour], .mb-3")].filter((el) => el.querySelector("[class*=_listSection_]"));
+    const stopped = sections.find((el) => el.querySelector("[class*=_listSectionTitle_]")?.textContent?.startsWith("Stopped"))!;
+    // The flat (ended in August) and the house (off for the winter), and nothing else.
+    expect(within(stopped as HTMLElement).getByText("Flat")).toBeInTheDocument();
+    expect(within(stopped as HTMLElement).getByText("House")).toBeInTheDocument();
+    expect(stopped.className).toMatch(/_sectionResting_/);
+    // No total on it: it owes nothing this period.
+    expect(stopped.querySelector("[class*=_listSectionTotal_]")).toBeNull();
+
+    // Not among what is still to pay — and that heading is still €255, which
+    // is also, a second way, what the bills left above it say they owe.
+    const [outstanding] = headings();
+    expect(outstanding.title).not.toMatch(/Flat|House/);
+    const stillToPay = sections.find((el) => el.querySelector("[class*=_listSectionTitle_]")?.textContent?.startsWith("Still to pay"))!;
+    expect(within(stillToPay as HTMLElement).queryByText("Flat")).toBeNull();
+    expect(within(stillToPay as HTMLElement).queryByText("House")).toBeNull();
+    const unpaidRunning = page.bills.filter((b) => b.isActive && !b.isPaidThisPeriod && !["flat", "house"].includes(b.id));
+    expect(unpaidRunning.reduce((sum, b) => sum + b.outstandingAmount, 0)).toBe(255);
+    expect(outstanding.total).toBe("€255.00");
   });
 });

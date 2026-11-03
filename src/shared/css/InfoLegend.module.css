@@ -1,0 +1,86 @@
+/* The ⓘ beside a calendar or chart, and the key it opens — see InfoLegend.tsx. */
+
+/* Round and quiet, in the text's secondary colour: a question you may ask, not
+   a control that competes with the thing it explains. 32px drawn, with the
+   target grown to 44px around it so a thumb finds it. */
+.button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.button::before {
+  content: "";
+  position: absolute;
+  inset: -0.375rem;
+}
+
+.button:hover {
+  border-color: var(--text-2);
+  color: var(--text);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 576px) {
+  .list {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--space-5);
+  }
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* The sample: whatever the caller draws, centred in a fixed box so the
+   sentences line up down the list. */
+.swatch {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  min-height: 2rem;
+}
+
+.text {
+  min-width: 0;
+}
+
+.note {
+  margin-top: var(--space-4);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.note > :last-child {
+  margin-bottom: 0;
+}

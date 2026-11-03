@@ -7,9 +7,9 @@
   gap: 0.5rem;
   width: 100%;
   margin: 0;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem var(--space-3);
   border: 0;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   text-align: left;
   background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
   font-size: 0.8125rem;
@@ -39,30 +39,93 @@
   color: var(--color-text-secondary);
 }
 
-/* Its money: three tiles, each a wash of its own colour (--tile), icon above the figure. */
+/* Its money: three tiles, each a small tank of its own colour (--tile) that is
+   --level full: «έβαλες» fills from the bottom as money goes in, «μένουν»
+   drains as it is put in, the whole stays full. Icon and figure float on it. */
 .tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .tile {
+  /* Opaque, so the liquid and its crest can overlap without a darker seam. */
+  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-wash-strong), var(--surface));
+  --tile-rim: color-mix(in srgb, var(--tile) var(--tone-edge), transparent);
+  --tile-icon: var(--tile);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-width: 0;
-  padding: 0.625rem 0.25rem 0.5rem;
-  border-radius: var(--border-radius-md);
-  background: color-mix(in srgb, var(--tile) var(--tone-wash), transparent);
-  border: 1px solid color-mix(in srgb, var(--tile) var(--tone-edge), transparent);
+  padding: 0.625rem var(--space-1) var(--space-2);
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  border: 1px solid var(--tile-rim);
   text-align: center;
+}
+
+/* In the dark a wash of a bright colour glares: the liquid is the quieter
+   wash, the rim barely there, the icon the pale lettering tint of the colour. */
+:global([data-bs-theme="dark"]) .tile {
+  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-wash), var(--surface));
+  --tile-rim: color-mix(in srgb, var(--tile) var(--tone-wash-strong), transparent);
+  --tile-icon: var(--tile-text);
+}
+
+/* The liquid. */
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  height: var(--level, 0%);
+  background: var(--tile-liquid);
+  transition: height 0.8s ease;
+}
+
+/* Its surface: a row of low crests drifting sideways — one transform on one
+   pseudo-element, so the compositor does it and nothing is laid out again.
+   A shape in the liquid's own colour, not a shading. */
+.tile::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: var(--level, 0%);
+  z-index: -1;
+  width: calc(100% + 24px);
+  height: 5px;
+  background: radial-gradient(12px 5px at 50% 100%, var(--tile-liquid) 98%, transparent 100%) 0 0 / 24px 5px repeat-x;
+  transition: bottom 0.8s ease;
+  animation: tileSway 3.2s linear infinite;
+}
+
+.tile[data-surface="empty"]::after,
+.tile[data-surface="full"]::after {
+  display: none;
+}
+
+@keyframes tileSway {
+  to {
+    transform: translateX(-24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile::before,
+  .tile::after {
+    transition: none;
+    animation: none;
+  }
 }
 
 .tileIcon {
   width: 1.125rem;
   height: 1.125rem;
-  margin-bottom: 0.25rem;
-  color: var(--tile);
+  margin-bottom: var(--space-1);
+  color: var(--tile-icon);
 }
 
 .tileValue {
@@ -73,21 +136,21 @@
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .tileLabel {
-  margin: 0.125rem 0 0;
+  margin: var(--space-0) 0 0;
   font-size: 0.6875rem;
   line-height: 1.25;
-  color: var(--color-text-secondary);
+  /* The body colour, not the secondary one: over the liquid the secondary
+     lettering measured 7.5:1 in the dark, under the 8:1 the app keeps. */
+  color: var(--text);
 }
 
 /* Beside the ring: a month's and a week's worth, label and figure on a line each. */
 .askList {
   display: grid;
-  gap: 0.125rem;
+  gap: var(--space-0);
   margin: 0.375rem 0 0;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;

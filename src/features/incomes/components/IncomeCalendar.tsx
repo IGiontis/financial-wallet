@@ -6,6 +6,9 @@ import { addMonths, differenceInCalendarDays, isSameDay, startOfMonth } from "da
 import { toISOMonth } from "../../../shared/utils/dates";
 import { isSettled, monthSummary, needsYou, type Income, type IncomeStatus } from "../incomesUtils";
 import { statusTag, type IncomeFormats } from "../incomeText";
+import { InfoLegend } from "../../../shared/components/InfoLegend";
+import { dayTone, type DayToneInput } from "../../calendar/dayTone";
+import { dayKey } from "../../calendar/components/dayKey";
 import styles from "../css/IncomesPage.module.css";
 
 // Option 2, «Ημερολόγιο του μήνα»: each income a mark on its day — green where
@@ -34,13 +37,21 @@ interface Mark {
 
 const MARK_CLASS: Record<MarkKind, string> = { arrived: styles.markArrived, expected: styles.markExpected, late: styles.markLate, ask: styles.markAsk, due: styles.markDue };
 
-// The whole day is lit in the colour of what happened on it, so the month reads
-// at a glance — green where money came, amber where it is late, blue where it
-// is on its way — before a single figure is read. A day with two things on it
-// takes the one that most needs you.
-const DAY_CLASS: Record<MarkKind, string> = { arrived: styles.dayArrived, expected: styles.dayExpected, late: styles.dayLate, ask: styles.dayAsk, due: styles.dayDue };
-const PRIORITY: MarkKind[] = ["late", "ask", "due", "arrived", "expected"];
-const dayTone = (marks: Mark[]): MarkKind | undefined => PRIORITY.find((kind) => marks.some((m) => m.kind === kind));
+// The whole day is lit in the colours every calendar in the app uses
+// (`dayTone`, the «Ημερολόγιο» page's): green while the money is to come, pale
+// green and struck through once it came, the amber dot where it is late or
+// waits for an answer, and a dashed green edge on an income's own day when it
+// came on another. A day with several things on it is painted by what most
+// needs you.
+function dayLook(marks: Mark[]): DayToneInput {
+  if (marks.length === 0) return {};
+  const waiting = marks.some((m) => m.kind === "late" || m.kind === "ask" || m.kind === "due");
+  const came = marks.some((m) => m.kind === "arrived");
+  return {
+    in: waiting ? "todo" : came ? "done" : "ahead",
+    late: marks.some((m) => m.kind === "late" || m.kind === "ask"),
+  };
+}
 
 export function IncomeCalendar({
   statuses,
@@ -124,8 +135,19 @@ export function IncomeCalendar({
             <FiChevronLeft aria-hidden />
           </button>
           <div className="text-center" style={{ minWidth: 0 }}>
-            <div className="fw-semibold">
+            <div className="fw-semibold d-inline-flex align-items-center gap-2">
               {f.monthName(month)} {month.getFullYear()}
+              {/* The key behind the ⓘ, in the colours of the days themselves. */}
+              <InfoLegend
+                title={t("calendar.keyTitle")}
+                entries={[
+                  dayKey("due", { in: "todo" }, t("incomes.calendar.legendDue")),
+                  dayKey("arrived", { in: "done" }, t("incomes.calendar.legendArrived")),
+                  dayKey("late", { in: "todo", late: true }, `${t("incomes.calendar.legendLate")} · ${t("incomes.calendar.legendAsk")}`),
+                  dayKey("expected", { in: "ahead" }, t("incomes.calendar.legendExpected")),
+                  dayKey("today", { today: true }, t("calendar.keyToday")),
+                ]}
+              />
             </div>
             {summary.count > 0 && (
               <div className="text-body-secondary" style={{ fontSize: 12 }}>
@@ -149,13 +171,12 @@ export function IncomeCalendar({
             const dayMarks = inside ? (marks.get(`${date.getDate()}`) ?? []) : [];
             const isToday = isSameDay(date, now);
             const isSelected = !!selected && isSameDay(date, selected);
-            const tone = dayTone(dayMarks);
             return (
               <button
                 key={date.toISOString()}
                 type="button"
                 disabled={!inside}
-                className={`${styles.calDay} ${tone ? DAY_CLASS[tone] : ""} ${inside ? "" : styles.calOutside} ${isToday ? styles.calToday : ""} ${isSelected ? styles.calSelected : ""}`}
+                className={`${styles.calDay} ${inside ? dayTone({ ...dayLook(dayMarks), today: isToday, selected: isSelected }) : styles.calOutside}`}
                 onClick={() => setSelected(isSelected ? undefined : date)}
                 aria-pressed={isSelected}
                 aria-label={`${dayTitle.format(date)}${dayMarks.length ? ` · ${dayMarks.map((m) => `${name(m.status.incomeId)} ${markText(m)}`).join(", ")}` : ""}`}
@@ -173,22 +194,6 @@ export function IncomeCalendar({
           })}
         </div>
 
-        <div className={styles.calLegend} aria-hidden>
-          {(
-            [
-              ["arrived", "legendArrived"],
-              ["late", "legendLate"],
-              ["ask", "legendAsk"],
-              ["due", "legendDue"],
-              ["expected", "legendExpected"],
-            ] as const
-          ).map(([kind, label]) => (
-            <span key={kind}>
-              <span className={`${styles.swatch} ${DAY_CLASS[kind]}`} />
-              {t(`incomes.calendar.${label}`)}
-            </span>
-          ))}
-        </div>
       </div>
 
       {selected && (

@@ -5,7 +5,7 @@ import { useBills } from "../bills/useBills";
 import { useDebts } from "../debts/useDebts";
 import { plannableDebts } from "../debts/debtsUtils";
 import { useIncomes } from "../incomes/useIncomes";
-import { resolveIncomes } from "../incomes/incomesUtils";
+import { incomeStartsLater, resolveIncomes } from "../incomes/incomesUtils";
 import { useInvestmentGoals } from "../budget/useInvestments";
 import { PLANNER_KEYS, cleanOneOffs, cleanSkipped } from "../plannerPage/plannerInputs";
 import type { OneOff } from "../plannerPage/plannerUtils";
@@ -51,7 +51,19 @@ export function useCalendarSources(): { sources: CalendarSources; first: Date; l
   const plans = useMemo(() => calendarPlans({ goals, debts, actuals, skipIds, now }), [goals, debts, actuals, skipIds, now]);
 
   // The instalments to come are the open debts' (above); the payments made are every debt's.
-  const sources = useMemo<CalendarSources>(() => ({ now, bills, statuses, incomeName, oneOffs, debts: allDebts, ...plans }), [now, bills, statuses, incomeName, oneOffs, allDebts, plans]);
+  // Each income not running yet, by the day it first comes — its leaf says so.
+  const incomeStarts = useMemo(() => {
+    const starts = new Map<string, number>();
+    for (const income of incomes) {
+      const first = incomeStartsLater(income, now);
+      if (first) starts.set(income.id, first.getTime());
+    }
+    return starts;
+  }, [incomes, now]);
+  const sources = useMemo<CalendarSources>(
+    () => ({ now, bills, statuses, incomeName, oneOffs, debts: allDebts, incomeStarts, ...plans }),
+    [now, bills, statuses, incomeName, oneOffs, allDebts, incomeStarts, plans],
+  );
 
   return { sources, first, last, isLoading: billsLoading || debtsLoading || goalsLoading || incomesLoading };
 }

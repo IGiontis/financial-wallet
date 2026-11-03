@@ -1,6 +1,7 @@
 import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isSameDay } from "date-fns";
+import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
 import styles from "../css/MoneyTree.module.css";
 
 /** One thing on a day: a leaf of the tree. */
@@ -31,17 +32,22 @@ export interface TreeDay {
 
 /**
  * Money as a tree: the days down a trunk, each day a node on it, and what
- * lands on it as leaves either side. Two-sided, money in grows to the left and
- * money out to the right, so a glance down the trunk shows which side a stretch
- * leans; one-sided, the days take turns, so neighbours do not crowd. On a phone
- * the trunk moves to the left edge and every leaf hangs to its right.
+ * lands on it as leaves either side.
+ *
+ * One side rule, in every tree in the app: money in grows to the LEFT of the
+ * trunk and money out to the RIGHT — even in a tree of one kind, so a
+ * bills-only tree hangs everything right and an incomes-only one everything
+ * left. The side itself says in or out at a glance, before the colour and the
+ * sign do. (One-sided trees used to let the days take turns, which made the
+ * side mean nothing.) On a phone, or in a narrow column, the trunk moves to
+ * the left edge and every leaf hangs to its right; there the colour, the sign
+ * and a small ↙/↗ mark on each leaf carry what the side no longer can.
  *
  * Only the drawing: the timelines (`MoneyTimeline`) and «Συναλλαγές» each say
  * what the days and leaves are.
  */
 export function MoneyTree({
   days,
-  twoSided,
   today,
   formatCurrency,
   locale,
@@ -49,7 +55,11 @@ export function MoneyTree({
   onOpen,
 }: {
   days: TreeDay[];
-  twoSided: boolean;
+  /**
+   * @deprecated Ignored: every tree puts money in on the left and money out
+   * on the right now, one kind or both. Kept so callers need not change at once.
+   */
+  twoSided?: boolean;
   today: Date;
   formatCurrency: (n: number) => string;
   locale: string;
@@ -74,6 +84,13 @@ export function MoneyTree({
           <span className={styles.leafName}>{item.label}</span>
           {item.note && <span className={styles.leafNote}>{item.note}</span>}
         </span>
+        {/* In or out, where the side no longer says it (a narrow tree). */}
+        {!item.neutral && (
+          <span className={styles.leafDir} title={t(item.direction === "in" ? "timeline.dirIn" : "timeline.dirOut")}>
+            {item.direction === "in" ? <FiArrowDownLeft aria-hidden /> : <FiArrowUpRight aria-hidden />}
+            <span className="visually-hidden">{t(item.direction === "in" ? "timeline.dirIn" : "timeline.dirOut")}</span>
+          </span>
+        )}
         <span className={styles.leafAmount}>
           {item.neutral ? "" : item.direction === "in" ? "+" : "−"}
           {item.approximate ? "≈" : ""}
@@ -101,10 +118,11 @@ export function MoneyTree({
     // room, one column where it does not — a phone, or a narrow column on a desk.
     <div className={styles.frame}>
       <ol className={styles.tree} aria-label={label}>
-        {days.map((day, dayIndex) => {
+        {days.map((day) => {
           const isToday = isSameDay(day.date, today);
-          const left = twoSided ? day.leaves.filter((l) => l.direction === "in") : dayIndex % 2 === 0 ? day.leaves : [];
-          const right = twoSided ? day.leaves.filter((l) => l.direction === "out") : dayIndex % 2 === 0 ? [] : day.leaves;
+          // In left, out right — always. A neutral move goes by its direction too.
+          const left = day.leaves.filter((l) => l.direction === "in");
+          const right = day.leaves.filter((l) => l.direction === "out");
           return (
             <li key={day.date.getTime()} className={`${styles.day} ${isToday ? styles.today : ""} ${day.date < today && !isToday ? styles.past : ""}`}>
               <ul className={styles.left}>{left.map(leaf)}</ul>

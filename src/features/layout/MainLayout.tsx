@@ -87,7 +87,7 @@ export function MainLayout() {
 
   return (
     // Add "sidebar-collapsed" class to the root so CSS can respond to it. The
-    // menu style itself is `data-nav-style` on <html>, set by ThemeProvider.
+    // colourway itself is `data-nav-style` on <html>, set by ThemeProvider.
     <div className={`main-layout ${isCollapsed ? "sidebar-collapsed" : ""}`}>
       <Sidebar isOpen={drawerOpen} onClose={closeSidebar} isCollapsed={isCollapsed} onToggleCollapse={toggleCollapse} isDesktop={!isDrawer} />
 

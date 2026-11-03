@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { CategorySeries, FlowLink, FlowNode, MonthPace, WaterfallStep } from "../analyticsUtils";
 import type { Payee } from "../../transactions/transactionInsights";
 import { ChartDetails, DetailsTable, type DetailsColumn } from "./DetailsTable";
-import { signedWith, weekdayNames } from "./chartTheme";
+import { amountWith, signedPercent, signedWith, weekdayNames } from "./chartTheme";
 import CategorySparklines from "./CategorySparklines";
 import MonthWaterfall from "./MonthWaterfall";
 import WeekdayChart from "./WeekdayChart";
@@ -43,7 +43,7 @@ export function SparklinesDetails({ rows, nameFor, formatCurrency }: { rows: Cat
       numeric: true,
       // Spending rising is the bad direction; a tenth either way is noise, as on the card.
       tone: (r) => (Math.abs(r.trend) > 0.1 ? -r.trend : undefined),
-      cell: (r) => (Math.abs(r.trend) > 0.1 ? `${r.trend > 0 ? "+" : "−"}${Math.round(Math.abs(r.trend) * 100)}%` : "—"),
+      cell: (r) => (Math.abs(r.trend) > 0.1 ? signedPercent(r.trend * 100) : "—"),
     },
   ];
   return (
@@ -72,7 +72,7 @@ export function WaterfallDetails({ steps, nameFor, formatCurrency }: { steps: Wa
       cell: (r) => `${r.kind === "expense" || r.kind === "savings" || r.kind === "goals" || r.amount < 0 ? "−" : "+"}${formatCurrency(Math.abs(r.amount))}`,
     },
     { key: "share", label: t("analytics.details.ofIncome"), numeric: true, cell: (r) => (income > 0 ? percent((Math.abs(r.amount) / income) * 100) : "—") },
-    { key: "left", label: t("analytics.waterfall.left"), numeric: true, secondary: true, cell: (r) => (r.kind === "expense" || r.kind === "savings" || r.kind === "goals" ? formatCurrency(r.balance) : "") },
+    { key: "left", label: t("analytics.waterfall.left"), numeric: true, secondary: true, cell: (r) => (r.kind === "expense" || r.kind === "savings" || r.kind === "goals" ? amountWith(formatCurrency)(r.balance) : "") },
   ];
   return (
     <ChartDetails

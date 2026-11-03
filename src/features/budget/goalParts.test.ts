@@ -59,3 +59,27 @@ describe("parts as they are typed", () => {
     expect(draftProblem({ id: "x", label: "House", min: "150", max: "200" })).toBeUndefined();
   });
 });
+
+// The demo's trip to Sifnos (item 43): ferry 120–160, rooms 600–760, food
+// 200–280. Seven months of 80 and the friend's 160 for the ferry make 720 —
+// and the ferry shows 120/160, because the rule fills by order, not by who paid.
+describe("the demo trip", () => {
+  const TRIP: GoalPart[] = [
+    { id: "part-ferry", label: "Ferry", min: 120, max: 160 },
+    { id: "part-rooms", label: "Rooms", min: 600, max: 760 },
+    { id: "part-food", label: "Food", min: 200, max: 280 },
+  ];
+
+  it("at 720 meets the ferry's and the rooms' «from» and leaves food empty", () => {
+    expect(fillParts(TRIP, 7 * 80 + 160).map((f) => f.filled)).toEqual([120, 600, 0]);
+  });
+
+  it("goes past any «from» only once every «from» (920) is met", () => {
+    expect(fillParts(TRIP, 920).map((f) => f.filled)).toEqual([120, 600, 200]);
+    expect(fillParts(TRIP, 1000).map((f) => f.filled)).toEqual([160, 640, 200]);
+    // A second way: whatever is in, the parts hold it, up to the «έως» total.
+    for (const saved of [0, 300, 720, 920, 1000, 1200, 1500]) {
+      expect(fillParts(TRIP, saved).reduce((s, f) => s + f.filled, 0)).toBe(Math.min(saved, 1200));
+    }
+  });
+});

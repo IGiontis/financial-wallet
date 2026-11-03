@@ -34,7 +34,8 @@ import { BankCard, NoCard } from "./BankCard";
 import AccountSheet from "./AccountSheet";
 import cardStyles from "./css/BankCard.module.css";
 import CheckInModal from "./CheckInModal";
-import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
+import { useCategories } from "../transactions/hooks/useTransactions";
+import { toISODay } from "../../shared/utils/dates";
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import { CushionCard } from "./CushionCard";
 import styles from "./css/AccountsPage.module.css";
@@ -62,10 +63,9 @@ export function AccountsPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
-  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, legacy, isLoading } = useMoneyAccounts();
+  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, isLoading } = useMoneyAccounts();
   // For writing down what a difference turned out to be, from inside the reading.
   const { data: categories = [] } = useCategories();
-  const createTransaction = useCreateTransaction();
   const deleteGuard = useOfflineGuard("delete");
 
   const [reading, setReading] = useState(false);
@@ -395,7 +395,7 @@ export function AccountsPage() {
           baseCurrency={baseCurrency}
           formatCurrency={formatCurrency}
           categories={categories}
-          onAddRecord={createTransaction.mutateAsync}
+          earliest={latest ? toISODay(latest.at) : undefined}
           onSave={(amounts) => {
             record(amounts);
             setReading(false);
@@ -454,7 +454,6 @@ export function AccountsPage() {
               readings.map((r) => (r.checkIn.id === fixing.checkIn.id ? { ...r.checkIn, amounts } : r.checkIn)),
               accounts,
               transactions,
-              legacy,
             ).find((r) => r.checkIn.id === fixing.checkIn.id)?.unlogged
           }
           onSave={(amounts) => {

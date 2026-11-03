@@ -4,273 +4,21 @@
    inside the dark theme. */
 @import "react-datepicker/dist/react-datepicker.css";
 
+@import "./styles/tokens.css";
+@import "./styles/shape.css";
+@import "./styles/theme.css";
+
 /* ============================================================================
-   MyFiWallet — Design tokens & base styles
-   Bootstrap-first: we drive Bootstrap 5.3's native colour modes via
-   [data-bs-theme] and layer our own tokens on top. Every component references
-   these via var(--token); this file is the single source of truth.
+   MyFiWallet — base styles that are not themed by a token alone.
+
+   The palettes (styles/tokens.css), the shape and spacing scale
+   (styles/shape.css) and the theme layer that wires Bootstrap and the older
+   --color-* names to them (styles/theme.css) are imported above; this file
+   keeps what remains: the tone scale, the dialogs' layout, the date picker,
+   skeletons and scrollbars.
    ============================================================================ */
 
-/* ── Light theme (default) ────────────────────────────────────────────────── */
-:root,
-[data-bs-theme="light"] {
-  /* «Αιγαίο». Surfaces — white cards on a page with a breath of blue in it,
-     told apart by a hairline rather than by a grey ground. The page used to be
-     a flat #e8ecf1, and every card on it the same white box: an admin
-     template, with nothing on the screen any heavier than anything else. */
-  --color-background-primary: #f4f7fb; /* app / page background            */
-  --color-background-secondary: #eef3fa; /* insets, inputs, subtle fills     */
-  --color-surface: #ffffff; /* cards / panels                                */
-  --color-surface-raised: #ffffff;
-
-  /* Text — a blue-black and a slate blue, of the same family as the accent. */
-  --color-text-primary: #132238;
-  /* Darker than it looks like it needs to be. At #52627a it measured 5.23:1 —
-     past the 4.5 AA floor and still washed out, because it carries 42 of the
-     95 pieces of text on the planner at sizes down to 10.5px. Small text is
-     where AA is least generous and AAA's 7:1 earns its keep. */
-  /* 7.2:1 on white, 6.7:1 on the page. */
-  --color-text-secondary: #3d5a80;
-
-  /* Borders */
-  --color-border-primary: #9db2ce;
-  --color-border-tertiary: #dce6f2;
-
-  /* The selected half of a segmented control. Needs its own token because the
-     two themes want opposite things: on a light track the pill stays white and
-     an edge does the marking, while on a dark one only a lighter fill reads.
-     Left to one rule, the selected tab measured 1.02:1 against its track and
-     was, correctly, reported as unreadable. */
-  /* Tabs — every set of them reads these: the shared Segmented control and the
-     few with markup of their own (the Bills and Goals view switches). On white
-     each tab is a tab of its own, with an edge; the chosen one takes the menu
-     style's colour, set per style in navStyles.css — Α's blue edge here. */
-  /* A tab that is not chosen sits a shade under the white around it, with an
-     edge you can see: white tabs with a #dce6f2 hairline measured 1.26:1 on a
-     card and read as no control at all. Text on them 6:1. */
-  --segment-track: transparent;
-  --segment-pad: 0;
-  --segment-gap: 6px;
-  --segment-item: #e6edf6;
-  --segment-item-border: #9fb3cd; /* 2.1:1 on white */
-  --segment-item-hover-border: #7f97b8; /* 3:1 */
-  --color-segment-active: #ffffff;
-  --color-segment-active-border: #1f5fbf;
-  --color-segment-active-text: #0f3d7a;
-  /* The small view switch (ViewSwitch): an outline and a tint, never a page tab's fill. */
-  --view-switch-border: #97abc6; /* 2.3:1 on white; was 1.47 */
-  --view-switch-on: #d3e2f7;
-  --view-switch-on-text: #0f3d7a;
-
-  /* The brand: buttons, checked boxes, focus. One set of tokens so a menu
-     style can bring its own (navStyles.css) without restating every rule. */
-  --brand: #1f5fbf;
-  --brand-rgb: 31, 95, 191;
-  --brand-hover: #1a52a6;
-  --brand-active: #164689;
-  --brand-text: #0f3d7a;
-  --brand-subtle: #e3ecf8;
-  --brand-border-subtle: #b7cbe8;
-  --brand-focus-border: #8fb0de;
-  --color-link-rgb: 26, 85, 173;
-  --color-link-hover: #0f3d7a;
-  --color-link-hover-rgb: 15, 61, 122;
-
-  /* The top bar, and what a control on it lights up with. White by default;
-     a menu style may tint it (navStyles.css). */
-  --topbar-bg: #ffffff;
-  --topbar-border: var(--color-border-tertiary);
-  --topbar-hover: var(--color-background-secondary);
-
-  /* Elevation — shadows in the accent's own deep blue, not a neutral grey. */
-  --shadow-sm: 0 1px 2px rgba(15, 61, 122, 0.06);
-  --shadow-md: 0 4px 14px rgba(15, 61, 122, 0.07);
-  --shadow-lg: 0 12px 32px rgba(15, 61, 122, 0.1);
-
-  /* Sidebar */
-  --sidebar-bg: #212936;
-  --sidebar-text: #e6ebf2;
-
-  /* Semantic accents — a deep green and a brick red, of the Aegean palette's
-     weight. The old #16a34a measured 3.3:1 on white and every wash and bar made
-     from it read as washed out; this green is 4.6:1, the red 5.5:1. */
-  --color-income: #12855a;
-  --color-expense: #c4302b;
-  --color-invest: #6366f1;
-  --color-goal: #d97706;
-
-  /* How strong the edge of an amber question block is (UnconfirmedQuestion) —
-     mixed from the *-text variant rather than the accent: even at full strength
-     the accent amber reaches only 2.98:1 on white, under the 3:1 a boundary
-     needs to count as visible. Every other tint comes from the tone scale
-     («Tones» below). */
-  --tint-border: 85%;
-
-  /* The same meanings, dark enough to be *text* on a light surface.
-     The accents above are picked to read as fills, chips and chart strokes,
-     where a shape carries the colour. As lettering on white they fall short:
-     the green measures 3.3:1 and the amber 2.98:1, against the 4.5:1 that body
-     text needs. Anything that spells a figure out uses these instead. */
-  /* Blue as *lettering*. `--bs-primary` is a fill colour: on a dark card it
-     measures 3.39:1, which is why "All off" and "Add a line" were the one
-     thing hard to read in the theme that is otherwise the good one. */
-  --color-link: #1a55ad;
-
-  /* The colour an ordinary row's figure takes.
-     On dark, a faint green or red on each line reads as a quiet signal. On
-     white the same tint reads as washed-out ink — so in daylight a row is
-     simply black, and the red is kept for the one line that means something
-     went wrong: the payment the balance breaks on. Colour that appears on
-     every row cannot also mark the row that matters. */
-  --figure-income: var(--color-text-primary);
-  --figure-expense: var(--color-text-primary);
-
-  /* An amount drawn as a chip in a list. On white, a pale wash behind pale
-     lettering was the washed-out look; so in daylight there is no wash, money
-     in is the deep green and money out is plain ink with its minus sign. */
-  --figure-chip-wash: 0%;
-  --figure-chip-income: var(--color-income-text);
-  --figure-chip-expense: var(--color-text-primary);
-  --figure-chip-goal: var(--color-goal-text);
-  --figure-chip-invest: var(--color-invest-text);
-
-  /* Text-safe versions of the semantic colours: the solid ones are tuned for
-     fills and strokes, and several of them are too light to read as text. */
-  --color-invest-text: #4338ca;
-  --color-income-text: #0e6b45;
-  --color-expense-text: #9b1c22;
-  --color-goal-text: #92400e;
-  /* Owed but not late yet — a bill still to pay. Orange, between the paid
-     green and the late red, and off the cadence badges' blue beside it. */
-  --color-pending: #ea580c;
-  --color-pending-text: #9a3412;
-
-  /* The dashboard's charts: money in, money out, what is kept. Teal, coral and
-     indigo rather than the green and red of the figures elsewhere — those two
-     sit 5 ΔE apart for the most common colour blindness, where a chart that
-     is all lines needs 8 or more. Text keeps green and red. */
-  --chart-income: #0e9f8b;
-  --chart-expense: #e4573d;
-  --chart-net: #5560d8;
-  --color-tooltip-bg: #132238;
-  --color-tooltip-text: #ffffff;
-
-  /* Strong colour for selected days / active pills, and its soft tint: the
-     deep Aegean blue the money card is filled with. */
-  --color-accent-strong: #0f3d7a;
-  --color-accent-soft: #e3ecf8;
-  --color-accent-on-strong: #ffffff;
-
-  /* Scrollbar thumb, at rest and under the pointer — see "Scrollbars" below. */
-  /* 3:1 on the page and on a card — the floor for a control to count as seen.
-     At 0.32 it measured 1.6:1 and was, fairly, reported as not there. */
-  --scrollbar-thumb: rgba(61, 90, 128, 0.65);
-  --scrollbar-thumb-hover: rgba(61, 90, 128, 0.85);
-  /* Over a dialog's dimmed backdrop — what a dialog taller than the screen
-     scrolls on. The blue-grey thumb was 1.4:1 there; white is 3.5:1. */
-  --scrollbar-thumb-backdrop: rgba(255, 255, 255, 0.85);
-  --scrollbar-thumb-backdrop-hover: #ffffff;
-}
-
-/* ── Dark theme ───────────────────────────────────────────────────────────── */
-[data-bs-theme="dark"] {
-  /* Softer, slightly warmer charcoal — less "navy blue", easier on the eyes.
-     Each surface step is a clear lift so cards read as raised, not flat. */
-  --color-background-primary: #14181e; /* page background               */
-  --color-background-secondary: #1e242c; /* insets, inputs                */
-  --color-surface: #1f262f; /* cards — lifted above the page */
-  --color-surface-raised: #262e39; /* dropdowns, modals, popovers   */
-
-  --color-text-primary: #eef2f7;
-  --color-text-secondary: #adbbca; /* ~7:1 on the dark surfaces — comfortably readable */
-
-  --color-border-primary: #3b4654;
-  --color-border-tertiary: #2d3641;
-
-  /* See the light theme for why this is a token. */
-  /* A track a step lighter than the card (it was 1.02:1 against it — not
-     there), the chosen tab lighter again with an edge of 4.3:1 on the track. */
-  --segment-track: #2a323d;
-  --segment-pad: 4px;
-  --segment-gap: 4px;
-  --segment-item: transparent;
-  --segment-item-border: transparent;
-  --segment-item-hover-border: transparent;
-  --color-segment-active: #566170;
-  --color-segment-active-border: #8a96a6;
-  --color-segment-active-text: var(--color-text-primary); /* 5.6:1 */
-  --view-switch-border: #4b5666; /* 2:1 on the card */
-  --view-switch-on: #334a6e;
-  --view-switch-on-text: #d6e6ff; /* 7.1:1 */
-
-  --topbar-bg: var(--color-surface);
-  --topbar-border: var(--color-border-tertiary);
-  --topbar-hover: var(--color-background-secondary);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
-
-  --sidebar-bg: #191f26;
-  --sidebar-text: #dde5ee;
-
-  /* Brighter accents so they stay legible on dark surfaces */
-  --color-income: #4ade80;
-  --color-expense: #f87171;
-  --color-invest: #a5b4fc;
-  --color-goal: #fbbf24;
-
-  /* A dark surface takes colour far more readily, so the same wash needs less
-     of it before it starts to glow. */
-  --tint-border: 26%;
-
-  /* On dark these already clear 4.5:1 as text, so the text variants are the
-     accents themselves rather than a second set to keep in step. */
-  --color-link: #6ea8fe;
-
-  /* Dark keeps the tinted rows — see the note on the light values. */
-  --figure-income: color-mix(in srgb, var(--color-income-text) 62%, var(--color-text-primary));
-  --figure-expense: color-mix(in srgb, var(--color-expense-text) 62%, var(--color-text-primary));
-
-  --color-invest-text: #a5b4fc;
-  --color-income-text: #4ade80;
-  --color-expense-text: #f87171;
-  --color-goal-text: #fbbf24;
-  --color-pending: #fb923c;
-  --color-pending-text: #fdba74;
-
-  --chart-income: #16a08b;
-  --chart-expense: #e05e48;
-  --chart-net: #7881ea;
-  --color-tooltip-bg: #263141;
-  --color-tooltip-text: #f1f5f9;
-
-  /* On dark, the "strong" accent inverts to a light chip so it still reads as selected */
-  --color-accent-strong: #dbe4f0;
-  --color-accent-soft: #2c3949;
-  --color-accent-on-strong: #10161f;
-
-  /* 3.2:1 on the page, 3:1 on a card. */
-  --scrollbar-thumb: rgba(173, 187, 202, 0.5);
-  --scrollbar-thumb-hover: rgba(173, 187, 202, 0.72);
-  /* The dark page under the backdrop is dark already: the usual thumb holds 3.2:1. */
-  --scrollbar-thumb-backdrop: rgba(173, 187, 202, 0.5);
-  --scrollbar-thumb-backdrop-hover: rgba(173, 187, 202, 0.72);
-
-  /* Chips in a list: the faint wash of the accent, lettered in it — on dark it reads as a quiet signal. */
-  --figure-chip-wash: 16%;
-  --figure-chip-income: var(--color-income);
-  --figure-chip-expense: var(--color-expense);
-  --figure-chip-goal: var(--color-goal);
-  --figure-chip-invest: var(--color-invest);
-}
-
-/* ── Shared (theme-independent) ───────────────────────────────────────────── */
 :root {
-  --border-radius-sm: 6px;
-  --border-radius-md: 10px;
-  --border-radius-lg: 14px;
-
   /* A figure and what it is, as steps of the app's own type scale — Bootstrap's
      body size, so they move with it. The name is read first and the amount
      after it: a small grey capital label under a 2rem number had people
@@ -303,7 +51,7 @@
    leads with a figure (Overview, «Πάγια», «Έσοδα», «Τράπεζες»). */
 .stat-head {
   margin: 0 0 0.625rem;
-  padding-bottom: 0.5rem;
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-tertiary);
   color: var(--color-text-primary);
   font-size: var(--stat-label-size);
@@ -329,13 +77,17 @@
    quiet signal and can carry more. */
 :root,
 [data-bs-theme="light"] {
-  --tone-wash: 6%;
-  --tone-wash-strong: 14%;
+  --tone-wash: 4%;
+  --tone-wash-strong: 6%;
 }
 
+/* Lower than they were (16% and 26%, then 10% and 16%): a stronger wash lifts
+   the ground under a chip until the lettering on it — now the owner's one red
+   and one green, the same colour as the wash itself — falls under AA. In
+   daylight the same reason holds the washes at 4% and 6% (contrast.test.ts). */
 [data-bs-theme="dark"] {
-  --tone-wash: 16%;
-  --tone-wash-strong: 26%;
+  --tone-wash: 8%;
+  --tone-wash-strong: 11%;
 }
 
 :root,
@@ -385,182 +137,6 @@
   --pending-fill: color-mix(in srgb, var(--color-pending) var(--tone-fill), transparent);
   --pending-edge: color-mix(in srgb, var(--color-pending) var(--tone-edge), transparent);
   --pending-edge-strong: color-mix(in srgb, var(--color-pending) var(--tone-edge-strong), transparent);
-}
-
-/* Bootstrap's own success / danger / warning — its badges, alerts and
-   `text-success` — in the light theme's green, red and amber, from the same
-   scale, so a Bootstrap badge and one of ours never disagree. */
-[data-bs-theme="light"] {
-  --bs-success: #12855a;
-  --bs-success-rgb: 18, 133, 90;
-  --bs-success-text-emphasis: #0e6b45;
-  --bs-success-bg-subtle: var(--income-wash-strong);
-  --bs-success-border-subtle: var(--income-edge);
-  --bs-danger: #c4302b;
-  --bs-danger-rgb: 196, 48, 43;
-  --bs-danger-text-emphasis: #9b1c22;
-  --bs-danger-bg-subtle: var(--expense-wash-strong);
-  --bs-danger-border-subtle: var(--expense-edge);
-  --bs-warning-text-emphasis: #92400e;
-  --bs-warning-bg-subtle: var(--goal-wash-strong);
-  --bs-warning-border-subtle: var(--goal-edge);
-}
-
-/* ── Bootstrap bridge ─────────────────────────────────────────────────────── */
-/* Point Bootstrap's own variables at our tokens so every Bootstrap component
-   (cards, inputs, dropdowns, modals, tables…) themes automatically. */
-:root,
-[data-bs-theme="light"],
-[data-bs-theme="dark"] {
-  --bs-body-bg: var(--color-background-primary);
-  --bs-body-color: var(--color-text-primary);
-  --bs-emphasis-color: var(--color-text-primary);
-  --bs-secondary-color: var(--color-text-secondary);
-  --bs-border-color: var(--color-border-tertiary);
-
-  --bs-card-bg: var(--color-surface);
-  --bs-card-border-color: var(--color-border-tertiary);
-  --bs-card-cap-bg: var(--color-surface);
-
-  --bs-modal-bg: var(--color-surface-raised);
-  --bs-dropdown-bg: var(--color-surface-raised);
-  --bs-dropdown-color: var(--color-text-primary);
-  --bs-dropdown-link-color: var(--color-text-primary);
-  --bs-dropdown-link-hover-bg: var(--color-background-secondary);
-  --bs-dropdown-link-hover-color: var(--color-text-primary);
-  --bs-dropdown-border-color: var(--color-border-tertiary);
-
-  --bs-tertiary-bg: var(--color-background-secondary);
-  --bs-secondary-bg: var(--color-background-secondary);
-}
-
-/* ── Dropdown menus ───────────────────────────────────────────────────────── */
-/* Always a solid raised surface (never transparent), with room to breathe. */
-.dropdown-menu {
-  background-color: var(--color-surface-raised);
-  border-color: var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-lg);
-  /* Never taller than the viewport — scroll inside instead of off-screen */
-  max-height: min(70vh, 420px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* Never wider than the screen — an overflowing menu was pushing the page
-     sideways and creating a horizontal scrollbar. */
-  max-width: calc(100vw - 1rem);
-  /* Above the sidebar (1050) and the modal (1055). The menus are rendered on
-     the body now, so one that was opened from a row must still draw over the
-     chrome it was opened from. */
-  z-index: 1060;
-}
-
-/* A row menu is rendered on the body and positioned from there.
- *
- * This used to be pinned in CSS — `position: absolute !important` with a fixed
- * inset — to stop the last column's menu opening off the right of the screen.
- * It worked on the card grid and then broke the moment a menu appeared inside a
- * container that clips: an absolutely positioned box is cut by any ancestor
- * with `overflow: hidden`, and the pin left Popper no way to move it back into
- * view. Worse, the `!important` beat Popper's own inline styles, so the
- * `preventOverflow` and `flip` modifiers next door were computing a placement
- * that was then thrown away — the menu had no escape and no fallback.
- *
- * The menus now pass `container="body"` and `strategy="fixed"`, which takes
- * them out of every clipping ancestor and positions them against the viewport.
- * Popper's modifiers run for real, so the right-edge case is handled by
- * `preventOverflow` rather than by a rule that guesses. All that is left here is
- * a gap under the toggle and a layer above the sidebar.
- */
-/* Nothing is left to pin here: a `.card-row-menu .dropdown-menu` selector no
-   longer matches anything, because the wrapper stays in the row and the menu
-   does not. The layer it needed belongs on every menu instead, above. */
-
-.dropdown-item {
-  color: var(--color-text-primary);
-  min-height: 44px; /* comfortable touch target */
-  display: flex;
-  align-items: center;
-}
-
-.dropdown-item:hover,
-.dropdown-item:focus {
-  background-color: var(--color-background-secondary);
-  color: var(--color-text-primary);
-}
-
-/* ── Tables ───────────────────────────────────────────────────────────────── */
-/* Bootstrap tables are transparent by default, so they showed the grey page
-   colour through. Pin them to the card surface in both themes. */
-.table {
-  --bs-table-bg: var(--color-surface);
-  --bs-table-color: var(--color-text-primary);
-  --bs-table-border-color: var(--color-border-tertiary);
-  --bs-table-striped-bg: var(--color-background-secondary);
-  --bs-table-striped-color: var(--color-text-primary);
-  --bs-table-hover-bg: var(--color-background-secondary);
-  --bs-table-hover-color: var(--color-text-primary);
-}
-
-.table > :not(caption) > * > * {
-  background-color: var(--bs-table-bg);
-  color: var(--bs-table-color);
-}
-
-/* ── Light-variant buttons & badges ───────────────────────────────────────── */
-/* Bootstrap's `.btn-light` / `.badge.bg-light` are fixed near-white and do not
-   follow colour modes, so they stayed glaringly white in dark mode. Re-point
-   them at the token surfaces. */
-[data-bs-theme="dark"] .btn-light {
-  --bs-btn-bg: var(--color-background-secondary);
-  --bs-btn-color: var(--color-text-primary);
-  --bs-btn-border-color: var(--color-border-primary);
-  --bs-btn-hover-bg: var(--color-surface-raised);
-  --bs-btn-hover-color: var(--color-text-primary);
-  --bs-btn-hover-border-color: var(--color-border-primary);
-  --bs-btn-active-bg: var(--color-surface-raised);
-  --bs-btn-active-color: var(--color-text-primary);
-  --bs-btn-disabled-bg: var(--color-background-secondary);
-  --bs-btn-disabled-color: var(--color-text-secondary);
-  --bs-btn-disabled-border-color: var(--color-border-tertiary);
-}
-
-/* Bootstrap's outline-secondary keeps its fixed #6c757d in dark mode, which is
-   2.92:1 on a raised surface — the Cancel button of every dialog sitting just
-   under the readable line. The token grey is 7:1, and the border is mixed down
-   from it so it stays a boundary rather than becoming a second focus ring. */
-[data-bs-theme="dark"] .btn-outline-secondary {
-  --bs-btn-color: var(--color-text-secondary);
-  --bs-btn-border-color: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
-  --bs-btn-hover-bg: var(--color-background-secondary);
-  --bs-btn-hover-color: var(--color-text-primary);
-  --bs-btn-hover-border-color: var(--color-text-secondary);
-  --bs-btn-active-bg: var(--color-background-secondary);
-  --bs-btn-active-color: var(--color-text-primary);
-  --bs-btn-disabled-color: var(--color-text-tertiary, var(--color-text-secondary));
-}
-
-[data-bs-theme="dark"] .badge.bg-light,
-[data-bs-theme="dark"] .badge.text-bg-light {
-  background-color: var(--color-background-secondary) !important;
-  color: var(--color-text-primary) !important;
-}
-
-/* `.text-dark` is used to force readable text on light badges — in dark mode
-   that lands as near-black on a dark chip. */
-[data-bs-theme="dark"] .badge.text-dark {
-  color: var(--color-text-primary) !important;
-}
-
-/* ── Modals ───────────────────────────────────────────────────────────────── */
-.modal-content {
-  background-color: var(--color-surface-raised);
-  border-color: var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-}
-
-.modal-header,
-.modal-footer {
-  border-color: var(--color-border-tertiary);
 }
 
 /* ── Which way the money goes ─────────────────────────────────────────────── */
@@ -682,84 +258,6 @@
   }
 }
 
-/* ── Form controls ────────────────────────────────────────────────────────── */
-/* Bootstrap's .form-control defaults to --bs-body-bg, which is our grey page
-   colour — that made inputs blend into the background. Inputs must sit on the
-   surface colour so they read as distinct, tappable fields in both themes. */
-.form-control,
-.form-select,
-.input-group-text {
-  background-color: var(--color-surface);
-  border-color: var(--color-border-primary);
-  color: var(--color-text-primary);
-}
-
-.form-control:focus,
-.form-select:focus {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-}
-
-.form-control::placeholder {
-  color: var(--color-text-secondary);
-  opacity: 0.8;
-}
-
-/* Disabled / readonly fields fall back to the muted inset colour */
-.form-control:disabled,
-.form-control[readonly],
-.form-select:disabled {
-  background-color: var(--color-background-secondary);
-  color: var(--color-text-secondary);
-}
-
-/* ── Base ─────────────────────────────────────────────────────────────────── */
-
-html {
-  background-color: var(--color-background-primary);
-  -webkit-text-size-adjust: 100%;
-}
-
-body {
-  margin: 0;
-  background-color: var(--color-background-primary);
-  color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Cards: crisp white surface, subtle lift off the grey page */
-.card {
-  background-color: var(--color-surface);
-  border-color: var(--color-border-tertiary);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Smooth theme transition (respects reduced-motion) */
-@media (prefers-reduced-motion: no-preference) {
-  body,
-  .card,
-  .modal-content,
-  .dropdown-menu {
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      color 0.2s ease;
-  }
-}
-
-/* Focus rings that match the brand */
-:focus-visible {
-  outline: 2px solid var(--bs-primary, #0d6efd);
-  outline-offset: 2px;
-}
-
-/* Sidebar hover effect */
-.hover-bg-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
 /* ── Date picker ───────────────────────────────────────────────────────────── */
 /* react-datepicker ships a fixed light stylesheet: white paper, #216ba5 blue,
    grey borders. Left alone it is a bright rectangle punched into the dark
@@ -783,7 +281,7 @@ body {
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  box-shadow: var(--shadow-lg);
   color: var(--color-text-primary);
 }
 
@@ -839,7 +337,7 @@ body {
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
   background-color: var(--bs-primary);
-  color: #fff;
+  color: var(--on-brand);
 }
 
 .react-datepicker__day--selected:hover,
@@ -885,7 +383,7 @@ body {
 .react-datepicker__month-text--keyboard-selected,
 .react-datepicker__month--selected {
   background-color: var(--bs-primary);
-  color: #fff;
+  color: var(--on-brand);
 }
 
 .react-datepicker__month-text--selected:hover,
@@ -920,7 +418,7 @@ body {
   display: flex;
   justify-content: center;
   gap: 6px;
-  padding-bottom: 4px;
+  padding-bottom: var(--space-1);
 }
 
 .react-datepicker__month-select,
@@ -929,7 +427,7 @@ body {
   border: 1px solid var(--color-border-primary);
   border-radius: var(--border-radius-sm);
   color: var(--color-text-primary);
-  padding: 2px 4px;
+  padding: var(--space-0) var(--space-1);
 }
 
 /* Clear button (the From/To range fields). The library draws it as a hard-coded
@@ -973,7 +471,7 @@ body {
     transform: none !important;
     display: flex;
     justify-content: center;
-    padding: 0 12px 12px;
+    padding: 0 var(--space-3) var(--space-3);
   }
 
   .react-datepicker {
@@ -1044,7 +542,7 @@ body {
       background-color: var(--scrollbar-thumb);
       background-clip: padding-box;
       border: 2px solid transparent;
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       min-height: 32px;
       min-width: 32px;
     }
@@ -1103,7 +601,7 @@ body {
 .react-datepicker__month-text--in-range:not([aria-disabled="true"]):hover,
 .react-datepicker__year-text--selected:not([aria-disabled="true"]):hover {
   background-color: var(--bs-primary);
-  color: #fff;
+  color: var(--on-brand);
   filter: brightness(1.08);
 }
 
@@ -1112,68 +610,6 @@ body {
    as Google allows, with its line shown instead — see `RecaptchaNotice`. */
 .grecaptcha-badge {
   visibility: hidden;
-}
-
-/* ── «Αιγαίο»: the light theme's own blue ────────────────────────────────────
-   Bootstrap's stock #0d6efd was the one colour the light theme had not chosen.
-   Light only: the dark theme keeps Bootstrap's blue — except under a menu
-   style that brings a brand of its own for the dark theme too (Α's «Πεύκο»,
-   navStyles.css), which these rules then read from the same tokens.
-   White on #1f5fbf is 6.4:1. */
-[data-bs-theme="light"],
-:root[data-bs-theme="dark"][data-nav-style="a"] {
-  --bs-primary: var(--brand);
-  --bs-primary-rgb: var(--brand-rgb);
-  --bs-primary-text-emphasis: var(--brand-text);
-  --bs-primary-bg-subtle: var(--brand-subtle);
-  --bs-primary-border-subtle: var(--brand-border-subtle);
-  --bs-link-color: var(--color-link);
-  --bs-link-color-rgb: var(--color-link-rgb);
-  --bs-link-hover-color: var(--color-link-hover);
-  --bs-link-hover-color-rgb: var(--color-link-hover-rgb);
-  --bs-focus-ring-color: rgba(var(--brand-rgb), 0.25);
-}
-
-[data-bs-theme="light"] .btn-primary,
-:root[data-bs-theme="dark"][data-nav-style="a"] .btn-primary {
-  --bs-btn-bg: var(--brand);
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-bg: var(--brand-hover);
-  --bs-btn-hover-border-color: var(--brand-hover);
-  --bs-btn-active-bg: var(--brand-active);
-  --bs-btn-active-border-color: var(--brand-active);
-  --bs-btn-disabled-bg: var(--brand);
-  --bs-btn-disabled-border-color: var(--brand);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
-}
-
-[data-bs-theme="light"] .btn-outline-primary,
-:root[data-bs-theme="dark"][data-nav-style="a"] .btn-outline-primary {
-  --bs-btn-color: var(--brand-outline-text, var(--brand));
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-bg: var(--brand);
-  --bs-btn-hover-border-color: var(--brand);
-  --bs-btn-active-bg: var(--brand-hover);
-  --bs-btn-active-border-color: var(--brand-hover);
-  --bs-btn-disabled-color: var(--brand-outline-text, var(--brand));
-  --bs-btn-disabled-border-color: var(--brand);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
-}
-
-[data-bs-theme="light"] .form-check-input:checked,
-:root[data-bs-theme="dark"][data-nav-style="a"] .form-check-input:checked {
-  background-color: var(--brand);
-  border-color: var(--brand);
-}
-
-[data-bs-theme="light"] .form-control:focus,
-[data-bs-theme="light"] .form-select:focus,
-[data-bs-theme="light"] .form-check-input:focus,
-:root[data-bs-theme="dark"][data-nav-style="a"] .form-control:focus,
-:root[data-bs-theme="dark"][data-nav-style="a"] .form-select:focus,
-:root[data-bs-theme="dark"][data-nav-style="a"] .form-check-input:focus {
-  border-color: var(--brand-focus-border);
-  box-shadow: 0 0 0 0.25rem rgba(var(--brand-rgb), 0.2);
 }
 
 /* ── A total in a meaning's colour: «Χρωστάς», «Έσοδα του μήνα» ───────────────
@@ -1200,3 +636,4 @@ body {
   border-left: 4px solid var(--tile-tone);
   border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
 }
+

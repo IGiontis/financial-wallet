@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
-import { useSettingsOpening } from "../../shared/hooks/useSettingsOpening";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { ACCOUNTS_KEY, CHECK_INS_KEY, balanceAnchors, readCheckIns, type BalanceCheckIn, type MoneyAccount } from "./accountsUtils";
 
@@ -27,15 +26,14 @@ export function useMoneyAccounts({ fetch = true }: { fetch?: boolean } = {}) {
   const [storedCheckIns, setCheckIns] = useWorkspaceSetting<BalanceCheckIn[]>(CHECK_INS_KEY, []);
   // `fetch: false` — see `useTransactions`.
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions({ fetch });
-  const { opening: legacy, isLoading: openingLoading } = useSettingsOpening();
 
   // Whatever the document holds is checked before it is trusted: it is typed
   // by nobody, and one malformed entry should cost that entry, not the page.
   const accounts = useMemo(() => (Array.isArray(storedAccounts) ? storedAccounts.filter(isAccount) : []), [storedAccounts]);
   const checkIns = useMemo(() => (Array.isArray(storedCheckIns) ? storedCheckIns.filter(isCheckIn) : []), [storedCheckIns]);
 
-  const readings = useMemo(() => readCheckIns(checkIns, accounts, transactions, legacy), [checkIns, accounts, transactions, legacy]);
-  const anchors = useMemo(() => balanceAnchors(readings, transactions, legacy), [readings, transactions, legacy]);
+  const readings = useMemo(() => readCheckIns(checkIns, accounts, transactions), [checkIns, accounts, transactions]);
+  const anchors = useMemo(() => balanceAnchors(readings, transactions), [readings, transactions]);
 
   return {
     accounts,
@@ -46,7 +44,6 @@ export function useMoneyAccounts({ fetch = true }: { fetch?: boolean } = {}) {
     latest: readings.at(-1),
     anchors,
     transactions,
-    legacy,
-    isLoading: transactionsLoading || openingLoading,
+    isLoading: transactionsLoading,
   };
 }

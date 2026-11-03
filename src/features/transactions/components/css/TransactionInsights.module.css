@@ -22,7 +22,7 @@
 }
 
 .stat {
-  padding: 0.5rem 0.625rem;
+  padding: var(--space-2) 0.625rem;
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
   min-width: 0;
@@ -55,7 +55,7 @@
 /* ── Cards ────────────────────────────────────────────────────────────────── */
 
 .card {
-  padding: 0.875rem 1rem;
+  padding: 0.875rem var(--space-4);
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
   background: var(--color-surface);
@@ -157,7 +157,7 @@
   align-items: center;
   gap: 0.4375rem;
   width: 100%;
-  padding: 1px 2px;
+  padding: 1px var(--space-0);
   border: 0;
   border-radius: var(--border-radius-sm);
   background: none;
@@ -273,7 +273,7 @@
 }
 
 .bar {
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
   background: var(--color-expense);
   transition: height 0.25s ease;
   min-height: 2px;
@@ -296,14 +296,14 @@
 
 .payeeTrack {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-background-secondary);
   overflow: hidden;
 }
 
 .payeeFill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--bs-primary);
   transition: width 0.25s ease;
 }
@@ -370,7 +370,7 @@
   flex-direction: column;
   gap: 0.25rem;
   margin-bottom: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
 }
@@ -415,7 +415,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.125rem 0.75rem;
   margin: 0 0 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
   font-size: 12px;

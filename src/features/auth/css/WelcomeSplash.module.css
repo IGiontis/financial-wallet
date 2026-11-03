@@ -1,0 +1,183 @@
+/* The welcome while the app opens (WelcomeSplash): the whole screen, large
+   type, its lines coming in one after another — logo, greeting, name, the
+   date line, the bar. In the page's own roles, so light and dark and each
+   colourway look after themselves. */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  padding-top: max(var(--space-6), env(safe-area-inset-top));
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  /* Dark at the top left, easing to the page colour at the bottom right — in
+     either mode, since the shadow ink is the dark one in both. */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--shadow-ink) 18%, var(--color-background-primary)) 0%, var(--color-background-primary) 85%);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 40rem;
+  text-align: center;
+}
+
+/* ── One by one ─────────────────────────────────────────────────────────── */
+
+.step1,
+.step2,
+.step3,
+.step4,
+.step5 {
+  animation: welcome-in 0.5s ease-out both;
+  animation-delay: 0s;
+}
+
+.step2 {
+  animation-delay: 0.7s;
+}
+
+.step3 {
+  animation-delay: 1.4s;
+}
+
+.step4 {
+  animation-delay: 2.1s;
+}
+
+.step5 {
+  animation-delay: 2.8s;
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── The lines ──────────────────────────────────────────────────────────── */
+
+/* The app's mark, as on the sign-in pages: the brand, its darker step first. */
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-xxl);
+  background: linear-gradient(135deg, var(--brand-active), var(--brand));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--brand) 35%, transparent);
+  font-size: 2.5rem;
+}
+
+.greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  line-height: 1.15;
+}
+
+.lead {
+  display: block;
+  font-size: clamp(1.625rem, 6vw, 2.75rem);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* The name is never cut: it wraps, a long one onto a second line. */
+.name {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: clamp(2.5rem, 11vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.date {
+  margin: 0;
+  font-size: clamp(1rem, 3.6vw, 1.25rem);
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  margin: 0 var(--space-2);
+}
+
+/* A thin bar that says the app is on its way, without claiming how far. */
+.track {
+  position: relative;
+  width: min(14rem, 60vw);
+  height: 4px;
+  margin-top: var(--space-6);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-tertiary);
+}
+
+.bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--brand);
+  animation: welcome-bar 1.2s ease-in-out infinite;
+}
+
+@keyframes welcome-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.skip {
+  margin: var(--space-3) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* Reduced motion: everything there from the start, nothing moving, no fade.
+   The bar rests a third of the way. Tapping still closes it. */
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    transition: none;
+  }
+
+  .step1,
+  .step2,
+  .step3,
+  .step4,
+  .step5 {
+    animation: none;
+  }
+
+  .bar {
+    animation: none;
+    transform: translateX(80%);
+  }
+}

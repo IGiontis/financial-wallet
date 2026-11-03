@@ -427,6 +427,31 @@ export function currentPause(bill: Pick<Bill, "pause">, now: Date = new Date()):
   return { state: month >= bounds.from ? "paused" : "upcoming", from: monthFromNumber(bounds.from), to: monthFromNumber(bounds.to) };
 }
 
+/**
+ * Off right now or not begun: paused for the winter, stopped for good, or
+ * starting in a later month — as opposed to merely coming up. Nothing is owed
+ * on it this period, so the lists put it last and quiet, under «Σταματημένα»
+ * or «Ξεκινούν αργότερα», instead of among the bills that want money.
+ */
+export function isStoppedNow(bill: Pick<Bill, "pause" | "startsOn">, now: Date = new Date()): boolean {
+  const state = currentPause(bill, now)?.state;
+  return state === "paused" || state === "ended" || !!startsLater(bill, now);
+}
+
+/**
+ * Resting this period: off or not begun (`isStoppedNow`) AND owing nothing —
+ * nothing overdue, and this period paid or charged nothing. Only these leave
+ * «Ακόμα να πληρωθούν» for «Σταματημένα» / «Ξεκινούν αργότερα».
+ *
+ * "Stopped now" alone is not enough: a quarterly bill paused for November whose
+ * October–December period falls due on 10 December is off this month, yet that
+ * period's due date is not paused and the full amount is still owed. It stays
+ * among the bills to pay, and in their total.
+ */
+export function restingNow(bill: BillWithStatus, now: Date = new Date()): boolean {
+  return isStoppedNow(bill, now) && billOverdue(bill, now).count === 0 && (bill.isPaidThisPeriod || bill.outstandingAmount === 0);
+}
+
 // ─── Monthly-equivalent cost ────────────────────────────────────────────────
 // Normalizes every frequency AND interval to a per-month figure, so the overview
 // can total a €60 bill every 2 months alongside a €15 monthly one.

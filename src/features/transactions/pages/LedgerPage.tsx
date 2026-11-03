@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Input } from "reactstrap";
+import { Collapse, Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { PageShell } from "../../../shared/components/PageShell";
 import { SkeletonCard, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
@@ -12,9 +12,10 @@ import { useCategories, useTransactions } from "../hooks/useTransactions";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { accountOf, mainAccount } from "../../accounts/accountsUtils";
 import { useLoadMore } from "../../../shared/hooks/useLoadMore";
+import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import LedgerCategoryModal from "../components/LedgerCategoryModal";
-import { buildLedger, type LedgerCategory, type LedgerKind, type LedgerRow } from "../ledger";
+import { buildLedger, LEDGER_SIDES, toggleSide, type LedgerCategory, type LedgerRow, type LedgerSide } from "../ledger";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Ledger.module.css";
 
@@ -62,7 +63,12 @@ export function LedgerPage() {
 
   const [span, setSpan] = useState<Span>("month");
   const [offset, setOffset] = useState(0);
-  const [kind, setKind] = useState<LedgerKind>("all");
+  // Any of the three kinds, at least one; all three is «Όλα».
+  const [kinds, setKinds] = useState<readonly LedgerSide[]>(LEDGER_SIDES);
+  const allKinds = kinds.length === LEDGER_SIDES.length;
+  // «Πού πήγαν» / «Από πού ήρθαν» folded away or open, remembered on this device.
+  const [outOpen, setOutOpen] = useLocalStorage("ledger-where-out-open", true);
+  const [inOpen, setInOpen] = useLocalStorage("ledger-where-in-open", true);
   const [account, setAccount] = useState("");
   const [category, setCategory] = useState("");
   // The ids behind the name picked — one name can be an income and an expense category.
@@ -79,12 +85,12 @@ export function LedgerPage() {
   }, [span, offset, now]);
 
   const ledger = useMemo(
-    () => buildLedger(transactions, { from, to, now, kind, query, account: account || undefined, categories: categoryIds, accountOf: (tx) => accountOf(tx, accounts, main) }),
-    [transactions, from, to, now, kind, query, account, categoryIds, accounts, main],
+    () => buildLedger(transactions, { from, to, now, kinds, query, account: account || undefined, categories: categoryIds, accountOf: (tx) => accountOf(tx, accounts, main) }),
+    [transactions, from, to, now, kinds, query, account, categoryIds, accounts, main],
   );
 
   // Every change of what is shown is a new list, read from its top.
-  const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kind}|${account}|${category}|${query}`);
+  const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kinds.join(",")}|${account}|${category}|${query}`);
 
   const periodLabel = useMemo(
     () => (span === "year" ? String(from.getFullYear()) : new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(from)),
@@ -150,27 +156,40 @@ export function LedgerPage() {
     );
   };
 
-  const categoryList = (title: string, list: typeof ledger.spending, color: string, tone: string) =>
+  const categoryList = (id: string, title: string, list: typeof ledger.spending, total: number, color: string, tone: string, open: boolean, setOpen: (open: boolean) => void) =>
     list.length > 0 && (
       <section className={styles.catSection}>
-        <h2 className={styles.sideTitle}>{title}</h2>
-        {list.slice(0, 8).map((c) => {
-          const { icon, name } = categoryOf(c.categoryId);
-          return (
-            // A tap lists the records behind the line.
-            <button key={c.categoryId} type="button" className={styles.cat} onClick={() => setOpenedCategory({ entry: c, tone })}>
-              <div className={styles.catHead}>
-                <span className="text-truncate">
-                  {icon} {name} <span className={styles.catCount}>· {c.count}</span>
-                </span>
-                <span className={styles.catAmount}>{format(c.amount)}</span>
-              </div>
-              <div className={styles.catTrack}>
-                <span style={{ width: `${Math.max(c.share * 100, 2)}%`, background: color }} />
-              </div>
-            </button>
-          );
-        })}
+        {/* The whole heading folds the list (the accordion pattern: a button
+            inside the heading): the chevron opposite the title says which way
+            it is, and the row is a tap target a thumb can find. */}
+        <h2 className={styles.sideHeading}>
+          <button type="button" className={styles.sideHead} aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+            <span className={styles.sideTitle}>{title}</span>
+            <span className={styles.sideTotal}>{format(total)}</span>
+            <FiChevronDown aria-hidden className={`${styles.sideChevron} ${open ? styles.sideChevronOpen : ""}`} />
+          </button>
+        </h2>
+        <Collapse isOpen={open} id={id}>
+          <div className={styles.sideList}>
+            {list.slice(0, 8).map((c) => {
+              const { icon, name } = categoryOf(c.categoryId);
+              return (
+                // A tap lists the records behind the line.
+                <button key={c.categoryId} type="button" className={styles.cat} onClick={() => setOpenedCategory({ entry: c, tone })}>
+                  <div className={styles.catHead}>
+                    <span className={styles.catName}>
+                      {icon} {name} <span className={styles.catCount}>· {c.count}</span>
+                    </span>
+                    <span className={styles.catAmount}>{format(c.amount)}</span>
+                  </div>
+                  <div className={styles.catTrack}>
+                    <span style={{ width: `${Math.max(c.share * 100, 2)}%`, background: color }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </Collapse>
       </section>
     );
 
@@ -211,12 +230,23 @@ export function LedgerPage() {
       </div>
 
       <div className={styles.filters}>
+        {/* «Όλα» and the three kinds as chips that combine: income and
+            expenses without the moves, say. Under «Όλα» a tap on one picks it
+            alone, as the single choice always did; then each tap adds or takes
+            one away (`toggleSide`). */}
         <div className={`${segmented.group} ${styles.kinds}`} role="group" aria-label={t("ledger.kind")}>
-          {(["all", "in", "out", "moves"] as const).map((k) => (
-            <button key={k} type="button" aria-pressed={kind === k} className={`${segmented.item} ${kind === k ? segmented.active : ""}`} onClick={() => setKind(k)}>
-              {t(`ledger.kind_${k}`)}
-            </button>
-          ))}
+          <button type="button" aria-pressed={allKinds} className={`${segmented.item} ${allKinds ? segmented.active : ""}`} onClick={() => setKinds(LEDGER_SIDES)}>
+            {t("ledger.kind_all")}
+          </button>
+          {LEDGER_SIDES.map((k) => {
+            const on = !allKinds && kinds.includes(k);
+            return (
+              <button key={k} type="button" aria-pressed={on} className={`${segmented.item} ${styles.kindChip} ${on ? segmented.active : ""}`} onClick={() => setKinds((current) => toggleSide(current, k))}>
+                {on && <FiCheck aria-hidden className={styles.kindCheck} />}
+                {t(`ledger.kind_${k}`)}
+              </button>
+            );
+          })}
         </div>
         {accounts.length > 1 && (
           <Input type="select" bsSize="sm" value={account} onChange={(e) => setAccount(e.target.value)} aria-label={t("ledger.card")} className={styles.cardSelect}>
@@ -318,8 +348,8 @@ export function LedgerPage() {
         </div>
 
         <aside className={styles.side} data-tour="ledger-categories">
-          {categoryList(t("ledger.whereOut"), ledger.spending, "var(--color-expense)", "var(--color-expense-text)")}
-          {categoryList(t("ledger.whereIn"), ledger.earning, "var(--color-income)", "var(--color-income-text)")}
+          {categoryList("ledger-where-out", t("ledger.whereOut"), ledger.spending, ledger.out, "var(--color-expense)", "var(--color-expense-text)", outOpen, setOutOpen)}
+          {categoryList("ledger-where-in", t("ledger.whereIn"), ledger.earning, ledger.in, "var(--color-income)", "var(--color-income-text)", inOpen, setInOpen)}
         </aside>
       </div>
 

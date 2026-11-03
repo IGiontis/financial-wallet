@@ -4,6 +4,7 @@ import { getUser } from "../../firebase/firestore";
 import { logout } from "../../firebase/auth";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
+import { cleanDisplayName, resolveDisplayName } from "../settings/displayName";
 
 /**
  * Who is signed in, as the navigation shows them: a name, an email and two
@@ -28,13 +29,24 @@ export function useProfile() {
 
   const isGoogle = currentUser?.providerData?.[0]?.providerId === "google.com";
 
-  const displayName = isGoogle
-    ? firestoreUser?.firstName
-      ? `${firestoreUser.firstName} ${firestoreUser.lastName ?? ""}`.trim()
-      : (currentUser?.displayName ?? "")
-    : (firestoreUser?.username ?? currentUser?.email?.split("@")[0] ?? "");
+  // The name set in Settings, else Google's, else the username — see `resolveDisplayName`.
+  const custom = cleanDisplayName(firestoreUser?.displayName);
+  const displayName = resolveDisplayName({
+    custom,
+    isGoogle,
+    googleName: currentUser?.displayName,
+    firstName: firestoreUser?.firstName,
+    lastName: firestoreUser?.lastName,
+    username: firestoreUser?.username,
+    email: currentUser?.email,
+  });
 
   const initials = (() => {
+    // A name of their own choosing: its initials, not the legal name's.
+    if (custom) {
+      const words = custom.split(" ");
+      return `${Array.from(words[0])[0] ?? ""}${words.length > 1 ? (Array.from(words[words.length - 1])[0] ?? "") : ""}`.toUpperCase();
+    }
     if (firestoreUser?.firstName) return `${firestoreUser.firstName[0]}${firestoreUser.lastName?.[0] ?? ""}`.toUpperCase();
     if (currentUser?.displayName) {
       return currentUser.displayName

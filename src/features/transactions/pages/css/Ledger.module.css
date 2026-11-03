@@ -27,7 +27,7 @@
   width: 34px;
   height: 34px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
@@ -46,6 +46,17 @@
 
 .kinds {
   flex: 1 1 100%;
+}
+
+/* A kind that is on, out of «Όλα»: the tick says it combines, not replaces. */
+.kindChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.kindCheck {
+  flex-shrink: 0;
 }
 
 .cardSelect {
@@ -70,9 +81,9 @@
 .sum {
   display: flex;
   flex-direction: column;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem var(--space-3);
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   min-width: 0;
 }
@@ -88,8 +99,6 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ── List and side ── */
@@ -107,7 +116,7 @@
 .legend {
   display: flex;
   justify-content: space-between;
-  padding: 0 0.25rem 0.25rem;
+  padding: 0 var(--space-1) var(--space-1);
   font-size: 11px;
   color: var(--color-text-secondary);
 }
@@ -115,7 +124,7 @@
 .day {
   margin-bottom: 0.75rem;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   overflow: hidden;
 }
@@ -125,7 +134,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem var(--space-3);
   background: var(--color-background-secondary);
   font-size: 12px;
 }
@@ -140,6 +149,7 @@
   gap: 0.6rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .row {
@@ -148,7 +158,7 @@
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem var(--space-3);
   border: 0;
   border-top: 1px solid var(--color-border-tertiary);
   background: transparent;
@@ -165,7 +175,7 @@
 }
 
 .row:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: var(--focus-width) solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -192,12 +202,11 @@
   min-width: 0;
 }
 
+/* The record's name wraps rather than trails off: a payee cut to «Σκλαβεν…»
+   is the one word the row is there to say. */
 .desc {
   font-size: 13.5px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .meta {
@@ -211,8 +220,8 @@
 
 .card,
 .moveTag {
-  padding: 0 6px;
-  border-radius: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-border-tertiary);
   font-size: 10.5px;
   line-height: 1.5;
@@ -232,17 +241,18 @@
 }
 
 .running {
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .empty {
-  padding: 2rem 1rem;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
   color: var(--color-text-secondary);
   border: 1px dashed var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
 }
 
 /* ── Categories ── */
@@ -254,14 +264,73 @@
 }
 
 .catSection {
-  padding: 0.75rem;
+  padding: var(--space-3);
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
+/* The heading is the fold: title, the side's total, and the chevron opposite. */
+.sideHeading {
+  margin: 0;
+  font-size: inherit;
+}
+
+.sideHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: calc(100% + var(--space-2));
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.sideHead:hover {
+  background: var(--color-background-secondary);
+}
+
+.sideHead:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: -2px;
+}
+
+.sideTotal {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sideChevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+}
+
+.sideChevronOpen {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sideChevron {
+    transition: none;
+  }
+}
+
+.sideList {
+  padding-top: var(--space-2);
+}
+
 .sideTitle {
-  margin: 0 0 0.5rem;
+  min-width: 0;
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -274,9 +343,9 @@
   display: block;
   width: calc(100% + 0.7rem);
   margin: 0 -0.35rem;
-  padding: 0.25rem 0.35rem;
+  padding: var(--space-1) 0.35rem;
   border: 0;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   text-align: left;
@@ -287,7 +356,7 @@
 }
 
 .cat:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: var(--focus-width) solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -300,6 +369,10 @@
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 12.5px;
+}
+
+.catName {
+  min-width: 0;
 }
 
 .catCount {
@@ -315,7 +388,7 @@
 .catTrack {
   height: 5px;
   margin-top: 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: var(--color-background-secondary);
   overflow: hidden;
 }
@@ -323,7 +396,7 @@
 .catTrack > span {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
 }
 
 /* ── A category opened out ── */
@@ -341,11 +414,12 @@
 
 .catModalHead strong {
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .catModalList {
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 

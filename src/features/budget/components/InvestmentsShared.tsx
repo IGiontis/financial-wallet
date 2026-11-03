@@ -28,7 +28,8 @@ import i18n from "../../../i18n";
 import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
 import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, perWeek, projectedFinish, savingPace, toDate } from "./goalDisplay";
-import { GoalPartsSheet } from "./GoalPartsSheet";
+import { GoalPartsSheet, PartStages } from "./GoalPartsSheet";
+import { fillParts } from "../goalParts";
 import { GoalDetailsModal } from "./GoalDetailsModal";
 import partStyles from "./css/GoalParts.module.css";
 import styles from "./css/GoalCard.module.css";
@@ -92,7 +93,7 @@ interface FigureProps {
 
 function Figure({ label, value, tone }: FigureProps) {
   return (
-    <div style={{ flex: 1, minWidth: 0, padding: "9px 6px", textAlign: "center" }}>
+    <div style={{ flex: 1, minWidth: 0, padding: "var(--space-2) 6px", textAlign: "center" }}>
       <p
         style={{
           margin: 0,
@@ -116,23 +117,63 @@ const FIGURE_DIVIDER = <div style={{ width: 1, background: "var(--color-border-t
 
 // ─── Money tile ───────────────────────────────────────────────────────────────
 // A goal to reach once shows its money as three soft tiles — put in, left, the
-// whole — each in a wash of its own colour with its icon above the figure.
+// whole — each a small tank of its own colour with its icon above the figure.
+// «Έβαλες» fills from the bottom as money goes in, «μένουν» starts full and
+// drains as it shrinks, the whole is always full: the three read as one
+// sentence before a figure is read.
+
+type TileTone = "income" | "brand" | "invest";
+
+/** The tile's colour, and the readable lettering of it. */
+const TILE_TONE: Record<TileTone, CSSProperties> = {
+  income: { "--tile": "var(--color-income)", "--tile-text": "var(--color-income-text)" } as CSSProperties,
+  brand: { "--tile": "var(--bs-primary)", "--tile-text": "var(--brand-text)" } as CSSProperties,
+  invest: { "--tile": "var(--color-invest)", "--tile-text": "var(--color-invest-text)" } as CSSProperties,
+};
 
 interface MoneyTileProps {
   label: string;
   value: string;
   icon: IconType;
-  /** The tile's colour, a CSS colour: its wash and its icon. */
-  color: string;
+  tone: TileTone;
+  /** How full the tank is, 0–100. */
+  level: number;
 }
 
-function MoneyTile({ label, value, icon: Icon, color }: MoneyTileProps) {
+function MoneyTile({ label, value, icon: Icon, tone, level }: MoneyTileProps) {
+  const fill = Math.max(0, Math.min(level, 100));
+  // At either end there is no surface to ripple: a crest on an empty tank, or
+  // one pressed against the lid of a full one, would only be noise.
+  const surface = fill <= 0 ? "empty" : fill >= 100 ? "full" : "partial";
   return (
-    <div className={styles.tile} style={{ "--tile": color } as CSSProperties}>
+    <div className={styles.tile} data-surface={surface} style={{ ...TILE_TONE[tone], "--level": `${fill}%` } as CSSProperties}>
       <Icon className={styles.tileIcon} aria-hidden />
       <p className={styles.tileValue}>{value}</p>
       <p className={styles.tileLabel}>{label}</p>
     </div>
+  );
+}
+
+// ─── Parts at a glance ────────────────────────────────────────────────────────
+// A goal made of parts says so on its card: one thin bar cut into its parts,
+// each as wide as its «έως», solid up to its «από» and lighter above it — the
+// same two stages the sheet it opens draws row by row.
+
+function PartsGlance({ goal, onOpen }: { goal: InvestmentGoalWithStats; onOpen: () => void }) {
+  const parts = goal.parts ?? [];
+  const fills = fillParts(parts, goal.totalSaved);
+  return (
+    <button type="button" className={partStyles.glance} onClick={onOpen} aria-label={i18n.t("goals.partsShow", { name: goal.name })} title={i18n.t("goals.partsTitle")}>
+      <span className={partStyles.glanceBar} aria-hidden>
+        {fills.map(({ part, filled }) => (
+          <span key={part.id} className={partStyles.glanceSeg} style={{ flexGrow: part.max }}>
+            <PartStages min={part.min} max={part.max} filled={filled} />
+          </span>
+        ))}
+      </span>
+      <span className={partStyles.glanceLabel}>{i18n.t("goals.partsChip", { count: parts.length })}</span>
+      <FiEye size={14} aria-hidden />
+    </button>
   );
 }
 
@@ -323,11 +364,13 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   // tile of its own colour — green what is in, blue what is left (green once
   // nothing is), violet the whole — so they catch the eye before they are read.
   const reachOnce = !isRecurring && isTargetedGoal && !!goal.targetAmount;
+  // The two tanks' levels are shares of the whole: what is in, and what is left.
+  const tankOf = (amount: number) => (goal.targetAmount ? (Math.max(amount, 0) / goal.targetAmount) * 100 : 0);
   const moneyTiles: MoneyTileProps[] | undefined = reachOnce
     ? [
-        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved), icon: FiDatabase, color: "var(--color-income)" },
-        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), icon: FiClock, color: remaining <= 0 ? "var(--color-income)" : "var(--bs-primary)" },
-        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0), icon: FiTarget, color: "var(--color-invest)" },
+        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved), icon: FiDatabase, tone: "income", level: tankOf(goal.totalSaved) },
+        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), icon: FiClock, tone: remaining <= 0 ? "income" : "brand", level: tankOf(remaining) },
+        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0), icon: FiTarget, tone: "invest", level: 100 },
       ]
     : undefined;
   const askLines =
@@ -368,7 +411,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "11px 14px",
+          padding: "var(--space-3) 14px",
           background: `color-mix(in srgb, var(${accent}) 10%, transparent)`,
           borderBottom: `1px solid color-mix(in srgb, var(${accent}) 26%, transparent)`,
           // Inside the card's own border, so a pixel tighter than its radius.
@@ -380,7 +423,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           style={{
             width: 34,
             height: 34,
-            borderRadius: 17,
+            borderRadius: "var(--radius-round)",
             display: "grid",
             placeItems: "center",
             fontSize: 17,
@@ -397,12 +440,6 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             lost the name. The deadline it shared the band with is in the body. */}
         <p style={{ margin: 0, minWidth: 0, flex: 1, overflowWrap: "anywhere", fontSize: "var(--stat-card-title-size)", fontWeight: "var(--stat-label-weight)", lineHeight: 1.3, color: "var(--color-text-primary)" }}>
           {goal.name}
-          {/* A goal written as its parts: the eye opens them, each with what it holds. */}
-          {goal.parts && goal.parts.length > 0 && (
-            <button type="button" className={partStyles.eye} onClick={() => setPartsOpen(true)} aria-label={i18n.t("goals.partsShow", { name: goal.name })} title={i18n.t("goals.partsTitle")}>
-              <FiEye size={14} aria-hidden />
-            </button>
-          )}
         </p>
 
         <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
@@ -416,8 +453,8 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                padding: "3px 9px",
-                borderRadius: 999,
+                padding: "var(--space-0) var(--space-2)",
+                borderRadius: "var(--radius-pill)",
                 whiteSpace: "nowrap",
                 color: `var(${accentText})`,
                 // The card's surface rather than another tint: stacked on the
@@ -499,6 +536,9 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           <FiChevronRight className={styles.deadlineMore} aria-hidden />
         </button>
 
+        {/* A goal written as its parts: how many, and how far each has come — it opens them. */}
+        {goal.parts && goal.parts.length > 0 && <PartsGlance goal={goal} onOpen={() => setPartsOpen(true)} />}
+
         {/* ── Its money: three tiles ───────────────────────────────────────── */}
         {moneyTiles && (
           <div className={styles.tiles}>
@@ -522,7 +562,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
       )}
 
       {/* ── Actions ───────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "11px 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "var(--space-3) 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
         {!isEffectivelyCompleted && (
           <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 96 }} onClick={() => onAddDeposit(goal)}>
             {i18n.t("investments.addDeposit")}
@@ -628,7 +668,7 @@ function HistorySummaryBar({
   return (
     <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       {cells.map((c, i) => (
-        <div key={c.label} style={{ flex: 1, textAlign: "center", padding: "10px 8px", borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
+        <div key={c.label} style={{ flex: 1, textAlign: "center", padding: "10px var(--space-2)", borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
           <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{c.label}</p>
           <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: c.color }}>{c.value}</p>
         </div>
@@ -650,7 +690,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
               flex: 1,
               fontSize: 12,
               fontWeight: isActive ? 600 : 400,
-              padding: "9px 0",
+              padding: "var(--space-2) 0",
               textAlign: "center",
               background: "none",
               border: "none",
@@ -673,8 +713,8 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
   const isDeposit = contribution.contributionType === "deposit";
   const color = isDeposit ? "var(--color-income)" : "var(--color-expense)";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
-      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "var(--space-2) var(--space-4)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      <div style={{ width: 7, height: 7, borderRadius: "var(--radius-round)", background: color, flexShrink: 0 }} />
       <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 88 }}>{formatDate(toDate(contribution.date))}</span>
       <span title={contribution.notes} style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {contribution.notes || "—"}
@@ -709,11 +749,11 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
 
         {isLoading ? (
-          <div style={{ padding: "1rem" }}>
+          <div style={{ padding: "var(--space-4)" }}>
             <SkeletonRows count={4} />
           </div>
         ) : filtered.length === 0 ? (
-          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "2rem 0", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "var(--space-6) 0", fontSize: 13, margin: 0 }}>
             {t(HISTORY_EMPTY_KEYS[activeTab])}
           </p>
         ) : (
@@ -721,7 +761,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
             style={{
               maxHeight: 300,
               overflowY: "auto",
-              background: `linear-gradient(var(--color-background-primary) 30%, transparent), linear-gradient(transparent, var(--color-background-primary) 70%) bottom, linear-gradient(rgba(0,0,0,0.05), transparent), linear-gradient(transparent, rgba(0,0,0,0.05)) bottom`,
+              background: `linear-gradient(var(--surface-raised) 30%, transparent), linear-gradient(transparent, var(--surface-raised) 70%) bottom, linear-gradient(color-mix(in srgb, var(--text) 5%, transparent), transparent), linear-gradient(transparent, color-mix(in srgb, var(--text) 5%, transparent)) bottom`,
               backgroundRepeat: "no-repeat",
               backgroundSize: "100% 20px, 100% 20px, 100% 7px, 100% 7px",
               backgroundAttachment: "local, local, scroll, scroll",
@@ -739,7 +779,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
               fontSize: 11,
               color: "var(--color-text-secondary)",
               textAlign: "center",
-              padding: "6px 0 8px",
+              padding: "6px 0 var(--space-2)",
               margin: 0,
               borderTop: "0.5px solid var(--color-border-tertiary)",
             }}
@@ -748,7 +788,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
           </p>
         )}
       </ModalBody>
-      <ModalFooter style={{ padding: "10px 16px" }}>
+      <ModalFooter style={{ padding: "10px var(--space-4)" }}>
         <Button color="secondary" outline size="sm" onClick={onClose}>
           {t("common.close")}
         </Button>

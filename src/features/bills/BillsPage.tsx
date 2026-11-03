@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
-import { FiSquare, FiBarChart2, FiCalendar, FiGitCommit, FiChevronRight, FiCheck, FiGrid, FiList, FiLock } from "react-icons/fi";
+import { FiSquare, FiBarChart2, FiCalendar, FiGitCommit, FiChevronRight, FiCheck, FiGrid, FiList, FiLock, FiAward } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -49,13 +49,19 @@ import {
   settledForCards,
   willBePaidAgain,
   billsNeedingAttention,
+  isStoppedNow,
+  restingNow,
+  getIntervalCount,
+  monthlyEquivalent,
 } from "./billsUtils";
+import { billStartText } from "./billStartText";
 import { categoryLabel } from "../../shared/utils/categories";
 import { firestoreToDate, standaloneMonthName } from "../../shared/utils/dates";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import BillYearAhead from "./BillYearAhead";
+import BillYearCost from "./BillYearCost";
 import { SubPageTabs } from "../../shared/components/SubPageTabs";
 import { BillManage } from "./BillManage";
 import BillMonthTimeline from "./BillMonthTimeline";
@@ -69,12 +75,10 @@ import MonthBreakdownModal from "./MonthBreakdownModal";
 import SettleOverdueModal from "./SettleOverdueModal";
 import ActiveBillsModal from "./ActiveBillsModal";
 import RunwaySheet from "./RunwaySheet";
+import { dayTone, type DayToneInput } from "../calendar/dayTone";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../shared/components/PageShell";
-
-/** Bars in the yearly panel cycle through the semantic accents. */
-const CATEGORY_COLORS = ["var(--bs-primary)", "var(--color-goal)", "var(--color-invest)", "var(--color-income)", "var(--color-expense)"];
 
 // ─── Cash runway — how much, by when ─────────────────────────────────────────
 
@@ -100,7 +104,7 @@ function CashRunway({ checkpoints, formatCurrency, onOpen }: { checkpoints: Cash
         // strict bill somewhere in it, so keying off that would paint all three
         // amber and say nothing. The lock icon carries strictness instead.
         const daysAway = Math.round((checkpoint.date.getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
-        const color = checkpoint.overdue ? "var(--color-expense)" : daysAway <= URGENT_DAYS ? "var(--color-goal)" : "var(--color-text-primary)";
+        const color = checkpoint.overdue ? "var(--expense-text)" : daysAway <= URGENT_DAYS ? "var(--goal-text)" : "var(--color-text-primary)";
 
         return (
           // A button: which bills make the figure, and how much each, is one tap away.
@@ -110,7 +114,7 @@ function CashRunway({ checkpoints, formatCurrency, onOpen }: { checkpoints: Cash
               {formatCurrency(checkpoint.cumulative)}
             </div>
             <div className={styles.runwayNote}>
-              {checkpoint.strictCount > 0 && <FiLock size={9} className="me-1" style={{ verticalAlign: "-1px", color: "var(--color-expense)" }} aria-hidden />}
+              {checkpoint.strictCount > 0 && <FiLock size={9} className="me-1" style={{ verticalAlign: "-1px", color: "var(--expense-text)" }} aria-hidden />}
               {t("bills.runwayBillCount", { count: checkpoint.cumulativeCount })}
             </div>
           </button>
@@ -332,7 +336,7 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
 
       <div className={styles.leaveLegend}>
         <span>
-          <span className={styles.leaveDot} style={{ background: "var(--color-expense)" }} />
+          <span className={styles.leaveDot} style={{ background: "var(--expense)" }} />
           {t("bills.billsTakePct", { pct: Math.round(share.takenPct) })}
         </span>
         <span>
@@ -340,7 +344,7 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
             <span style={{ color: "var(--color-expense-text)", fontWeight: 600 }}>{t("bills.overrunsPay", { amount: formatCurrency(Math.abs(share.left)) })}</span>
           ) : (
             <>
-              <span className={styles.leaveDot} style={{ background: "var(--color-income)" }} />
+              <span className={styles.leaveDot} style={{ background: "var(--income)" }} />
               {t("bills.leftPct", { pct: Math.round(share.leftPct) })}
             </>
           )}
@@ -370,7 +374,7 @@ function QuickStats({
   const active = bills.filter((b) => b.isActive);
   // Off right now — the holiday house this winter, the flat that was left. The
   // "N paused" line under the count existed before anything could be paused.
-  const stopped = active.filter((b) => isStoppedNow(b)).length;
+  const stopped = active.filter((b) => restingNow(b)).length;
   const grouped = groupBills(active);
   // The same list the tile opens, so the number and the names cannot disagree.
   const overdue = overdueBills(bills);
@@ -386,13 +390,13 @@ function QuickStats({
 
   const nextValue = nextDeadline ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextDeadline) : "—";
   const nextSub = nextBill ? nextBill.name : t("bills.allSettled");
-  const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--color-expense)" : nextDays <= 5 ? "var(--color-goal)" : "var(--color-text-primary)";
+  const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--expense-text)" : nextDays <= 5 ? "var(--goal-text)" : "var(--color-text-primary)";
 
   const stats = [
     {
       value: String(overdueCount),
       label: t("bills.overdueCount"),
-      color: overdueCount > 0 ? "var(--color-expense)" : "var(--color-text-primary)",
+      color: overdueCount > 0 ? "var(--expense-text)" : "var(--color-text-primary)",
       sub: overdueCount > 0 ? formatCurrency(overdue.total) : t("bills.noneLate"),
       // "Three late" is a headline; which three is what you act on.
       onClick: overdueCount > 0 ? onOpenOverdue : undefined,
@@ -461,16 +465,9 @@ function QuickStats({
  * deadline, so a bill sitting comfortably inside its grace window doesn't wear
  * the same red as one that has genuinely lapsed.
  */
-/** Off right now or gone for good — as opposed to merely coming up. */
-const isStoppedNow = (bill: BillWithStatus) => {
-  const state = currentPause(bill)?.state;
-  return state === "paused" || state === "ended" || !!startsLater(bill);
-};
-
 function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; formatCurrency: (n: number) => string; now: Date }) {
   const { t, i18n } = useTranslation();
   const urgency = billUrgency(bill, now);
-  const color = `var(${urgencyToken(urgency)})`;
 
   // Anything overdue says so first, from whichever period it is: water with
   // July to September unpaid and October not due yet used to read a grey
@@ -479,9 +476,8 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   // to — the same figure the late tile adds up.
   const overdue = billOverdue(bill, now);
   if (overdue.count > 0) {
-    const late = `var(${urgencyToken("late")})`;
     return (
-      <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${late} 15%, transparent)`, color: late }}>
+      <span className={styles.statusChip} style={toneChip("expense")}>
         {overdue.count > 1
           ? t("bills.chipOverdue", { count: overdue.count, amount: formatCurrency(overdue.total) })
           : t("bills.lateByDays", { count: Math.abs(daysUntilDeadline(bill, now) ?? 0) })}
@@ -490,14 +486,9 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   }
 
   // Not started yet: when it starts, rather than "due in 250 days".
-  const starts = bill.isPaidThisPeriod ? undefined : startsLater(bill, now);
+  const starts = billStartText(bill, now, t, i18n.resolvedLanguage ?? "en");
   if (starts) {
-    const month = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
-    return (
-      <span className={`${styles.statusChip} text-body-secondary`} style={{ background: "var(--color-background-secondary)" }}>
-        {t("bills.lineStartsOn", { month: month.format(starts) })}
-      </span>
-    );
+    return <span className={`${styles.statusChip} ${styles.statusChipStart}`}>{starts}</span>;
   }
 
   // Measured in days, a paused bill reads "due in 170 days", which is true and
@@ -545,7 +536,9 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   const label = days === 0 ? t("bills.dueToday") : t("bills.dueInDays", { count: days });
 
   return (
-    <span className={styles.statusChip} style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
+    // Soon in amber, later in the neutral chip — each a role pair (≥ 8:1); a
+    // 15% mix with the bare colour as lettering measured around 4:1.
+    <span className={styles.statusChip} style={urgency === "soon" ? toneChip("goal") : urgency === "late" ? toneChip("expense") : { background: "var(--neutral-soft)", color: "var(--on-neutral-soft)" }}>
       {label}
     </span>
   );
@@ -562,7 +555,7 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
   // owed by — gone, so in red. "Pay by 30 Oct" beside three unpaid months says
   // there is time when there is not.
   const overdue = billOverdue(bill, now);
-  if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--color-expense)" };
+  if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--expense-text)" };
 
   // With its year: a first payment months away, read as "30 Jun", looks like the June just gone.
   if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? new Intl.DateTimeFormat(dateFmt.resolvedOptions().locale, { day: "numeric", month: "short", year: "numeric" }).format(bill.nextDueDate) : "—" };
@@ -648,11 +641,11 @@ function BillSubtitle({ bill, formatCurrency }: { bill: BillWithStatus; formatCu
 // bill every 2 months paints two months solid per payment, so the cadence is
 // something you see rather than something the subtitle states.
 
-/* Solid fills for what has happened or is happening; the coming months are
-   hatched instead, so "will owe" never reads as a washed-out "owes now". */
-// Red for owed, amber for coming up — the same two colours the detail grid uses.
-const chipTone = (status: MonthChip["status"]) =>
-  status === "paid" ? "var(--color-income)" : status === "late" ? "var(--color-expense)" : status === "due" ? "var(--color-goal)" : undefined;
+/* The calendars' shared colours (`dayTone`), as on the bill's year grid: red
+   to pay, the amber dot when late, pale red struck through once paid, a dashed
+   red edge for the months still to come and a dashed grey one for a month off. */
+const chipLook = (status: MonthChip["status"]): DayToneInput =>
+  status === "paid" ? { out: "done" } : status === "late" ? { out: "todo", late: true } : status === "due" ? { out: "todo" } : status === "future" ? { out: "ahead" } : status === "paused" ? { off: true } : {};
 
 function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const { t, i18n } = useTranslation();
@@ -667,8 +660,7 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
       {chips.map((chip) => (
         <div
           key={chip.key}
-          className={`${styles.monthChip} ${chip.status === "paid" || chip.status === "due" || chip.status === "late" ? styles.monthChipFilled : ""} ${chip.status === "future" ? styles.monthChipFuture : ""} ${chip.status === "paused" ? styles.monthChipPaused : ""}`}
-          style={{ background: chipTone(chip.status), color: chip.status === "paid" || chip.status === "due" || chip.status === "late" ? "#fff" : undefined }}
+          className={`${styles.monthChip} ${dayTone(chipLook(chip.status))} ${chip.status === "paused" ? styles.monthChipPaused : ""}`}
           title={`${monthFmt.format(chip.start)} — ${labelFor(chip.status)}`}
         >
           {monthFmt.format(chip.start)}
@@ -788,7 +780,7 @@ function BillLine({
               <FiCheck size={11} aria-hidden /> {paidNow > 0 ? formatCurrency(paidNow) : t("bills.linePaid")}
             </span>
           ) : starts ? (
-            <span className={`${styles.linePill} ${styles.linePillPaused}`}>{t("bills.lineStartsOn", { month: startFmt.format(starts) })}</span>
+            <span className={`${styles.linePill} ${styles.linePillStart}`}>{billStartText(bill, now, t, i18n.resolvedLanguage ?? "en") ?? t("bills.lineStartsOn", { month: startFmt.format(starts) })}</span>
           ) : stopped ? (
             <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
           ) : (
@@ -811,7 +803,7 @@ function BillLine({
   );
 }
 
-type BillView = "cards" | "list" | "tiles" | "months" | "timeline" | "tree";
+type BillView = "cards" | "list" | "tiles" | "months" | "timeline" | "tree" | "cost";
 
 const VIEW_BUTTONS = [
   { id: "cards", icon: FiGrid, label: "bills.viewCards" },
@@ -820,6 +812,8 @@ const VIEW_BUTTONS = [
   { id: "timeline", icon: FiCalendar, label: "bills.viewTimeline" },
   { id: "months", icon: FiBarChart2, label: "bills.viewMonths" },
   { id: "tree", icon: FiGitCommit, label: "bills.viewTree" },
+  // What each bill costs a year, ranked — see BillYearCost.
+  { id: "cost", icon: FiAward, label: "bills.viewCost" },
 ] as const;
 
 /** Cards or one line each — the same switch the goals list has. On «Πληρωμές», only the ones a bill is paid from. */
@@ -851,7 +845,7 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
 export type BillsPageView = "overview" | "pay" | "manage" | "all";
 
 /** The views the «Πληρωμές» page lists with — «Ο μήνας» too, where a bill is opened and paid from its day. */
-const PAY_VIEWS = ["cards", "list", "tiles", "timeline", "tree"] as const;
+const PAY_VIEWS = ["cards", "list", "tiles", "timeline", "tree", "cost"] as const;
 
 /** The timeline on «Πάγια» holds the bills alone — its total is theirs. */
 const BILLS_ONLY = ["bill"] as const;
@@ -885,7 +879,7 @@ function BillCard({
   const deadline = deadlineFact(bill, t, dateFmt, now);
   // Recedes like a settled card: nothing to do about it until it comes back —
   // unless something from before the pause is still owed.
-  const stopped = !bill.isPaidThisPeriod && !behind && isStoppedNow(bill);
+  const stopped = !bill.isPaidThisPeriod && restingNow(bill, now);
 
   return (
     <div
@@ -916,7 +910,7 @@ function BillCard({
         </span>
 
         <div className={styles.cardTitles}>
-          <span className={`${styles.cardName} fw-semibold text-body-emphasis text-truncate`}>
+          <span className={`${styles.cardName} fw-semibold text-body-emphasis`}>
             {bill.name}
             {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
             {!bill.isActive && <OffTag />}
@@ -943,7 +937,20 @@ function BillCard({
           value={lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}
           sub={bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}
         />
-        <Metric label={t("bills.colPerMonth")} value={formatCurrency(bill.monthlyEquivalent)} sub={t("bills.perMonthShort")} />
+        {/* What leaves each time, as typed — «13 € / μήνα» — not a monthly
+            figure worked out from it: a 13 € bill starting next month read
+            «12,89 €/μήνα», the year's average with the month it is off in
+            it, and contradicted what was typed. Billed less often than
+            monthly, the month's share is given too, and called that. */}
+        <Metric
+          label={t("bills.colEachTime")}
+          value={`${bill.isVariableAmount ? "~" : ""}${formatCurrency(expectedAmount(bill))}`}
+          sub={
+            bill.frequency === "monthly" && getIntervalCount(bill) === 1
+              ? t("bills.perMonthShort")
+              : t("bills.monthlyShare", { amount: formatCurrency(monthlyEquivalent(bill, expectedAmount(bill))) })
+          }
+        />
         <Metric label={deadline.label} value={deadline.value} color={deadline.color} sub={bill.deadline || paid || stopped ? undefined : t("bills.noDueDateSet")} />
       </div>
 
@@ -979,19 +986,17 @@ function YearlyProjection({
     <div className={`${styles.yearlyCard} p-3 p-lg-4`}>
       <div className="mb-3">
         <div className="stat-head">{t("bills.yearlyProjection")}</div>
-        <div style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.yearlyProjectionHint")}</div>
+        <div className={styles.yearlyMuted}>{t("bills.yearlyProjectionHint")}</div>
       </div>
 
       {categories.length === 0 ? (
-        <p className="mb-0" style={{ fontSize: 13, opacity: 0.75 }}>
-          {t("bills.noBillsToProject")}
-        </p>
+        <p className={`${styles.yearlyMuted} mb-0`}>{t("bills.noBillsToProject")}</p>
       ) : (
         <>
           {/* Yearly headline, with the monthly equivalent below it — the two
               figures people actually budget against. */}
           <div className="d-flex align-items-baseline justify-content-between gap-2">
-            <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.perYear")}</span>
+            <span className={styles.yearlyMuted}>{t("bills.perYear")}</span>
             <span className={styles.yearlyAmount} title={approximate.yearly ? t("bills.approximate") : undefined}>
               {approximate.yearly ? "~" : ""}
               {formatCurrency(total)}
@@ -1001,11 +1006,11 @@ function YearlyProjection({
           <hr className={styles.yearlyDivider} />
 
           <div className="d-flex align-items-baseline justify-content-between gap-2 mb-3">
-            <span style={{ fontSize: 12, opacity: 0.7 }}>{t("bills.monthlyEquivalentLabel")}</span>
-            <span className="fw-semibold" style={{ fontSize: 17, fontVariantNumeric: "tabular-nums" }} title={approximate.monthly ? t("bills.approximate") : undefined}>
+            <span className={styles.yearlyMuted}>{t("bills.monthlyEquivalentLabel")}</span>
+            <span className={`${styles.yearlyMonthly} fw-semibold`} title={approximate.monthly ? t("bills.approximate") : undefined}>
               {approximate.monthly ? "~" : ""}
               {formatCurrency(total / 12)}
-              <span className="fw-normal ms-1" style={{ fontSize: 11, opacity: 0.7 }}>
+              <span className="fw-normal ms-1" style={{ fontSize: 11 }}>
                 {t("bills.perMonthShort")}
               </span>
             </span>
@@ -1013,30 +1018,26 @@ function YearlyProjection({
 
           <hr className={styles.yearlyDivider} />
 
-          <div className="text-uppercase mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", opacity: 0.6 }}>
-            {t("bills.byCategory")}
-          </div>
-          <div className="mb-2" style={{ fontSize: 10.5, opacity: 0.6 }}>
-            {t("bills.tapCategoryHint")}
-          </div>
+          <div className={`${styles.yearlyKicker} text-uppercase mb-2`}>{t("bills.byCategory")}</div>
+          <div className={`${styles.yearlyHint} mb-2`}>{t("bills.tapCategoryHint")}</div>
 
           <div className="d-flex flex-column gap-2">
-            {categories.map((c, i) => (
+            {categories.map((c) => (
               <button key={c.categoryId} type="button" className={styles.yearlyCategory} onClick={() => onOpenCategory(c.categoryId, c.label)}>
                 <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12 }}>
-                  <span className="text-truncate d-flex align-items-center gap-1">
+                  <span className="text-break d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
                     <span aria-hidden>{categoryFor(c.categoryId)?.icon ?? "•"}</span>
                     {c.label}
                   </span>
-                  <span className="flex-shrink-0 text-end" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatCurrency(c.yearlyAmount)} <span style={{ opacity: 0.6 }}>{Math.round(c.percentage)}%</span>
-                    <span className="d-block" style={{ fontSize: 10, opacity: 0.55 }}>
+                  <span className="flex-shrink-0 text-end tabular-nums">
+                    {formatCurrency(c.yearlyAmount)} <span className="fw-semibold">{Math.round(c.percentage)}%</span>
+                    <span className="d-block" style={{ fontSize: 10 }}>
                       {formatCurrency(c.yearlyAmount / 12)} {t("bills.perMonthShort")}
                     </span>
                   </span>
                 </div>
                 <div className={styles.yearlyTrack}>
-                  <div className={styles.yearlyFill} style={{ width: `${c.percentage}%`, background: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
+                  <div className={styles.yearlyFill} style={{ width: `${c.percentage}%` }} />
                 </div>
               </button>
             ))}
@@ -1090,6 +1091,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // first checkpoints through the one tapped.
   const [runwayOpen, setRunwayOpen] = useState<{ upTo: number; title: string } | null>(null);
   const [showOverdue, setShowOverdue] = useState(false);
+  // «Αναίρεση πληρωμής», waiting for its «Ναι».
+  const [undoTarget, setUndoTarget] = useState<{ bill: BillWithStatus; payment: BillPayment } | null>(null);
   // Below the desktop breakpoint the year sat under the whole list, which meant
   // scrolling past every bill to reach it. Two views, one at a time.
   const compact = useNarrowScreen("(max-width: 991.98px)");
@@ -1148,10 +1151,19 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     // Switched off: nothing to pay, so not among what is — listed last, by name.
     const running = bills.filter((b) => b.isActive);
     const inactive = bills.filter((b) => !b.isActive).sort((a, b) => a.name.localeCompare(b.name));
-    const outstanding = running.filter(owes).sort(byDeadline);
+    // Off this period — paused, stopped, or not begun — and owing nothing from
+    // before: at the foot of the list, greyed, under a heading that says why.
+    // Among the bills still to pay, «Ρεύμα Έδεσσα» stopped since November wore
+    // the same colours as one due tomorrow and only a chip to tell them apart.
+    // One that is behind on months before its pause stays up top: it owes.
+    const resting = (b: BillWithStatus) => restingNow(b, now);
+    const notYet = running.filter((b) => resting(b) && !!startsLater(b, now)).sort((a, b) => (startsLater(a, now)?.getTime() ?? 0) - (startsLater(b, now)?.getTime() ?? 0) || a.name.localeCompare(b.name));
+    const stopped = running.filter((b) => resting(b) && !startsLater(b, now)).sort((a, b) => a.name.localeCompare(b.name));
+    const current = running.filter((b) => !resting(b));
+    const outstanding = current.filter(owes).sort(byDeadline);
     // Most recently settled first — the useful order for a section you scan
     // only to confirm something went through.
-    const settled = running.filter((b) => !owes(b)).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
+    const settled = current.filter((b) => !owes(b)).sort((a, b) => (b.lastPaidDate?.getTime() ?? 0) - (a.lastPaidDate?.getTime() ?? 0));
 
     // What is left on each period, not its price: a part-paid gym owes the parts
     // still to come, a paused or stopped bill owes nothing, and one switched off
@@ -1161,10 +1173,12 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     // late tile, so a bill paid this period adds nothing here however far
     // behind it is, and a late current period is never counted twice.
     return [
-      { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstandingTotal(outstanding), tone: "var(--color-expense)" },
-      { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + paidThisPeriod(b), 0), tone: "var(--color-income)" },
-      // No total: they count nowhere, and a figure would say they did.
-      { key: "inactive", title: t("bills.sectionInactive"), bills: inactive, note: t("bills.sectionInactiveNote"), tone: "var(--color-text-secondary)" },
+      { key: "outstanding", title: t("bills.sectionOutstanding"), bills: outstanding, total: outstandingTotal(outstanding), tone: "var(--expense-text)" },
+      { key: "settled", title: t("bills.sectionSettled"), bills: settled, total: settled.reduce((s, b) => s + paidThisPeriod(b), 0), tone: "var(--income-text)" },
+      // No totals: nothing is owed on them this period, and a figure would say there was.
+      { key: "later", title: t("bills.sectionLater"), bills: notYet, note: t("bills.sectionLaterNote"), tone: "var(--text-2)" },
+      { key: "stopped", title: t("bills.sectionStopped"), bills: stopped, note: t("bills.sectionStoppedNote"), tone: "var(--text-2)" },
+      { key: "inactive", title: t("bills.sectionInactive"), bills: inactive, note: t("bills.sectionInactiveNote"), tone: "var(--text-2)" },
     ].filter((section) => section.bills.length > 0) as { key: string; title: string; bills: BillWithStatus[]; total?: number; note?: string; tone: string }[];
   }, [bills, t, now]);
 
@@ -1172,7 +1186,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
   const runway = useMemo(() => cashRunway(bills), [bills]);
   const runwayDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
-  const activeBills = useMemo(() => bills.filter((b) => b.isActive).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent), [bills]);
+  // The dearest first, and the ones resting this period (paused, stopped, not begun) after all the rest.
+  const activeBills = useMemo(
+    () => bills.filter((b) => b.isActive).sort((a, b) => Number(isStoppedNow(a, now)) - Number(isStoppedNow(b, now)) || b.monthlyEquivalent - a.monthlyEquivalent),
+    [bills, now],
+  );
   const late = useMemo(() => overdueBills(bills), [bills]);
   const shortDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
   const categoryBills = useMemo(
@@ -1195,7 +1213,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     // has to take back the last part rather than an arbitrary one.
     const latest = bill.payments.filter((p) => p.periodKey === bill.currentPeriodKey)[0] ?? bill.payment;
     if (!latest) return;
-    handleDeletePayment(latest);
+    // Asked first: it takes the payment back and deletes the expense it wrote,
+    // and one tap used to do both. The dialog says which, how much and when.
+    setDetailBill(null);
+    setUndoTarget({ bill, payment: latest });
   };
 
   // Correcting a payment edits the expense it wrote rather than adding another:
@@ -1389,6 +1410,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                   <CalendarTimeline side="out" kinds={BILLS_ONLY} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
                 )}
 
+                {showList && billView === "cost" && <BillYearCost bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenBill={setDetailBill} />}
+
                 {showList && billView === "months" && (
                   <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
                 )}
@@ -1397,8 +1420,13 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                   billView !== "months" &&
                   billView !== "timeline" &&
                   billView !== "tree" &&
+                  billView !== "cost" &&
                   sections.map((section) => (
-                  <div key={section.key} className="mb-3" data-tour={section.key === "outstanding" ? "bills-outstanding" : undefined}>
+                  <div
+                    key={section.key}
+                    className={`mb-3 ${section.key === "later" || section.key === "stopped" ? styles.sectionResting : ""}`}
+                    data-tour={section.key === "outstanding" ? "bills-outstanding" : undefined}
+                  >
                     <div className={styles.listSection}>
                       <span className={styles.listSectionTitle} style={{ color: section.tone }}>
                         {section.title}
@@ -1450,6 +1478,9 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                                         <span className={styles.activeCardState} style={{ color: "var(--color-income-text)" }}>
                                           <FiCheck size={11} aria-hidden /> {t("bills.linePaid")}
                                         </span>
+                                      ) : billStartText(bill, now, t, i18n.resolvedLanguage ?? "en") ? (
+                                        // Not begun: when it starts, not a date that reads like the next of many.
+                                        <span className={styles.activeCardState}>{billStartText(bill, now, t, i18n.resolvedLanguage ?? "en")}</span>
                                       ) : bill.nextDueDate ? (
                                         <span className={styles.activeCardState}>{shortDateFmt.format(firestoreToDate(bill.nextDueDate))}</span>
                                       ) : null}
@@ -1663,6 +1694,41 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           onClose={() => setBreakdownMonth(null)}
         />
       )}
+
+      {/* Undoing a payment, confirmed: which one, how much, paid when — and that its expense goes with it. */}
+      <Modal isOpen={!!undoTarget} toggle={() => setUndoTarget(null)} centered size="sm">
+        <ModalHeader toggle={() => setUndoTarget(null)}>{t("bills.undoConfirmTitle")}</ModalHeader>
+        <ModalBody>
+          {undoTarget && (
+            <>
+              <p className="mb-2" style={{ fontSize: 14 }}>
+                {t("bills.undoConfirmBody", {
+                  name: undoTarget.bill.name,
+                  amount: formatCurrency(undoTarget.payment.amount),
+                  date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(firestoreToDate(undoTarget.payment.paidDate)),
+                })}
+              </p>
+              <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
+                {undoTarget.payment.transactionId ? t("bills.undoConfirmExpense") : t("bills.undoConfirmNoExpense")}
+              </p>
+            </>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" outline onClick={() => setUndoTarget(null)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            color="warning"
+            onClick={() => {
+              if (undoTarget) handleDeletePayment(undoTarget.payment);
+              setUndoTarget(null);
+            }}
+          >
+            {t("bills.undoPayment")}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>

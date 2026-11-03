@@ -42,7 +42,7 @@ describe("a new loan whose money went to a goal", () => {
   it("offers the goals — not the investments — once no card is involved", async () => {
     open();
     expect(screen.queryByLabelText("It went to a goal")).toBeNull();
-    await userEvent.click(screen.getByLabelText("Money went into a card or cash"));
+    await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     const goals = screen.getByLabelText("It went to a goal") as HTMLSelectElement;
     expect([...goals.options].map((o) => o.textContent?.trim())).toEqual(["No goal", "🎯 Ski"]);
   });
@@ -50,7 +50,7 @@ describe("a new loan whose money went to a goal", () => {
   it("writes the goal's deposit, the debt and the expense — the same as from the goal", async () => {
     open();
     await userEvent.type(screen.getAllByPlaceholderText("0")[0], "200");
-    await userEvent.click(screen.getByLabelText("Money went into a card or cash"));
+    await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.selectOptions(screen.getByLabelText("It went to a goal"), "ski");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -78,7 +78,7 @@ describe("a new loan whose money went to a goal", () => {
   it("is an ordinary debt with no goal picked", async () => {
     open();
     await userEvent.type(screen.getAllByPlaceholderText("0")[0], "200");
-    await userEvent.click(screen.getByLabelText("Money went into a card or cash"));
+    await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.covered).not.toHaveBeenCalled();
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ person: "Keki", amount: 200, accountId: undefined }), expect.anything());
@@ -86,10 +86,26 @@ describe("a new loan whose money went to a goal", () => {
 
   it("says what no money moving means from the side the loan is on", async () => {
     open();
-    await userEvent.click(screen.getByLabelText("Money went into a card or cash"));
-    expect(screen.getByText(/they paid for something of yours/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
+    expect(screen.getByRole("radiogroup", { name: "Did the money go in somewhere?" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^No — they paid for you/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText(/they paid your hotel/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^I lent/ }));
-    expect(screen.queryByText(/they paid for something of yours/)).toBeNull();
+    // Lent: the question and the "no" turn round — it is now money that would have left.
+    expect(screen.getByRole("radiogroup", { name: "Did the money come out of somewhere?" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^No — you paid for them/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByText(/they paid your hotel/)).toBeNull();
     expect(screen.queryByLabelText("It went to a goal")).toBeNull();
+  });
+
+  it("keeps the value contract: «yes» is \"\" (any card), «no» is undefined", async () => {
+    open();
+    await userEvent.type(screen.getAllByPlaceholderText("0")[0], "50");
+    // A new debt starts on «yes»: money moved, no particular card yet.
+    expect(screen.getByRole("radio", { name: /^Yes, into a card or cash/ })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }), expect.anything());
   });
 });

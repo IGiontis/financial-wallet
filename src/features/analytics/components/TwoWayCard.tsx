@@ -12,6 +12,7 @@ import { Legend } from "./Legend";
 import { signedWith } from "./chartTheme";
 import TwoWayChart, { type TwoWayPoint } from "./TwoWayChart";
 import segmented from "../../../shared/css/Segmented.module.css";
+import styles from "./css/Analytics.module.css";
 
 type Format = (n: number) => string;
 
@@ -131,14 +132,13 @@ export function TwoWayCard({
           </option>
         ))}
       </Input>
-      <div className={segmented.group} role="group" aria-label={t("analytics.twoWay.view")} style={{ padding: 3 }}>
+      <div className={segmented.group} role="group" aria-label={t("analytics.twoWay.view")} style={{ padding: "var(--space-0)" }}>
         {[false, true].map((value) => (
           <button
             key={String(value)}
             type="button"
             aria-pressed={running === value}
-            className={`${segmented.item} ${running === value ? segmented.active : ""}`}
-            style={{ minHeight: 30, padding: "4px 10px" }}
+            className={`${segmented.item} ${styles.smallSeg} ${running === value ? segmented.active : ""}`}
             onClick={() => setRunning(value)}
           >
             {value ? t("analytics.twoWay.running") : byWeek ? t("analytics.twoWay.perWeek") : t("analytics.twoWay.perMonth")}

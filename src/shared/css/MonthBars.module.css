@@ -60,11 +60,12 @@
   overflow: hidden;
 }
 
-/* The part of the month already done: the same bar, striped. From the start
-   of the bar on a phone, from its foot in the columns. */
+/* The part of the month already done: the same bar, striped — in the colour
+   that letters the brand, so the stripes show on a dark brand and a pale one
+   alike. From the start of the bar on a phone, from its foot in the columns. */
 .paid,
 .swatch {
-  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 5px);
+  background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--on-brand) 55%, transparent) 0 2px, transparent 2px 5px);
 }
 
 .paid {
@@ -148,7 +149,7 @@
   .fill {
     width: 100%;
     height: var(--fill, 0%);
-    border-radius: 4px 4px 0 0;
+    border-radius: var(--radius-xs) var(--radius-xs) 0 0;
   }
 
   .paid {

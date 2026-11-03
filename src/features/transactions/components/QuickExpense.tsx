@@ -2,8 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import { Button, Input, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { FiPlus } from "react-icons/fi";
+import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { FiArrowRight, FiPlus } from "react-icons/fi";
 import { useCategories, useCreateTransaction, useTransactions } from "../hooks/useTransactions";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { mainAccount } from "../../accounts/accountsUtils";
@@ -145,7 +145,10 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
   const chosenOther = !!categoryId && !recent.some((c) => c.id === categoryId);
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable onOpened={() => amountRef.current?.focus()}>
+    // The app's ordinary dialog: title bar, body, Cancel on the left and the
+    // way forward on the right — the same frame as the full form
+    // (AddTransactionModal), so the «+» does not look like another app.
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable size="md" onOpened={() => amountRef.current?.focus()}>
       <ModalHeader toggle={onClose}>{t("quick.title")}</ModalHeader>
       <ModalBody>
         <form
@@ -156,8 +159,8 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
           }}
         >
           {favorites.length > 0 && (
-            <div className={styles.block}>
-              <p className={styles.label}>{t("quick.favorites")}</p>
+            <div className={styles.block} role="group" aria-labelledby="quick-favorites">
+              <p id="quick-favorites" className={styles.label}>{t("quick.favorites")}</p>
               <div className={styles.chips}>
                 {favorites.map((favorite) => {
                   const category = findCategory(categories, favorite.categoryId);
@@ -173,8 +176,12 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          <Label for="quick-amount" className={styles.label}>
+            {t("quick.amount")} ({displayCurrency}) *
+          </Label>
           <div className={styles.amountBox}>
             <input
+              id="quick-amount"
               ref={amountRef}
               aria-label={t("quick.amount")}
               className={styles.amount}
@@ -189,8 +196,10 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
             </span>
           </div>
 
-          <div className={styles.block}>
-            <p className={styles.label}>{t("quick.category")}</p>
+          <div className={styles.block} role="group" aria-labelledby="quick-category">
+            <p id="quick-category" className={styles.label}>
+              {t("quick.category")} *
+            </p>
             <div className={styles.chips}>
               {recent.map((category) => (
                 <button key={category.id} type="button" className={`${styles.chip} ${categoryId === category.id ? styles.on : ""}`} aria-pressed={categoryId === category.id} onClick={() => pickCategory(category.id)}>
@@ -200,7 +209,6 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
               {/* Every other expense category, for one not used lately. */}
               <Input
                 type="select"
-                bsSize="sm"
                 aria-label={t("quick.otherCategory")}
                 className={`${styles.otherSelect} ${chosenOther ? styles.on : ""}`}
                 value={chosenOther ? categoryId : ""}
@@ -217,8 +225,10 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           {accounts.length > 1 && (
-            <div className={styles.block}>
-              <p className={styles.label}>{t("quick.card")}</p>
+            <div className={styles.block} role="group" aria-labelledby="quick-card">
+              <p id="quick-card" className={styles.label}>
+                {t("quick.card")}
+              </p>
               <div className={styles.chips}>
                 {accounts.map((account) => (
                   <button
@@ -238,30 +248,45 @@ function QuickExpenseDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div className={styles.row}>
-            <Input bsSize="sm" value={description} maxLength={30} onChange={(event) => setDescription(event.target.value)} placeholder={t("quick.description")} aria-label={t("quick.description")} />
-            <div className={styles.chips} role="group" aria-label={t("quick.when")}>
+          <FormGroup className={styles.block}>
+            <Label for="quick-description" className={styles.label}>
+              {t("quick.description")}
+            </Label>
+            <Input id="quick-description" value={description} maxLength={30} onChange={(event) => setDescription(event.target.value)} />
+          </FormGroup>
+
+          <div className="mb-0" role="group" aria-labelledby="quick-when">
+            <p id="quick-when" className={styles.label}>
+              {t("quick.when")}
+            </p>
+            <div className={styles.chips}>
               {(["today", "yesterday", "other"] as const).map((option) => (
                 <button key={option} type="button" className={`${styles.chip} ${when === option ? styles.on : ""}`} aria-pressed={when === option} onClick={() => setWhen(option)}>
                   {t(`quick.${option}`)}
                 </button>
               ))}
             </div>
+            {when === "other" && <Input type="date" className="mt-2" value={otherDay} max={toInputDate(now)} onChange={(event) => setOtherDay(event.target.value)} aria-label={t("quick.when")} />}
           </div>
-          {when === "other" && <Input type="date" bsSize="sm" className="mt-2" value={otherDay} max={toInputDate(now)} onChange={(event) => setOtherDay(event.target.value)} aria-label={t("quick.when")} />}
+
+          {/* Anything with details — fuel, notes, a transfer — the full form.
+              In the body rather than a third button in the footer, which on a
+              phone had no room for three. */}
+          <button
+            type="button"
+            className={styles.fullForm}
+            onClick={() => {
+              onClose();
+              navigate("/transactions/new");
+            }}
+          >
+            {t("quick.fullFormHint")} <span className="fw-semibold">{t("quick.fullForm")}</span> <FiArrowRight aria-hidden />
+          </button>
         </form>
       </ModalBody>
       <ModalFooter className="justify-content-between">
-        {/* Anything with details — fuel, notes, a transfer — the full form. */}
-        <Button
-          color="link"
-          className="px-0"
-          onClick={() => {
-            onClose();
-            navigate("/transactions/new");
-          }}
-        >
-          {t("quick.fullForm")}
+        <Button color="secondary" outline onClick={onClose}>
+          {t("common.cancel")}
         </Button>
         <Button color="primary" type="submit" form="quick-expense" disabled={!valid}>
           {t("common.save")}

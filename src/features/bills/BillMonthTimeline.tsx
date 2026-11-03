@@ -54,14 +54,14 @@ export default function BillMonthTimeline({
     <div className={styles.yearAhead}>
       <div className="stat-head d-flex justify-content-between align-items-baseline gap-2">
         <span>{standaloneMonthName(locale, timeline.monthStart)}</span>
-        <span className={styles.yearAheadTotal} style={{ color: "var(--color-expense-text)" }}>
+        <span className={styles.yearAheadTotal} style={{ color: "var(--expense-text)" }}>
           −{formatCurrency(timeline.out)}
         </span>
       </div>
       <div className={styles.yearAheadHint}>{t("bills.timelineHint")}</div>
 
       {bills.length === 0 ? (
-        <p className="mb-0" style={{ fontSize: 13, opacity: 0.75 }}>
+        <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
           {t("bills.timelineEmpty")}
         </p>
       ) : (

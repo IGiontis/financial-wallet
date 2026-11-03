@@ -6,7 +6,7 @@ import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, Fi
 import type { IconType } from "react-icons";
 import { parseISOMonth } from "../../../shared/utils/dates";
 import { KIND_ICON, incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeStatus, type ArrivalUndo } from "../incomesUtils";
-import { scheduleText, statusTag, type IncomeFormats } from "../incomeText";
+import { incomeEndText, incomeStartText, scheduleText, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 
@@ -121,7 +121,10 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
   // anything is written.
   const open = archived ? undefined : focus && !isSettled(focus) && focus.state !== "skipped" ? focus : row?.next && !isSettled(row.next) ? row.next : undefined;
   const upcoming = focus && !isSettled(focus) && focus.state !== "skipped" && focus.state !== "missed" ? focus : row?.next;
-  const tag = focus ? statusTag(focus, t, f) : undefined;
+  // Not running yet: the header says when it starts, not «σε 119 μέρες» as if it were the next of many.
+  const starts = archived ? undefined : incomeStartText(income, now, t, f);
+  const ends = archived ? undefined : incomeEndText(income, now, t, f);
+  const tag = starts ? { text: starts, tone: "start" } : focus ? statusTag(focus, t, f) : undefined;
 
   const amount = income.variable ? `≈ ${formatCurrency(expected.amount)}` : formatCurrency(income.amount);
   const amountSub = income.variable
@@ -172,6 +175,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
             />
           )}
           {pause && <Fact icon={FiPauseCircle} label={t("incomes.card.pause")} value={pause} />}
+          {ends && <Fact icon={FiPauseCircle} label={t("incomes.card.lastTime")} value={ends} />}
         </div>
 
         <div className="fw-semibold mt-3 mb-2" style={{ fontSize: 13 }}>

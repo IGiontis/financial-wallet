@@ -1,0 +1,54 @@
+/* The strong summary panel beside a list — «Ετήσια προβολή» on «Πάγια», «Η
+   χρονιά» on «Έσοδα». One treatment, composed by both (`composes: panel from
+   …`), so the two cannot drift apart again: the brand and its own lettering
+   in light mode, the body pair turned over (text colour as ground, page colour
+   as lettering) in dark. Both pairs are in the contrast contract (≥ 8:1).
+
+   Everything inside takes its colour from the panel: a `.stat-head` in it
+   would otherwise keep its own colour — the panel's ground in dark mode, 1:1.
+   Quieter lines are smaller, never faded: opacity took them under 8:1. */
+
+.panel {
+  border-radius: var(--radius-lg);
+  background: var(--text);
+  color: var(--page);
+}
+
+:global([data-bs-theme="light"]) .panel {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.panel :global(.stat-head) {
+  color: inherit;
+  border-bottom-color: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.divider {
+  margin: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  opacity: 1;
+}
+
+/* Bars in the panel's own lettering colour: any accent sits too close to one
+   of the two grounds the panel takes (the brand on the brand did not show). */
+.track {
+  height: 6px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-xs);
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}

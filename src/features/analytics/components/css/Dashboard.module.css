@@ -57,7 +57,7 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-bs-lg);
   background: color-mix(in srgb, var(--kpi) 16%, transparent);
   color: var(--kpi);
   font-size: 15px;
@@ -137,7 +137,7 @@
 .trioDot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 
 .trioTotal {
@@ -177,7 +177,7 @@
 
 .ledgerStat {
   height: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem var(--space-3);
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
 }

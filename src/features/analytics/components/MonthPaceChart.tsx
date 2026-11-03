@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import type { PacePoint } from "../analyticsUtils";
-import { AXIS_TICK, GRID_STROKE, compactNumber } from "./chartTheme";
+import { AXIS_TICK, GRID_STROKE, compactNumber, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 function PaceTooltip({ active, payload, label, formatCurrency }: { active?: boolean; payload?: { payload?: PacePoint }[]; label?: number; formatCurrency: (n: number) => string }) {
@@ -16,8 +16,8 @@ function PaceTooltip({ active, payload, label, formatCurrency }: { active?: bool
       <TooltipRow color="var(--color-expense)" label={t("analytics.pace.thisMonth")} value={point.current === null ? "—" : formatCurrency(point.current)} />
       <TooltipRow color="var(--color-text-secondary)" label={t("analytics.pace.lastMonth")} value={point.previous === null ? "—" : formatCurrency(point.previous)} />
       {gap !== undefined && (
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", marginTop: 6, paddingTop: 6 }}>
-          <TooltipRow label={t("analytics.pace.difference")} value={`${gap >= 0 ? "+" : "−"}${formatCurrency(Math.abs(gap))}`} />
+        <div style={{ borderTop: "1px solid color-mix(in srgb, var(--color-tooltip-text) 18%, transparent)", marginTop: 6, paddingTop: 6 }}>
+          <TooltipRow label={t("analytics.pace.difference")} value={signedWith(formatCurrency)(gap)} />
         </div>
       )}
     </TooltipShell>
@@ -41,7 +41,7 @@ export default function MonthPaceChart({ data, formatCurrency, compact }: { data
         <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
         <Tooltip content={<PaceTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         <Line type="monotone" dataKey="previous" stroke="var(--color-text-secondary)" strokeWidth={1.75} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
-        <Line type="monotone" dataKey="current" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} connectNulls={false} />
+        <Line type="monotone" dataKey="current" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
   );

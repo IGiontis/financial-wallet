@@ -34,7 +34,7 @@ const lib = vi.hoisted(() => {
 });
 
 vi.mock("driver.js", () => ({ driver: lib.driver }));
-vi.mock("../demoMode", () => ({ leaveDemo: vi.fn() }));
+vi.mock("../authDialog", () => ({ openAuthDialog: vi.fn() }));
 
 const { runTour } = await import("./runTour");
 
@@ -138,6 +138,36 @@ describe("runTour", () => {
     lib.state.config!.onPrevClick!(undefined, {}, {} as never);
     await until(() => lib.instance.moveTo.mock.calls.length === 1);
     expect(clicked).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-measure while driver.js is still sliding to a step", async () => {
+    // Measured mid-slide it would use the previous step's element, which a page
+    // change has removed: the cut-out snapped to the corner — the flicker.
+    mark("one");
+    const handle = runTour({ navigate: vi.fn(), t, steps: STEPS, timeoutMs: 100, currentPath: () => "/" });
+    await until(() => lib.instance.drive.mock.calls.length === 1);
+    const scrolled = () => document.dispatchEvent(new Event("scroll"));
+    const slideEnds = () => lib.state.config!.onHighlighted!(undefined, {} as never, {} as never);
+
+    // The first step has been drawn and has settled.
+    scrolled();
+    expect(lib.instance.refresh).not.toHaveBeenCalled();
+    slideEnds();
+    scrolled();
+    expect(lib.instance.refresh).toHaveBeenCalledTimes(1);
+
+    // «Επόμενο» is pressed on a page whose next step is on the same one.
+    mark("three");
+    lib.state.config!.onNextClick!(undefined, {}, {} as never);
+    await until(() => lib.instance.moveTo.mock.calls.length === 1);
+    scrolled();
+    expect(lib.instance.refresh).toHaveBeenCalledTimes(1);
+
+    // Slide finished: following resumes.
+    slideEnds();
+    scrolled();
+    expect(lib.instance.refresh).toHaveBeenCalledTimes(2);
+    handle.stop();
   });
 
   it("closes, and says so once, from × or Esc", async () => {

@@ -1,4 +1,6 @@
-import { lazy, Suspense, useCallback, useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
+import type { IconType } from "react-icons";
+import { FiActivity, FiArrowDownLeft, FiGrid, FiPieChart, FiRepeat, FiTag } from "react-icons/fi";
 import { Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
@@ -35,7 +37,7 @@ import {
 } from "../analyticsUtils";
 import { ChartCard } from "../components/ChartCard";
 import { Legend } from "../components/Legend";
-import { weekdayNames } from "../components/chartTheme";
+import { signedWith, weekdayNames } from "../components/chartTheme";
 import { DashboardKpis } from "../components/DashboardKpis";
 import {
   IncomeMonthsDetails,
@@ -60,6 +62,9 @@ import MonthWaterfall from "../components/MonthWaterfall";
 import IncomeMonthsChart from "../components/IncomeMonthsChart";
 import IncomeSources from "../components/IncomeSources";
 import { TwoWayCard } from "../components/TwoWayCard";
+import { CategoryTrendCard } from "../components/CategoryTrendCard";
+import { CashFlowCard } from "../components/CashFlowCard";
+import { IncomesBillsCard } from "../components/IncomesBillsCard";
 import { topPayees } from "../../transactions/transactionInsights";
 
 // ECharts is a second, heavier engine, loaded only for the three charts recharts
@@ -74,6 +79,21 @@ import { findCategory } from "../../../shared/utils/categories";
 
 // What a card shows before its sheet is opened: the few that matter.
 const CARD_ROWS = 6;
+
+/**
+ * A group's heading: bigger than the card titles under it and with its own
+ * icon, so the page reads as a few groups of cards rather than one long run.
+ */
+function SectionTitle({ icon: Icon, children }: { icon: IconType; children: ReactNode }) {
+  return (
+    <h2 className={styles.sectionTitle}>
+      <span className={styles.sectionIcon} aria-hidden>
+        <Icon />
+      </span>
+      <span className={styles.sectionText}>{children}</span>
+    </h2>
+  );
+}
 
 export function AnalyticsPage() {
   const { t, i18n } = useTranslation();
@@ -264,7 +284,7 @@ export function AnalyticsPage() {
       ) : (
         <div style={{ opacity: isPending ? 0.5 : 1, transition: "opacity 0.2s" }}>
           {/* ── At a glance ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.dashboard.group")}</h2>
+          <SectionTitle icon={FiGrid}>{t("analytics.dashboard.group")}</SectionTitle>
 
           <DashboardKpis
             current={totals}
@@ -288,16 +308,18 @@ export function AnalyticsPage() {
           />
 
           {/* ── One category, both ways ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.groups.oneCategory")}</h2>
+          <SectionTitle icon={FiTag}>{t("analytics.groups.oneCategory")}</SectionTitle>
 
           <div className={styles.grid}>
             <TwoWayCard transactions={transactions} categories={categories} from={from} now={now} range={range} nameFor={nameFor} formatCurrency={formatCurrency} />
           </div>
 
           {/* ── Where the money goes ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.groups.where")}</h2>
+          <SectionTitle icon={FiPieChart}>{t("analytics.groups.where")}</SectionTitle>
 
           <div className={styles.grid}>
+            <CategoryTrendCard transactions={transactions} categories={categories} now={now} nameFor={nameFor} formatCurrency={formatCurrency} noData={noData} />
+
             {/* `auto`, not `tall`: this one draws a row per category rather
                 than a plot that stretches, so its height is however many
                 categories there are. Held to a fixed box it scrolled inside
@@ -317,7 +339,8 @@ export function AnalyticsPage() {
               auto
               title={t("analytics.waterfall.title")}
               hint={t("analytics.waterfall.short")}
-              value={formatCurrency(waterfall.length > 0 ? waterfall[waterfall.length - 1].balance : 0)}
+              // What is left is a net: signed, as every net on the page is.
+              value={signedWith(formatCurrency)(waterfall.length > 0 ? waterfall[waterfall.length - 1].balance : 0)}
               valueTone={waterfall.length > 0 && waterfall[waterfall.length - 1].balance < 0 ? "expense" : "income"}
               empty={waterfall.length <= 2 ? noData : undefined}
               details={{ content: <WaterfallDetails steps={waterfall} nameFor={waterfallLabel} formatCurrency={formatCurrency} /> }}
@@ -327,7 +350,7 @@ export function AnalyticsPage() {
           </div>
 
           {/* ── Habits & pace ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.groups.habits")}</h2>
+          <SectionTitle icon={FiActivity}>{t("analytics.groups.habits")}</SectionTitle>
 
           <div className={styles.grid}>
             <ChartCard
@@ -345,7 +368,7 @@ export function AnalyticsPage() {
               hint={t("analytics.pace.short")}
               // Spending more than last month is the bad direction, so the sign
               // and the colour have to agree with that, not with the arithmetic.
-              value={`${paceGap >= 0 ? "+" : "−"}${formatCurrency(Math.abs(paceGap))}`}
+              value={signedWith(formatCurrency)(paceGap)}
               valueTone={paceGap > 0 ? "expense" : "income"}
               details={{
                 content: (
@@ -370,9 +393,14 @@ export function AnalyticsPage() {
           </div>
 
           {/* ── Flow & saving ── */}
-          <h2 className={styles.sectionTitle}>{t("analytics.groups.flow")}</h2>
+          <SectionTitle icon={FiRepeat}>{t("analytics.groups.flow")}</SectionTitle>
 
           <div className={styles.grid}>
+            {/* The Overview's «Ταμειακή ροή», over this page's range, and the
+                year of incomes against bills beside it. */}
+            <CashFlowCard transactions={scoped} from={from} now={now} single={range === "1m"} formatCurrency={formatCurrency} noData={noData} />
+            <IncomesBillsCard transactions={transactions} now={now} formatCurrency={formatCurrency} />
+
             {/* The running net position, the savings rate and income against
                 spending moved up into the dashboard; what stays here is where
                 the money went. */}
@@ -418,7 +446,7 @@ export function AnalyticsPage() {
           {/* ── Your income ── */}
           {incomeTotal > 0 && (
             <>
-              <h2 className={styles.sectionTitle}>{t("analytics.groups.income")}</h2>
+              <SectionTitle icon={FiArrowDownLeft}>{t("analytics.groups.income")}</SectionTitle>
 
               <div className={styles.grid}>
                 <ChartCard

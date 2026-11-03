@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { goalHeldTotal } from "../features/accounts/accountsUtils";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import type { InvestmentContribution, InvestmentGoal, Transaction } from "../shared/types/IndexTypes";
-import { createContributionWithTransaction, createTransaction, deleteAllUserData, deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, updateTransaction } from "./firestore";
+import { createContributionWithTransaction, createTransaction, deleteAllUserData, deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // The data layer against a small in-memory Firestore.
@@ -385,6 +385,40 @@ describe("deleteAllUserData", () => {
       expect(ids(col)).toEqual([`${col}-theirs`]);
     }
     expect(ids("users")).toEqual([]);
+  });
+});
+
+// ─── Undoing or correcting a bill's payment ───────────────────────────────────
+
+describe("a bill payment whose expense is gone", () => {
+  // His Claude subscription: the payment still pointed at an expense deleted
+  // long before, the undo named it, and the rules refused the whole write.
+  const payment = { id: "p1", transactionId: "t-gone" };
+  beforeEach(() => {
+    fs.rules.strictDeletes = true;
+    put("billPayments", "p1", { userId: "u1", billId: "b1", amount: 250, transactionId: "t-gone" });
+  });
+
+  it("is undone: the payment goes, and no delete names the missing expense", async () => {
+    const notedBefore = noted.deleted.length;
+    await unmarkBillPaid("u1", payment);
+    expect(ids("billPayments")).toEqual([]);
+    expect(fs.batches[0].map(([kind, r]) => `${kind} ${r.col}/${r.id}`)).toEqual(["delete billPayments/p1"]);
+    expect(noted.deleted).toHaveLength(notedBefore);
+  });
+
+  it("is corrected without touching the missing expense", async () => {
+    await updateBillPayment(payment, { amount: 223 });
+    expect(fs.table("billPayments").get("p1")).toMatchObject({ amount: 223 });
+    expect(ids("transactions")).toEqual([]);
+  });
+
+  it("still takes an expense that is there with it", async () => {
+    put("transactions", "t-gone", { userId: "u1", amount: 250, type: "expense" });
+    await unmarkBillPaid("u1", payment);
+    expect(ids("billPayments")).toEqual([]);
+    expect(ids("transactions")).toEqual([]);
+    expect(noted.deleted.at(-1)).toEqual(["u1", "transactions", ["t-gone"]]);
   });
 });
 

@@ -130,9 +130,3 @@ export function currentBalance(transactions: Transaction[], opening?: OpeningBal
   const raw = transactions.filter((tx) => affectsBalance(tx, opening)).reduce((sum, tx) => sum + balanceDelta(tx), base);
   return Math.round(raw * 100) / 100 + 0;
 }
-
-/** How many records the opening date is holding out of the balance. */
-export function excludedByOpeningDate(transactions: Transaction[], opening: OpeningBalance | undefined): number {
-  if (!opening) return 0;
-  return transactions.filter((tx) => !affectsBalance(tx, opening)).length;
-}

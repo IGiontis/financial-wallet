@@ -63,7 +63,7 @@
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -83,7 +83,7 @@
 .sm .input {
   min-height: 36px;
   font-size: 12.5px;
-  padding: 0 32px 0 30px;
+  padding: 0 var(--space-6) 0 30px;
 }
 
 .sm .icon {

@@ -13,11 +13,11 @@ export function useOpeningBalance(): {
   opening: OpeningBalance | undefined;
   anchors: OpeningBalance[];
   /** Where `opening` came from. */
-  source: "readings" | "settings" | undefined;
+  source: "readings" | undefined;
   isLoading: boolean;
 } {
-  const { anchors, latest, legacy, isLoading } = useMoneyAccounts();
+  const { anchors, latest, isLoading } = useMoneyAccounts();
   const opening = anchors.at(-1);
-  const source = latest ? "readings" : legacy ? "settings" : undefined;
+  const source = latest ? "readings" : undefined;
   return { opening, anchors, source, isLoading };
 }

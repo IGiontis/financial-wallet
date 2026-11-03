@@ -146,7 +146,7 @@ function ReviewScreen({
           style={{
             border: `2px solid ${values.color || "#3B82F6"}`,
             borderRadius: "var(--border-radius-lg)",
-            padding: "1rem",
+            padding: "var(--space-4)",
             marginBottom: "1rem",
           }}
         >
@@ -156,7 +156,7 @@ function ReviewScreen({
               <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{kindLabel}</p>
             </div>
-            <div style={{ width: 16, height: 16, borderRadius: "50%", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
+            <div style={{ width: 16, height: 16, borderRadius: "var(--radius-round)", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
           </div>
           {rows.map((r) => (
             <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
@@ -169,10 +169,10 @@ function ReviewScreen({
         {!values.isActive && (
           <div
             style={{
-              background: "var(--bs-warning-bg-subtle, #fff3cd)",
-              border: "1px solid var(--bs-warning-border-subtle, #ffecb5)",
+              background: "var(--bs-warning-bg-subtle)",
+              border: "1px solid var(--bs-warning-border-subtle)",
               borderRadius: "var(--border-radius-md)",
-              padding: "8px 12px",
+              padding: "var(--space-2) var(--space-3)",
               fontSize: 13,
             }}
           >
@@ -342,9 +342,9 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                             style={{
                               border: `2px solid ${isSelected ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
                               borderRadius: "var(--border-radius-md)",
-                              padding: "10px 12px",
+                              padding: "10px var(--space-3)",
                               cursor: "pointer",
-                              background: isSelected ? "var(--bs-primary-bg-subtle, #e7f1ff)" : "var(--color-background-secondary)",
+                              background: isSelected ? "var(--bs-primary-bg-subtle)" : "var(--color-background-secondary)",
                               transition: "all 0.15s ease",
                             }}
                           >
@@ -460,7 +460,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                         fontSize: 20,
                         border: `2px solid ${formik.values.icon === icon ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
                         borderRadius: "var(--border-radius-md)",
-                        padding: "4px 6px",
+                        padding: "var(--space-1) 6px",
                         background: "transparent",
                         cursor: "pointer",
                         lineHeight: 1.2,
@@ -498,7 +498,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                       style={{
                         width: 28,
                         height: 28,
-                        borderRadius: "50%",
+                        borderRadius: "var(--radius-round)",
                         background: color,
                         border: `3px solid ${formik.values.color === color ? "var(--color-text-primary)" : "transparent"}`,
                         cursor: "pointer",
@@ -559,7 +559,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                       {formik.values.targetAmount ? ` · ${t("goals.amountTarget", { amount: formatCurrency(Number(formik.values.targetAmount)) })}` : ""}
                     </p>
                   </div>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: formik.values.color ?? "#ccc", flexShrink: 0 }} />
+                  <div style={{ width: 14, height: 14, borderRadius: "var(--radius-round)", background: formik.values.color ?? "var(--border)", flexShrink: 0 }} />
                   {!formik.values.isActive && (
                     <Badge color="warning" style={{ fontSize: 11 }}>
                       {t("common.paused")}

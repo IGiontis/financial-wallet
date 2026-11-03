@@ -1,9 +1,69 @@
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Container } from "reactstrap";
+import { useQuery } from "@tanstack/react-query";
 import { SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../shared/components/Skeletons";
 import { useAuth } from "../shared/hooks/useAuth";
-import { hadSession } from "./sessionHint";
+import { hadSession, rememberWelcomeName } from "./sessionHint";
 import { AuthSkeleton } from "../features/auth/AuthSkeleton";
+import { WelcomeSplash } from "../features/auth/WelcomeSplash";
+import { finishPendingSignUpWithRetry } from "../features/auth/pendingSignUp";
+import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
+import { getUser } from "../firebase/firestore";
+import { exchangeRateKeys } from "../shared/hooks/useCurrencyConverter";
+import { isDemo } from "../demo/demoMode";
+import { resolveDisplayName } from "../features/settings/displayName";
+
+/**
+ * Past this, the welcome goes even if the profile has not come: a slow
+ * connection should see the app's frame taking shape, not a greeting.
+ */
+const PROFILE_WAIT_MS = 900;
+
+/**
+ * The signed-in person's profile, as the shell reads it — this only listens.
+ * Never fetches (`enabled: false`): the top bar and the language sync read the
+ * same document under the same key, and a third reader must not cost a read.
+ * Returns whether it has arrived (or failed to).
+ */
+function useProfileArrived(user: { uid: string; email?: string | null; displayName?: string | null; providerData?: { providerId: string }[] } | null): boolean {
+  const uid = user?.uid;
+  const { data, isFetched } = useQuery({
+    queryKey: exchangeRateKeys.user(uid ?? ""),
+    queryFn: () => getUser(uid!),
+    enabled: false,
+  });
+  // Kept for the next app open's welcome (see `WelcomeSplash`).
+  // The same name the top bar shows (see `resolveDisplayName`).
+  const name = data
+    ? resolveDisplayName({
+        custom: data.displayName,
+        isGoogle: user?.providerData?.[0]?.providerId === "google.com",
+        googleName: user?.displayName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        username: data.username,
+        email: user?.email,
+      })
+    : "";
+  useEffect(() => {
+    // Never the demo's made-up person: whoever signs in next is not her.
+    if (uid && name && !isDemo()) rememberWelcomeName(name);
+  }, [uid, name]);
+  return isFetched || data !== undefined;
+}
+
+/** Whether `ms` have passed since `start` turned true. */
+function useElapsedSince(start: boolean, ms: number): boolean {
+  const [passed, setPassed] = useState(false);
+  useEffect(() => {
+    if (!start) return;
+    const timer = window.setTimeout(() => setPassed(true), ms);
+    return () => window.clearTimeout(timer);
+  }, [start, ms]);
+  return passed;
+}
 
 /**
  * Stands in for a lazy route chunk.
@@ -36,14 +96,50 @@ export function PageLoader() {
  * Around the app's layout: while the session is being found, the app's frame
  * only for a device that was signed in — otherwise the form's outline — and
  * signed out, to /login before any of the app is drawn.
+ *
+ * A device that was signed in is also welcomed back (`WelcomeSplash`), over
+ * the frame as it draws. It is `ready` to go once the session is found and the
+ * profile has come — or `PROFILE_WAIT_MS` after the session — and goes within
+ * the few seconds it allows itself to be read (see `WelcomeSplash`). Decided once
+ * per app open: the demo and a device never signed in are not welcomed.
+ *
+ * Signed in, it finishes what a sign-up from the demo's dialog left to write
+ * (see `pendingSignUp`) — nothing, on every other start.
  */
 export function SessionGate() {
+  const { t } = useTranslation();
   const { currentUser, loading } = useAuth();
   const location = useLocation();
+  const [welcome] = useState(() => !!(loading && hadSession()));
+  const uid = currentUser?.uid;
+  const profileArrived = useProfileArrived(currentUser);
+  const waitedEnough = useElapsedSince(!loading, PROFILE_WAIT_MS);
 
-  if (loading) return hadSession() ? <Outlet /> : <AuthSkeleton />;
+  useEffect(() => {
+    // Never in the demo, whose user is a stand-in and whose page writes nothing.
+    if (!uid || isDemo()) return;
+    return finishPendingSignUpWithRetry(uid, () => toast.warning(t("auth.profilePending")));
+  }, [uid, t]);
+
+  const ready = !loading && (!currentUser || profileArrived || waitedEnough);
+  const splash = welcome && <WelcomeSplash ready={ready} />;
+
+  if (loading)
+    return hadSession() ? (
+      <>
+        <Outlet />
+        {splash}
+      </>
+    ) : (
+      <AuthSkeleton />
+    );
   if (!currentUser) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      {splash}
+    </>
+  );
 }
 
 /** Requires an authenticated user; otherwise bounces to /login. */

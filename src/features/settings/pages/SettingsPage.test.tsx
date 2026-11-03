@@ -6,6 +6,7 @@ import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router
 import i18n from "../../../i18n";
 import { SettingsPage } from "./SettingsPage";
 import { enterDemo, exitDemo, leaveDemo } from "../../../demo/demoMode";
+import { openAuthDialog } from "../../../demo/authDialog";
 
 // Settings in four tabs, each at its own address — the same cards as before,
 // each where it belongs. What the cards do is theirs and tested with them; here,
@@ -29,10 +30,10 @@ vi.mock("../../../firebase/auth", () => ({
 }));
 // Leaving the demo is a full page load: watched, not run.
 vi.mock("../../../demo/demoMode", async (original) => ({ ...(await original<typeof import("../../../demo/demoMode")>()), leaveDemo: vi.fn() }));
+vi.mock("../../../demo/authDialog", async (original) => ({ ...(await original<typeof import("../../../demo/authDialog")>()), openAuthDialog: vi.fn() }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ exchangeRateKeys: { user: (uid: string) => ["userCurrency", uid], rates: () => ["exchangeRates"] } }));
 // The data cards are each their own world; stand-ins are enough to see where they land.
 vi.mock("../../categories/CategoryManager", () => ({ default: () => <p>category manager</p> }));
-vi.mock("../components/OpeningBalanceSection", () => ({ default: () => <p>opening balance form</p> }));
 vi.mock("../components/StatementSection", () => ({ default: () => <p>statement button</p> }));
 vi.mock("../components/ResetDataSection", () => ({ default: () => <p>reset button</p> }));
 
@@ -79,23 +80,25 @@ describe("settings tabs", () => {
     expect(await screen.findByText(/First name/)).toBeInTheDocument();
   });
 
-  it("shows currency, language, the theme and the menu style under Preferences", async () => {
+  it("shows currency, language, the theme and the colours under Preferences", async () => {
     renderAt("/settings/preferences");
     expect(await within(panel()).findByText("Currency")).toBeInTheDocument();
     expect(within(panel()).getByText("Language")).toBeInTheDocument();
     expect(within(panel()).getByRole("group", { name: "Theme" })).toHaveTextContent(/Light.*Dark.*Auto/);
-    // The menu's three styles, each with its preview, Α chosen until another is.
-    const menuStyle = within(panel()).getByRole("group", { name: "Menu style" });
-    expect(within(menuStyle).getAllByRole("button").map((b) => b.textContent)).toEqual(["A Classic", "B Blue tone", "C Glass"]);
-    expect(within(menuStyle).getByRole("button", { name: "A Classic" })).toHaveAttribute("aria-pressed", "true");
+    // The three colourways, each with its preview, blue chosen until another is.
+    const colours = within(panel()).getByRole("group", { name: "Colours" });
+    expect(within(colours).getAllByRole("button").map((b) => b.textContent)).toEqual(["Trust blue", "Black & gold"]);
+    expect(within(colours).getByRole("button", { name: "Trust blue" })).toHaveAttribute("aria-pressed", "true");
     expect(within(panel()).queryByText(/First name/)).not.toBeInTheDocument();
   });
 
   it("keeps the data cards together, with the statement right above starting over", async () => {
+    // The «Αρχικό υπόλοιπο» card is gone: the bank and cash readings replaced it.
     renderAt("/settings/data");
-    await within(panel()).findByText("opening balance form");
+    await within(panel()).findByText("category manager");
+    expect(within(panel()).queryByText(/opening balance/i)).toBeNull();
     const text = panel().textContent ?? "";
-    const order = ["opening balance form", "category manager", "statement button", "reset button"].map((s) => text.indexOf(s));
+    const order = ["category manager", "statement button", "reset button"].map((s) => text.indexOf(s));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(within(panel()).queryByRole("button", { name: "Delete account" })).not.toBeInTheDocument();
@@ -155,7 +158,9 @@ describe("settings in the demo", () => {
     expect(within(panel()).queryByRole("button", { name: "Delete account" })).not.toBeInTheDocument();
 
     await userEvent.click(within(panel()).getByRole("button", { name: "Create account" }));
-    expect(leaveDemo).toHaveBeenCalledWith("/register");
+    // The sign-up dialog over the demo, not a page load away from it.
+    expect(openAuthDialog).toHaveBeenCalledWith("register");
+    expect(leaveDemo).not.toHaveBeenCalled();
   });
 
   it("keeps the profile, the preferences and the data cards as they are", async () => {

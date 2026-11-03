@@ -4,7 +4,7 @@ import { ManageList, type ManageGroup } from "../../../shared/components/ManageL
 import { toISOMonth } from "../../../shared/utils/dates";
 import { currentPause } from "../../bills/billsUtils";
 import { KIND_ICON, isActiveIncome, type Income } from "../incomesUtils";
-import { scheduleText, type IncomeFormats } from "../incomeText";
+import { incomeStartText, scheduleText, type IncomeFormats } from "../incomeText";
 
 /**
  * «Έσοδα › Διαχείριση»: every income — the running ones, then the switched-off
@@ -42,7 +42,8 @@ export function IncomeManage({
       const pause = currentPause(income, now);
       if (pause?.state === "ended") return t("incomes.list.stopped");
       if (pause?.state === "paused") return pause.to ? t("incomes.list.pausedUntil", { month: f.monthYearShort.format(pause.to) }) : t("bills.linePaused");
-      return undefined;
+      // Not running yet: when it starts, as on the list.
+      return incomeStartText(income, now, t, f);
     };
     const item = (income: Income) => ({
       id: income.id,

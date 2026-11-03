@@ -7,7 +7,8 @@ import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/f
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
-import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
+import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, getIntervalCount, monthlyEquivalent, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
+import { billStartText } from "./billStartText";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
 import { DeleteButton } from "../../shared/components/DeleteButton";
@@ -124,7 +125,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                 : t("bills.lateByDays", { count: Math.abs(daysUntilDeadline(bill) ?? 0) })
               : paid
                 ? t("bills.paidThisPeriodShort")
-                : t("bills.unpaid")}
+                : (billStartText(bill, new Date(), t, i18n.resolvedLanguage ?? "en") ?? t("bills.unpaid"))}
           </Badge>
         </span>
       </ModalHeader>
@@ -148,7 +149,15 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             <Fact label={t("common.category")} value={categoryLabel} />
           </Col>
           <Col xs={6}>
-            <Fact label={t("bills.perMonth")} value={formatCurrency(bill.monthlyEquivalent)} />
+            {/* Monthly: when it starts, if later — the per-month figure would be the
+                amount typed again. Less often: the month's share of it, called that
+                (not the year's average with its months off in it, which contradicted
+                the amount above). */}
+            {bill.frequency === "monthly" && getIntervalCount(bill) === 1 ? (
+              <Fact label={t("bills.labelNextDue")} value={bill.nextDueDate ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(bill.nextDueDate) : "—"} />
+            ) : (
+              <Fact label={t("bills.monthlyShareLabel")} value={formatCurrency(monthlyEquivalent(bill, expectedAmount(bill)))} />
+            )}
           </Col>
         </Row>
 

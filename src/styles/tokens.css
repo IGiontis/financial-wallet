@@ -1,0 +1,395 @@
+/* ============================================================================
+   MyFiWallet — colour palettes. The only file that holds raw colour values.
+
+   Two colourways, each in a light and a dark mode:
+
+     blue   «Μπλε εμπιστοσύνης»  the default — a clear, trustworthy blue
+     gold   «Μαύρο & χρυσό»      charcoal black and champagne, the premium one
+
+   They differ in colour and nothing else: buttons, radii, spacing and layout
+   are the same in both (shape.css), so a palette is a block of values and
+   nothing more. The colourway is `data-nav-style` on <html>, set by
+   ThemeProvider next to Bootstrap's `data-bs-theme`; Settings previews show
+   each one inside `.nav-style-<name>`, which carries the same values.
+
+   WHAT LIVES WHERE
+     tokens.css   raw values, per colourway × mode (this file)
+     shape.css    radius, spacing, shadows, layers, focus, layout sizes
+     theme.css    everything derived: Bootstrap's --bs-* variables, the older
+                  --color-* names components already use, buttons, badges,
+                  forms, tabs, tables, toasts. Reads roles, never hex.
+
+   THE CONTRACT
+     Every pair of text and its background below is at least 8:1 (WCAG
+     contrast), in all four combinations. src/styles/contrast.test.ts parses
+     this file and fails if a value is edited into breach. To add a pair, add
+     it to PAIRS in that test; to add a role, add it to REQUIRED_ROLES there
+     and to every block here. Raw values are hex or rgba() only, so the test
+     can read them without a browser.
+
+   CLEAR, AND APART FROM THE MEANINGS
+     The theme colours are ordinary, full colours — a real blue — but never one
+     of the meaning colours: money in green, money out red, goals amber,
+     investments indigo, pending orange. contrast.test.ts measures the brand
+     against each meaning's fill so a palette cannot drift into one of them.
+
+   RGB TRIPLES
+     A few roles also carry a `-rgb` twin (`--brand-rgb: 23, 71, 160`) because
+     Bootstrap composes its utilities as rgba(var(--bs-primary-rgb), alpha).
+     The contrast test checks every twin still matches its hex.
+
+   ROLES (what each one is for)
+     page, page-inset      the ground under the cards; a shade under it for fills
+     surface(-raised)      a card; a menu, dialog or popover lifted off it
+     text, text-2          body text; secondary text. Both ≥ 8:1 on every ground
+     border, border-soft   a boundary you must see (≥ 3:1); a hairline
+     brand(-hover/-active) a solid action, and the text on it (on-brand)
+     brand-text, link      the brand as lettering; links
+     brand-soft            a tint for a chosen or highlighted thing (on-brand-soft)
+     neutral-soft          the resting state of a tab or chip (on-neutral-soft)
+     shell-*               sidebar, top bar and footer: ONE gradient from shell-dark
+                           (top left) to shell-light (bottom right) — dark to
+                           light in every colourway and mode — and the colours
+                           that sit on it. Inside those three (`.app-shell`),
+                           theme.css points text, text-2, link and focus at the
+                           shell-* roles, so anything placed there reads on it.
+
+   A NEW COLOURWAY
+     Copy one light and one dark block below, rename the selectors, change the
+     values, add the name to NAV_STYLES (context/themeContextValue.ts) and a
+     preview label in the two locale files. Nothing else names a colourway.
+   ============================================================================ */
+
+/* ── Meanings that do not change with the colourway ──────────────────────────
+   Light mode: the fill is for bars, dots and strokes; the -text is dark enough
+   to read as lettering on a card, the page and a wash of its own colour.
+   Dark mode: the fill is bright, the -text a light tint of it. -solid is the
+   colour of a filled button or badge, with its lettering in on-*-solid. */
+
+:root[data-bs-theme="light"],
+:root:not([data-bs-theme]) {
+  --income: #12855a;
+  --income-text: #12855a;
+  --expense: #c4302b;
+  --expense-text: #c4302b;
+  --goal: #d97706;
+  --goal-text: #5d3303;
+  --invest: #6366f1;
+  --invest-text: #313378;
+  --pending: #ea580c;
+  --pending-text: #692805;
+
+  /* A filled meaning-button and its two steps under the pointer: darker in
+     daylight, so the lettering on it only gains. The red and the green are
+     the owner's own two (2026-11-03): one red and one green everywhere in
+     daylight — lettering, figures, chips, fills, charts. The green cannot
+     carry near-white lettering (4.4:1), so in daylight nothing is lettered on
+     a solid green: theme.css draws success buttons and badges as the green on
+     its wash, like a chip. */
+  --success-solid: #12855a;
+  --success-solid-rgb: 18, 133, 90;
+  --success-solid-hover: #10774f;
+  --success-solid-active: #0e6a47;
+  --on-success-solid: #fbfdfc;
+  --danger-solid: #c4302b;
+  --danger-solid-rgb: 196, 48, 43;
+  --danger-solid-hover: #b02a26;
+  --danger-solid-active: #9c2521;
+  --on-danger-solid: #fdf7f7;
+  --warning-solid: #f2b640;
+  --warning-solid-rgb: 242, 182, 64;
+  --warning-solid-hover: #eeac34;
+  --warning-solid-active: #e9a92c;
+  --on-warning-solid: #2b1a00;
+
+  --chart-income: #12855a;
+  --chart-expense: #c4302b;
+  --chart-net: #5560d8;
+}
+
+:root[data-bs-theme="dark"] {
+  --income: #4ade80;
+  --income-text: #4ade80;
+  --expense: #ff7b72;
+  --expense-text: #ff7b72;
+  --goal: #fbbf24;
+  --goal-text: #feebbb;
+  --invest: #a5b4fc;
+  --invest-text: #e7ebff;
+  --pending: #fb923c;
+  --pending-text: #fee0c7;
+
+  /* In the dark the fills are pale and lettered dark, so they step lighter.
+     One red (#ff7b72) and one green (#4ade80) for everything in the dark, the
+     daylight pair's own hues made bright enough for the dark-grey cards. */
+  --success-solid: #4ade80;
+  --success-solid-rgb: 74, 222, 128;
+  --success-solid-hover: #6ee69a;
+  --success-solid-active: #86ebac;
+  --on-success-solid: #052e1a;
+  --danger-solid: #ff7b72;
+  --danger-solid-rgb: 255, 123, 114;
+  --danger-solid-hover: #ff8f87;
+  --danger-solid-active: #ffa29b;
+  --on-danger-solid: #450a0a;
+  --warning-solid: #fcd34d;
+  --warning-solid-rgb: 252, 211, 77;
+  --warning-solid-hover: #fddc72;
+  --warning-solid-active: #fde68a;
+  --on-warning-solid: #2b1d00;
+
+  --chart-income: #4ade80;
+  --chart-expense: #ff7b72;
+  --chart-net: #7881ea;
+
+  /* The ink of a shadow and a scrim in the dark: near-black, never black. In
+     daylight it is the page's own text colour (theme.css). */
+  --shadow-ink: #07090c;
+}
+
+/* ══ The grounds, in both colourways ═════════════════════════════════════════
+   Daylight is white with a warm breath in it, one step off pure white: cards
+   at #fdfbf7, the page a little deeper under them. Not a beige theme — the
+   colourway's own colour stays the only colour; the ground only stops glaring.
+   The dark mode is a dark grey, not a near-black: page #1e2126 (blue) or
+   #232326 (gold), each card a step lighter than the ground it sits on.
+
+   THE SHELL IS A DARK ISLAND, in both colourways and both modes: one gradient,
+   dark at the top left and lighter at the bottom right, lettered in near-white.
+   It is the same shell in daylight and in the dark, value for value, because
+   inside it (`.app-shell`) the dark mode's roles apply whole — the third
+   selector on each dark block — so a button, a chip or a link placed in the
+   top bar is drawn for a dark ground in either mode. That selector sits in
+   `:where()`, so it weighs no more than theme.css's own `.app-shell` rule,
+   which comes later and points text, links and focus at the shell-* roles.
+   contrast.test.ts checks the two modes' shells are identical.
+
+   The current item in the shell is marked by a DEEPER band, not a lighter one:
+   a white veil over the blue's lighter end took the lettering under 8:1. */
+
+/* ══ blue — Μπλε εμπιστοσύνης (default) ═══════════════════════════════════════
+   A clear, full blue — the blue of a bank's card, not a greyed one. Dark enough
+   in daylight to carry near-white lettering at 8:1 (#1747a0, 8.2:1); in the
+   dark a light sky blue lettered in navy. The shell runs from a deep navy at
+   the top left to the brand's own blue at the bottom right — as light as the
+   near-white lettering on it allows (8:1 at both ends). */
+
+:root[data-nav-style="blue"][data-bs-theme="light"],
+:root:not([data-nav-style])[data-bs-theme="light"],
+:root:not([data-nav-style]):not([data-bs-theme]),
+[data-bs-theme="light"] .nav-style-blue {
+  --page: #f6f3ec;
+  --page-rgb: 246, 243, 236;
+  --page-inset: #ede9df;
+  --surface: #fdfbf7;
+  --surface-raised: #fefcf9;
+  --text: #111a27;
+  --text-rgb: 17, 26, 39;
+  --text-2: #2b3442;
+  --text-2-rgb: 43, 52, 66;
+  --border: #7b7f87;
+  --border-soft: #ddd7cb;
+
+  --brand: #1747a0;
+
+  --brand-rgb: 23, 71, 160;
+  --brand-hover: #133d8c;
+  --brand-active: #10337a;
+  --on-brand: #f8fafc;
+  --brand-text: #133c86;
+  --brand-soft: #e2eaf8;
+  --on-brand-soft: #0e2b5c;
+  --brand-edge: #8eaee2;
+  --link: #133c86;
+  --link-rgb: 19, 60, 134;
+  --link-hover: #0e3172;
+  --link-hover-rgb: 14, 49, 114;
+  --focus: #2563d9;
+  --neutral-soft: #ece8de;
+  --on-neutral-soft: #252b35;
+
+  --shell-dark: #0c2a63;
+  --shell-light: #153d82;
+  --shell-text: #f8fafc;
+  --shell-text-2: #eef3fa;
+  --shell-rule: rgba(230, 237, 248, 0.22);
+  --shell-hover: rgba(248, 250, 252, 0.05);
+  --shell-current: rgba(4, 16, 42, 0.38);
+  --shell-on-current: #fafbfd;
+  --shell-accent: #a9c8ff;
+  --shell-focus: #d6e4ff;
+  --shell-logo: #eef3fb;
+  --shell-on-logo: #123a85;
+  --shell-badge: #ff7b72;
+  --shell-on-badge: #4a0d0d;
+  --shell-badge-warn: #ffd479;
+  --shell-on-badge-warn: #3a2600;
+}
+
+:root[data-nav-style="blue"][data-bs-theme="dark"],
+:root:not([data-nav-style])[data-bs-theme="dark"],
+[data-bs-theme="dark"] .nav-style-blue,
+:where(:root[data-nav-style="blue"][data-bs-theme="light"]) .app-shell,
+:where(:root:not([data-nav-style])[data-bs-theme="light"]) .app-shell {
+  --page: #1e2126;
+  --page-rgb: 30, 33, 38;
+  --page-inset: #23272d;
+  --surface: #262a30;
+  --surface-raised: #2a2e35;
+  --text: #eef1f5;
+  --text-rgb: 238, 241, 245;
+  --text-2: #d0d6de;
+  --text-2-rgb: 208, 214, 222;
+  --border: #788190;
+  --border-soft: #3a3f47;
+
+  --brand: #9ec3fa;
+
+  --brand-rgb: 158, 195, 250;
+  --brand-hover: #b3d0fb;
+  --brand-active: #92bbf9;
+  --on-brand: #0b1f44;
+  --brand-text: #b5d1fc;
+  --brand-soft: #24344f;
+  --on-brand-soft: #dbe7fb;
+  --brand-edge: #4f6f9f;
+  --link: #b5d1fc;
+  --link-rgb: 181, 209, 252;
+  --link-hover: #d2e3fd;
+  --link-hover-rgb: 210, 227, 253;
+  --focus: #8fb8f7;
+  --neutral-soft: #2e333a;
+  --on-neutral-soft: #d6dce4;
+
+  --shell-dark: #0c2a63;
+  --shell-light: #153d82;
+  --shell-text: #f8fafc;
+  --shell-text-2: #eef3fa;
+  --shell-rule: rgba(230, 237, 248, 0.22);
+  --shell-hover: rgba(248, 250, 252, 0.05);
+  --shell-current: rgba(4, 16, 42, 0.38);
+  --shell-on-current: #fafbfd;
+  --shell-accent: #a9c8ff;
+  --shell-focus: #d6e4ff;
+  --shell-logo: #eef3fb;
+  --shell-on-logo: #123a85;
+  --shell-badge: #ff7b72;
+  --shell-on-badge: #4a0d0d;
+  --shell-badge-warn: #ffd479;
+  --shell-on-badge-warn: #3a2600;
+}
+
+/* ══ gold — Μαύρο & χρυσό ═════════════════════════════════════════════════════
+   A charcoal black and champagne. The shell is a soft charcoal in BOTH modes,
+   #2a2a2e at the top left to #3a3a40 at the bottom right — dark, nearly grey,
+   never the hole a true black makes; the dark mode's page a step under it.
+
+   Not a yellow gold. Amber is the «goal» meaning, its button the warning, and
+   orange is «pending»: a gold brand of the same hue and lightness made a goal's
+   chip, a warning badge and a primary button the same colour (ΔE00 ≈ 7 in the
+   dark). The fills here are a pale, low-chroma champagne in the dark and a
+   cool, olive-leaning brass in daylight, so a meaning's colour stays the only
+   saturated warm thing on screen. contrast.test.ts checks the distance. The
+   gold that remains is in lettering (brand-text, links), where it is a word,
+   not a badge. */
+
+:root[data-nav-style="gold"][data-bs-theme="light"],
+[data-bs-theme="light"] .nav-style-gold {
+  --page: #f6f3ec;
+  --page-rgb: 246, 243, 236;
+  --page-inset: #ede9df;
+  --surface: #fdfbf7;
+  --surface-raised: #fefcf9;
+  --text: #17140d;
+  --text-rgb: 23, 20, 13;
+  --text-2: #3b3426;
+  --text-2-rgb: 59, 52, 38;
+  --border: #8a8068;
+  --border-soft: #ddd7cb;
+
+  --brand: #54461f;
+
+  --brand-rgb: 84, 70, 31;
+  --brand-hover: #463a19;
+  --brand-active: #392f14;
+  --on-brand: #fbfaf6;
+  --brand-text: #4a3d18;
+  --brand-soft: #ece6d3;
+  --on-brand-soft: #31280d;
+  --brand-edge: #b0a37a;
+  --link: #4a3d18;
+  --link-rgb: 74, 61, 24;
+  --link-hover: #362c10;
+  --link-hover-rgb: 54, 44, 16;
+  --focus: #7a6a2e;
+  --neutral-soft: #ece8de;
+  --on-neutral-soft: #2c2618;
+
+  --shell-dark: #2a2a2e;
+  --shell-light: #3a3a40;
+  --shell-text: #f7f4ec;
+  --shell-text-2: #f3efe6;
+  --shell-rule: rgba(236, 229, 209, 0.22);
+  --shell-hover: rgba(247, 244, 236, 0.06);
+  --shell-current: rgba(236, 229, 209, 0.11);
+  --shell-on-current: #fbf9f3;
+  --shell-accent: #ece5d1;
+  --shell-focus: #f3eee1;
+  --shell-logo: #ece5d1;
+  --shell-on-logo: #1c1709;
+  --shell-badge: #ff7b72;
+  --shell-on-badge: #4a0d0d;
+  --shell-badge-warn: #f5b03c;
+  --shell-on-badge-warn: #2b1d00;
+}
+
+:root[data-nav-style="gold"][data-bs-theme="dark"],
+[data-bs-theme="dark"] .nav-style-gold,
+:where(:root[data-nav-style="gold"][data-bs-theme="light"]) .app-shell {
+  --page: #232326;
+  --page-rgb: 35, 35, 38;
+  --page-inset: #28282c;
+  --surface: #2b2b2f;
+  --surface-raised: #2d2d32;
+  --text: #f3efe6;
+  --text-rgb: 243, 239, 230;
+  --text-2: #d8d1c2;
+  --text-2-rgb: 216, 209, 194;
+  --border: #847e72;
+  --border-soft: #3c3c41;
+
+  --brand: #ece5d1;
+
+  --brand-rgb: 236, 229, 209;
+  --brand-hover: #f3eee1;
+  --brand-active: #e2dac3;
+  --on-brand: #1c1709;
+  --brand-text: #e6d4a0;
+  --brand-soft: #36322a;
+  --on-brand-soft: #efe8d6;
+  --brand-edge: #7a705a;
+  --link: #e6d4a0;
+  --link-rgb: 230, 212, 160;
+  --link-hover: #f2e5bf;
+  --link-hover-rgb: 242, 229, 191;
+  --focus: #ece5d1;
+  --neutral-soft: #343439;
+  --on-neutral-soft: #e0d9ca;
+
+  --shell-dark: #2a2a2e;
+  --shell-light: #3a3a40;
+  --shell-text: #f7f4ec;
+  --shell-text-2: #f3efe6;
+  --shell-rule: rgba(236, 229, 209, 0.22);
+  --shell-hover: rgba(247, 244, 236, 0.06);
+  --shell-current: rgba(236, 229, 209, 0.11);
+  --shell-on-current: #fbf9f3;
+  --shell-accent: #ece5d1;
+  --shell-focus: #f3eee1;
+  --shell-logo: #ece5d1;
+  --shell-on-logo: #1c1709;
+  --shell-badge: #ff7b72;
+  --shell-on-badge: #4a0d0d;
+  --shell-badge-warn: #f5b03c;
+  --shell-on-badge-warn: #2b1d00;
+}

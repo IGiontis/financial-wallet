@@ -7,7 +7,6 @@ import { FiChevronDown, FiChevronRight, FiX } from "react-icons/fi";
 import { PaydayCard } from "../../overview/components/PaydayCard";
 import { moneyOrigin } from "../../overview/components/paydayParts";
 import type { PaydayOutlook } from "../../overview/overviewTabs";
-import type { OpeningBalance } from "../../../shared/utils/balance";
 import type { ResolvedOccurrence } from "../plannerActuals";
 import type { PlannerEvent } from "../plannerUtils";
 import type { SliceStep } from "../payCycles";
@@ -30,10 +29,9 @@ interface PlannerPaydayCardProps {
   fromBanks: boolean;
   /** The money you have — the Overview's figure. */
   available: number;
-  source?: "readings" | "settings";
+  source?: "readings";
   banks?: number;
   inGoals: number;
-  opening?: OpeningBalance;
   /** What the Overview says, worked out from `available` — for the line under a "what if". */
   realLeft?: number;
   openingInput: string;
@@ -76,7 +74,6 @@ export function PlannerPaydayCard({
   source,
   banks,
   inGoals,
-  opening,
   realLeft,
   openingInput,
   onOpening,
@@ -140,7 +137,7 @@ export function PlannerPaydayCard({
       }
       origin={
         fromBanks
-          ? moneyOrigin(t, { source, banks, inGoals, opening, locale, formatCurrency })
+          ? moneyOrigin(t, { source, banks, inGoals, formatCurrency })
           : realLeft !== undefined
             ? t("planner.scenarioOverview", { amount: formatCurrency(realLeft) })
             : undefined

@@ -31,6 +31,8 @@ export interface DebtCashRecord {
   categoryId: string;
   description: string;
   createdAt: Date;
+  /** Carried from the debt or repayment written while reading the banks — see `Transaction.inReading`. */
+  inReading?: boolean;
 }
 
 export { DEBT_CATEGORY_ID, DEBT_INTEREST_CATEGORY_ID };
@@ -74,6 +76,7 @@ export function debtCashRecords(debt: DebtWithStatus, now: Date = new Date()): {
       categoryId: DEBT_CATEGORY_ID,
       description,
       createdAt: asDate(debt.createdAt, now),
+      ...(debt.inReading ? { inReading: true } : {}),
     });
   }
 
@@ -93,6 +96,7 @@ export function debtCashRecords(debt: DebtWithStatus, now: Date = new Date()): {
       debtPaymentId: payment.id,
       description,
       createdAt: asDate(payment.createdAt, now),
+      ...(payment.inReading ? { inReading: true } : {}),
     };
     if (principal > 0) records.push({ ...base, id: debtCashIds.principal(payment.id), type: out, amount: principal, debtPart: "principal", categoryId: DEBT_CATEGORY_ID });
     if (interest > 0) records.push({ ...base, id: debtCashIds.interest(payment.id), type: out, amount: interest, debtPart: "interest", categoryId: DEBT_INTEREST_CATEGORY_ID });

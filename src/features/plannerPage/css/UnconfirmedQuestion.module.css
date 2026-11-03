@@ -9,7 +9,7 @@
   display: grid;
   gap: 0.5rem;
   margin-top: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  padding: 0.625rem var(--space-3);
   border: 1px solid color-mix(in srgb, var(--color-goal-text) var(--tint-border), var(--color-surface));
   border-radius: var(--border-radius-md);
   background: var(--goal-wash-solid);

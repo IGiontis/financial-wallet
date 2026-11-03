@@ -18,7 +18,7 @@
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 400;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   min-height: 38px; /* comfortable touch target */
   white-space: nowrap;
   /* Labels are short and meaningful — never truncate them to "..." */
@@ -90,7 +90,7 @@
   flex: 1 1 0;
   min-width: 0;
   text-align: center;
-  padding-inline: 8px;
+  padding-inline: var(--space-2);
 }
 
 /* A section's pages: a full row still, but each as wide as its own label plus a

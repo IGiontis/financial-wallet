@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import Skeleton from "react-loading-skeleton";
 import { useTranslation } from "react-i18next";
 import { ZoomButton, ZoomModal } from "../../../shared/components/ChartZoom";
 import styles from "./css/Analytics.module.css";
@@ -19,6 +20,8 @@ interface ChartCardProps {
   xtall?: boolean;
   /** Let the content set its own height, for cards that draw rows not plots. */
   auto?: boolean;
+  /** A fixed height in px, for a chart borrowed from another page that draws itself at one size. */
+  height?: number;
   /** Shown instead of the chart when there isn't enough data to plot. */
   empty?: string;
   /** Opt out of the magnify button, for anything a bigger box would not help. */
@@ -44,18 +47,29 @@ interface ChartCardProps {
  * phone, and most of them are below the fold anyway — the reserved height means
  * scrolling stays stable either way.
  *
+ * Until then the box holds a skeleton of its own size, so a chart arrives into
+ * the space it was always going to take rather than into a blank card (the
+ * «charts are slow» the owner saw was mostly that: an empty box, then each
+ * chart animating itself in over a second and a half — the animations are off
+ * now too). The mount itself is a transition, so a burst of cards scrolling in
+ * together lays out one after another without holding up the scroll, each
+ * keeping its skeleton until its own drawing is ready.
+ *
+ * `auto` cards are lists, not plots: cheap, and of a height only they know, so
+ * they render straight away — a skeleton would only be a jump when they land.
+ *
  * Every card also opens full-screen. That started as one exception for the
  * Sankey and became the rule: a grid cell is the wrong size for all of these on
  * a phone, and the same drawing given the whole screen is the cheapest fix
  * there is. The modal renders the very same `children`, so a card never has to
  * describe itself twice.
  */
-export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, empty, zoomable = true, footer, toolbar, details, children }: ChartCardProps) {
+export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tall, xtall, auto, height, empty, zoomable = true, footer, toolbar, details, children }: ChartCardProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // Without IntersectionObserver (jsdom, very old browsers) there is nothing to
   // defer against, so start visible rather than never rendering the chart.
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
+  const [visible, setVisible] = useState(() => !!auto || typeof IntersectionObserver === "undefined");
   const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
@@ -64,7 +78,7 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setVisible(true);
+        if (entry.isIntersecting) startTransition(() => setVisible(true));
       },
       // Start loading a screenful early so the chart is ready on arrival.
       { rootMargin: "300px 0px" },
@@ -74,7 +88,7 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
     return () => observer.disconnect();
   }, [visible]);
 
-  const toneColor = valueTone === "income" ? "var(--color-income)" : valueTone === "expense" ? "var(--color-expense)" : "var(--color-text-primary)";
+  const toneColor = valueTone === "income" ? "var(--color-income-text)" : valueTone === "expense" ? "var(--color-expense-text)" : "var(--color-text-primary)";
   const canZoom = zoomable && !empty;
   const openable = canZoom && !!details;
 
@@ -112,8 +126,15 @@ export function ChartCard({ title, hint, value, valueTone = "neutral", wide, tal
 
       <div
         className={`${styles.chartArea} ${tall ? styles.tall : ""} ${xtall ? styles.xtall : ""} ${auto ? styles.auto : ""}`}
+        style={height ? { height } : undefined}
       >
-        {empty ? <p className={styles.emptyNote}>{empty}</p> : visible ? children : null}
+        {empty ? (
+          <p className={styles.emptyNote}>{empty}</p>
+        ) : visible ? (
+          children
+        ) : (
+          <Skeleton height="100%" containerClassName={styles.chartSkeleton} />
+        )}
       </div>
 
       {footer && !empty && footer}

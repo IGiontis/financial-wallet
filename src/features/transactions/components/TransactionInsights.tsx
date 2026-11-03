@@ -20,6 +20,7 @@ import {
 } from "../transactionInsights";
 import SliceTransactionsModal from "./SliceTransactionsModal";
 import { DetailsTable } from "../../analytics/components/DetailsTable";
+import { signedPercent } from "../../analytics/components/chartTheme";
 import styles from "./css/TransactionInsights.module.css";
 import { findCategory } from "../../../shared/utils/categories";
 
@@ -268,8 +269,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                       className={styles.statValue}
                       style={{ color: comparison.difference === 0 ? undefined : comparison.difference > 0 ? "var(--color-expense)" : "var(--color-income)" }}
                     >
-                      {comparison.difference > 0 ? "+" : ""}
-                      {Math.round(comparison.percentage)}%
+                      {signedPercent(comparison.percentage)}
                     </div>
                     <div className={styles.statSub}>
                       {t(comparison.difference >= 0 ? "transactions.moreThanBefore" : "transactions.lessThanBefore", { amount: formatCurrency(Math.abs(comparison.difference)) })}

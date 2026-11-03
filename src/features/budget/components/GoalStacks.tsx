@@ -1,6 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { FiChevronDown, FiGrid, FiList, FiPlus } from "react-icons/fi";
-import { ViewSwitch } from "../../../shared/components/ViewSwitch";
+import { FiChevronDown, FiPlus } from "react-icons/fi";
 import { useTranslation } from "react-i18next";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import { formatDate, getStatusConfig, goalHeadline, relativeToNow, toDate } from "./goalDisplay";
@@ -182,31 +181,5 @@ export function GoalStacks({ groups, storageKey, ...actions }: { groups: GoalGro
         <Stack key={group.id} group={group} actions={steady} storageKey={storageKey} />
       ))}
     </div>
-  );
-}
-
-export type GoalView = "cards" | "stacks";
-
-/**
- * Cards or list, and the choice sticks.
- *
- * Two readings of the same goals: the grid for looking at them, the stacks for
- * working through them. Which one someone wants is a habit, not a mood, so it
- * is remembered rather than reset on every visit.
- */
-export function GoalViewToggle({ view, onChange }: { view: GoalView; onChange: (view: GoalView) => void }) {
-  const { t } = useTranslation();
-
-  return (
-    <ViewSwitch
-      data-tour="goal-views"
-      label={t("goals.viewLabel")}
-      value={view}
-      onChange={onChange}
-      options={[
-        { id: "cards", label: t("goals.viewCards"), icon: FiGrid },
-        { id: "stacks", label: t("goals.viewStacks"), icon: FiList },
-      ]}
-    />
   );
 }

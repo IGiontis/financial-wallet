@@ -1,7 +1,10 @@
-/* The page's foot: a strip of its own, off the page's colour, running from one
+/* The page's foot: the third piece of the shell's frame, in the same
+   viewport-anchored gradient as the sidebar and the top bar, running from one
    edge of the page to the other — square, with a rule along its top, rather than
    a rounded box floating inside the margins. The negative margins undo the
-   page's own gutters (Bootstrap's fluid container, and its `py-2` below). */
+   page's own gutters (Bootstrap's fluid container, and its `py-2` below).
+   `.app-shell` on it (AppFooter.tsx) turns the text roles into the shell's, so
+   the legal links' own inline `--color-text-secondary` follows too. */
 
 .footer {
   --gutter: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
@@ -12,10 +15,10 @@
   margin: 2rem calc(var(--gutter) * -1) -0.5rem;
   padding: 1.25rem calc(var(--gutter) + 0.5rem);
   border: 0;
-  border-top: 1px solid var(--color-border-tertiary);
+  border-top: 1px solid var(--shell-rule);
   border-radius: 0;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
+  background: var(--shell-gradient) fixed;
+  color: var(--shell-text-2);
   font-size: 12.5px;
   text-align: center;
 }
@@ -28,7 +31,6 @@
 
 .rights {
   font-size: 11.5px;
-  opacity: 0.85;
 }
 
 .link {
@@ -38,7 +40,7 @@
 }
 
 .link:hover {
-  color: var(--color-text-primary);
+  color: var(--shell-text);
 }
 
 .links {
@@ -47,7 +49,7 @@
 
 .links :global(a),
 .links :global(button) {
-  padding-block: 2px;
+  padding-block: var(--space-0);
 }
 
 @media (min-width: 768px) {

@@ -133,12 +133,12 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
               </Col>
               {!!goal.arrears && (
                 <Col xs={6}>
-                  <Fact label={t("goals.remainingLabel")} value={formatCurrency(goal.arrears)} accent="var(--color-expense)" />
+                  <Fact label={t("goals.remainingLabel")} value={formatCurrency(goal.arrears)} accent="var(--color-expense-text)" />
                 </Col>
               )}
               {!!goal.periodSurplus && (
                 <Col xs={6}>
-                  <Fact label={t("goals.onTrack")} value={formatCurrency(goal.periodSurplus)} accent="var(--color-income)" />
+                  <Fact label={t("goals.onTrack")} value={formatCurrency(goal.periodSurplus)} accent="var(--color-income-text)" />
                 </Col>
               )}
             </Row>
@@ -176,7 +176,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
                 style={{ borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)", fontSize: 13 }}
               >
                 <span className="text-body-secondary">{dateFmt.format(firestoreToDate(c.date))}</span>
-                <span className="fw-semibold" style={{ color: c.contributionType === "withdrawal" ? "var(--color-expense)" : "var(--color-income)" }}>
+                <span className="fw-semibold" style={{ color: c.contributionType === "withdrawal" ? "var(--color-expense-text)" : "var(--color-income-text)" }}>
                   {c.contributionType === "withdrawal" ? "−" : "+"}
                   {formatCurrency(c.amount)}
                 </span>

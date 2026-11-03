@@ -118,12 +118,13 @@ describe("readCheckIns", () => {
     expect(readCheckIns([c1, c2b], accounts, logged)[1].unlogged).toBe(0);
   });
 
-  it("tells the first reading what the app had been saying", () => {
-    const legacy = { amount: 2000, date: new Date(2026, 8, 1) };
+  it("tells the first reading what the app had been saying: every record before it, from nothing", () => {
     const before = [tx(1500, 5, { type: "income" }), tx(1000, 10)];
-    const [first] = readCheckIns([c1], accounts, before, legacy);
-    // 2,000 + 1,500 − 1,000 = 2,500 said; 2,250 read.
-    expect(first.appSaid).toBe(2500);
+    const [first] = readCheckIns([c1], accounts, before);
+    // 1,500 − 1,000 = 500 said; 2,250 read. No Settings figure is added any more.
+    expect(first.appSaid).toBe(500);
+    // The other way: the balance the app shows with no reading at all, the same records.
+    expect(first.appSaid).toBe(currentBalance(before, undefined));
     expect(first.unlogged).toBeUndefined();
   });
 });
@@ -171,31 +172,27 @@ describe("the balance counted from a reading", () => {
     }
   });
 
-  it("keeps the Settings figure only for the time before the first reading", () => {
-    const legacy = { amount: 2000, date: new Date(2026, 7, 1) };
-    const readings = readCheckIns([c1, c2], accounts, all, legacy);
-    const anchors = balanceAnchors(readings, all, legacy);
-    expect(anchors).toHaveLength(3);
-    expect(anchors[0]).toBe(legacy);
-    expect(anchorAt(anchors, new Date(2026, 8, 10))).toBe(legacy);
+  it("is counted from the readings alone: one anchor per reading, none before the first", () => {
+    const readings = readCheckIns([c1, c2], accounts, all);
+    const anchors = balanceAnchors(readings, all);
+    expect(anchors).toHaveLength(2);
+    expect(anchorAt(anchors, new Date(2026, 8, 10))).toBeUndefined();
     expect(anchorAt(anchors, new Date(2026, 8, 25))?.at?.toISOString()).toBe(c1.at);
-
-    // A Settings date after the first reading is older news than the readings.
-    expect(balanceAnchors(readings, all, { amount: 5, date: new Date(2026, 8, 25) })).toHaveLength(2);
   });
 
-  it("draws each month of the position from the reading in force when it closes", () => {
-    const legacy = { amount: 2000, date: new Date(2026, 7, 1) };
+  it("draws each month of the position from the reading in force when it closes, and invents none before the first", () => {
     const august = [tx(500, 10, { month: 7 })];
     const rows = [...august, ...all];
-    const readings = readCheckIns([c1, c2], accounts, rows, legacy);
-    const points = netWorthSeries(rows, [], balanceAnchors(readings, rows, legacy), new Date(2026, 7, 1), new Date(2026, 8, 30));
+    const readings = readCheckIns([c1, c2], accounts, rows);
+    const anchors = balanceAnchors(readings, rows);
+    const points = netWorthSeries(rows, [], anchors, new Date(2026, 7, 1), new Date(2026, 8, 30));
 
-    expect(points.map((p) => p.key)).toEqual(["2026-08", "2026-09"]);
-    // August from the Settings figure: 2,000 − 500.
-    expect(points[0].cash).toBe(1500);
+    // August closes before the first reading: left out rather than made up.
+    expect(points.map((p) => p.key)).toEqual(["2026-09"]);
     // September from the reading on the 28th, and the same as the balance card.
-    expect(points[1].cash).toBeCloseTo(currentBalance(rows, balanceAnchors(readings, rows, legacy).at(-1)), 2);
+    expect(points[0].cash).toBeCloseTo(currentBalance(rows, anchors.at(-1)), 2);
+    // A second way: the real total projected from the latest reading, less what goals hold.
+    expect(points[0].cash).toBeCloseTo(projectedTotal(readings[1], rows) - goalHeldAt(rows, new Date(2026, 8, 30, 23, 59)), 2);
   });
 });
 

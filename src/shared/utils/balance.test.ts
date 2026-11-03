@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { affectsBalance, balanceDelta, currentBalance, excludedByOpeningDate, isAfterReading, readingTimeKey, recordReadingKey } from "./balance";
+import { affectsBalance, balanceDelta, currentBalance, isAfterReading, readingTimeKey, recordReadingKey } from "./balance";
 import { readCheckIns, type BalanceCheckIn, type MoneyAccount } from "../../features/accounts/accountsUtils";
 import type { Transaction } from "../types/IndexTypes";
 
@@ -80,17 +80,6 @@ describe("currentBalance", () => {
   });
 });
 
-describe("excludedByOpeningDate", () => {
-  it("is zero without an opening balance", () => {
-    expect(excludedByOpeningDate([tx({ date: new Date("2020-01-01") })], undefined)).toBe(0);
-  });
-
-  it("counts the records held out of the balance", () => {
-    const rows = [tx({ date: new Date("2026-07-01") }), tx({ date: new Date("2026-08-01") }), tx({ date: new Date("2026-09-10") })];
-    expect(excludedByOpeningDate(rows, opening)).toBe(2);
-  });
-});
-
 // ─── Firestore Timestamps ────────────────────────────────────────────────────
 // `Transaction.date` is typed as a Date, but the read casts the raw document
 // straight through, so at runtime it is a Timestamp. Passing one to a bare
@@ -122,11 +111,6 @@ describe("balance with Firestore Timestamps", () => {
   it("accepts the serialized { seconds } form", () => {
     const row = tx({ amount: 100, date: { seconds: Math.floor(new Date("2026-09-05").getTime() / 1000) } as unknown as Date });
     expect(currentBalance([row], opening)).toBe(4900);
-  });
-
-  it("counts Timestamps correctly in the excluded tally", () => {
-    const rows = [tx({ date: timestamp("2026-07-01") as unknown as Date }), tx({ date: timestamp("2026-09-10") as unknown as Date })];
-    expect(excludedByOpeningDate(rows, opening)).toBe(1);
   });
 });
 

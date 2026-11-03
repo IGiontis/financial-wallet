@@ -9,7 +9,7 @@
 
 .card {
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
@@ -35,7 +35,7 @@
   display: flex;
   gap: 2px;
   height: 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--color-background-secondary);
 }
@@ -101,7 +101,7 @@
 
 .sumChip {
   padding: 1px 7px;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -130,7 +130,7 @@
   height: 100%;
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -197,7 +197,7 @@
 
 .lines {
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-surface);
 }
@@ -239,7 +239,7 @@
 .lineButton:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
 }
 
 .lineIcon {
@@ -249,7 +249,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: var(--radius-bs-lg);
   background: var(--color-background-secondary);
   font-size: 15px;
 }
@@ -283,7 +283,7 @@
   width: 36px;
   height: 36px;
   margin-right: -8px;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
 }
 
 .lineMenu:hover {
@@ -308,46 +308,57 @@
 }
 
 /* Each kind of fact in its own colour, the same on every row, so the eye
-   finds "which bank" or "when" without reading: when sky blue, how often
-   violet, the account teal, a changing amount pink, a pause grey. The text is
-   the colour mixed into the page's own text colour, which keeps it readable
-   on both themes. */
+   finds "which bank" or "when" without reading. Every pair is a role pair
+   from the contrast contract (≥ 8:1 on both modes): when in the pending blue,
+   how often in the invest violet, a start date in the brand's soft tint, the
+   account, a changing amount and a pause on the neutral grounds — the account
+   outlined, the pause dashed, so the three greys still differ by shape. (They
+   were five hex colours mixed into the text, around 5:1.) */
 .tag {
-  --tag: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
   max-width: 100%;
   padding: 1px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--tag) 15%, transparent);
-  color: color-mix(in srgb, var(--tag) 55%, var(--color-text-primary));
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-soft);
+  color: var(--on-neutral-soft);
   font-size: 11px;
   font-weight: 600;
-  line-height: 18px;
+  line-height: 16px;
   /* A long date wraps inside its chip rather than being cut to «30 Ο…». */
   white-space: normal;
 }
 
 .tag_when {
-  --tag: #0ea5e9;
+  background: var(--pending-wash);
+  color: var(--pending-text);
 }
 
 .tag_schedule {
-  --tag: #8b5cf6;
+  background: var(--invest-wash);
+  color: var(--invest-text);
+}
+
+.tag_start {
+  background: var(--brand-soft);
+  color: var(--on-brand-soft);
+  border-color: var(--brand-edge);
 }
 
 .tag_account {
-  --tag: #14b8a6;
-}
-
-.tag_variable {
-  --tag: #ec4899;
+  background: var(--page-inset);
+  color: var(--text-2);
+  border-color: var(--border-soft);
 }
 
 .tag_pause,
 .tag_more {
-  --tag: var(--color-text-secondary);
+  background: var(--page-inset);
+  color: var(--text-2);
+  border-color: var(--border);
+  border-style: dashed;
 }
 
 /* The status pill, among the chips, wraps the same way. */
@@ -384,16 +395,15 @@
   font-weight: 500;
 }
 
+/* Wraps rather than cutting its words: «Ξεκινά 1 Μαρ 2027 · σε 4 μήνες» whole. */
 .pill {
   align-self: flex-start;
   max-width: 100%;
   font-size: 11px;
   font-weight: 600;
   padding: 1px 7px;
-  border-radius: var(--border-radius-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  white-space: normal;
 }
 
 .pill_paid {
@@ -412,8 +422,14 @@
 }
 
 .pill_due {
-  background: color-mix(in srgb, var(--bs-primary) 15%, transparent);
-  color: var(--color-link);
+  background: var(--pending-wash-strong);
+  color: var(--pending-text);
+}
+
+/* Not running yet: when it starts. */
+.pill_start {
+  background: var(--brand-soft);
+  color: var(--on-brand-soft);
 }
 
 .pill_muted {
@@ -432,7 +448,7 @@
 .ask {
   margin: 0 13px 12px;
   padding: 10px 12px;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   border: 1px solid var(--invest-edge);
   background: var(--invest-wash-solid);
   font-size: 12.5px;
@@ -462,7 +478,7 @@
 .nextMonth {
   padding: 12px 14px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -483,7 +499,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
@@ -499,13 +515,15 @@
 }
 
 .calWeekday {
-  padding: 2px 0 4px;
+  padding: var(--space-0) 0 var(--space-1);
   text-align: center;
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
+/* A day's shape only: its colours are every calendar's (DayTone.module.css,
+   through `dayTone`), so nothing here sets a border, a ground or a colour. */
 .calDay {
   min-width: 0;
   min-height: 54px;
@@ -513,167 +531,82 @@
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-sm);
-  /* White days with a hairline edge, inside the card: the days with money on
-     them are the only ones with colour. */
-  background: var(--color-surface);
-  color: var(--color-text-primary);
+  padding: var(--space-0);
+  border-radius: var(--radius-sm);
   text-align: left;
   font-size: 12px;
 }
 
 .calDay:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 
+/* The days of the months either side: room in the grid, nothing more. */
 .calOutside {
+  border: 0;
   background: transparent;
-  color: var(--color-text-secondary);
-  opacity: 0.55;
+  visibility: hidden;
 }
 
 .calNum {
   align-self: flex-start;
   min-width: 20px;
-  padding: 0 4px;
-  border-radius: 999px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
   font-weight: 600;
   line-height: 18px;
   text-align: center;
 }
 
-.calToday .calNum {
-  background: var(--bs-primary);
-  color: #fff;
-  font-weight: 700;
-}
-
-/* ── A day lit by what happened on it ───────────────────────────────────────
-   The fill is mixed into the surface rather than laid over the grey of an
-   empty day, so it is the same colour on both themes' grounds; the edge is
-   the colour at full strength, which is what separates two lit days side by
-   side. */
-/* The legend's small days: declared before the colours, so those draw them too. */
-.swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-right: 5px;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: 4px;
-  background: var(--color-background-secondary);
-  vertical-align: -2px;
-}
-
-.dayArrived {
-  background: var(--income-wash-strong-solid);
-  border-color: var(--income-edge-strong);
-}
-
-.dayLate {
-  background: var(--goal-wash-strong-solid);
-  border-color: var(--goal-edge-strong);
-}
-
-.dayAsk {
-  background: var(--invest-wash-strong-solid);
-  border-color: var(--invest-edge-strong);
-}
-
-.dayDue {
-  background: color-mix(in srgb, var(--bs-primary) 18%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--bs-primary) 55%, transparent);
-}
-
-/* Its own day, when the money came on another: only an outline, so it is not
-   read as a second arrival. */
-.dayExpected {
-  background: var(--income-wash-solid);
-  border-style: dashed;
-  border-color: var(--income-edge-strong);
-}
-
-.dayArrived .calNum,
-.dayExpected .calNum {
-  color: var(--color-income-text);
-}
-
-.dayLate .calNum {
-  color: var(--color-goal-text);
-}
-
-.dayAsk .calNum {
-  color: var(--color-invest-text);
-}
-
-.dayDue .calNum {
-  color: var(--color-link);
-}
-
-.calSelected {
-  box-shadow: inset 0 0 0 2px var(--color-accent-strong);
-}
-
+/* What is on a day, as a chip on a plain ground above the day's colour — as
+   the «Ημερολόγιο» page draws its figure — so the lettering reads the same on
+   every colour a day can be. */
 .mark {
   display: block;
-  padding: 0 2px;
-  border-radius: 4px;
+  padding: 0 var(--space-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
   font-size: 10px;
   font-weight: 700;
-  line-height: 16px;
+  line-height: 14px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
 
 .markArrived {
-  background: var(--income-wash-strong);
-  color: var(--color-income-text);
+  color: var(--income-text);
 }
 
-/* Where it was expected, when it came on another day: an outline, not a fill. */
+/* Where it was expected, when it came on another day: a dashed chip. */
 .markExpected {
-  border: 1px dashed var(--income-edge-strong);
-  color: var(--color-income-text);
-  line-height: 14px;
+  border-style: dashed;
+  border-color: var(--income-edge-strong);
+  color: var(--income-text);
+  font-weight: 500;
 }
 
-.markLate {
-  background: var(--goal-wash-strong);
-  color: var(--color-goal-text);
-}
-
+.markLate,
 .markAsk {
-  background: var(--invest-wash-strong);
-  color: var(--color-invest-text);
+  border-color: var(--goal-edge-strong);
+  color: var(--goal-text);
 }
 
 .markDue {
-  background: color-mix(in srgb, var(--bs-primary) 24%, transparent);
-  color: var(--color-link);
+  border-color: var(--income-edge-strong);
+  color: var(--income-text);
 }
-
-.calLegend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 8px;
-  font-size: 11.5px;
-  color: var(--color-text-secondary);
-}
-
 
 .dayPanel {
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
-  background: var(--color-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 /* A day's figures are the one thing that fits a 48px cell. Names join them
@@ -685,13 +618,13 @@
 @media (min-width: 992px) {
   .calDay {
     min-height: 74px;
-    padding: 4px 5px;
+    padding: var(--space-1) var(--space-1);
   }
 
   .mark {
     font-size: 11px;
     text-align: left;
-    padding: 0 4px;
+    padding: 0 var(--space-1);
   }
 
   /* The name on a line of its own, so a long one cannot push the figure out. */
@@ -704,12 +637,15 @@
 }
 
 /* ── The year ─────────────────────────────────────────────────────────────── */
-/* The same darker summary panel the Bills page puts beside its list. */
+/* The same strong panel as the Bills page's «Ετήσια προβολή» — one treatment,
+   composed from SummaryPanel.module.css, so the two cannot drift apart. */
 
 .yearCard {
-  border-radius: var(--border-radius-lg);
-  background: var(--color-tooltip-bg);
-  color: var(--color-tooltip-text);
+  composes: panel from "../../../shared/css/SummaryPanel.module.css";
+}
+
+.yearMuted {
+  font-size: 12px;
 }
 
 .yearAmount {
@@ -717,31 +653,23 @@
   font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .yearDivider {
-  margin: 0.75rem 0;
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  opacity: 1;
+  composes: divider from "../../../shared/css/SummaryPanel.module.css";
 }
 
 .yearTrack {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.14);
-  overflow: hidden;
+  composes: track from "../../../shared/css/SummaryPanel.module.css";
 }
 
 .yearFill {
-  height: 100%;
-  border-radius: 3px;
-  background: #4ade80;
+  composes: fill from "../../../shared/css/SummaryPanel.module.css";
 }
 
 .yearNote {
   font-size: 11.5px;
-  opacity: 0.75;
   font-variant-numeric: tabular-nums;
 }
 
@@ -755,8 +683,8 @@
 
 .chip {
   min-width: 0;
-  padding: 5px 2px;
-  border-radius: var(--border-radius-sm);
+  padding: var(--space-1) var(--space-0);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   background: var(--color-background-secondary);
   text-align: center;
@@ -873,7 +801,7 @@
   height: 12px;
   margin-right: 5px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   vertical-align: -2px;
 }
 
@@ -883,7 +811,7 @@
 
 .readCard {
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-background-secondary);
 }
 
@@ -929,7 +857,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--radius-bs-lg);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 14px;
@@ -937,7 +865,7 @@
 
 .readLabel {
   flex: 0 0 34%;
-  padding-top: 4px;
+  padding-top: var(--space-1);
   color: var(--color-text-secondary);
   font-size: 12.5px;
 }
@@ -945,7 +873,7 @@
 .readValue {
   flex: 1;
   min-width: 0;
-  padding-top: 3px;
+  padding-top: var(--space-0);
   color: var(--color-text-primary);
   font-weight: 600;
   text-align: right;
@@ -987,9 +915,9 @@
   gap: 10px;
   width: 100%;
   min-height: 44px;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
   text-align: left;
@@ -1044,7 +972,7 @@
   min-height: 44px;
   padding: 6px 4px;
   border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
   font-size: 13px;
@@ -1059,14 +987,14 @@
 .suggestion {
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--bs-primary) 45%, transparent);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bs-primary) 7%, var(--color-surface));
   text-align: left;
 }
 
 /* The month's card: the calendar's frame, its days inside it. */
 .calCard {
-  padding: 12px;
+  padding: var(--space-3);
   margin-bottom: 12px;
 }
 
@@ -1083,7 +1011,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  padding: 8px 0;
+  padding: var(--space-2) 0;
 }
 
 .monthItems li + li {

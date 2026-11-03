@@ -85,7 +85,7 @@ function notInDemo<T extends object>(service: string): T {
  */
 const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY as string | undefined;
 export const appCheckEnabled = !demo && !useEmulators && !!appCheckSiteKey;
-if (appCheckEnabled) {
+function startAppCheck() {
   if (import.meta.env.DEV) (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true;
   try {
     initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey!), isTokenAutoRefreshEnabled: true });
@@ -95,9 +95,31 @@ if (appCheckEnabled) {
     if (!(error instanceof FirebaseError && error.code === "appCheck/already-initialized")) throw error;
   }
 }
+if (appCheckEnabled) startAppCheck();
 
 export const auth: Auth = demo ? notInDemo<Auth>("Auth") : getAuth(app);
 if (!demo && useEmulators && !auth.emulatorConfig) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+
+let demoSignInAuth: Auth | undefined;
+
+/**
+ * The real Auth, for the demo's sign-in dialog only (see `demo/demoSignIn`):
+ * started the moment someone presses «Σύνδεση» or «Δημιουργία» there, and
+ * never before — a visitor who only looks around still costs nothing. App
+ * Check comes up first, as it does for the app, so the request is signed.
+ * Firestore stays closed: whatever the new account needs written is written by
+ * the real app, after the page loads again into it. Outside the demo, the
+ * app's own Auth.
+ */
+export function authForDemoSignIn(): Auth {
+  if (!demo) return auth;
+  if (!demoSignInAuth) {
+    if (!useEmulators && appCheckSiteKey) startAppCheck();
+    demoSignInAuth = getAuth(app);
+    if (useEmulators && !demoSignInAuth.emulatorConfig) connectAuthEmulator(demoSignInAuth, "http://127.0.0.1:9099", { disableWarnings: true });
+  }
+  return demoSignInAuth;
+}
 /**
  * Firestore with an on-disk cache rather than the default in-memory one.
  *

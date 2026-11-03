@@ -50,7 +50,7 @@ export default function WeekdayChart({ totals, formatCurrency, locale }: { total
       <BarChart data={data} margin={{ top: 8, right: 4, left: 4, bottom: 0 }} barCategoryGap="22%">
         <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={4} interval={0} />
         <Tooltip content={<WeekdayTooltip formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
-        <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
+        <Bar dataKey="amount" radius={[3, 3, 0, 0]} isAnimationActive={false}>
           {data.map((point) => (
             // The heaviest day carries full strength so it reads at a glance;
             // the rest stay muted rather than competing with it.

@@ -139,7 +139,7 @@ export function SkeletonCardGrid({ count = 6 }: { count?: number }) {
                 <Skeleton height={10} width="45%" style={{ marginTop: 4 }} />
               </div>
             </div>
-            <Skeleton height={8} style={{ borderRadius: 4 }} />
+            <Skeleton height={8} style={{ borderRadius: "var(--radius-xs)" }} />
             <div className="d-flex justify-content-between mt-3">
               <Skeleton height={12} width={70} />
               <Skeleton height={12} width={70} />

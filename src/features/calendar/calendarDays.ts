@@ -1,5 +1,5 @@
 import { addMonths, endOfMonth, startOfDay, startOfMonth } from "date-fns";
-import { monthForecast } from "../bills/billsUtils";
+import { monthForecast, startsLater } from "../bills/billsUtils";
 import { isSettled, type IncomeStatus } from "../incomes/incomesUtils";
 import { buildPlan, oneOffDates, type OneOff, type PlannerEvent } from "../plannerPage/plannerUtils";
 import type { Actuals } from "../plannerPage/plannerActuals";
@@ -35,6 +35,8 @@ export interface CalendarItem {
   state: CalendarState;
   /** An estimate — a variable bill or income nobody has given this time's figure for. */
   approximate?: boolean;
+  /** The very first time of a bill or income not running yet: rent from 1 March, seen in November. */
+  first?: boolean;
 }
 
 /** One side of a day — what came in, or what went out. */
@@ -104,6 +106,14 @@ export interface CalendarSources {
   debts: DebtWithStatus[];
   goalEvents: PlannerEvent[];
   debtEvents: PlannerEvent[];
+  /** The first day of each income that has not started yet, by income — see `incomeStartsLater`. */
+  incomeStarts?: ReadonlyMap<string, number>;
+}
+
+/** A bill's first period, while it has not started: the month it starts in. */
+function firstBillPeriod(bill: BillWithStatus, date: Date, now: Date): boolean {
+  const starts = startsLater(bill, now);
+  return !!starts && date.getFullYear() === starts.getFullYear() && date.getMonth() === starts.getMonth();
 }
 
 /** Every item that falls in `month`, earliest first. */
@@ -123,6 +133,8 @@ export function calendarItems(month: Date, sources: CalendarSources): CalendarIt
       amount: entry.amount,
       state: entry.isPaid ? "done" : startOfDay(entry.date) < today ? "late" : "todo",
       approximate: entry.isVariable && !entry.isPaid,
+      // The first period of a bill that starts in a later month.
+      first: firstBillPeriod(entry.bill, entry.date, now) || undefined,
     });
   }
 
@@ -145,6 +157,7 @@ export function calendarItems(month: Date, sources: CalendarSources): CalendarIt
       // Late, or waiting for the owner to say whether it came — either way it needs them.
       state: status.state === "late" || status.state === "ask" ? "late" : "todo",
       approximate: status.approximate,
+      first: sources.incomeStarts?.get(status.incomeId) === startOfDay(status.expectedDate).getTime() || undefined,
     });
   }
 

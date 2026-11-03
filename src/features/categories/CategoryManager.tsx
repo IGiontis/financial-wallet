@@ -3,15 +3,41 @@ import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
 import { FiEdit2 } from "react-icons/fi";
-import { groupCategories, type CategoryGroup } from "../../shared/utils/categoryNames";
-import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useCategoryGroupUsage } from "../transactions/hooks/useTransactions";
+import { groupCategories, type CategoryGroup, type CategoryScope } from "../../shared/utils/categoryNames";
+import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useTransactions } from "../transactions/hooks/useTransactions";
+import { useBills } from "../bills/useBills";
+import { useIncomeList } from "../incomes/useIncomes";
+import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { PLANNER_KEYS, cleanLines } from "../plannerPage/plannerInputs";
+import type { BudgetLine } from "../plannerPage/plannerUtils";
 import CategoryModal from "./CategoryModal";
+import { categoryUsage, totalUsage, type CategoryUsage } from "./categoryUsage";
+import { typesToAdd } from "./categoryScope";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 
 /** Badge wording per scope — "both" is the one worth calling out. */
 const SCOPE_LABEL = { expense: "transactions.expense", income: "transactions.income", both: "categories.both" } as const;
 const SCOPE_COLOR = { expense: "secondary", income: "success", both: "primary" } as const;
+
+/** The kinds of record the delete dialog names, in the order it names them. */
+const USAGE_KINDS: (keyof CategoryUsage)[] = ["transactions", "bills", "incomes", "plannerLines"];
+
+/**
+ * Everything that can point at a category, from what the app already holds:
+ * nothing is read to ask. `ready` once each list has arrived — counting
+ * against a list still on its way would let a category in use be deleted.
+ */
+function useUsageSources() {
+  const transactions = useTransactions();
+  const bills = useBills();
+  const { incomes, isLoading: incomesLoading } = useIncomeList();
+  const [storedLines] = useWorkspaceSetting<BudgetLine[]>(PLANNER_KEYS.lines, []);
+  const plannerLines = useMemo(() => cleanLines(storedLines), [storedLines]);
+  const ready = transactions.isSuccess && bills.isSuccess && !incomesLoading;
+  const sources = useMemo(() => ({ transactions: transactions.data ?? [], bills: bills.data ?? [], incomes, plannerLines }), [transactions.data, bills.data, incomes, plannerLines]);
+  return { ready, sources };
+}
 
 /**
  * The user's own categories, listed and editable.
@@ -33,30 +59,48 @@ export default function CategoryManager() {
   const updateCategory = useUpdateCategoryGroup();
   const deleteCategory = useDeleteCategoryGroup();
   const deleteGuard = useOfflineGuard("delete");
-  const checkUsage = useCategoryGroupUsage();
+  const { ready: usageReady, sources } = useUsageSources();
 
   const [editing, setEditing] = useState<CategoryGroup | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CategoryGroup | null>(null);
-  const [usage, setUsage] = useState<number | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const own = useMemo(() => groupCategories(categories.filter((c) => !c.isDefault)), [categories]);
   const defaultCount = categories.filter((c) => c.isDefault).length;
 
-  const askDelete = (group: CategoryGroup) => {
-    setDeleteTarget(group);
-    setUsage(null);
-    // Counted on open rather than up front: one read per category on every
-    // settings visit, for a button most people never press.
-    checkUsage.mutate(group.members.map((m) => m.id), { onSuccess: setUsage });
-  };
+  // Both halves of a «both» at once: a pair is deleted together, so it is in
+  // use if either half is.
+  const usage = useMemo(() => (deleteTarget && usageReady ? categoryUsage(deleteTarget.members.map((m) => m.id), sources) : null), [deleteTarget, usageReady, sources]);
+  const inUse = usage !== null && totalUsage(usage) > 0;
 
   const confirmDelete = () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || usage === null || inUse) return;
     deleteCategory.mutate(deleteTarget.members.map((m) => m.id), { onSuccess: () => setDeleteTarget(null) });
   };
 
-  const inUse = usage !== null && usage > 0;
+  /**
+   * Saves an edit. Widening to «both» is the existing documents updated first,
+   * then the missing half created under the new name — in that order, so a
+   * failure in between leaves a one-sided category with its new name rather
+   * than two halves that no longer match and list as two categories.
+   */
+  const saveEdit = async (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope; defaultPayee?: string; defaultAmount?: number }) => {
+    const fields = { name: values.name, icon: values.icon, defaultPayee: values.defaultPayee, defaultAmount: values.defaultAmount };
+    const missing = typesToAdd(group.scope, values.scope);
+    setSavingEdit(true);
+    try {
+      await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
+      // The new half gets the name and the icon only: an expense's payee and
+      // amount would otherwise prefill every income recorded under it.
+      for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
+      setEditing(null);
+    } catch {
+      // Left open, as it was, to try again.
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   if (isLoading) return <SkeletonRows count={4} />;
 
@@ -81,12 +125,12 @@ export default function CategoryManager() {
             <div
               key={group.members.map((m) => m.id).join("-")}
               className="d-flex align-items-center gap-2 px-2 py-2"
-              style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}
+              style={{ background: "var(--color-background-secondary)", borderRadius: "var(--radius-md)" }}
             >
               <span style={{ fontSize: 18 }} aria-hidden>
                 {group.icon ?? "🧾"}
               </span>
-              <span className="fw-medium text-truncate" style={{ fontSize: 14, flex: 1, minWidth: 0 }}>
+              <span className="fw-medium text-break" style={{ fontSize: 14, flex: 1, minWidth: 0 }}>
                 {group.name}
               </span>
               <Badge color={SCOPE_COLOR[group.scope]} pill style={{ fontSize: 10 }}>
@@ -95,7 +139,7 @@ export default function CategoryManager() {
               <Button color="secondary" outline size="sm" onClick={() => setEditing(group)} aria-label={t("common.edit")} title={t("common.edit")}>
                 <FiEdit2 size={13} />
               </Button>
-              <DeleteButton opensConfirm iconOnly size="sm" onClick={() => askDelete(group)} />
+              <DeleteButton opensConfirm iconOnly size="sm" onClick={() => setDeleteTarget(group)} />
             </div>
           ))}
         </div>
@@ -115,15 +159,11 @@ export default function CategoryManager() {
         <CategoryModal
           existing={categories}
           scope={editing.scope}
-          category={editing}
-          isSaving={updateCategory.isPending}
+          // The defaults it fills in, from the documents behind it — or saving would clear them.
+          category={{ ...editing, defaultPayee: editing.members.find((m) => m.defaultPayee)?.defaultPayee, defaultAmount: editing.members.find((m) => m.defaultAmount != null)?.defaultAmount }}
+          isSaving={savingEdit}
           onClose={() => setEditing(null)}
-          onSubmit={(values) =>
-            updateCategory.mutate(
-              { categoryIds: editing.members.map((m) => m.id), data: { name: values.name, icon: values.icon, defaultPayee: values.defaultPayee, defaultAmount: values.defaultAmount } },
-              { onSuccess: () => setEditing(null) },
-            )
-          }
+          onSubmit={(values) => void saveEdit(editing, values)}
         />
       )}
 
@@ -133,10 +173,17 @@ export default function CategoryManager() {
           {usage === null ? (
             <Skeleton height={14} count={2} />
           ) : inUse ? (
-            /* Refused rather than cascaded: deleting would leave those rows with
-               a category that no longer resolves, and no way to find them. */
-            <Alert color="warning" className="mb-0" style={{ fontSize: 13 }}>
-              {t("categories.deleteBlocked", { name: deleteTarget?.name ?? "", count: usage })}
+            /* Refused rather than cascaded: deleting would leave those records
+               with a category that no longer resolves. Moving them to another
+               one writes every one of them, and is not offered (yet). */
+            <Alert color="warning" className="mb-0" style={{ fontSize: 13 }} data-testid="category-in-use">
+              <p className="mb-1">{t("categories.deleteUsedBy", { name: deleteTarget?.name ?? "" })}</p>
+              <ul className="mb-2 ps-3">
+                {USAGE_KINDS.filter((kind) => usage[kind] > 0).map((kind) => (
+                  <li key={kind}>{t(`categories.usage${kind[0].toUpperCase()}${kind.slice(1)}`, { count: usage[kind] })}</li>
+                ))}
+              </ul>
+              <p className="mb-0">{t("categories.deleteUsedHint")}</p>
             </Alert>
           ) : (
             <p className="mb-0" style={{ fontSize: 14 }}>

@@ -35,12 +35,14 @@ beforeAll(async () => {
 });
 
 describe("money as a tree", () => {
-  it("grows money in to the left of the trunk and money out to the right, today's week first", () => {
+  it("grows money in to the left of the trunk and money out to the right, this month first", () => {
     const { container } = tree("all");
+    expect(screen.getByText("October 2026")).toBeInTheDocument();
     const left = [...container.querySelectorAll("[class*=_left_] li")].map((li) => li.textContent);
     const right = [...container.querySelectorAll("[class*=_right_] li")].map((li) => li.textContent);
     expect(left).toEqual([expect.stringMatching(/Salary.*\+€1450\.00/)]);
-    expect(right).toEqual([expect.stringMatching(/Phone.*−€25\.00/), expect.stringMatching(/Rent.*−€400\.00/)]);
+    // October's rent of the 1st, then the phone of the 28th.
+    expect(right).toEqual([expect.stringMatching(/Rent.*−€400\.00/), expect.stringMatching(/Phone.*−€25\.00/)]);
     // A second way: the totals over the trunk are the leaves added up.
     expect(screen.getByText("+€1450.00", { selector: "b" })).toBeInTheDocument();
     expect(screen.getByText(`−${money(25 + 400)}`, { selector: "b" })).toBeInTheDocument();
@@ -61,8 +63,35 @@ describe("money as a tree", () => {
     expect(out.container.textContent).not.toContain("Salary");
   });
 
+  it("keeps one side for each way, whichever kind it holds: in all left, out all right", () => {
+    const incomes = tree("in");
+    expect(incomes.container.querySelectorAll("[class*=_right_] li")).toHaveLength(0);
+    expect(incomes.container.querySelectorAll("[class*=_left_] li").length).toBeGreaterThan(0);
+    incomes.unmount();
+    const bills = tree("out");
+    expect(bills.container.querySelectorAll("[class*=_left_] li")).toHaveLength(0);
+    expect(bills.container.querySelectorAll("[class*=_right_] li")).toHaveLength(2);
+  });
+
+  it("spans three months, six or a year, and says each figure the months add up to", async () => {
+    tree("out");
+    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Year/ }));
+    expect(screen.getByText(/^Oct 2026 – Sept? 2027$/)).toBeInTheDocument();
+    // Twelve months of a 25 and a 400 bill: 12 × 425, a second way of reading the total.
+    expect(screen.getByText(`−${money(12 * (25 + 400))}`, { selector: "b" })).toBeInTheDocument();
+    // Drawn a few weeks at a time: 24 days with a bill on them and today, 21 drawn first.
+    const nodes = () => document.querySelectorAll("[class*=_node_]").length;
+    expect(nodes()).toBe(21);
+    await userEvent.click(screen.getByRole("button", { name: "Show 4 more days" }));
+    expect(nodes()).toBe(12 * 2 + 1);
+    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /3 months/ }));
+    expect(screen.getByText("Oct 2026 – Dec 2026")).toBeInTheDocument();
+    expect(screen.getByText(`−${money(3 * 425)}`, { selector: "b" })).toBeInTheDocument();
+  });
+
   it("steps a week at a time, and a month shows the whole month", async () => {
     tree("all");
+    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Week/ }));
     await userEvent.click(screen.getByRole("button", { name: "Next period" }));
     // 2 to 8 November: no salary, no bills — and a way back.
     expect(screen.getByText("Nothing in this period.")).toBeInTheDocument();
@@ -86,8 +115,9 @@ describe("money as a tree", () => {
     expect(screen.getByRole("button", { name: "Next period" })).toBeDisabled();
   });
 
-  it("weighs each leaf by what it wants: to pay, to come, or done", () => {
+  it("weighs each leaf by what it wants: to pay, to come, or done", async () => {
     const { container } = tree("out");
+    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Week/ }));
     // The phone bill on the 28th, two days off: to come, and how soon.
     const phone = screen.getByText("Phone").closest("li")!;
     expect(phone.className).toMatch(/_upcoming_/);

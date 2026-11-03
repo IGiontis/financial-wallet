@@ -1,119 +1,76 @@
-/* The chrome around a list of goals: heading, summary, tabs, filters, view.
-   One shell, three shapes. A phone gets full-width tabs and puts the filters in
-   a sheet; a laptop gets the same tabs with the filters inline; a wide screen
-   moves tabs and grouping into a rail and gives the list the room back. */
+/* The chrome around a goal screen: heading, three underline tabs, and in each
+   tab its own block — the overview's figures, or a search row over the cards
+   or the list. See GoalsWorkbench.tsx, GoalTabs.tsx, GoalsOverview.tsx. */
 
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-3);
+}
+
+.headText {
+  min-width: 0;
 }
 
 .headActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-}
-
-.main {
-  min-width: 0;
-}
-
-/* ── Tabs, full width ─────────────────────────────────────────────────────── */
+/* ── The tabs: Bootstrap's underline nav, in the app's roles ──────────────── */
+/* The chosen tab in the brand's lettering colour with a 2px rule under it, the
+   others in the secondary text colour; one hairline under the whole strip so
+   the rule has something to sit on. Three short words fit a 320px phone; the
+   strip scrolls sideways rather than wrapping should a language need more. */
 
 .tabs {
-  display: flex;
-  gap: 3px;
-  padding: 3px;
-  margin-bottom: 10px;
-  border-radius: var(--border-radius-md);
-  background: var(--segment-track);
+  --bs-nav-link-color: var(--text-2);
+  --bs-nav-link-hover-color: var(--text);
+  --bs-nav-underline-link-active-color: var(--brand-text);
+  --bs-nav-underline-border-width: 2px;
+  --bs-nav-underline-gap: var(--space-4);
+  --bs-nav-link-padding-x: 0;
+  --bs-nav-link-padding-y: var(--pad-tab-y);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-/* Grows to fill the row, never shrinks below its own label. Three short words
-   spread across a phone; four longer ones scroll rather than being cut to
-   "Ολοκληρ…", which is not a word and not a tab anyone can read. */
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .tab {
-  flex: 1 0 auto;
-  min-width: max-content;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid var(--segment-item-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--segment-item);
-  color: var(--color-text-secondary);
-  font-size: 12.5px;
-  font-weight: 500;
-  padding: 7px 10px;
-  min-height: 38px;
+  /* Down onto the strip's hairline, so the chosen rule covers it. */
+  margin-bottom: -1px;
   white-space: nowrap;
-  cursor: pointer;
+  font-size: 0.875rem;
 }
 
-.tab:hover:not(.tabOn) {
-  color: var(--color-text-primary);
+.tab:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-xs);
 }
 
-.tabOn {
-  background: var(--color-segment-active);
-  border-color: var(--color-segment-active-border);
-  color: var(--color-segment-active-text);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
+.panel:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
 }
 
-@media (max-width: 767.98px) {
-  .tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .tab {
-    scroll-snap-align: start;
-  }
-}
-
-.tabCount {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-}
-
-.tabOn .tabCount {
-  background: color-mix(in srgb, currentColor 18%, transparent);
-  color: inherit;
-}
-
-/* ── The row under the boxes ──────────────────────────────────────────────── */
+/* ── A tab of goals: its search row ───────────────────────────────────────── */
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: var(--space-2);
 }
 
 .search {
@@ -121,225 +78,190 @@
   min-width: 0;
 }
 
-/* The rail already carries the grouping on a wide screen, so the toolbar drops
-   its copy there rather than asking the same question twice. */
-.groupSlot {
-  display: contents;
+.results {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-2);
 }
 
-.groupPick {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 132px;
-  font-size: 12.5px;
+.controls {
+  margin-bottom: var(--space-3);
 }
-
-.filterBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 0.5px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.filterMark {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--bs-primary);
-}
-
-/* ── The rail, on a screen wide enough to spare it ────────────────────────── */
-
-.rail {
-  display: none;
-}
-
-.railTitle {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin: 0 0 6px 8px;
-}
-
-.railItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  margin-bottom: 2px;
-  border: 0;
-  border-radius: var(--border-radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.railItem:hover:not(.railItemOn) {
-  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
-  color: var(--color-text-primary);
-}
-
-.railItemOn {
-  background: var(--color-surface);
-  border: 0.5px solid var(--color-border-tertiary);
-  color: var(--color-text-primary);
-  font-weight: 600;
-  padding: 6.5px 9.5px;
-}
-
-.railCount {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.railRule {
-  border-top: 1px solid var(--color-border-primary);
-  margin: 14px 8px 12px;
-}
-
-@media (min-width: 1200px) {
-  .layout {
-    grid-template-columns: 212px minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .rail {
-    display: block;
-    position: sticky;
-    top: 12px;
-    align-self: start;
-  }
-
-  /* The rail says both of these, so the row under the boxes keeps only what it
-     is for: finding one goal, and choosing how to look at them. */
-  .tabs {
-    display: none;
-  }
-
-  .groupSlot {
-    display: none;
-  }
-}
-
-/* ── The sheet a phone gets instead of the filters ────────────────────────── */
-
-.sheet {
-  height: auto !important;
-  max-height: 80vh;
-  border-top-left-radius: var(--border-radius-lg);
-  border-top-right-radius: var(--border-radius-lg);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.sheet :global(.offcanvas-title) {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-/* Two halves of one choice, side by side and the same width. */
-.sheetSeg {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.sheetSeg > .pick {
-  justify-content: center;
-}
-
-.sheetGroup {
-  margin-bottom: 20px;
-}
-
-.sheetPicks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 0.5px solid var(--color-border-tertiary);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.pickOn {
-  background: color-mix(in srgb, var(--bs-primary) 12%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--bs-primary) 45%, transparent);
-  color: var(--color-text-primary);
-  font-weight: 600;
-}
-
-/* ── The controls follow the page ─────────────────────────────────────────── */
-/* Twenty goals is four screens of scrolling. Having to come back to the top to
-   change tab or regroup is the reason nobody does either. Phones keep it in
-   place — vertical room is the scarce thing there, and the strip would cost a
-   tenth of the screen for the whole scroll. */
 
 @media (min-width: 768px) {
   .controls {
     position: sticky;
     top: 0;
     z-index: 3;
-    padding-top: 8px;
-    margin-top: -8px;
-    background: var(--color-background-primary);
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    margin-top: calc(-1 * var(--space-2));
+    background: var(--page);
   }
 }
 
-/* Above the rail's own breakpoint the strip is gone and only the row is left,
-   so the rail and the row keep the same line as each other. */
-@media (min-width: 1200px) {
-  .controls {
-    padding-top: 12px;
-    margin-top: -12px;
+/* The «Όλοι ▾» button. Doubled so it outweighs the row menu's own bare toggle
+   whichever stylesheet loads last. */
+.pickToggle.pickToggle {
+  gap: var(--space-1);
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pickToggle.pickToggle:hover {
+  border-color: var(--border);
+}
+
+.pickToggle.pickToggle:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* Where the tick would be on the choices not taken, so the words line up. */
+.pickSpacer {
+  display: inline-block;
+  width: 15px;
+  flex-shrink: 0;
+}
+
+.empty {
+  text-align: center;
+  padding: var(--space-7) 0;
+  color: var(--text-2);
+}
+
+/* ── «Επισκόπηση» ─────────────────────────────────────────────────────────── */
+
+/* The boxes wrap onto as many rows as the width needs — two on a phone, four
+   on a laptop — rather than scrolling sideways out of sight. */
+.overviewTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+@media (max-width: 575.98px) {
+  .overviewTiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* ── The boxes on a phone: one row, sideways ──────────────────────────────── */
+.overviewTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-soft);
+  border-top: 3px solid var(--edge, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
 
-@media (max-width: 767.98px) {
-  .stats > :global(.row) {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    margin-bottom: 1rem !important;
-    padding-bottom: 2px;
-  }
+.overviewTileHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
 
-  .stats > :global(.row)::-webkit-scrollbar {
-    display: none;
-  }
+.overviewTileLabel {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--stat-tile-label-size);
+  font-weight: 600;
+  color: var(--text);
+}
 
-  .stats > :global(.row > *) {
-    flex: 0 0 46%;
-    max-width: 46%;
-    scroll-snap-align: start;
-  }
+.overviewFigure {
+  margin: 0;
+  font-size: var(--stat-tile-figure-size);
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.overviewTileSub {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.overviewCard {
+  border-color: var(--border-soft);
+  border-radius: var(--radius-lg);
+}
+
+/* «Κοντά στο τέλος»: a goal a row — name and %, its bar, its money under it. */
+.nearList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.nearHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.nearName {
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nearPct {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nearTrack {
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--page-inset);
+  overflow: hidden;
+}
+
+.nearFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--near, var(--goal-fill));
+}
+
+.nearMoney {
+  margin: var(--space-1) 0 0;
+  font-size: 0.75rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.overTimeTotals {
+  margin: var(--space-2) 0 0;
+  font-size: 0.75rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }

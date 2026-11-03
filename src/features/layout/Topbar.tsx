@@ -36,7 +36,8 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
   return (
     // `container={false}`: reactstrap otherwise wraps the bar in a second
     // container-fluid, and its gutter doubled the inset ☰ sits at on a phone.
-    <Navbar container={false} className={`border-bottom ${styles.topbar}`}>
+    // `app-shell`: one frame with the sidebar and the footer (styles/theme.css).
+    <Navbar container={false} className={`app-shell border-bottom ${styles.topbar}`}>
       <Container fluid className={`${styles.topbarContainer} d-flex align-items-center flex-nowrap`}>
         <Button
           innerRef={menuButtonRef}
@@ -62,7 +63,7 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
         <div className={styles.rightContent}>
           <Button
             color="link"
-            className={`${styles.iconButton} ${styles.themeToggle}`}
+            className={styles.iconButton}
             onClick={toggleTheme}
             aria-label={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
             title={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
@@ -74,18 +75,14 @@ export function Topbar({ toggleSidebar, menuButtonRef, isDrawerOpen }: TopbarPro
           <span className={styles.controlDivider} aria-hidden />
           <LanguageToggle />
 
-          {/* Α parts the account from the controls with a hairline; the other
-              styles draw the account as a shape of its own and hide this. */}
+          {/* A hairline parts the account from the controls. */}
           <span className={`${styles.divider} d-none d-md-block`} aria-hidden />
 
           {/* The demo's user is no one: in place of their menu, the way to an
-              account of your own — in every navigation style, Γ's wide screen
-              included, where the real account moves to the sidebar. */}
+              account of your own. */}
           {demo ? (
             <DemoAccountActions />
           ) : (
-            /* Γ moves the account into the sidebar's foot on a wide screen and
-                hides this one there; on a phone it stays up here for every style. */
             <RowMenu
               label={displayName || email || t("nav.settings")}
               className={styles.userButton}
