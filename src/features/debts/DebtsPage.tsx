@@ -14,6 +14,7 @@ import { DebtOrder } from "./DebtOrder";
 import AddDebtModal from "./AddDebtModal";
 import styles from "./css/DebtsPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
+import { usePageAdd } from "../../shared/hooks/usePageAdd";
 
 /**
  * Who you owe, and who owes you.
@@ -40,6 +41,8 @@ export function DebtsPage() {
   const wide = useNarrowScreen(WIDE_QUERY);
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The floating «+» adds a debt or a loan here.
+  usePageAdd(t("debts.add"), () => setAdding(true));
   // The two tiles are the list's filter: «Χρωστάς» shows only those you owe,
   // «Σου χρωστάνε» only those who owe you. They used to be figures to read and
   // nothing else, which a tile that looks pressable makes a dead end.

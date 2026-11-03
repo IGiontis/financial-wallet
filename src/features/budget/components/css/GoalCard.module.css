@@ -50,7 +50,7 @@
 
 .tile {
   /* Opaque, so the liquid and its crest can overlap without a darker seam. */
-  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-wash-strong), var(--surface));
+  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-tank), var(--surface));
   --tile-rim: color-mix(in srgb, var(--tile) var(--tone-edge), transparent);
   --tile-icon: var(--tile);
   position: relative;
@@ -67,10 +67,10 @@
   text-align: center;
 }
 
-/* In the dark a wash of a bright colour glares: the liquid is the quieter
-   wash, the rim barely there, the icon the pale lettering tint of the colour. */
+/* In the dark a bright colour glares: the liquid is held to what the body ink
+   still reads on at 8:1 (--tone-tank, index.css), the rim barely there, the
+   icon the pale lettering tint of the colour. */
 :global([data-bs-theme="dark"]) .tile {
-  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-wash), var(--surface));
   --tile-rim: color-mix(in srgb, var(--tile) var(--tone-wash-strong), transparent);
   --tile-icon: var(--tile-text);
 }

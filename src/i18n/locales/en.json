@@ -3028,24 +3028,6 @@
     "putAway_one": "Don't show me this payment again",
     "putAway_other": "Don't show me these {{count}} payments again"
   },
-  "quick": {
-    "open": "Quick expense",
-    "title": "New expense",
-    "favorites": "Your usual",
-    "lastTime": "last time {{amount}}",
-    "otherCategory": "Other category…",
-    "card": "Card",
-    "description": "What it was (optional)",
-    "when": "When",
-    "today": "Today",
-    "yesterday": "Yesterday",
-    "other": "Another day",
-    "fullForm": "Full form",
-    "fullFormHint": "Fuel, notes or a transfer?",
-    "saved": "Saved: {{name}} {{amount}}",
-    "amount": "Amount",
-    "category": "Category"
-  },
   "tour": {
     "next": "Next",
     "start": "Let's go",
@@ -3173,8 +3155,8 @@
         "body": "Bills, income, goals, debts: each tile sums up a page and takes you there in one tap."
       },
       "quick": {
-        "title": "Quick expense",
-        "body": "The + is on every page: amount, category, card, and the coffee is recorded as you pay for it."
+        "title": "The «+» on every page",
+        "body": "Bottom right, on every page: on Goals, Banks, Investments and Debts it adds what the page is about; everywhere else a new transaction."
       },
       "transactions": {
         "title": "Transactions",

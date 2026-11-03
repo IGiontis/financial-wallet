@@ -1,0 +1,45 @@
+/* The «+» on every page — see AddFab.tsx. */
+
+/* Bottom right, where a thumb is, above the page and below any dialog. */
+.fab {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 1030;
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0;
+  border-radius: var(--radius-round);
+  /* The brand's own button, lit from the top-left corner like the shell. */
+  background: linear-gradient(135deg, var(--brand-active), var(--brand));
+  color: var(--on-brand);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.fab:hover {
+  transform: scale(1.06);
+}
+
+.fab:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab {
+    transition: none;
+  }
+
+  .fab:hover {
+    transform: none;
+  }
+}
+
+.fab svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}

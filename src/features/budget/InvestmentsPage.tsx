@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
+import { usePageAdd } from "../../shared/hooks/usePageAdd";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ export default function InvestmentsPage() {
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [withdrawGoal, setWithdrawGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [showNewGoal, setShowNewGoal] = useState(false);
+  // The floating «+» adds an investment here.
+  usePageAdd(t("investments.newInvestment"), () => setShowNewGoal(true));
   const [deleteGoal, setDeleteGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [editGoal, setEditGoal] = useState<InvestmentGoalWithStats | null>(null);
 

@@ -45,11 +45,11 @@ export default defineConfig({
         background_color: "#f6f3ec", // the light page, so the splash matches the app
         display: "standalone", // makes it feel like a native app
         start_url: "/",
-        // A long press on the installed app's icon: straight to a new expense (QuickExpense).
+        // A long press on the installed app's icon: straight to a new transaction (AddFab).
         shortcuts: [
           {
-            name: "Νέο έξοδο",
-            short_name: "Έξοδο",
+            name: "Νέα συναλλαγή",
+            short_name: "Συναλλαγή",
             url: "/?quick=expense",
             icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
           },

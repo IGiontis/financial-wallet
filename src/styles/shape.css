@@ -136,15 +136,15 @@
   --shadow-a-lg: 60%;
 }
 
-/* Less motion asked for: nothing travels, and what fades does so at once.
-   1ms, not 0: react-toastify waits for its animations to end before it lets a
-   toast go, and an animation of zero length never ends in some engines. */
+/* Less motion asked for: nothing travels, and the small touches (a press, a
+   hover) are instant. A dialog still fades in and out, in place — a change of
+   opacity is not motion, and the owner, whose laptop asks for less motion,
+   wants to see dialogs arrive. 1ms, not 0: an animation of zero length never
+   ends in some engines. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 1ms;
     --motion-base: 1ms;
-    --motion-modal: 1ms;
-    --motion-toast: 1ms;
     --rise: 0;
   }
 }

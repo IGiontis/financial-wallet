@@ -41,6 +41,7 @@ import { CushionCard } from "./CushionCard";
 import styles from "./css/AccountsPage.module.css";
 import TransferWizard from "../transactions/components/TransferWizard";
 import { oneRowPerTransfer } from "../transactions/transfers";
+import { usePageAdd } from "../../shared/hooks/usePageAdd";
 
 const HISTORY_SHOWN = 6;
 
@@ -70,6 +71,8 @@ export function AccountsPage() {
 
   const [reading, setReading] = useState(false);
   const [editing, setEditing] = useState<MoneyAccount | "new" | null>(null);
+  // The floating «+» adds a card or a cash wallet here.
+  usePageAdd(t("accounts.addTitle"), () => setEditing("new"));
   const [managing, setManaging] = useState(false);
   const [deleting, setDeleting] = useState<MoneyAccount | null>(null);
   const [viewing, setViewing] = useState<MoneyAccount | null>(null);

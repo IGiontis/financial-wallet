@@ -79,6 +79,10 @@
 [data-bs-theme="light"] {
   --tone-wash: 4%;
   --tone-wash-strong: 6%;
+  /* The liquid in the goal tiles' tanks (GoalCard.module.css): a colour you see
+     at a glance. Its lettering is the body ink, not the tone's own: ≥ 12:1 at
+     this strength on every tone. */
+  --tone-tank: 28%;
 }
 
 /* Lower than they were (16% and 26%, then 10% and 16%): a stronger wash lifts
@@ -88,6 +92,9 @@
 [data-bs-theme="dark"] {
   --tone-wash: 8%;
   --tone-wash-strong: 11%;
+  /* The tanks' liquid in the dark: as strong as the body ink allows at 8:1
+     (goal amber, the palest, measures 8.4 at 18%). */
+  --tone-tank: 18%;
 }
 
 :root,

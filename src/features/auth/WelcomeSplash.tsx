@@ -26,7 +26,7 @@ const FADE_MS = 300;
  * page draw underneath from the first frame. It goes once the app is `ready`
  * and `WELCOME_MIN_MS` have passed, and at `WELCOME_MAX_MS` whatever happens;
  * a tap or click anywhere, Esc or Enter, closes it at once. With reduced
- * motion everything is there from the start and nothing moves.
+ * motion the lines still fade in one by one, in place, without rising.
  */
 export function WelcomeSplash({ ready }: { ready: boolean }) {
   const { t, i18n } = useTranslation();
@@ -51,8 +51,8 @@ export function WelcomeSplash({ ready }: { ready: boolean }) {
 
   useEffect(() => {
     if (!leaving) return;
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const timer = window.setTimeout(() => setGone(true), reduced ? 0 : FADE_MS);
+    // It fades out under reduced motion too: opacity, not movement.
+    const timer = window.setTimeout(() => setGone(true), FADE_MS);
     return () => window.clearTimeout(timer);
   }, [leaving]);
 

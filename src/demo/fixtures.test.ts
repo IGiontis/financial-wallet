@@ -12,7 +12,6 @@ import { currentBalance, isAfterReading } from "../shared/utils/balance";
 import { computeDebtStatus } from "../features/debts/debtsUtils";
 import { debtCashDrift } from "../features/debts/debtCash";
 import { INCOMES_KEY, lateCount, resolveIncomes, type Income } from "../features/incomes/incomesUtils";
-import { quickFavorites } from "../features/transactions/quickEntry";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import { VIRTUAL_CATEGORIES } from "../shared/utils/categories";
 import { isSpending } from "../shared/utils/moneyModel";
@@ -149,8 +148,6 @@ function problems(data: DemoData, now: Date): string[] {
   if (!(trip.totalSaved > 300 && trip.totalSaved < 1200)) fail(`trip saved ${trip.totalSaved}`);
 
   // ── Transactions: a real person's months ──
-  const coffee = quickFavorites(data.transactions, now).find((f) => f.categoryId === "cat-expense-coffee");
-  if (coffee?.fixedAmount !== 3.5) fail(`coffee chip is ${coffee?.fixedAmount}`);
   const spentIn = new Set(data.transactions.filter(isSpending).map((t) => t.categoryId));
   if (spentIn.size < 10) fail(`only ${spentIn.size} expense categories used`);
   for (let k = 1; k <= 11; k++) {

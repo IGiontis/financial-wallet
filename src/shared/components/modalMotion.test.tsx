@@ -53,20 +53,24 @@ describe("the dialogs' motion", () => {
 });
 
 describe("the dialogs' motion, with less motion asked for", () => {
-  it("lets a closing dialog go at once: there is no fade to wait out", async () => {
+  // The owner's laptop asks for less motion, and he wants to see dialogs
+  // arrive: they still fade, in place (the rise is dropped in shape.css), so a
+  // closing one still waits out its fade.
+  it("still waits out the fade before a closing dialog goes", async () => {
     window.matchMedia = ((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
     const { rerender } = render(
       <Modal isOpen>
-        <ModalBody>Quick</ModalBody>
+        <ModalBody>Fading</ModalBody>
       </Modal>,
     );
     await waitFor(() => expect(document.querySelector(".modal")).toHaveClass("show"));
     rerender(
       <Modal isOpen={false}>
-        <ModalBody>Quick</ModalBody>
+        <ModalBody>Fading</ModalBody>
       </Modal>,
     );
-    // Gone well inside the 240ms the fade-out would otherwise take.
-    await waitFor(() => expect(screen.queryByText("Quick")).not.toBeInTheDocument(), { timeout: 100 });
+    expect(document.querySelector(".modal")).not.toHaveClass("show");
+    expect(screen.getByText("Fading")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Fading")).not.toBeInTheDocument(), { timeout: MODAL_MS + 300 });
   });
 });

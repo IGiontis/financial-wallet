@@ -643,7 +643,7 @@ body {
    first); shared/components/modalMotion.ts sets that timer so the fade starts
    straight away, and waits out the fade on the way out.
 
-   Under reduced motion the tokens are ~0 (shape.css): it simply appears. */
+   Under reduced motion it fades in place: no rise (shape.css sets --rise to 0). */
 .modal.fade {
   transition: opacity var(--motion-modal) var(--ease-out);
 }
@@ -673,13 +673,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal.fade,
-  .modal.fade .modal-dialog,
-  .modal-backdrop.fade {
-    transition: none;
-  }
-
   .modal.fade .modal-dialog {
+    transition: none;
     transform: none;
   }
 }
@@ -925,7 +920,7 @@ html:root {
   --toastify-toast-width: 22.5rem;
   --toastify-toast-offset: var(--space-4);
   /* Above the «+» at every width (3.25rem, 1rem from the bottom right —
-     QuickExpense), so the toast a quick expense raises never covers the
+     AddFab), so the toast a new record raises never covers the
      button for the next one; and above the home bar. */
   --toastify-toast-bottom: calc(var(--space-4) + 3.25rem + var(--space-3) + env(safe-area-inset-bottom, 0px));
   --toastify-toast-min-height: 3.5rem;
@@ -1016,7 +1011,7 @@ html:root {
 }
 
 /* A phone: one card the width of the screen less its gutters, along the
-   bottom, clear of the «+» (3.25rem, 1rem from the edge — QuickExpense) and of
+   bottom, clear of the «+» (3.25rem, 1rem from the edge — AddFab) and of
    the home bar. The library's own phone rule made it a square, edge-to-edge
    slab pressed against the very bottom. */
 @media (max-width: 575.98px) {

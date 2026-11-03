@@ -10,7 +10,8 @@ import "./css/MainLayout.css";
 import { AppFooter } from "./AppFooter";
 import { LoadErrorBar } from "../../shared/components/LoadErrorBar";
 import { BillAlertPopup } from "../bills/BillAlertPopup";
-import { QuickExpense } from "../transactions/components/QuickExpense";
+import { AddFab } from "./AddFab";
+import { PageAddProvider } from "../../shared/components/PageAddProvider";
 import { TourGate } from "../tour/TourGate";
 
 /** Below Bootstrap's `lg` the sidebar is a drawer behind ☰; from it up, a fixed bar. */
@@ -18,7 +19,10 @@ const DRAWER_QUERY = "(max-width: 991.98px)";
 
 export function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useLocalStorage("sidebar-collapsed", false);
+  const [isCollapsed, setIsCollapsed] = useLocalStorage(
+    "sidebar-collapsed",
+    false,
+  );
   const isDrawer = useNarrowScreen(DRAWER_QUERY);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Each page opens at its top. The page scrolls inside `.page-content`, not
@@ -88,40 +92,56 @@ export function MainLayout() {
   return (
     // Add "sidebar-collapsed" class to the root so CSS can respond to it. The
     // colourway itself is `data-nav-style` on <html>, set by ThemeProvider.
-    <div className={`main-layout ${isCollapsed ? "sidebar-collapsed" : ""}`}>
-      <Sidebar isOpen={drawerOpen} onClose={closeSidebar} isCollapsed={isCollapsed} onToggleCollapse={toggleCollapse} isDesktop={!isDrawer} />
+    <PageAddProvider>
+      <div className={`main-layout ${isCollapsed ? "sidebar-collapsed" : ""}`}>
+        <Sidebar
+          isOpen={drawerOpen}
+          onClose={closeSidebar}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={toggleCollapse}
+          isDesktop={!isDrawer}
+        />
 
-      {/* Inert behind the open drawer: Tab cannot wander off into a page the
+        {/* Inert behind the open drawer: Tab cannot wander off into a page the
           backdrop is covering, and a screen reader does not read it either. */}
-      <div className="main-content" inert={drawerOpen}>
-        <Topbar toggleSidebar={toggleSidebar} menuButtonRef={menuButtonRef} isDrawerOpen={drawerOpen} />
+        <div className="main-content" inert={drawerOpen}>
+          <Topbar
+            toggleSidebar={toggleSidebar}
+            menuButtonRef={menuButtonRef}
+            isDrawerOpen={drawerOpen}
+          />
 
-        <main className="page-content" ref={pageRef}>
-          <Container
-            fluid
-            className="py-2"
-            style={{
-              backgroundColor: "var(--color-background-primary)",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: "100%",
-            }}
-          >
-            <div className="page-outlet" ref={outletRef} style={{ flex: 1, position: "relative" }}>
-              <LoadErrorBar />
-              <Outlet />
-            </div>
-            <AppFooter />
-          </Container>
-        </main>
+          <main className="page-content" ref={pageRef}>
+            <Container
+              fluid
+              className="py-2"
+              style={{
+                backgroundColor: "var(--color-background-primary)",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100%",
+              }}
+            >
+              <div
+                className="page-outlet"
+                ref={outletRef}
+                style={{ flex: 1, position: "relative" }}
+              >
+                <LoadErrorBar />
+                <Outlet />
+              </div>
+              <AppFooter />
+            </Container>
+          </main>
+        </div>
+
+        {/* The bills to pay, once on arrival — here so it is there whichever page the app opens on. */}
+        <BillAlertPopup />
+        {/* The «+» on every page: the page's own add, or a new transaction. */}
+        <AddFab />
+        {/* The welcome tour, once — and again when the settings ask. */}
+        <TourGate />
       </div>
-
-      {/* The bills to pay, once on arrival — here so it is there whichever page the app opens on. */}
-      <BillAlertPopup />
-      {/* The «+» for an expense as it is paid, on every page. */}
-      <QuickExpense />
-      {/* The welcome tour, once — and again when the settings ask. */}
-      <TourGate />
-    </div>
+    </PageAddProvider>
   );
 }

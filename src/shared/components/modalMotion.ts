@@ -38,8 +38,7 @@ const settle = () => {
  */
 export function installModalMotion() {
   const defaults = (Modal as unknown as { defaultProps: Record<string, unknown> }).defaultProps;
-  // Getters, read on every render, so a change of the device's motion setting
-  // applies to the next dialog without a reload.
+  // Getters, read on every render.
   defaults.modalTransition = {
     get timeout() {
       return timeouts();
@@ -55,10 +54,5 @@ export function installModalMotion() {
   };
 }
 
-/**
- * Under reduced motion the CSS fade is off, so a closing dialog would only sit
- * there, fully drawn, for the length of a fade nobody sees: it goes at once.
- */
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
-
-const timeouts = () => ({ enter: 0, exit: reducedMotion() ? 0 : EXIT_MS });
+/** The fade runs under reduced motion too — only the rise is dropped — so the exit always waits for it. */
+const timeouts = () => ({ enter: 0, exit: EXIT_MS });

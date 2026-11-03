@@ -33,6 +33,7 @@ import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { isSavingsGoal } from "../budget/goalKinds";
 import { useCancelCoveredDebts } from "../debts/useDebts";
+import { usePageAdd } from "../../shared/hooks/usePageAdd";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 // A goal "belongs" to GoalsPage if it is targeted AND not recurring.
@@ -53,6 +54,8 @@ export default function GoalsPage() {
   const [depositGoal, setDepositGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [withdrawGoal, setWithdrawGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [showNewGoal, setShowNewGoal] = useState(false);
+  // The floating «+» adds a goal here.
+  usePageAdd(t("goals.newGoal"), () => setShowNewGoal(true));
   const [deleteGoal, setDeleteGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [editGoal, setEditGoal] = useState<InvestmentGoalWithStats | null>(null);
 

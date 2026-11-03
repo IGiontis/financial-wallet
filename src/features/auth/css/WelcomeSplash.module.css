@@ -161,19 +161,26 @@
   color: var(--color-text-secondary);
 }
 
-/* Reduced motion: everything there from the start, nothing moving, no fade.
-   The bar rests a third of the way. Tapping still closes it. */
-@media (prefers-reduced-motion: reduce) {
-  .splash {
-    transition: none;
+/* Reduced motion: the lines still come in one by one, fading in place — a
+   change of opacity is not motion, and the owner, whose laptop asks for less
+   motion, wants to see them arrive. Nothing rises or slides; the bar rests a
+   third of the way. Tapping still closes it. */
+@keyframes welcome-fade {
+  from {
+    opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
+}
 
+@media (prefers-reduced-motion: reduce) {
   .step1,
   .step2,
   .step3,
   .step4,
   .step5 {
-    animation: none;
+    animation-name: welcome-fade;
   }
 
   .bar {
