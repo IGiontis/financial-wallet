@@ -593,7 +593,9 @@
 .pickOn {
   border-left-color: var(--bs-primary);
   background: var(--view-switch-on);
-  color: var(--color-text-primary);
+  /* The fill's own lettering: the body ink on the brand was near-black on
+     blue in daylight and pale on pale sky blue in the dark. */
+  color: var(--view-switch-on-text);
   font-weight: 600;
 }
 

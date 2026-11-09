@@ -9,10 +9,10 @@ import { coveredFundingVars } from "../budget/coveredFunding";
 // went to the goal, it must write what «Το πλήρωσε κάποιος για μένα» writes on
 // the goal — the deposit, the debt with no card, and the expense.
 
-const spies = vi.hoisted(() => ({ create: vi.fn(), covered: vi.fn() }));
+const spies = vi.hoisted(() => ({ create: vi.fn(), covered: vi.fn(), edit: vi.fn() }));
 vi.mock("./useDebts", () => ({
   useCreateDebt: () => ({ mutate: spies.create, isPending: false }),
-  useEditDebt: () => ({ mutate: vi.fn(), isPending: false }),
+  useEditDebt: () => ({ mutate: spies.edit, isPending: false }),
 }));
 vi.mock("../budget/useInvestments", () => ({
   useInvestmentGoals: () => ({
@@ -24,6 +24,9 @@ vi.mock("../budget/useInvestments", () => ({
 }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [{ id: "other", name: "Other Expense", type: "expense" }, { id: "travel", name: "Travel", type: "expense" }] }) }));
 vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: spies.covered }) }));
+// A new debt has nothing tied to it yet; a saved covered one is given its link below.
+const linked = vi.hoisted(() => ({ value: { link: undefined as unknown, goalName: undefined as string | undefined, ready: true, failed: false, retry: () => {} } }));
+vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => linked.value }));
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
@@ -34,6 +37,8 @@ beforeAll(async () => {
 beforeEach(() => {
   spies.create.mockClear();
   spies.covered.mockClear();
+  spies.edit.mockClear();
+  linked.value = { link: undefined, goalName: undefined, ready: true, failed: false, retry: () => {} };
 });
 
 const open = () => render(<AddDebtModal knownPeople={["Keki"]} defaultPerson="Keki" onClose={() => {}} />);
@@ -107,5 +112,57 @@ describe("a new loan whose money went to a goal", () => {
     await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }), expect.anything());
+  });
+});
+
+describe("a saved debt that paid part of a goal, corrected", () => {
+  const day = new Date(2026, 9, 20);
+  const vars = coveredFundingVars({ goal: { id: "ski", name: "Ski" }, who: "Keki", amount: 200, date: day, categoryId: "travel", notes: "Paid by Keki", expenseNotes: "Paid by Keki · debt" });
+  const debt = { ...vars.debt, id: "d1", userId: "u", coveredExpenseId: "e1", createdAt: day, updatedAt: day };
+  const link = {
+    goalId: "ski",
+    contribution: { ...vars.contribution, id: "c1", userId: "u", debtId: "d1", createdAt: day, updatedAt: day },
+    expense: { ...vars.expense, id: "e1", userId: "u", createdAt: day, updatedAt: day },
+    expenseUnnamed: false,
+  };
+  const edit = () => {
+    linked.value = { link, goalName: "Ski", ready: true, failed: false, retry: () => {} };
+    render(<AddDebtModal debt={debt} knownPeople={["Keki"]} onClose={() => {}} />);
+  };
+
+  it("sends the goal's deposit and the expense with the new amount, and says so", async () => {
+    edit();
+    expect(screen.getByText(/Paid part of «Ski»/)).toBeInTheDocument();
+    const amount = screen.getByDisplayValue("200");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "150");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    const [args] = spies.edit.mock.calls[0];
+    expect(args.data.amount).toBe(150);
+    expect(args.covered).toEqual({ contribution: { id: "c1", set: { amount: 150 } }, expense: { id: "e1", set: { amount: 150 } } });
+  });
+
+  it("keeps which way and that no card moved: those cannot be changed here", () => {
+    edit();
+    expect(screen.getByRole("button", { name: /^I lent/ })).toBeDisabled();
+    // Hidden by Bootstrap's class, which the test page has no stylesheet for.
+    expect(screen.getByRole("radiogroup", { name: "Did the money go in somewhere?" }).closest(".d-none")).not.toBeNull();
+  });
+
+  it("waits for the goal's records before it can save", () => {
+    linked.value = { link: undefined, goalName: undefined, ready: false, failed: false, retry: () => {} };
+    render(<AddDebtModal debt={debt} knownPeople={["Keki"]} onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says so when they could not be read, and reads them again on «Try again»", async () => {
+    const retry = vi.fn();
+    linked.value = { link: undefined, goalName: undefined, ready: false, failed: true, retry };
+    render(<AddDebtModal debt={debt} knownPeople={["Keki"]} onClose={() => {}} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("couldn't be loaded");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledOnce();
   });
 });

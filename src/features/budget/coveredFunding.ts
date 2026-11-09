@@ -24,12 +24,19 @@ export function coveredFundingVars(input: {
   expenseNotes: string;
   debt?: Partial<CreateDebtDTO>;
 }): CoveredFundingVars {
-  const { goal, who, amount, date } = input;
+  const { goal, amount, date } = input;
+  // Trimmed and with inner runs of spaces made one: a goal named «Σκι διακοπές »
+  // wrote its expense with the trailing space, and finding that expense again
+  // by the name (see `coveredExpenseOf`) then missed it.
+  const tidy = (s: string) => s.replace(/\s+/g, " ").trim();
+  const who = tidy(input.who);
+  const name = tidy(goal.name);
+  const label = input.debt?.label !== undefined ? tidy(input.debt.label) || name : name;
   return {
     contribution: { goalId: goal.id, amount, contributionType: "deposit", date, notes: input.notes, coveredBy: who },
     // The loan's money is written on the main account, beside the expense: the two
     // cancel there, so the balance does not move for money that never reached it.
-    debt: { label: goal.name, ...input.debt, person: who, direction: "owed_by_me", amount, date, accountId: "", forGoalId: goal.id },
-    expense: { amount, type: "expense", categoryId: input.categoryId, date, description: goal.name, notes: input.expenseNotes },
+    debt: { ...input.debt, label, person: who, direction: "owed_by_me", amount, date, accountId: "", forGoalId: goal.id },
+    expense: { amount, type: "expense", categoryId: input.categoryId, date, description: name, notes: input.expenseNotes },
   };
 }

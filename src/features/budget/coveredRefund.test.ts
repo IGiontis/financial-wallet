@@ -21,6 +21,14 @@ describe("calling off what someone paid of a goal", () => {
     expect(refunds[0].items[0].expenseId).toBe("e9");
   });
 
+  it("finds it though the goal's name was typed with a trailing space — his «Σκι διακοπές »", () => {
+    const ski = { name: "Σκι διακοπές ", covered: [{ person: "Keki", amount: 180, debtIds: ["d1"] }] };
+    const refunds = coveredRefunds(ski, [debt({ label: "Σκι διακοπές" })], [tx("e7", { description: "Σκι διακοπές " })]);
+    expect(refunds[0].items[0]).toEqual({ debtId: "d1", expenseId: "e7", amount: 180 });
+    // A second way: the same match with no label, the expense's own name only.
+    expect(coveredRefunds(ski, [debt({ label: undefined })], [tx("e7", { description: "  σκι  ΔΙΑΚΟΠΕΣ" })])[0].items[0].expenseId).toBe("e7");
+  });
+
   it("names no expense that is no longer there — deleting a missing one fails the write", () => {
     expect(coveredRefunds(GOAL, [debt({ coveredExpenseId: "gone" })], [tx("e2", { amount: 99 })])[0].items[0].expenseId).toBeUndefined();
   });

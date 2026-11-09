@@ -272,9 +272,17 @@
   }
 }
 
+/* Reduced motion: the leaves still come in one after another, fading in
+   place. */
+@keyframes leaf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .leaf {
-    animation: none;
+    animation-name: leaf-fade;
   }
 }
 

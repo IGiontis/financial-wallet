@@ -1,6 +1,10 @@
 /* MainLayout.css */
 
 .main-layout {
+  /* The floating «+» (AddFab): its size and its distance from the corner,
+     here so the footer can leave it room and is never covered by it. */
+  --fab-size: 3.25rem;
+  --fab-inset: 1rem;
   display: flex;
   /* A shell of exactly one screen, with the scrolling done inside it.
      `min-height` left the shell free to grow to its content, so `.page-content`
@@ -28,6 +32,14 @@
   /* Mobile: no margin (sidebar overlays) */
   margin-left: 0;
   transition: margin-left 0.3s ease-in-out;
+}
+
+/* Reduced motion: the sidebar's width changes at once (Sidebar.css), so the
+   page beside it moves over at once too, never leaving a gap between them. */
+@media (prefers-reduced-motion: reduce) {
+  .main-content {
+    transition: none;
+  }
 }
 
 /* Desktop expanded (default) */

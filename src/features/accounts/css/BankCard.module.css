@@ -48,6 +48,13 @@ button.card:hover {
   transform: translateY(-1px);
 }
 
+/* Reduced motion: the card does not lift; its sheen stays. */
+@media (prefers-reduced-motion: reduce) {
+  button.card:hover {
+    transform: none;
+  }
+}
+
 button.card:focus-visible {
   outline: 3px solid var(--bs-primary);
   outline-offset: 3px;

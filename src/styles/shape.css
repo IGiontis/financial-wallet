@@ -108,10 +108,11 @@
 
   /* ── Motion ───────────────────────────────────────────────────────────────── */
   /* One set of timings for everything that moves: a dialog arriving, a toast,
-     a pressed button, a row that has just been saved. Under reduced motion the
-     durations go to (almost) zero below, so a rule written with these tokens
-     needs no reduced-motion block of its own to stop moving. The modal's
-     duration is also MODAL_MS in shared/components/modalMotion.ts. */
+     a pressed button, a row that has just been saved. The same under reduced
+     motion — there only the travel goes (`--rise` below, and each rule that
+     moves a thing drops its transform), so fades and colour changes still
+     ease in. The modal's duration is also MODAL_MS in
+     shared/components/modalMotion.ts. */
   --motion-fast: 120ms;
   --motion-base: 200ms;
   --motion-modal: 220ms;
@@ -136,15 +137,14 @@
   --shadow-a-lg: 60%;
 }
 
-/* Less motion asked for: nothing travels, and the small touches (a press, a
-   hover) are instant. A dialog still fades in and out, in place — a change of
-   opacity is not motion, and the owner, whose laptop asks for less motion,
-   wants to see dialogs arrive. 1ms, not 0: an animation of zero length never
-   ends in some engines. */
+/* Less motion asked for: nothing travels. Everything else stays as it is — a
+   dialog or a toast fades in place, a hover's colour still eases, a saved
+   row's tint still fades — because a change of opacity or colour is not
+   motion, and the owner, whose laptop asks for less motion (Windows'
+   «Animation effects» off), wants to see them. The durations used to drop to
+   1ms here, which took every colour change and the menu's fade with them. */
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-fast: 1ms;
-    --motion-base: 1ms;
     --rise: 0;
   }
 }

@@ -1,6 +1,5 @@
-import { isSameDay } from "date-fns";
-import { firestoreToDate } from "../../shared/utils/dates";
 import type { DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import { coveredExpenses } from "./coveredLink";
 
 /** One debt to call off, and the expense written beside it, if it is still there. */
 export interface RefundItem {
@@ -27,26 +26,21 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  *
  * The expense is the one the debt names (`coveredExpenseId`); a debt written
  * before that link existed is matched to its expense by what both were written
- * with — the same amount, the same day, the goal's name. Only an expense still
- * there is named, since deleting a missing one fails the whole write.
+ * with — the same amount, the same day, the goal's name (see `coveredExpenses`:
+ * compared as a reader would, so a trailing space typed into the goal's name
+ * does not leave the expense behind, and worked out over every debt at once, so
+ * no two claim one expense). Only an expense still there is named, since
+ * deleting a missing one fails the whole write.
  */
 export function coveredRefunds(goal: Pick<InvestmentGoalWithStats, "name" | "covered">, debts: DebtWithStatus[], transactions: Transaction[]): CoveredRefund[] {
-  const taken = new Set<string>();
-  const expenseOf = (debt: DebtWithStatus): string | undefined => {
-    if (debt.coveredExpenseId) return transactions.some((t) => t.id === debt.coveredExpenseId) ? debt.coveredExpenseId : undefined;
-    const day = firestoreToDate(debt.date);
-    const match = transactions.find(
-      (t) => !taken.has(t.id) && t.type === "expense" && !t.debtId && Math.abs(t.amount - debt.amount) < 0.005 && t.description === (debt.label || goal.name) && isSameDay(firestoreToDate(t.date), day),
-    );
-    if (match) taken.add(match.id);
-    return match?.id;
-  };
+  const ours = new Set((goal.covered ?? []).flatMap((c) => c.debtIds));
+  const expenses = coveredExpenses(debts, transactions, (debt) => (ours.has(debt.id) ? goal.name : undefined));
 
   return (goal.covered ?? []).flatMap((c) => {
     const items = c.debtIds.flatMap((id) => {
       const debt = debts.find((d) => d.id === id);
       if (!debt || debt.isSettled || debt.payments.length > 0) return [];
-      return [{ debtId: debt.id, expenseId: expenseOf(debt), amount: round2(debt.remaining) }];
+      return [{ debtId: debt.id, expenseId: expenses.get(debt.id), amount: round2(debt.remaining) }];
     });
     return items.length ? [{ person: c.person, amount: round2(items.reduce((sum, i) => sum + i.amount, 0)), items }] : [];
   });

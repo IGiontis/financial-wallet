@@ -164,7 +164,13 @@
 /* Reduced motion: the lines still come in one by one, fading in place — a
    change of opacity is not motion, and the owner, whose laptop asks for less
    motion, wants to see them arrive. Nothing rises or slides; the bar rests a
-   third of the way. Tapping still closes it. */
+   third of the way and breathes there. Tapping still closes it. */
+@keyframes welcome-breathe {
+  50% {
+    opacity: 0.4;
+  }
+}
+
 @keyframes welcome-fade {
   from {
     opacity: 0;
@@ -184,7 +190,7 @@
   }
 
   .bar {
-    animation: none;
+    animation: welcome-breathe 1.2s ease-in-out infinite;
     transform: translateX(80%);
   }
 }

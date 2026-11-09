@@ -2,7 +2,13 @@
    index.css, because react-datepicker renders it into a portal outside this
    component's CSS-module scope. */
 
-.control {
+/* Doubled on purpose. The button is also Bootstrap's `.form-control`, which
+   says `display: block` with the same weight as one class here — and in the
+   production build this file's chunk is linked BEFORE the main stylesheet that
+   holds Bootstrap, so Bootstrap won: the button became a block, and the icon
+   sat right after the date instead of at the far right edge (item 81). In
+   development the order is the other way round, which is why it looked fine. */
+.control.control {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -12,7 +18,9 @@
   cursor: pointer;
 }
 
-.control:disabled {
+/* Doubled for the same reason: Bootstrap's `.form-control:disabled` sets
+   `opacity: 1` at this weight. */
+.control.control:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }

@@ -166,13 +166,6 @@
   background: color-mix(in srgb, var(--color-income) 6%, transparent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .wash-expense,
-  .wash-income {
-    transition: none;
-  }
-}
-
 /* A scrollable modal whose body sits inside a <form>.
  *
  * Bootstrap makes `.modal-content` a flex column and lets `.modal-body` scroll
@@ -509,10 +502,22 @@
   line-height: 1;
 }
 
-/* The shimmer is decoration, and a page full of it is a page full of motion. */
+/* The shimmer is a highlight sweeping across, and a page full of it is a page
+   full of motion. Under reduced motion the library hides it; the block breathes
+   in place instead — a change of opacity, so a loading page still looks alive. */
+@keyframes skeleton-breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .react-loading-skeleton::after {
     animation: none;
+  }
+
+  .react-loading-skeleton {
+    animation: skeleton-breathe 1.6s ease-in-out infinite;
   }
 }
 

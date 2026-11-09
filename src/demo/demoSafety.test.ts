@@ -29,6 +29,11 @@ const sdk = vi.hoisted(() => {
       "getCountFromServer",
       "getDoc",
       "getDocs",
+      "getDocFromServer",
+      "getDocsFromServer",
+      "waitForPendingWrites",
+      "terminate",
+      "clearIndexedDbPersistence",
       "getFirestore",
       "initializeFirestore",
       "persistentLocalCache",
@@ -55,6 +60,7 @@ const sdk = vi.hoisted(() => {
       "onAuthStateChanged",
       "updatePassword",
       "reauthenticateWithCredential",
+      "reauthenticateWithPopup",
       "deleteUser",
       "verifyBeforeUpdateEmail",
     ].map((name) => [name, refuse(`auth.${name}`)]),
@@ -189,6 +195,9 @@ describe("the demo never reaches Firebase", () => {
     expect(auth.isGoogleUser()).toBe(false);
     await expect(auth.updateUserPassword("x")).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     await expect(auth.deleteAccount()).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
+    await expect(auth.reauthenticateWithGoogle()).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
+    const { deleteMyAccount } = await import("../firebase/accountDeletion");
+    await expect(deleteMyAccount({ uid: DEMO_UID, google: true, leave: () => {} })).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     await expect(auth.loginWithEmail("a@b.c", "x")).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     expect(sdk.calls).toEqual([]);
   });

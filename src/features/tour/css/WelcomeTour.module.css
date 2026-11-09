@@ -413,8 +413,9 @@
   transform: none;
 }
 
+/* Reduced motion: the dot no longer stretches, it only changes colour. */
 @media (prefers-reduced-motion: reduce) {
   .dot {
-    transition: none;
+    transition: background-color 0.2s ease;
   }
 }

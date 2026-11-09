@@ -1,36 +1,76 @@
-/* The page's foot: the third piece of the shell's frame, in the same
-   viewport-anchored gradient as the sidebar and the top bar, running from one
-   edge of the page to the other — square, with a rule along its top, rather than
-   a rounded box floating inside the margins. The negative margins undo the
-   page's own gutters (Bootstrap's fluid container, and its `py-2` below).
-   `.app-shell` on it (AppFooter.tsx) turns the text roles into the shell's, so
-   the legal links' own inline `--color-text-secondary` follows too. */
+/* The page's foot (AppFooter.tsx): the third piece of the shell's frame, in the
+   same three-stop gradient as the sidebar and the top bar, over its own box,
+   running from one edge of the page to the other. The negative margins undo
+   the page's own gutters (Bootstrap's fluid container, and its `py-2` below).
+   `.app-shell` on it turns the text roles into the shell's, so every colour
+   here is a shell-* role and reads at 8:1 on every stop of the gradient —
+   the legal links' own inline `--color-text-secondary` follows too.
+
+   Low by design: one row on a wide screen, three short lines on a phone. The
+   right end is kept free for the floating «+» (its size and inset are on
+   `.main-layout`, MainLayout.css), and the strip is at least as tall as the
+   button stands above the page's foot, so scrolled to the end the button sits
+   in that free end — never on the text. */
 
 .footer {
   --gutter: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+  --fab-room: calc(var(--fab-size, 3.25rem) + var(--fab-inset, 1rem) + 0.75rem);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-height: calc(var(--fab-size, 3.25rem) + var(--fab-inset, 1rem) + 0.5rem);
   margin: 2rem calc(var(--gutter) * -1) -0.5rem;
-  padding: 1.25rem calc(var(--gutter) + 0.5rem);
+  padding: 0.75rem var(--fab-room) 0.75rem calc(var(--gutter) + 0.5rem);
   border: 0;
   border-top: 1px solid var(--shell-rule);
   border-radius: 0;
-  background: var(--shell-gradient) fixed;
+  /* The solid middle first, then the gradient over it: should the gradient
+     ever fail to paint, the near-white lettering still has its dark ground. */
+  background-color: var(--shell-mid);
+  background-image: var(--shell-gradient);
   color: var(--shell-text-2);
-  font-size: 12.5px;
-  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.who {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-bs-lg);
+  color: var(--shell-text);
+  text-decoration: none;
 }
 
-.rights {
-  font-size: 11.5px;
+.brand:hover {
+  color: var(--shell-text);
+}
+
+.brand:hover .logo {
+  box-shadow: 0 0 0 2px var(--shell-rule);
+}
+
+.brand:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.logo {
+  flex: none;
+  border-radius: var(--radius-xs);
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.copyright {
+  margin: 0;
 }
 
 .link {
@@ -43,24 +83,26 @@
   color: var(--shell-text);
 }
 
-.links {
-  line-height: 1.8;
+.legal {
+  line-height: 1.6;
 }
 
-.links :global(a),
-.links :global(button) {
-  padding-block: var(--space-0);
-}
-
+/* A wide screen: one row — the name, the copyright, and the legal lines at
+   the right, just short of the «+». */
 @media (min-width: 768px) {
   .footer {
     flex-direction: row;
-    justify-content: space-between;
-    padding: 1.1rem calc(var(--gutter) + 1rem);
-    text-align: left;
+    align-items: center;
+    gap: 0.4rem 1.5rem;
+    padding-left: calc(var(--gutter) + 1rem);
   }
 
-  .who {
-    align-items: flex-start;
+  .copyright {
+    flex: 1 1 auto;
+  }
+
+  .legal {
+    flex: 0 1 auto;
+    text-align: end;
   }
 }

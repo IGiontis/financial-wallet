@@ -379,17 +379,37 @@
   }
 }
 
+/* Reduced motion: nothing pops, rises or flies out. The badge and the lines
+   fade in place, one after another as before; the circle and the tick still
+   draw themselves (a line appearing, not a thing moving); the ring glows and
+   fades where it is instead of spreading; the sparks stay home. */
+@keyframes savedFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes savedGlow {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .savedBurst,
   .savedPanel > :not(.savedBurst) {
-    animation: none;
+    animation-name: savedFade;
+    animation-timing-function: ease-out;
   }
-  .savedCircle,
-  .savedTick {
-    animation: none;
-    stroke-dashoffset: 0;
+  .savedRing {
+    animation-name: savedGlow;
   }
-  .savedRing,
   .savedSpark {
     display: none;
   }

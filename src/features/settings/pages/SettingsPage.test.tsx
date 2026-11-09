@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "react-toastify";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import i18n from "../../../i18n";
@@ -18,7 +19,6 @@ vi.mock("../../../shared/hooks/useAuth", () => ({
 vi.mock("../../../firebase/firestore", () => ({
   getUser: vi.fn(async () => ({ firstName: "Ilias", lastName: "Giontis", username: "ilias", currency: "EUR", locale: "en" })),
   updateUser: vi.fn(async () => undefined),
-  deleteAllUserData: vi.fn(async () => undefined),
 }));
 vi.mock("../../../firebase/auth", () => ({
   isGoogleUser: () => false,
@@ -26,8 +26,22 @@ vi.mock("../../../firebase/auth", () => ({
   updateUserEmail: vi.fn(),
   updateUserPassword: vi.fn(),
   reauthenticate: vi.fn(),
-  deleteAccount: vi.fn(),
 }));
+// The deletion's own order is tested in `accountDeletion.test.ts`; here, what
+// the dialog sends it and what it says when it stops.
+const deletion = vi.hoisted(() => {
+  class AccountDeletionError extends Error {
+    readonly stage: string;
+    readonly code: string;
+    constructor(stage: string, code = "") {
+      super(stage);
+      this.stage = stage;
+      this.code = code;
+    }
+  }
+  return { AccountDeletionError, deleteMyAccount: vi.fn<(options: unknown) => Promise<object>>(async () => ({ deleted: 0, leftovers: 0, profile: true })) };
+});
+vi.mock("../../../firebase/accountDeletion", () => deletion);
 // Leaving the demo is a full page load: watched, not run.
 vi.mock("../../../demo/demoMode", async (original) => ({ ...(await original<typeof import("../../../demo/demoMode")>()), leaveDemo: vi.fn() }));
 vi.mock("../../../demo/authDialog", async (original) => ({ ...(await original<typeof import("../../../demo/authDialog")>()), openAuthDialog: vi.fn() }));
@@ -142,6 +156,45 @@ describe("settings tabs", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Preferences" }));
     await userEvent.click(screen.getByRole("tab", { name: "Profile" }));
     expect(city()).toHaveValue("Athens");
+  });
+});
+
+describe("deleting the account", () => {
+  const openDialog = async () => {
+    renderAt("/settings/account");
+    await userEvent.click(await within(panel()).findByRole("button", { name: "Delete account" }));
+    return screen.getByRole("dialog");
+  };
+
+  it("sends the password with the account, and nothing before it is typed", async () => {
+    deletion.deleteMyAccount.mockClear();
+    const dialog = await openDialog();
+    const confirm = within(dialog).getByRole("button", { name: "Delete my account" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(dialog).getByPlaceholderText(/current password/i), "secret");
+    await userEvent.click(confirm);
+    expect(deletion.deleteMyAccount).toHaveBeenCalledWith({ uid: "u1", google: false, password: "secret" });
+  });
+
+  it("says where it stopped: half-way through the data, or with only the sign-in left", async () => {
+    deletion.deleteMyAccount.mockRejectedValueOnce(new deletion.AccountDeletionError("data"));
+    const dialog = await openDialog();
+    await userEvent.type(within(dialog).getByPlaceholderText(/current password/i), "secret");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+    expect(await within(dialog).findByText(/stopped half-way/)).toBeInTheDocument();
+
+    // With only the sign-in left the device signs out and the page leaves for the
+    // sign-in form, so the message also goes in a toast that stays until read.
+    const toastError = vi.spyOn(toast, "error");
+    deletion.deleteMyAccount.mockRejectedValueOnce(new deletion.AccountDeletionError("sign-in"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+    expect(await within(dialog).findByText(/data was deleted, but the sign-in/)).toBeInTheDocument();
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/Sign in again/), { autoClose: false });
+    toastError.mockRestore();
+
+    deletion.deleteMyAccount.mockRejectedValueOnce(new deletion.AccountDeletionError("identity", "auth/wrong-password"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+    expect(await within(dialog).findByText(/password is incorrect/i)).toBeInTheDocument();
   });
 });
 

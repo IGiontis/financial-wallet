@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { goalHeldTotal } from "../features/accounts/accountsUtils";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import type { InvestmentContribution, InvestmentGoal, Transaction } from "../shared/types/IndexTypes";
-import { createContributionWithTransaction, createTransaction, deleteAllUserData, deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
+import { OWNED_COLLECTIONS } from "./ownedCollections";
+import { ACCOUNT_DELETING, endAccountDeletion } from "./deletionGate";
+import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
+import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // The data layer against a small in-memory Firestore.
@@ -29,6 +32,8 @@ const fs = vi.hoisted(() => {
   // As the security rules do: a delete of a document that is not there has no
   // owner to check, is refused, and fails the whole batch with it.
   const rules = { strictDeletes: false };
+  const serverReads: string[] = [];
+  const hooks: { afterServerRead?: (col: string) => void; pendingWrites?: () => void } = {};
 
   const table = (col: string) => {
     let t = store.get(col);
@@ -52,9 +57,14 @@ const fs = vi.hoisted(() => {
     batches,
     table,
     rules,
+    serverReads,
+    hooks,
     reset: () => {
       store.clear();
       batches.length = 0;
+      serverReads.length = 0;
+      delete hooks.afterServerRead;
+      delete hooks.pendingWrites;
       auto = 0;
       rules.strictDeletes = false;
     },
@@ -70,9 +80,29 @@ const fs = vi.hoisted(() => {
         return { docs, size: docs.length };
       },
       getDoc: async (r: Ref) => ({ exists: () => table(r.col).has(r.id), data: () => table(r.col).get(r.id) }),
+      // The server's answer: the same store here. `serverReads` lets a test
+      // act between one read and the next, as another device would.
+      getDocsFromServer: async (q: { col: string; filters: { field: string; value: unknown }[] }) => {
+        const docs = [...table(q.col).entries()]
+          .filter(([, d]) => q.filters.every((f) => d[f.field] === f.value))
+          .map(([id, d]) => ({ id, ref: ref(q.col, id), data: () => d }));
+        serverReads.push(q.col);
+        hooks.afterServerRead?.(q.col);
+        return { docs, size: docs.length };
+      },
+      getDocFromServer: async (r: Ref) => {
+        serverReads.push(`${r.col}/${r.id}`);
+        return { exists: () => table(r.col).has(r.id), data: () => table(r.col).get(r.id) };
+      },
+      waitForPendingWrites: async () => {
+        hooks.pendingWrites?.();
+      },
       setDoc: async (r: Ref, d: Data) => apply(["set", r, d]),
       updateDoc: async (r: Ref, d: Data) => apply(["update", r, d]),
-      deleteDoc: async (r: Ref) => apply(["delete", r]),
+      deleteDoc: async (r: Ref) => {
+        if (rules.strictDeletes && !table(r.col).has(r.id)) throw Object.assign(new Error("PERMISSION_DENIED"), { code: "permission-denied" });
+        apply(["delete", r]);
+      },
       addDoc: async (c: { col: string }, d: Data) => {
         const r = ref(c.col, `auto-${++auto}`);
         apply(["set", r, d]);
@@ -372,19 +402,145 @@ describe("creating under an id made up front", () => {
 // ─── Account deletion ────────────────────────────────────────────────────────
 
 describe("deleteAllUserData", () => {
-  it("removes debts and their repayments along with everything else", async () => {
-    for (const col of ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments", "debts", "debtPayments"]) {
-      put(col, `${col}-mine`, { userId: "u1" });
+  // As production: a delete of a document that is not there is refused.
+  beforeEach(() => {
+    fs.rules.strictDeletes = true;
+  });
+  // The deletion leaves the write gate shut on purpose; the other tests here write.
+  afterEach(() => endAccountDeletion());
+
+  const fill = (perCollection = 1) => {
+    for (const col of OWNED_COLLECTIONS) {
+      for (let i = 0; i < perCollection; i++) put(col, `${col}-mine-${i}`, { userId: "u1" });
       put(col, `${col}-theirs`, { userId: "u2" });
     }
     put("users", "u1", { id: "u1" });
+    put("users", "u2", { id: "u2" });
+  };
+  const everythingOf = (userId: string) => OWNED_COLLECTIONS.flatMap((col) => rows<{ userId?: string }>(col).filter((d) => d.userId === userId));
 
+  it("removes every owned collection and the profile, and nobody else's", async () => {
+    fill();
+    const wipe = await deleteAllUserData("u1");
+
+    for (const col of OWNED_COLLECTIONS) expect(ids(col)).toEqual([`${col}-theirs`]);
+    expect(ids("users")).toEqual(["u2"]);
+    // Counted a second way: one per collection, nothing came back.
+    expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length, leftovers: 0, profile: true });
+    expect(everythingOf("u1")).toEqual([]);
+  });
+
+  it("leaves the shared default categories, which carry no userId", async () => {
+    fill();
+    put("categories", "default-food", { isDefault: true, userId: null, name: "Food" });
     await deleteAllUserData("u1");
+    expect(ids("categories")).toEqual(["categories-theirs", "default-food"]);
+  });
 
-    for (const col of ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments", "debts", "debtPayments"]) {
-      expect(ids(col)).toEqual([`${col}-theirs`]);
-    }
-    expect(ids("users")).toEqual([]);
+  it("deletes in batches of 450 at most, the profile on its own after them", async () => {
+    fill(500); // 4 500 documents
+    const wipe = await deleteAllUserData("u1");
+    expect(wipe.deleted).toBe(500 * OWNED_COLLECTIONS.length);
+    expect(fs.batches.every((b) => b.length <= 450)).toBe(true);
+    expect(fs.batches.reduce((n, b) => n + b.length, 0)).toBe(wipe.deleted);
+    // The profile is never inside a batch: missing, it would sink the batch with it.
+    expect(fs.batches.flat().some(([, r]) => r.col === "users")).toBe(false);
+    expect(ids("users")).toEqual(["u2"]);
+  });
+
+  it("sweeps again and removes what arrived after the first sweep, counting it", async () => {
+    fill();
+    // Another device's queued write lands while the first sweep is under way.
+    let landed = 0;
+    fs.hooks.afterServerRead = (col) => {
+      if (col === "bills" && landed++ === 0) put("transactions", "late", { userId: "u1" });
+    };
+    const wipe = await deleteAllUserData("u1");
+    expect(ids("transactions")).toEqual(["transactions-theirs"]);
+    expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length, leftovers: 1, profile: true });
+    // Read from the server only — never a copy that may still hold deleted documents.
+    // Sweeps: the first, the leftover, the one that deletes the profile, the empty one.
+    expect(fs.serverReads.filter((r) => r === "transactions")).toHaveLength(4);
+    expect(fs.serverReads.filter((r) => r === "users/u1")).toHaveLength(4);
+  });
+
+  it("catches a profile written back after it was deleted (another tab still open)", async () => {
+    fill();
+    let transactionReads = 0;
+    fs.hooks.afterServerRead = (col) => {
+      // The third sweep starts after the profile went: another tab's save puts it back.
+      if (col === "transactions" && ++transactionReads === 3) put("users", "u1", { id: "u1", workspace: { planner: 1 } });
+    };
+    const wipe = await deleteAllUserData("u1");
+    expect(ids("users")).toEqual(["u2"]);
+    expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length, leftovers: 1, profile: true });
+  });
+
+  it("gives up, before the profile, when documents keep coming back", async () => {
+    fill();
+    let n = 0;
+    fs.hooks.afterServerRead = (col) => {
+      if (col === "debts") put("debts", `again-${n++}`, { userId: "u1" });
+    };
+    await expect(deleteAllUserData("u1")).rejects.toMatchObject({ code: "account/leftovers" });
+    // The profile is still there: the account can be deleted again.
+    expect(ids("users")).toEqual(["u1", "u2"]);
+  });
+
+  it("refuses the app's own writes while it runs, so a seeder or a save cannot put anything back", async () => {
+    fill();
+    const attempts: Promise<unknown>[] = [];
+    fs.hooks.afterServerRead = (col) => {
+      if (col !== "transactions") return;
+      // What the running app does: a new expense, a planner save, a profile
+      // made for a Google sign-in, the category seed's batch.
+      attempts.push(createTransaction("u1", { amount: 5, type: "expense", categoryId: "c", date: new Date(), description: "coffee" } as never, "t-new"));
+      attempts.push(saveWorkspaceValue("u1", "planner", { salary: 1 }));
+      attempts.push(createUser("u1", { email: "a@b.c", username: "u1", firstName: "A", lastName: "B", locale: "el" }));
+      attempts.push(createCategories("u1", { name: "Mine", icon: "x", color: "y" } as never, ["expense"]));
+    };
+    const wipe = await deleteAllUserData("u1");
+    const settled = await Promise.allSettled(attempts);
+    expect(settled.length).toBeGreaterThan(0);
+    expect(settled.every((s) => s.status === "rejected" && (s.reason as { code?: string }).code === ACCOUNT_DELETING)).toBe(true);
+    expect(everythingOf("u1")).toEqual([]);
+    expect(ids("users")).toEqual(["u2"]);
+    expect(wipe.leftovers).toBe(0);
+  });
+
+  it("does not name a profile that is not there (the rules would refuse it)", async () => {
+    for (const col of OWNED_COLLECTIONS) put(col, `${col}-mine`, { userId: "u1" });
+    const wipe = await deleteAllUserData("u1");
+    expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length, leftovers: 0, profile: false });
+    expect(everythingOf("u1")).toEqual([]);
+  });
+
+  it("is safe to run again after it stopped half-way", async () => {
+    fill();
+    // The first try is refused at its second sweep.
+    let refused = false;
+    fs.hooks.afterServerRead = (col) => {
+      if (!refused && fs.serverReads.length > OWNED_COLLECTIONS.length) {
+        refused = true;
+        throw Object.assign(new Error("unavailable"), { code: "unavailable", col });
+      }
+    };
+    await expect(deleteAllUserData("u1")).rejects.toMatchObject({ code: "unavailable" });
+    expect(ids("users")).toEqual(["u1", "u2"]);
+    endAccountDeletion();
+
+    const again = await deleteAllUserData("u1");
+    expect(again).toEqual({ deleted: 0, leftovers: 0, profile: true });
+    expect(everythingOf("u1")).toEqual([]);
+    expect(ids("users")).toEqual(["u2"]);
+  });
+
+  it("lets this device's queued writes land first, so the sweep sees them", async () => {
+    fill();
+    fs.hooks.pendingWrites = () => put("bills", "queued-offline", { userId: "u1" });
+    const wipe = await deleteAllUserData("u1");
+    expect(ids("bills")).toEqual(["bills-theirs"]);
+    expect(wipe.deleted).toBe(OWNED_COLLECTIONS.length + 1);
   });
 });
 

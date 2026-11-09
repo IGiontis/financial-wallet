@@ -32,3 +32,10 @@
   color: var(--color-accent-on-strong);
   transition: left 0.3s ease;
 }
+
+/* Reduced motion: the marker is placed, not slid. */
+@media (prefers-reduced-motion: reduce) {
+  .timelineMarker {
+    transition: none;
+  }
+}

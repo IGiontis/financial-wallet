@@ -86,9 +86,20 @@
   }
 }
 
+/* Reduced motion: the ring does not spread; it shows at its full width and
+   fades, three times, where it is. */
+@keyframes demo-hint-still {
+  0% {
+    box-shadow: 0 0 0 0.25rem var(--pending-edge-strong);
+  }
+  100% {
+    box-shadow: 0 0 0 0.25rem transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hint {
-    animation: none;
+    animation-name: demo-hint-still;
   }
 }
 

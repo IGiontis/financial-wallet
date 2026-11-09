@@ -98,7 +98,7 @@ export function DebtsPage() {
       <div className={styles.totals}>
         <button
           type="button"
-          className={`${styles.total} ${styles.totalOut} tone-tile tone-tile-expense ${side === "owe" ? styles.totalOn : ""}`}
+          className={`${styles.total} tone-tile tone-tile-expense ${side === "owe" ? styles.totalOn : ""}`}
           aria-pressed={side === "owe"}
           title={t("debts.filterHint")}
           onClick={() => toggleSide("owe")}
@@ -108,7 +108,7 @@ export function DebtsPage() {
         </button>
         <button
           type="button"
-          className={`${styles.total} ${styles.totalIn} tone-tile tone-tile-income ${side === "owed" ? styles.totalOn : ""}`}
+          className={`${styles.total} tone-tile tone-tile-income ${side === "owed" ? styles.totalOn : ""}`}
           aria-pressed={side === "owed"}
           title={t("debts.filterHint")}
           onClick={() => toggleSide("owed")}
@@ -132,16 +132,21 @@ export function DebtsPage() {
         </div>
       </div>
 
+      {/* Right under the tiles, where the eye is after tapping one: what the
+          list now holds, and the way back to everyone. Inside the list it sat
+          below the fold on a phone, and tapping the same tile again to undo it
+          is something nobody guesses. */}
+      {side && (
+        <div className={`${styles.filterLine} mb-3`} role="status">
+          <span>{t(side === "owe" ? "debts.filterOwe" : "debts.filterOwed")}</span>
+          <button type="button" className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 text-nowrap" onClick={() => setSide(null)}>
+            <FiX size={14} aria-hidden /> {t("debts.filterShowAll")}
+          </button>
+        </div>
+      )}
+
       <div className={wide && shown.length > 0 ? styles.split : undefined}>
         <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`} data-tour="debts-people">
-          {side && (
-            <div className={styles.filterLine}>
-              <span>{t(side === "owe" ? "debts.filterOwe" : "debts.filterOwed")}</span>
-              <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1" onClick={() => setSide(null)}>
-                <FiX size={14} aria-hidden /> {t("debts.filterClear")}
-              </button>
-            </div>
-          )}
           {shown.length === 0 ? (
             <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
               {t(side === "owe" ? "debts.filterEmptyOwe" : side === "owed" ? "debts.filterEmptyOwed" : "debts.empty")}

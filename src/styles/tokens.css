@@ -47,12 +47,17 @@
      brand-text, link      the brand as lettering; links
      brand-soft            a tint for a chosen or highlighted thing (on-brand-soft)
      neutral-soft          the resting state of a tab or chip (on-neutral-soft)
-     shell-*               sidebar, top bar and footer: ONE gradient from shell-dark
-                           (top left) to shell-light (bottom right) — dark to
-                           light in every colourway and mode — and the colours
-                           that sit on it. Inside those three (`.app-shell`),
+     shell-*               sidebar, top bar and footer: a gradient from shell-dark
+                           (top left) through shell-mid to shell-light (bottom
+                           right) — dark to light in every colourway and mode —
+                           and the colours that sit on it. Inside those three (`.app-shell`),
                            theme.css points text, text-2, link and focus at the
                            shell-* roles, so anything placed there reads on it.
+     fab-dark/-light, on-fab  the floating «+»: its own fill, never the shell's —
+                           it floats over the footer and must not melt into it.
+                           Dark to light like every gradient; the icon on both
+                           ends at AA. A ring of the page colour (AddFab) gives
+                           it an edge over the footer where the fill is close.
 
    A NEW COLOURWAY
      Copy one light and one dark block below, rename the selectors, change the
@@ -165,14 +170,21 @@
    contrast.test.ts checks the two modes' shells are identical.
 
    The current item in the shell is marked by a DEEPER band, not a lighter one:
-   a white veil over the blue's lighter end took the lettering under 8:1. */
+   a white veil over the blue's lighter end took the lettering under 8:1.
+
+   Three stops, the way the owner's Edessaikos site draws its frame (2026-11-09):
+   a near-black of the colourway's hue at the top left, a rich middle that holds
+   most of the surface (from 60%), and the light end only in the far corner.
+   theme.css lays them out; the middle is checked like the two ends. */
 
 /* ══ blue — Μπλε εμπιστοσύνης (default) ═══════════════════════════════════════
    A clear, full blue — the blue of a bank's card, not a greyed one. Dark enough
    in daylight to carry near-white lettering at 8:1 (#1747a0, 8.2:1); in the
-   dark a light sky blue lettered in navy. The shell runs from a deep navy at
-   the top left to the brand's own blue at the bottom right — as light as the
-   near-white lettering on it allows (8:1 at both ends). */
+   dark a light sky blue lettered in navy. The shell runs from a near-black
+   navy at the top left, through a deep navy, to a clear blue at the bottom
+   right — as light as the near-white lettering on it allows (8:1 at every
+   stop, under the hover veil too). The «+» is a brighter royal blue than any
+   of it, so it never melts into the footer it floats over. */
 
 :root[data-nav-style="blue"][data-bs-theme="light"],
 :root:not([data-nav-style])[data-bs-theme="light"],
@@ -208,7 +220,12 @@
   --neutral-soft: #ece8de;
   --on-neutral-soft: #252b35;
 
-  --shell-dark: #0c2a63;
+  --fab-dark: #1a4bb0;
+  --fab-light: #2a64d4;
+  --on-fab: #f8fafc;
+
+  --shell-dark: #06173a;
+  --shell-mid: #0e3070;
   --shell-light: #153d82;
   --shell-text: #f8fafc;
   --shell-text-2: #eef3fa;
@@ -261,7 +278,12 @@
   --neutral-soft: #2e333a;
   --on-neutral-soft: #d6dce4;
 
-  --shell-dark: #0c2a63;
+  --fab-dark: #92bbf9;
+  --fab-light: #b3d0fb;
+  --on-fab: #0b1f44;
+
+  --shell-dark: #06173a;
+  --shell-mid: #0e3070;
   --shell-light: #153d82;
   --shell-text: #f8fafc;
   --shell-text-2: #eef3fa;
@@ -280,9 +302,11 @@
 }
 
 /* ══ gold — Μαύρο & χρυσό ═════════════════════════════════════════════════════
-   A charcoal black and champagne. The shell is a soft charcoal in BOTH modes,
-   #2a2a2e at the top left to #3a3a40 at the bottom right — dark, nearly grey,
-   never the hole a true black makes; the dark mode's page a step under it.
+   A charcoal black and champagne. The shell is charcoal in BOTH modes, #18181b
+   at the top left through #2b2a2c to a warm #3c3933 at the bottom right — a
+   breath of the gold in the far corner, never the hole a true black makes; the
+   dark mode's page a step under it. The «+» is brass in daylight and
+   champagne in the dark, never the shell's charcoal.
 
    Not a yellow gold. Amber is the «goal» meaning, its button the warning, and
    orange is «pending»: a gold brand of the same hue and lightness made a goal's
@@ -325,8 +349,13 @@
   --neutral-soft: #ece8de;
   --on-neutral-soft: #2c2618;
 
-  --shell-dark: #2a2a2e;
-  --shell-light: #3a3a40;
+  --fab-dark: #5a4a1c;
+  --fab-light: #86702c;
+  --on-fab: #fbfaf6;
+
+  --shell-dark: #18181b;
+  --shell-mid: #2b2a2c;
+  --shell-light: #3c3933;
   --shell-text: #f7f4ec;
   --shell-text-2: #f3efe6;
   --shell-rule: rgba(236, 229, 209, 0.22);
@@ -376,8 +405,13 @@
   --neutral-soft: #343439;
   --on-neutral-soft: #e0d9ca;
 
-  --shell-dark: #2a2a2e;
-  --shell-light: #3a3a40;
+  --fab-dark: #e2dac3;
+  --fab-light: #f3eee1;
+  --on-fab: #1c1709;
+
+  --shell-dark: #18181b;
+  --shell-mid: #2b2a2c;
+  --shell-light: #3c3933;
   --shell-text: #f7f4ec;
   --shell-text-2: #f3efe6;
   --shell-rule: rgba(236, 229, 209, 0.22);

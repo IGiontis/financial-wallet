@@ -95,12 +95,19 @@
   }
 }
 
+/* Reduced motion: the ring does not spread; it shows at its full width and
+   fades, three times, where it is. The hover's colour still eases. */
+@keyframes tour-hint-still {
+  0% {
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--bs-primary) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--bs-primary) 0%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hint {
-    animation: none;
-  }
-
-  .button {
-    transition: none;
+    animation-name: tour-hint-still;
   }
 }

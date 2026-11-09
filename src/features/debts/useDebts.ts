@@ -3,12 +3,28 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/
 import { toast } from "react-toastify";
 import i18n from "../../i18n";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { createDebt, createDebtPayment, deleteDebt, deleteDebtPayment, editDebt, getDebtPayments, getDebts, syncDebtCash, updateDebt, updateDebtPayment, cancelCoveredDebt } from "../../firebase/firestore";
-import { transactionKeys } from "../transactions/hooks/useTransactions";
+import {
+  createDebt,
+  createDebtPayment,
+  deleteCoveredDebt,
+  deleteDebt,
+  deleteDebtPayment,
+  editCoveredDebt,
+  editDebt,
+  getDebtPayments,
+  getDebts,
+  syncDebtCash,
+  updateDebt,
+  updateDebtPayment,
+  cancelCoveredDebt,
+} from "../../firebase/firestore";
+import { setTransactionFields, transactionKeys } from "../transactions/hooks/useTransactions";
+import { investmentKeys } from "../budget/useInvestments";
+import { isEmptyEdit, type CoveredEdit } from "../budget/coveredLink";
 import { allDebtCashIds, debtCashDrift, debtCashIds, debtCashRecords, type DebtCashRecord } from "./debtCash";
-import { confirmList } from "../../lib/listCache";
+import { confirmList, removeWhere } from "../../lib/listCache";
 import { computeDebtStatus } from "./debtsUtils";
-import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
+import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, InvestmentContribution, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
 
 export const debtKeys = {
   all: (userId: string) => ["debts", userId] as const,
@@ -126,10 +142,31 @@ export function useUpdateDebt() {
   return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: UpdateDebtDTO }) => updateDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
 }
 
-/** The whole loan form saved over an existing loan — see `editDebt`. */
+/**
+ * The whole loan form saved over an existing loan — see `editDebt`. A debt that
+ * paid part of a goal brings `covered` (see `coveredEdit`): its deposit and its
+ * expense are written in the same batch, and corrected on screen after it.
+ */
 export function useEditDebt() {
-  const { sync } = useDebtRefresh();
-  return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: CreateDebtDTO }) => editDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
+  const queryClient = useQueryClient();
+  const { userId, sync } = useDebtRefresh();
+  return useMutation({
+    mutationFn: async ({ debtId, data, covered }: { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }) => {
+      if (!covered || isEmptyEdit(covered)) {
+        await editDebt(debtId, data);
+        return;
+      }
+      const wrote = await editCoveredDebt(debtId, data, covered);
+      const now = new Date();
+      if (wrote.contribution && covered.contribution) {
+        const { id, set } = covered.contribution;
+        confirmList<InvestmentContribution>(queryClient, investmentKeys.contributions(userId), (rows) => rows.map((row) => (row.id === id ? { ...row, ...set, updatedAt: now } : row)));
+      }
+      if (wrote.expense && covered.expense) confirmList(queryClient, transactionKeys.all(userId), setTransactionFields(covered.expense.id, covered.expense.set));
+    },
+    onSuccess: (_, { debtId }) => sync(debtId),
+    onError: failed("debts.saveFailed"),
+  });
 }
 
 /**
@@ -151,10 +188,23 @@ export function useCancelCoveredDebts() {
   });
 }
 
+/**
+ * Deleting a loan. One that paid part of a goal brings `covered`: the goal's
+ * deposit and the expense go with it — see `deleteCoveredDebt`.
+ */
 export function useDeleteDebt() {
-  const { clear } = useDebtRefresh();
+  const queryClient = useQueryClient();
+  const { userId, clear } = useDebtRefresh();
   return useMutation({
-    mutationFn: ({ debtId, paymentIds }: { debtId: string; paymentIds: string[] }) => deleteDebt(debtId, paymentIds),
+    mutationFn: async ({ debtId, paymentIds, covered }: { debtId: string; paymentIds: string[]; covered?: { contributionId?: string; expenseId?: string } }) => {
+      if (!covered?.contributionId && !covered?.expenseId) {
+        await deleteDebt(debtId, paymentIds);
+        return;
+      }
+      const gone = await deleteCoveredDebt(userId, debtId, paymentIds, covered);
+      if (gone.contributionId) confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.id === gone.contributionId));
+      if (gone.expenseId) confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.id === gone.expenseId));
+    },
     onSuccess: (_, { debtId, paymentIds }) => clear(allDebtCashIds(debtId, paymentIds)),
     onError: failed("debts.deleteFailed"),
   });

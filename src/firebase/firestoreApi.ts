@@ -1,6 +1,7 @@
 import * as sdk from "firebase/firestore";
 import { isDemo } from "../demo/demoMode";
 import * as memory from "../demo/memoryFirestore";
+import { accountDeletingError, isDeletingAccount, refuseWhileDeleting } from "./deletionGate";
 
 // ─── Firestore, or the demo's copy of it ─────────────────────────────────────
 //
@@ -32,12 +33,48 @@ export const where = routed(() => sdk.where, memory.where);
 export const getDoc = routed(() => sdk.getDoc, memory.getDoc);
 export const getDocs = routed(() => sdk.getDocs, memory.getDocs);
 export const getCountFromServer = routed(() => sdk.getCountFromServer, memory.getCountFromServer);
+// The server's answer or an error, never the device's cache: what the account
+// deletion sweeps and checks has to be what is really there. The demo has only
+// the one store.
+export const getDocsFromServer = routed(() => sdk.getDocsFromServer, memory.getDocs);
+export const getDocFromServer = routed(() => sdk.getDocFromServer, memory.getDoc);
 
-export const setDoc = routed(() => sdk.setDoc, memory.setDoc);
-export const addDoc = routed(() => sdk.addDoc, memory.addDoc);
-export const updateDoc = routed(() => sdk.updateDoc, memory.updateDoc);
+const nothingToWaitFor = async () => {};
+export const waitForPendingWrites = routed(() => sdk.waitForPendingWrites, nothingToWaitFor);
+export const terminate = routed(() => sdk.terminate, nothingToWaitFor);
+export const clearIndexedDbPersistence = routed(() => sdk.clearIndexedDbPersistence, nothingToWaitFor);
+
+/**
+ * A write that waits on the account-deletion gate (see `deletionGate`): while
+ * an account is being deleted it is refused instead of sent. A rejected promise
+ * rather than a throw, so a caller that fires and forgets still gets a promise.
+ */
+function gated<F extends (...args: never[]) => Promise<unknown>>(write: F): F {
+  return ((...args: Parameters<F>) => (isDeletingAccount() ? Promise.reject(accountDeletingError()) : write(...args))) as F;
+}
+
+export const setDoc = gated(routed<typeof sdk.setDoc>(() => sdk.setDoc, memory.setDoc));
+export const addDoc = gated(routed<typeof sdk.addDoc>(() => sdk.addDoc, memory.addDoc));
+export const updateDoc = gated(routed<typeof sdk.updateDoc>(() => sdk.updateDoc, memory.updateDoc));
 export const deleteDoc = routed(() => sdk.deleteDoc, memory.deleteDoc);
-export const writeBatch = routed(() => sdk.writeBatch, memory.writeBatch);
+
+const openBatch = routed(() => sdk.writeBatch, memory.writeBatch);
+/** A batch whose sets and updates wait on the same gate; its deletes do not, being what the deletion itself is made of. */
+export const writeBatch = ((...args: Parameters<typeof sdk.writeBatch>) => {
+  const batch = openBatch(...args);
+  const set = batch.set.bind(batch) as (...a: unknown[]) => typeof batch;
+  const update = batch.update.bind(batch) as (...a: unknown[]) => typeof batch;
+  return Object.assign(batch, {
+    set: (...a: unknown[]) => {
+      refuseWhileDeleting();
+      return set(...a);
+    },
+    update: (...a: unknown[]) => {
+      refuseWhileDeleting();
+      return update(...a);
+    },
+  });
+}) as typeof sdk.writeBatch;
 
 export const serverTimestamp = routed(() => sdk.serverTimestamp, memory.serverTimestamp);
 export const deleteField = routed(() => sdk.deleteField, memory.deleteField);

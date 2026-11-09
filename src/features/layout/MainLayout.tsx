@@ -13,6 +13,7 @@ import { BillAlertPopup } from "../bills/BillAlertPopup";
 import { AddFab } from "./AddFab";
 import { PageAddProvider } from "../../shared/components/PageAddProvider";
 import { TourGate } from "../tour/TourGate";
+import { PAGE_ENTER_MS, pageEnterFrames, prefersReducedMotion } from "./pageEnter";
 
 /** Below Bootstrap's `lg` the sidebar is a drawer behind ☰; from it up, a fixed bar. */
 const DRAWER_QUERY = "(max-width: 991.98px)";
@@ -36,22 +37,13 @@ export function MainLayout() {
 
   // The page comes in from a little above, fading up, each time it changes —
   // played on the same element rather than remounting it, so nothing on the
-  // page loses its state for the sake of the motion. Moved by `top` on a
-  // relatively placed box rather than by `transform`: a transformed ancestor
-  // would carry anything fixed on the page (a strip, a sheet) along with it.
-  // Not for anyone who has asked their device for less motion.
+  // page loses its state for the sake of the motion. Under reduced motion it
+  // only fades (pageEnter.ts).
   const outletRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = outletRef.current;
     if (!el || typeof el.animate !== "function") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    el.animate(
-      [
-        { opacity: 0, top: "-0.5rem" },
-        { opacity: 1, top: "0" },
-      ],
-      { duration: 220, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" },
-    );
+    el.animate(pageEnterFrames(prefersReducedMotion()), { duration: PAGE_ENTER_MS, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" });
   }, [pathname]);
 
   // Open only means something where the bar is a drawer. Left to the raw flag,

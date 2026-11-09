@@ -113,11 +113,23 @@
   }
 }
 
+/* Reduced motion: the liquid neither rises nor drifts — the crests stay where
+   they are and shimmer instead, a slow change of opacity, so the tile still
+   looks like liquid on a laptop that asked for less motion. */
+@keyframes tileShimmer {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile::before,
   .tile::after {
     transition: none;
-    animation: none;
+  }
+
+  .tile::after {
+    animation: tileShimmer 2.4s ease-in-out infinite;
   }
 }
 

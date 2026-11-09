@@ -19,8 +19,8 @@ export const ROW_FLASH_MS = 1600;
  * The id is kept for the length of the flash and then let go, so a row that
  * is drawn later (a new one, arriving with the next read) still lights when it
  * appears, and a row re-rendered after it has finished does not light again.
- * Flashing the same id twice in a row starts it over. Under reduced motion
- * the CSS holds the tint still instead of fading it.
+ * Flashing the same id twice in a row starts it over. The tint fades under
+ * reduced motion as well: a change of colour, not movement.
  */
 export function useRowFlash<Id extends string | number = string>() {
   const [flashed, setFlashed] = useState<{ id: Id; at: number } | null>(null);

@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   updatePassword,
   reauthenticateWithCredential,
+  reauthenticateWithPopup,
   EmailAuthProvider,
   deleteUser,
   verifyBeforeUpdateEmail,
@@ -80,6 +81,18 @@ export const reauthenticate = async (currentPassword: string) => {
   if (!user || !user.email) throw new Error("No authenticated user");
   const credential = EmailAuthProvider.credential(user.email, currentPassword);
   await reauthenticateWithCredential(user, credential);
+};
+
+/**
+ * The same for an account that signs in with Google: Google's own window asks
+ * again. It must be the same Google account — another one is refused by
+ * Firebase with `auth/user-mismatch`.
+ */
+export const reauthenticateWithGoogle = async () => {
+  refuseInDemo();
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user");
+  await reauthenticateWithPopup(user, googleProvider);
 };
 
 // ─── Update email ─────────────────────────────────────────────────────────────

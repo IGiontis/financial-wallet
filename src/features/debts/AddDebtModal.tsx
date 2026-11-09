@@ -18,6 +18,9 @@ import { useInvestmentGoals } from "../budget/useInvestments";
 import { isSavingsGoal } from "../budget/goalKinds";
 import { useCoveredFunding } from "../budget/useCoveredFunding";
 import { coveredFundingVars } from "../budget/coveredFunding";
+import { coveredEdit, isLive } from "../budget/coveredLink";
+import { useCoveredLink } from "../budget/useCoveredLink";
+import { CoveredLoadFailed } from "./CoveredLoadFailed";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../shared/utils/categories";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
@@ -92,6 +95,11 @@ export default function AddDebtModal({
   const [goalCategory, setGoalCategory] = useState("");
   const coveredFunding = useCoveredFunding();
   const forGoal = !debt && direction === "owed_by_me" && account === undefined ? goals.find((g) => g.id === goalId) : undefined;
+  // A saved debt that paid part of a goal: the goal's deposit and the expense
+  // follow what is saved here (see `coveredEdit`), and which way the money went
+  // and that no card moved stay as they are — they are what make it that debt.
+  const covered = useCoveredLink(debt);
+  const linked = isLive(covered.link);
 
   const value = parseFloat(amount);
   const termValue = parseInt(term, 10);
@@ -187,8 +195,17 @@ export default function AddDebtModal({
       });
       return;
     }
-    if (debt) edit.mutate({ debtId: debt.id, data }, { onSuccess: onClose });
-    else create.mutate(data, { onSuccess: onClose });
+    if (debt) {
+      if (!covered.ready) return;
+      const plan = coveredEdit(debt, data, covered.link);
+      if (!plan.ok) {
+        toast.error(t("debts.coveredLocked"));
+        return;
+      }
+      edit.mutate({ debtId: debt.id, data, covered: plan.edit }, { onSuccess: onClose });
+      return;
+    }
+    create.mutate(data, { onSuccess: onClose });
   };
 
   return (
@@ -203,6 +220,7 @@ export default function AddDebtModal({
               type="button"
               className={`${segmented.item} ${segmented.owe} ${direction === "owed_by_me" ? segmented.active : ""}`}
               aria-pressed={direction === "owed_by_me"}
+              disabled={linked}
               onClick={() => setDirection("owed_by_me")}
             >
               {t("debts.iBorrowed")}
@@ -211,6 +229,7 @@ export default function AddDebtModal({
               type="button"
               className={`${segmented.item} ${segmented.lend} ${direction === "owed_to_me" ? segmented.active : ""}`}
               aria-pressed={direction === "owed_to_me"}
+              disabled={linked}
               onClick={() => setDirection("owed_to_me")}
             >
               {t("debts.iLent")}
@@ -353,7 +372,9 @@ export default function AddDebtModal({
               moves that card, as a transaction would — and, being a loan, is
               neither income nor spending. The picker asks it as its own
               question, so no label above it. */}
-          <FormGroup>
+          {linked && <p className="small text-body-secondary">{t("debts.coveredEditHint", { goal: covered.goalName || debt?.label || "" })}</p>}
+          {covered.failed && <CoveredLoadFailed onRetry={covered.retry} />}
+          <FormGroup className={linked ? "d-none" : undefined}>
             <MoneyMovedPicker
               value={account}
               onChange={setAccount}
@@ -404,7 +425,7 @@ export default function AddDebtModal({
           <Button color="secondary" outline type="button" onClick={onClose} disabled={saving}>
             {t("common.cancel")}
           </Button>
-          <Button color="primary" type="submit" disabled={saving || savingCovered}>
+          <Button color="primary" type="submit" disabled={saving || savingCovered || !covered.ready}>
             {saving || savingCovered ? t("common.saving") : t("common.save")}
           </Button>
         </ModalFooter>

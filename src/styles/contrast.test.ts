@@ -193,9 +193,9 @@ export const PAIRS: Pair[] = [
   { fg: "text", bg: "neutral-soft" },
   { fg: "brand-text", bg: "brand-soft" },
 
-  // The shell: sidebar, top bar, footer. One gradient, so every pair is checked
-  // at both ends of it and under the hover and current-item layers.
-  ...["shell-dark", "shell-light"].flatMap((end) => [
+  // The shell: sidebar, top bar, footer. One gradient of three stops, so every
+  // pair is checked at each stop and under the hover and current-item layers.
+  ...["shell-dark", "shell-mid", "shell-light"].flatMap((end) => [
     { fg: "shell-text", bg: end },
     { fg: "shell-text-2", bg: end },
     { fg: "shell-text", bg: `shell-hover over ${end}` },
@@ -208,6 +208,8 @@ export const PAIRS: Pair[] = [
   // The shell's «due» badge is the dark mode's one red, so it is held to AA.
   { fg: "shell-on-badge", bg: "shell-badge", min: 4.5, why: OWNER },
   { fg: "shell-on-badge-warn", bg: "shell-badge-warn" },
+  // The floating «+»: an icon, so AA (asked for in item 74), on both ends of its fill.
+  ...["fab-dark", "fab-light"].map((end) => ({ fg: "on-fab", bg: end, min: 4.5, why: "the «+» is an icon on its own fill: WCAG AA" })),
 
   // Boundaries you must be able to see: inputs, cards' edges, focus.
   ...GROUNDS.flatMap((g) => [
@@ -244,8 +246,9 @@ export const REQUIRED_ROLES = [
   "text", "text-2", "border", "border-soft",
   "brand", "brand-hover", "brand-active", "on-brand", "brand-text", "brand-soft", "on-brand-soft", "brand-edge",
   "link", "link-hover", "focus", "neutral-soft", "on-neutral-soft",
-  "shell-dark", "shell-light", "shell-text", "shell-text-2", "shell-rule", "shell-hover", "shell-current", "shell-on-current",
+  "shell-dark", "shell-mid", "shell-light", "shell-text", "shell-text-2", "shell-rule", "shell-hover", "shell-current", "shell-on-current",
   "shell-accent", "shell-focus", "shell-logo", "shell-on-logo", "shell-badge", "shell-on-badge", "shell-badge-warn", "shell-on-badge-warn",
+  "fab-dark", "fab-light", "on-fab",
 ]; // prettier-ignore
 
 /** Defined once per mode, shared by every colourway. */
@@ -417,12 +420,77 @@ describe("the brand and the meanings", () => {
 
 // ─── The shell runs dark to light ─────────────────────────────────────────────
 // Every decorative gradient starts dark at the top left and ends light at the
-// bottom right, in every colourway and mode. The shell's two ends are named
-// for it; this keeps the names honest.
+// bottom right, in every colourway and mode. The shell's three stops are named
+// for it; this keeps the names honest. The «+» is drawn the same way.
 
 describe("the shell gradient", () => {
-  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: shell-dark is the darker end", (cw, mode) => {
-    expect(luminance(resolve("shell-dark", cw, mode))).toBeLessThan(luminance(resolve("shell-light", cw, mode)));
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: dark, then mid, then light", (cw, mode) => {
+    const [dark, mid, light] = ["shell-dark", "shell-mid", "shell-light"].map((r) => luminance(resolve(r, cw, mode)));
+    expect(dark).toBeLessThan(mid);
+    expect(mid).toBeLessThan(light);
+  });
+
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: the «+» runs dark to light too", (cw, mode) => {
+    expect(luminance(resolve("fab-dark", cw, mode))).toBeLessThan(luminance(resolve("fab-light", cw, mode)));
+  });
+});
+
+// ─── The «+» stands apart ─────────────────────────────────────────────────────
+// It floats over the footer, over cards and over the page (AddFab). In daylight
+// blue it was once the footer's own navy and vanished into it (item 74). Its
+// edge is the fill, or the ring of page colour drawn around it: wherever it
+// sits, one of the two must stand 3:1 off what is under it — the WCAG floor
+// for a control's boundary.
+
+describe("the floating «+»", () => {
+  const SHELL_STOPS = ["shell-dark", "shell-mid", "shell-light"];
+  const fill = (cw: string, mode: Mode, bg: string) => Math.min(...["fab-dark", "fab-light"].map((end) => ratio(resolve(end, cw, mode), resolve(bg, cw, mode))));
+
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: stands off the footer", (cw, mode) => {
+    const blurred = SHELL_STOPS.filter((stop) => Math.max(fill(cw, mode, stop), ratio(resolve("page", cw, mode), resolve(stop, cw, mode))) < 3);
+    expect(blurred).toEqual([]);
+  });
+
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: stands off the page and a card by its fill alone", (cw, mode) => {
+    expect(GROUNDS.filter((g) => fill(cw, mode, g) < 3)).toEqual([]);
+  });
+
+  // Its focus ring is drawn between two rings of the page colour (AddFab): the
+  // ring stands 3:1 off them, and on the footer the outer page ring — or, in
+  // the dark, the focus colour itself — stands 3:1 off every stop.
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: its focus ring reads on the footer", (cw, mode) => {
+    const focus = resolve("focus", cw, mode);
+    const page = resolve("page", cw, mode);
+    expect(ratio(focus, page)).toBeGreaterThanOrEqual(3);
+    const lost = SHELL_STOPS.filter((stop) => Math.max(ratio(page, resolve(stop, cw, mode)), ratio(focus, resolve(stop, cw, mode))) < 3);
+    expect(lost).toEqual([]);
+  });
+});
+
+// ─── A chosen tab runs dark to light ──────────────────────────────────────────
+// theme.css paints the chosen tab and view switch with `--brand-gradient`,
+// three of the brand's own steps (each carries on-brand at 8:1, PAIRS above).
+// Which step is darker flips with the mode, so each mode's declaration is read
+// here and its stops must climb in lightness in every colourway.
+
+describe("the chosen tab's gradient", () => {
+  const THEME = strip(readFileSync(join(STYLES_DIR, "theme.css"), "utf8"));
+  const stops = (mode: Mode) => {
+    const decl = [...THEME.matchAll(/([^{}]+)\{([^{}]*--brand-gradient:[^{}]*)\}/g)].find(([, sel]) => (mode === "dark") === sel.includes('data-bs-theme="dark"'));
+    return [...(decl?.[2].match(/--brand-gradient:([^;]*)/)?.[1] ?? "").matchAll(/var\(--([\w-]+)\)/g)].map(([, role]) => role);
+  };
+
+  it("is what the chosen tab and view switch are painted with", () => {
+    expect(THEME).toMatch(/--color-segment-active:\s*var\(--brand-gradient\)/);
+    expect(THEME).toMatch(/--view-switch-on:\s*var\(--brand-gradient\)/);
+  });
+
+  it.each(COLOURWAYS.flatMap((cw) => MODES.map((m) => [cw, m] as const)))("%s / %s: three brand steps, darkest first", (cw, mode) => {
+    const roles = stops(mode);
+    expect([...roles].sort()).toEqual(["brand", "brand-active", "brand-hover"]);
+    const lum = roles.map((r) => luminance(resolve(r, cw, mode)));
+    expect(lum[0]).toBeLessThan(lum[1]);
+    expect(lum[1]).toBeLessThan(lum[2]);
   });
 });
 

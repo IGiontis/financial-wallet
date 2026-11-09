@@ -2,6 +2,7 @@ import { collection, getDocs, writeBatch, doc, query, where } from "./firestoreA
 import { db } from "./config";
 import { DEFAULT_CATEGORIES } from "./defaultCategories";
 import { isDemo } from "../demo/demoMode";
+import { isDeletingAccount } from "./deletionGate";
 
 // Bump this whenever DEFAULT_CATEGORIES changes, so existing installs re-run
 // the check once and pick up the new entries.
@@ -22,6 +23,9 @@ export const seedDefaultCategories = async (): Promise<void> => {
   // The demo's account comes with them, and its flag must not be left on a
   // device for the account someone signs in to later.
   if (isDemo()) return;
+  // An account being deleted gets nothing new (see `deletionGate`, which would
+  // refuse the write anyway — this saves the read before it).
+  if (isDeletingAccount()) return;
   try {
     if (localStorage.getItem(SEED_FLAG_KEY) === SEED_VERSION) return;
 

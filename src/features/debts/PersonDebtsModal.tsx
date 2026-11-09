@@ -20,6 +20,8 @@ import { moneyMovedName } from "./moneyMovedName";
 import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import RepaymentWizard from "./RepaymentWizard";
+import { useCoveredLink } from "../budget/useCoveredLink";
+import { CoveredLoadFailed } from "./CoveredLoadFailed";
 import { ForgiveDebtModal } from "./ForgiveDebtModal";
 import { LoanCards, MiniRing } from "./LoanCards";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
@@ -407,6 +409,9 @@ export default function PersonDebtsModal({
   const [panelNotes, setPanelNotes] = useState("");
   const accounts = useAccountList();
   const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
+  // A debt that paid part of a goal takes the goal's deposit and its expense
+  // with it — said in the dialog, and only what is still there.
+  const deletingLink = useCoveredLink(deleting);
   const [editing, setEditing] = useState<DebtWithStatus | null>(null);
   const [adding, setAdding] = useState(false);
   // Letting the shown debt go — see `ForgiveDebtModal` — and taking that back.
@@ -863,6 +868,17 @@ export default function PersonDebtsModal({
             <p className="mb-0" style={{ fontSize: 14 }}>
               {t("debts.deleteLoanConfirm")}
             </p>
+            {deletingLink.link?.contribution && (
+              <p className="mb-0 mt-2" style={{ fontSize: 14 }}>
+                {t("debts.deleteCoveredDeposit", { amount: formatCurrency(deletingLink.link.contribution.amount), goal: deletingLink.goalName || deleting.label || "" })}
+              </p>
+            )}
+            {deletingLink.failed && <CoveredLoadFailed onRetry={deletingLink.retry} />}
+            {deletingLink.link?.expense && (
+              <p className="mb-0 mt-2" style={{ fontSize: 14 }}>
+                {t("debts.deleteCoveredExpense", { amount: formatCurrency(deletingLink.link.expense.amount) })}
+              </p>
+            )}
           </ModalBody>
           <ModalFooter>
             <Button color="secondary" outline onClick={() => setDeleting(null)} disabled={removeDebt.isPending}>
@@ -870,9 +886,18 @@ export default function PersonDebtsModal({
             </Button>
             <Button
               color="danger"
-              disabled={removeDebt.isPending || deleteGuard.locked}
+              disabled={removeDebt.isPending || deleteGuard.locked || !deletingLink.ready}
               title={deleteGuard.reason}
-              onClick={() => removeDebt.mutate({ debtId: deleting.id, paymentIds: deleting.payments.map((p) => p.id) }, { onSuccess: () => setDeleting(null) })}
+              onClick={() =>
+                removeDebt.mutate(
+                  {
+                    debtId: deleting.id,
+                    paymentIds: deleting.payments.map((p) => p.id),
+                    covered: { contributionId: deletingLink.link?.contribution?.id, expenseId: deletingLink.link?.expense?.id },
+                  },
+                  { onSuccess: () => setDeleting(null) },
+                )
+              }
             >
               {removeDebt.isPending ? t("common.deleting") : t("common.delete")}
             </Button>

@@ -48,6 +48,13 @@
   transform: rotate(-90deg);
 }
 
+/* Reduced motion: the chevron points the new way at once, without turning. */
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
 .title {
   font-size: 12px;
   font-weight: 650;

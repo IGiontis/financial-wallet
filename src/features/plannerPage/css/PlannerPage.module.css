@@ -268,7 +268,10 @@
   cursor: pointer;
 }
 
-.horizonPill:hover {
+/* Not the chosen one: `.horizonPill:hover` outweighs `.horizonOn`, and on a
+   desk the pointer rests on the pill it has just picked — its lettering went
+   to the body ink on the brand fill, near-black on blue (2026-11-04). */
+.horizonPill:hover:not(.horizonOn) {
   color: var(--color-text-primary);
 }
 
@@ -607,9 +610,16 @@
   }
 }
 
+/* Reduced motion: it fades in where it stands. */
+@keyframes strip-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .strip {
-    animation: none;
+    animation-name: strip-fade;
   }
 }
 

@@ -108,6 +108,19 @@ describe.each(["blue", "gold"] as const)("colourway %s", (style) => {
     expect(document.querySelector("footer")).toHaveClass("app-shell");
   });
 
+  it("keeps the footer short: the app's icon and name, the copyright, the legal links — no list of pages", () => {
+    renderAt("/");
+    const footer = within(document.querySelector("footer")!);
+    expect(footer.getByRole("link", { name: i18n.t("nav.goHome") })).toHaveAttribute("href", "/");
+    expect(document.querySelector('footer img[src="/icon-192.png"]')).not.toBeNull();
+    expect(footer.getByText(/Ilias Giontis/).closest("p")).toHaveTextContent(`· MyFiWallet. ${i18n.t("common.allRightsReserved")}`);
+    expect(footer.getByRole("link", { name: i18n.t("legal.terms") })).toHaveAttribute("href", "/terms");
+    expect(footer.getByRole("link", { name: i18n.t("legal.privacy") })).toHaveAttribute("href", "/privacy");
+    expect(footer.getByText(new RegExp(i18n.t("legal.noTracking").replace(".", "\\.")))).toBeInTheDocument();
+    // Home, the author, the two legal pages (+ the cookie settings where analytics is on) — nothing else.
+    expect(footer.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/", "https://igiontisportfolio.netlify.app/#home", "/terms", "/privacy"]);
+  });
+
   it("lists the same links, in the same four groups and the same order", () => {
     renderAt("/");
     const hrefs = navLinks()

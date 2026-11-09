@@ -194,12 +194,18 @@
   scroll-margin-bottom: 1rem;
 }
 
-/* Nothing slides or fades for whoever asked the system for less motion. The
-   tour turns driver.js's animation off for them as it starts; this is for the
-   fades its sheet would still run. */
+/* Less motion asked for: the tour turns driver.js's animation off as it
+   starts (runTour.ts), because with it the lit window glides from one element
+   to the next. That also took the popover's fade; each step's card fades in
+   where it stands again here — a change of opacity, not movement. */
+@keyframes tour-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .driver-fade .driver-overlay,
-  .driver-fade .driver-popover {
-    animation: none;
+  .driver-popover {
+    animation: tour-card-fade 0.2s ease-out;
   }
 }

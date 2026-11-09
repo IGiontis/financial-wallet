@@ -1,8 +1,10 @@
 /* Topbar — only what Bootstrap can't express.
 
    The Classic layout in every colourway. The bar is part of the shell: the
-   same viewport-anchored gradient as the sidebar beside it and the footer
-   (`--shell-gradient`), and `.app-shell` on it (Topbar.tsx) so whatever sits
+   same three-stop gradient as the sidebar beside it and the footer, over its
+   own width (`--shell-gradient`, 135° — on a bar this wide, dark at the left
+   where it meets the sidebar's dark top, light at the far right), and
+   `.app-shell` on it (Topbar.tsx) so whatever sits
    here — the theme and language buttons, the account, the demo's chip and
    buttons — reads in the shell's own colours (styles/theme.css). The height
    is `--topbar-height` (styles/shape.css), shared with the sidebar's header
@@ -14,7 +16,8 @@
   flex: none;
   height: var(--topbar-height);
   padding: 0;
-  background: var(--shell-gradient) fixed;
+  background-color: var(--shell-mid);
+  background-image: var(--shell-gradient);
   border-color: var(--shell-rule) !important;
 }
 
@@ -219,11 +222,4 @@
   height: 22px;
   margin: 0 4px;
   background: var(--shell-rule);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iconButton,
-  .userButton {
-    transition: none;
-  }
 }

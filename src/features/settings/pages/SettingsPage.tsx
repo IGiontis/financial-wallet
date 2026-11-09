@@ -5,7 +5,9 @@ import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Row, Col, Card, CardBody, FormGroup, Label, Input, FormFeedback, Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from "reactstrap";
 import { useAuth } from "../../../shared/hooks/useAuth";
-import { getUser, updateUser, deleteAllUserData } from "../../../firebase/firestore";
+import { getUser, updateUser } from "../../../firebase/firestore";
+import { deleteMyAccount, AccountDeletionError } from "../../../firebase/accountDeletion";
+import { OfflineActionError } from "../../../shared/utils/offlinePolicy";
 import { DISPLAY_NAME_MAX, cleanDisplayName } from "../displayName";
 import CategoryManager from "../../categories/CategoryManager";
 import { SkeletonCard, SkeletonHeading, SkeletonRows } from "../../../shared/components/Skeletons";
@@ -14,7 +16,7 @@ import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import StatementSection from "../components/StatementSection";
 import BillAlertSetting from "../components/BillAlertSetting";
 import { TOUR_PARAM } from "../../tour/tourState";
-import { updateUserEmail, updateUserPassword, reauthenticate, deleteAccount, isGoogleUser, logout } from "../../../firebase/auth";
+import { updateUserEmail, updateUserPassword, reauthenticate, isGoogleUser } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
 import { useQueryClient } from "@tanstack/react-query";
@@ -65,6 +67,28 @@ const getErrorKey = (code: string): string => {
       return "errors.requiresRecentLogin";
     default:
       return "errors.generic";
+  }
+};
+
+/**
+ * The account deletion's message. Where it stopped decides what is true now:
+ * before the data (nothing changed), during it (the account is still there,
+ * deleting again carries on), or after it (only the sign-in is left).
+ */
+const deleteErrorKey = (err: unknown): string => {
+  if (err instanceof OfflineActionError) return "common.offlineDelete";
+  if (!(err instanceof AccountDeletionError)) return getErrorKey(errorCode(err));
+  if (err.stage === "data") return "settings.deleteUnfinished";
+  if (err.stage === "sign-in") return "settings.deleteSignInLeft";
+  switch (err.code) {
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+    case "auth/popup-blocked":
+      return "settings.deleteGoogleCancelled";
+    case "auth/user-mismatch":
+      return "settings.deleteGoogleOtherAccount";
+    default:
+      return getErrorKey(err.code);
   }
 };
 
@@ -244,18 +268,21 @@ export function SettingsPage() {
   const settingsGuard = useOfflineGuard("settings");
   const deleteGuard = useOfflineGuard("delete");
 
+  // Who it is first (password, or Google's window), then the data, then the
+  // sign-in, then this device forgets it and loads again on the sign-in form —
+  // see `accountDeletion`. What the message says depends on where it stopped.
   const handleDeleteAccount = async () => {
     setDeleteError("");
     setDeleteLoading(true);
     try {
-      if (!googleUser) await reauthenticate(deletePassword);
-      // Remove all Firestore data while still authenticated, then the auth account.
-      await deleteAllUserData(currentUser!.uid);
-      await deleteAccount();
-      await logout();
-      navigate("/login", { replace: true });
+      await deleteMyAccount({ uid: currentUser!.uid, google: googleUser, password: deletePassword });
     } catch (err) {
-      setDeleteError(getErrorKey(errorCode(err)));
+      const key = deleteErrorKey(err);
+      setDeleteError(key);
+      // Stopped with only the sign-in left, the device has signed out and this
+      // page is on its way to the sign-in form: the dialog goes with it, the
+      // toast stays until read.
+      if (err instanceof AccountDeletionError && err.stage === "sign-in") toast.error(t(key), { autoClose: false });
     } finally {
       setDeleteLoading(false);
     }
@@ -745,6 +772,7 @@ export function SettingsPage() {
         </ModalHeader>
         <ModalBody>
           <p style={{ fontSize: 14, margin: "0 0 1rem" }}>{t("settings.deleteConfirmBody")}</p>
+          {googleUser && <p className="small text-body-secondary mb-0">{t("settings.deleteGoogleConfirm")}</p>}
           {!googleUser && (
             <FormGroup className="mb-0">
               <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.enterPasswordConfirm")}</Label>

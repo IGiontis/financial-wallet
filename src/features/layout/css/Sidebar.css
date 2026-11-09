@@ -2,9 +2,10 @@
 
    One sidebar, the Classic layout, in whichever colourway is chosen. Every
    colour is a shell-* role from styles/tokens.css: the sidebar, the top bar and
-   the footer are painted with the same corner-to-corner gradient
-   (`--shell-gradient`, anchored to the viewport) so the three read as one
-   frame. Widths and the bar's height are in styles/shape.css. */
+   the footer are painted with the same three-stop gradient, each over its own
+   box — the sidebar the tall version (`--shell-gradient-tall`, 160°), so the
+   light end comes at its foot. Widths and the bar's height are in
+   styles/shape.css. */
 
 /* ── The bar ───────────────────────────────────────────────────────────────── */
 
@@ -18,7 +19,8 @@
      phone does not leave the foot of the menu cut off either. */
   height: 100vh;
   height: 100dvh;
-  background: var(--shell-gradient) fixed;
+  background-color: var(--shell-mid);
+  background-image: var(--shell-gradient-tall);
   color: var(--shell-text);
   display: flex;
   flex-direction: column;
@@ -33,13 +35,10 @@
 /* A phone: a drawer, off-screen until ☰ opens it. Hidden as well as moved, once
    it has slid out, so its links are not in the Tab order and a screen reader
    does not walk through a menu nobody can see. Visible again the moment it
-   opens — the delay is only on the way out.
-   A moved box cannot hold a viewport-anchored background, so the drawer draws
-   the gradient over its own height; it lies over the page, beside nothing. */
+   opens — the delay is only on the way out. */
 @media (max-width: 991.98px) {
   .sidebar {
     width: min(var(--drawer-width), 85vw);
-    background: var(--shell-gradient);
     transform: translateX(-100%);
     visibility: hidden;
     transition:
@@ -171,10 +170,11 @@
 
 /* "There is more below." A fade over the last rows while the list carries on
    past the foot, and only then — Sidebar.tsx sets `has-more` from the scroll
-   position. It is the bar's own gradient, faded in from the top by a mask, so
-   it matches whatever part of the frame it lies on. It sits on the wrapper
-   rather than inside the scrolling list, where it would scroll away with the
-   rows it is meant to cover. */
+   position. It is the colour the bar's gradient has reached there — most of
+   the way from the middle stop to the light end — faded in from the top by a
+   mask, so it melts into the frame it lies on. It sits on the wrapper rather
+   than inside the scrolling list, where it would scroll away with the rows it
+   is meant to cover. */
 .sidebar-body::after {
   content: "";
   position: absolute;
@@ -182,18 +182,12 @@
   right: 0;
   bottom: 0;
   height: 40px;
-  background: var(--shell-gradient) fixed;
+  background: color-mix(in srgb, var(--shell-mid) 35%, var(--shell-light));
   -webkit-mask-image: linear-gradient(transparent, currentColor);
   mask-image: linear-gradient(transparent, currentColor);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
-}
-
-@media (max-width: 991.98px) {
-  .sidebar-body::after {
-    background: var(--shell-light);
-  }
 }
 
 .sidebar.has-more .sidebar-body::after {
@@ -708,15 +702,29 @@
   opacity: 1;
 }
 
+/* Reduced motion: the bar does not slide or grow, and the chevron does not
+   turn. The colours, the overlay and the fading edge still ease. On a phone
+   the drawer fades in place instead of sliding: it is laid where it ends up
+   and only its opacity changes. */
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
-  .sidebar.open,
-  .sidebar-overlay,
-  .sidebar-body::after,
-  .sidebar .sidebar-link,
-  .sidebar .nav-icon,
-  .sidebar .sidebar-chevron,
-  .sidebar-collapse {
+  .sidebar .sidebar-chevron {
     transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 991.98px) {
+  .sidebar {
+    transform: none;
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  .sidebar.open {
+    transform: none;
+    opacity: 1;
+    transition: opacity 0.2s ease;
   }
 }

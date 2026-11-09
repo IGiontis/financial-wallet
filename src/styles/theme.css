@@ -75,26 +75,38 @@
   --color-tooltip-bg: var(--text);
   --color-tooltip-text: var(--page);
 
-  /* The shell: sidebar, top bar and footer share one gradient, anchored to the
-     viewport (`background-attachment: fixed` where they use it) so the three
-     pieces read as a single frame running corner to corner — dark at the top
-     left, light at the bottom right, in every colourway and mode, as every
-     decorative gradient in the app does. */
-  --shell-gradient: linear-gradient(135deg, var(--shell-dark), var(--shell-light));
+  /* The shell: sidebar, top bar and footer, each drawing the same three stops
+     over its own box — the way the owner's Edessaikos site draws its frame: a
+     near-black of the hue at the top left, the rich middle from 60% on, the
+     light end only in the far corner. Dark at the top left, light at the
+     bottom right, in every colourway and mode, as every decorative gradient in
+     the app is. The wide bars run at 135°; the tall sidebar at 160°, so its
+     light end arrives at the foot rather than halfway down the right edge.
+     No longer anchored to the viewport (`background-attachment: fixed`): the
+     footer scrolls inside `.page-content`, and a fixed background inside a
+     scrolling box is one some browsers simply do not paint until something
+     forces a repaint — the footer stayed invisible until the theme was
+     switched (item 63a). */
+  --shell-gradient: linear-gradient(135deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
+  --shell-gradient-tall: linear-gradient(160deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
 
   /* Tabs. A tab at rest is a neutral chip with an edge you can see; the chosen
-     one is the brand, filled. The small view switch uses the same pair. */
+     one is the brand, filled — drawn as the brand's own three-step gradient,
+     dark at the top left (`--brand-gradient`, below), the way the shell is.
+     Every reader of these two paints them with the `background` shorthand, so
+     a gradient goes where a colour went. The small view switch uses the same
+     pair. */
   --segment-track: transparent;
   --segment-pad: 0;
   --segment-gap: 0.375rem;
   --segment-item: var(--neutral-soft);
   --segment-item-border: var(--border);
   --segment-item-hover-border: var(--text-2);
-  --color-segment-active: var(--brand);
+  --color-segment-active: var(--brand-gradient);
   --color-segment-active-border: var(--brand);
   --color-segment-active-text: var(--on-brand);
   --view-switch-border: var(--border);
-  --view-switch-on: var(--brand);
+  --view-switch-on: var(--brand-gradient);
   --view-switch-on-text: var(--on-brand);
 
   --scrollbar-thumb: color-mix(in srgb, var(--text-2) 65%, transparent);
@@ -140,7 +152,22 @@
    gradient is declared again there so it is made of that colourway's ends. */
 .nav-style-blue,
 .nav-style-gold {
-  --shell-gradient: linear-gradient(135deg, var(--shell-dark), var(--shell-light));
+  --shell-gradient: linear-gradient(135deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
+  --shell-gradient-tall: linear-gradient(160deg, var(--shell-dark) 0%, var(--shell-mid) 60%, var(--shell-light) 100%);
+}
+
+/* The brand drawn the same way, for a chosen tab and view switch (above): its
+   three steps in order of lightness, dark at the top left. Which step is
+   darker flips with the mode (the daylight brand darkens under the pointer,
+   the dark mode's lightens), so the order is set per mode. Every step carries
+   on-brand at 8:1, and contrast.test.ts checks the order. */
+:root,
+[data-bs-theme="light"] {
+  --brand-gradient: linear-gradient(135deg, var(--brand-active) 0%, var(--brand-hover) 60%, var(--brand) 100%);
+}
+
+[data-bs-theme="dark"] {
+  --brand-gradient: linear-gradient(135deg, var(--brand-active) 0%, var(--brand) 60%, var(--brand-hover) 100%);
 }
 
 /* ── Bootstrap, pointed at the roles ──────────────────────────────────────────
@@ -773,6 +800,28 @@ body {
   opacity: 1;
 }
 
+/* A native date, month or time field, should one appear (the app's own is
+   DateField): the calendar icon at the far right edge, not beside the text,
+   and drawn for the mode — Chrome and Safari take the icon's colour from
+   `color-scheme`, Firefox draws its own at the end already. */
+.form-control:is([type="date"], [type="month"], [type="week"], [type="time"], [type="datetime-local"]) {
+  color-scheme: light;
+}
+
+[data-bs-theme="dark"] .form-control:is([type="date"], [type="month"], [type="week"], [type="time"], [type="datetime-local"]) {
+  color-scheme: dark;
+}
+
+.form-control::-webkit-datetime-edit {
+  flex: 1 1 auto;
+  text-align: start;
+}
+
+.form-control::-webkit-calendar-picker-indicator {
+  margin-inline-start: auto;
+  cursor: pointer;
+}
+
 .form-control:disabled,
 .form-control[readonly],
 .form-select:disabled {
@@ -1061,8 +1110,8 @@ html:root {
    saved? `.row-flash` on the new or edited row answers it: the brand's tint
    washes over the row and fades out over a second and a half, with a ring
    that goes with it. Put on and taken off by `useRowFlash`
-   (shared/hooks/useRowFlash.ts). Under reduced motion the tint holds still for
-   the same time and then goes at once: a highlight, no movement. */
+   (shared/hooks/useRowFlash.ts). A change of colour, nothing that moves, so
+   it plays under reduced motion too. */
 @keyframes row-flash {
   from,
   25% {
@@ -1075,19 +1124,11 @@ html:root {
   animation: row-flash var(--motion-flash) var(--ease-standard);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .row-flash {
-    animation: none;
-    background-color: var(--brand-soft);
-    box-shadow: inset 0 0 0 1px var(--brand-edge);
-  }
-}
-
 /* ── The app's touch: what answers a press ────────────────────────────────────
    Small, quick and the same everywhere: a button gives a little under the
    finger; a card or row that is itself a control lifts on hover and settles
-   when pressed; a menu fades in. Every duration is a token, ~0 under reduced
-   motion, and the movement itself is switched off there too. */
+   when pressed; a menu fades in. Under reduced motion the give and the lift
+   go; the colours and the menu's fade stay. */
 
 .btn {
   transition:
@@ -1136,22 +1177,17 @@ html:root {
   :is(a.card, button.card, .card[role="button"], .list-group-item-action):active {
     transform: none;
   }
-
-  .dropdown-menu.show {
-    animation: none;
-  }
 }
 
-/* ── Smooth theme change, unless the reader asked for less motion ───────────── */
+/* ── Smooth theme change ──────────────────────────────────────────────────────
+   For everyone: colours easing from light to dark is not motion. */
 
-@media (prefers-reduced-motion: no-preference) {
-  body,
-  .card,
-  .modal-content,
-  .dropdown-menu {
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      color 0.2s ease;
-  }
+body,
+.card,
+.modal-content,
+.dropdown-menu {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }

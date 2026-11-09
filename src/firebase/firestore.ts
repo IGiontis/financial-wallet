@@ -1,8 +1,10 @@
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, type Query } from "./firestoreApi";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, getDocsFromServer, getDocFromServer, waitForPendingWrites, type Query } from "./firestoreApi";
 import { db } from "./config";
 import { noteDeleted, noteRecreated, noteReset, syncedList } from "./syncList";
+import { OWNED_COLLECTIONS, USERS_COLLECTION } from "./ownedCollections";
+import { beginAccountDeletion } from "./deletionGate";
 import { meterRead } from "../lib/readMeter";
-import { localGet, localSet } from "../lib/localStore";
+import { localDeletePrefix, localGet, localSet } from "../lib/localStore";
 import { requireConnection } from "../shared/utils/offlinePolicy";
 import { debtEdit } from "../features/debts/debtsUtils";
 import { firestoreToDate } from "../shared/utils/dates";
@@ -934,39 +936,99 @@ export const resetUserData = async (userId: string, scope: ResetScope): Promise<
 // ─── ACCOUNT DELETION ─────────────────────────────────────────────────────────
 // Removes every document belonging to a user before their auth account is
 // deleted, so no orphaned personal data is left behind (matches the UI promise
-// and privacy expectations). Runs while the user is still authenticated.
+// and privacy expectations). Runs while the user is still authenticated; the
+// whole flow, sign-in check first, is `accountDeletion.deleteMyAccount`.
 
-export const deleteAllUserData = async (userId: string) => {
-  // Not queued: see `offlinePolicy`. A deletion decided against an offline
-  // copy of the account is the one write with nothing to undo it.
-  requireConnection("delete");
-  // Collections keyed by userId (categories: only the user's own, never defaults).
-  // Debts and their repayments are the other person's name and what you owe
-  // them — as personal as anything here, so they go too.
-  const ownedCollections = ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments", "debts", "debtPayments"];
+/** What a deletion removed: the first sweep, what later sweeps still found, and whether there was a profile. */
+export interface AccountWipe {
+  deleted: number;
+  leftovers: number;
+  profile: boolean;
+}
 
-  const refs = (
+/** Sweeps after the first that may still find something before the deletion gives up and says so. */
+const LEFTOVER_SWEEPS = 3;
+
+/** How long the writes this device still has queued get to reach the server first. */
+const QUEUED_WRITES_WAIT_MS = 15_000;
+
+/** Every document of the user's in the owned collections, as the server has them now. */
+const ownedOnServer = async (userId: string) =>
+  (
     await Promise.all(
-      ownedCollections.map(async (name) => {
-        const snap = await getDocs(query(collection(db, name), where("userId", "==", userId)));
+      OWNED_COLLECTIONS.map(async (name) => {
+        const snap = await getDocsFromServer(query(collection(db, name), where("userId", "==", userId)));
+        meterRead(`${name} (account deletion)`, snap.size, false);
         return snap.docs.map((d) => d.ref);
       }),
     )
   ).flat();
 
-  // Nothing of theirs stays in this device's store either.
-  await noteReset(userId);
+/**
+ * Deletes everything of the user's in Firestore, the profile last.
+ *
+ * Closes the write gate first (see `deletionGate`; the caller opens it again if
+ * this fails), so nothing in the still-running app can put a document back
+ * between the sweep and the end. Writes this device queued earlier are given
+ * the chance to land before it — they would otherwise reach the server after
+ * the sweep.
+ *
+ * Then sweeps again until a sweep finds nothing: anything that arrived in the
+ * meantime — another device's queued write, a save already on its way — is
+ * caught and counted as a leftover. Reads come from the server, never from the
+ * device's cache, which could still hold a document deleted elsewhere: named in
+ * a batch, that missing document would make the rules refuse the whole batch.
+ *
+ * The profile is part of every sweep but goes only once the collections are
+ * empty, on its own, and only if it is there (the rules refuse deleting a
+ * document that is not): with it the account is still whole enough to delete
+ * again if anything before it fails. The sweep after it checks the profile
+ * too, so one written back in the meantime is caught.
+ *
+ * What no sweep can close: the gate is per tab. Another tab or the installed
+ * app, still open on the same account, can write after the last sweep — even
+ * after the sign-in is deleted, for as long as its token lasts (up to an hour).
+ * Without Cloud Functions there is nothing on the server to sweep after it.
+ *
+ * Costs, for an account with N documents: N + 1 reads for the first sweep,
+ * 10 for the one that deletes the profile, 10 for the one that finds nothing
+ * (an empty query is billed as one read) — N + 21; N + 1 deletes, in batches
+ * of 450.
+ */
+export const deleteAllUserData = async (userId: string): Promise<AccountWipe> => {
+  // Not queued: see `offlinePolicy`. A deletion decided against an offline
+  // copy of the account is the one write with nothing to undo it.
+  requireConnection("delete");
+  beginAccountDeletion(userId);
 
-  // Include the user profile document itself
-  refs.push(doc(db, "users", userId));
+  let waited: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([waitForPendingWrites(db).catch(() => {}), new Promise<void>((resolve) => (waited = setTimeout(resolve, QUEUED_WRITES_WAIT_MS)))]);
+  clearTimeout(waited);
 
-  // Firestore allows max 500 writes per batch — commit in chunks
-  const CHUNK = 450;
-  for (let i = 0; i < refs.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
-    await batch.commit();
+  const wipe: AccountWipe = { deleted: 0, leftovers: 0, profile: false };
+  const profile = doc(db, USERS_COLLECTION, userId);
+  for (let sweep = 0; ; sweep++) {
+    const [refs, profileThere] = await Promise.all([ownedOnServer(userId), getDocFromServer(profile).then((snap) => snap.exists())]);
+    if (refs.length === 0 && !profileThere) break;
+    if (sweep > LEFTOVER_SWEEPS) {
+      const remaining = refs.length + (profileThere ? 1 : 0);
+      throw Object.assign(new Error(`Account deletion: ${remaining} documents keep coming back.`), { code: "account/leftovers", remaining });
+    }
+    if (refs.length > 0) {
+      if (sweep === 0) wipe.deleted += refs.length;
+      else wipe.leftovers += refs.length;
+      await commitDeletes(refs);
+      continue;
+    }
+    // The collections are empty: now the profile.
+    await deleteDoc(profile);
+    if (wipe.profile) wipe.leftovers += 1;
+    wipe.profile = true;
   }
+
+  // Nothing of theirs stays in this device's copy of the lists either.
+  await localDeletePrefix(`sync:${userId}:`);
+  return wipe;
 };
 
 // ─── RECORDS FOR A BANK READING'S DIFFERENCE ─────────────────────────────────
@@ -1008,4 +1070,69 @@ export const saveGapRecords = async (
     batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), updatedAt: serverTimestamp() });
   }
   await batch.commit();
+};
+
+// ─── A DEBT THAT PAID PART OF A GOAL ──────────────────────────────────────────
+
+/**
+ * Saving the loan form over a debt someone took on to pay part of a goal: the
+ * debt, the goal's deposit and the expense, in one batch — see `coveredEdit`
+ * for what each is given. Edited apart, the goal kept the old amount and the
+ * expense spent money the debt no longer said was borrowed.
+ *
+ * The deposit and the expense are each read first, and left out unless they
+ * are there: updating a missing document fails the whole batch, and the debt's
+ * own correction with it. Two reads, only for this kind of debt, only when
+ * there is something of theirs to change. Returns which of the two were written.
+ */
+export const editCoveredDebt = async (
+  debtId: string,
+  next: CreateDebtDTO,
+  covered: {
+    contribution?: { id: string; set: { amount?: number; date?: Date; coveredBy?: string; notes?: string } };
+    expense?: { id: string; set: { amount?: number; date?: Date; notes?: string } };
+    coveredExpenseId?: string;
+  },
+) => {
+  const { set, clear } = debtEdit(next);
+  const [contribution, expense] = await Promise.all([
+    covered.contribution ? stillThere("investmentContributions", covered.contribution.id) : false,
+    covered.expense || covered.coveredExpenseId ? stillThere("transactions", covered.expense?.id ?? covered.coveredExpenseId!) : false,
+  ]);
+  const batch = writeBatch(db);
+  batch.update(doc(db, "debts", debtId), {
+    ...set,
+    ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
+    ...(expense && covered.coveredExpenseId ? { coveredExpenseId: covered.coveredExpenseId } : {}),
+    updatedAt: serverTimestamp(),
+  });
+  if (contribution && covered.contribution) batch.update(doc(db, "investmentContributions", covered.contribution.id), { ...clean(covered.contribution.set), updatedAt: serverTimestamp() });
+  if (expense && covered.expense) batch.update(doc(db, "transactions", covered.expense.id), { ...clean(covered.expense.set), updatedAt: serverTimestamp() });
+  await batch.commit();
+  return { contribution: contribution && !!covered.contribution, expense: expense && !!covered.expense };
+};
+
+/**
+ * Deleting a debt someone took on to pay part of a goal: with it and its
+ * repayments go the goal's deposit and the expense — the three said one thing,
+ * and left alone the goal would count money nobody paid, and the expense spend
+ * it from the main account once the loan's record beside it is gone. Each of
+ * the two only if it is there (read first): deleting a missing document fails
+ * the whole batch. Returns which of them went.
+ */
+export const deleteCoveredDebt = async (userId: string, debtId: string, paymentIds: string[], covered: { contributionId?: string; expenseId?: string }) => {
+  // Not queued: see `offlinePolicy`, as `deleteDebt`.
+  requireConnection("delete");
+  const [contribution, expense] = await Promise.all([
+    covered.contributionId ? stillThere("investmentContributions", covered.contributionId) : false,
+    covered.expenseId ? stillThere("transactions", covered.expenseId) : false,
+  ]);
+  const batch = writeBatch(db);
+  for (const id of paymentIds) batch.delete(doc(db, "debtPayments", id));
+  if (contribution) batch.delete(doc(db, "investmentContributions", covered.contributionId!));
+  if (expense) batch.delete(doc(db, "transactions", covered.expenseId!));
+  batch.delete(doc(db, "debts", debtId));
+  await batch.commit();
+  if (expense) await noteDeleted(userId, "transactions", [covered.expenseId!]);
+  return { contributionId: contribution ? covered.contributionId : undefined, expenseId: expense ? covered.expenseId : undefined };
 };

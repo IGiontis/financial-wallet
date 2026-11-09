@@ -32,6 +32,8 @@ vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => accounts.
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [] }) }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }) }));
 vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: vi.fn() }) }));
+// None of these loans paid part of a goal.
+vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => ({ link: undefined, goalName: undefined, ready: true }) }));
 vi.mock("./useDebts", () => ({
   useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),
