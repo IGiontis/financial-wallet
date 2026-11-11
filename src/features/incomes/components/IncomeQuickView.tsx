@@ -7,6 +7,7 @@ import { mainAccount } from "../../accounts/accountsUtils";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useIncomes, useRecordArrival, useUndoArrival } from "../useIncomes";
 import { expectedAmount, suggestIncomeCategory, undoableArrivals, type ArrivalUndo, type IncomeStatus } from "../incomesUtils";
+import { IncomeCategoriesContext } from "./incomeIconContext";
 import { makeFormats } from "../incomeText";
 import IncomeCard from "./IncomeCard";
 import ArrivedSheet from "./ArrivedSheet";
@@ -79,6 +80,8 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
   }
 
   return (
+    // Its icon is its category's (`useIncomeIcon`).
+    <IncomeCategoriesContext.Provider value={categories}>
     <IncomeCard
       income={income}
       statuses={statuses}
@@ -94,5 +97,6 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
       editLabel={t("incomes.card.editOnIncomes")}
       onArrive={(_, status) => setArriving(status)}
     />
+    </IncomeCategoriesContext.Provider>
   );
 }

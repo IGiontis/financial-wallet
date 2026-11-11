@@ -144,7 +144,7 @@ export function GoalLookStep({ form, notesPlaceholder, children }: { form: GoalF
             </button>
           ))}
         </div>
-        <Input id="goal-icon" type="text" name="icon" maxLength={4} placeholder={t("goals.iconPlaceholder")} value={values.icon} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "icon")} style={{ maxWidth: 260 }} />
+        <Input id="goal-icon" type="text" name="icon" placeholder={t("goals.iconPlaceholder")} value={values.icon} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "icon")} style={{ maxWidth: 260 }} />
         <FormFeedback>{msg(form.errors.icon, t)}</FormFeedback>
       </FormGroup>
 

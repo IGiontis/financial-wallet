@@ -55,9 +55,10 @@ export function MonthFlowSheet({
             {items.map((item) => (
               <li key={item.key} className={styles.rowLine} data-testid="flow-item">
                 <span className="d-flex flex-column" style={{ minWidth: 0 }}>
-                  <span className="fw-medium">{item.label}</span>
+                  {/* A goal a friend paid: what it was, who paid it, and that it is a loan — not a bare «Δάνειο». */}
+                  <span className="fw-medium">{item.event?.paidBy ? t("planner.flowPaidBy", { goal: item.label, person: item.event.paidBy }) : item.label}</span>
                   <span className={styles.rowHint}>
-                    {t(`planner.flowKind_${item.kind}`)} · {item.date ? dayFmt.format(item.date) : t("planner.flowSpread")}
+                    {t(`planner.flowKind_${item.event?.paidBy ? "goal" : item.kind}`)} · {item.date ? dayFmt.format(item.date) : t("planner.flowSpread")}
                   </span>
                 </span>
                 <span className="ms-auto fw-semibold text-nowrap" style={{ color: tone, fontVariantNumeric: "tabular-nums" }}>

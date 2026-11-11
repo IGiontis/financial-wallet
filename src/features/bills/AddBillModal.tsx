@@ -15,7 +15,8 @@ import { FORM_MODAL } from "../../shared/components/formModal";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { WizardSteps } from "../transactions/components/WizardSteps";
-import { EveryPicker, MONTH_DAYS } from "../../shared/components/EveryPicker";
+import { EveryPicker } from "../../shared/components/EveryPicker";
+import { DayPicker } from "../../shared/components/DayPicker";
 import wiz from "../../shared/css/Wizard.module.css";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
@@ -582,15 +583,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 {frequency === "monthly" && (
                   <Col xs={12}>
                     <FormGroup className="mb-0">
-                      <Label className="small fw-medium">{t("bills.expectedDayOfMonth")}</Label>
-                      <Input type="select" id="bill-due-day" name="dueDay" value={formik.values.dueDay} onChange={formik.handleChange}>
-                        <option value="">—</option>
-                        {MONTH_DAYS.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </Input>
+                      <Label className="small fw-medium" id="bill-due-day-label">{t("bills.expectedDayOfMonth")}</Label>
+                      <DayPicker id="bill-due-day" aria-labelledby="bill-due-day-label bill-due-day" clearable value={formik.values.dueDay} onChange={(v) => formik.setFieldValue("dueDay", v === "" ? "" : Number(v))} />
                       <FormText className="small">{t("bills.wizard.lastDayHint")}</FormText>
                     </FormGroup>
                   </Col>
@@ -613,15 +607,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                     </Col>
                     <Col xs={5}>
                       <FormGroup className="mb-0">
-                        <Label className="small fw-medium">{t("bills.day")}</Label>
-                        <Input type="select" name="dueDay" value={formik.values.dueDay} onChange={formik.handleChange}>
-                        <option value="">—</option>
-                        {MONTH_DAYS.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </Input>
+                        <Label className="small fw-medium" id="bill-due-yday-label">{t("bills.day")}</Label>
+                        <DayPicker id="bill-due-yday" aria-labelledby="bill-due-yday-label bill-due-yday" clearable value={formik.values.dueDay} onChange={(v) => formik.setFieldValue("dueDay", v === "" ? "" : Number(v))} />
                       </FormGroup>
                     </Col>
                   </>

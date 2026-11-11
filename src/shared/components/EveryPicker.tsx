@@ -98,6 +98,3 @@ export function EveryPicker({
     </div>
   );
 }
-
-/** The days of a month to pick from, 1–31: a day a month lacks falls on its last. */
-export const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);

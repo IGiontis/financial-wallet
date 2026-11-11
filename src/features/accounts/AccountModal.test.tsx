@@ -41,6 +41,20 @@ describe("adding an account", () => {
     expect(onSave).toHaveBeenCalledWith({ name: "Revolut", kind: "bank", main: true, amount: 1500.5, color: "purple" });
   });
 
+  it("opens with no error showing, and a later step is not red because an earlier one was tried", async () => {
+    render(<AccountModal isMain={false} baseCurrency="EUR" onSave={() => {}} onClose={() => {}} />);
+    expect(screen.getByLabelText("Name")).not.toHaveClass("is-invalid");
+    await next();
+    expect(screen.getByLabelText("Name")).toHaveClass("is-invalid");
+    await userEvent.type(screen.getByLabelText("Name"), "Revolut");
+    await next();
+    expect(current()).toMatch(/Details/);
+    // Arrived on «Details» with the amount still empty: not red until Next is pressed here.
+    expect(screen.getByLabelText("Holds now")).not.toHaveClass("is-invalid");
+    await next();
+    expect(screen.getByLabelText("Holds now")).toHaveClass("is-invalid");
+  });
+
   it("cash: no card finish saved", async () => {
     const onSave = vi.fn();
     render(<AccountModal isMain={false} baseCurrency="EUR" onSave={onSave} onClose={() => {}} />);

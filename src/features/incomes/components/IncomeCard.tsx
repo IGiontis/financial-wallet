@@ -5,7 +5,8 @@ import type { TFunction } from "i18next";
 import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiPauseCircle, FiRepeat, FiRotateCcw } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { parseISOMonth } from "../../../shared/utils/dates";
-import { KIND_ICON, incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeStatus, type ArrivalUndo } from "../incomesUtils";
+import { incomeHistory, incomeRows, isSettled, type ExpectedAmount, type HistoryChip, type Income, type IncomeStatus, type ArrivalUndo } from "../incomesUtils";
+import { useIncomeIcon } from "./incomeIconContext";
 import { incomeEndText, incomeStartText, scheduleText, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
@@ -108,6 +109,7 @@ function Fact({ icon: Icon, label, value, sub }: { icon: IconType; label: string
 
 export default function IncomeCard({ income, statuses, expected, arrivals, accountName, formatCurrency, f, now, onClose, onEdit, editLabel, onArrive, onRestore, onDelete, onUndoArrival }: IncomeCardProps) {
   const { t } = useTranslation();
+  const iconOf = useIncomeIcon();
   const mine = useMemo(() => statuses.filter((s) => s.incomeId === income.id), [statuses, income.id]);
   const chips = useMemo(() => incomeHistory(income, mine, now), [income, mine, now]);
   const row = useMemo(() => incomeRows([income], mine, now)[0], [income, mine, now]);
@@ -141,7 +143,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose} tag="div" className="w-100">
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          <span aria-hidden>{KIND_ICON[income.kind]}</span>
+          <span aria-hidden>{iconOf(income)}</span>
           <span className="fw-semibold h6 mb-0">{income.name}</span>
           {income.isSalary && <span className={`${styles.pill} ${styles.pill_muted}`}>{t("incomes.card.mySalary")}</span>}
         </div>

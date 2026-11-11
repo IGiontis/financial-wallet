@@ -244,9 +244,10 @@ describe("the bill wizard's steps", () => {
     await userEvent.selectOptions(unit, "yearly");
     expect((screen.getByLabelText("How often") as HTMLSelectElement).options).toHaveLength(10);
     await userEvent.selectOptions(unit, "monthly");
-    const day = document.querySelector('[name="dueDay"]') as HTMLSelectElement;
-    expect(day.tagName).toBe("SELECT");
-    expect([...day.options].map((o) => o.value)).toEqual(["", ...Array.from({ length: 31 }, (_, i) => String(i + 1))]);
+    // The day is a small grid of 1–31 (and «No day», as the empty option was), not a 31-row dropdown.
+    await userEvent.click(document.querySelector<HTMLButtonElement>("#bill-due-day")!);
+    expect(within(screen.getByRole("listbox")).getAllByRole("option").map((o) => o.textContent)).toEqual(Array.from({ length: 31 }, (_, i) => String(i + 1)));
+    expect(screen.getByRole("button", { name: "No day" })).toBeInTheDocument();
   });
 
   it("lists every answer on the check, each going back to its step", async () => {
@@ -264,7 +265,8 @@ describe("the bill wizard's steps", () => {
     await fillNew("Water", "18", "c1");
     await next();
     await userEvent.selectOptions(screen.getByLabelText("How often"), "2");
-    await userEvent.selectOptions(document.querySelector('[name="dueDay"]') as HTMLSelectElement, "31");
+    await userEvent.click(document.querySelector<HTMLButtonElement>("#bill-due-day")!);
+    await userEvent.click(screen.getByRole("option", { name: /^31/ }));
     await next();
     await userEvent.click(await tile(/paid late/i, true));
     await userEvent.type(document.querySelector('[name="graceDays"]') as HTMLInputElement, "10");

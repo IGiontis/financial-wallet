@@ -1033,6 +1033,33 @@ export function suggestIncomeCategory(kind: IncomeKind, categories: Category[]):
   return (seeded && income.find((c) => c.name === seeded)) || income.find((c) => c.name === "Other Income") || income[0];
 }
 
+/**
+ * The kind an income is stored with, read off its category — the reverse of
+ * `suggestIncomeCategory`. The form no longer asks the kind (it and the
+ * category were one question, asked twice); `kind` is still written so every
+ * reader of it keeps working. A category that is none of the kinds' is «other».
+ */
+export function kindForCategory(category: Pick<Category, "name"> | undefined): IncomeKind {
+  if (!category) return "other";
+  const names = categoryAliases(category.name).map(normalizeCategoryName);
+  for (const kind of INCOME_KINDS) {
+    if (kind === "other") continue;
+    if (KIND_DEFAULT_CATEGORY[kind] === category.name) return kind;
+    const wanted = new Set(KIND_NAMES[kind].map(normalizeCategoryName));
+    if (names.some((n) => wanted.has(n))) return kind;
+  }
+  return "other";
+}
+
+/**
+ * The icon an income is shown with: its category's. Only an old record whose
+ * category has no icon (or is gone) falls back to the icon of its stored kind.
+ */
+export function incomeIcon(income: Pick<Income, "kind" | "categoryId">, categories: readonly Category[]): string {
+  const category = income.categoryId ? categories.find((c) => c.id === income.categoryId) : undefined;
+  return category?.icon?.trim() || KIND_ICON[income.kind] || KIND_ICON.other;
+}
+
 // ─── The salary found in the records ─────────────────────────────────────────
 
 export interface SalarySuggestion {

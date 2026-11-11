@@ -1,5 +1,6 @@
 import { parseISODay, parseISOMonth, toISODay, toISOMonth } from "../../shared/utils/dates";
 import { cleanIncome, newIncomeId, type Income, type IncomeFrequency, type IncomeKind } from "./incomesUtils";
+import { cleanLine } from "../../shared/utils/cleanText";
 
 // The new-income form and the edit form are one sheet of three steps — «Τι
 // μπαίνει», «Πότε», «Πού και ως πότε» — in the order of the Bills form. What it
@@ -158,7 +159,7 @@ export function draftToIncome(draft: IncomeDraft, toBase: (display: number) => n
   const start = weekly ? (parseISODay(draft.start) ? draft.start : toISODay(parseISOMonth(draft.start) ?? new Date())) : draft.start.slice(0, 7);
   return cleanIncome({
     id: draft.id ?? newIncomeId(),
-    name: draft.name.trim(),
+    name: cleanLine(draft.name),
     kind: draft.kind,
     amount: toBase(num(draft.amount)),
     variable: draft.variable,

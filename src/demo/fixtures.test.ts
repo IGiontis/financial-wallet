@@ -13,6 +13,7 @@ import { computeDebtStatus } from "../features/debts/debtsUtils";
 import { debtCashDrift } from "../features/debts/debtCash";
 import { INCOMES_KEY, lateCount, resolveIncomes, type Income } from "../features/incomes/incomesUtils";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
+import { fillParts, partsTotals } from "../features/budget/goalParts";
 import { VIRTUAL_CATEGORIES } from "../shared/utils/categories";
 import { isSpending } from "../shared/utils/moneyModel";
 import { PLANNER_KEYS } from "../features/plannerPage/plannerInputs";
@@ -140,12 +141,24 @@ function problems(data: DemoData, now: Date): string[] {
   const debt = (id: string) => debts.find((d) => d.id === id)!;
   if (!(debt(DEMO_IDS.debts.car).remaining > 3000 && debt(DEMO_IDS.debts.car).remaining < 8000)) fail(`car loan remaining ${debt(DEMO_IDS.debts.car).remaining}`);
   if (debt(DEMO_IDS.debts.friend).remaining !== 300 || debt(DEMO_IDS.debts.friend).direction !== "owed_to_me") fail("the friend does not owe 300");
-  if (debt(DEMO_IDS.debts.covered).remaining !== 160) fail("the ferry is not owed");
+  if (debt(DEMO_IDS.debts.covered).remaining !== 160) fail("the share of the rooms is not owed");
 
   // ── Goals: the trip on its way, part of it paid by the friend ──
   const trip = computeGoalStats(data.investmentGoals.find((g) => g.id === DEMO_IDS.goals.trip)!, data.investmentContributions.filter((c) => c.goalId === DEMO_IDS.goals.trip));
   if (trip.totalCovered !== 160) fail(`trip covered ${trip.totalCovered}`);
   if (!(trip.totalSaved > 300 && trip.totalSaved < 1200)) fail(`trip saved ${trip.totalSaved}`);
+  // The parts read the way the story tells it (item 43): filled in order, every «από» first —
+  // and counted a second way, by hand, from the parts and what is saved. The friend's 160 is
+  // told as a share of the rooms, never as «the ferry», which the in-order fill could not show.
+  const tripGoal = data.investmentGoals.find((g) => g.id === DEMO_IDS.goals.trip)!;
+  const fill = fillParts(tripGoal.parts ?? [], trip.totalSaved);
+  let left = trip.totalSaved;
+  const byHand = (tripGoal.parts ?? []).map((p) => { const take = Math.min(left, p.min); left -= take; return take; });
+  (tripGoal.parts ?? []).forEach((p, i) => { const more = Math.min(left, p.max - byHand[i]); left -= more; byHand[i] += more; });
+  if (fill.some((p, i) => Math.abs(p.filled - byHand[i]) > 0.005)) fail(`trip parts ${fill.map((p) => p.filled)} vs ${byHand}`);
+  if (Math.abs(fill.reduce((sum, p) => sum + p.filled, 0) - Math.min(trip.totalSaved, partsTotals(tripGoal.parts ?? []).max)) > 0.005) fail("trip parts do not add up");
+  const coveredNote = data.investmentContributions.find((c) => c.goalId === DEMO_IDS.goals.trip && c.coveredBy)?.notes ?? "";
+  if (/πλοί|ferry/i.test(coveredNote)) fail(`the friend's share is told as the ferry: ${coveredNote}`);
 
   // ── Transactions: a real person's months ──
   const spentIn = new Set(data.transactions.filter(isSpending).map((t) => t.categoryId));

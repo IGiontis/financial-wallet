@@ -1,5 +1,6 @@
 import { realDelta } from "../accounts/accountsUtils";
 import type { CreateTransactionDTO, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import { textKey } from "../../shared/utils/cleanText";
 
 // Where a savings goal's money is now.
 //
@@ -12,7 +13,7 @@ import type { CreateTransactionDTO, InvestmentGoalWithStats, Transaction } from 
 // and withdrawal is one, with the card and the person on it.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const key = (name: string) => name.trim().toLowerCase();
+const key = (name: string) => textKey(name);
 
 export interface GoalHolder {
   /** As first written. */

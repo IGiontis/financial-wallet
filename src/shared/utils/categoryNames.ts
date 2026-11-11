@@ -2,6 +2,7 @@ import type { Category, TransactionType } from "../types/IndexTypes";
 import en from "../../i18n/locales/en.json";
 import el from "../../i18n/locales/el.json";
 import { CATEGORY_KEYS } from "./categories";
+import { cleanLine, textKey } from "./cleanText";
 
 // ─── Comparing category names ────────────────────────────────────────────────
 // A user typing a new category has no idea what already exists under a slightly
@@ -9,26 +10,18 @@ import { CATEGORY_KEYS } from "./categories";
 // category as far as anyone reading a list is concerned, and ending up with
 // four of them makes every total and filter quietly wrong.
 
-/** Combining diacritics — Greek tonos and Latin accents alike, once decomposed. */
-const COMBINING_MARKS = /[̀-ͯ]/g;
-
 /**
- * Case-, accent- and spacing-insensitive key for a category name.
+ * Case-, accent- and spacing-insensitive key for a category name — the app's
+ * one name key, `textKey`.
  *
  * Decomposing first is what lets one rule cover both alphabets: NFD splits
- * "ό" into "ο" plus a combining tonos, which the range above strips, so Greek
- * accents and Latin diacritics fall away together. Final sigma is folded
- * separately — it is a distinct letter rather than an accented one, and
- * "Φως"/"φωσ" would otherwise read as two different words.
+ * "ό" into "ο" plus a combining tonos, which is stripped, so Greek accents and
+ * Latin diacritics fall away together. Final sigma is folded separately — it
+ * is a distinct letter rather than an accented one, and "Φως"/"φωσ" would
+ * otherwise read as two different words.
  */
 export function normalizeCategoryName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(COMBINING_MARKS, "")
-    .toLowerCase()
-    .replace(/ς/g, "σ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return textKey(name);
 }
 
 /** Every locale's translation table, for matching a name across languages. */
@@ -62,7 +55,7 @@ export function findDuplicateCategory(name: string, type: TransactionType, exist
 }
 
 /** Trimmed and collapsed, but with the user's own capitalisation preserved. */
-export const cleanCategoryName = (name: string): string => name.replace(/\s+/g, " ").trim();
+export const cleanCategoryName = (name: string): string => cleanLine(name);
 
 // ─── Categories that work both ways ──────────────────────────────────────────
 // Betting is money out most weeks and money in occasionally; so are taxes, side

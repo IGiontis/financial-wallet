@@ -1,6 +1,10 @@
 {
   "common": {
     "save": "Αποθήκευση",
+    "dayPickerChoose": "Διάλεξε μέρα",
+    "dayPickerNone": "Χωρίς μέρα",
+    "dayPickerDay": "{{day}} του μήνα",
+    "dayPickerLast": "31 — ή η τελευταία μέρα, σε μικρότερο μήνα",
     "cancel": "Ακύρωση",
     "yes": "Ναι",
     "no": "Όχι",
@@ -667,12 +671,7 @@
       "timeline": "Χρονολόγιο"
     },
     "kind": {
-      "salary": "Μισθός",
-      "rent": "Ενοίκιο",
-      "allowance": "Επίδομα",
-      "pension": "Σύνταξη",
-      "work": "Δουλειά",
-      "other": "Άλλο"
+      "salary": "Μισθός"
     },
     "month": {
       "arrivedIn": "{{month}} · ήρθαν",
@@ -858,14 +857,12 @@
       "step1": "Τι μπαίνει",
       "step2": "Πότε έρχεται",
       "step3": "Πού και ως πότε",
-      "kind": "Είδος",
       "namePlaceholder": "π.χ. Ιδιαίτερα μαθήματα",
-      "namePlaceholderKind": "Κενό = «{{name}}»· π.χ. Ιδιαίτερα μαθήματα",
+      "namePlaceholderExample": "π.χ. Μισθός εταιρείας",
+      "categoryRequired": "Διάλεξε την κατηγορία του εσόδου.",
       "variable": "Το ποσό αλλάζει κάθε φορά",
       "variableHint": "Θα γράφεις όσα ήρθαν στο «Ήρθε». Ο Προγραμματισμός παίρνει τον μ.ό. των 3 τελευταίων.",
       "estimatedAmount": "Εκτιμώμενο ποσό",
-      "categoryAuto": "Αυτόματα, από το είδος",
-      "categoryHint": "Η κατηγορία με την οποία γράφεται το «Ήρθε» στις Συναλλαγές.",
       "repeats": "Επαναλαμβάνεται",
       "freq": {
         "weekly": "Εβδομαδιαία",
@@ -1763,7 +1760,6 @@
     "timesMonths_one": "× {{months}} μήνας σε αυτό το διάστημα",
     "timesMonths_other": "× {{months}} μήνες σε αυτό το διάστημα",
     "oneOffNamePlaceholder": "π.χ. 14ος μισθός",
-    "oneOffFallbackName": "Έκτακτο έσοδο",
     "oneOffAmount": "Ποσό έκτακτου",
     "oneOffOutOfRange": "εκτός περιόδου",
     "oneOffPast": "πέρασε",
@@ -1950,6 +1946,7 @@
     "wizard_oneoff3": "Έλεγξέ το και αποθήκευσε",
     "wizard_when": "Πότε",
     "wizard_amountNeeded": "Γράψε ένα ποσό μεγαλύτερο από 0",
+    "wizard_nameNeeded": "Γράψε ένα όνομα.",
     "wizard_allYear": "Όλο τον χρόνο",
     "wizard_allYearHint": "Μετράει κάθε μήνα του πλάνου, χωρίς να βάλεις τίποτα άλλο.",
     "wizard_someMonths": "Μόνο κάποιους μήνες",
@@ -2022,6 +2019,7 @@
     "flowKind_bill": "Πάγιο",
     "flowKind_goal": "Στόχος",
     "flowKind_debt": "Δάνειο",
+    "flowPaidBy": "{{goal}} — πλήρωσε {{person}} (δάνειο)",
     "flowKind_oneoff": "Έκτακτο",
     "flowKind_line": "Γραμμή σου",
     "monthEnd": "Τέλος μήνα",
@@ -2207,6 +2205,7 @@
   },
   "validation": {
     "required": "Το πεδίο είναι υποχρεωτικό",
+    "iconOnlyOne": "Μόνο ένα εικονίδιο (emoji) — όχι γράμματα ή λέξεις. Διάλεξε ένα από πάνω ή επικόλλησε ένα.",
     "amountRequired": "Το ποσό είναι υποχρεωτικό",
     "amountNumber": "Το ποσό πρέπει να είναι αριθμός",
     "amountPositive": "Πρέπει να είναι μεγαλύτερο από 0",

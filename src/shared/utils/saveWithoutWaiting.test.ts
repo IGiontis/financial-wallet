@@ -26,13 +26,15 @@ describe("saveWithoutWaiting", () => {
     expect(calls[0].vars).toEqual({ amount: 12 });
   });
 
-  it("passes the variables through untouched", () => {
+  it("passes the variables through, with only the user's text cleaned", () => {
     const { mutation, calls } = pendingMutation();
-    const vars = { transactionId: "t1", data: { amount: 5 } };
+    const date = new Date(2026, 0, 1);
+    const vars = { transactionId: "t1", data: { amount: 5, date, categoryId: "c 1", description: "  Σκι   διακοπές  " } };
 
     void saveWithoutWaiting(mutation, vars);
 
-    expect(calls[0].vars).toBe(vars);
+    expect(calls[0].vars).toEqual({ transactionId: "t1", data: { amount: 5, date, categoryId: "c 1", description: "Σκι διακοπές" } });
+    expect((calls[0].vars as typeof vars).data.date).toBe(date);
   });
 
   it("hands a later failure to the caller rather than swallowing it", () => {

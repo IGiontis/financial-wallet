@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ManageList, type ManageGroup } from "../../../shared/components/ManageList";
 import { toISOMonth } from "../../../shared/utils/dates";
 import { currentPause } from "../../bills/billsUtils";
-import { KIND_ICON, isActiveIncome, type Income } from "../incomesUtils";
+import { isActiveIncome, type Income } from "../incomesUtils";
+import { useIncomeIcon } from "./incomeIconContext";
 import { incomeStartText, scheduleText, type IncomeFormats } from "../incomeText";
 
 /**
@@ -30,6 +31,7 @@ export function IncomeManage({
   deleteLocked?: boolean;
   deleteReason?: string;
 }) {
+  const iconOf = useIncomeIcon();
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
 
@@ -48,7 +50,7 @@ export function IncomeManage({
     const item = (income: Income) => ({
       id: income.id,
       name: income.name,
-      icon: KIND_ICON[income.kind],
+      icon: iconOf(income),
       meta: scheduleText(income, t, f),
       tag: income.isSalary ? t("incomes.kind.salary") : undefined,
       offTag: off(income),
@@ -59,7 +61,7 @@ export function IncomeManage({
       { key: "on", title: t("manage.groupOn"), tone: "success", items: sorted.filter(isActiveIncome).map(item) },
       { key: "off", title: t("manage.groupOff"), tone: "secondary", items: sorted.filter((i) => !isActiveIncome(i)).map(item) },
     ];
-  }, [incomes, f, locale, now, t]);
+  }, [incomes, f, locale, now, t, iconOf]);
 
   const byId = (id: string) => incomes.find((income) => income.id === id);
   return (

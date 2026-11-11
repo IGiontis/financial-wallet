@@ -428,29 +428,45 @@ describe("the form", () => {
     await userEvent.selectOptions(unit, "weekly");
     expect((within(form).getByLabelText("Κάθε") as HTMLSelectElement).options).toHaveLength(3);
     await userEvent.selectOptions(unit, "monthly");
-    const day = form.querySelector("#income-day") as HTMLSelectElement;
-    expect(day.tagName).toBe("SELECT");
-    expect(day.options).toHaveLength(32);
+    // The day is a small grid of 1–31, not a 31-row dropdown.
+    await userEvent.click(form.querySelector<HTMLButtonElement>("#income-day")!);
+    expect(within(within(form).getByRole("listbox")).getAllByRole("option")).toHaveLength(31);
   });
 
-  it("starts every text field empty, and a name left empty becomes the kind's at save, said on the check", async () => {
+  it("starts every field empty, asks the category (no «είδος») and a name that must be typed, and stores the kind the category means", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Νέο έσοδο" }));
     const form = screen.getByRole("dialog");
     for (const input of form.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type]), textarea')) expect(input.value).toBe("");
-    // Picking a kind does not write its name in either.
-    await userEvent.click(within(form).getByRole("radio", { name: /Ενοίκιο/ }));
-    expect((within(form).getByLabelText(/Όνομα/) as HTMLInputElement).value).toBe("");
+    // One question, not two: the kind is not asked.
+    expect(within(form).queryByText("Είδος")).toBeNull();
+    expect(within(form).queryByRole("radio", { name: /Ενοίκιο/ })).toBeNull();
+    // No red before Next; after it, both answers are asked for, and the step holds.
+    const name = within(form).getByLabelText(/Όνομα/) as HTMLInputElement;
+    expect(name).not.toHaveClass("is-invalid");
+    expect(name).toHaveAttribute("placeholder", "π.χ. Μισθός εταιρείας");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    expect(within(form).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
+    expect(name).toHaveClass("is-invalid");
+    expect(within(form).getByText("Διάλεξε την κατηγορία του εσόδου.")).toBeInTheDocument();
+    // Picking a category writes no name in.
+    await userEvent.click(within(form).getByRole("option", { name: /Ελεύθερος επαγγελματίας/ }));
+    expect(name.value).toBe("");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    expect(within(form).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
+    await userEvent.type(name, "  Ιδιαίτερα   μαθήματα ");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.type(within(form).getByLabelText(/^Ποσό/), "300");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
-    await userEvent.selectOptions(form.querySelector<HTMLSelectElement>("#income-day")!, "5");
+    await userEvent.click(form.querySelector<HTMLButtonElement>("#income-day")!);
+    await userEvent.click(within(form).getByRole("option", { name: "5 του μήνα" }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     const answer = (label: string) => within(form.querySelector<HTMLElement>("[class*=wizCard]")!).getByText(label).nextElementSibling;
-    expect(answer("Όνομα")).toHaveTextContent("Ενοίκιο");
+    expect(answer("Κατηγορία")).toHaveTextContent("Ελεύθερος επαγγελματίας");
     await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
-    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ name: "Ενοίκιο", amount: 300, day: 5 })])), { timeout: 2000 });
+    // Stored cleaned, under the category picked, with the kind that category means («work»).
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ name: "Ιδιαίτερα μαθήματα", categoryId: "c-free", kind: "work", amount: 300, day: 5 })])), { timeout: 2000 });
   });
 
   it("does not let a new income skip ahead before its amount is filled in", async () => {
@@ -458,7 +474,8 @@ describe("the form", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Νέο έσοδο" }));
     const form = screen.getByRole("dialog");
     expect(within(form).getByRole("button", { name: /^3/ })).toBeDisabled();
-    // A name is not needed — an empty one becomes the kind's — so on to the amount.
+    await userEvent.click(within(form).getByRole("option", { name: /Ελεύθερος επαγγελματίας/ }));
+    await userEvent.type(within(form).getByLabelText(/Όνομα/), "Μαθήματα");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     expect(within(form).getByRole("button", { name: /^2/ })).toHaveAttribute("aria-current", "step");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
@@ -499,9 +516,10 @@ describe("an empty page", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Πρόσθεσέ τον" }));
     const sheet = await screen.findByRole("dialog");
-    // Nothing written in for you: the name starts empty, its fallback shown as the placeholder.
+    // Nothing written in for you: the name starts empty and must be typed; the category is the salary's.
     expect((within(sheet).getByLabelText(/Όνομα/) as HTMLInputElement).value).toBe("");
-    expect(within(sheet).getByLabelText(/Όνομα/)).toHaveAttribute("placeholder", expect.stringContaining("«Μισθός»"));
+    expect(within(sheet).getByRole("option", { name: /Μισθός/ })).toHaveAttribute("aria-selected", "true");
+    await userEvent.type(within(sheet).getByLabelText(/Όνομα/), "Μισθός");
     // The amount is the next step's, already filled in.
     await userEvent.click(within(sheet).getByRole("button", { name: /Επόμενο/ }));
     expect(within(sheet).getByLabelText(/^Ποσό/)).toHaveValue(1450);

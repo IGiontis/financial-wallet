@@ -1,0 +1,70 @@
+/* The day of the month as a small grid: 7 columns, 1–31, on the inputs'
+   white surface; the chosen day filled with the brand in on-brand lettering. */
+
+.wrap {
+  display: block;
+}
+
+/* The button looks like the select it replaces (form-select gives the
+   arrow); `caret` from reactstrap would draw a second one. */
+.toggle {
+  width: 100%;
+  min-height: 38px;
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+.toggle::after {
+  display: none;
+}
+
+.menu {
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--radius-popover);
+  /* 7 cells that fit a 320px phone inside a dialog. */
+  width: min(17rem, calc(100vw - 2rem));
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.day {
+  aspect-ratio: 1;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--bs-body-font-size);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.day:hover {
+  border-color: var(--bs-border-color);
+}
+
+.day:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: 1px;
+}
+
+.chosen,
+.chosen:hover {
+  background: var(--brand);
+  border-color: var(--brand-edge);
+  color: var(--on-brand);
+  font-weight: 600;
+}
+
+.clear {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+}

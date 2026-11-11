@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { KIND_ICON, type IncomeYear } from "../incomesUtils";
+import type { IncomeYear } from "../incomesUtils";
+import { useIncomeIcon } from "./incomeIconContext";
 import type { IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
@@ -16,6 +17,7 @@ import styles from "../css/IncomesPage.module.css";
  */
 export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; formatCurrency: (n: number) => string; f: IncomeFormats }) {
   const { t } = useTranslation();
+  const iconOf = useIncomeIcon();
   const rows = year.rows.filter((r) => r.count > 0);
   const approx = year.approximate ? "≈" : "";
   const top = rows[0]?.total ?? 0;
@@ -55,7 +57,7 @@ export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; 
               <div key={row.income.id}>
                 <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12.5 }}>
                   <span className="text-break" style={{ minWidth: 0 }}>
-                    <span aria-hidden>{KIND_ICON[row.income.kind]}</span> {row.income.name}
+                    <span aria-hidden>{iconOf(row.income)}</span> {row.income.name}
                   </span>
                   <span className="flex-shrink-0 tabular-nums">
                     {row.approximate ? "≈" : ""}

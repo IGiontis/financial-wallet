@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { cadenceOf, cadenceProblem, CADENCES, draftFor, lineOf, monthsOfYear, nextTimes, seasonMonths, type Cadence, type EntryMode } from "./cadence";
-import { buildPlan, lineRanges, oneOffDates, type OneOff } from "./plannerUtils";
+import { buildPlan, lineRanges, MAX_HORIZON_MONTHS, MAX_REPEAT_MONTHS, oneOffDates, repeatMonths, type OneOff } from "./plannerUtils";
 import type { EntryDraft } from "./components/EntryEditor";
 
 // The cadence is only a way of asking: what is stored is the same fields as
@@ -165,5 +165,22 @@ describe("switching a dated income to «every few months»", () => {
     // A gap of its own is kept.
     expect(draftFor("oneoff", "everyN", { ...base, date: "2026-12-20", every: 3 }).every).toBe(3);
     expect(draftFor("oneoff", "everyN", { ...base, date: "2026-12-20", every: 24 }).every).toBe(24);
+  });
+});
+
+describe("how long a repeat may be", () => {
+  it("reaches as far as the planner looks ahead: ten years", () => {
+    expect(MAX_REPEAT_MONTHS).toBe(MAX_HORIZON_MONTHS);
+    expect(repeatMonths(60)).toBe(60);
+    expect(repeatMonths(120)).toBe(120);
+    expect(repeatMonths(121)).toBeUndefined();
+  });
+
+  it("a «every 5 years» cost lands twice in a ten-year view, five years apart, and nowhere else", () => {
+    const entry: OneOff = { id: "r", label: "Roof", amount: 4000, date: "2027-05-10", every: 60 };
+    const dates = oneOffDates(entry, new Date(2026, 10, 1), new Date(2036, 9, 31));
+    expect(dates).toEqual([new Date(2027, 4, 10), new Date(2032, 4, 10)]);
+    // Counted the other way: whole years between the first date and the view end, every fifth.
+    expect(Math.floor((2036 - 2027) / 5) + 1).toBe(dates.length);
   });
 });

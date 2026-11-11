@@ -8,16 +8,17 @@ import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "../../../shared/utils/dates";
 import type { MoneyAccount } from "../../accounts/accountsUtils";
-import { INCOME_KINDS, KIND_ICON, incomeOccurrences, incomeYear, suggestIncomeCategory, type Income, type IncomeKind } from "../incomesUtils";
+import { incomeIcon, incomeOccurrences, incomeYear, kindForCategory, suggestIncomeCategory, type Income } from "../incomesUtils";
+import CategoryPicker from "../../categories/CategoryPicker";
 import { draftToIncome, validateAll, validateDraft, type DraftErrors, type DraftStep, type IncomeDraft } from "../incomeForm";
 import { scheduleText, weekdayName, type IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
-import styles from "../css/IncomesPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { YesNoChoice } from "../../../shared/components/YesNoChoice";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
-import { EveryPicker, MONTH_DAYS } from "../../../shared/components/EveryPicker";
+import { EveryPicker } from "../../../shared/components/EveryPicker";
+import { DayPicker } from "../../../shared/components/DayPicker";
 import wiz from "../../../shared/css/Wizard.module.css";
 
 // One sheet for a new income and for changing one, a topic a step, in the
@@ -61,7 +62,9 @@ const FROM_DRAFT_STEP: Record<DraftStep, View> = { 1: "what", 2: "when", 3: "whe
 function stepErrors(draft: IncomeDraft, view: View): DraftErrors {
   if (view === "what") {
     const { name } = validateDraft(draft, 1);
-    return name ? { name } : {};
+    // The category is what the income is (it was asked twice, as «είδος» and as category).
+    const categoryId = draft.categoryId ? undefined : "incomes.form.categoryRequired";
+    return { ...(categoryId ? { categoryId } : {}), ...(name ? { name } : {}) };
   }
   if (view === "amount") {
     const { amount } = validateDraft(draft, 1);
@@ -75,30 +78,28 @@ function stepErrors(draft: IncomeDraft, view: View): DraftErrors {
 export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onClose, onDelete, deleteLocked, deleteReason }: IncomeFormModalProps) {
   const { t } = useTranslation();
   const { convertToBase, baseCurrency, displayCurrency, format } = useCurrencyConverter();
-  const [draft, setDraft] = useState<IncomeDraft>(initial);
+  // An old income saved before it had a category is shown under the one its kind suggested;
+  // its edit starts there too, rather than on an empty question it had already answered.
+  const [shownCategory] = useState(() => (isEdit && !initial.categoryId ? (suggestIncomeCategory(initial.kind, categories)?.id ?? "") : ""));
+  const [draft, setDraft] = useState<IncomeDraft>(() => (shownCategory ? { ...initial, categoryId: shownCategory } : initial));
   const [view, setView] = useState<View>(startStep ? FROM_DRAFT_STEP[startStep] : "what");
   const [errors, setErrors] = useState<DraftErrors>({});
-  // Whether the category was chosen by hand: until it is, it follows the kind.
-  const [categoryTouched, setCategoryTouched] = useState(isEdit || !!initial.categoryId);
-
-  const incomeCategories = useMemo(() => categories.filter((c) => c.type === "income").sort((a, b) => categoryLabel(a.name, t).localeCompare(categoryLabel(b.name, t))), [categories, t]);
   const toBase = (n: number) => (baseCurrency === displayCurrency ? n : convertToBase(n));
   const set = <K extends keyof IncomeDraft>(key: K, value: IncomeDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const error = (key: keyof IncomeDraft) => validationMessage(errors[key], t);
 
-  const chooseKind = (kind: IncomeKind) =>
-    setDraft((d) => {
-      const category = categoryTouched ? d.categoryId : (suggestIncomeCategory(kind, categories)?.id ?? d.categoryId);
-      // The name is never written in for you: left empty, the kind's name is used at save (`named`).
-      return { ...d, kind, categoryId: category, isSalary: kind === "salary" && !salaryName && !isEdit ? true : d.isSalary };
-    });
-
   // The draft as far as it goes, for the two previews — the next three dates,
   // and what a pause leaves of the year.
-  // Fields start empty; a name left empty becomes the kind's — «Μισθός» —
-  // applied here, for the checks, the save and the review alike.
-  const fallbackName = t(`incomes.kind.${draft.kind}`);
-  const named: IncomeDraft = draft.name.trim() ? draft : { ...draft, name: fallbackName };
+  // The name is the user's own and must be typed: nothing is filled in for an
+  // empty one. The kind is no longer asked — it is read off the category, and
+  // still stored, so whatever reads it keeps working (`kindForCategory`).
+  const category = categories.find((c) => c.id === draft.categoryId && c.type === "income");
+  // Left on the category it was shown under, an old income is saved as it was — no
+  // category written in, its own kind kept; a category picked by hand is stored with its kind.
+  const keptAsWas = !!shownCategory && draft.categoryId === shownCategory;
+  const named: IncomeDraft = keptAsWas ? { ...draft, categoryId: initial.categoryId, kind: initial.kind } : { ...draft, kind: kindForCategory(category) };
+  // What the checks read: the category on screen, whichever is saved.
+  const checked: IncomeDraft = { ...named, categoryId: draft.categoryId };
 
   const preview = useMemo(() => {
     const step2Ok = Object.keys(validateDraft(draft, 2)).length === 0;
@@ -118,7 +119,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     // check stops at the first step with something missing, and says what.
     const to = STEPS.indexOf(target);
     for (const step of STEPS.slice(0, to)) {
-      const found = stepErrors(named, step);
+      const found = stepErrors(checked, step);
       if (Object.keys(found).length > 0) {
         setErrors(found);
         setView(step);
@@ -130,11 +131,11 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   };
 
   const save = () => {
-    const found = validateAll(named);
+    const found = { ...validateAll(checked), ...stepErrors(checked, "what") };
     setErrors(found);
     if (Object.keys(found).length > 0) {
       // Back to the first step with something wrong on it.
-      const first = STEPS.find((s) => Object.keys(stepErrors(named, s)).length > 0);
+      const first = STEPS.find((s) => Object.keys(stepErrors(checked, s)).length > 0);
       if (first) setView(first);
       return;
     }
@@ -150,8 +151,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   // to the step that asked it.
   const savedAs = view === "review" ? draftToIncome(named, toBase) : undefined;
   const categoryName = (() => {
-    const category = categories.find((c) => c.id === draft.categoryId);
-    return category ? categoryLabel(category.name, t) : t("incomes.form.categoryAuto");
+    return category ? `${category.icon ? `${category.icon} ` : ""}${categoryLabel(category.name, t)}` : "—";
   })();
   const monthLabel = (value: string) => {
     const month = parseISOMonth(value);
@@ -162,10 +162,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     return date ? (draft.frequency === "weekly" ? f.dayMonth.format(date) : f.monthYearShort.format(date)) : "—";
   })();
   const reviewRows: { step: View; label: string; value: string }[] = [
-    { step: "what", label: t("incomes.form.kind"), value: `${KIND_ICON[draft.kind]} ${t(`incomes.kind.${draft.kind}`)}` },
+    { step: "what", label: t("common.category"), value: categoryName },
     { step: "what", label: t("common.name"), value: named.name.trim() },
     { step: "amount", label: t("common.amount"), value: `${draft.variable ? "≈ " : ""}${format(toBase(Number(draft.amount) || 0))} · ${draft.variable ? t("incomes.form.reviewVariable") : t("incomes.form.reviewFixed")}` },
-    { step: "amount", label: t("common.category"), value: categoryName },
     { step: "when", label: t("incomes.card.howOften"), value: savedAs ? scheduleText(savedAs, t, f) : "—" },
     { step: "when", label: t("incomes.form.reviewFrom"), value: startLabel },
     ...(nextDates.length > 0 ? [{ step: "when" as View, label: t("incomes.form.reviewNext"), value: nextDates.map((o) => f.dayMonth.format(o.date)).join(" · ") }] : []),
@@ -183,7 +182,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{isEdit ? `${KIND_ICON[draft.kind]} ${initial.name}` : t("incomes.form.newTitle")}</ModalHeader>
+      <ModalHeader toggle={onClose}>{isEdit ? `${incomeIcon(initial, categories)} ${initial.name}` : t("incomes.form.newTitle")}</ModalHeader>
 
       <form
         noValidate
@@ -221,21 +220,16 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
           {view === "what" && (
             <>
               <FormGroup>
-                <Label className="small fw-medium d-block">{t("incomes.form.kind")}</Label>
-                <div className={styles.kinds} role="radiogroup" aria-label={t("incomes.form.kind")}>
-                  {INCOME_KINDS.map((kind) => (
-                    <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className={`${styles.kind} ${draft.kind === kind ? styles.kindOn : ""}`} onClick={() => chooseKind(kind)}>
-                      <span aria-hidden>{KIND_ICON[kind]}</span> {t(`incomes.kind.${kind}`)}
-                    </button>
-                  ))}
-                </div>
+                <Label className="small fw-medium d-block">{t("common.category")} *</Label>
+                <CategoryPicker categories={categories} type="income" value={draft.categoryId} manage="link" invalid={!!errors.categoryId} onChange={(id) => set("categoryId", id)} />
+                {errors.categoryId && <div className="invalid-feedback d-block">{t(errors.categoryId)}</div>}
               </FormGroup>
 
               <FormGroup>
                 <Label for="income-name" className="small fw-medium">
                   {t("common.name")} *
                 </Label>
-                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderKind", { name: fallbackName })} onChange={(e) => set("name", e.target.value)} invalid={!!errors.name} />
+                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderExample")} onChange={(e) => set("name", e.target.value)} invalid={!!errors.name} />
                 <FormFeedback>{error("name")}</FormFeedback>
               </FormGroup>
             </>
@@ -243,36 +237,13 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
           {view === "amount" && (
             <>
-              {/* The amount and its category on one row. */}
               <div className="row g-2 mb-3">
-                <div className="col-5">
+                <div className="col-12 col-sm-6">
                   <Label for="income-amount" className="small fw-medium">
                     {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
                   </Label>
                   <Input id="income-amount" type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
                   <FormFeedback>{error("amount")}</FormFeedback>
-                </div>
-                <div className="col-7">
-                  <Label for="income-category" className="small fw-medium">
-                    {t("common.category")}
-                  </Label>
-                  <Input
-                    id="income-category"
-                    type="select"
-                    value={draft.categoryId}
-                    onChange={(e) => {
-                      setCategoryTouched(true);
-                      set("categoryId", e.target.value);
-                    }}
-                  >
-                    <option value="">{t("incomes.form.categoryAuto")}</option>
-                    {incomeCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon} {categoryLabel(c.name, t)}
-                      </option>
-                    ))}
-                  </Input>
-                  <FormText style={{ fontSize: 11.5 }}>{t("incomes.form.categoryHint")}</FormText>
                 </div>
               </div>
               {/* «Ναι» needs nothing more: the amount above becomes the estimate. */}
@@ -339,18 +310,11 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                     </FormGroup>
                   )}
                   <FormGroup style={{ flex: 1 }}>
-                    <Label for="income-day" className="small fw-medium">
+                    <Label id="income-day-label" className="small fw-medium">
                       {t("incomes.form.dayOfMonth")}
                     </Label>
-                    <Input id="income-day" type="select" value={draft.day} onChange={(e) => set("day", e.target.value)} invalid={!!errors.day}>
-                      <option value="">—</option>
-                      {MONTH_DAYS.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </Input>
-                    <FormFeedback>{error("day")}</FormFeedback>
+                    <DayPicker id="income-day" aria-labelledby="income-day-label income-day" value={draft.day} onChange={(v) => set("day", v)} invalid={!!errors.day} />
+                    {errors.day && <div className="invalid-feedback d-block">{error("day")}</div>}
                   </FormGroup>
                 </div>
               )}

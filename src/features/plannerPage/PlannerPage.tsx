@@ -316,7 +316,7 @@ export function PlannerPage() {
     const amount = parseFloat(draft.amount);
 
     if (editor.mode === "oneoff") {
-      const label = draft.label || t("planner.oneOffFallbackName");
+      const label = draft.label;
       // Undefined rather than 0 or "" for an entry that happens once, so what
       // is stored says "no repeat" instead of "a repeat of nothing".
       const entry: OneOff = {

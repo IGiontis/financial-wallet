@@ -129,13 +129,22 @@ describe("an expense line", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ id: "ski", amount: "200", from: "2026-12", to: "2027-03", yearly: true });
   });
 
-  it("starts a one-off's name empty, and shows on the check the fallback name it will be saved under", async () => {
+  it("starts a one-off's name empty and asks for one: no fallback name is filled in", async () => {
     setup("oneoff", { label: "", amount: "50", date: "2026-12-31" });
     await userEvent.click(cadence(/^Once/));
     await next();
     for (const input of document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')) if (input.closest(".modal")) expect(input.value === "" || input.value === "50").toBe(true);
+    const name = document.querySelector<HTMLInputElement>("#entry-name")!;
+    // Not red on arrival; red once Next is pressed with it empty, and the step holds.
+    expect(name).not.toHaveClass("is-invalid");
     await next();
-    expect(within(review()).getByText(i18n.t("planner.oneOffFallbackName"))).toBeInTheDocument();
+    expect(name).toHaveClass("is-invalid");
+    expect(screen.getByText(i18n.t("planner.wizard_nameNeeded"))).toBeInTheDocument();
+    expect(document.querySelector("[aria-current=step]")?.textContent).toMatch(/2/);
+    await userEvent.type(name, "  14ος   μισθός ");
+    await next();
+    await save();
+    expect(onSave.mock.calls[0][0]).toMatchObject({ label: "14ος μισθός", amount: "50" });
   });
 
   it("keeps «every 6 months» as 6 months, and never snaps a pick back", async () => {
@@ -166,8 +175,8 @@ describe("an expense line", () => {
     await userEvent.selectOptions(count, "6");
     // 6 months turned to years is the nearest whole years the list holds — not 6 years.
     await userEvent.selectOptions(unit, "yearly");
-    // A repeat is kept up to 24 months, so the years list holds 2 alone.
-    expect([...(screen.getByLabelText("Every") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["2"]);
+    // A repeat reaches as far as the planner looks ahead (ten years), so the years list holds 2–10.
+    expect([...(screen.getByLabelText("Every") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["2", "3", "4", "5", "6", "7", "8", "9", "10"]);
     expect(screen.getByLabelText("Every")).toHaveValue("2");
     await userEvent.selectOptions(screen.getByLabelText("Every"), "2");
     expect(screen.queryByRole("option", { name: "weeks" })).toBeNull();

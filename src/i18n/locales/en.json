@@ -1,6 +1,10 @@
 {
   "common": {
     "save": "Save",
+    "dayPickerChoose": "Choose a day",
+    "dayPickerNone": "No day",
+    "dayPickerDay": "Day {{day}} of the month",
+    "dayPickerLast": "31 — or the last day, in a shorter month",
     "cancel": "Cancel",
     "yes": "Yes",
     "no": "No",
@@ -667,12 +671,7 @@
       "timeline": "Timeline"
     },
     "kind": {
-      "salary": "Salary",
-      "rent": "Rent",
-      "allowance": "Allowance",
-      "pension": "Pension",
-      "work": "Work",
-      "other": "Other"
+      "salary": "Salary"
     },
     "month": {
       "arrivedIn": "{{month}} · arrived",
@@ -858,14 +857,12 @@
       "step1": "What comes in",
       "step2": "When it comes",
       "step3": "Where, and until when",
-      "kind": "Kind",
       "namePlaceholder": "e.g. Private lessons",
-      "namePlaceholderKind": "Empty = «{{name}}»; e.g. Private lessons",
+      "namePlaceholderExample": "e.g. Company salary",
+      "categoryRequired": "Choose the income's category.",
       "variable": "The amount changes every time",
       "variableHint": "You'll write what arrived in «Arrived». The Planner uses the average of the last 3.",
       "estimatedAmount": "Estimated amount",
-      "categoryAuto": "Automatic, from the kind",
-      "categoryHint": "The category «Arrived» records it under in Transactions.",
       "repeats": "Repeats",
       "freq": {
         "weekly": "Weekly",
@@ -1809,7 +1806,6 @@
     "timesMonths_one": "× {{months}} month in this range",
     "timesMonths_other": "× {{months}} months in this range",
     "oneOffNamePlaceholder": "e.g. 14th salary",
-    "oneOffFallbackName": "Extra pay",
     "oneOffAmount": "One-off amount",
     "oneOffOutOfRange": "not in range",
     "oneOffPast": "passed",
@@ -1950,6 +1946,7 @@
     "wizard_oneoff3": "Check it, then save",
     "wizard_when": "When",
     "wizard_amountNeeded": "Enter an amount above 0",
+    "wizard_nameNeeded": "Type a name.",
     "wizard_allYear": "All year",
     "wizard_allYearHint": "It counts in every month of the plan, with nothing else to set.",
     "wizard_someMonths": "Only some months",
@@ -2022,6 +2019,7 @@
     "flowKind_bill": "Bill",
     "flowKind_goal": "Goal",
     "flowKind_debt": "Loan",
+    "flowPaidBy": "{{goal}} — paid by {{person}} (loan)",
     "flowKind_oneoff": "One-off",
     "flowKind_line": "Your line",
     "monthEnd": "Month ends with",
@@ -2207,6 +2205,7 @@
   },
   "validation": {
     "required": "This field is required",
+    "iconOnlyOne": "Just one icon (an emoji) — not letters or words. Pick one above or paste one.",
     "amountRequired": "Amount is required",
     "amountNumber": "Amount must be a number",
     "amountPositive": "Must be greater than 0",

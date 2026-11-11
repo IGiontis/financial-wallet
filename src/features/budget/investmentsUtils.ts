@@ -1,5 +1,6 @@
 import type { InvestmentGoal, InvestmentContribution, InvestmentGoalWithStats, InvestmentGoalStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate as toDate } from "../../shared/utils/dates";
+import { cleanLine, textKey } from "../../shared/utils/cleanText";
 
 /**
  * Every contribution's date read once, as numbers the loops below can compare.
@@ -367,8 +368,8 @@ export function computeGoalStats(goal: InvestmentGoal, contributions: Investment
   const byPerson = new Map<string, { person: string; amount: number; debtIds: string[] }>();
   for (const c of contributions) {
     if (!c.coveredBy || c.contributionType !== "deposit") continue;
-    const key = c.coveredBy.trim().toLowerCase();
-    const entry = byPerson.get(key) ?? { person: c.coveredBy.trim(), amount: 0, debtIds: [] };
+    const key = textKey(c.coveredBy);
+    const entry = byPerson.get(key) ?? { person: cleanLine(c.coveredBy), amount: 0, debtIds: [] };
     entry.amount = round2(entry.amount + c.amount);
     if (c.debtId && !entry.debtIds.includes(c.debtId)) entry.debtIds.push(c.debtId);
     byPerson.set(key, entry);

@@ -5,7 +5,8 @@ import { FiCalendar, FiCheck, FiCreditCard, FiEdit2, FiInfo, FiPauseCircle, FiRe
 import type { IconType } from "react-icons";
 import { MENU_DIVIDER, RowMenu, type RowMenuEntry } from "../../../shared/components/RowMenu";
 import { currentPause } from "../../bills/billsUtils";
-import { KIND_ICON, isActiveIncome, isSettled, type Income, type IncomeRow, type IncomeStatus, type MonthSummary, type RowSection } from "../incomesUtils";
+import { isActiveIncome, isSettled, type Income, type IncomeRow, type IncomeStatus, type MonthSummary, type RowSection } from "../incomesUtils";
+import { useIncomeIcon } from "./incomeIconContext";
 import { incomeEndText, incomeStartText, shortSchedule, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
@@ -101,6 +102,7 @@ function Tags({ pill, tags }: { pill?: { text: string; tone: string }; tags: Tag
 
 export function IncomeList(props: ListProps) {
   const { t } = useTranslation();
+  const iconOf = useIncomeIcon();
   const { rows, archived, nextMonth, nextMonthDate, incomes, formatCurrency, f } = props;
   const first = nextMonth.items[0];
 
@@ -168,7 +170,7 @@ export function IncomeList(props: ListProps) {
                 <div className={styles.line}>
                   <button type="button" className={styles.lineButton} onClick={() => props.onOpen(income)}>
                     <span className={styles.lineIcon} aria-hidden>
-                      {KIND_ICON[income.kind]}
+                      {iconOf(income)}
                     </span>
                     <span className={styles.lineMain}>
                       <span className={styles.lineName}>{income.name}</span>
@@ -190,6 +192,7 @@ export function IncomeList(props: ListProps) {
 function IncomeLine(props: ListProps & { row: IncomeRow }) {
   const { row, formatCurrency, accountName, lastReadingAt, f, now, onOpen, onArrive, onBankAnswer, onSetDay } = props;
   const { t } = useTranslation();
+  const iconOf = useIncomeIcon();
   const { income, focus, section, next } = row;
   const tag = focus ? statusTag(focus, t, f) : undefined;
   const account = accountName(income.accountId);
@@ -244,7 +247,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
       <div className={styles.line}>
         <button type="button" className={styles.lineButton} onClick={() => onOpen(income)} aria-label={t("incomes.list.openCard", { name: income.name })}>
           <span className={styles.lineIcon} aria-hidden>
-            {KIND_ICON[income.kind]}
+            {iconOf(income)}
           </span>
           <span className={styles.lineMain}>
             <span className={styles.lineName}>{income.name}</span>

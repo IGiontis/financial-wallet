@@ -14,6 +14,7 @@ import { DeleteButton } from "../../shared/components/DeleteButton";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizard";
 import { GOAL_STEP_FIELDS, GOAL_STEP_LABEL, goalReviewRows, type GoalStep } from "./components/goalWizardSteps";
+import { iconProblem } from "../../shared/utils/iconText";
 
 interface EditGoalFormValues {
   name: string;
@@ -35,7 +36,7 @@ const toDateInputValue = (value: unknown): string => {
 
 const validationSchema = Yup.object({
   name: Yup.string().required("validation.goalNameRequired").max(60, "validation.maxChars|60"),
-  icon: Yup.string().max(4, "validation.keepItShort"),
+  icon: Yup.string().test("one-icon", "validation.iconOnlyOne", (v) => !iconProblem(v ?? "")),
   color: Yup.string(),
   goalType: Yup.mixed<InvestmentGoalType>().oneOf(["targeted", "open_ended"]).required(),
   targetAmount: Yup.number()

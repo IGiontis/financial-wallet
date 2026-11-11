@@ -1,6 +1,7 @@
 import { addMonths, differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate } from "../../shared/utils/dates";
 import type { DebtForgiveness, CreateDebtDTO, Debt, DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
+import { textKey } from "../../shared/utils/cleanText";
 
 // What is still open, per loan and per person.
 //
@@ -56,7 +57,7 @@ export function debtsByPerson(debts: DebtWithStatus[]): DebtPerson[] {
   const groups = new Map<string, DebtWithStatus[]>();
 
   for (const debt of debts) {
-    const key = debt.person.trim().toLowerCase();
+    const key = textKey(debt.person);
     const rows = groups.get(key);
     if (rows) rows.push(debt);
     else groups.set(key, [debt]);

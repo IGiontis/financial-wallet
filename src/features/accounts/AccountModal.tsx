@@ -13,6 +13,7 @@ import { FORM_MODAL } from "../../shared/components/formModal";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { useStepTried } from "../../shared/hooks/useStepTried";
 
 export interface AccountDraft {
   name: string;
@@ -71,7 +72,8 @@ export default function AccountModal({
   const [color, setColor] = useState<CardColor>(defaultColor && defaultColor !== "cash" ? defaultColor : "blue");
   const [amount, setAmount] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const { tried: triedOn, mark: markTried } = useStepTried<Step>();
+  const touched = triedOn(step);
   const { format: formatCurrency } = useCurrencyConverter();
 
   const value = parseAmount(amount);
@@ -85,12 +87,12 @@ export default function AccountModal({
   const goTo = (target: Step) => {
     const to = STEPS.indexOf(target);
     if (to > 0 && !nameOk) {
-      setTouched(true);
+      markTried("what");
       setStep("what");
       return;
     }
     if (to > 1 && !amountOk) {
-      setTouched(true);
+      markTried("details");
       setStep("details");
       return;
     }
@@ -98,7 +100,8 @@ export default function AccountModal({
   };
 
   const save = () => {
-    setTouched(true);
+    if (!nameOk) markTried("what");
+    if (!amountOk) markTried("details");
     if (!nameOk || !amountOk) return;
     onSave({ name: name.trim(), kind, main, amount: account ? undefined : value, color: kind === "bank" ? color : undefined });
   };

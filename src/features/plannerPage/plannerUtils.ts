@@ -456,8 +456,12 @@ export interface OneOff {
   until?: string;
 }
 
-/** The longest gap offered, matching what a bill's own interval allows. */
-export const MAX_REPEAT_MONTHS = 24;
+/**
+ * The longest gap a repeat may have: as far as the planner can look ahead
+ * (`MAX_HORIZON_MONTHS`, ten years). Shorter, a «κάθε 5 χρόνια» cost could
+ * never be entered although a ten-year view would show it.
+ */
+export const MAX_REPEAT_MONTHS = MAX_HORIZON_MONTHS;
 
 /** The cadences the editor offers: monthly, alternate months, quarterly, half-yearly, yearly. */
 export const REPEAT_CHOICES: readonly number[] = [1, 2, 3, 6, 12] as const;
@@ -558,6 +562,11 @@ export interface PlannerEvent {
   goalId?: string;
   /** The debt this pays, or the money lent this brings back. */
   debtId?: string;
+  /**
+   * Who paid a goal for you, when this pays them back (a debt made by
+   * «Κάποιος πλήρωσε για μένα», `forGoalId`): its label is then the goal's name.
+   */
+  paidBy?: string;
   /** The one-off this is a time of. */
   oneOffId?: string;
   /**
@@ -1030,7 +1039,7 @@ export function buildPlan({ bills, goals, lines = [], oneOffs = [], debts = [], 
     if (date > end) continue;
 
     rows.push({ id: debt.id, source: "debt", label: debt.person, total: enabled ? negate(debt.remaining) : 0, occurrences: 1, enabled });
-    if (enabled) events.push({ kind: "goal", label, amount: -debt.remaining, date, debtId: debt.id });
+    if (enabled) events.push({ kind: "goal", label, amount: -debt.remaining, date, debtId: debt.id, ...(debt.forGoalId && debt.person ? { paidBy: debt.person } : {}) });
   }
 
   // ── Money lent, coming back ───────────────────────────────────────────────

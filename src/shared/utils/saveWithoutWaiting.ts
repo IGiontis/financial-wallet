@@ -1,4 +1,5 @@
 import type { UseMutationResult } from "@tanstack/react-query";
+import { cleanTextFields } from "./cleanText";
 
 /**
  * Starts a mutation and hands the caller back a promise that is already done.
@@ -27,6 +28,8 @@ export function saveWithoutWaiting<TData, TError, TVars, TCtx>(
   vars: TVars,
   onFailure?: (error: TError) => void,
 ): Promise<void> {
-  mutation.mutate(vars, onFailure ? { onError: onFailure } : undefined);
+  // User text is cleaned here too, so the row put on screen before the write is
+  // the one stored: the same names, without stray spaces (`cleanTextFields`).
+  mutation.mutate(cleanTextFields(vars), onFailure ? { onError: onFailure } : undefined);
   return Promise.resolve();
 }

@@ -8,6 +8,7 @@ import { localDeletePrefix, localGet, localSet } from "../lib/localStore";
 import { requireConnection } from "../shared/utils/offlinePolicy";
 import { debtEdit } from "../features/debts/debtsUtils";
 import { firestoreToDate } from "../shared/utils/dates";
+import { cleanText, cleanTextFields } from "../shared/utils/cleanText";
 
 import type {
   Debt,
@@ -41,9 +42,10 @@ import type { DebtCashRecord } from "../features/debts/debtCash";
 import { transferIds, type TransferRecord } from "../features/transactions/transfers";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-// Firestore rejects undefined values — strip them before every write.
+// Firestore rejects undefined values — strip them before every write. User text
+// (names, descriptions, notes …) is cleaned on the way: see `cleanTextFields`.
 
-const clean = (obj: Record<string, unknown>) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+const clean = (obj: Record<string, unknown>) => cleanTextFields(Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)));
 
 /** A query read from the server, counted by name while developing — see `readMeter`. */
 const readAll = async (label: string, q: Query) => {
@@ -118,7 +120,7 @@ export const updateUser = async (uid: string, data: UpdateUserDTO) => {
  * other had changed in between. Firestore merges a dotted field in place.
  */
 export const saveWorkspaceValue = async (uid: string, key: string, value: unknown) => {
-  await updateDoc(doc(db, "users", uid), { [`workspace.${key}`]: value, updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, "users", uid), { [`workspace.${key}`]: cleanTextFields(value), updatedAt: serverTimestamp() });
 };
 
 // ─── TRANSACTIONS ─────────────────────────────────────────────────────────────
@@ -745,7 +747,7 @@ export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
 export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
   const { set, clear } = debtEdit(next);
   await updateDoc(doc(db, "debts", debtId), {
-    ...set,
+    ...cleanTextFields(set),
     ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
     updatedAt: serverTimestamp(),
   });
@@ -790,7 +792,8 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 /** `accountId: null` takes the card off — a repayment that moved no money. An empty note is taken off too. */
 export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null; notes?: string | null }) => {
   const account = data.accountId === null ? { accountId: deleteField() } : data.accountId !== undefined ? { accountId: data.accountId } : {};
-  const notes = data.notes === undefined ? {} : data.notes ? { notes: data.notes } : { notes: deleteField() };
+  const note = data.notes ? cleanText(data.notes) : data.notes;
+  const notes = note === undefined ? {} : note ? { notes: note } : { notes: deleteField() };
   await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account, ...notes });
 };
 
@@ -1091,7 +1094,7 @@ export const editCoveredDebt = async (
   ]);
   const batch = writeBatch(db);
   batch.update(doc(db, "debts", debtId), {
-    ...set,
+    ...cleanTextFields(set),
     ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
     ...(expense && covered.coveredExpenseId ? { coveredExpenseId: covered.coveredExpenseId } : {}),
     updatedAt: serverTimestamp(),

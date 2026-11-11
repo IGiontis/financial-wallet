@@ -41,7 +41,7 @@ import { DEMO_EMAIL, DEMO_UID } from "./demoUser";
 //   is now owed for it; an emergency fund, two years from its date.
 //   Investments: an index fund bought monthly.
 // - Debts: a car loan with interest, paid monthly; a friend who owes 300 back
-//   in a fortnight; the friend owed for the ferry.
+//   in a fortnight; the friend who paid a share of the trip's rooms.
 // - Transactions: groceries, coffee at 3,50 often enough to be a «usual» with
 //   its amount, fuel with its litres, eating out, transfers between accounts.
 // - Planner: four monthly lines, three of them limits on categories, and a tax
@@ -117,7 +117,7 @@ const WORDS = {
     friend: "Στέλιος",
     friendLoan: "Δανεικά για το νοίκι",
     coveredBy: "Δέσποινα",
-    ferry: "Εισιτήρια πλοίου",
+    roomsShare: "Μέρος από τα δωμάτια",
     atm: "Ανάληψη ΑΤΜ",
     lines: { groceries: "Σούπερ μάρκετ", out: "Καφές & έξοδοι", fuel: "Βενζίνη", other: "Διάφορα" },
     taxRefund: "Επιστροφή φόρου",
@@ -152,7 +152,7 @@ const WORDS = {
     friend: "Stelios",
     friendLoan: "Loan for his rent",
     coveredBy: "Despina",
-    ferry: "Ferry tickets",
+    roomsShare: "Part of the rooms",
     atm: "ATM withdrawal",
     lines: { groceries: "Groceries", out: "Coffee & going out", fuel: "Fuel", other: "Everything else" },
     taxRefund: "Tax refund",
@@ -466,10 +466,12 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
   const lentOn = at(addDays(today, -40), 19);
   debts.push({ id: ids.debts.friend, userId, person: w.friend, direction: "owed_to_me", label: w.friendLoan, amount: 300, date: lentOn, dueDate: addDays(today, 12), accountId: "", createdAt: lentOn, updatedAt: lentOn });
 
-  // A friend paid the ferry for the trip: the goal's deposit, the debt to him and
-  // the expense, as «Κάποιος πλήρωσε για μένα» writes them.
+  // A friend paid part of the rooms for the trip: the goal's deposit, the debt to her and
+  // the expense, as «Κάποιος πλήρωσε για μένα» writes them. Not «the ferry»: a goal's parts
+  // fill in order (every «από» first, see `fillParts`), so a payment is never shown on one
+  // part — her 160 is inside the money that brings the ferry and the rooms to their «από».
   const coveredOn = at(addDays(today, -18), 14);
-  const covered = coveredFundingVars({ goal: { id: ids.goals.trip, name: w.trip }, who: w.coveredBy, amount: 160, date: coveredOn, categoryId: cat("Travel"), notes: w.ferry, expenseNotes: w.ferry });
+  const covered = coveredFundingVars({ goal: { id: ids.goals.trip, name: w.trip }, who: w.coveredBy, amount: 160, date: coveredOn, categoryId: cat("Travel"), notes: w.roomsShare, expenseNotes: w.roomsShare });
   const coveredExpense = record({ ...covered.expense, id: "demo-covered-expense" } as Transaction);
   investmentContributions.push({ ...covered.contribution, id: "demo-contribution-covered", userId, debtId: ids.debts.covered, createdAt: coveredOn, updatedAt: coveredOn });
   debts.push({ ...covered.debt, id: ids.debts.covered, userId, coveredExpenseId: coveredExpense.id, createdAt: coveredOn, updatedAt: coveredOn });

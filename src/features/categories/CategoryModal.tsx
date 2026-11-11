@@ -5,6 +5,7 @@ import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
 import { cleanCategoryName, findScopeDuplicates, firstGrapheme, type CategoryScope } from "../../shared/utils/categoryNames";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
@@ -43,6 +44,7 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   const [scope, setScope] = useState<CategoryScope>(category?.scope ?? initialScope);
   const [icon, setIcon] = useState(category?.icon ?? ICON_CHOICES[0]);
   const [touched, setTouched] = useState(false);
+  const [iconTouched, setIconTouched] = useState(false);
 
   const cleaned = cleanCategoryName(name);
   // Editing: the category being renamed is not its own duplicate.
@@ -52,7 +54,10 @@ export default function CategoryModal({ existing, scope: initialScope, category,
 
   const tooShort = cleaned.length > 0 && cleaned.length < 2;
   const error = !cleaned ? "categories.nameRequired" : tooShort ? "categories.nameTooShort" : cleaned.length > 40 ? "categories.nameTooLong" : "";
-  const canSave = !error && !duplicate && !isSaving;
+  // One emoji only — a letter or a word is not an icon (see `isSingleIcon`).
+  const iconError = iconProblem(icon);
+  const showIconError = !!iconError && (touched || iconTouched);
+  const canSave = !error && !duplicate && !iconError && !isSaving;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,12 +131,20 @@ export default function CategoryModal({ existing, scope: initialScope, category,
               <Input
                 value={icon}
                 onChange={(e) => setIcon(firstGrapheme(e.target.value))}
+                onBlur={() => setIconTouched(true)}
                 placeholder="🧾"
                 aria-label={t("categories.icon")}
+                invalid={showIconError}
+                aria-describedby={showIconError ? "category-icon-error" : undefined}
                 style={{ width: 72, fontSize: 22, textAlign: "center", lineHeight: 1.2 }}
               />
               <FormText style={{ fontSize: 11 }}>{t("categories.iconHint")}</FormText>
             </div>
+            {showIconError && (
+              <div id="category-icon-error" className="invalid-feedback d-block mt-n1 mb-2">
+                {t(iconError)}
+              </div>
+            )}
 
             <div className="d-flex flex-wrap gap-1">
               {ICON_CHOICES.map((choice) => (

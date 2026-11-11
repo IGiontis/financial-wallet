@@ -1,10 +1,12 @@
+import { cleanLine, textKey } from "../../shared/utils/cleanText";
+
 // The payee list the user maintains by hand: add, rename, delete. Kept as a
 // plain ordered array of names so it can live on the user document — a list
 // this small doesn't justify its own Firestore collection, and riding along on
 // a document the app already reads means the picker costs nothing to load.
 
-/** Case- and whitespace-insensitive identity, so "Shell" and " shell " are one payee. */
-export const payeeKey = (name: string): string => name.trim().toLowerCase();
+/** Case-, accent- and whitespace-insensitive identity, so "Shell" and " shell " are one payee. */
+export const payeeKey = (name: string): string => textKey(name);
 
 export const MAX_PAYEE_LENGTH = 30;
 
@@ -15,7 +17,7 @@ export type PayeeError = "empty" | "duplicate" | "tooLong";
  * so leaving its own name untouched isn't reported as a duplicate.
  */
 export function validatePayee(payees: string[], name: string, ignore?: string): PayeeError | undefined {
-  const label = name.trim();
+  const label = cleanLine(name);
   if (!label) return "empty";
   if (label.length > MAX_PAYEE_LENGTH) return "tooLong";
 
@@ -29,7 +31,7 @@ export function validatePayee(payees: string[], name: string, ignore?: string): 
 /** Appends a payee. Returns the list unchanged when the name isn't usable. */
 export function addPayee(payees: string[], name: string): string[] {
   if (validatePayee(payees, name)) return payees;
-  return [...payees, name.trim()];
+  return [...payees, cleanLine(name)];
 }
 
 /** Renames in place, keeping the entry's position in the list. */
@@ -37,7 +39,7 @@ export function renamePayee(payees: string[], from: string, to: string): string[
   if (validatePayee(payees, to, from)) return payees;
 
   const fromKey = payeeKey(from);
-  const label = to.trim();
+  const label = cleanLine(to);
   return payees.map((p) => (payeeKey(p) === fromKey ? label : p));
 }
 

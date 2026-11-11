@@ -294,6 +294,14 @@ describe("debts in the plan", () => {
     expect(plan.events.find((e) => e.amount === -200)?.date).toEqual(new Date(2026, 7, 14));
   });
 
+  it("a goal a friend paid says who paid it, so the list can name it — not a bare «Δάνειο»", () => {
+    const plan = buildPlan({ ...base, horizon: 1, debts: [owed({ person: "Δέσποινα", label: "Ταξίδι στη Σίφνο", forGoalId: "g-trip", remaining: 160, amount: 160 })] });
+    const event = plan.events.find((e) => e.debtId === "d1");
+    expect(event).toMatchObject({ label: "Ταξίδι στη Σίφνο", paidBy: "Δέσποινα", amount: -160 });
+    // An ordinary debt carries no «paid by».
+    expect(buildPlan({ ...base, horizon: 1, debts: [owed()] }).events.find((e) => e.debtId === "d1")?.paidBy).toBeUndefined();
+  });
+
   it("charges a dated one on its day", () => {
     const plan = buildPlan({ ...base, horizon: 3, debts: [owed({ dueDate: new Date(2026, 8, 20) })] });
     expect(plan.events.find((e) => e.amount === -200)?.date).toEqual(new Date(2026, 8, 20));

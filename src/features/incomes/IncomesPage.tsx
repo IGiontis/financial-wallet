@@ -11,6 +11,7 @@ import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { toISOMonth } from "../../shared/utils/dates";
 import { useCategories } from "../transactions/hooks/useTransactions";
+import { IncomeCategoriesContext } from "./components/incomeIconContext";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { mainAccount } from "../accounts/accountsUtils";
 import { useDeclinedSalaries, useIncomes, useRecordArrival, useUndoArrival } from "./useIncomes";
@@ -146,11 +147,13 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   // One sheet at a time: whatever opens next closes the one it came from.
 
   const openNew = (preset: Partial<IncomeDraft> = {}) => {
-    const kind = preset.kind ?? (salaryIncome ? "other" : "salary");
-    // No name written in: the form leaves it empty, and an empty one is saved as the kind's.
+    // Nothing written in: no name and no category — the form asks both, and the
+    // kind is read off the category at save. Only the salary found in the
+    // records comes with its category (the salary one), as it comes with its amount.
+    const salaryCategory = preset.kind === "salary" ? suggestIncomeCategory("salary", categories)?.id : undefined;
     setCardId(null);
     setForm({
-      draft: emptyDraft(now, { kind, categoryId: suggestIncomeCategory(kind, categories)?.id ?? "", isSalary: kind === "salary" && !salaryIncome, ...preset }),
+      draft: emptyDraft(now, { isSalary: !salaryIncome, ...(salaryCategory ? { categoryId: salaryCategory } : {}), ...preset }),
       isEdit: false,
       key: Date.now(),
     });
@@ -223,6 +226,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const cardIncome = cardId ? byId.get(cardId) : undefined;
 
   return (
+    // Every income on the page shows its category's icon (`useIncomeIcon`).
+    <IncomeCategoriesContext.Provider value={categories}>
     <PageShell>
       {/* The add on every view, «Σύνοψη» too. */}
       <AddHeader label={t("incomes.new")} onAdd={() => openNew()} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
@@ -480,5 +485,6 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
         />
       )}
     </PageShell>
+    </IncomeCategoriesContext.Provider>
   );
 }

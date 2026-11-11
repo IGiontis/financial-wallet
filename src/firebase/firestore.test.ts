@@ -378,6 +378,16 @@ describe("updateTransaction", () => {
 
 // ─── Ids chosen before the write ─────────────────────────────────────────────
 
+describe("user text is cleaned on the way in", () => {
+  it("stores names and notes without stray spaces, at any depth, and leaves ids alone", async () => {
+    await createTransaction("u1", { amount: 5, type: "expense", categoryId: "c", date: day(1), description: "  Σκι   διακοπές  ", notes: "  α  \n\n\n  β " }, "tx-clean");
+    expect(fs.table("transactions").get("tx-clean")).toMatchObject({ description: "Σκι διακοπές", notes: "α\n\nβ", categoryId: "c" });
+
+    await markBillPaid("u1", { id: "b1", name: " Ρεύμα   ΔΕΗ ", amount: 80, categoryId: "c1" }, "2026-06", day(10), undefined, undefined, { paymentId: "pay-clean", transactionId: "tx-bill-clean" });
+    expect(fs.table("transactions").get("tx-bill-clean")).toMatchObject({ description: "Ρεύμα ΔΕΗ" });
+  });
+});
+
 describe("creating under an id made up front", () => {
   it("writes each document under the id the screen already shows", async () => {
     const id = await createTransaction("u1", { amount: 5, type: "expense", categoryId: "c", date: day(1), description: "Bread" }, "tx-chosen");

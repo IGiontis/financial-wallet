@@ -1,6 +1,7 @@
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { KIND_ICON, type IncomeMonthItem } from "../incomesUtils";
+import type { IncomeMonthItem } from "../incomesUtils";
+import { useIncomeIcon } from "./incomeIconContext";
 import type { IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 
@@ -23,6 +24,7 @@ export function IncomeMonthSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const iconOf = useIncomeIcon();
   const total = Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
   const approx = items.some((item) => item.approximate) ? "≈" : "";
 
@@ -40,7 +42,7 @@ export function IncomeMonthSheet({
               {items.map((item) => (
                 <li key={`${item.income.id}-${item.date.getTime()}`}>
                   <span className={styles.monthItemName}>
-                    <span aria-hidden>{KIND_ICON[item.income.kind]}</span> {item.income.name}
+                    <span aria-hidden>{iconOf(item.income)}</span> {item.income.name}
                     <span className={styles.monthItemWhen}>{item.undated ? t("incomes.ahead.noDay") : f.dayMonthShort.format(item.date)}</span>
                   </span>
                   <span className={styles.monthItemAmount}>

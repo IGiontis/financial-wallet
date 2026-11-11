@@ -23,6 +23,7 @@ import { coveredFundingVars } from "./coveredFunding";
 import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { useStepTried } from "../../shared/hooks/useStepTried";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
@@ -108,7 +109,8 @@ export default function ContributionWizard({
   const [notes, setNotes] = useState("");
   const [account, setAccount] = useState("");
   const [cardPicked, setCardPicked] = useState(false);
-  const [tried, setTried] = useState(false);
+  const { tried: triedOn, mark: markTried } = useStepTried<Step>();
+  const tried = triedOn(step);
   const [saving, setSaving] = useState(false);
   // An investment has one way in and one out; a goal asks.
   const [mode, setMode] = useState<Mode | null>(isGoal ? null : "kept");
@@ -170,7 +172,7 @@ export default function ContributionWizard({
     const to = STEPS.indexOf(target);
     const blocked = STEPS.slice(0, to).find((s) => !done(s));
     if (blocked) {
-      setTried(true);
+      markTried(blocked);
       return setStep(blocked);
     }
     setStep(target);

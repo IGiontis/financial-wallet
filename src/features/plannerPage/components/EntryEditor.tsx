@@ -14,6 +14,8 @@ import styles from "../css/PlannerPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { YesNoChoice } from "../../../shared/components/YesNoChoice";
 import { EveryPicker } from "../../../shared/components/EveryPicker";
+import { useStepTried } from "../../../shared/hooks/useStepTried";
+import { cleanLine } from "../../../shared/utils/cleanText";
 
 export interface EntryDraft {
   id?: string;
@@ -85,7 +87,8 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   const lang = i18n.resolvedLanguage ?? "en";
   const [value, setValue] = useState<EntryDraft>(draft);
   const [step, setStep] = useState<Step>("1");
-  const [tried, setTried] = useState(false);
+  const { tried: triedOn, mark: markTried } = useStepTried<Step>();
+  const tried = triedOn(step);
   const [cadence, setCadence] = useState<Cadence>(() => (draft.id ? cadenceOf(mode, draft) : mode === "line" ? "monthly" : "once"));
   // The categories, open from the start when some are already linked.
   const [linking, setLinking] = useState(!!draft.categoryIds?.length);
@@ -103,11 +106,13 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   const dated = mode === "oneoff";
   const amount = parseFloat(value.amount);
   const amountOk = Number.isFinite(amount) && amount > 0;
+  // A line or a one-off is known by its name: it must be typed — nothing is filled in for an empty one.
+  const labelOk = cleanLine(value.label) !== "";
   // What would be stored, worked out once: the check, the sentence and Save all read it.
   const stored = useMemo(() => draftFor(mode, cadence, value), [mode, cadence, value]);
   const problem = cadenceProblem(mode, cadence, value);
   const whenOk = !problem;
-  const valid = amountOk && whenOk;
+  const valid = amountOk && labelOk && whenOk;
   const today = useMemo(() => now ?? new Date(), [now]);
 
   const index = STEPS.indexOf(step);
@@ -115,12 +120,12 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
     const to = STEPS.indexOf(target);
     // Forward only as far as what is filled in allows; back is always free.
     if (to > 0 && !whenOk) {
-      setTried(true);
+      markTried("1");
       setStep("1");
       return;
     }
-    if (to > 1 && !amountOk) {
-      setTried(true);
+    if (to > 1 && (!amountOk || !labelOk)) {
+      markTried("2");
       setStep("2");
       return;
     }
@@ -129,7 +134,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
 
   const save = () => {
     if (!valid) return;
-    const clean: EntryDraft = { ...stored, label: value.label.trim() };
+    const clean: EntryDraft = { ...stored, label: cleanLine(value.label) };
     // No categories is no limit: nothing stored rather than an empty list.
     if (!clean.categoryIds?.length) delete clean.categoryIds;
     onSave(clean);
@@ -203,8 +208,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
 
   const rows: { step: Step; label: string; value: string }[] = [
     { step: "1", label: t("planner.wizard_when"), value: whenText },
-    // A one-off left unnamed is saved under the fallback name: the check says so.
-    { step: "2", label: t("planner.lineName"), value: value.label.trim() || (mode === "oneoff" ? t("planner.oneOffFallbackName") : "—") },
+    { step: "2", label: t("planner.lineName"), value: cleanLine(value.label) },
     { step: "2", label: amountLabel, value: perMonth ? t("planner.perMonthShort", { amount: money }) : money },
     ...(!dated && linkedNames.length > 0 ? [{ step: "2" as Step, label: t("planner.lineCategoriesShort"), value: linkedNames.join(", ") }] : []),
   ];
@@ -300,7 +304,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
                           units={["monthly", "yearly"]}
                           // One month or one year is its own cadence, not «κάθε Ν».
                           min={{ monthly: 2, yearly: 2 }}
-                          // A repeat is kept up to MAX_REPEAT_MONTHS (24): two years at most.
+                          // A repeat is kept up to MAX_REPEAT_MONTHS: as far as the planner looks ahead (10 years).
                           max={{ yearly: MAX_REPEAT_MONTHS / 12 }}
                           unit={everyMonths % 12 === 0 ? "yearly" : "monthly"}
                           count={everyMonths % 12 === 0 ? everyMonths / 12 : everyMonths}
@@ -345,7 +349,9 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
                   value={value.label}
                   onChange={(e) => set({ label: e.target.value })}
                   placeholder={dated ? t("planner.oneOffNamePlaceholder") : t("planner.lineNamePlaceholder")}
+                  invalid={tried && !labelOk}
                 />
+                <FormFeedback>{t("planner.wizard_nameNeeded")}</FormFeedback>
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label className={styles.fieldLabel} htmlFor="entry-amount">
