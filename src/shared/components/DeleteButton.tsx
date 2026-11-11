@@ -66,7 +66,7 @@ export function DeleteButton({ onClick, label, iconOnly = false, wordFromSm = fa
         // Above whatever sheet the button sits in.
         <Modal isOpen={asking} toggle={() => setAsking(false)} centered size="sm" zIndex={1080}>
           <ModalHeader toggle={() => setAsking(false)}>{t("common.deleteConfirmTitle")}</ModalHeader>
-          <ModalBody style={{ fontSize: 14 }}>{what ? t("common.deleteConfirmNamed", { name: what }) : t("common.deleteConfirmBody")}</ModalBody>
+          <ModalBody style={{ fontSize: "var(--fs-lead)" }}>{what ? t("common.deleteConfirmNamed", { name: what }) : t("common.deleteConfirmBody")}</ModalBody>
           <ModalFooter>
             <Button color="secondary" outline onClick={() => setAsking(false)}>
               {t("common.cancel")}

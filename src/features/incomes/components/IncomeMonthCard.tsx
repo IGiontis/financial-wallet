@@ -45,7 +45,7 @@ export function IncomeMonthCard({
       </div>
 
       {summary.count === 0 ? (
-        <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 13 }}>
+        <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: "var(--fs-text)" }}>
           {t("incomes.month.nothing")}
         </p>
       ) : (
@@ -66,7 +66,7 @@ export function IncomeMonthCard({
             ))}
           </div>
 
-          <div className="d-flex justify-content-between gap-2 mt-2" style={{ fontSize: 12 }}>
+          <div className="d-flex justify-content-between gap-2 mt-2" style={{ fontSize: "var(--fs-small)" }}>
             <span className="text-body-secondary">{t("incomes.month.countPct", { arrived: summary.arrivedCount, count: summary.count, pct })}</span>
             {summary.missing > 0 ? (
               <span className={styles.toneWaiting} style={{ fontWeight: 600 }}>

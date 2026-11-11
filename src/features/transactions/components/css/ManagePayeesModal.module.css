@@ -24,13 +24,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 /* Validation text for an inline rename — takes the full width below the row
    so it never squeezes the input it belongs to. */
 .rowError {
   flex-basis: 100%;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-expense);
 }

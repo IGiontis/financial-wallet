@@ -23,13 +23,13 @@ function TwoWayFigures({ data, inWord, outWord, formatCurrency, dateFmt }: { dat
   const tile = (label: string, value: string, sub: string, color: string) => (
     <div className="col-4">
       <div className="h-100 rounded-3 px-2 py-2" style={{ background: "var(--color-background-secondary)" }}>
-        <div className="text-body-secondary text-truncate" style={{ fontSize: 11.5 }}>
+        <div className="text-body-secondary text-truncate" style={{ fontSize: "var(--fs-small)" }}>
           {label}
         </div>
-        <div className="fw-semibold text-truncate" style={{ color, fontSize: 15, fontVariantNumeric: "tabular-nums" }}>
+        <div className="fw-semibold text-truncate" style={{ color, fontSize: "var(--fs-lead)", fontVariantNumeric: "tabular-nums" }}>
           {value}
         </div>
-        <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
+        <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
           {sub}
         </div>
       </div>

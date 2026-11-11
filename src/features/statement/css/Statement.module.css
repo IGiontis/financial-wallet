@@ -18,19 +18,19 @@
 }
 
 .brand {
-  font-size: 1.25rem;
+  font-size: var(--fs-title);
   font-weight: 700;
   margin: 0;
 }
 
 .period {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   color: var(--color-text-secondary);
   margin: 0;
 }
 
 .generated {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   text-align: right;
   white-space: nowrap;
@@ -56,14 +56,14 @@
 }
 
 .figureLabel {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .figureValue {
-  font-size: 1.1rem;
+  font-size: var(--fs-figure);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -81,7 +81,7 @@
 /* ── Tables ───────────────────────────────────────────────────────────────── */
 
 .sectionTitle {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   margin: 1.25rem 0 0.5rem;
 }
@@ -89,11 +89,11 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 .table th {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -127,7 +127,7 @@
 }
 
 .emptyNote {
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

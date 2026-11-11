@@ -218,7 +218,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   return (
     <div className="mb-3">
       <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-        <Button color="link" className="p-0 text-decoration-none d-flex align-items-center gap-1 text-body-emphasis" style={{ fontSize: 13, fontWeight: 600 }} onClick={() => setOpen((v) => !v)}>
+        <Button color="link" className="p-0 text-decoration-none d-flex align-items-center gap-1 text-body-emphasis" style={{ fontSize: "var(--fs-text)", fontWeight: 600 }} onClick={() => setOpen((v) => !v)}>
           {t("transactions.insights")}
           {open ? <FiChevronUp size={15} /> : <FiChevronDown size={15} />}
         </Button>
@@ -227,7 +227,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
 
       <Collapse isOpen={open}>
         {stats.count === 0 ? (
-          <p className="text-body-secondary mb-0" style={{ fontSize: 12.5 }}>
+          <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
             {t("transactions.noneFound")}
           </p>
         ) : (
@@ -321,7 +321,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
                 <div className="d-flex flex-column gap-2">
                   {payees.map((p) => (
                     <div key={p.name}>
-                      <div className="d-flex justify-content-between gap-2 mb-1" style={{ fontSize: 12 }}>
+                      <div className="d-flex justify-content-between gap-2 mb-1" style={{ fontSize: "var(--fs-small)" }}>
                         <span className={styles.payeeName}>{p.name}</span>
                         <span className="flex-shrink-0">
                           <span className="fw-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>

@@ -39,7 +39,7 @@
 .driver-popover.mfw-tour .driver-popover-title {
   /* Clear of the × in the corner. */
   padding-right: 1.75rem;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   line-height: 1.35;
   color: var(--color-text-primary);
@@ -47,7 +47,7 @@
 
 .driver-popover.mfw-tour .driver-popover-description {
   margin-top: 0.375rem;
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   line-height: 1.5;
   color: var(--color-text-secondary);
   /* Long Greek words wrap rather than push the popover wider. */
@@ -63,7 +63,7 @@
 }
 
 .driver-popover.mfw-tour .driver-popover-progress-text {
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
@@ -90,7 +90,7 @@
   background-color: transparent;
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   font-weight: 500;
   line-height: 1.25;
   text-shadow: none;
@@ -146,7 +146,7 @@
   height: 2rem;
   border-radius: var(--border-radius-sm, 0.375rem);
   color: var(--color-text-secondary);
-  font-size: 1.25rem;
+  font-size: var(--fs-title);
   line-height: 1;
 }
 

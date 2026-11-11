@@ -82,7 +82,7 @@ export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: H
       {asking && (
         <Modal {...FORM_MODAL} isOpen toggle={() => setAsking(false)} centered size="sm">
           <ModalHeader toggle={() => setAsking(false)}>
-            <span style={{ fontSize: 15 }}>{t("planner.horizonCustom")}</span>
+            <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.horizonCustom")}</span>
           </ModalHeader>
           <ModalBody className="pt-2" onKeyDown={(e) => e.key === "Enter" && commit()}>
             {/* The lengths a phone has no pill for, as one tap each. */}

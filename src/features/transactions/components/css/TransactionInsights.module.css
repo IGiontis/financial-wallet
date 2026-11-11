@@ -45,7 +45,7 @@
 }
 
 .statSub {
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -63,12 +63,12 @@
 }
 
 .cardTitle {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-weight: 600;
 }
 
 .cardHint {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
 }
 
@@ -161,7 +161,7 @@
   border: 0;
   border-radius: var(--border-radius-sm);
   background: none;
-  font-size: 12px;
+  font-size: var(--fs-small);
   text-align: left;
   cursor: pointer;
 }
@@ -255,7 +255,7 @@
   gap: 0.5rem;
   min-height: 20px;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .barReadoutLabel {
@@ -268,7 +268,7 @@
 }
 
 .barReadoutHint {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
 }
 
@@ -347,7 +347,7 @@
 
 .sliceRowTitle {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,7 +355,7 @@
 
 .sliceRowDate {
   display: block;
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
 }
 
@@ -376,7 +376,7 @@
 }
 
 .sliceBreakdownTitle {
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--color-text-secondary);
@@ -387,7 +387,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .sliceBreakdownName {
@@ -405,7 +405,7 @@
 
 .sliceRowAmount {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -418,7 +418,7 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--border-radius-md);
   background: var(--color-background-secondary);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .sliceDetail dt {
@@ -447,11 +447,11 @@
 }
 
 .zoomed .donutCaption {
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .zoomed .legendRow {
-  font-size: 13.5px;
+  font-size: var(--fs-text);
   min-height: 34px;
 }
 
@@ -460,5 +460,5 @@
 }
 
 .zoomed .barLabel {
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }

@@ -105,7 +105,7 @@ export default function ReviewCard({
             <label className="form-check-label" htmlFor="adjust-reading">
               {t("accounts.adjustReading", { date: new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: "short", day: "numeric", month: "short" }).format(latest.at) })}
             </label>
-            <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
+            <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
               {t("accounts.adjustReadingHint")}
             </div>
           </div>

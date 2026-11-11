@@ -19,7 +19,7 @@ export function PlanFromField({ value, onChange, error, maxDate }: { value: stri
 
   return (
     <FormGroup className="mb-0 mt-3">
-      <Label for={id} style={{ fontSize: 13, fontWeight: 500 }} className="d-flex align-items-center gap-1">
+      <Label for={id} style={{ fontSize: "var(--fs-text)", fontWeight: 500 }} className="d-flex align-items-center gap-1">
         <FiCalendar size={13} aria-hidden /> {t("goals.planFrom")}
       </Label>
       <DateField id={id} value={value} onChange={onChange} clearable placeholder={t("goals.planFromPlaceholder")} minDate={new Date()} maxDate={maxDate} invalid={!!error} />

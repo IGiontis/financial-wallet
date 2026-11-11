@@ -19,6 +19,28 @@
    ============================================================================ */
 
 :root {
+  /* ── Type scale ───────────────────────────────────────────────────────────── */
+  /* Every font size in the app is one of these eight steps («scale B», picked
+     2026-10-26), each a multiple of Bootstrap's body size (1rem), so changing
+     that one value, or the reader's base size, moves them all together. There
+     were over twenty px sizes (9.5, 10.5, 11.5, 12.5, 13.5…) and no two pages
+     agreed; each was snapped to the nearest step, ties toward `text`.
+     `text` is the app's running text; `body` is Bootstrap's own 1rem.
+     What has to stay put stays in px, on purpose, and typeScale.test.ts lists
+     each one: an icon or emoji in a fixed box, initials or a step number in a
+     fixed circle, a 16px input (under 16px iOS zooms on focus), a label under
+     10px in a fixed calendar/heatmap/chart cell, the sidebar's `.nav-badge`
+     pills, and chart libraries' own props (Recharts `tick`, ECharts), which
+     are drawn as canvas/SVG attributes that can't read a CSS variable. */
+  --fs-caption: calc(var(--bs-body-font-size) * 0.6875); /* 11px */
+  --fs-small: calc(var(--bs-body-font-size) * 0.75); /* 12px */
+  --fs-text: calc(var(--bs-body-font-size) * 0.8125); /* 13px */
+  --fs-lead: calc(var(--bs-body-font-size) * 0.875); /* 14px */
+  --fs-body: var(--bs-body-font-size); /* 16px */
+  --fs-figure: calc(var(--bs-body-font-size) * 1.125); /* 18px */
+  --fs-title: calc(var(--bs-body-font-size) * 1.25); /* 20px */
+  --fs-display: calc(var(--bs-body-font-size) * 1.5); /* 24px */
+
   /* ── Radius scale ─────────────────────────────────────────────────────────── */
   --radius-xs: 0.25rem;
   --radius-sm: 0.375rem;

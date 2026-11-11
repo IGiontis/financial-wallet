@@ -23,7 +23,7 @@
 }
 
 .ofTotal {
-  font-size: 14px;
+  font-size: var(--fs-lead);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -68,7 +68,7 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   margin-top: 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -94,7 +94,7 @@
   align-items: center;
   gap: 4px 6px;
   margin-top: 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -150,7 +150,7 @@
 }
 
 .statSub {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -170,7 +170,7 @@
 }
 
 .sectionTitle {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -178,7 +178,7 @@
 
 .sectionTotal {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -265,7 +265,7 @@
 /* Two lines before it gives up: an income's name is how it is told apart,
    and «Ενοίκιο που εισπράττω» cut to one line on a phone is a guess. */
 .lineName {
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 600;
   color: var(--color-text-primary);
   display: -webkit-box;
@@ -324,7 +324,7 @@
   border-radius: var(--radius-pill);
   background: var(--neutral-soft);
   color: var(--on-neutral-soft);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   line-height: 16px;
   /* A long date wraps inside its chip rather than being cut to «30 Ο…». */
@@ -368,17 +368,17 @@
 
 .tag svg {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }
 
 .lineSub {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
 .lineAmount {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
@@ -399,7 +399,7 @@
 .pill {
   align-self: flex-start;
   max-width: 100%;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   padding: 1px 7px;
   border-radius: var(--radius-sm);
@@ -451,13 +451,13 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--invest-edge);
   background: var(--invest-wash-solid);
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-primary);
 }
 
 .hint {
   margin: 0 13px 12px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -517,7 +517,7 @@
 .calWeekday {
   padding: var(--space-0) 0 var(--space-1);
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -534,7 +534,7 @@
   padding: var(--space-0);
   border-radius: var(--radius-sm);
   text-align: left;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .calDay:focus-visible {
@@ -569,7 +569,7 @@
   border-radius: var(--radius-xs);
   background: var(--surface);
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   line-height: 14px;
   text-align: center;
@@ -622,7 +622,7 @@
   }
 
   .mark {
-    font-size: 11px;
+    font-size: var(--fs-caption);
     text-align: left;
     padding: 0 var(--space-1);
   }
@@ -645,7 +645,7 @@
 }
 
 .yearMuted {
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .yearAmount {
@@ -669,7 +669,7 @@
 }
 
 .yearNote {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-variant-numeric: tabular-nums;
 }
 
@@ -693,7 +693,7 @@
 
 .chipLabel {
   display: block;
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -702,7 +702,7 @@
 
 .chipValue {
   display: block;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -765,7 +765,7 @@
 .chipSkipped .chipValue,
 .chipPaused .chipValue {
   color: var(--color-text-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-weight: 600;
   line-height: 16.8px; /* the 14px figures' line, so every chip is one height */
 }
@@ -782,7 +782,7 @@
 
 .chipLate .chipValue,
 .chipMissed .chipValue {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   line-height: 16.8px;
 }
 
@@ -792,7 +792,7 @@
   gap: 4px 12px;
   margin-top: 6px;
   color: var(--color-text-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
 }
 
 .chipSwatch {
@@ -822,7 +822,7 @@
   gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--color-border-tertiary);
-  font-size: 14px;
+  font-size: var(--fs-lead);
 }
 
 .readRow:last-child,
@@ -867,7 +867,7 @@
   flex: 0 0 34%;
   padding-top: var(--space-1);
   color: var(--color-text-secondary);
-  font-size: 12.5px;
+  font-size: var(--fs-text);
 }
 
 .readValue {
@@ -883,7 +883,7 @@
 .readSub {
   display: block;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 400;
 }
 
@@ -894,7 +894,7 @@
   gap: 10px;
   padding: 10px 0;
   border-top: 1px solid var(--color-border-tertiary);
-  font-size: 13.5px;
+  font-size: var(--fs-text);
 }
 
 .factAmount {
@@ -921,7 +921,7 @@
   background: var(--color-surface);
   color: var(--color-text-primary);
   text-align: left;
-  font-size: 14px;
+  font-size: var(--fs-lead);
 }
 
 /* A control in a form rests on the white surface; hovered, a touch of the brand — never the beige page tone. */
@@ -958,7 +958,7 @@
 /* ── «Ήρθε» and the form ──────────────────────────────────────────────────── */
 
 .amountInput {
-  font-size: 1.5rem;
+  font-size: var(--fs-display);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -976,7 +976,7 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 .kindOn {
@@ -1026,7 +1026,7 @@
 
 .monthItemWhen {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

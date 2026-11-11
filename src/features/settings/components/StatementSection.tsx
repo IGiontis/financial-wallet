@@ -41,7 +41,7 @@ export default function StatementSection() {
         <FiFileText size={16} className="me-2" />
         {t("statement.open")}
       </Button>
-      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0.75rem 0 0" }}>{t("statement.notABackup")}</p>
+      <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", margin: "0.75rem 0 0" }}>{t("statement.notABackup")}</p>
 
       {/* The dialog is a lazy chunk. `null` meant the button was pressed and
           nothing happened at all until it arrived, which reads as a dead

@@ -360,7 +360,7 @@ export default function AddDebtModal({
           <WizardSteps steps={DEBT_STEPS} current={step} onGo={goTo} label={(s) => t(STEP_LABEL[s])} open={!!debt} large />
           {covered.failed && <CoveredLoadFailed onRetry={covered.retry} />}
           {/* The interest step asks its question in the tiles' own label. */}
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }} aria-hidden={step === "interest" || step === "money" ? true : undefined}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }} aria-hidden={step === "interest" || step === "money" ? true : undefined}>
             {title}
           </div>
 

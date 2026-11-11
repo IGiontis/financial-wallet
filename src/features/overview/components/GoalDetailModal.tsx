@@ -16,10 +16,10 @@ const isRecurringGoal = (g: Pick<InvestmentGoalWithStats, "targetPeriod">) => g.
 function Fact({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div className="p-2" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
-      <div className="text-uppercase text-body-secondary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>
+      <div className="text-uppercase text-body-secondary" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.05em" }}>
         {label}
       </div>
-      <div className="fw-semibold" style={{ fontSize: 14, color: accent ?? "var(--color-text-primary)" }}>
+      <div className="fw-semibold" style={{ fontSize: "var(--fs-lead)", color: accent ?? "var(--color-text-primary)" }}>
         {value}
       </div>
     </div>
@@ -89,7 +89,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
 
       <ModalBody>
         {goal.status && (
-          <span className="fw-medium d-inline-block mb-3" style={{ fontSize: 12, color: statusColor }}>
+          <span className="fw-medium d-inline-block mb-3" style={{ fontSize: "var(--fs-small)", color: statusColor }}>
             {statusLabel}
           </span>
         )}
@@ -102,16 +102,16 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
                 <FiFlag size={11} />
               </div>
             </div>
-            <div className="d-flex justify-content-between text-body-secondary mb-3" style={{ fontSize: 11 }}>
+            <div className="d-flex justify-content-between text-body-secondary mb-3" style={{ fontSize: "var(--fs-caption)" }}>
               <span>{t("overview.goalStartedOn", { date: dateFmt.format(timeline.created) })}</span>
               <span>{t("overview.goalDeadlineOn", { date: dateFmt.format(timeline.deadline) })}</span>
             </div>
 
-            <p className="mb-1" style={{ fontSize: 14 }}>
+            <p className="mb-1" style={{ fontSize: "var(--fs-lead)" }}>
               <strong>{formatCurrency(goal.totalSaved)}</strong>{" "}
               <span className="text-body-secondary">{t("overview.goalOfTarget", { target: formatCurrency(goal.targetAmount ?? 0) })}</span>
             </p>
-            <p className="mb-3" style={{ fontSize: 12.5, color: statusColor }}>
+            <p className="mb-3" style={{ fontSize: "var(--fs-text)", color: statusColor }}>
               {goal.status === "completed" || timeline.remaining <= 0
                 ? t("overview.goalCompletedMsg")
                 : timeline.projectedDate
@@ -142,7 +142,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
                 </Col>
               )}
             </Row>
-            <p className="text-body-secondary mb-3" style={{ fontSize: 12.5 }}>
+            <p className="text-body-secondary mb-3" style={{ fontSize: "var(--fs-text)" }}>
               {t("overview.goalTotalSavedOverall", { amount: formatCurrency(goal.totalSaved) })}
             </p>
           </>
@@ -151,20 +151,20 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
             <p className="fw-semibold mb-1" style={{ fontSize: "var(--stat-figure-size)" }}>
               {formatCurrency(goal.totalSaved)}
             </p>
-            <p className="text-body-secondary mb-3" style={{ fontSize: 12.5 }}>
+            <p className="text-body-secondary mb-3" style={{ fontSize: "var(--fs-text)" }}>
               {t("overview.goalOpenEndedHint")}
             </p>
           </>
         )}
 
-        <div className="text-uppercase text-body-secondary mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>
+        <div className="text-uppercase text-body-secondary mb-2" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.06em" }}>
           {t("overview.recentActivity")}
         </div>
 
         {isLoading ? (
           <SkeletonRows count={4} icon={false} />
         ) : recentContributions.length === 0 ? (
-          <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
+          <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
             {t("overview.noContributionsYet")}
           </p>
         ) : (
@@ -173,7 +173,7 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
               <div
                 key={c.id}
                 className="d-flex align-items-center justify-content-between px-2 py-2"
-                style={{ borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)", fontSize: 13 }}
+                style={{ borderRadius: "var(--border-radius-sm)", background: "var(--color-background-secondary)", fontSize: "var(--fs-text)" }}
               >
                 <span className="text-body-secondary">{dateFmt.format(firestoreToDate(c.date))}</span>
                 <span className="fw-semibold" style={{ color: c.contributionType === "withdrawal" ? "var(--color-expense-text)" : "var(--color-income-text)" }}>

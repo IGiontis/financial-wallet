@@ -118,7 +118,7 @@
 
 .date {
   margin: 0;
-  font-size: clamp(1rem, 3.6vw, 1.25rem);
+  font-size: clamp(var(--fs-body), 3.6vw, var(--fs-title));
   color: var(--color-text-secondary);
 }
 
@@ -158,7 +158,7 @@
 
 .skip {
   margin: var(--space-3) 0 0;
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

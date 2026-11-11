@@ -55,7 +55,7 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
       <ModalHeader toggle={onClose}>{t("bills.settleOverdueTitle", { name: bill.name })}</ModalHeader>
 
       <ModalBody>
-        <p className="mb-3" style={{ fontSize: 13 }}>
+        <p className="mb-3" style={{ fontSize: "var(--fs-text)" }}>
           {t("bills.settleOverdueBody")}
         </p>
 
@@ -65,7 +65,7 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
             return (
               <div key={id} className="d-flex align-items-center gap-2 py-1">
                 <Input id={id} type="checkbox" className="mt-0 flex-shrink-0" checked={!unticked.has(itemKey(item))} onChange={() => toggle(item)} />
-                <Label for={id} className="mb-0 flex-grow-1 d-flex justify-content-between gap-2" style={{ fontSize: 13, cursor: "pointer" }}>
+                <Label for={id} className="mb-0 flex-grow-1 d-flex justify-content-between gap-2" style={{ fontSize: "var(--fs-text)", cursor: "pointer" }}>
                   <span>
                     {dateFmt.format(item.date)}
                     {split && <span className="text-body-secondary"> · {t("bills.installmentOf", { index: (item.installmentIndex ?? 0) + 1, count: getInstallmentCount(bill) })}</span>}
@@ -77,12 +77,12 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
           })}
         </div>
 
-        <div className="d-flex justify-content-end mt-2 fw-semibold" style={{ fontSize: 14 }}>
+        <div className="d-flex justify-content-end mt-2 fw-semibold" style={{ fontSize: "var(--fs-lead)" }}>
           {t("bills.settleOverdueTotal", { amount: formatCurrency(total) })}
         </div>
 
         {guard.locked && (
-          <p className="mb-0 mt-2" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+          <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
             {guard.reason}
           </p>
         )}

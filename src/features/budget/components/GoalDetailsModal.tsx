@@ -217,7 +217,7 @@ export function GoalDetailsModal({ goal, formatCurrency, onViewHistory, onAddDep
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           <span aria-hidden>{goal.icon ?? "🎯"}</span>
-          <span style={{ fontSize: 15 }}>{goal.name}</span>
+          <span style={{ fontSize: "var(--fs-lead)" }}>{goal.name}</span>
         </span>
       </ModalHeader>
       <ModalBody>

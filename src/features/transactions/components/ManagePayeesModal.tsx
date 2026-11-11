@@ -93,13 +93,13 @@ export default function ManagePayeesModal({ payees, onClose, onAdd, onRename, on
           <FormFeedback>{errorText(addError)}</FormFeedback>
         </InputGroup>
 
-        <p className="text-body-secondary mt-2 mb-3" style={{ fontSize: 11.5 }}>
+        <p className="text-body-secondary mt-2 mb-3" style={{ fontSize: "var(--fs-small)" }}>
           {t("transactions.managePayeesHint")}
         </p>
 
         {/* ── List ── */}
         {payees.length === 0 ? (
-          <p className="text-body-secondary text-center mb-0 py-4" style={{ fontSize: 13 }}>
+          <p className="text-body-secondary text-center mb-0 py-4" style={{ fontSize: "var(--fs-text)" }}>
             {t("transactions.noSavedPayeesYet")}
           </p>
         ) : (

@@ -19,7 +19,7 @@ export function TooltipShell({ title, children }: { title?: ReactNode; children:
       }}
     >
       {title !== undefined && (
-        <p className="text-uppercase fw-semibold mb-2" style={{ fontSize: 10.5, opacity: 0.6, letterSpacing: "0.08em" }}>
+        <p className="text-uppercase fw-semibold mb-2" style={{ fontSize: "var(--fs-caption)", opacity: 0.6, letterSpacing: "0.08em" }}>
           {title}
         </p>
       )}
@@ -31,11 +31,11 @@ export function TooltipShell({ title, children }: { title?: ReactNode; children:
 export function TooltipRow({ color, label, value }: { color?: string; label: ReactNode; value: ReactNode }) {
   return (
     <div className="d-flex justify-content-between align-items-center gap-3" style={{ marginBottom: 3 }}>
-      <span className="d-flex align-items-center" style={{ fontSize: 12.5, opacity: 0.78, gap: 7, minWidth: 0 }}>
+      <span className="d-flex align-items-center" style={{ fontSize: "var(--fs-text)", opacity: 0.78, gap: 7, minWidth: 0 }}>
         {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block", flexShrink: 0 }} />}
         <span className="text-truncate">{label}</span>
       </span>
-      <span className="fw-semibold flex-shrink-0" style={{ fontSize: 12.5, fontVariantNumeric: "tabular-nums" }}>
+      <span className="fw-semibold flex-shrink-0" style={{ fontSize: "var(--fs-text)", fontVariantNumeric: "tabular-nums" }}>
         {value}
       </span>
     </div>

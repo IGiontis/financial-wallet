@@ -101,8 +101,8 @@ function Section({ title, subtitle, children, fill = false }: { title: string; s
     <Card style={{ border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: fill ? 0 : "1rem", height: fill ? "100%" : undefined }}>
       <CardBody style={{ padding: "1.5rem" }}>
         <div style={{ marginBottom: "1.25rem" }}>
-          <p style={{ fontWeight: 500, fontSize: 15, margin: 0, color: "var(--color-text-primary)" }}>{title}</p>
-          {subtitle && <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>{subtitle}</p>}
+          <p style={{ fontWeight: 500, fontSize: "var(--fs-lead)", margin: 0, color: "var(--color-text-primary)" }}>{title}</p>
+          {subtitle && <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", margin: 0 }}>{subtitle}</p>}
         </div>
         {children}
       </CardBody>
@@ -362,8 +362,8 @@ export function SettingsPage() {
                   {initials}
                 </div>
                 <div>
-                  <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>{userData?.firstName ? `${userData.firstName} ${userData.lastName}` : (currentUser?.displayName ?? "—")}</p>
-                  <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>{currentUser?.email}</p>
+                  <p style={{ fontWeight: 500, fontSize: "var(--fs-lead)", margin: 0 }}>{userData?.firstName ? `${userData.firstName} ${userData.lastName}` : (currentUser?.displayName ?? "—")}</p>
+                  <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", margin: 0 }}>{currentUser?.email}</p>
                 </div>
               </div>
 
@@ -374,7 +374,7 @@ export function SettingsPage() {
                     background: "var(--color-background-secondary)",
                     borderRadius: "var(--border-radius-md)",
                     padding: "1rem",
-                    fontSize: 13,
+                    fontSize: "var(--fs-text)",
                     color: "var(--color-text-secondary)",
                   }}
                 >
@@ -386,7 +386,7 @@ export function SettingsPage() {
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.firstName")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.firstName")} *</Label>
                         <Input
                           type="text"
                           name="firstName"
@@ -400,7 +400,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.lastName")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.lastName")} *</Label>
                         <Input
                           type="text"
                           name="lastName"
@@ -414,7 +414,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("auth.username")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.username")} *</Label>
                         <Input
                           type="text"
                           name="username"
@@ -428,7 +428,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
                           {t("settings.displayName")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                         </Label>
                         <Input
@@ -453,7 +453,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={4}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
                           {t("settings.age")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                         </Label>
                         <Input
@@ -471,7 +471,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={4}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
                           {t("settings.city")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                         </Label>
                         <Input type="text" name="city" value={profileForm.values.city} onChange={profileForm.handleChange} onBlur={profileForm.handleBlur} />
@@ -479,7 +479,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={4}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
                           {t("settings.country")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
                         </Label>
                         <Input type="select" name="country" value={profileForm.values.country} onChange={profileForm.handleChange}>
@@ -513,7 +513,7 @@ export function SettingsPage() {
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currency")}</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currency")}</Label>
                         <Input type="select" name="currency" value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
                           {CURRENCIES.map((c) => (
                             <option key={c.value} value={c.value}>
@@ -525,7 +525,7 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.language")}</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.language")}</Label>
                         <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
                           {LOCALES.map((l) => (
                             <option key={l.value} value={l.value}>
@@ -618,7 +618,7 @@ export function SettingsPage() {
               <>
                 {/* ── Account security (Google users) ─────────────────────────────────── */}
                 <Section title={t("settings.accountSecurity")} subtitle={t("settings.googleSecuritySubtitle")}>
-                  <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: 0 }}>
+                  <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", margin: 0 }}>
                     {t("settings.googleSecurityBody")}
                   </p>
                 </Section>
@@ -632,13 +632,13 @@ export function SettingsPage() {
                       <Row className="g-3">
                         <Col xs={12}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentEmail")}</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currentEmail")}</Label>
                             <Input type="text" value={currentUser?.email ?? ""} disabled style={{ background: "var(--color-background-secondary)" }} />
                           </FormGroup>
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
                             <Input
                               type="email"
                               name="newEmail"
@@ -652,7 +652,7 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
                             <Input
                               type="password"
                               name="currentPassword"
@@ -681,7 +681,7 @@ export function SettingsPage() {
                       <Row className="g-3">
                         <Col xs={12}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
                             <Input
                               type="password"
                               name="currentPassword"
@@ -695,7 +695,7 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
                             <Input
                               type="password"
                               name="newPassword"
@@ -709,7 +709,7 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
                             <Input
                               type="password"
                               name="confirmPassword"
@@ -747,8 +747,8 @@ export function SettingsPage() {
                 {/* ── Danger zone ───────────────────────────────────────────── */}
                 <Card style={{ border: "0.5px solid var(--bs-danger)", borderRadius: "var(--border-radius-lg)", boxShadow: "none", marginBottom: 0, height: "100%" }}>
                   <CardBody style={{ padding: "1.5rem" }}>
-                    <p style={{ fontWeight: 500, fontSize: 15, margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>
-                    <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
+                    <p style={{ fontWeight: 500, fontSize: "var(--fs-lead)", margin: "0 0 4px", color: "var(--bs-danger)" }}>{t("settings.dangerZone")}</p>
+                    <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", margin: "0 0 1rem" }}>
                       {t("settings.dangerZoneBody")}
                     </p>
                     <DeleteButton opensConfirm label={t("settings.deleteAccount")} onClick={() => setShowDeleteModal(true)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
@@ -780,16 +780,16 @@ export function SettingsPage() {
           {t("settings.deleteAccount")}
         </ModalHeader>
         <ModalBody>
-          <p style={{ fontSize: 14, margin: "0 0 1rem" }}>{t("settings.deleteConfirmBody")}</p>
+          <p style={{ fontSize: "var(--fs-lead)", margin: "0 0 1rem" }}>{t("settings.deleteConfirmBody")}</p>
           {googleUser && <p className="small text-body-secondary mb-0">{t("settings.deleteGoogleConfirm")}</p>}
           {!googleUser && (
             <FormGroup className="mb-0">
-              <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("settings.enterPasswordConfirm")}</Label>
+              <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.enterPasswordConfirm")}</Label>
               <Input type="password" placeholder={t("settings.yourCurrentPassword")} value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
             </FormGroup>
           )}
           {deleteError && (
-            <Alert color="danger" style={{ fontSize: 13, marginTop: "0.75rem", marginBottom: 0 }}>
+            <Alert color="danger" style={{ fontSize: "var(--fs-text)", marginTop: "0.75rem", marginBottom: 0 }}>
               {t(deleteError)}
             </Alert>
           )}

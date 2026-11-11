@@ -12,7 +12,7 @@
   grid-template-columns: minmax(72px, 96px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .name {
@@ -76,7 +76,7 @@
    keeps three columns rather than four. */
 .left {
   grid-column: 3;
-  font-size: 10px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   text-align: right;

@@ -40,7 +40,7 @@ function MonthGrid({ label, selectedYear, onSelectMonth, onSelectYear, minYear, 
 
   return (
     <div style={{ flex: "1 1 190px", minWidth: 0 }}>
-      <p className="text-uppercase fw-semibold text-body-secondary mb-2" style={{ fontSize: 11, letterSpacing: "0.07em" }}>
+      <p className="text-uppercase fw-semibold text-body-secondary mb-2" style={{ fontSize: "var(--fs-caption)", letterSpacing: "0.07em" }}>
         {label}
       </p>
 
@@ -48,7 +48,7 @@ function MonthGrid({ label, selectedYear, onSelectMonth, onSelectYear, minYear, 
         <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.max(minYear, selectedYear - 1))} disabled={selectedYear <= minYear} aria-label={t("overview.previousYear")}>
           ‹
         </button>
-        <span className="fw-medium text-body-emphasis" style={{ fontSize: 14 }}>
+        <span className="fw-medium text-body-emphasis" style={{ fontSize: "var(--fs-lead)" }}>
           {selectedYear}
         </span>
         <button type="button" className={styles.navBtn} onClick={() => onSelectYear(Math.min(maxYear, selectedYear + 1))} disabled={selectedYear >= maxYear} aria-label={t("overview.nextYear")}>
@@ -168,18 +168,18 @@ export function CustomRangeModal({ isOpen, onClose, onApply, initialRange, minYe
           className="d-flex align-items-center justify-content-center flex-wrap mt-3 px-3 py-2"
           style={{ gap: 6, background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}
         >
-          <span className="fw-medium text-primary" style={{ fontSize: 13 }}>
+          <span className="fw-medium text-primary" style={{ fontSize: "var(--fs-text)" }}>
             {fromLabel}
           </span>
           {!isSame && (
             <>
-              <span className="text-body-secondary" style={{ fontSize: 12 }}>
+              <span className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                 →
               </span>
-              <span className="fw-medium text-primary" style={{ fontSize: 13 }}>
+              <span className="fw-medium text-primary" style={{ fontSize: "var(--fs-text)" }}>
                 {toLabel}
               </span>
-              <span className="text-body-secondary ms-1" style={{ fontSize: 11 }}>
+              <span className="text-body-secondary ms-1" style={{ fontSize: "var(--fs-caption)" }}>
                 ({monthCount} {monthCount === 1 ? t("overview.month") : t("overview.months")})
               </span>
             </>

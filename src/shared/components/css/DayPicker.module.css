@@ -41,7 +41,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
-  font-size: var(--bs-body-font-size);
+  font-size: var(--fs-body);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }

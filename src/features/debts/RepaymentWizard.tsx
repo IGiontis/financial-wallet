@@ -121,7 +121,7 @@ export default function RepaymentWizard({
       >
         <ModalBody>
           <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`debts.wizard.stepShort${s}`)} large />
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`debts.wizard.${borrowed ? "out" : "in"}${step}`)}
           </div>
 

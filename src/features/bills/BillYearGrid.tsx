@@ -124,7 +124,7 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
   return (
     <div className="mb-3">
       <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-        <span className="text-uppercase text-body-secondary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>
+        <span className="text-uppercase text-body-secondary" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.06em" }}>
           {t("bills.payByMonth")}
         </span>
         {/* The key behind the ⓘ, each line drawn with the squares' own classes. */}

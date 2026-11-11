@@ -176,7 +176,7 @@ export function GoalLookStep({ form, notesPlaceholder, children }: { form: GoalF
         </Label>
         <Input id="goal-notes" type="textarea" name="notes" rows={2} placeholder={notesPlaceholder} value={values.notes} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "notes")} />
         <FormFeedback>{msg(form.errors.notes, t)}</FormFeedback>
-        <FormText style={{ fontSize: 11 }}>{values.notes.length} / 300</FormText>
+        <FormText style={{ fontSize: "var(--fs-caption)" }}>{values.notes.length} / 300</FormText>
       </FormGroup>
       {children}
     </>

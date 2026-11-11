@@ -230,7 +230,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: 15 }}>{t(edit ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
+        <span style={{ fontSize: "var(--fs-lead)" }}>{t(edit ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
       </ModalHeader>
 
       <form
@@ -243,7 +243,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
       >
         <ModalBody>
           <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`planner.cadence_stepShort${s}`)} open={edit} large />
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`planner.cadence_${dated ? "oneoff" : "line"}${step}`)}
           </div>
 

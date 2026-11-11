@@ -23,7 +23,7 @@ export default function IncomeSources({ rows, total, formatCurrency }: { rows: P
         const share = total > 0 ? Math.round((row.amount / total) * 100) : 0;
         return (
           <div key={row.name}>
-            <div className="d-flex justify-content-between gap-2 mb-1" style={{ fontSize: 12 }}>
+            <div className="d-flex justify-content-between gap-2 mb-1" style={{ fontSize: "var(--fs-small)" }}>
               <span className={styles.sourceName}>{row.name}</span>
               <span className="flex-shrink-0">
                 <span className="fw-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>

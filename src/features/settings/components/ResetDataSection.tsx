@@ -74,7 +74,7 @@ export default function ResetDataSection() {
 
   return (
     <>
-      <p className="text-body-secondary" style={{ fontSize: 13 }}>
+      <p className="text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
         {t("settings.resetBody")}
       </p>
       <Button color="warning" outline onClick={() => setOpen(true)}>
@@ -85,12 +85,12 @@ export default function ResetDataSection() {
         <ModalHeader toggle={close}>{t("settings.resetTitle")}</ModalHeader>
         <ModalBody>
           {deleted !== null ? (
-            <Alert color="success" className="mb-0" style={{ fontSize: 13 }}>
+            <Alert color="success" className="mb-0" style={{ fontSize: "var(--fs-text)" }}>
               {t("settings.resetDone", { count: deleted })}
             </Alert>
           ) : (
             <>
-              <p style={{ fontSize: 13 }}>{t("settings.resetChoose")}</p>
+              <p style={{ fontSize: "var(--fs-text)" }}>{t("settings.resetChoose")}</p>
 
               <div className="d-flex flex-column gap-2 mb-3">
                 {SCOPE_ITEMS.map((item) => (
@@ -106,10 +106,10 @@ export default function ResetDataSection() {
                       onChange={(e) => setScope((s) => ({ ...s, [item.key]: e.target.checked }))}
                     />
                     <span style={{ minWidth: 0 }}>
-                      <span className="d-block fw-medium" style={{ fontSize: 13 }}>
+                      <span className="d-block fw-medium" style={{ fontSize: "var(--fs-text)" }}>
                         {t(item.labelKey)}
                       </span>
-                      <span className="d-block text-body-secondary" style={{ fontSize: 11.5 }}>
+                      <span className="d-block text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                         {t(item.hintKey)}
                       </span>
                     </span>
@@ -117,7 +117,7 @@ export default function ResetDataSection() {
                 ))}
               </div>
 
-              <Alert color="secondary" className="py-2" style={{ fontSize: 12 }}>
+              <Alert color="secondary" className="py-2" style={{ fontSize: "var(--fs-small)" }}>
                 {t("settings.resetKeeps")}
               </Alert>
 
@@ -125,12 +125,12 @@ export default function ResetDataSection() {
               <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={CONFIRM_WORD} autoComplete="off" />
 
               {!anySelected && (
-                <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+                <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>
                   {t("settings.resetNothingSelected")}
                 </Alert>
               )}
               {error && (
-                <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+                <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>
                   {error}
                 </Alert>
               )}

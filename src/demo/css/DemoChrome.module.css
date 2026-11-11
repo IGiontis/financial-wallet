@@ -36,7 +36,7 @@
      lettering went with it. */
   background: var(--pending-wash-strong-solid);
   color: var(--color-pending-text);
-  font-size: 0.6875rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -113,7 +113,7 @@
 .menuNote {
   margin: 0;
   padding: var(--space-1) var(--space-4) var(--space-2);
-  font-size: 0.75rem;
+  font-size: var(--fs-small);
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
@@ -136,7 +136,7 @@
   height: 2.25rem;
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -174,7 +174,7 @@
 
   .action {
     padding: 0 var(--space-2);
-    font-size: 0.8125rem;
+    font-size: var(--fs-text);
   }
 }
 
@@ -207,14 +207,14 @@
 
 .noteTitle {
   margin: 0 0 var(--space-1);
-  font-size: 0.9375rem;
+  font-size: var(--fs-lead);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .noteBody {
   margin: 0 0 var(--space-4);
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -225,7 +225,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-1);
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   font-weight: 500;
   color: var(--color-text-secondary);
   text-decoration: none;

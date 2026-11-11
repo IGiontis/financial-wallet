@@ -54,7 +54,7 @@ export function IncomeMonthsAhead({
       </div>
 
       {total <= 0 ? (
-        <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
+        <p className="mb-0 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
           {t("incomes.year.empty")}
         </p>
       ) : (

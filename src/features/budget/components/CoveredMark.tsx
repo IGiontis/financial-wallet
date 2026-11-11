@@ -60,7 +60,7 @@ export function CoveredMark({ goal, compact = false, variant = "chip" }: { goal:
             border: "1px solid var(--goal-edge)",
             borderRadius: "var(--radius-pill)",
             padding: compact ? "1px 7px" : "2px 9px",
-            fontSize: compact ? 11.5 : 12,
+            fontSize: "var(--fs-small)",
             fontWeight: 600,
           }}
         >

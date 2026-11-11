@@ -46,13 +46,13 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)",
       }}
     >
-      <p style={{ fontSize: 12, fontWeight: 600, color: "var(--bs-primary)", marginBottom: 12, letterSpacing: "0.05em" }}>⛽ {localeUpperCase(t("transactions.fuelDetails"), i18n.resolvedLanguage)}</p>
+      <p style={{ fontSize: "var(--fs-small)", fontWeight: 600, color: "var(--bs-primary)", marginBottom: 12, letterSpacing: "0.05em" }}>⛽ {localeUpperCase(t("transactions.fuelDetails"), i18n.resolvedLanguage)}</p>
 
       {/* Fuel type + Place */}
       <Row className="g-3">
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.fuelType")} *</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.fuelType")} *</Label>
             <Input
               type="select"
               value={fuelType}
@@ -72,7 +72,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         </Col>
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.place")}</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.place")}</Label>
             <Input
               type="text"
               placeholder={t("transactions.placePlaceholder")}
@@ -90,7 +90,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
       <Row className="g-3 mt-0">
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
               {t("transactions.pricePerUnitLabel", { unit })} ({displayCurrency}) *
             </Label>
             <Input
@@ -108,7 +108,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         </Col>
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.quantityFilled", { unit })} *</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.quantityFilled", { unit })} *</Label>
             <Input
               type="number"
               min={0.01}
@@ -128,7 +128,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
       <Row className="g-3 mt-0">
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.odometer")} (km)</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.odometer")} (km)</Label>
             <Input
               type="number"
               min={0}
@@ -153,8 +153,8 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
                 width: "100%",
               }}
             >
-              <p style={{ fontSize: 11, color: "var(--bs-primary)", margin: 0, fontWeight: 500 }}>{t("transactions.fuelTotalAuto")}</p>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "var(--bs-primary)", margin: 0 }}>
+              <p style={{ fontSize: "var(--fs-caption)", color: "var(--bs-primary)", margin: 0, fontWeight: 500 }}>{t("transactions.fuelTotalAuto")}</p>
+              <p style={{ fontSize: "var(--fs-lead)", fontWeight: 700, color: "var(--bs-primary)", margin: 0 }}>
                 {new Intl.NumberFormat(intlLocale(i18n.resolvedLanguage), { style: "currency", currency: displayCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalCost)}
               </p>
             </div>

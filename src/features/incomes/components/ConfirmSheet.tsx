@@ -30,16 +30,16 @@ export function ConfirmSheet({
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{title}</ModalHeader>
       <ModalBody>
-        <p className="mb-0" style={{ fontSize: 14 }}>
+        <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
           {body}
         </p>
         {hint && (
-          <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 12.5 }}>
+          <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
             {hint}
           </p>
         )}
         {lockedReason && (
-          <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: 12 }}>
+          <p className="mb-0 mt-2 text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
             {lockedReason}
           </p>
         )}

@@ -882,17 +882,17 @@ export default function PersonDebtsModal({
         <Modal isOpen toggle={() => setDeleting(null)} centered size="sm">
           <ModalHeader toggle={() => setDeleting(null)}>{t("debts.deleteLoan")}</ModalHeader>
           <ModalBody>
-            <p className="mb-0" style={{ fontSize: 14 }}>
+            <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
               {t("debts.deleteLoanConfirm")}
             </p>
             {deletingLink.link?.contribution && (
-              <p className="mb-0 mt-2" style={{ fontSize: 14 }}>
+              <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-lead)" }}>
                 {t("debts.deleteCoveredDeposit", { amount: formatCurrency(deletingLink.link.contribution.amount), goal: deletingLink.goalName || deleting.label || "" })}
               </p>
             )}
             {deletingLink.failed && <CoveredLoadFailed onRetry={deletingLink.retry} />}
             {deletingLink.link?.expense && (
-              <p className="mb-0 mt-2" style={{ fontSize: 14 }}>
+              <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-lead)" }}>
                 {t("debts.deleteCoveredExpense", { amount: formatCurrency(deletingLink.link.expense.amount) })}
               </p>
             )}

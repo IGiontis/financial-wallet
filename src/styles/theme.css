@@ -1186,7 +1186,7 @@ html:root {
     width: 100%;
     min-height: 4rem;
     padding: var(--space-3) var(--space-6) var(--space-3) var(--space-4);
-    font-size: 1rem;
+    font-size: var(--fs-body);
   }
 
   .Toastify .Toastify__toast::before {
@@ -1220,7 +1220,7 @@ html:root {
   background: var(--surface-raised);
   box-shadow: var(--shadow-md);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   font-weight: 500;
   line-height: 1.35;
   margin-bottom: var(--space-2);
@@ -1320,7 +1320,7 @@ html:root {
     width: 100%;
     margin-bottom: var(--space-2);
     border-radius: var(--radius-menu);
-    font-size: 0.875rem;
+    font-size: var(--fs-lead);
   }
 
   /* It drops in from above rather than rising from below. */

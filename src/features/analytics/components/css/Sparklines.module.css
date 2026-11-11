@@ -13,7 +13,7 @@
 }
 
 .name {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -31,7 +31,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.25rem;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

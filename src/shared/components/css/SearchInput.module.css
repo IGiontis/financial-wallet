@@ -17,7 +17,7 @@
   width: 100%;
   min-height: 44px; /* comfortable touch target */
   padding: 0 36px 0 34px; /* room for the icon and the clear button */
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-primary);
   background: var(--color-surface);
   border: 1px solid var(--color-border-primary);
@@ -82,7 +82,7 @@
 
 .sm .input {
   min-height: 36px;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   padding: 0 var(--space-6) 0 30px;
 }
 

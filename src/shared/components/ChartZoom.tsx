@@ -49,11 +49,11 @@ export function ZoomModal({ open, onClose, title, hint, footer, fit, children }:
     // putting something down.
     <Modal isOpen={open} toggle={onClose} size="xl" centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: 15 }}>{title}</span>
+        <span style={{ fontSize: "var(--fs-lead)" }}>{title}</span>
       </ModalHeader>
       <ModalBody className="d-flex flex-column">
         {hint && (
-          <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
+          <p className="text-body-secondary mb-2" style={{ fontSize: "var(--fs-small)" }}>
             {hint}
           </p>
         )}

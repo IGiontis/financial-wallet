@@ -203,7 +203,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
             open={isEdit}
             large
           />
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {stepTitle}
           </div>
           {view === "review" && (
@@ -319,7 +319,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 </div>
               )}
               {draft.frequency !== "weekly" && (
-                <FormText className="d-block mt-n2 mb-3" style={{ fontSize: 11.5 }}>
+                <FormText className="d-block mt-n2 mb-3" style={{ fontSize: "var(--fs-small)" }}>
                   {t("incomes.form.dayHint")}
                 </FormText>
               )}
@@ -333,7 +333,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               </FormGroup>
 
               {nextDates.length > 0 && (
-                <div className="text-body-secondary" style={{ fontSize: 12 }}>
+                <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                   {t("incomes.form.nextDates", { dates: nextDates.map((o) => f.weekdayDate.format(o.date)).join(" · ") })}
                 </div>
               )}
@@ -387,7 +387,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                     </Label>
                   </FormGroup>
                   {pauseYear && pauseYear.rows[0] && (
-                    <div className="text-body-secondary" style={{ fontSize: 12 }}>
+                    <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                       {t("incomes.form.pausePreview", { total: format(pauseYear.total), count: pauseYear.rows[0].count, each: format(pauseYear.rows[0].each) })}
                     </div>
                   )}
@@ -455,7 +455,7 @@ function Question({ text, hint }: { text: string; hint: string }) {
   return (
     <>
       <span className="d-block">{text}</span>
-      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: 11.5 }}>
+      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
         {hint}
       </span>
     </>

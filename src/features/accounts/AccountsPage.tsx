@@ -367,7 +367,7 @@ export function AccountsPage() {
                         </span>
                         <span className={styles.when}>{dayFmt.format(r.at)}</span>
                       </span>
-                      <Badge pill color={said.color} className={`${said.tone} text-wrap text-end fw-semibold`} style={{ fontSize: 11.5 }}>
+                      <Badge pill color={said.color} className={`${said.tone} text-wrap text-end fw-semibold`} style={{ fontSize: "var(--fs-small)" }}>
                         {said.text}
                       </Badge>
                     </div>
@@ -495,7 +495,7 @@ function DeleteAccountModal({ account, onConfirm, onClose }: { account: MoneyAcc
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{t("accounts.delete")}</ModalHeader>
       <ModalBody>
-        <p className="mb-0" style={{ fontSize: 14 }}>
+        <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
           {t("accounts.deleteConfirm", { name: account.name })}
         </p>
         {deleteGuard.locked && <p className="small text-body-secondary mt-2 mb-0">{deleteGuard.reason}</p>}

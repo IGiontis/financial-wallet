@@ -251,7 +251,7 @@ export const OverviewPage = () => {
   const goalsGlance = (
         <Card className="mb-0">
             <CardBody className="p-3 p-sm-4">
-              <p className="fw-medium mb-1" style={{ fontSize: 14 }}>
+              <p className="fw-medium mb-1" style={{ fontSize: "var(--fs-lead)" }}>
                 {t("overview.activeGoals")}
               </p>
               <p className="small text-body-secondary mb-3">{t("overview.goalsAtAGlance")}</p>
@@ -259,7 +259,7 @@ export const OverviewPage = () => {
               {goalLoading ? (
                 <SkeletonRows count={3} icon={false} />
               ) : activeGoals.length === 0 ? (
-                <div className="d-flex flex-column align-items-center justify-content-center text-center text-body-secondary" style={{ height: 200, fontSize: 13 }}>
+                <div className="d-flex flex-column align-items-center justify-content-center text-center text-body-secondary" style={{ height: 200, fontSize: "var(--fs-text)" }}>
                   <span>{t("overview.noGoalsYet")}</span>
                   <span>{t("overview.createOneIn")}</span>
                 </div>
@@ -293,7 +293,7 @@ export const OverviewPage = () => {
                           <span className="flex-shrink-0" style={{ fontSize: 16 }}>
                             {goal.icon ?? "💰"}
                           </span>
-                          <p className="fw-medium text-truncate text-body-emphasis mb-0" style={{ fontSize: 13, minWidth: 0 }}>
+                          <p className="fw-medium text-truncate text-body-emphasis mb-0" style={{ fontSize: "var(--fs-text)", minWidth: 0 }}>
                             {goal.name}
                           </p>
                         </div>
@@ -301,13 +301,13 @@ export const OverviewPage = () => {
                         {isTargeted && goal.targetAmount ? (
                           <>
                             <Progress value={pct} color={progressColor} style={{ height: 4, borderRadius: 2, marginBottom: 5 }} />
-                            <div className="d-flex justify-content-between text-body-secondary" style={{ fontSize: 11 }}>
+                            <div className="d-flex justify-content-between text-body-secondary" style={{ fontSize: "var(--fs-caption)" }}>
                               <span>{formatCurrency(goal.totalSaved)}</span>
                               <span className="fw-medium">{pct.toFixed(0)}%</span>
                             </div>
                           </>
                         ) : (
-                          <p className="fw-medium text-body-emphasis mb-0" style={{ fontSize: 14 }}>
+                          <p className="fw-medium text-body-emphasis mb-0" style={{ fontSize: "var(--fs-lead)" }}>
                             {formatCurrency(goal.totalSaved)}
                           </p>
                         )}
@@ -588,7 +588,7 @@ export const OverviewPage = () => {
             <CardBody className="p-3 p-sm-4">
               <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                  <p className="fw-medium mb-0" style={{ fontSize: 14 }}>
+                  <p className="fw-medium mb-0" style={{ fontSize: "var(--fs-lead)" }}>
                     {t("overview.cashFlow")}
                   </p>
                   <p className="small text-body-secondary mb-0">{isSingleMonth ? t("overview.weeklyBreakdown") : t("overview.monthlyBreakdown")}</p>
@@ -597,7 +597,7 @@ export const OverviewPage = () => {
               </div>
 
               {chartData.length === 0 ? (
-                <div className="d-flex align-items-center justify-content-center text-body-secondary" style={{ height: 280, fontSize: 14 }}>
+                <div className="d-flex align-items-center justify-content-center text-body-secondary" style={{ height: 280, fontSize: "var(--fs-lead)" }}>
                   {t("overview.noTransactionsPeriod")}
                 </div>
               ) : (

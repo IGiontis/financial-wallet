@@ -37,7 +37,7 @@ function RateExplainer({
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: 15 }}>{t("debts.rateHelpTitle")}</span>
+        <span style={{ fontSize: "var(--fs-lead)" }}>{t("debts.rateHelpTitle")}</span>
       </ModalHeader>
 
       <ModalBody className="pt-2">

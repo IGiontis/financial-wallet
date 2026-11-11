@@ -374,7 +374,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       >
         <ModalBody className="wash-expense">
           <WizardSteps steps={BILL_STEPS} current={step} onGo={(target) => void goTo(target)} label={(s) => t(`bills.wizard.step_${s}`)} open={isEdit} large />
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`bills.wizard.title_${step}`)}
           </div>
 
@@ -781,7 +781,7 @@ function Question({ text, hint }: { text: string; hint: string }) {
   return (
     <>
       <span className="d-block">{text}</span>
-      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: 11 }}>
+      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-caption)" }}>
         {hint}
       </span>
     </>

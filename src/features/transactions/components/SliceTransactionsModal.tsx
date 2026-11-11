@@ -52,11 +52,11 @@ export default function SliceTransactionsModal({ title, transactions, total, cat
   return (
     <Modal isOpen={title !== null} toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: 15 }}>{title}</span>
+        <span style={{ fontSize: "var(--fs-lead)" }}>{title}</span>
       </ModalHeader>
 
       <ModalBody className="pt-2">
-        <div className="d-flex justify-content-between align-items-baseline mb-2" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+        <div className="d-flex justify-content-between align-items-baseline mb-2" style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
           <span>{t("transactions.transactionCount", { count: transactions.length })}</span>
           <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{formatCurrency(total)}</span>
         </div>

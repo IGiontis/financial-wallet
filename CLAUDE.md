@@ -120,6 +120,12 @@ needs sensible demo data, and `fixtures.test.ts` keeps the figures consistent.
   and black & gold; each light and dark). Components use roles (`--surface`, `--text`,
   `--brand`, `--income`, `--expense-text` …), never hex. `src/styles/shape.css` holds radius,
   spacing, shadows and motion; `theme.css` wires Bootstrap to them.
+- **Font sizes come only from the `--fs-*` tokens in `src/styles/shape.css`** (scale B:
+  caption 11 / small 12 / text 13 / lead 14 / body 16 / figure 18 / title 20 / display 24;
+  inline TSX `fontSize: "var(--fs-text)"`). px only for an icon/emoji in a fixed box,
+  initials or a step number in a fixed circle, a 16px input (iOS zoom), a label < 10px in a
+  fixed calendar/heatmap/chart cell, `.nav-badge` pills, and Recharts/ECharts props;
+  each is named with its reason in `typeScale.test.ts`. Card titles stay above figures.
 - Never pure white or pure black. Decorative gradients run DARK at the top-left → LIGHT at
   the bottom-right.
 - Text pairs ≥ 8:1 (`contrast.test.ts`). The owner's exact red #C4302B and green #12855A

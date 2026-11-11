@@ -1,7 +1,7 @@
 /* «Διαχείριση»: one plain row per item, its edit and its bin at the end. */
 
 .chip {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
 }
 
@@ -91,7 +91,7 @@
   padding: 1px 7px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-border-primary);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -102,7 +102,7 @@
 }
 
 .meta {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

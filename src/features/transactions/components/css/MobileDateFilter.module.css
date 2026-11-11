@@ -35,7 +35,7 @@
   border-radius: var(--border-radius-md);
   background: none;
   color: var(--color-text-primary);
-  font-size: 15px;
+  font-size: var(--fs-lead);
   font-weight: 700;
 }
 
@@ -70,7 +70,7 @@
   border-radius: var(--radius-pill);
   background: var(--segment-item);
   color: var(--color-text-secondary);
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-weight: 600;
   white-space: nowrap;
 }

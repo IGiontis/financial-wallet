@@ -15,7 +15,7 @@ export function LegalLinks({ promise = true }: { promise?: boolean }) {
   const link = { color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 } as const;
 
   return (
-    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+    <span style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
       <Link to="/terms" style={link}>
         {t("legal.terms")}
       </Link>

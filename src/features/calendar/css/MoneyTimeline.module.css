@@ -37,7 +37,7 @@
 }
 
 .todayLink {
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
 }
 
 .totals {
@@ -45,7 +45,7 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.25rem 1.25rem;
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }

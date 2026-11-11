@@ -170,7 +170,7 @@ export default function CheckInModal({
 
       {/* The answer sits by the button, where the eye already is when saving. */}
       <ModalFooter className="d-block">
-        <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2" style={{ fontSize: 13 }}>
+        <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2" style={{ fontSize: "var(--fs-text)" }}>
           <span className="text-body-secondary">
             {hasExpectation ? t("accounts.expectedVsHave", { expected: formatCurrency(expectedTotal), have: valid ? formatCurrency(total) : "—" }) : t("accounts.youHaveTotal", { have: valid ? formatCurrency(total) : "—" })}
           </span>

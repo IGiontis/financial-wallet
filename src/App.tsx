@@ -65,7 +65,7 @@ function OfflineBanner() {
         background: "var(--color-tooltip-bg)",
         color: "var(--color-tooltip-text)",
         textAlign: "center",
-        fontSize: 13,
+        fontSize: "var(--fs-text)",
         fontWeight: 500,
         padding: "8px 16px",
         paddingBottom: "calc(8px + env(safe-area-inset-bottom))",

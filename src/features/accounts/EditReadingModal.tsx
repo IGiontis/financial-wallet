@@ -95,7 +95,7 @@ export default function EditReadingModal({
         })}
       </ModalBody>
       <ModalFooter className="d-block">
-        <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2" style={{ fontSize: 13 }}>
+        <div className="d-flex justify-content-between align-items-baseline gap-2 mb-2" style={{ fontSize: "var(--fs-text)" }}>
           <span className="text-body-secondary">{t("accounts.fixGapLabel")}</span>
           <span className="fw-semibold text-nowrap" style={{ fontVariantNumeric: "tabular-nums", color: gap === undefined || gap === 0 ? undefined : gap < 0 ? "var(--color-expense-text)" : "var(--color-income-text)" }}>
             {gap === undefined ? "—" : gap === 0 ? `✓ ${t("accounts.allWritten")}` : signed(gap)}

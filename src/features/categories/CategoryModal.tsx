@@ -90,12 +90,12 @@ export default function CategoryModal({ existing, scope: initialScope, category,
               maxLength={60}
             />
             <FormFeedback>{error ? t(error) : ""}</FormFeedback>
-            {!duplicate && <FormText style={{ fontSize: 11 }}>{t("categories.nameHint")}</FormText>}
+            {!duplicate && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("categories.nameHint")}</FormText>}
           </FormGroup>
 
           {/* Shown the moment it applies, not held back until Save */}
           {duplicate && (
-            <Alert color="warning" className="py-2" style={{ fontSize: 12 }}>
+            <Alert color="warning" className="py-2" style={{ fontSize: "var(--fs-small)" }}>
               {t("categories.duplicateWarning", { name: `${duplicate.icon ?? ""} ${categoryLabel(duplicate.name, t)}`.trim() })}
             </Alert>
           )}
@@ -112,13 +112,13 @@ export default function CategoryModal({ existing, scope: initialScope, category,
                   active={scope === option.value}
                   onClick={() => setScope(option.value)}
                   disabled={!!category && !allowedScopes(category.scope).includes(option.value)}
-                  style={{ fontSize: 13 }}
+                  style={{ fontSize: "var(--fs-text)" }}
                 >
                   {t(option.labelKey)}
                 </Button>
               ))}
             </div>
-            <FormText style={{ fontSize: 11 }}>{!category ? t("categories.scopeHint") : category.scope === "both" ? t("categories.scopeBothLocked") : t("categories.scopeWiden")}</FormText>
+            <FormText style={{ fontSize: "var(--fs-caption)" }}>{!category ? t("categories.scopeHint") : category.scope === "both" ? t("categories.scopeBothLocked") : t("categories.scopeWiden")}</FormText>
           </FormGroup>
 
           <FormGroup className="mb-0">
@@ -138,7 +138,7 @@ export default function CategoryModal({ existing, scope: initialScope, category,
                 aria-describedby={showIconError ? "category-icon-error" : undefined}
                 style={{ width: 72, fontSize: 22, textAlign: "center", lineHeight: 1.2 }}
               />
-              <FormText style={{ fontSize: 11 }}>{t("categories.iconHint")}</FormText>
+              <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("categories.iconHint")}</FormText>
             </div>
             {showIconError && (
               <div id="category-icon-error" className="invalid-feedback d-block mt-n1 mb-2">

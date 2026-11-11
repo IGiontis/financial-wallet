@@ -30,7 +30,7 @@
   min-width: 2.75em;
   text-align: right;
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: var(--fs-small);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);

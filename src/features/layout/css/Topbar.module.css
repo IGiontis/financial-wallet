@@ -73,7 +73,7 @@
 .menuButton {
   border: 1px solid var(--shell-rule);
   color: var(--shell-text);
-  font-size: 20px;
+  font-size: var(--fs-title);
 }
 
 /* ── The dot on ☰ ──────────────────────────────────────────────────────────── */
@@ -144,7 +144,7 @@
 
 .userName {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   color: var(--shell-text);
 }
 
@@ -196,12 +196,12 @@
 
 .userInfoName {
   font-weight: 500;
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-primary);
 }
 
 .userInfoEmail {
-  font-size: 0.85rem;
+  font-size: var(--fs-lead);
   color: var(--color-text-secondary);
   word-break: break-all;
 }

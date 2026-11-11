@@ -6,7 +6,7 @@
 
 .legend {
   margin: 0 0 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   font-weight: 500;
 }
 
@@ -45,7 +45,7 @@
   gap: 0.5rem;
   justify-self: start;
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
   overflow-wrap: anywhere;
 }
 
@@ -69,7 +69,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.875rem;
+  font-size: var(--fs-lead);
 }
 
 .changes li {
@@ -130,7 +130,7 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--border-radius-md);
   background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
-  font-size: 0.8125rem;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

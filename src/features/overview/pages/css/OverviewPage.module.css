@@ -1,6 +1,6 @@
-/* Overview page — only what Bootstrap utilities can't express. */
+/* Overview page Ã¢â‚¬â€ only what Bootstrap utilities can't express. */
 
-/* Goal card in the "Active goals" panel — clickable, opens the detail modal. */
+/* Goal card in the "Active goals" panel Ã¢â‚¬â€ clickable, opens the detail modal. */
 .goalCard {
   cursor: pointer;
   border: 1px solid transparent;
@@ -19,7 +19,7 @@
   outline-offset: 2px;
 }
 
-/* ── The dashboard as unequal tiles ───────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The dashboard as unequal tiles Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 /* Six identical metric cards gave the balance, the month's income and the money
    left over exactly the same weight, so the page said everything and stressed
    nothing. Size is the cheapest hierarchy there is: the figure that answers
@@ -31,7 +31,7 @@
   gap: 10px;
 }
 
-/* On a phone, two to a row — each box starts at half the width, and only one
+/* On a phone, two to a row Ã¢â‚¬â€ each box starts at half the width, and only one
    whose figure will not fit in half takes the whole row (a figure is never
    wrapped: `min-width: min-content` with the value kept on one line). The
    chart always takes the row. */
@@ -90,7 +90,7 @@
   }
 }
 
-/* ── The balance, at the size it deserves ─────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The balance, at the size it deserves Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .balanceBody {
   display: flex;
@@ -118,7 +118,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-weight: 600;
 }
 
@@ -139,10 +139,10 @@
   padding-top: var(--space-2);
 }
 
-/* ── The small figures ────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The small figures Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 /* The small tiles hold four or five digits, so they do not need a card's worth
-   of padding around them — the padding is theirs rather than Bootstrap's, so
+   of padding around them Ã¢â‚¬â€ the padding is theirs rather than Bootstrap's, so
    there is no race between two rules of equal weight. */
 .stat {
   display: flex;
@@ -177,29 +177,30 @@
   background: var(--color-background-secondary);
 }
 
-/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Tabs Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 /* Full width on every screen: four equal targets, never a scroll. */
 .tabBar {
   width: 100%;
 }
 
-.tabButton {
+/* Under .tabBar: the shared Segmented .item sets its own phone size and height with one class, and which of two one-class rules wins depends on which page's CSS loaded first. The bar + button pair always wins. */
+.tabBar .tabButton {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   min-height: 48px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 @media (min-width: 576px) {
-  .tabButton {
+  .tabBar .tabButton {
     flex-direction: row;
     gap: 6px;
     min-height: 40px;
-    font-size: 13px;
+    font-size: var(--fs-text);
   }
 }
 
@@ -210,15 +211,15 @@
 }
 
 .panelTitle {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
   color: var(--color-text-secondary);
 }
 
-/* ── Today ────────────────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Today Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
-/* As many to a row as fit, each at least 180px — and wider when what is in
-   it needs more: a long tag ("278 μέρες καθυστέρηση") widens its own box, to
+/* As many to a row as fit, each at least 180px Ã¢â‚¬â€ and wider when what is in
+   it needs more: a long tag ("278 ÃŽÂ¼ÃŽÂ­ÃÂÃŽÂµÃâ€š ÃŽÂºÃŽÂ±ÃŽÂ¸Ãâ€¦ÃÆ’Ãâ€žÃŽÂ­ÃÂÃŽÂ·ÃÆ’ÃŽÂ·") widens its own box, to
    the whole row if it has to, rather than spilling out of it. */
 .attention {
   display: flex;
@@ -269,7 +270,7 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 600;
   line-height: 1.3;
 }
@@ -287,7 +288,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── The month's in and out, as one card ─────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The month's in and out, as one card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .inOut {
   display: grid;
@@ -332,7 +333,7 @@
 }
 
 .inOutNote {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -352,7 +353,7 @@
 .inOutNet {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -363,7 +364,7 @@
   }
 }
 
-/* ── The month / position ─────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The month / position Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .verdictValue {
   font-size: var(--stat-figure-size);
@@ -390,7 +391,7 @@
   gap: 1rem;
   padding: var(--space-2) 0;
   border-top: 1px solid var(--color-border-tertiary);
-  font-size: 13.5px;
+  font-size: var(--fs-text);
 }
 
 .madeOf > div:first-child {
@@ -417,7 +418,7 @@
   font-weight: 700;
 }
 
-/* ── Everything ───────────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Everything Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .tiles {
   display: grid;
@@ -476,7 +477,7 @@
 }
 
 .tileSub {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -494,7 +495,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -504,7 +505,7 @@
   white-space: nowrap;
 }
 
-/* ── Where it went ────────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Where it went Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .spendBar {
   display: flex;
@@ -536,7 +537,7 @@
 }
 
 /* Six ranges do not fit one row on a phone, and scrolling them sideways hid
-   "From – To" off the edge. Here, unlike the app's other segmented rows, they
+   "From Ã¢â‚¬â€œ To" off the edge. Here, unlike the app's other segmented rows, they
    wrap onto a second line so every choice is in sight. */
 @media (max-width: 767.98px) {
   div.periodPicker {
@@ -549,10 +550,10 @@
   }
 }
 
-/* ── The hero: the money now, and whether it lasts until pay day ────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The hero: the money now, and whether it lasts until pay day Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 /* The type and the hairline are the shared `.stat-head` (index.css). One
-   line: beside «Βάλε τράπεζες» it was squeezed onto three, and the button
+   line: beside Ã‚Â«ÃŽâ€™ÃŽÂ¬ÃŽÂ»ÃŽÂµ Ãâ€žÃÂÃŽÂ¬Ãâ‚¬ÃŽÂµÃŽÂ¶ÃŽÂµÃâ€šÃ‚Â» it was squeezed onto three, and the button
    goes under it instead when the two do not fit. */
 .heroLabel {
   margin: 0;
@@ -580,7 +581,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* What goes, then what stays, as one bar — the subtraction you can see. */
+/* What goes, then what stays, as one bar Ã¢â‚¬â€ the subtraction you can see. */
 .heroBar {
   display: flex;
   gap: 2px;
@@ -603,7 +604,7 @@
   padding: 0;
   list-style: none;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-variant-numeric: tabular-nums;
 }
 
@@ -612,7 +613,7 @@
   align-items: center;
 }
 
-/* ── The banks strip under it ──────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ The banks strip under it Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .strip {
   display: flex;
@@ -623,7 +624,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 /* Under the figure inside the money card: it corrects that figure. */
@@ -653,14 +654,14 @@
   text-underline-offset: 2px;
 }
 
-/* ── Rows with a button of their own ───────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Rows with a button of their own Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 a.attentionName {
   color: inherit;
   text-decoration: none;
 }
 
-/* ── Today ─────────────────────────────────────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Today Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .todayList {
   margin: 0;
@@ -699,11 +700,11 @@ a.attentionName {
   line-height: 1.25;
 }
 
-/* «Δεν βγαίνεις»: the shortfall as a receipt — label left, figure right, the
+/* Ã‚Â«ÃŽâ€ÃŽÂµÃŽÂ½ ÃŽÂ²ÃŽÂ³ÃŽÂ±ÃŽÂ¯ÃŽÂ½ÃŽÂµÃŽÂ¹Ãâ€šÃ‚Â»: the shortfall as a receipt Ã¢â‚¬â€ label left, figure right, the
    sign in a column of its own so the figures line up. */
 .sum {
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -743,8 +744,8 @@ a.attentionName {
   color: var(--color-text-primary);
 }
 
-/* «Λεφτά που έχεις» in the light theme: filled in the style's strong colour
-   (--color-accent-strong: deep Aegean blue, pine in style Α) — the
+/* Ã‚Â«ÃŽâ€ºÃŽÂµÃâ€ Ãâ€žÃŽÂ¬ Ãâ‚¬ÃŽÂ¿Ãâ€¦ ÃŽÂ­Ãâ€¡ÃŽÂµÃŽÂ¹Ãâ€šÃ‚Â» in the light theme: filled in the style's strong colour
+   (--color-accent-strong: deep Aegean blue, pine in style ÃŽâ€˜) Ã¢â‚¬â€ the
    one strong thing on the page, where every card used to weigh the same. The
    dark theme keeps its card: there the figure already stands out. */
 /* `background-color` itself: index.css paints every `.card` with `--color-surface` directly. */
@@ -761,7 +762,7 @@ a.attentionName {
 }
 
 /* Over `.text-body-secondary` (`!important`): app `!important`s live in this
-   layer (index.css, «Cascade layers»). */
+   layer (index.css, Ã‚Â«Cascade layersÃ‚Â»). */
 @layer app-important {
   :global([data-bs-theme="light"]) .heroMoney .heroLabel,
   :global([data-bs-theme="light"]) .heroMoney :global(.text-body-secondary) {
@@ -796,12 +797,12 @@ a.attentionName {
   outline-color: var(--on-brand);
 }
 
-/* Under «Λεφτά που έχεις»: the banks, less the goals, adding up to the figure;
+/* Under Ã‚Â«ÃŽâ€ºÃŽÂµÃâ€ Ãâ€žÃŽÂ¬ Ãâ‚¬ÃŽÂ¿Ãâ€¦ ÃŽÂ­Ãâ€¡ÃŽÂµÃŽÂ¹Ãâ€šÃ‚Â»: the banks, less the goals, adding up to the figure;
    then the month so far. Colours inherited, so it reads on the light theme's
    blue card and on the dark theme's card alike. */
 .breakdown {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-variant-numeric: tabular-nums;
 }
 

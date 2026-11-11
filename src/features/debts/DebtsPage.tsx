@@ -148,7 +148,7 @@ export function DebtsPage() {
       <div className={wide && shown.length > 0 ? styles.split : undefined}>
         <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`} data-tour="debts-people">
           {shown.length === 0 ? (
-            <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
+            <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
               {t(side === "owe" ? "debts.filterEmptyOwe" : side === "owed" ? "debts.filterEmptyOwed" : "debts.empty")}
             </p>
           ) : (

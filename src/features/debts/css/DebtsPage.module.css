@@ -50,7 +50,7 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -93,7 +93,7 @@
 }
 
 .netNote {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -130,12 +130,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--fs-lead);
 }
 
 .personCount {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
@@ -144,7 +144,7 @@
    later — "-100" could as easily be "I repaid it" as "I owe it". */
 .personBalance {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -208,12 +208,12 @@
 
 .paymentHint {
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
 .settledTag {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: var(--color-income);
 }
 
@@ -232,14 +232,14 @@
 }
 
 .loanPreviewAmount {
-  font-size: 15px;
+  font-size: var(--fs-lead);
   font-weight: 650;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .loanPreviewCost {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -257,21 +257,21 @@
 }
 
 .payMoreHead {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: 6px;
 }
 
 .payMoreResult {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   margin-top: 6px;
   color: var(--color-income-text);
   font-weight: 600;
 }
 
 .payMoreIdle {
-  font-size: 12px;
+  font-size: var(--fs-small);
   margin-top: 6px;
   color: var(--color-text-secondary);
 }
@@ -281,14 +281,14 @@
    rather than letting a photograph pass for a fact. */
 
 .loanPreviewNote {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 400;
   color: var(--color-text-secondary);
 }
 
 /* The payment going up is not a saving, so it does not get the saving's colour. */
 .rateWatchUp {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   margin-top: 6px;
   color: var(--color-expense-text);
   font-weight: 600;
@@ -306,7 +306,7 @@
 }
 
 .rateIndexLabel {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -328,7 +328,7 @@
      `--color-link` is the token that already darkens and lightens with the
      theme for exactly this. */
   color: var(--color-link);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
   cursor: pointer;
 }
@@ -342,14 +342,14 @@
 }
 
 .helpHeading {
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 650;
   color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .helpBody {
-  font-size: 13px;
+  font-size: var(--fs-text);
   line-height: 1.5;
   color: var(--color-text-secondary);
   margin-bottom: 8px;
@@ -368,7 +368,7 @@
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--color-border-tertiary);
   background: var(--color-background-secondary);
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-weight: 600;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -381,7 +381,7 @@
 }
 
 .partOp {
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -404,13 +404,13 @@
   gap: 10px;
   align-items: baseline;
   padding: var(--space-2) 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-variant-numeric: tabular-nums;
 }
 
 .helpTableHead {
   background: var(--color-background-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -440,7 +440,7 @@
 
 .helpPunch {
   margin: 10px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -452,7 +452,7 @@
   grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
   gap: 6px 12px;
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
 }
 
 .fields dt {
@@ -495,13 +495,13 @@
 .sheetTitle {
   display: flex;
   flex-direction: column;
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
   line-height: 1.25;
 }
 
 .sheetHeadline {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -558,7 +558,7 @@
   border: 0;
   background: none;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
   text-align: left;
 }
@@ -580,7 +580,7 @@
   border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
   background: none;
   color: var(--color-text-secondary);
-  font-size: 13.5px;
+  font-size: var(--fs-text);
   font-weight: 500;
   text-align: left;
 }
@@ -622,7 +622,7 @@
 }
 
 .heroSub {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -687,11 +687,11 @@ button.payRow[aria-expanded="true"] {
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: var(--fs-text);
 }
 
 .paySplit {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -722,7 +722,7 @@ button.payRow[aria-expanded="true"] {
 
 .payEmpty {
   margin: 0.75rem 0 0;
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -749,7 +749,7 @@ button.payRow[aria-expanded="true"] {
 
 .progressTitle {
   margin-bottom: 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -758,7 +758,7 @@ button.payRow[aria-expanded="true"] {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -802,7 +802,7 @@ button.payRow[aria-expanded="true"] {
   gap: 1rem;
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--color-border-tertiary);
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 .details dt {
@@ -885,7 +885,7 @@ button.payRow[aria-expanded="true"] {
   border-radius: var(--radius-pill);
   background: var(--color-background-secondary);
   color: var(--color-text-primary);
-  font-size: 12.5px;
+  font-size: var(--fs-text);
 }
 
 .wizChip:hover {
@@ -903,7 +903,7 @@ button.payRow[aria-expanded="true"] {
 .wizEffectHead {
   padding: var(--space-2) var(--space-3) 0;
   color: var(--color-text-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -972,7 +972,7 @@ button.payRow[aria-expanded="true"] {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 15px;
+  font-size: var(--fs-lead);
   font-weight: 600;
 }
 
@@ -982,7 +982,7 @@ button.payRow[aria-expanded="true"] {
 }
 
 .cardMeta {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -1006,7 +1006,7 @@ button.payRow[aria-expanded="true"] {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -1095,7 +1095,7 @@ button.payRow[aria-expanded="true"] {
 
 .personBarPct {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -1205,7 +1205,7 @@ button.payRow[aria-expanded="true"] {
 
 .cardRing strong {
   position: relative;
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1269,7 +1269,7 @@ button.payRow[aria-expanded="true"] {
 }
 
 .allMeta {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -1284,12 +1284,12 @@ button.payRow[aria-expanded="true"] {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
 .payNote {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-style: italic;
   color: var(--color-text-secondary);
   overflow-wrap: anywhere;
@@ -1324,7 +1324,7 @@ button.payRow[aria-expanded="true"] {
 
 .receiptRow {
   padding: 3px 0;
-  font-size: 13.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -1367,7 +1367,7 @@ button.payRow[aria-expanded="true"] {
 }
 
 .receiptSub {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 

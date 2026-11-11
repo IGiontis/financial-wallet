@@ -8,7 +8,7 @@ export function CashFlowLegend() {
   return (
     <div className="d-flex gap-3 flex-wrap">
       {SERIES.map((s) => (
-        <span key={s.key} className="d-flex align-items-center text-body-secondary" style={{ gap: 5, fontSize: 12 }}>
+        <span key={s.key} className="d-flex align-items-center text-body-secondary" style={{ gap: 5, fontSize: "var(--fs-small)" }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: cssVar(s.token), display: "inline-block" }} />
           {t(s.labelKey)}
         </span>

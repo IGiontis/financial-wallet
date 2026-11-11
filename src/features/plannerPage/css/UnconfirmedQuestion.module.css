@@ -13,7 +13,7 @@
   border: 1px solid color-mix(in srgb, var(--color-goal-text) var(--tint-border), var(--color-surface));
   border-radius: var(--border-radius-md);
   background: var(--goal-wash-solid);
-  font-size: 13px;
+  font-size: var(--fs-text);
 }
 
 .askQuestion {
@@ -31,6 +31,6 @@
 
 .askNote {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.35;
 }

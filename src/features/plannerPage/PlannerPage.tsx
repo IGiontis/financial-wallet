@@ -668,7 +668,7 @@ export function PlannerPage() {
       {/* The working behind the tiles. */}
       <Modal isOpen={sheet === "payday"} toggle={() => setSheet(null)} centered scrollable size="lg">
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: 15 }}>{t(outlook.known ? "planner.tilePayday" : "planner.tileMonthEnd")}</span>
+          <span style={{ fontSize: "var(--fs-lead)" }}>{t(outlook.known ? "planner.tilePayday" : "planner.tileMonthEnd")}</span>
         </ModalHeader>
         <ModalBody>
           <PlannerPaydayCard
@@ -696,7 +696,7 @@ export function PlannerPage() {
       </Modal>
       <Modal isOpen={sheet === "period"} toggle={() => setSheet(null)} centered scrollable size="lg">
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: 15 }}>{t("planner.wholePeriod")}</span>
+          <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.wholePeriod")}</span>
         </ModalHeader>
         <ModalBody>
           <PeriodCard inSheet plan={plan} horizon={horizon} onHorizon={setHorizon} scenario={!fromBanks} formatCurrency={formatCurrency} locale={lang} />
@@ -705,7 +705,7 @@ export function PlannerPage() {
       {/* Answered one by one; with none left there is nothing to show. */}
       <Modal isOpen={sheet === "questions" && unconfirmed.length > 0} toggle={() => setSheet(null)} centered scrollable>
         <ModalHeader toggle={() => setSheet(null)}>
-          <span style={{ fontSize: 15 }}>{t("planner.questionsTitle")}</span>
+          <span style={{ fontSize: "var(--fs-lead)" }}>{t("planner.questionsTitle")}</span>
         </ModalHeader>
         <ModalBody className="d-flex flex-column gap-2">
           {unconfirmed.map((o) => (

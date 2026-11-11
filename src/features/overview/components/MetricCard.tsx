@@ -15,10 +15,10 @@ export function MetricCard({ label, value, color, isPercentage = false, formatFn
   return (
     <Card className="text-center h-100">
       <CardBody className="py-3">
-        <p className="text-uppercase fw-medium text-body-secondary mb-1" style={{ fontSize: 12, letterSpacing: "0.06em" }}>
+        <p className="text-uppercase fw-medium text-body-secondary mb-1" style={{ fontSize: "var(--fs-small)", letterSpacing: "0.06em" }}>
           {label}
         </p>
-        <p className="mb-0 fw-medium" style={{ fontSize: 22, color }}>
+        <p className="mb-0 fw-medium" style={{ fontSize: "var(--fs-title)", color }}>
           {displayValue}
         </p>
       </CardBody>

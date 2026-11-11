@@ -47,7 +47,7 @@
 }
 
 .caption {
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   line-height: 1.3;
 }
 

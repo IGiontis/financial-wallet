@@ -161,7 +161,7 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
         <span>
           {settled ? t("bills.allSettled") : t("bills.toPayThisPeriod")}
         </span>
-        <Badge color="secondary" pill style={{ fontSize: 10, fontWeight: 500 }}>
+        <Badge color="secondary" pill style={{ fontSize: "var(--fs-caption)", fontWeight: 500 }}>
           {t("bills.periodEnds", { date: endLabel })}
         </Badge>
       </div>
@@ -169,19 +169,19 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
       <div className="d-flex align-items-baseline flex-wrap gap-2 mb-1">
         <span className={`${styles.bigAmount} ${settled ? styles.bigAmountSettled : ""}`}>{formatCurrency(settled ? totals.paid : totals.due)}</span>
         {!settled && totals.total > 0 && (
-          <span className="text-body-secondary" style={{ fontSize: 13 }}>
+          <span className="text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
             {t("bills.ofTotal", { total: formatCurrency(totals.total) })}
           </span>
         )}
       </div>
 
       {totals.totalCount === 0 ? (
-        <p className="text-body-secondary mb-0" style={{ fontSize: 12 }}>
+        <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-small)" }}>
           {t("bills.noBillsHint")}
         </p>
       ) : (
         <>
-          <p className="text-body-secondary mb-2" style={{ fontSize: 12 }}>
+          <p className="text-body-secondary mb-2" style={{ fontSize: "var(--fs-small)" }}>
             {settled ? t("bills.allSettledHint") : t("bills.alreadyPaid", { amount: formatCurrency(totals.paid) })}
           </p>
 
@@ -193,7 +193,7 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
             describe={(segment) => t(segment.done ? "bills.segPaid" : "bills.segOpen", { name: segment.label, amount: formatCurrency(segment.amount) })}
           />
 
-          <div className="mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
+          <div className="mt-2 text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
             {paidLine}
           </div>
 
@@ -240,7 +240,7 @@ function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast
     >
       <div className="stat-head d-flex justify-content-between align-items-center gap-2">
         <span>{t("bills.nextMonthTitle")}</span>
-        <Badge color="secondary" pill style={{ fontSize: 10, fontWeight: 500 }}>
+        <Badge color="secondary" pill style={{ fontSize: "var(--fs-caption)", fontWeight: 500 }}>
           {monthLabel}
         </Badge>
       </div>
@@ -1023,7 +1023,7 @@ function YearlyProjection({
             <span className={`${styles.yearlyMonthly} fw-semibold`} title={approximate.monthly ? t("bills.approximate") : undefined}>
               {approximate.monthly ? "~" : ""}
               {formatCurrency(total / 12)}
-              <span className="fw-normal ms-1" style={{ fontSize: 11 }}>
+              <span className="fw-normal ms-1" style={{ fontSize: "var(--fs-caption)" }}>
                 {t("bills.perMonthShort")}
               </span>
             </span>
@@ -1037,14 +1037,14 @@ function YearlyProjection({
           <div className="d-flex flex-column gap-2">
             {categories.map((c) => (
               <button key={c.categoryId} type="button" className={styles.yearlyCategory} onClick={() => onOpenCategory(c.categoryId, c.label)}>
-                <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12 }}>
+                <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: "var(--fs-small)" }}>
                   <span className="text-break d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
                     <span aria-hidden>{categoryFor(c.categoryId)?.icon ?? "•"}</span>
                     {c.label}
                   </span>
                   <span className="flex-shrink-0 text-end tabular-nums">
                     {formatCurrency(c.yearlyAmount)} <span className="fw-semibold">{Math.round(c.percentage)}%</span>
-                    <span className="d-block" style={{ fontSize: 10 }}>
+                    <span className="d-block" style={{ fontSize: "var(--fs-caption)" }}>
                       {formatCurrency(c.yearlyAmount / 12)} {t("bills.perMonthShort")}
                     </span>
                   </span>
@@ -1729,14 +1729,14 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
         <ModalBody>
           {undoTarget && (
             <>
-              <p className="mb-2" style={{ fontSize: 14 }}>
+              <p className="mb-2" style={{ fontSize: "var(--fs-lead)" }}>
                 {t("bills.undoConfirmBody", {
                   name: undoTarget.bill.name,
                   amount: formatCurrency(undoTarget.payment.amount),
                   date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(firestoreToDate(undoTarget.payment.paidDate)),
                 })}
               </p>
-              <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
+              <p className="mb-0 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
                 {undoTarget.payment.transactionId ? t("bills.undoConfirmExpense") : t("bills.undoConfirmNoExpense")}
               </p>
             </>
@@ -1761,11 +1761,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>
         <ModalBody>
-          <p className="mb-0" style={{ fontSize: 14 }}>
+          <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
             {t("bills.deleteConfirm", { name: deleteTarget?.name ?? "" })}
           </p>
           {deleteGuard.locked && (
-            <p className="mb-0 mt-2" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
               {deleteGuard.reason}
             </p>
           )}

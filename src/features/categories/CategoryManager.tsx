@@ -112,13 +112,13 @@ export default function CategoryManager() {
       {/* The app's one «+» (`AddButton`) pinned left; the words beside it wrap. */}
       <div className="d-flex align-items-center gap-2 mb-3">
         <AddButton small label={t("categories.new")} onClick={() => setCreating(true)} />
-        <span className="text-body-secondary" style={{ fontSize: 13, minWidth: 0 }}>
+        <span className="text-body-secondary" style={{ fontSize: "var(--fs-text)", minWidth: 0 }}>
           {t("categories.builtInCount", { count: defaultCount })}
         </span>
       </div>
 
       {own.length === 0 ? (
-        <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
+        <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
           {t("categories.noneYet")}
         </p>
       ) : (
@@ -132,10 +132,10 @@ export default function CategoryManager() {
               <span style={{ fontSize: 18 }} aria-hidden>
                 {group.icon ?? "🧾"}
               </span>
-              <span className="fw-medium text-break" style={{ fontSize: 14, flex: 1, minWidth: 0 }}>
+              <span className="fw-medium text-break" style={{ fontSize: "var(--fs-lead)", flex: 1, minWidth: 0 }}>
                 {group.name}
               </span>
-              <Badge color={SCOPE_COLOR[group.scope]} pill style={{ fontSize: 10 }}>
+              <Badge color={SCOPE_COLOR[group.scope]} pill style={{ fontSize: "var(--fs-caption)" }}>
                 {t(SCOPE_LABEL[group.scope])}
               </Badge>
               <Button color="secondary" outline size="sm" onClick={() => setEditing(group)} aria-label={t("common.edit")} title={t("common.edit")}>
@@ -185,7 +185,7 @@ export default function CategoryManager() {
             /* Refused rather than cascaded: deleting would leave those records
                with a category that no longer resolves. Moving them to another
                one writes every one of them, and is not offered (yet). */
-            <Alert color="warning" className="mb-0" style={{ fontSize: 13 }} data-testid="category-in-use">
+            <Alert color="warning" className="mb-0" style={{ fontSize: "var(--fs-text)" }} data-testid="category-in-use">
               <p className="mb-1">{t("categories.deleteUsedBy", { name: deleteTarget?.name ?? "" })}</p>
               <ul className="mb-2 ps-3">
                 {USAGE_KINDS.filter((kind) => usage[kind] > 0).map((kind) => (
@@ -195,9 +195,9 @@ export default function CategoryManager() {
               <p className="mb-0">{t("categories.deleteUsedHint")}</p>
             </Alert>
           ) : (
-            <p className="mb-0" style={{ fontSize: 14 }}>
+            <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
               {t("categories.deleteConfirm", { name: deleteTarget?.name ?? "" })}
-              {deleteTarget?.scope === "both" && <span className="d-block text-body-secondary mt-1" style={{ fontSize: 12 }}>{t("categories.deleteBothNote")}</span>}
+              {deleteTarget?.scope === "both" && <span className="d-block text-body-secondary mt-1" style={{ fontSize: "var(--fs-small)" }}>{t("categories.deleteBothNote")}</span>}
             </p>
           )}
         </ModalBody>

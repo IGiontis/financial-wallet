@@ -61,7 +61,7 @@ export default function BillMonthTimeline({
       <div className={styles.yearAheadHint}>{t("bills.timelineHint")}</div>
 
       {bills.length === 0 ? (
-        <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
+        <p className="mb-0 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
           {t("bills.timelineEmpty")}
         </p>
       ) : (

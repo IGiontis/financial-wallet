@@ -70,7 +70,7 @@ function ProgressRing({ pct, accent, centre }: { pct: number; accent: string; ce
           inset: 0,
           display: "grid",
           placeItems: "center",
-          fontSize: 15,
+          fontSize: "var(--fs-lead)",
           fontWeight: 650,
           color: "var(--color-text-primary)",
           fontVariantNumeric: "tabular-nums",
@@ -98,7 +98,7 @@ function Figure({ label, value, tone }: FigureProps) {
       <p
         style={{
           margin: 0,
-          fontSize: 13,
+          fontSize: "var(--fs-text)",
           fontWeight: 650,
           color: tone ?? "var(--color-text-primary)",
           fontVariantNumeric: "tabular-nums",
@@ -109,7 +109,7 @@ function Figure({ label, value, tone }: FigureProps) {
       >
         {value}
       </p>
-      <p style={{ margin: "2px 0 0", fontSize: 11, lineHeight: 1.25, color: "var(--color-text-secondary)" }}>{label}</p>
+      <p style={{ margin: "2px 0 0", fontSize: "var(--fs-caption)", lineHeight: 1.25, color: "var(--color-text-secondary)" }}>{label}</p>
     </div>
   );
 }
@@ -544,10 +544,10 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
                 >
                   {formatCurrency(heroAmount)}
                 </p>
-                <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
+                <p style={{ margin: "3px 0 0", fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", fontVariantNumeric: "tabular-nums" }}>{heroSubtitle}</p>
               </>
             )}
-            {note && <p style={{ margin: reachOnce ? 0 : "8px 0 0", fontSize: 12.5, fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
+            {note && <p style={{ margin: reachOnce ? 0 : "8px 0 0", fontSize: "var(--fs-text)", fontWeight: 600, color: note.tone ?? "var(--color-text-primary)" }}>{note.text}</p>}
             {/* What someone else paid and is still owed to them: a line of words beside the ring, above the figures. */}
             <div style={{ marginTop: note ? 6 : 0 }}>
               <CoveredMark goal={goal} variant="text" />
@@ -566,7 +566,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           </div>
         </div>
 
-        {goal.notes && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", fontStyle: "italic", margin: 0 }}>{goal.notes}</p>}
+        {goal.notes && <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", fontStyle: "italic", margin: 0 }}>{goal.notes}</p>}
 
         {/* When it is due and how long that leaves — or, without a date, what
             kind of goal it is — on a row of its own across the card, not
@@ -670,7 +670,7 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{t("common.delete")}</ModalHeader>
       <ModalBody>
-        <p style={{ fontSize: 14, margin: 0 }}>
+        <p style={{ fontSize: "var(--fs-lead)", margin: 0 }}>
           {/* The name goes in as an element, not as a value, so whatever the
               user typed is never read as markup. */}
           <Trans
@@ -684,9 +684,9 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
             }}
           />
         </p>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("investments.deleteWarning")}</p>
+        <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("investments.deleteWarning")}</p>
         {deleteGuard.locked && (
-          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>
+          <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>
         )}
       </ModalBody>
       <ModalFooter>
@@ -734,8 +734,8 @@ function HistorySummaryBar({
     <div style={{ display: "flex", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       {cells.map((c, i) => (
         <div key={c.label} style={{ flex: 1, textAlign: "center", padding: "10px var(--space-2)", borderLeft: i > 0 ? "0.5px solid var(--color-border-tertiary)" : "none" }}>
-          <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{c.label}</p>
-          <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: c.color }}>{c.value}</p>
+          <p style={{ fontSize: "var(--fs-caption)", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 2px" }}>{c.label}</p>
+          <p style={{ fontSize: "var(--fs-lead)", fontWeight: 600, margin: 0, color: c.color }}>{c.value}</p>
         </div>
       ))}
     </div>
@@ -753,7 +753,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
             onClick={() => onChange(tab)}
             style={{
               flex: 1,
-              fontSize: 12,
+              fontSize: "var(--fs-small)",
               fontWeight: isActive ? 600 : 400,
               padding: "var(--space-2) 0",
               textAlign: "center",
@@ -766,7 +766,7 @@ function HistoryTabBar({ active, counts, onChange }: { active: HistoryTab; count
             }}
           >
             {historyTabLabel(tab)}
-            <span style={{ marginLeft: 5, fontSize: 11, color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)" }}>({counts[tab]})</span>
+            <span style={{ marginLeft: 5, fontSize: "var(--fs-caption)", color: isActive ? "var(--bs-primary)" : "var(--color-text-secondary)" }}>({counts[tab]})</span>
           </button>
         );
       })}
@@ -780,11 +780,11 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "var(--space-2) var(--space-4)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
       <div style={{ width: 7, height: 7, borderRadius: "var(--radius-round)", background: color, flexShrink: 0 }} />
-      <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 88 }}>{formatDate(toDate(contribution.date))}</span>
-      <span title={contribution.notes} style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", whiteSpace: "nowrap", minWidth: 88 }}>{formatDate(toDate(contribution.date))}</span>
+      <span title={contribution.notes} style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {contribution.notes || "—"}
       </span>
-      <span style={{ fontSize: 13, fontWeight: 600, color, flexShrink: 0 }}>
+      <span style={{ fontSize: "var(--fs-text)", fontWeight: 600, color, flexShrink: 0 }}>
         {isDeposit ? "+" : "−"}
         {formatCurrency(contribution.amount)}
       </span>
@@ -806,7 +806,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
 
   return (
     <Modal isOpen toggle={onClose} centered size="md">
-      <ModalHeader toggle={onClose} style={{ fontSize: 14, fontWeight: 500 }}>
+      <ModalHeader toggle={onClose} style={{ fontSize: "var(--fs-lead)", fontWeight: 500 }}>
         {i18n.t("investments.historyTitle", { icon: goal.icon ?? "", name: goal.name })}
       </ModalHeader>
       <ModalBody style={{ padding: 0 }}>
@@ -818,7 +818,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
             <SkeletonRows count={4} />
           </div>
         ) : filtered.length === 0 ? (
-          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "var(--space-6) 0", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "var(--space-6) 0", fontSize: "var(--fs-text)", margin: 0 }}>
             {t(HISTORY_EMPTY_KEYS[activeTab])}
           </p>
         ) : (
@@ -841,7 +841,7 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         {!isLoading && filtered.length > 0 && (
           <p
             style={{
-              fontSize: 11,
+              fontSize: "var(--fs-caption)",
               color: "var(--color-text-secondary)",
               textAlign: "center",
               padding: "6px 0 var(--space-2)",

@@ -80,7 +80,7 @@ function CashFlowTooltip({
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <p className="text-uppercase fw-semibold mb-2" style={{ fontSize: 11, opacity: 0.6, letterSpacing: "0.08em" }}>
+      <p className="text-uppercase fw-semibold mb-2" style={{ fontSize: "var(--fs-caption)", opacity: 0.6, letterSpacing: "0.08em" }}>
         {label}
       </p>
 
@@ -88,19 +88,19 @@ function CashFlowTooltip({
         .filter((r) => r.always || r.value > 0)
         .map((r) => (
           <div key={r.labelKey} className="d-flex justify-content-between align-items-center mb-1" style={{ gap: 16 }}>
-            <span className="d-flex align-items-center" style={{ fontSize: 13, opacity: 0.75, gap: 7 }}>
+            <span className="d-flex align-items-center" style={{ fontSize: "var(--fs-text)", opacity: 0.75, gap: 7 }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: cssVar(r.token), display: "inline-block" }} />
               {t(r.labelKey)}
             </span>
-            <span className="fw-semibold" style={{ fontSize: 13, color: cssVar(r.token) }}>
+            <span className="fw-semibold" style={{ fontSize: "var(--fs-text)", color: cssVar(r.token) }}>
               {formatCurrency(r.value)}
             </span>
           </div>
         ))}
 
       <div className="d-flex justify-content-between pt-2 mt-1" style={{ borderTop: "1px solid color-mix(in srgb, var(--color-tooltip-text) 15%, transparent)", gap: 16 }}>
-        <span style={{ fontSize: 13, opacity: 0.75 }}>{t("overview.moneyLeft")}</span>
-        <span className="fw-bold" style={{ fontSize: 13, color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
+        <span style={{ fontSize: "var(--fs-text)", opacity: 0.75 }}>{t("overview.moneyLeft")}</span>
+        <span className="fw-bold" style={{ fontSize: "var(--fs-text)", color: moneyLeft >= 0 ? "var(--color-income)" : "var(--color-expense)" }}>
           {moneyLeft >= 0 ? "+" : ""}
           {formatCurrency(moneyLeft)}
         </span>

@@ -55,12 +55,12 @@ const tinted = (token: string, strength = 16): React.CSSProperties => ({
 });
 
 function getInvestmentBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, border: "none", ...(contributionType === "withdrawal" ? toneChip("invest") : tinted("--bs-primary")) };
+  return { fontSize: "var(--fs-caption)", border: "none", ...(contributionType === "withdrawal" ? toneChip("invest") : tinted("--bs-primary")) };
 }
 
 /** Money back out of a goal is the one to notice, so it is the stronger of the two. */
 function getGoalBadgeStyle(contributionType: string | undefined): React.CSSProperties {
-  return { fontSize: 10, border: "none", ...toneChip("goal", contributionType === "withdrawal") };
+  return { fontSize: "var(--fs-caption)", border: "none", ...toneChip("goal", contributionType === "withdrawal") };
 }
 
 /**
@@ -238,11 +238,11 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose, lock 
     <Modal isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose}>{t("transactions.deleteTransaction")}</ModalHeader>
       <ModalBody>
-        <p style={{ fontSize: 14, margin: 0 }}>
+        <p style={{ fontSize: "var(--fs-lead)", margin: 0 }}>
           {t("transactions.deleteConfirm", { defaultValue: "Are you sure you want to delete {{name}}?", name: transaction.description })}
         </p>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
-        {deleteGuard.locked && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
+        <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
+        {deleteGuard.locked && <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
         <LockNote state={lock} onLeave={onClose} />
       </ModalBody>
       <ModalFooter>
@@ -409,20 +409,20 @@ function Pagination({
         justifyContent: "space-between",
         padding: "10px 16px",
         borderTop: "1px solid var(--color-border-tertiary)",
-        fontSize: 13,
+        fontSize: "var(--fs-text)",
         color: "var(--color-text-secondary)",
         flex: "0 0 auto",
       }}
     >
       <span>{t("transactions.paginationRange", { from, to, total: totalItems })}</span>
       <div style={{ display: "flex", gap: 4 }}>
-        <Button size="sm" color="light" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
+        <Button size="sm" color="light" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} style={{ padding: "2px 10px", fontSize: "var(--fs-text)" }}>
           {t("common.prev")}
         </Button>
-        <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
+        <span style={{ display: "flex", alignItems: "center", padding: "0 8px", fontSize: "var(--fs-text)", fontWeight: 500, color: "var(--color-text-primary)" }}>
           {currentPage} / {totalPages}
         </span>
-        <Button size="sm" color="light" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} style={{ padding: "2px 10px", fontSize: 13 }}>
+        <Button size="sm" color="light" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} style={{ padding: "2px 10px", fontSize: "var(--fs-text)" }}>
           {t("common.next")}
         </Button>
       </div>
@@ -784,17 +784,17 @@ export function TransactionsPage() {
                     <Table hover className="mb-0">
                       <thead>
                         <tr>
-                          <th className="ps-3" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                          <th className="ps-3" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.date"), i18n.resolvedLanguage)}
                           </th>
-                          <th style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("transactions.payee"), i18n.resolvedLanguage)}</th>
-                          <th className="d-none d-xl-table-cell" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                          <th style={{ fontSize: "var(--fs-caption)", fontWeight: 600, color: "var(--color-text-secondary)" }}>{localeUpperCase(t("transactions.payee"), i18n.resolvedLanguage)}</th>
+                          <th className="d-none d-xl-table-cell" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.category"), i18n.resolvedLanguage)}
                           </th>
-                          <th className="text-end" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                          <th className="text-end" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.amount"), i18n.resolvedLanguage)}
                           </th>
-                          <th className="text-end pe-3 d-none d-xl-table-cell" style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                          <th className="text-end pe-3 d-none d-xl-table-cell" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                             {localeUpperCase(t("common.actions"), i18n.resolvedLanguage)}
                           </th>
                         </tr>
@@ -813,7 +813,7 @@ export function TransactionsPage() {
                             const chipStyle = getAmountChipStyle(tx);
                             return (
                               <tr key={tx.id} className={flashClass(tx.id)} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
-                                <td className="ps-3" style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                                <td className="ps-3" style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)" }}>
                                   {formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
                                 </td>
                                 {/* On a laptop the category sits under the payee: five columns did not fit beside the dates, and the amounts were cut off. */}
@@ -834,7 +834,7 @@ export function TransactionsPage() {
                                       display: "inline-block",
                                       padding: "3px 10px",
                                       borderRadius: 20,
-                                      fontSize: 13,
+                                      fontSize: "var(--fs-text)",
                                       fontWeight: 500,
                                       background: chipStyle.background,
                                       color: chipStyle.color,
@@ -849,7 +849,7 @@ export function TransactionsPage() {
                                 <td className="text-end pe-3 d-none d-xl-table-cell">
                                   <div className="d-flex justify-content-end gap-2 align-items-center" onClick={(e) => e.stopPropagation()}>
                                     {tx.transferId && (
-                                      <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: 10, ...tinted("--color-text-secondary") }}>{t("transactions.transfer.badge")}</span>
+                                      <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontWeight: 600, fontSize: "var(--fs-caption)", ...tinted("--color-text-secondary") }}>{t("transactions.transfer.badge")}</span>
                                     )}
                                     {!tx.transferId && !tx.isInvestmentTransaction && !tx.isGoalTransaction && (
                                       <span
@@ -858,7 +858,7 @@ export function TransactionsPage() {
                                           padding: "2px 8px",
                                           borderRadius: 4,
                                           fontWeight: 600,
-                                          fontSize: 10,
+                                          fontSize: "var(--fs-caption)",
                                           background: `color-mix(in srgb, var(${tx.type === "income" ? "--color-income" : "--color-expense"}) 16%, transparent)`,
                                           color: tx.type === "income" ? "var(--color-income)" : "var(--color-expense)",
                                         }}
@@ -874,7 +874,7 @@ export function TransactionsPage() {
                                           padding: "2px 8px",
                                           borderRadius: 4,
                                           fontWeight: 600,
-                                          fontSize: 10,
+                                          fontSize: "var(--fs-caption)",
                                         }}
                                       >
                                         {tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")}
@@ -888,7 +888,7 @@ export function TransactionsPage() {
                                           padding: "2px 8px",
                                           borderRadius: 4,
                                           fontWeight: 600,
-                                          fontSize: 10,
+                                          fontSize: "var(--fs-caption)",
                                         }}
                                       >
                                         {tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")}

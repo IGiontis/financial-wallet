@@ -38,13 +38,13 @@ interface BillDetailModalProps {
 function Fact({ label, value, accent, sub }: { label: string; value: string; accent?: string; sub?: string }) {
   return (
     <div className="p-2" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
-      <div className="text-uppercase text-body-secondary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>
+      <div className="text-uppercase text-body-secondary" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.05em" }}>
         {label}
       </div>
-      <div className="fw-semibold" style={{ fontSize: 14, color: accent ?? "var(--color-text-primary)" }}>
+      <div className="fw-semibold" style={{ fontSize: "var(--fs-lead)", color: accent ?? "var(--color-text-primary)" }}>
         {value}
         {sub && (
-          <span className="text-body-secondary fw-normal ms-1" style={{ fontSize: 10 }}>
+          <span className="text-body-secondary fw-normal ms-1" style={{ fontSize: "var(--fs-caption)" }}>
             {sub}
           </span>
         )}
@@ -117,7 +117,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             color={behind ? "danger" : paid ? "success" : "none"}
             pill
             // Unpaid in the same orange as its pill on the page.
-            style={{ fontSize: 10, ...(behind || paid ? {} : toneChip("pending")) }}
+            style={{ fontSize: "var(--fs-caption)", ...(behind || paid ? {} : toneChip("pending")) }}
           >
             {behind
               ? overdue.count > 1
@@ -174,7 +174,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               when, and what they come to — the late tile's figure for it. */}
           {behind && overdue.oldestDue && (
             <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">
-              <span className="fw-semibold" style={{ fontSize: 13, color: "var(--color-expense)" }}>
+              <span className="fw-semibold" style={{ fontSize: "var(--fs-text)", color: "var(--color-expense)" }}>
                 ⚠ {t("bills.unpaidSince", { count: overdue.count, date: dateFmt.format(overdue.oldestDue) })} · {formatCurrency(overdue.total)}
               </span>
               {/* For months the bank paid and the app was never told: marks them
@@ -187,10 +187,10 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
           )}
           {paid && paidDate ? (
             <>
-              <div className="fw-semibold mb-1" style={{ fontSize: 13, color: "var(--color-income)" }}>
+              <div className="fw-semibold mb-1" style={{ fontSize: "var(--fs-text)", color: "var(--color-income)" }}>
                 ✓ {t("bills.paidOn", { date: dateFmt.format(paidDate) })}
               </div>
-              <div className="text-body-secondary" style={{ fontSize: 12 }}>
+              <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                 {/* Every part of the period, not the last one: a gym year paid in
                     three was "paid €120". */}
                 {t("bills.amountPaid", { amount: formatCurrency(paidThisPeriod(bill)) })}
@@ -199,17 +199,17 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               {/* Paid beyond this period — say so, or the next due date looks
                   like an ordinary one rather than an already-covered gap. */}
               {bill.paidAheadCount > 0 && (
-                <div className="fw-semibold mt-1" style={{ fontSize: 12, color: "var(--color-income)" }}>
+                <div className="fw-semibold mt-1" style={{ fontSize: "var(--fs-small)", color: "var(--color-income)" }}>
                   ⏩ {t("bills.paidAheadNote", { count: bill.paidAheadCount })}
                 </div>
               )}
             </>
           ) : (
             <>
-              <div className="fw-semibold mb-1" style={{ fontSize: 13, color: "var(--color-goal)" }}>
+              <div className="fw-semibold mb-1" style={{ fontSize: "var(--fs-text)", color: "var(--color-goal)" }}>
                 {t("bills.notPaidYet")}
               </div>
-              <div className="text-body-secondary" style={{ fontSize: 12 }}>
+              <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                 {bill.nextDueDate ? t("bills.dueOn", { date: dateFmt.format(bill.nextDueDate) }) : t("bills.noDueDateSet")}
                 {bill.lastPaidDate && <> · {t("bills.lastPaid", { date: dateFmt.format(bill.lastPaidDate) })}</>}
               </div>
@@ -225,10 +225,10 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
         {fund && !paid && (
           <div className="p-3 mb-3" style={{ borderRadius: "var(--border-radius-md)", background: "var(--color-background-secondary)" }}>
             <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-              <span className="fw-semibold" style={{ fontSize: 13 }}>
+              <span className="fw-semibold" style={{ fontSize: "var(--fs-text)" }}>
                 🐷 {t("bills.setAsideTitle")}
               </span>
-              <span className="fw-semibold" style={{ fontSize: 15, fontVariantNumeric: "tabular-nums", color: "var(--color-goal)" }}>
+              <span className="fw-semibold" style={{ fontSize: "var(--fs-lead)", fontVariantNumeric: "tabular-nums", color: "var(--color-goal)" }}>
                 {t("bills.setAsidePerMonth", { amount: formatCurrency(fund.perMonth) })}
               </span>
             </div>
@@ -238,7 +238,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               <div style={{ height: "100%", width: `${Math.round(fund.elapsed * 100)}%`, background: "var(--color-goal)", borderRadius: 3, transition: "width 0.3s ease" }} />
             </div>
 
-            <div className="text-body-secondary mt-2" style={{ fontSize: 12 }}>
+            <div className="text-body-secondary mt-2" style={{ fontSize: "var(--fs-small)" }}>
               {fund.monthsLeft === 0
                 ? t("bills.setAsideThisMonth", { amount: formatCurrency(fund.target), date: dateFmt.format(fund.dueDate) })
                 : t("bills.setAsideUntil", { amount: formatCurrency(fund.target), date: dateFmt.format(fund.dueDate), months: fund.monthsLeft })}
@@ -247,7 +247,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
         )}
 
         {bill.notes && (
-          <p className="text-body-secondary mb-3" style={{ fontSize: 13 }}>
+          <p className="text-body-secondary mb-3" style={{ fontSize: "var(--fs-text)" }}>
             {bill.notes}
           </p>
         )}
@@ -255,12 +255,12 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
         <BillYearGrid bill={bill} now={new Date()} formatCurrency={formatCurrency} onPay={(cell) => onPayPeriod(bill, cell)} onOpenPayment={openPaymentFor} />
 
         {/* Payment history */}
-        <div className="text-uppercase text-body-secondary mb-2" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em" }}>
+        <div className="text-uppercase text-body-secondary mb-2" style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.06em" }}>
           {t("bills.paymentHistory")}
         </div>
 
         {history.length === 0 ? (
-          <p className="text-body-secondary mb-0" style={{ fontSize: 13 }}>
+          <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
             {t("bills.noPaymentsYet")}
           </p>
         ) : (
@@ -323,7 +323,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                   {/* Marked paid with no transaction — "I've paid these" — so the
                       history says why no expense matches it. */}
                   {!p.transactionId && (
-                    <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: 10 }}>
+                    <Badge pill color="secondary-subtle" className="text-secondary-emphasis fw-normal" style={{ fontSize: "var(--fs-caption)" }}>
                       {t("bills.noTransaction")}
                     </Badge>
                   )}

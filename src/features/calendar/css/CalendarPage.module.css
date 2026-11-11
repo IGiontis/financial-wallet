@@ -37,7 +37,7 @@
   border: 0;
   background: none;
   color: var(--color-link);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
 }
 
@@ -51,7 +51,7 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-primary);
-  font-size: 20px;
+  font-size: var(--fs-title);
 }
 
 .nav:disabled {
@@ -89,7 +89,7 @@
 
 /* A sentence with a figure in it: it may wrap between words, never inside the figure (the formatter's own no-break spaces). */
 .totalSub {
-  font-size: 11px;
+  font-size: var(--fs-caption);
 }
 
 /* ── The grid ─────────────────────────────────────────────────────────────── */
@@ -99,7 +99,7 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -150,7 +150,7 @@
 
 /* The body text, not the secondary: on a lit day the secondary text falls under 8:1. */
 .num {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 650;
   color: var(--text);
   line-height: 1.2;
@@ -158,7 +158,7 @@
 
 .net {
   align-self: center;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 700;
   line-height: 1.1;
   white-space: nowrap;
@@ -179,11 +179,11 @@
   }
 
   .num {
-    font-size: 13px;
+    font-size: var(--fs-text);
   }
 
   .net {
-    font-size: 15px;
+    font-size: var(--fs-lead);
   }
 
   .day {
@@ -223,7 +223,7 @@
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -272,14 +272,14 @@
 
 .sheetName {
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .sheetState {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -294,7 +294,7 @@
 
 .sheetAmount {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -317,7 +317,7 @@
   justify-content: space-between;
   padding-top: 10px;
   border-top: 1px solid var(--color-border-primary);
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-variant-numeric: tabular-nums;
 }
 
@@ -344,7 +344,7 @@
   }
 
   .net {
-    font-size: 11.5px;
+    font-size: var(--fs-small);
     letter-spacing: -0.02em;
   }
 
@@ -369,14 +369,14 @@
 
 .dayPanelTitle {
   margin-bottom: 10px;
-  font-size: 15px;
+  font-size: var(--fs-lead);
   font-weight: 650;
   text-transform: capitalize;
 }
 
 .dayHint {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 
@@ -458,7 +458,7 @@
 
   .net {
     padding: 0 var(--space-1);
-    font-size: 10.5px;
+    font-size: var(--fs-caption);
     letter-spacing: -0.03em;
   }
 }
@@ -487,7 +487,7 @@
   margin: 0;
   min-width: 0;
   text-align: center;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
 }
 

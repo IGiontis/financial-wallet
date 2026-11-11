@@ -6,7 +6,7 @@
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -33,7 +33,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 17px;
+  font-size: var(--fs-body);
   font-weight: 650;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -50,14 +50,14 @@
 
 .heroSub {
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .heroNote {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 600;
 }
 
@@ -84,7 +84,7 @@
 
 .figureValue {
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--fs-lead);
   font-weight: 650;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -94,14 +94,14 @@
 
 .figureLabel {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   line-height: 1.25;
   color: var(--color-text-secondary);
 }
 
 .notes {
   margin: 12px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-text);
   font-style: italic;
   color: var(--color-text-secondary);
 }

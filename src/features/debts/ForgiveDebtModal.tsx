@@ -37,12 +37,12 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>
-        <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: 15 }}>
+        <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
           <FiGift aria-hidden /> {t("debts.forgiveTitle")}
         </span>
       </ModalHeader>
       <ModalBody>
-        <p className="mb-3" style={{ fontSize: 14 }}>
+        <p className="mb-3" style={{ fontSize: "var(--fs-lead)" }}>
           {t(borrowed ? "debts.forgiveTheyLetGo" : "debts.forgiveILetGo", values)}
         </p>
 

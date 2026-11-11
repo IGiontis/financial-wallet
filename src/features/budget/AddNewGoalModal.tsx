@@ -231,7 +231,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
       >
         <ModalBody>
           <WizardSteps steps={steps} current={step} onGo={(s) => void goTo(s)} label={(s) => t(GOAL_STEP_LABEL[s])} large />
-          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`goals.wizard.title_${step}`)}
           </div>
 

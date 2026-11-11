@@ -13,15 +13,15 @@ export function GridCell({ label, value, fullWidth = false, accent }: { label: s
         background: "var(--color-surface)",
       }}
     >
-      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 3px" }}>{label}</p>
-      <p style={{ fontSize: 13, fontWeight: 600, color: accent ?? "var(--color-text-primary)", margin: 0 }}>{value}</p>
+      <p style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "0 0 3px" }}>{label}</p>
+      <p style={{ fontSize: "var(--fs-text)", fontWeight: 600, color: accent ?? "var(--color-text-primary)", margin: 0 }}>{value}</p>
     </div>
   );
 }
 
 export function SectionHead({ label }: { label: string }) {
   return (
-    <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "12px 0 6px" }}>{label}</p>
+    <p style={{ fontSize: "var(--fs-caption)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--color-text-secondary)", margin: "12px 0 6px" }}>{label}</p>
   );
 }
 
@@ -91,7 +91,7 @@ export function TransactionReviewBody({
 
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{subtitle}</p>
+      <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{subtitle}</p>
 
       <div
         style={{
@@ -113,18 +113,18 @@ export function TransactionReviewBody({
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: colors.nameTxt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{description}</p>
+            <p style={{ fontSize: "var(--fs-lead)", fontWeight: 700, margin: 0, color: colors.nameTxt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{description}</p>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
               {!hideCategoryLabel && (
-                <span style={{ fontSize: 12, color: colors.subTxt }}>
+                <span style={{ fontSize: "var(--fs-small)", color: colors.subTxt }}>
                   {categoryIcon} {categoryName}
                 </span>
               )}
-              <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 20, background: colors.badgeBg, color: colors.badgeTxt }}>{primaryBadge}</span>
+              <span style={{ fontSize: "var(--fs-caption)", fontWeight: 600, padding: "1px 7px", borderRadius: 20, background: colors.badgeBg, color: colors.badgeTxt }}>{primaryBadge}</span>
               {secondaryBadge && (
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: "var(--fs-caption)",
                     fontWeight: 600,
                     padding: "1px 7px",
                     borderRadius: 20,
@@ -138,7 +138,7 @@ export function TransactionReviewBody({
             {account && (
               <span
                 className="d-inline-flex align-items-center mt-2"
-                style={{ fontSize: 11.5, fontWeight: 600, gap: 4, padding: "2px 9px", borderRadius: 20, border: `1px solid ${colors.amtTxt}`, color: colors.amtTxt, maxWidth: "100%" }}
+                style={{ fontSize: "var(--fs-small)", fontWeight: 600, gap: 4, padding: "2px 9px", borderRadius: 20, border: `1px solid ${colors.amtTxt}`, color: colors.amtTxt, maxWidth: "100%" }}
               >
                 <span aria-hidden>🏦</span>
                 <span className="text-truncate">

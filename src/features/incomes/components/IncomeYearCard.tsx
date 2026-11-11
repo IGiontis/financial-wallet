@@ -55,7 +55,7 @@ export function IncomeYearCard({ year, formatCurrency, f }: { year: IncomeYear; 
           <div className="d-flex flex-column gap-2">
             {rows.map((row) => (
               <div key={row.income.id}>
-                <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: 12.5 }}>
+                <div className="d-flex justify-content-between align-items-baseline gap-2 mb-1" style={{ fontSize: "var(--fs-text)" }}>
                   <span className="text-break" style={{ minWidth: 0 }}>
                     <span aria-hidden>{iconOf(row.income)}</span> {row.income.name}
                   </span>

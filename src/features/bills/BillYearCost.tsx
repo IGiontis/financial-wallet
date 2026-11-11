@@ -38,7 +38,7 @@ export default function BillYearCost({
       <div className={styles.yearAheadHint}>{t("bills.yearCostHint")}</div>
 
       {rows.length === 0 ? (
-        <p className="mb-0 text-body-secondary" style={{ fontSize: 13 }}>
+        <p className="mb-0 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
           {t("bills.noBillsToProject")}
         </p>
       ) : (

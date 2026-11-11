@@ -52,7 +52,7 @@ export default function ThisTimeSheet({
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered size="sm">
       <ModalHeader toggle={onClose} tag="div" className="w-100">
         <div className="fw-semibold">{t("incomes.thisTime.title", { name: income.name })}</div>
-        <div className="text-body-secondary" style={{ fontSize: 12.5 }}>
+        <div className="text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
           {f.weekdayDate.format(status.expectedDate)} · {status.approximate ? "≈" : ""}
           {formatCurrency(status.expected)}
         </div>
@@ -113,7 +113,7 @@ export default function ThisTimeSheet({
                 {t("incomes.thisTime.undo")}
               </button>
             )}
-            <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
+            <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
               {t("incomes.card.thisTimeOnly")}
             </div>
           </div>

@@ -248,7 +248,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           {step === "amount" && (
             <>
               {installmentTotal > 1 && (
-                <Alert color="warning" className="py-2" style={{ fontSize: 12 }}>
+                <Alert color="warning" className="py-2" style={{ fontSize: "var(--fs-small)" }}>
                   {t("bills.payingInstallment", {
                     index: installmentIndex + 1,
                     count: installmentTotal,
@@ -259,7 +259,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               )}
 
               {isVariable && (
-                <Alert color="info" className="py-2" style={{ fontSize: 12 }}>
+                <Alert color="info" className="py-2" style={{ fontSize: "var(--fs-small)" }}>
                   {bill.averagePaidAmount ? t("bills.variableHintWithAverage", { amount: format(bill.averagePaidAmount) }) : t("bills.variableHint", { amount: format(bill.amount) })}
                 </Alert>
               )}
@@ -281,7 +281,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                   invalid={!!(formik.touched.amount && formik.errors.amount)}
                 />
                 <FormFeedback>{formik.errors.amount && t(formik.errors.amount)}</FormFeedback>
-                {differsFromEstimate && <FormText style={{ fontSize: 11 }}>{t("bills.differsFromEstimate")}</FormText>}
+                {differsFromEstimate && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("bills.differsFromEstimate")}</FormText>}
               </FormGroup>
             </>
           )}
@@ -303,7 +303,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               {/* Which period the money settles — separate from the date it left
                   the account, so an early payment lands on the right month. */}
               {presetPeriodKey ? (
-                <div className="p-2" style={{ borderRadius: "var(--border-radius-md)", background: "var(--color-background-secondary)", fontSize: 13 }}>
+                <div className="p-2" style={{ borderRadius: "var(--border-radius-md)", background: "var(--color-background-secondary)", fontSize: "var(--fs-text)" }}>
                   {t("bills.payForPeriod", { period: presetLabel })}
                 </div>
               ) : (
@@ -319,12 +319,12 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                       </option>
                     ))}
                   </Input>
-                  <FormText style={{ fontSize: 11 }}>{t("bills.paymentPeriodHint")}</FormText>
+                  <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("bills.paymentPeriodHint")}</FormText>
                 </FormGroup>
               )}
 
               {dateBelongsElsewhere && (
-                <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+                <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>
                   <div className="mb-2">{t("bills.periodDateMismatch", { period: periodLabel(dateBelongsElsewhere) })}</div>
                   <Button type="button" color="warning" size="sm" disabled={dateBelongsElsewhere.isPaid} onClick={() => formik.setFieldValue("periodKey", dateBelongsElsewhere.key)}>
                     {dateBelongsElsewhere.isPaid ? t("bills.periodAlreadyPaid") : t("bills.usePeriod", { period: periodLabel(dateBelongsElsewhere) })}
@@ -335,13 +335,13 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
               {/* Say why a past period is already chosen, so it is not mistaken for
                   a slip — and that it can be changed. */}
               {oldestOverdue && formik.values.periodKey === oldestOverdue.periodKey && selectedPeriod && (
-                <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+                <Alert color="danger" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>
                   {t("bills.payingOldestOverdue", { period: periodLabel(selectedPeriod) })}
                 </Alert>
               )}
 
               {payingAhead && !dateBelongsElsewhere && (
-                <Alert color="info" className="py-2 mt-2 mb-0" style={{ fontSize: 12 }}>
+                <Alert color="info" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>
                   {t("bills.payingAheadHint", { period: periodLabel(selectedPeriod) })}
                 </Alert>
               )}

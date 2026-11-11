@@ -135,7 +135,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
         {moneyLoading && <SkeletonRows count={3} icon={false} />}
         {!moneyLoading && stage === "choose" && (
           <>
-            <p style={{ fontSize: 14, marginBottom: 8 }}>
+            <p style={{ fontSize: "var(--fs-lead)", marginBottom: 8 }}>
               {/* The name goes in as an element, so whatever the user typed is never read as markup. */}
               <Trans i18nKey="investments.deleteConfirm" components={{ name }} />
             </p>
@@ -148,7 +148,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
             {/* What someone else paid: still owed, or called off — the hotel refunded them. */}
             {refunds.map((r) => (
               <div key={r.person} className="mb-3">
-                <p className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+                <p className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
                   {t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}
                 </p>
                 <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}>
@@ -181,7 +181,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
               ))}
             {ownHeld && (
             <>
-            <p className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+            <p className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
               {t("goalDelete.ask", { amount: format(own) })}
             </p>
             <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.ask", { amount: format(own) })}>
@@ -250,10 +250,10 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
 
         {!moneyLoading && stage === "review" && !held && (
           <>
-            <p style={{ fontSize: 14, margin: 0 }}>
+            <p style={{ fontSize: "var(--fs-lead)", margin: 0 }}>
               <Trans i18nKey="investments.deleteConfirm" components={{ name }} />
             </p>
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("investments.deleteWarning")}</p>
+            <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("investments.deleteWarning")}</p>
           </>
         )}
 
@@ -352,7 +352,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
           </>
         )}
 
-        {deleteGuard.locked && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
+        {deleteGuard.locked && <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
       </ModalBody>
       <ModalFooter className="justify-content-between">
         {stage === "review" && held ? (

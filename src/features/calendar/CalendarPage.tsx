@@ -239,7 +239,7 @@ export default function CalendarPage() {
         {!phone && selected && (
           <Modal isOpen toggle={() => setSelected(null)} centered scrollable>
             <ModalHeader toggle={() => setSelected(null)}>
-              <span style={{ fontSize: 15, textTransform: "capitalize" }}>{dayTitle.format(selected)}</span>
+              <span style={{ fontSize: "var(--fs-lead)", textTransform: "capitalize" }}>{dayTitle.format(selected)}</span>
             </ModalHeader>
             <ModalBody>
               {!selectedDay ? <p className={styles.dayHint}>{t("calendar.emptyDay")}</p> : <DayList day={selectedDay} formatCurrency={formatCurrency} onLeave={() => setSelected(null)} />}

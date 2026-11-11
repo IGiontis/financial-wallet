@@ -407,12 +407,12 @@ export default function ContributionWizard({
           {step === "amount" && (
             <>
               {capped && !full && (
-                <Alert color="info" className="py-2" style={{ fontSize: 12.5 }}>
+                <Alert color="info" className="py-2" style={{ fontSize: "var(--fs-text)" }}>
                   {t("investments.deadlineGoalHint", { amount: format(remaining) })}
                 </Alert>
               )}
               {full && (
-                <Alert color="success" className="py-2" style={{ fontSize: 12.5 }}>
+                <Alert color="success" className="py-2" style={{ fontSize: "var(--fs-text)" }}>
                   {t("investments.goalFullyFunded")}
                 </Alert>
               )}
@@ -436,7 +436,7 @@ export default function ContributionWizard({
                   {!deposit && <InputGroupText>{t("goalWizard.of", { amount: format(available) })}</InputGroupText>}
                   <FormFeedback>{amountError}</FormFeedback>
                 </InputGroup>
-                {capped && !full && <FormText style={{ fontSize: 11 }}>{t("investments.maxDepositHint", { amount: format(remaining) })}</FormText>}
+                {capped && !full && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.maxDepositHint", { amount: format(remaining) })}</FormText>}
               </FormGroup>
               {!deposit && available > 0 && (
                 <Button type="button" size="sm" color="secondary" outline onClick={() => setAmount(String(availableInDisplay))}>
@@ -449,7 +449,7 @@ export default function ContributionWizard({
                     {t("investments.profitLabel", { currency: displayCurrency })}
                   </Label>
                   <Input id="contribution-gain" type="number" min={0} step="0.01" inputMode="decimal" value={gain} onChange={(e) => setGain(e.target.value)} placeholder="0" />
-                  <FormText style={{ fontSize: 11 }}>{t("investments.profitHint", { amount: format(balance) })}</FormText>
+                  <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.profitHint", { amount: format(balance) })}</FormText>
                 </FormGroup>
               )}
             </>
@@ -467,7 +467,7 @@ export default function ContributionWizard({
                 </Label>
                 <Input id="contribution-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("common.optionalNote")} invalid={notesTooLong} />
                 <FormFeedback>{t("validation.maxChars", { count: 40 })}</FormFeedback>
-                <FormText style={{ fontSize: 11 }}>{notes.length} / 40</FormText>
+                <FormText style={{ fontSize: "var(--fs-caption)" }}>{notes.length} / 40</FormText>
               </FormGroup>
             </>
           )}

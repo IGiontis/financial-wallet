@@ -63,15 +63,15 @@
      two (×1.125), and never the other way round. Tiles, several to a row, one
      step down: the label under the text, the figure at it.
      Every money figure is one of the two figure sizes. */
-  --stat-label-size: calc(var(--bs-body-font-size) * 1.25);
+  --stat-label-size: var(--fs-title);
   --stat-label-weight: 600;
-  --stat-figure-size: calc(var(--bs-body-font-size) * 1.125);
+  --stat-figure-size: var(--fs-figure);
   --stat-figure-weight: 700;
-  --stat-tile-label-size: calc(var(--bs-body-font-size) * 0.8125);
-  --stat-tile-figure-size: var(--bs-body-font-size);
+  --stat-tile-label-size: var(--fs-text);
+  --stat-tile-figure-size: var(--fs-body);
   /* The name on a card that comes many to a grid — a goal, an investment —
      where a heading-sized name crowded the band it sits in. */
-  --stat-card-title-size: calc(var(--bs-body-font-size) * 1.0625);
+  --stat-card-title-size: var(--fs-body);
 }
 
 /* A second kind of section inside a card or sheet — the payments beside a
@@ -372,7 +372,7 @@
 
 .react-datepicker {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-text);
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-lg);
@@ -399,7 +399,7 @@
 
 .react-datepicker__day-name {
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 

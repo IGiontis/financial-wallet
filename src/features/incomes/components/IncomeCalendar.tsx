@@ -150,7 +150,7 @@ export function IncomeCalendar({
               />
             </div>
             {summary.count > 0 && (
-              <div className="text-body-secondary" style={{ fontSize: 12 }}>
+              <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                 {t("incomes.calendar.summary", { arrived: formatCurrency(summary.arrived), total: `${summary.approximate ? "≈" : ""}${formatCurrency(summary.total)}` })}
               </div>
             )}
@@ -198,12 +198,12 @@ export function IncomeCalendar({
 
       {selected && (
         <div className={styles.dayPanel}>
-          <div className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+          <div className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
             {dayTitle.format(selected)}
           </div>
           {selectedMarks.length === 0 ? (
             <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-              <span className="text-body-secondary" style={{ fontSize: 13 }}>
+              <span className="text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
                 {t("incomes.calendar.emptyDay")}
               </span>
               <Button color="primary" outline size="sm" onClick={() => onNewOnDay(selected.getDate())}>
@@ -219,11 +219,11 @@ export function IncomeCalendar({
                 <div key={`${mark.status.key}-${mark.kind}`} className={styles.fact}>
                   <div style={{ minWidth: 0 }}>
                     <div className="fw-semibold">{income.name}</div>
-                    <div className="text-body-secondary" style={{ fontSize: 12 }}>
+                    <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
                       {tag.text}
                       {isSettled(mark.status) && !isSameDay(mark.status.arrival!.date, mark.status.expectedDate) && ` · ${t("incomes.calendar.itsDay", { date: f.weekdayDate.format(mark.status.expectedDate) })}`}
                     </div>
-                    <div className="d-flex gap-3 mt-1" style={{ fontSize: 12.5 }}>
+                    <div className="d-flex gap-3 mt-1" style={{ fontSize: "var(--fs-text)" }}>
                       <button type="button" className={styles.linkButton} onClick={() => onOpen(income)}>
                         {t("incomes.calendar.open")}
                       </button>

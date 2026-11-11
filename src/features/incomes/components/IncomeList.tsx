@@ -145,7 +145,7 @@ export function IncomeList(props: ListProps) {
       {first && (
         <div className={`${styles.nextMonth} mb-3`}>
           <div className="d-flex justify-content-between align-items-baseline gap-2">
-            <span className="fw-semibold" style={{ fontSize: 13 }}>
+            <span className="fw-semibold" style={{ fontSize: "var(--fs-text)" }}>
               {f.monthName(nextMonthDate)}
             </span>
             <span className="fw-bold" style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -153,7 +153,7 @@ export function IncomeList(props: ListProps) {
               {formatCurrency(nextMonth.total)}
             </span>
           </div>
-          <div className="text-body-secondary" style={{ fontSize: 12 }}>
+          <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
             {t("incomes.list.nextMonthSub", { count: nextMonth.count, name: incomes.get(first.incomeId)?.name ?? "", date: f.weekdayDate.format(first.expectedDate) })}
           </div>
         </div>

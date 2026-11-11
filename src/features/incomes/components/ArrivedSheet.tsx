@@ -127,7 +127,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
       <ModalHeader toggle={onClose}>
         <span className="d-block">{income.name}</span>
-        <span className="d-block fw-normal text-body-secondary" style={{ fontSize: 13 }}>
+        <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
           {chosen.undated
             ? t("incomes.arrived.subtitleUndated", { month: f.monthName(chosen.date) })
             : t("incomes.arrived.subtitle", { month: f.monthName(chosen.date), date: f.weekdayDate.format(chosen.expectedDate) })}
@@ -142,7 +142,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
       >
         {reviewing && day ? (
           <ModalBody>
-            <div className="fw-semibold mb-2" style={{ fontSize: 14 }}>
+            <div className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
               {t("incomes.arrived.reviewTitle")}
             </div>
             <div className={styles.readCard}>
@@ -164,11 +164,11 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             </div>
             {/* A figure other than the usual is the one worth a second look. */}
             {Math.abs(convert(chosen.expected) - typed) >= 0.01 && (
-              <p className="mb-0 mt-2" style={{ fontSize: 12.5, color: "var(--color-goal-text)" }}>
+              <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-text)", color: "var(--color-goal-text)" }}>
                 {t("incomes.arrived.differs", { amount: format(chosen.expected) })}
               </p>
             )}
-            <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: 11.5 }}>
+            <p className="text-body-secondary mb-0 mt-2" style={{ fontSize: "var(--fs-small)" }}>
               {t("incomes.arrived.reviewNote")}
             </p>
           </ModalBody>
@@ -192,7 +192,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             />
             <FormFeedback>{amountError && t(amountError)}</FormFeedback>
             {income.variable && (
-              <div className="text-body-secondary mt-1" style={{ fontSize: 12 }}>
+              <div className="text-body-secondary mt-1" style={{ fontSize: "var(--fs-small)" }}>
                 {expected.estimated
                   ? t("incomes.arrived.estimateHint", { amount: format(expected.amount) })
                   : range
@@ -257,12 +257,12 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           )}
 
           {readingAt && (
-            <Alert color="info" className="py-2 mt-3 mb-0" style={{ fontSize: 12 }}>
+            <Alert color="info" className="py-2 mt-3 mb-0" style={{ fontSize: "var(--fs-small)" }}>
               {t("incomes.arrived.bankNote", { date: f.weekdayDate.format(readingAt), amount: display || format(status.expected) })}
             </Alert>
           )}
 
-          <p className="text-body-secondary mb-0 mt-3" style={{ fontSize: 11.5 }}>
+          <p className="text-body-secondary mb-0 mt-3" style={{ fontSize: "var(--fs-small)" }}>
             {t("incomes.arrived.willLog", { category: category ? categoryLabel(category.name, t) : t("incomes.arrived.noCategory") })}
           </p>
         </ModalBody>

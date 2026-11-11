@@ -28,7 +28,7 @@ export default function ActiveBillsModal({ isOpen, bills, formatCurrency, onClos
   return (
     <Modal isOpen={isOpen} toggle={onClose} centered scrollable size="lg">
       <ModalHeader toggle={onClose}>
-        <span className="d-flex align-items-center gap-2" style={{ fontSize: 15 }}>
+        <span className="d-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
           <span aria-hidden>🧾</span>
           {t("bills.activeBillsTitle")}
         </span>

@@ -72,7 +72,7 @@ button.card:focus-visible {
 .name {
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--fs-text);
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -84,7 +84,7 @@ button.card:focus-visible {
   padding: 0 6px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--on-brand) 24%, transparent);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   font-weight: 700;
 }
 
@@ -116,7 +116,7 @@ button.card:focus-visible {
 }
 
 .amount {
-  font-size: 15px;
+  font-size: var(--fs-lead);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -126,7 +126,7 @@ button.card:focus-visible {
 .note {
   min-width: 0;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   opacity: 0.9;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -215,7 +215,7 @@ button.card:focus-visible {
   border-radius: var(--radius-round);
   background: var(--surface);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 800;
   transform: rotate(-4deg);
 }
@@ -255,7 +255,7 @@ button.card:focus-visible {
 }
 
 .noneHint {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   line-height: 1.3;
   color: var(--color-text-secondary);
 }
@@ -302,7 +302,7 @@ button.card:focus-visible {
 }
 
 .compact .amount {
-  font-size: 14px;
+  font-size: var(--fs-lead);
 }
 
 /* The rule between "no card / cash" and the cards. */
@@ -311,7 +311,7 @@ button.card:focus-visible {
   align-items: center;
   gap: 10px;
   margin: 16px 0 12px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--color-text-secondary);
 }

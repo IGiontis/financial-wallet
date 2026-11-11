@@ -59,14 +59,14 @@ export default function CategoryBillsModal({ label, icon, bills, yearlyAmount = 
   return (
     <Modal isOpen={label !== null} toggle={onClose} centered scrollable size="sm">
       <ModalHeader toggle={onClose}>
-        <span className="d-flex align-items-center gap-2" style={{ fontSize: 15 }}>
+        <span className="d-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
           <span aria-hidden>{icon ?? "•"}</span>
           {label}
         </span>
       </ModalHeader>
 
       <ModalBody className="pt-2">
-        <div className="d-flex justify-content-between align-items-baseline mb-2" style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+        <div className="d-flex justify-content-between align-items-baseline mb-2" style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
           <span>{head.left}</span>
           <span style={{ fontVariantNumeric: "tabular-nums", color: head.tone, fontWeight: head.tone ? 600 : undefined }}>{head.right}</span>
         </div>

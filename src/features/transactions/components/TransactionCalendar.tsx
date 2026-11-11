@@ -31,7 +31,7 @@ function RangeDateField({ label, date, onChange, min, max }: { label: string; da
   const { t } = useTranslation();
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: 10, color: "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: "var(--fs-caption)", color: "var(--color-text-secondary)", fontWeight: 600, letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
       <DateField
         small
         clearable
@@ -135,7 +135,7 @@ function CalendarGrid({
         borderRadius: 8,
         cursor: "pointer",
         padding: "8px 4px",
-        fontSize: 14,
+        fontSize: "var(--fs-lead)",
         fontWeight: active ? 600 : 400,
         width: "100%",
         textAlign: "center",
@@ -162,7 +162,7 @@ function CalendarGrid({
             background: "none",
             border: "none",
             cursor: "pointer",
-            fontSize: 16,
+            fontSize: "var(--fs-body)",
             fontWeight: 600,
             color: "var(--color-accent-strong)",
             borderRadius: 6,
@@ -172,7 +172,7 @@ function CalendarGrid({
           }}
         >
           {monthNames[viewMonth]} {viewYear}
-          <span style={{ fontSize: 10, marginLeft: 4, color: "var(--color-text-secondary)" }}>v</span>
+          <span style={{ fontSize: "var(--fs-caption)", marginLeft: 4, color: "var(--color-text-secondary)" }}>v</span>
         </button>
         <button style={navBtn} onClick={nextMonth}>
           &rsaquo;
@@ -211,7 +211,7 @@ function CalendarGrid({
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
             {dayNamesShort.map((d, i) => (
-              <div key={i} style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", padding: "2px 0" }}>
+              <div key={i} style={{ textAlign: "center", fontSize: "var(--fs-text)", fontWeight: 600, color: "var(--color-text-secondary)", padding: "2px 0" }}>
                 {d}
               </div>
             ))}
@@ -261,7 +261,7 @@ function CalendarGrid({
                     color,
                     border,
                     fontWeight: weight,
-                    fontSize: 15,
+                    fontSize: "var(--fs-lead)",
                     transition: "background 0.1s",
                   }}
                 >
@@ -276,7 +276,7 @@ function CalendarGrid({
               );
             })}
           </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--color-border-tertiary)", fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-income)", display: "inline-block" }} />
               {t("transactions.income")}
@@ -303,7 +303,7 @@ function CalendarGrid({
             borderRadius: 8,
             cursor: "pointer",
             padding: "6px 0",
-            fontSize: 12,
+            fontSize: "var(--fs-small)",
             color: "var(--color-text-secondary)",
           }}
         >

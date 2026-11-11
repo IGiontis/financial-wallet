@@ -136,7 +136,7 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
       <ModalHeader toggle={onClose}>
         <span className="d-flex align-items-center gap-2">
           {title}
-          <Badge color="secondary" pill style={{ fontSize: 10 }}>
+          <Badge color="secondary" pill style={{ fontSize: "var(--fs-caption)" }}>
             {monthLabel}
           </Badge>
         </span>
@@ -144,7 +144,7 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
 
       <ModalBody>
         {forecast.items.length === 0 && arrears.length === 0 ? (
-          <p className="text-body-secondary mb-0" style={{ fontSize: 14 }}>
+          <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-lead)" }}>
             {emptyText}
           </p>
         ) : (
@@ -220,7 +220,7 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
             )}
 
             {variable.length > 0 && (
-              <p className="text-body-secondary mb-0" style={{ fontSize: 11.5 }}>
+              <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-small)" }}>
                 {t("bills.forecastHint")}
               </p>
             )}

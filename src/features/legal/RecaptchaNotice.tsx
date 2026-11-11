@@ -12,7 +12,7 @@ export function RecaptchaNotice({ className = "" }: { className?: string }) {
   const link = { color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 } as const;
 
   return (
-    <span className={className} style={{ display: "block", fontSize: 11, color: "var(--color-text-secondary)" }}>
+    <span className={className} style={{ display: "block", fontSize: "var(--fs-caption)", color: "var(--color-text-secondary)" }}>
       {t("legal.recaptchaPrefix")}{" "}
       <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={link}>
         {t("legal.recaptchaPrivacy")}

@@ -319,7 +319,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
             />
             {formik.touched.categoryId && formik.errors.categoryId && <FormFeedback className="d-block">{validationMessage(formik.errors.categoryId, t)}</FormFeedback>}
-            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 5, marginBottom: 0 }}>
+            <p style={{ fontSize: "var(--fs-caption)", color: "var(--color-text-secondary)", marginTop: 5, marginBottom: 0 }}>
               {t("transactions.typeLockedOnEdit")}
             </p>
           </>
@@ -360,9 +360,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             <Row className="g-3">
               <Col xs={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
                     {t("common.amount")} ({displayCurrency}) *
-                    {formik.values.showFuelDetails && <span style={{ fontSize: 11, color: "var(--bs-primary)", marginLeft: 6 }}>{t("transactions.autoCalculated")}</span>}
+                    {formik.values.showFuelDetails && <span style={{ fontSize: "var(--fs-caption)", color: "var(--bs-primary)", marginLeft: 6 }}>{t("transactions.autoCalculated")}</span>}
                   </Label>
                   <Input
                     type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
@@ -377,7 +377,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               </Col>
               <Col xs={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.date")} *</Label>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.date")} *</Label>
                   <DateField
                     name="date"
                     value={formik.values.date}
@@ -395,7 +395,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             <Row className="g-3 mt-1">
               <Col xs={12}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("transactions.payee")} *</Label>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.payee")} *</Label>
                   <PayeeInput
                     value={formik.values.description}
                     payees={payees}
@@ -430,8 +430,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                 }}
               >
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.fuelDetails")}</p>
-                  <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
+                  <p style={{ fontSize: "var(--fs-text)", fontWeight: 600, color: "var(--bs-primary)", margin: 0 }}>⛽ {t("transactions.fuelDetails")}</p>
+                  <p style={{ fontSize: "var(--fs-caption)", color: "var(--color-text-secondary)", margin: 0 }}>
                     {formik.values.showFuelDetails ? t("transactions.fuelHint") : t("transactions.fuelHintOff")}
                   </p>
                 </div>
@@ -454,14 +454,14 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
             {/* ── Notes ── */}
             <FormGroup className="mb-0 mt-3">
-              <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
+              <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.notes")}</Label>
               <Input
                 type="textarea" name="notes" rows={3} placeholder={t("common.optionalNote")}
                 value={formik.values.notes} onChange={formik.handleChange} onBlur={formik.handleBlur}
                 invalid={!!(formik.touched.notes && formik.errors.notes)}
               />
               <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
-              <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
+              <FormText style={{ fontSize: "var(--fs-caption)" }}>{formik.values.notes.length} / 300</FormText>
             </FormGroup>
           </form>
         )}

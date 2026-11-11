@@ -152,13 +152,13 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
 
       <ModalBody>
         {archived && (
-          <p className="text-body-secondary mb-3" style={{ fontSize: 13 }}>
+          <p className="text-body-secondary mb-3" style={{ fontSize: "var(--fs-text)" }}>
             {t("incomes.card.archived")}
           </p>
         )}
 
         {income.day === undefined && income.frequency !== "weekly" && !archived && (
-          <p className="mb-3" style={{ fontSize: 13, color: "var(--color-goal-text)" }}>
+          <p className="mb-3" style={{ fontSize: "var(--fs-text)", color: "var(--color-goal-text)" }}>
             {t("incomes.card.undated")}
           </p>
         )}
@@ -180,7 +180,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
           {ends && <Fact icon={FiPauseCircle} label={t("incomes.card.lastTime")} value={ends} />}
         </div>
 
-        <div className="fw-semibold mt-3 mb-2" style={{ fontSize: 13 }}>
+        <div className="fw-semibold mt-3 mb-2" style={{ fontSize: "var(--fs-text)" }}>
           {income.variable ? t("incomes.card.historyAmounts") : income.frequency === "monthly" ? t("incomes.card.historyDays") : t("incomes.card.historyTimes")}
         </div>
         <div className={styles.strip}>
@@ -208,7 +208,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
 
         {arrivals.length > 0 && (
           <div className="mt-3">
-            <div className="fw-semibold mb-1" style={{ fontSize: 13 }}>
+            <div className="fw-semibold mb-1" style={{ fontSize: "var(--fs-text)" }}>
               {t("incomes.card.records")}
             </div>
             <div className={styles.readCard}>
