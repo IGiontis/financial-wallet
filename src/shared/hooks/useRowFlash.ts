@@ -25,14 +25,26 @@ export const ROW_FLASH_MS = 1600;
 export function useRowFlash<Id extends string | number = string>() {
   const [flashed, setFlashed] = useState<{ id: Id; at: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const frame = useRef<number | undefined>(undefined);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // Both let go on unmount, so a row list that closes mid-flash sets no state.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
 
   const flash = useCallback((id: Id) => {
     clearTimeout(timer.current);
+    if (frame.current !== undefined) cancelAnimationFrame(frame.current);
     // Off for a frame first, so the same row flashed again restarts its animation.
     setFlashed(null);
-    requestAnimationFrame(() => setFlashed({ id, at: Date.now() }));
+    frame.current = requestAnimationFrame(() => {
+      frame.current = undefined;
+      setFlashed({ id, at: Date.now() });
+    });
     timer.current = setTimeout(() => setFlashed(null), ROW_FLASH_MS + 50);
   }, []);
 

@@ -115,6 +115,68 @@ describe("an expense line", () => {
     expect(onSave.mock.calls[0][0]).toEqual({ label: "Holiday", amount: "900", from: "2026-08", yearly: true });
   });
 
+  it("asks «every year?» as two tiles, no switch, and saves the answer", async () => {
+    setup("line", { id: "ski", label: "Skiing", amount: "200", from: "2026-12", to: "2027-03" }, true);
+    expect(cadence(/^Only some months/)).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByRole("switch")).toBeNull();
+    const group = screen.getByRole("radiogroup", { name: "Does it come back every year?" });
+    expect(within(group).getByRole("radio", { name: /^No/ })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: /^Yes/ }));
+    expect(within(group).getByRole("radio", { name: /^Yes/ })).toBeChecked();
+    await next();
+    await next();
+    await save();
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: "ski", amount: "200", from: "2026-12", to: "2027-03", yearly: true });
+  });
+
+  it("starts a one-off's name empty, and shows on the check the fallback name it will be saved under", async () => {
+    setup("oneoff", { label: "", amount: "50", date: "2026-12-31" });
+    await userEvent.click(cadence(/^Once/));
+    await next();
+    for (const input of document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')) if (input.closest(".modal")) expect(input.value === "" || input.value === "50").toBe(true);
+    await next();
+    expect(within(review()).getByText(i18n.t("planner.oneOffFallbackName"))).toBeInTheDocument();
+  });
+
+  it("keeps «every 6 months» as 6 months, and never snaps a pick back", async () => {
+    setup("oneoff", { label: "Coupon", amount: "50", date: "2026-12-31" });
+    await userEvent.click(cadence(/^Every few months/));
+    for (const months of ["6", "11", "2"]) {
+      await userEvent.selectOptions(screen.getByLabelText("Every"), months);
+      expect(screen.getByLabelText("Every")).toHaveValue(months);
+      expect(screen.getByLabelText("Unit")).toHaveValue("monthly");
+    }
+    // 2 months to years: the nearest the list holds, 2 years — not 2 snapping to anything else.
+    await userEvent.selectOptions(screen.getByLabelText("Unit"), "yearly");
+    expect(screen.getByLabelText("Every")).toHaveValue("2");
+    // 2 years back to months: 24 months is past the months list, so its largest.
+    await userEvent.selectOptions(screen.getByLabelText("Unit"), "monthly");
+    expect(screen.getByLabelText("Every")).toHaveValue("11");
+    expect(cadence(/^Every few months/)).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("asks «every few months» as a number and a unit from lists on one row, stored in months", async () => {
+    setup("oneoff", { label: "Coupon", amount: "50", date: "2026-12-31" });
+    await userEvent.click(cadence(/^Every few months/));
+    const count = screen.getByLabelText("Every") as HTMLSelectElement;
+    const unit = screen.getByLabelText("Unit") as HTMLSelectElement;
+    expect(count.parentElement).toBe(unit.parentElement);
+    // From 2: one month and one year are cadences of their own.
+    expect([...count.options].map((o) => o.value)).toEqual(["2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]);
+    await userEvent.selectOptions(count, "6");
+    // 6 months turned to years is the nearest whole years the list holds — not 6 years.
+    await userEvent.selectOptions(unit, "yearly");
+    // A repeat is kept up to 24 months, so the years list holds 2 alone.
+    expect([...(screen.getByLabelText("Every") as HTMLSelectElement).options].map((o) => o.value)).toEqual(["2"]);
+    expect(screen.getByLabelText("Every")).toHaveValue("2");
+    await userEvent.selectOptions(screen.getByLabelText("Every"), "2");
+    expect(screen.queryByRole("option", { name: "weeks" })).toBeNull();
+    await next();
+    await next();
+    await save();
+    expect(onSave.mock.calls[0][0]).toMatchObject({ label: "Coupon", every: 24 });
+  });
+
   it("reads a season back as a sentence, and keeps it", async () => {
     setup("line", { id: "ski", label: "Skiing", amount: "200", from: "2026-12", to: "2027-04", yearly: true }, true);
     expect(cadence(/^Only some months/)).toHaveAttribute("aria-checked", "true");
@@ -183,7 +245,7 @@ describe("pay on a date", () => {
   it("every few months: asks the gap, says the months of the year, and stores it", async () => {
     setup("oneoff", { label: "Coupon", amount: "120", date: "2026-03-15" });
     await userEvent.click(cadence(/^Every few months/));
-    await userEvent.selectOptions(screen.getByLabelText("How many months apart?"), "4");
+    await userEvent.selectOptions(screen.getByLabelText("Every"), "4");
     await next();
     expect(screen.getByText("3 times a year: Mar, Jul, Nov — €120.00 each")).toBeInTheDocument();
     // From 2 November 2026: this November's, then March and July of 2027.

@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, compactNumber, signedWith } from "./chartTheme";
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, moneyAxis, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 export interface IncomeMonth {
@@ -39,13 +39,13 @@ function IncomeTooltip({ active, payload, average, formatCurrency }: { active?: 
  * different plans behind them, and the only thing that separates them is how
  * far the bars stray from the line.
  */
-export default function IncomeMonthsChart({ data, average, formatCurrency, compact }: { data: IncomeMonth[]; average?: number; formatCurrency: (n: number) => string; compact?: boolean }) {
+export default function IncomeMonthsChart({ data, average, fixed, formatCurrency, compact }: { data: IncomeMonth[]; average?: number; /** The month's stable income, from the Incomes page: a dashed green line. */ fixed?: number; formatCurrency: (n: number) => string; compact?: boolean }) {
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
       <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={12} />
-        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis {...moneyAxis(formatCurrency)} />
         <Tooltip content={<IncomeTooltip average={average} formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
         <Bar dataKey="income" fill="var(--color-income)" fillOpacity={0.85} maxBarSize={34} radius={[3, 3, 0, 0]} isAnimationActive={false}>
           {data.map((row) => (
@@ -55,6 +55,7 @@ export default function IncomeMonthsChart({ data, average, formatCurrency, compa
         {/* Drawn after the bars so it reads on top of them — it is the thing
             each bar is being compared against, not another series. */}
         {average !== undefined && <ReferenceLine y={average} stroke="var(--color-text-primary)" strokeDasharray="4 3" strokeWidth={1.5} />}
+        {fixed !== undefined && fixed > 0 && <ReferenceLine y={fixed} stroke="var(--color-income)" strokeDasharray="1 3" strokeWidth={2} ifOverflow="extendDomain" />}
       </BarChart>
     </ResponsiveContainer>
   );

@@ -924,8 +924,9 @@
   font-size: 14px;
 }
 
+/* A control in a form rests on the white surface; hovered, a touch of the brand — never the beige page tone. */
 .choice:hover {
-  background: var(--color-background-secondary);
+  background: color-mix(in srgb, var(--brand) 6%, var(--surface));
 }
 
 .choiceIcon {

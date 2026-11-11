@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../i18n";
 import ContributionWizard from "./ContributionWizard";
@@ -201,7 +202,11 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
 
   it("from my own bank, spent: card and person asked, the card goes down", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
+    render(
+      <MemoryRouter>
+        <ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />
+      </MemoryRouter>,
+    );
     const dialog = screen.getByRole("dialog");
     await answerThenAmount(dialog, /I gave it to someone/, "200");
     await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));

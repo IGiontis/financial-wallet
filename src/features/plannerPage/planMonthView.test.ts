@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { addMonths, endOfMonth, getDaysInMonth } from "date-fns";
 import { buildPlan, horizonEnd, MAX_HORIZON_MONTHS, THIS_MONTH, type BudgetLine, type PlanInput } from "./plannerUtils";
 import { planMonths } from "./payCycles";
-import { apportion, horizonForMonth, monthRange, planMonth, rowsBetween } from "./planMonthView";
+import { apportion, horizonForMonth, monthFlows, monthRange, planMonth, rowsBetween } from "./planMonthView";
 import { monthlySalary, undatedIncome } from "../../test/incomes";
 import { computeBillStatus } from "../bills/billsUtils";
 import type { Bill, Transaction } from "../../shared/types/IndexTypes";
@@ -167,5 +167,99 @@ describe("cents shared out so a list adds up", () => {
 
   it("leaves figures already in cents as they are", () => {
     expect(apportion([400, 300, 15.5], 715.5)).toEqual([400, 300, 15.5]);
+  });
+});
+
+// «Μπαίνουν» / «Βγαίνουν» tapped: the list behind each figure. Σ list = figure
+// to the cent, and each list is checked a second way — the dated ones against
+// the plan's own events counted by date, the lines against their monthly
+// amount worked out by hand, the two sides against what the month's balance
+// moved by.
+describe("the month's in and out, one by one", () => {
+  const sum = (items: { amount: number }[]) => cents(items.reduce((total, item) => total + item.amount, 0));
+
+  it("lists November 2027 by hand: the salary in; the rent and one's own out", () => {
+    const plan = planTo(horizonForMonth(NOV_2027, NOW)!);
+    const month = planMonth(plan, NOV_2027)!;
+    const flows = monthFlows(month);
+    expect(flows.in.map(({ label, amount, date }) => ({ label, amount, date }))).toEqual([{ label: expect.any(String), amount: 1450, date: new Date(2027, 10, 30) }]);
+    expect(flows.in[0].kind).toBe("income");
+    expect(flows.out.map(({ kind, label, amount }) => ({ kind, label, amount }))).toEqual([
+      { kind: "bill", label: "Rent", amount: 400 },
+      { kind: "line", label: "Mine", amount: 300 },
+    ]);
+    expect(flows.out[0].date).toEqual(NOV_2027);
+    expect(flows.out[1].date).toBeUndefined();
+    expect(sum(flows.in)).toBe(month.in);
+    expect(sum(flows.out)).toBe(month.out);
+  });
+
+  it("gives this month, from today, the line's share of its days", () => {
+    const plan = planTo(THIS_MONTH);
+    const month = planMonth(plan, new Date(2026, 9, 1))!;
+    const flows = monthFlows(month);
+    // 23 to 31 October: 9 of October's 31 days of 300.
+    const line = flows.out.find((item) => item.kind === "line")!;
+    expect(Math.abs(line.amount - (300 * 9) / 31)).toBeLessThanOrEqual(0.01);
+    expect(sum(flows.out)).toBe(month.out);
+    expect(sum(flows.in)).toBe(month.in);
+  });
+
+  it("adds up to both figures in every month of two years of a busy plan, odd thirds and all", () => {
+    const lines: BudgetLine[] = [
+      { id: "food", label: "Food", amount: 100, kind: "expense" },
+      { id: "fuel", label: "Fuel", amount: 77.77, kind: "expense" },
+      { id: "kids", label: "Kids", amount: 33.33, kind: "expense" },
+    ];
+    const plan = planTo(24, { lines });
+    for (const slice of planMonths(plan)) {
+      const month = planMonth(plan, slice.start)!;
+      const flows = monthFlows(month);
+      expect(sum(flows.in)).toBe(month.in);
+      expect(sum(flows.out)).toBe(month.out);
+      // Second way: what came in less what went out is what the balance moved by.
+      expect(cents(sum(flows.in) - sum(flows.out))).toBe(cents(slice.close - slice.carried));
+      // The dated ones are the plan's own events inside the month, counted afresh.
+      const inMonth = plan.events.filter((event) => event.date >= slice.start && event.date <= slice.end && event.amount !== 0);
+      expect([...flows.in, ...flows.out].filter((item) => item.date).length).toBe(inMonth.length);
+      // Every line is within a cent of its rate times the share of the month's days it runs.
+      const share = slice.days / getDaysInMonth(slice.start);
+      for (const line of lines) {
+        const item = [...flows.in, ...flows.out].find((i) => i.label === line.label)!;
+        expect(Math.abs(item.amount - line.amount * share)).toBeLessThanOrEqual(0.011);
+      }
+    }
+  });
+});
+
+// The list must land on the tile even when no line is there to take the
+// stray cent: dated amounts converted from another currency carry fractions
+// of a cent, and the figure the tile shows was rounded once, as a whole.
+describe("the month's list with fractions and no lines", () => {
+  const D = (day: number) => new Date(2026, 10, day);
+  const event = (label: string, amount: number, day: number) => ({ kind: amount > 0 ? "income" : "bill", label, amount, date: D(day), billId: amount < 0 ? label : undefined, oneOffId: amount > 0 ? label : undefined }) as never;
+  const fake = (items: unknown[], figures: { in: number; out: number }) =>
+    ({
+      slice: { payEvents: [], items, from: 0, to: 29 },
+      view: { start: D(1), stretches: [], rows: [] },
+      in: figures.in,
+      out: figures.out,
+    }) as unknown as Parameters<typeof monthFlows>[0];
+  const sum = (items: { amount: number }[]) => cents(items.reduce((total, item) => total + item.amount, 0));
+
+  it("places the cents the rounding left over on the dated items themselves", () => {
+    // 3 × 33.3367 = 100.01 as one figure; each rounded alone would print 33.34 × 3 = 100.02.
+    const flows = monthFlows(fake([event("A", 33.3367, 3), event("B", 33.3367, 5), event("C", 33.3366, 9)], { in: 100.01, out: 0 }));
+    expect(sum(flows.in)).toBe(100.01);
+    expect(flows.in.map((i) => i.amount).sort()).toEqual([33.33, 33.34, 33.34]);
+    // Second way: no item moved more than a cent from its own amount.
+    for (const [k, raw] of [33.3367, 33.3367, 33.3366].entries()) expect(Math.abs(flows.in[k].amount - raw)).toBeLessThan(0.01 + 1e-9);
+  });
+
+  it("takes a cent off when the figure is less than the items rounded alone", () => {
+    const flows = monthFlows(fake([event("Water", -5, 2), event("Power", -5, 20)], { in: 0, out: 9.99 }));
+    expect(sum(flows.out)).toBe(9.99);
+    expect(flows.out.map((i) => i.amount).sort()).toEqual([4.99, 5]);
+    expect(flows.in).toEqual([]);
   });
 });

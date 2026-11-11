@@ -4,7 +4,7 @@ import { Input } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
 import { FiCheck, FiPlus, FiX } from "react-icons/fi";
-import { filterPayees, isUnsavedPayee, payeeKey, payeesByInitial } from "../payeeStore";
+import { filterPayees, isUnsavedPayee, payeeKey, payeeMatch, payeesByInitial } from "../payeeStore";
 import styles from "./css/PayeeInput.module.css";
 
 const MENU_MAX_HEIGHT = 232;
@@ -42,6 +42,23 @@ interface PayeeInputProps {
 }
 
 const PAYEE_WORDING = { field: "transactions.payee", useTyped: "transactions.useTypedPayee", empty: "transactions.noPayeeMatches" } as const;
+
+/**
+ * A suggestion with the letters typed so far drawn in the brand colour and
+ * bold, the rest plain — so it is obvious why each one is on the list.
+ */
+export function MatchedName({ name, query }: { name: string; query: string }) {
+  const hit = payeeMatch(name, query);
+  if (!hit) return <>{name}</>;
+  const [start, end] = hit;
+  return (
+    <>
+      {name.slice(0, start)}
+      <mark className={styles.hit}>{name.slice(start, end)}</mark>
+      {name.slice(end)}
+    </>
+  );
+}
 
 /**
  * Picks from the saved payee list without ever blocking free text: the field is
@@ -188,13 +205,15 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
       onMouseEnter={() => setActiveIndex(index)}
     >
       {isCreate && <FiPlus size={13} className="flex-shrink-0" />}
-      <span className={styles.optionName}>{isCreate ? t(wording.useTyped, { name: value.trim() }) : label}</span>
+      <span className={styles.optionName}>{isCreate ? t(wording.useTyped, { name: value.trim() }) : <MatchedName name={label} query={value} />}</span>
     </div>
   );
 
   const sheetOption = (name: string) => (
     <button key={payeeKey(name)} type="button" className={styles.sheetOption} onClick={() => commit(name)}>
-      <span className={styles.optionName}>{name}</span>
+      <span className={styles.optionName}>
+        <MatchedName name={name} query={search} />
+      </span>
       {payeeKey(name) === payeeKey(value) && <FiCheck size={16} style={{ color: "var(--bs-primary)" }} aria-hidden />}
     </button>
   );
@@ -225,6 +244,7 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
         // Read-only on a phone: the tap opens the list, not a keyboard that
         // would cover it. Typing happens in the sheet's own search box.
         readOnly={narrow}
+        className={styles.field}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
       />

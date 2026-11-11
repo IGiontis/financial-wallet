@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import { FiArrowDownLeft, FiArrowUpRight, FiRepeat } from "react-icons/fi";
 import { SavedCheck } from "./SavedCheck";
+import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import type { CreateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
@@ -219,6 +220,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         };
 
         await onSubmit(dto);
+        // The shared «it saved» answer: the dialog pulses, the new row lights
+        // up on the list (useSavedFlash("transactions", …)) — CLAUDE.md.
+        celebrateSave({ collection: "transactions" });
         if (asPage) setSaved(values);
         else toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
@@ -239,30 +243,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formik.values.pricePerUnit, formik.values.quantity, formik.values.showFuelDetails]);
 
-  // ── Category-driven autofill ───────────────────────────────────────────────
-  // A category knows what it usually means: Netflix, €15.99, an expense. Once it
-  // does, recording one is picking it — the rest arrives filled in and locked,
-  // so the fields that never vary stop asking to be re-confirmed every time.
-  //
-  // Locked rather than merely prefilled because that is the signal: a disabled
-  // field says "this is handled" in a way a filled one does not, and the escape
-  // hatch is one tap away for the month the amount actually changed.
-
-  const [unlocked, setUnlocked] = useState(false);
-
-  /** Which fields the chosen category filled in — empty when it fills nothing. */
-  const autoFilled = useMemo(() => {
-    const category = categories.find((c) => c.id === formik.values.categoryId);
-    if (!category) return [];
-    const filled: string[] = [];
-    if (category.defaultPayee) filled.push(t("transactions.payee").toLowerCase());
-    if (category.defaultAmount != null) filled.push(t("common.amount").toLowerCase());
-    return filled;
-  }, [categories, formik.values.categoryId, t]);
-
-  const lockPayee = autoFilled.length > 0 && !unlocked && !!categories.find((c) => c.id === formik.values.categoryId)?.defaultPayee;
-  const lockAmount = autoFilled.length > 0 && !unlocked && categories.find((c) => c.id === formik.values.categoryId)?.defaultAmount != null;
-
   const handleTypeChange = (next: "income" | "expense") => {
     formik.setFieldValue("type", next);
     // The chosen category belongs to the old tab, so it cannot survive the switch.
@@ -274,13 +254,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     formik.setFieldValue("odometer", "");
     formik.setFieldValue("place", "");
     setIsFuelCategory(false);
-    setUnlocked(false);
   };
 
   const handleCategorySelect = (categoryId: string, category: Category) => {
     formik.setFieldValue("categoryId", categoryId);
-    // Fuel is the one built-in category that opens extra fields; it predates
-    // the defaults below and still keys off the name.
+    // Fuel is the one built-in category that opens extra fields; it keys off the name.
     const isF = category.name === "Fuel";
     setIsFuelCategory(isF);
     if (!isF) {
@@ -291,12 +269,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
       formik.setFieldValue("odometer", "");
       formik.setFieldValue("place", "");
     }
-
-    // Only ever fills, never clears: switching to a category with no defaults
-    // must not wipe what the user already typed.
-    if (category.defaultPayee) formik.setFieldValue("description", category.defaultPayee);
-    if (category.defaultAmount != null) formik.setFieldValue("amount", category.defaultAmount);
-    setUnlocked(false);
   };
 
   // Choosing is also moving on: on both of the first two steps the answer is a
@@ -408,6 +380,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               <TypeBadge type={formik.values.type} />
             </p>
             <CategoryPicker
+              manage="link"
               categories={categories}
               value={formik.values.categoryId}
               type={formik.values.type}
@@ -449,20 +422,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               <TypeBadge type={formik.values.type} />
             </p>
 
-            {/* What the category filled in, and the way out of it. Locked by
-                default so the common entry is amount and nothing else; one
-                tap reopens them for the day you paid someone different. */}
-            {autoFilled.length > 0 && (
-              <div className="d-flex align-items-center justify-content-between gap-2 mb-2 px-2 py-1" style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)" }}>
-                <span style={{ fontSize: 11.5, color: "var(--color-text-secondary)" }}>
-                  ⚡ {t("transactions.autoFilledNote", { fields: autoFilled.join(", ") })}
-                </span>
-                <Button type="button" color="secondary" outline size="sm" onClick={() => setUnlocked(true)} disabled={unlocked} style={{ fontSize: 11.5, flexShrink: 0 }}>
-                  {unlocked ? t("transactions.unlocked") : t("transactions.unlock")}
-                </Button>
-              </div>
-            )}
-
             {/* ── Amount + Date ── */}
             <Row className="g-3">
               <Col xs={6}>
@@ -472,7 +431,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                     type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
                     value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                     readOnly={formik.values.showFuelDetails}
-                    disabled={lockAmount}
                     style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                     invalid={!!(formik.touched.amount && formik.errors.amount)}
                   />
@@ -508,7 +466,6 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                     invalid={!!(formik.touched.description && formik.errors.description)}
                     onChange={(v) => formik.setFieldValue("description", v)}
                     onBlur={() => formik.setFieldTouched("description", true)}
-                    disabled={lockPayee}
                   />
                   <FormFeedback>{validationMessage(formik.errors.description, t)}</FormFeedback>
                 </FormGroup>

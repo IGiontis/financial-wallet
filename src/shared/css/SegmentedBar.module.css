@@ -1,0 +1,79 @@
+/* SegmentedBar.tsx: one piece per thing, as wide as its amount; done ones
+   filled with the meaning colour, open ones an outline of it. */
+
+.bar {
+  display: flex;
+  gap: var(--space-0);
+  height: 0.625rem;
+}
+
+.segment {
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  border: 1px solid var(--seg-tone);
+  border-radius: var(--radius-xs);
+}
+
+.done {
+  background: var(--seg-tone);
+}
+
+/* Paid: the fill fades in (a fade, so it stays with reduced motion too). */
+.segment {
+  transition: background-color 0.25s ease-out;
+}
+
+/* The share done, beside the bar: never wraps, never shrinks. */
+.pct {
+  flex-shrink: 0;
+  min-width: 2.75em;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.open {
+  background: transparent;
+}
+
+/* Too many to count: one bar, filled to the share that is done. */
+.track {
+  height: 0.5rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-xs);
+  background: var(--seg-tone);
+}
+
+.fill {
+  transition: width 0.3s ease;
+}
+
+.tone_income {
+  --seg-tone: var(--income);
+}
+
+.tone_expense {
+  --seg-tone: var(--expense);
+}
+
+.tone_goal {
+  --seg-tone: var(--goal);
+}
+
+.tone_invest {
+  --seg-tone: var(--invest);
+}
+
+.tone_brand {
+  --seg-tone: var(--brand);
+}

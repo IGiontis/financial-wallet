@@ -2,7 +2,7 @@ import { useId } from "react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import type { IncomesBillsMonth } from "../incomesVsBills";
-import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, signedCompact, signedWith } from "./chartTheme";
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, moneyAxis, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 export interface IncomesBillsPoint extends IncomesBillsMonth {
@@ -54,7 +54,7 @@ export default function IncomesBillsChart({ data, formatCurrency, compact }: { d
         </defs>
         {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval={compact ? "preserveStartEnd" : 0} minTickGap={4} />
-        <YAxis hide={compact} tickFormatter={signedCompact} tick={AXIS_TICK} axisLine={false} tickLine={false} width={48} />
+        <YAxis {...moneyAxis(formatCurrency)} />
         <Tooltip content={<IncomesBillsTooltip formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
         <ReferenceLine y={0} stroke={GRID_STROKE} />
         <Bar dataKey="income" maxBarSize={22} radius={[3, 3, 0, 0]} isAnimationActive={false}>

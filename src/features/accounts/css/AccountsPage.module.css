@@ -62,8 +62,15 @@
 
 .sumTotal {
   margin-top: 3px;
-  padding-top: 6px !important;
   border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* Over a Bootstrap padding utility: an app `!important` lives in this layer
+   (index.css, «Cascade layers»). */
+@layer app-important {
+  .sumTotal {
+    padding-top: 6px !important;
+  }
 }
 
 .sumTotal dt {

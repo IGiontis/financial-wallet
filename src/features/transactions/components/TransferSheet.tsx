@@ -21,6 +21,7 @@ export default function TransferSheet({
   onEdit,
   onDelete,
   onClose,
+  editBlocked,
 }: {
   out: Transaction;
   inn?: Transaction;
@@ -28,6 +29,8 @@ export default function TransferSheet({
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Why the pair can't be corrected here (one half is missing), or nothing. */
+  editBlocked?: string;
 }) {
   const { t, i18n } = useTranslation();
   const accounts = useAccountList();
@@ -63,11 +66,12 @@ export default function TransferSheet({
           )}
         </div>
         <p className="small text-body-secondary mt-3 mb-0">{t("transactions.transfer.neither")}</p>
+        {editBlocked && <p className="small text-body-secondary mt-2 mb-0">{editBlocked}</p>}
       </ModalBody>
       <ModalFooter className="justify-content-between">
-        {/* Asks first, as every delete does, and takes both halves. */}
+        {/* Asks first, as every delete does, and takes whichever halves are there. */}
         <DeleteButton iconOnly onClick={onDelete} what={out.description} disabled={deleteGuard.locked} title={deleteGuard.reason} />
-        <Button color="primary" onClick={onEdit}>
+        <Button color="primary" onClick={onEdit} disabled={!!editBlocked}>
           {t("common.edit")}
         </Button>
       </ModalFooter>

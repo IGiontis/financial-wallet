@@ -441,7 +441,21 @@ export default function PersonDebtsModal({
 
   const modals = (
     <>
-      {editing && <AddDebtModal debt={editing} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setEditing(null)} />}
+      {editing && (
+        <AddDebtModal
+          debt={editing}
+          knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]}
+          onClose={() => setEditing(null)}
+          // The wizard's bin hands over to the sheet's own delete question,
+          // which says what goes with a loan that paid part of a goal.
+          onDelete={() => {
+            setDeleting(editing);
+            setEditing(null);
+          }}
+          deleteLocked={deleteGuard.locked}
+          deleteReason={deleteGuard.reason}
+        />
+      )}
       {adding && <AddDebtModal defaultPerson={person.person} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setAdding(false)} />}
       {recording !== null && debt && <RepaymentWizard debt={debt} suggested={recording} formatCurrency={formatCurrency} onClose={() => setRecording(null)} />}
       {forgiving && debt && <ForgiveDebtModal debt={debt} formatCurrency={formatCurrency} onClose={() => setForgiving(false)} />}

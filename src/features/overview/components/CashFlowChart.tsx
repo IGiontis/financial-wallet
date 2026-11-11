@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 import { useTranslation } from "react-i18next";
 import type { ChartDataPoint } from "../overviewUtils";
 import { SERIES, cssVar } from "./cashFlowSeries";
@@ -116,9 +116,15 @@ interface CashFlowChartProps {
   formatCurrency: (n: number) => string;
   /** Compact axis formatting for small screens. */
   compact?: boolean;
+  /**
+   * The FIXED part of a month, drawn as two dashed lines: what the Incomes
+   * page brings in (green) and what the Bills page asks (red). Only for bars
+   * that are months — a week's bars would sit far below a month's bills.
+   */
+  fixed?: { income: number; bills: number };
 }
 
-export default function CashFlowChart({ data, formatCurrency, compact = false }: CashFlowChartProps) {
+export default function CashFlowChart({ data, formatCurrency, compact = false, fixed }: CashFlowChartProps) {
   return (
     <ResponsiveContainer width="100%" height={280} debounce={200}>
       <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }} barGap={3} barCategoryGap="30%">
@@ -139,6 +145,9 @@ export default function CashFlowChart({ data, formatCurrency, compact = false }:
             ))}
           </Bar>
         ))}
+        {/* After the bars, so they read on top: what each bar is measured against. */}
+        {fixed && fixed.income > 0 && <ReferenceLine y={fixed.income} stroke="var(--color-income)" strokeDasharray="5 4" strokeWidth={1.5} ifOverflow="extendDomain" />}
+        {fixed && fixed.bills > 0 && <ReferenceLine y={fixed.bills} stroke="var(--color-expense)" strokeDasharray="5 4" strokeWidth={1.5} ifOverflow="extendDomain" />}
       </BarChart>
     </ResponsiveContainer>
   );

@@ -15,6 +15,7 @@ import { categoryUsage, totalUsage, type CategoryUsage } from "./categoryUsage";
 import { typesToAdd } from "./categoryScope";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
+import { AddButton } from "../../shared/components/AddButton";
 
 /** Badge wording per scope — "both" is the one worth calling out. */
 const SCOPE_LABEL = { expense: "transactions.expense", income: "transactions.income", both: "categories.both" } as const;
@@ -85,14 +86,12 @@ export default function CategoryManager() {
    * failure in between leaves a one-sided category with its new name rather
    * than two halves that no longer match and list as two categories.
    */
-  const saveEdit = async (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope; defaultPayee?: string; defaultAmount?: number }) => {
-    const fields = { name: values.name, icon: values.icon, defaultPayee: values.defaultPayee, defaultAmount: values.defaultAmount };
+  const saveEdit = async (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope }) => {
+    const fields = { name: values.name, icon: values.icon };
     const missing = typesToAdd(group.scope, values.scope);
     setSavingEdit(true);
     try {
       await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
-      // The new half gets the name and the icon only: an expense's payee and
-      // amount would otherwise prefill every income recorded under it.
       for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
       setEditing(null);
     } catch {
@@ -106,13 +105,12 @@ export default function CategoryManager() {
 
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
-        <span className="text-body-secondary" style={{ fontSize: 13 }}>
+      {/* The app's one «+» (`AddButton`) pinned left; the words beside it wrap. */}
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <AddButton small label={t("categories.new")} onClick={() => setCreating(true)} />
+        <span className="text-body-secondary" style={{ fontSize: 13, minWidth: 0 }}>
           {t("categories.builtInCount", { count: defaultCount })}
         </span>
-        <Button color="primary" size="sm" onClick={() => setCreating(true)}>
-          + {t("categories.new")}
-        </Button>
       </div>
 
       {own.length === 0 ? (
@@ -159,8 +157,7 @@ export default function CategoryManager() {
         <CategoryModal
           existing={categories}
           scope={editing.scope}
-          // The defaults it fills in, from the documents behind it — or saving would clear them.
-          category={{ ...editing, defaultPayee: editing.members.find((m) => m.defaultPayee)?.defaultPayee, defaultAmount: editing.members.find((m) => m.defaultAmount != null)?.defaultAmount }}
+          category={editing}
           isSaving={savingEdit}
           onClose={() => setEditing(null)}
           onSubmit={(values) => void saveEdit(editing, values)}

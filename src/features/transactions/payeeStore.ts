@@ -51,17 +51,59 @@ export function sortPayees(payees: string[]): string[] {
   return [...payees].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
+/** One character as the search sees it: no case, no accent, final ς as σ. */
+const foldChar = (ch: string): string =>
+  ch
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/ς/g, "σ");
+
+const foldQuery = (query: string): string => [...query.trim().replace(/\s+/g, " ")].map(foldChar).join("");
+
+/**
+ * Where the typed text sits inside a name, as [start, end) offsets into the
+ * name itself — so the matching letters can be drawn differently. Case,
+ * accents and extra spaces are ignored, the way names are compared
+ * everywhere: "καφε" finds the «Καφέ» in «Καφές Λόφος». Null when it isn't in
+ * there or nothing is typed.
+ */
+export function payeeMatch(name: string, query: string): [number, number] | null {
+  const q = foldQuery(query);
+  if (!q) return null;
+
+  // Folded text, plus for every folded character the offset it came from, so
+  // a hit in the folded name maps back onto the letters on screen.
+  let folded = "";
+  const from: number[] = [];
+  let offset = 0;
+  for (const ch of name) {
+    const f = foldChar(ch);
+    folded += f;
+    for (let i = 0; i < f.length; i++) from.push(offset);
+    offset += ch.length;
+  }
+  from.push(offset);
+
+  const at = folded.indexOf(q);
+  if (at === -1) return null;
+  const end = at + q.length;
+  // The end lands after the source character holding the last matched letter.
+  const last = from[end - 1];
+  const lastLength = [...name.slice(last)][0]?.length ?? 1;
+  return [from[at], last + lastLength];
+}
+
 /**
  * Narrows the list to what is typed. A prefix match outranks a match in the
  * middle, so typing "sh" puts "Shell" above "Fresh Market". An empty query
- * returns everything.
+ * returns everything. Case and accents don't count.
  */
 export function filterPayees(payees: string[], query: string): string[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return payees;
+  if (!foldQuery(query)) return payees;
 
   return payees
-    .map((name, index) => ({ name, at: name.toLowerCase().indexOf(q), index }))
+    .map((name, index) => ({ name, at: payeeMatch(name, query)?.[0] ?? -1, index }))
     .filter((r) => r.at !== -1)
     .sort((a, b) => (a.at === 0 ? 0 : 1) - (b.at === 0 ? 0 : 1) || a.index - b.index)
     .map((r) => r.name);

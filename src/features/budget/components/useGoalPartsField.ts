@@ -27,6 +27,16 @@ export function useGoalPartsField(initial: GoalPart[] | undefined, onTarget: (am
     if (!ok) setShowErrors(true);
     return ok;
   };
+  /** Back to what the form opened with — for a modal that stays mounted between uses. */
+  const reset = () => {
+    setUsingParts(!!initial?.length);
+    setDraftsState(partDraftsOf(initial));
+    setShowErrors(false);
+  };
 
-  return { usingParts, choose, drafts, setDrafts, parts, showErrors, check };
+  // Changed from what the form opened with: the choice, or the parts it would save.
+  const sameParts = (a: GoalPart[], b: GoalPart[]) => a.length === b.length && a.every((p, i) => p.label === b[i].label && p.min === b[i].min && p.max === b[i].max);
+  const dirty = usingParts !== !!initial?.length || (usingParts && !sameParts(parts, initial ?? []));
+
+  return { usingParts, choose, drafts, setDrafts, parts, showErrors, check, reset, dirty };
 }

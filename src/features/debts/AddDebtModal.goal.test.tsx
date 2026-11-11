@@ -28,6 +28,7 @@ vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ muta
 const linked = vi.hoisted(() => ({ value: { link: undefined as unknown, goalName: undefined as string | undefined, ready: true, failed: false, retry: () => {} } }));
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => linked.value }));
 vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
+vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => [] }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
 beforeAll(async () => {
@@ -43,9 +44,26 @@ beforeEach(() => {
 
 const open = () => render(<AddDebtModal knownPeople={["Keki"]} defaultPerson="Keki" onClose={() => {}} />);
 
+// The wizard's steps: who → interest → dates → money → review.
+const next = () => userEvent.click(screen.getByRole("button", { name: /^Next/ }));
+const back = () => userEvent.click(screen.getByRole("button", { name: /^‹ Back/ }));
+/** From the first step to «Did the money …?», typing the amount on the way. */
+async function toMoney(amount?: string) {
+  if (amount) await userEvent.type(screen.getByLabelText(/^Amount/), amount);
+  await next();
+  await userEvent.click(screen.getByRole("radio", { name: /^No, a plain debt/ }));
+  await next();
+  await next();
+}
+/** From a saved debt, every step already answered, to the review. */
+async function toReview() {
+  for (let i = 0; i < 4; i++) await next();
+}
+
 describe("a new loan whose money went to a goal", () => {
   it("offers the goals — not the investments — once no card is involved", async () => {
     open();
+    await toMoney("200");
     expect(screen.queryByLabelText("It went to a goal")).toBeNull();
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     const goals = screen.getByLabelText("It went to a goal") as HTMLSelectElement;
@@ -54,9 +72,18 @@ describe("a new loan whose money went to a goal", () => {
 
   it("writes the goal's deposit, the debt and the expense — the same as from the goal", async () => {
     open();
-    await userEvent.type(screen.getAllByPlaceholderText("0")[0], "200");
+    await toMoney("200");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.selectOptions(screen.getByLabelText("It went to a goal"), "ski");
+    // No category chosen in advance: the select starts empty, naming the fallback.
+    const category = screen.getByLabelText("Expense category") as HTMLSelectElement;
+    expect(category.value).toBe("");
+    expect(category.options[0].textContent).toMatch(/^None chosen — it goes to «Other/);
+    await next();
+    // The fallback is applied at save and shown in the review.
+    expect(screen.getByRole("button", { name: /^Expense categorys*Other/ })).toBeInTheDocument();
+    // The review names the goal and the category before anything is written.
+    expect(screen.getByRole("button", { name: /It went to a goal.*Ski/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(spies.create).not.toHaveBeenCalled();
@@ -82,8 +109,9 @@ describe("a new loan whose money went to a goal", () => {
 
   it("is an ordinary debt with no goal picked", async () => {
     open();
-    await userEvent.type(screen.getAllByPlaceholderText("0")[0], "200");
+    await toMoney("200");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
+    await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.covered).not.toHaveBeenCalled();
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ person: "Keki", amount: 200, accountId: undefined }), expect.anything());
@@ -91,11 +119,18 @@ describe("a new loan whose money went to a goal", () => {
 
   it("says what no money moving means from the side the loan is on", async () => {
     open();
+    await toMoney("200");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     expect(screen.getByRole("radiogroup", { name: "Did the money go in somewhere?" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /^No — they paid for you/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText(/they paid your hotel/)).toBeInTheDocument();
+    await back();
+    await back();
+    await back();
     await userEvent.click(screen.getByRole("button", { name: /^I lent/ }));
+    await next();
+    await next();
+    await next();
     // Lent: the question and the "no" turn round — it is now money that would have left.
     expect(screen.getByRole("radiogroup", { name: "Did the money come out of somewhere?" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /^No — you paid for them/ })).toHaveAttribute("aria-checked", "true");
@@ -105,11 +140,12 @@ describe("a new loan whose money went to a goal", () => {
 
   it("keeps the value contract: «yes» is \"\" (any card), «no» is undefined", async () => {
     open();
-    await userEvent.type(screen.getAllByPlaceholderText("0")[0], "50");
+    await toMoney("50");
     // A new debt starts on «yes»: money moved, no particular card yet.
     expect(screen.getByRole("radio", { name: /^Yes, into a card or cash/ })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
+    await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }), expect.anything());
   });
@@ -136,22 +172,25 @@ describe("a saved debt that paid part of a goal, corrected", () => {
     const amount = screen.getByDisplayValue("200");
     await userEvent.clear(amount);
     await userEvent.type(amount, "150");
+    await toReview();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [args] = spies.edit.mock.calls[0];
     expect(args.data.amount).toBe(150);
     expect(args.covered).toEqual({ contribution: { id: "c1", set: { amount: 150 } }, expense: { id: "e1", set: { amount: 150 } } });
   });
 
-  it("keeps which way and that no card moved: those cannot be changed here", () => {
+  it("keeps which way and that no card moved: those cannot be changed here", async () => {
     edit();
     expect(screen.getByRole("button", { name: /^I lent/ })).toBeDisabled();
+    for (let i = 0; i < 3; i++) await next();
     // Hidden by Bootstrap's class, which the test page has no stylesheet for.
     expect(screen.getByRole("radiogroup", { name: "Did the money go in somewhere?" }).closest(".d-none")).not.toBeNull();
   });
 
-  it("waits for the goal's records before it can save", () => {
+  it("waits for the goal's records before it can save", async () => {
     linked.value = { link: undefined, goalName: undefined, ready: false, failed: false, retry: () => {} };
     render(<AddDebtModal debt={debt} knownPeople={["Keki"]} onClose={() => {}} />);
+    await toReview();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -160,6 +199,8 @@ describe("a saved debt that paid part of a goal, corrected", () => {
     const retry = vi.fn();
     linked.value = { link: undefined, goalName: undefined, ready: false, failed: true, retry };
     render(<AddDebtModal debt={debt} knownPeople={["Keki"]} onClose={() => {}} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("couldn't be loaded");
+    await toReview();
     expect(screen.getByRole("alert")).toHaveTextContent("couldn't be loaded");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));

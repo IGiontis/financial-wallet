@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import { Button } from "reactstrap";
+import { useContext, useMemo, useState } from "react";
+import { UNSAFE_LocationContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
-import { FiPlus, FiX } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useDebts, useHealDebtCash } from "./useDebts";
@@ -15,6 +15,7 @@ import AddDebtModal from "./AddDebtModal";
 import styles from "./css/DebtsPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
+import { AddHeader } from "../../shared/components/AddButton";
 
 /**
  * Who you owe, and who owes you.
@@ -39,7 +40,11 @@ export function DebtsPage() {
   // From a laptop up, the person is a panel beside the list rather than a dialog
   // over it, and one is always in it — the list is its own navigation.
   const wide = useNarrowScreen(WIDE_QUERY);
-  const [openPerson, setOpenPerson] = useState<string | null>(null);
+  // A link from elsewhere («Αλλάζει από τα Δάνεια» on a transaction) arrives
+  // with the person to open, in the route's state rather than the address.
+  // Read from the context, not useLocation(), which throws outside a router.
+  const arrivedFor = (useContext(UNSAFE_LocationContext)?.location?.state as { person?: string } | null | undefined)?.person;
+  const [openPerson, setOpenPerson] = useState<string | null>(arrivedFor ?? null);
   const [adding, setAdding] = useState(false);
   // The floating «+» adds a debt or a loan here.
   usePageAdd(t("debts.add"), () => setAdding(true));
@@ -79,16 +84,7 @@ export function DebtsPage() {
 
   return (
     <PageShell>
-      <div className="d-flex justify-content-between align-items-start mb-3 gap-2 flex-wrap">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("debts.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("debts.subtitle")}</p>
-        </div>
-        <Button color="primary" onClick={() => setAdding(true)} className="text-nowrap">
-          <FiPlus size={16} className="me-1" />
-          {t("debts.add")}
-        </Button>
-      </div>
+      <AddHeader label={t("debts.add")} onAdd={() => setAdding(true)} title={t("debts.title")} subtitle={t("debts.subtitle")} />
 
       {/* Inline rather than instead of the page: failing to read is no reason to
           take away the button that writes, and the first thing a new collection

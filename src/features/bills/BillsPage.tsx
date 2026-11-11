@@ -5,6 +5,8 @@ import { toneChip } from "../../shared/utils/tone";
 import { toast } from "react-toastify";
 import type { TFunction } from "i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { AddHeader } from "../../shared/components/AddButton";
+import { SegmentedBar } from "../../shared/components/SegmentedBar";
 import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
 import { FiSquare, FiBarChart2, FiCalendar, FiGitCommit, FiChevronRight, FiCheck, FiGrid, FiList, FiLock, FiAward } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
@@ -138,6 +140,7 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
   const endLabel = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(periodEnd);
 
   const settled = totals.due <= 0 && totals.totalCount > 0;
+  const paidLine = t("bills.nOfMPaidLeft", { paid: totals.totalCount - totals.unpaidCount, total: totals.totalCount, left: formatCurrency(totals.due) });
 
   return (
     <div
@@ -181,13 +184,16 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
             {settled ? t("bills.allSettledHint") : t("bills.alreadyPaid", { amount: formatCurrency(totals.paid) })}
           </p>
 
-          <div className={styles.progressTrack} role="progressbar" aria-valuenow={Math.round(totals.paidPct)} aria-valuemin={0} aria-valuemax={100}>
-            <div className={styles.progressFill} style={{ width: `${Math.min(totals.paidPct, 100)}%` }} />
-          </div>
+          {/* A piece per bill of the month, as wide as its amount: the paid ones
+              filled, the rest outlined — which weigh most, and which are open. */}
+          <SegmentedBar
+            segments={breakdown.items.map((item) => ({ id: `${item.bill.id}|${item.periodKey}|${item.installmentIndex ?? 0}`, label: item.bill.name, amount: item.amount, done: item.isPaid }))}
+            label={paidLine}
+            describe={(segment) => t(segment.done ? "bills.segPaid" : "bills.segOpen", { name: segment.label, amount: formatCurrency(segment.amount) })}
+          />
 
-          <div className="d-flex justify-content-between mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
-            <span>{t("bills.pctCovered", { pct: Math.round(totals.paidPct) })}</span>
-            <span>{t("bills.nOfMPending", { pending: totals.unpaidCount, total: totals.totalCount })}</span>
+          <div className="mt-2 text-body-secondary" style={{ fontSize: 11.5 }}>
+            {paidLine}
           </div>
 
           <div className={styles.forecastHint}>
@@ -834,8 +840,8 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
 /**
  * The three pages of «Πάγια».
  *
- *   overview — to read: what is due, next month, the runway, the year. Nothing to press.
- *   pay      — to act: the bills themselves, with what is late first, and the "+".
+ *   overview — to read: what is due, next month, the runway, the year. The «+» adds a bill here too.
+ *   pay      — to act: the bills themselves, with what is late first.
  *   manage   — every bill by name, no figures: to change one or delete it.
  *   all      — the page as it was, both together.
  *
@@ -1267,18 +1273,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   return (
     <PageShell>
       {/* Header */}
-      <div className="d-flex justify-content-between align-items-start mb-3 gap-2">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("bills.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("bills.subtitle")}</p>
-        </div>
-        {view !== "overview" && (
-          <Button color="primary" onClick={openNew} className="flex-shrink-0">
-            <span className="d-none d-sm-inline">+ {t("bills.newBill")}</span>
-            <span className="d-sm-none">+</span>
-          </Button>
-        )}
-      </div>
+      {/* The add on every view, «Σύνοψη» too. */}
+      <AddHeader label={t("bills.newBill")} onAdd={openNew} title={t("bills.title")} subtitle={t("bills.subtitle")} />
 
       <SubPageTabs
         label={t("bills.title")}
@@ -1546,7 +1542,24 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       )}
 
       {/* ── Modals (unchanged) ── */}
-      <AddBillModal isOpen={showModal} onClose={() => setShowModal(false)} categories={categories} bill={editBill} onSubmit={handleSubmit} />
+      <AddBillModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        categories={categories}
+        bill={editBill}
+        onSubmit={handleSubmit}
+        // Delete far left on an edit: the form closes and the page's own confirm asks.
+        onDelete={
+          editBill
+            ? () => {
+                setShowModal(false);
+                setDeleteTarget(bills.find((b) => b.id === editBill.id) ?? null);
+              }
+            : undefined
+        }
+        deleteLocked={deleteGuard.locked}
+        deleteReason={deleteGuard.reason}
+      />
 
       {/* Every active bill in one place, reached from the count that names
           them. The same component the yearly projection opens a category into —

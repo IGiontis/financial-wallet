@@ -27,6 +27,7 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
+import { AddButton } from "../../shared/components/AddButton";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ export default function InvestmentsPage() {
         screen="investments"
         title={t("investments.title")}
         subtitle={t("investments.subtitle")}
-        action={newButton}
+        action={<AddButton label={t("investments.newInvestment")} onClick={() => setShowNewGoal(true)} />}
         goals={mine}
         isLoading={isLoading}
         isError={isError}
@@ -174,7 +175,7 @@ export default function InvestmentsPage() {
         groupOptions={INVESTMENT_GROUPINGS}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
-        renderCards={(shown) => (
+        renderCards={(shown, status) => (
           <Row className="g-3">
             {shown.map((goal) => (
               <Col xs={12} md={6} xl={3} key={goal.id}>
@@ -187,6 +188,7 @@ export default function InvestmentsPage() {
                   onDelete={setDeleteGoal}
                   onEdit={setEditGoal}
                   onTogglePause={handleTogglePause}
+                  pausedView={status === "paused"}
                 />
               </Col>
             ))}
@@ -222,7 +224,7 @@ export default function InvestmentsPage() {
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={false} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={false} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
-      {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
+      {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} onDelete={() => { setDeleteGoal(editGoal); setEditGoal(null); }} />}
       {deleteGoal && <DeleteConfirmModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       <AddNewGoalModal isOpen={showNewGoal} onClose={() => setShowNewGoal(false)} onSubmit={handleCreateGoal} defaultGoalType="recurring" />
     </PageShell>

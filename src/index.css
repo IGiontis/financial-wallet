@@ -1,3 +1,39 @@
+/* ── Cascade layers: Bootstrap underneath everything the app writes ───────────
+   In the production build the stylesheets of shared chunks (DateField,
+   RowMenu, BankCard …) were linked BEFORE the one holding Bootstrap, so on
+   equal specificity Bootstrap came later and won — a module's one-class rule
+   lost to `.form-control`, and the date field's calendar fell against the
+   date. The dev server orders them the other way, which is why it never
+   showed there. Order of files can't be relied on; layers can: every rule
+   outside a layer beats every rule inside one, wherever it is linked.
+
+     app-important  the app's own `!important`s. Inside layers `!important`
+                    runs backwards — the EARLIEST layer's wins — so an app
+                    `!important` that has to beat a Bootstrap utility
+                    (`.text-bg-danger`, `.pt-2`, `.d-flex` …) lives here, not
+                    unlayered, where Bootstrap's would beat it.
+     app-base       app defaults that must give way to Bootstrap's own more
+                    specific rules, as they did before (the focus ring that
+                    `.btn:focus-visible` and `.form-control:focus` replace).
+     bootstrap      Bootstrap and react-loading-skeleton.
+     theme          theme.css's one-class rules on Bootstrap's own pieces
+                    (`.form-control`, `.btn-primary`, `.dropdown-item` …): over
+                    Bootstrap, but under any module — the same tie, the same
+                    trap, one level up: theme.css sits in the main sheet, linked
+                    after the chunks, and won ties against their one-class
+                    rules. Its compound and state rules (`:focus`, `.is-invalid`,
+                    `[data-bs-theme] .x`) stay unlayered, above a module's one
+                    class, as they were.
+
+   Everything else — the rest of theme.css, this file, every CSS module — stays
+   unlayered.
+   index.html declares the same order first thing, so a chunk linked ahead of
+   this file cannot reorder it; `cssLayers.test.ts` fails if any of it goes. */
+@layer app-important, app-base, bootstrap, theme;
+
+@import "bootstrap/dist/css/bootstrap.min.css" layer(bootstrap);
+@import "react-loading-skeleton/dist/skeleton.css" layer(bootstrap);
+
 /* The library sheet loads first so the theme overrides further down win on
    equal specificity — imported here rather than from the component, where
    the bundler injected it after this file and the calendar came out white
@@ -83,6 +119,14 @@
      at a glance. Its lettering is the body ink, not the tone's own: ≥ 12:1 at
      this strength on every tone. */
   --tone-tank: 28%;
+  /* The goal / investment card's header band (GoalCard.module.css): a deep,
+     saturated step of the card's tone — the tone mixed into the body ink —
+     lettered in the page's off-white. ≥ 8:1 for every tone in both colourways
+     (goalBand.test.ts); amber, the palest, sets the strength. */
+  --tone-band: 44%;
+  --tone-band-brand: 44%;
+  --band-ink: var(--text);
+  --on-band: var(--surface);
 }
 
 /* Lower than they were (16% and 26%, then 10% and 16%): a stronger wash lifts
@@ -95,6 +139,47 @@
   /* The tanks' liquid in the dark: as strong as the body ink allows at 8:1
      (goal amber, the palest, measures 8.4 at 18%). */
   --tone-tank: 18%;
+  /* The band in the dark: the bright tone sunk into the page, lettered in the
+     body ink. Gold's dark brand is a pale cream, so the brand band holds less
+     of it to stay at 8:1. */
+  --tone-band: 22%;
+  --tone-band-brand: 15%;
+  --band-ink: var(--page);
+  --on-band: var(--text);
+}
+
+/* ── Chips: a ground you can see ──────────────────────────────────────────────
+   At 4% a chip's wash vanished on the daylight card (item 81). A chip gets its
+   own, stronger step, mixed into the CARD surface rather than over whatever is
+   under it — so the ground under its lettering is the same everywhere and is
+   measured once — and a 1px edge in the tone (`--{tone}-edge`, drawn as an inset
+   shadow by `toneChip`) that does the marking. 10% is as far as the owner's red
+   goes: #C4302B on it measures 4.59 (AA); his green 3.95, held at its floor
+   (contrast.test.ts, «chip»). The dark mode: 11% / 12% (the red on gold's dark card sets the ceiling). */
+:root,
+[data-bs-theme="light"] {
+  --chip-wash: 10%;
+  --chip-wash-strong: 10%;
+}
+
+[data-bs-theme="dark"] {
+  --chip-wash: 11%;
+  --chip-wash-strong: 12%;
+}
+
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --income-chip: color-mix(in srgb, var(--color-income) var(--chip-wash), var(--color-surface));
+  --income-chip-strong: color-mix(in srgb, var(--color-income) var(--chip-wash-strong), var(--color-surface));
+  --expense-chip: color-mix(in srgb, var(--color-expense) var(--chip-wash), var(--color-surface));
+  --expense-chip-strong: color-mix(in srgb, var(--color-expense) var(--chip-wash-strong), var(--color-surface));
+  --goal-chip: color-mix(in srgb, var(--color-goal) var(--chip-wash), var(--color-surface));
+  --goal-chip-strong: color-mix(in srgb, var(--color-goal) var(--chip-wash-strong), var(--color-surface));
+  --invest-chip: color-mix(in srgb, var(--color-invest) var(--chip-wash), var(--color-surface));
+  --invest-chip-strong: color-mix(in srgb, var(--color-invest) var(--chip-wash-strong), var(--color-surface));
+  --pending-chip: color-mix(in srgb, var(--color-pending) var(--chip-wash), var(--color-surface));
+  --pending-chip-strong: color-mix(in srgb, var(--color-pending) var(--chip-wash-strong), var(--color-surface));
 }
 
 :root,
@@ -103,6 +188,12 @@
   --tone-fill: 60%;
   --tone-edge: 45%;
   --tone-edge-strong: 75%;
+  /* A paused card's frosted veil: the card's own surface laid over it, thin
+     where the backdrop blurs too, thicker where it cannot (GoalCard.module.css). */
+  --tone-veil: 45%;
+  --tone-veil-solid: 68%;
+  /* The empty part of the goal card's progress ring. */
+  --tone-track: 20%;
 
   /* income */
   --income-wash: color-mix(in srgb, var(--color-income) var(--tone-wash), transparent);

@@ -5,7 +5,7 @@ import type { InvestmentContribution, InvestmentGoal, Transaction } from "../sha
 import { OWNED_COLLECTIONS } from "./ownedCollections";
 import { ACCOUNT_DELETING, endAccountDeletion } from "./deletionGate";
 import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
-import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteContribution, deleteInvestmentGoal, deleteTransaction, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
+import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // The data layer against a small in-memory Firestore.
@@ -606,5 +606,39 @@ describe("syncDebtCash", () => {
     await syncDebtCash("u1", [], ["debtint_p1"], ["t-coffee"]);
     expect(ids("transactions")).toEqual(["t-coffee"]);
     expect(fs.batches).toHaveLength(0);
+  });
+});
+
+// ─── A transfer with a half missing ──────────────────────────────────────────
+// Before transfer rows were locked, one half could be deleted alone from the
+// table, so production can hold an orphan. The Transactions page deletes the
+// pair through `deleteTransfer` only when both halves are there, and an orphan
+// through the single-record delete — this pins down why.
+
+describe("deleting what is left of a transfer", () => {
+  beforeEach(() => {
+    fs.rules.strictDeletes = true;
+  });
+  afterEach(() => {
+    fs.rules.strictDeletes = false;
+  });
+
+  it("refuses the pair's batch when one half is already gone — the orphan would stay for good", async () => {
+    put("transactions", "xfer_t1_out", { userId: "u1", amount: 50, type: "expense", transferId: "t1", transferPart: "out" });
+    await expect(deleteTransfer("u1", "t1")).rejects.toMatchObject({ code: "permission-denied" });
+    expect(ids("transactions")).toContain("xfer_t1_out");
+  });
+
+  it("removes the orphan through the single-record delete", async () => {
+    put("transactions", "xfer_t1_out", { userId: "u1", amount: 50, type: "expense", transferId: "t1", transferPart: "out" });
+    await deleteTransaction("u1", "xfer_t1_out");
+    expect(ids("transactions")).not.toContain("xfer_t1_out");
+  });
+
+  it("still deletes a whole pair as one batch", async () => {
+    put("transactions", "xfer_t2_out", { userId: "u1", amount: 50, type: "expense", transferId: "t2", transferPart: "out" });
+    put("transactions", "xfer_t2_in", { userId: "u1", amount: 50, type: "income", transferId: "t2", transferPart: "in" });
+    await deleteTransfer("u1", "t2");
+    expect(ids("transactions").filter((id) => id.startsWith("xfer_t2"))).toEqual([]);
   });
 });

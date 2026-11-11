@@ -6,12 +6,14 @@ import { DateField } from "../../../shared/components/DateField";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { formatTable } from "../../transactions/transactionDates";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
-import { monthStart, oneOffDate, repeatLabel } from "../plannerUtils";
+import { MAX_REPEAT_MONTHS, monthStart, oneOffDate, repeatLabel } from "../plannerUtils";
 import { CADENCES, cadenceOf, cadenceProblem, draftFor, EVERY_N_CHOICES, monthsOfYear, nextTimes, seasonMonths, type Cadence } from "../cadence";
 import { categoryLabel } from "../../../shared/utils/categories";
 import type { Category } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { YesNoChoice } from "../../../shared/components/YesNoChoice";
+import { EveryPicker } from "../../../shared/components/EveryPicker";
 
 export interface EntryDraft {
   id?: string;
@@ -201,7 +203,8 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
 
   const rows: { step: Step; label: string; value: string }[] = [
     { step: "1", label: t("planner.wizard_when"), value: whenText },
-    { step: "2", label: t("planner.lineName"), value: value.label.trim() || "—" },
+    // A one-off left unnamed is saved under the fallback name: the check says so.
+    { step: "2", label: t("planner.lineName"), value: value.label.trim() || (mode === "oneoff" ? t("planner.oneOffFallbackName") : "—") },
     { step: "2", label: amountLabel, value: perMonth ? t("planner.perMonthShort", { amount: money }) : money },
     ...(!dated && linkedNames.length > 0 ? [{ step: "2" as Step, label: t("planner.lineCategoriesShort"), value: linkedNames.join(", ") }] : []),
   ];
@@ -218,6 +221,8 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   const showProblem = !!problem && (tried || problem === "planner.seasonBackwards" || problem === "planner.repeatBackwards");
   const repeatsWithEnd = dated ? cadence !== "once" : cadence === "yearly" || (cadence === "season" && !!value.yearly);
 
+  // «Κάθε Ν»: the gap in months, as stored.
+  const everyMonths = stored.every ?? EVERY_N_CHOICES[0];
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
@@ -279,34 +284,29 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
                       <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => set({ to: v })} placeholder={t("planner.seasonToLabel")} />
                     </div>
                     <p className={styles.fieldHint}>{t("planner.wizard_someMonthsHint")}</p>
-                    <FormGroup switch className="mt-2 mb-0">
-                      <Input id="season-yearly" type="switch" checked={!!value.yearly} onChange={(e) => set({ yearly: e.target.checked })} />
-                      <Label for="season-yearly" check className="small">
-                        {t("planner.wizard_everyYear")}
-                      </Label>
-                    </FormGroup>
+                    <YesNoChoice className="mt-2 mb-0" question={t("planner.wizard_qEveryYear")} value={!!value.yearly} onChange={(yes) => set({ yearly: yes })} />
                   </>
                 )}
 
                 {dated && (
                   <>
                     {cadence === "everyN" && (
+                      // «Κάθε πότε»: a number and a unit from lists, on one row; kept in months.
                       <FormGroup>
-                        <Label className={styles.fieldLabel} htmlFor="entry-every">
-                          {t("planner.cadence_everyLabel")}
-                        </Label>
-                        <Input id="entry-every" type="select" value={stored.every ?? EVERY_N_CHOICES[0]} onChange={(e) => set({ every: Number(e.target.value) })}>
-                          {[...new Set([...EVERY_N_CHOICES, ...(stored.every ? [stored.every] : [])])]
-                            .sort((a, b) => a - b)
-                            .map((months) => {
-                              const label = repeatLabel(months);
-                              return (
-                                <option key={months} value={months}>
-                                  {t(label.key, { count: label.count })}
-                                </option>
-                              );
-                            })}
-                        </Input>
+                        <EveryPicker
+                          id="entry-every"
+                          label={t("planner.everyLabel")}
+                          unitAria={t("planner.everyUnit")}
+                          units={["monthly", "yearly"]}
+                          // One month or one year is its own cadence, not «κάθε Ν».
+                          min={{ monthly: 2, yearly: 2 }}
+                          // A repeat is kept up to MAX_REPEAT_MONTHS (24): two years at most.
+                          max={{ yearly: MAX_REPEAT_MONTHS / 12 }}
+                          unit={everyMonths % 12 === 0 ? "yearly" : "monthly"}
+                          count={everyMonths % 12 === 0 ? everyMonths / 12 : everyMonths}
+                          unitText={(u, n) => t(u === "yearly" ? "planner.everyUnitYears" : "planner.everyUnitMonths", { count: n })}
+                          onChange={(u, n) => set({ every: u === "yearly" ? n * 12 : n })}
+                        />
                       </FormGroup>
                     )}
                     <FormGroup className="mb-0">

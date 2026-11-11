@@ -145,7 +145,10 @@
 @media print {
   /* Only the sheet survives. The app behind the dialog, the dialog's own
      chrome, and the controls all go — a printed page with a Close button on it
-     is the mark of a screen that was photographed rather than laid out. */
+     is the mark of a screen that was photographed rather than laid out.
+     In `app-important` so they still beat Bootstrap's own `!important`
+     utilities (`.d-flex` on a control …) — index.css, «Cascade layers». */
+  @layer app-important {
   :global(body.statement-open #root),
   :global(body.statement-open .modal-backdrop),
   :global(body.statement-open .modal-header),
@@ -180,6 +183,7 @@
   :global(body.statement-open .modal-body) {
     overflow: visible !important;
     padding: 0 !important;
+  }
   }
 
   .sheet {

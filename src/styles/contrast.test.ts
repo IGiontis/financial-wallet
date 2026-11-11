@@ -16,6 +16,7 @@ const STYLES_DIR = __dirname;
 const strip = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 const TOKENS = strip(readFileSync(join(STYLES_DIR, "tokens.css"), "utf8"));
 const INDEX = strip(readFileSync(join(STYLES_DIR, "..", "index.css"), "utf8"));
+const THEME = strip(readFileSync(join(STYLES_DIR, "theme.css"), "utf8"));
 
 type Mode = "light" | "dark";
 type Vars = Record<string, string>;
@@ -58,6 +59,12 @@ const wash = (mode: Mode): { wash: number; strong: number } => {
   const strengths = { wash: parseFloat(d["tone-wash"]) / 100, strong: parseFloat(d["tone-wash-strong"]) / 100 };
   washCache.set(mode, strengths);
   return strengths;
+};
+
+/** A strength set in a stylesheet's `[data-bs-theme="<mode>"]` block, as a fraction. */
+const strength = (css: string, name: string, mode: Mode): number => {
+  const block = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, sel, body]) => sel.includes(`data-bs-theme="${mode}"`) && `--${name}` in Object.fromEntries(Object.keys(decls(body)).map((k) => [`--${k}`, 1])));
+  return block ? parseFloat(decls(block[2])[name]) / 100 : NaN;
 };
 
 // ─── Colour maths ─────────────────────────────────────────────────────────────
@@ -108,6 +115,16 @@ function resolve(expr: string, cw: string, mode: Mode): RGBA {
     const fill = parse(v[tone], v);
     const strengths = wash(mode);
     return over([fill[0], fill[1], fill[2], strengths[strength === "wash" ? "wash" : "strong"]], resolve(ground, cw, mode));
+  }
+  // A chip's own ground (index.css, «Chips») or a list's amount chip
+  // (theme.css, --figure-chip-wash): the tone mixed into the card surface.
+  const chip = expr.match(/^(income|expense|goal|invest|pending) (chip|chip-strong|figure-chip)$/);
+  if (chip) {
+    const [, tone, kind] = chip;
+    const fill = parse(v[tone], v);
+    const p = kind === "figure-chip" ? strength(THEME, "figure-chip-wash", mode) : strength(INDEX, kind === "chip" ? "chip-wash" : "chip-wash-strong", mode);
+    if (Number.isNaN(p)) throw new Error(`no strength for ${expr} in ${mode}`);
+    return over([fill[0], fill[1], fill[2], p], resolve("surface", cw, mode));
   }
   const layered = expr.match(/^(.+?) over (.+)$/);
   if (layered) return over(resolve(layered[1], cw, mode), resolve(layered[2], cw, mode));
@@ -236,6 +253,22 @@ export const PAIRS: Pair[] = [
       { fg: "text", bg: `${tone} wash over ${g}` },
       { fg: "text", bg: `${tone} strong over ${g}` },
     ]),
+  ),
+
+  // Chips (item 81): a ground you can see, the lettering on it still held to
+  // the contract — the owner's red at AA, his green at its floor, the rest 8:1.
+  // `figure-chip` is a list's amount chip (Transactions), on the card.
+  ...TONES.flatMap((tone) =>
+    ["chip", "chip-strong", ...(tone === "pending" ? [] : ["figure-chip"])].flatMap((kind): Pair[] => {
+      const bg = `${tone} ${kind}`;
+      if (tone === "income")
+        return [
+          { fg: "income-text", bg, mode: "light", min: OWNER_GREEN_MIN, why: `${OWNER} — the daylight green measures under AA on these grounds` },
+          { fg: "income-text", bg, mode: "dark", min: 4.5, why: OWNER },
+        ];
+      if (tone === "expense") return [{ fg: "expense-text", bg, min: 4.5, why: OWNER }];
+      return [{ fg: `${tone}-text`, bg }];
+    }),
   ),
 ];
 

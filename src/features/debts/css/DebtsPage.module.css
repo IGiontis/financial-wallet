@@ -892,58 +892,13 @@ button.payRow[aria-expanded="true"] {
   background: var(--color-surface);
 }
 
-.wizNote {
-  padding: var(--space-2) 10px;
-  border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
-  color: var(--color-text-secondary);
-  font-size: 12.5px;
-}
 
-.wizCard {
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
-}
 
-.wizRow,
-.wizStatic {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 10px var(--space-3);
-  border: 0;
-  border-bottom: 1px solid var(--color-border-tertiary);
-  background: transparent;
-  color: inherit;
-  font-size: 14px;
-  text-align: left;
-}
 
-.wizRow:last-child,
-.wizStatic:last-child {
-  border-bottom: none;
-}
 
 /* The check's rows go back to the step that asked them. */
-.wizRow:hover {
-  background: var(--color-surface);
-}
 
-.wizLabel {
-  color: var(--color-text-secondary);
-  font-size: 12.5px;
-}
 
-.wizValue {
-  min-width: 0;
-  font-weight: 600;
-  text-align: right;
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
 
 .wizEffectHead {
   padding: var(--space-2) var(--space-3) 0;
@@ -1100,8 +1055,10 @@ button.payRow[aria-expanded="true"] {
 /* The chosen person, edge to edge across the list: the card gives up its side
    padding and each row carries it instead, so the highlight runs the full width
    of the row rather than a rounded patch inside the margins. */
-.split .listCard {
-  padding-inline: 0 !important;
+@layer app-important {
+  .split .listCard {
+    padding-inline: 0 !important;
+  }
 }
 
 .split .listCard .person {

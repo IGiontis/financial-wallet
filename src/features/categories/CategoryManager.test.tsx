@@ -76,22 +76,19 @@ describe("CategoryManager — widening", () => {
     expect(state.update.mock.invocationCallOrder[0]).toBeLessThan(state.create.mock.invocationCallOrder[0]);
   });
 
-  it("gives the new half no payee or amount of the old one's to prefill", async () => {
-    state.categories = [{ ...own("gym-x", "Gym", "expense"), defaultPayee: "FitZone", defaultAmount: 35 }];
+  it("sends only the name and icon — an old document's stored payee/amount is neither shown nor written", async () => {
+    // A category saved while «default payee / amount» existed still carries them.
+    state.categories = [{ ...own("gym-x", "Gym", "expense"), defaultPayee: "FitZone", defaultAmount: 35 } as never];
     const user = userEvent.setup();
     render(<CategoryManager />);
     await user.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByDisplayValue("FitZone")).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Both" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
-    // The expense half keeps its defaults…
-    expect(state.update.mock.calls[0][0]).toMatchObject({ data: { defaultPayee: "FitZone", defaultAmount: 35 } });
-    // …the income half is created without them.
-    const created = state.create.mock.calls[0][0] as Record<string, unknown>;
-    expect(created).toMatchObject({ name: "Gym", scope: "income" });
-    expect(created).not.toHaveProperty("defaultPayee");
-    expect(created).not.toHaveProperty("defaultAmount");
+    expect(Object.keys((state.update.mock.calls[0][0] as { data: object }).data).sort()).toEqual(["icon", "name"]);
+    expect(Object.keys(state.create.mock.calls[0][0] as object).sort()).toEqual(["icon", "name", "scope"]);
   });
 
   it("creates nothing when the scope stays as it was", async () => {

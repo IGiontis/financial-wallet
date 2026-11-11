@@ -336,6 +336,7 @@ export default function ContributionWizard({
       {changingCategory && (
         <div className="mt-2">
           <CategoryPicker
+            manage="link"
             categories={categories}
             value={category}
             type="expense"

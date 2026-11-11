@@ -1,0 +1,70 @@
+/* A yes / no answer at an ordinary control's height: two options half the
+   row each, unpicked ones like a form field (white surface, input border),
+   the picked one filled with the brand gradient in on-brand lettering. Not cards: the owner found big tiles
+   out of place beside everything else. */
+
+/* No track of its own: inside a form the pair sits straight on the form, so
+   nothing beige shows round it. */
+.group {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.option {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--space-1) var(--space-3);
+  /* The unpicked answer looks like every form field: the inputs' white
+     surface and their border (theme.css wires --bs-border-color to it). */
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background: var(--surface);
+  color: var(--color-text-primary);
+  font-size: var(--bs-body-font-size);
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  /* Long answers («Όχι — πλήρωσε για εσένα») wrap rather than being cut. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.option:hover:not(:disabled):not(.on) {
+  border-color: var(--brand-edge);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--focus, var(--bs-primary));
+  outline-offset: 2px;
+}
+
+.option.on {
+  background: var(--color-segment-active);
+  border-color: var(--color-segment-active-border);
+  color: var(--color-segment-active-text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.option.on:disabled {
+  opacity: 0.85;
+}
+
+/* The picked answer's hint, small, under the pair. */
+.hint {
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}

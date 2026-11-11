@@ -13,6 +13,7 @@ import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { previewRepayment } from "./debtsUtils";
 import { useRecordRepayment } from "./useDebts";
 import styles from "./css/DebtsPage.module.css";
+import wiz from "../../shared/css/Wizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
@@ -143,7 +144,7 @@ export default function RepaymentWizard({
                   {t("debts.wizard.chipAll", { amount: formatCurrency(debt.remaining) })}
                 </button>
               </div>
-              {amountOk && value > debt.remaining + 0.005 && <div className={`${styles.wizNote} mt-2`}>{t("debts.wizard.overpays")}</div>}
+              {amountOk && value > debt.remaining + 0.005 && <div className={`${wiz.wizNote} mt-2`}>{t("debts.wizard.overpays")}</div>}
             </FormGroup>
           )}
 
@@ -165,41 +166,41 @@ export default function RepaymentWizard({
 
           {step === "4" && (
             <>
-              <div className={styles.wizCard}>
+              <div className={wiz.wizCard}>
                 {rows.map((row) => (
-                  <button key={row.label} type="button" className={styles.wizRow} onClick={() => goTo(row.step)}>
-                    <span className={styles.wizLabel}>{row.label}</span>
-                    <span className={styles.wizValue}>{row.value}</span>
+                  <button key={row.label} type="button" className={wiz.wizRow} onClick={() => goTo(row.step)}>
+                    <span className={wiz.wizLabel}>{row.label}</span>
+                    <span className={wiz.wizValue}>{row.value}</span>
                   </button>
                 ))}
               </div>
 
               {preview && (
-                <div className={`${styles.wizCard} mt-3`} role="group" aria-label={t("debts.wizard.effect")}>
+                <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("debts.wizard.effect")}>
                   <div className={styles.wizEffectHead}>{t("debts.wizard.effect")}</div>
                   {preview.interest > 0 && (
                     <>
-                      <div className={styles.wizStatic}>
-                        <span className={styles.wizLabel}>{t("debts.wizard.toInterest")}</span>
-                        <span className={styles.wizValue}>{formatCurrency(preview.interest)}</span>
+                      <div className={wiz.wizStatic}>
+                        <span className={wiz.wizLabel}>{t("debts.wizard.toInterest")}</span>
+                        <span className={wiz.wizValue}>{formatCurrency(preview.interest)}</span>
                       </div>
-                      <div className={styles.wizStatic}>
-                        <span className={styles.wizLabel}>{t("debts.wizard.toDebt")}</span>
-                        <span className={styles.wizValue}>{formatCurrency(preview.principal)}</span>
+                      <div className={wiz.wizStatic}>
+                        <span className={wiz.wizLabel}>{t("debts.wizard.toDebt")}</span>
+                        <span className={wiz.wizValue}>{formatCurrency(preview.principal)}</span>
                       </div>
                     </>
                   )}
-                  <div className={styles.wizStatic}>
-                    <span className={styles.wizLabel}>{t("debts.wizard.before")}</span>
-                    <span className={styles.wizValue}>{formatCurrency(preview.remainingBefore)}</span>
+                  <div className={wiz.wizStatic}>
+                    <span className={wiz.wizLabel}>{t("debts.wizard.before")}</span>
+                    <span className={wiz.wizValue}>{formatCurrency(preview.remainingBefore)}</span>
                   </div>
-                  <div className={styles.wizStatic}>
-                    <span className={styles.wizLabel}>{t("debts.wizard.after")}</span>
-                    <span className={`${styles.wizValue} ${preview.settles ? styles.wizDone : ""}`}>{left(preview.remainingAfter)}</span>
+                  <div className={wiz.wizStatic}>
+                    <span className={wiz.wizLabel}>{t("debts.wizard.after")}</span>
+                    <span className={`${wiz.wizValue} ${preview.settles ? styles.wizDone : ""}`}>{left(preview.remainingAfter)}</span>
                   </div>
                 </div>
               )}
-              {preview?.overpays && <div className={`${styles.wizNote} mt-2`}>{t("debts.wizard.overpays")}</div>}
+              {preview?.overpays && <div className={`${wiz.wizNote} mt-2`}>{t("debts.wizard.overpays")}</div>}
             </>
           )}
         </ModalBody>

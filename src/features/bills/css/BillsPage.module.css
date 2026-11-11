@@ -22,21 +22,6 @@
   color: var(--income-text);
 }
 
-/* Progress track — thin, rounded, theme-aware */
-.progressTrack {
-  height: 8px;
-  border-radius: var(--radius-xs);
-  background: var(--color-background-secondary);
-  overflow: hidden;
-}
-
-.progressFill {
-  height: 100%;
-  border-radius: var(--radius-xs);
-  background: var(--color-income);
-  transition: width 0.3s ease;
-}
-
 /* ── Quick stats row ──────────────────────────────────────────────────────── */
 
 .statBox {

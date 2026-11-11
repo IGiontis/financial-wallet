@@ -1,4 +1,4 @@
-import { useState, type Ref } from "react";
+import { useState, type ReactNode, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { addMonths, isSameMonth } from "date-fns";
 import { FiAlertTriangle, FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiXCircle } from "react-icons/fi";
@@ -12,6 +12,7 @@ import HorizonPicker from "./HorizonPicker";
 import { ZoomButton } from "../../../shared/components/ChartZoom";
 import { BalanceScrub } from "./BalanceScrub";
 import BalanceSheet from "./BalanceSheet";
+import MonthFlowSheet from "./MonthFlowSheet";
 import styles from "../css/PlannerPage.module.css";
 
 /** Which sheet a tile opens: the pay-day answer in full, or the whole period. */
@@ -75,14 +76,17 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
   const red = (n: number) => (n < 0 ? "var(--color-expense-text)" : undefined);
   const VerdictIcon = plan.verdict === "short" ? FiAlertTriangle : plan.verdict === "tight" ? FiClock : FiCheckCircle;
 
-  const tiles = [
+  // Each sheet behind exactly one tile, the one it is named for: the pay-day
+  // working behind «pay day», the whole period behind «you end with». The
+  // other two are figures to read — what you have is the sheet's first line,
+  // the lowest point its verdict — so two eyes no longer open the same sheet.
+  const tiles: { key: string; label: string; value: string; color?: string; sub: string; sheet?: PlannerSheet; scenario?: boolean; icon?: ReactNode; iconColor?: string }[] = [
     {
       key: "now",
       label: t(scenario ? "planner.scenarioIf" : "planner.tileHave"),
       value: formatCurrency(plan.openingBalance),
       color: red(plan.openingBalance),
       sub: t(scenario ? "planner.tileHaveMine" : "planner.tileHaveBanks"),
-      sheet: "payday" as const,
       scenario,
     },
     {
@@ -103,7 +107,6 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
       value: formatCurrency(plan.lowestBalance),
       color: red(plan.lowestBalance),
       sub: dayDate.format(plan.lowestOn),
-      sheet: "period" as const,
     },
     {
       key: "end",
@@ -117,12 +120,15 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
 
   // «Μήνας»: what the month starts with, what comes and goes, what it ends
   // with — the month list's own figures. This month starts from today.
+  // «Μπαίνουν» and «Βγαίνουν» each open their own list (`MonthFlowSheet`);
+  // the start and the end are figures to read.
   const isMonth = view === "month" && !!monthData;
-  const monthTiles = monthData
+  const [flow, setFlow] = useState<"in" | "out" | null>(null);
+  const monthTiles: { key: string; label: string; value: string; color?: string; flow?: "in" | "out" }[] = monthData
     ? [
         { key: "start", label: t(isSameMonth(month, now) ? "planner.monthFromToday" : "planner.monthStart"), value: formatCurrency(monthData.slice.carried), color: red(monthData.slice.carried) },
-        { key: "in", label: t("planner.monthIn"), value: `+${formatCurrency(monthData.in)}`, color: "var(--color-income-text)" },
-        { key: "out", label: t("planner.monthOut"), value: `−${formatCurrency(monthData.out)}`, color: undefined },
+        { key: "in", label: t("planner.monthIn"), value: `+${formatCurrency(monthData.in)}`, color: "var(--color-income-text)", flow: "in" },
+        { key: "out", label: t("planner.monthOut"), value: `−${formatCurrency(monthData.out)}`, color: undefined, flow: "out" },
         { key: "end", label: t("planner.monthEnd"), value: formatCurrency(monthData.slice.close), color: red(monthData.slice.close) },
       ]
     : [];
@@ -214,6 +220,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
                 <div key={tile.key} className={styles.tile}>
                   <span className={styles.tileHead}>
                     <span className={styles.tileLabel}>{tile.label}</span>
+                    {tile.flow && <ZoomButton onClick={() => setFlow(tile.flow!)} label={t("planner.tileOpen", { label: tile.label, value: tile.value })} className={styles.tileEye} />}
                   </span>
                   <span className={styles.tileValue} style={{ color: tile.color }}>
                     {tile.value}
@@ -235,7 +242,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
                   {tile.icon && <span style={{ color: tile.iconColor }}>{tile.icon}</span>}
                   {tile.label}
                 </span>
-                <ZoomButton onClick={() => onOpen(tile.sheet)} label={t("planner.tileOpen", { label: tile.label, value: tile.value })} className={styles.tileEye} />
+                {tile.sheet && <ZoomButton onClick={() => onOpen(tile.sheet!)} label={t("planner.tileOpen", { label: tile.label, value: tile.value })} className={styles.tileEye} />}
               </span>
               <span className={styles.tileValue} style={{ color: tile.color }}>
                 {tile.value}
@@ -254,6 +261,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
         <BalanceScrub key={`${view}-${shown.start.getTime()}-${shown.end.getTime()}`} plan={shown} formatCurrency={formatCurrency} locale={locale} />
       </div>
       {chartOpen && <BalanceSheet plan={shown} onClose={() => setChartOpen(false)} formatCurrency={formatCurrency} locale={locale} />}
+      {flow && isMonth && <MonthFlowSheet side={flow} month={monthData!} monthDate={month} now={now} formatCurrency={formatCurrency} locale={locale} onClose={() => setFlow(null)} />}
     </section>
   );
 }

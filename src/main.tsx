@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "react-loading-skeleton/dist/skeleton.css";
+// Bootstrap and the skeleton sheet are imported by index.css, into a cascade
+// layer under the app's own rules (see its top).
 import "./index.css";
 import i18n from "./i18n";
 import { App } from "./App";

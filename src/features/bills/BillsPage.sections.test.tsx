@@ -206,3 +206,37 @@ describe("a stopped or paused bill", () => {
     expect(outstanding.total).toBe("€255.00");
   });
 });
+
+describe("the add on every view", () => {
+  it.each(["overview", "pay", "manage", "all"] as const)("«%s» has the «+», and it opens the new-bill form", async (view) => {
+    render(<BillsPage view={view} />, { wrapper: MemoryRouter });
+    const add = screen.getByRole("button", { name: "New bill" });
+    expect(add).toHaveAttribute("title", "New bill");
+    await userEvent.click(add);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("the month's bar on «προς πληρωμή»", () => {
+  it("is a piece per bill of the month, the paid ones filled, as wide as each amount", () => {
+    // Water of the 3rd, paid on the day: one piece filled among the open ones.
+    const before = page.bills;
+    page.bills = [...before, make({ id: "water", name: "Water", amount: 30, dueDay: 3, anchorDate: new Date(2026, 10, 1), createdAt: new Date(2026, 10, 1) }, [{ id: "w1", userId: "u1", billId: "water", periodKey: "2026-11", amount: 30, paidDate: new Date(2026, 10, 3), createdAt: new Date(2026, 10, 3) } as BillPayment])];
+    render(<BillsPage view="overview" />, { wrapper: MemoryRouter });
+    const month = monthForecast(page.bills, NOW, 0);
+    expect(month.items.filter((item) => item.isPaid).length).toBeGreaterThan(0);
+    const paidCount = month.items.filter((item) => item.isPaid).length;
+    const label = `${paidCount} of ${month.items.length} paid · €${month.total.toFixed(2)} left`;
+    const bar = screen.getByRole("list", { name: label });
+    const pieces = within(bar).getAllByRole("listitem");
+    expect(pieces).toHaveLength(month.items.filter((item) => item.amount > 0).length);
+    expect(screen.getByText(label)).toBeInTheDocument();
+    // The paid share drawn is paid ÷ total — read a second way, off the
+    // forecast's own two figures, what is still due and what is prepaid.
+    const drawn = (filled: boolean) => pieces.filter((p) => /_done_/.test(p.className) === filled).reduce((sum, p) => sum + Number(p.style.flexGrow), 0);
+    expect(drawn(true) + drawn(false)).toBeCloseTo(100, 6);
+    expect(drawn(true)).toBeCloseTo((month.prepaid / (month.prepaid + month.total)) * 100, 6);
+    expect(pieces.filter((p) => /_done_/.test(p.className))).toHaveLength(paidCount);
+    page.bills = before;
+  });
+});

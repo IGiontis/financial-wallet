@@ -28,6 +28,8 @@ import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { LockNote } from "./LockNote";
+import type { LockState } from "../hooks/useRecordLocks";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -135,11 +137,17 @@ interface EditTransactionModalProps {
   onClose: () => void;
   categories: Category[];
   onSubmit: (transactionId: string, data: UpdateTransactionDTO) => Promise<void>;
+  /**
+   * Half of a linked set — see `useRecordLocks`. The expense of a goal a friend
+   * paid keeps its amount, date, card and type from the debt: only the payee
+   * (when the debt names the expense), the category and the notes change here.
+   */
+  lock?: LockState;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit }: EditTransactionModalProps) {
+export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit, lock }: EditTransactionModalProps) {
   const [step, setStep] = useState<Step>("category");
   const { t, i18n } = useTranslation();
   const { payees } = usePayees();
@@ -152,8 +160,12 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const [adjustReading, setAdjustReading] = useState(true);
   // The card step is there only when there are cards on the Banks & cash page.
   const accounts = useAccountList();
-  const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
-  const afterCategory: Step = accounts.length > 0 ? "account" : "details";
+  const covered = lock?.lock?.kind === "covered" ? lock.lock : undefined;
+  // Not known yet whether the debts hold this one: nothing is saved until it is.
+  const checking = !!lock?.pending;
+  const withCards = accounts.length > 0 && !covered;
+  const steps: readonly Step[] = useMemo(() => (withCards ? STEPS : STEPS.filter((s) => s !== "account")), [withCards]);
+  const afterCategory: Step = withCards ? "account" : "details";
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
   const [isFuelCategory, setIsFuelCategory] = useState(initialIsFuelCategory);
@@ -190,17 +202,28 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             }
           : undefined;
 
-        const data: UpdateTransactionDTO = {
-          amount: amountInBase, type: values.type, categoryId: values.categoryId,
-          date: new Date(values.date), description: values.description,
-          notes: values.notes || undefined, metadata,
-          accountId: values.accountId || null,
-        };
+        const data: UpdateTransactionDTO = covered
+          ? {
+              // The money is the debt's: written back exactly as stored, never
+              // through the display currency, so not a cent can drift.
+              amount: transaction.amount, type: transaction.type, categoryId: values.categoryId,
+              date: firestoreToDate(transaction.date),
+              description: covered.payeeLocked ? transaction.description : values.description,
+              notes: values.notes || undefined, metadata: transaction.metadata,
+              accountId: transaction.accountId ?? null,
+            }
+          : {
+              amount: amountInBase, type: values.type, categoryId: values.categoryId,
+              date: new Date(values.date), description: values.description,
+              notes: values.notes || undefined, metadata,
+              accountId: values.accountId || null,
+            };
 
         await onSubmit(transaction.id, data);
         // Once the record is saved: the readings that already counted it,
-        // corrected with it — unless switched off on the check step.
-        if (adjustReading) {
+        // corrected with it — unless switched off on the check step. A
+        // covered expense's money didn't move, so there is nothing to correct.
+        if (adjustReading && !covered) {
           const amount = baseCurrency === displayCurrency ? Number(values.amount) : convertToBase(Number(values.amount));
           const changed = { ...transaction, amount, date: new Date(values.date), accountId: values.accountId || undefined };
           const corrected = adjustCheckInsForEdit(checkIns, moneyAccounts, transaction, changed);
@@ -225,14 +248,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formik.values.pricePerUnit, formik.values.quantity, formik.values.showFuelDetails]);
 
-  /**
-   * Applies the category's defaults, but never locks the fields here.
-   *
-   * Editing exists to change things: disabling the amount on a screen someone
-   * opened specifically to correct an amount would be perverse. The defaults
-   * still fill in, because changing the category is an explicit action and the
-   * new one carries its own idea of what it means.
-   */
+  /** A new category: Fuel opens its extra fields, any other closes them. Nothing else is filled in. */
   const handleCategorySelect = (categoryId: string, category: Category) => {
     formik.setFieldValue("categoryId", categoryId);
     const isF = category.name === "Fuel";
@@ -245,8 +261,6 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
       formik.setFieldValue("odometer", "");
       formik.setFieldValue("place", "");
     }
-    if (category.defaultPayee) formik.setFieldValue("description", category.defaultPayee);
-    if (category.defaultAmount != null) formik.setFieldValue("amount", category.defaultAmount);
     setStep(afterCategory);
   };
 
@@ -295,6 +309,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               <TypeBadge type={formik.values.type} />
             </p>
             <CategoryPicker
+              manage="link"
               categories={categories}
               value={formik.values.categoryId}
               type={formik.values.type}
@@ -333,6 +348,11 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               {t("transactions.wizard.fillDetails")}
               <TypeBadge type={formik.values.type} />
             </p>
+            {(covered || checking) && (
+              <div className="mb-3">
+                <LockNote state={lock} onLeave={handleClose} />
+              </div>
+            )}
 
             {/* ── Amount + Date ── */}
             <Row className="g-3">
@@ -346,6 +366,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
                     value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                     readOnly={formik.values.showFuelDetails}
+                    disabled={!!covered}
                     style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
                     invalid={!!(formik.touched.amount && formik.errors.amount)}
                   />
@@ -361,6 +382,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     onChange={(v) => formik.setFieldValue("date", v)}
                     onBlur={() => formik.setFieldTouched("date", true)}
                     invalid={!!(formik.touched.date && formik.errors.date)}
+                    disabled={!!covered}
                   />
                   <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
                 </FormGroup>
@@ -378,6 +400,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     suggested={suggestedPayees}
                     recent={recentPayeeNames}
                     placeholder={t("transactions.payeePlaceholder")}
+                    disabled={!!covered?.payeeLocked}
                     invalid={!!(formik.touched.description && formik.errors.description)}
                     onChange={(v) => formik.setFieldValue("description", v)}
                     onBlur={() => formik.setFieldTouched("description", true)}
@@ -387,8 +410,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               </Col>
             </Row>
 
-            {/* ── Fuel toggle ── */}
-            {isFuelCategory && (
+            {/* ── Fuel toggle ── not on a covered expense: it would set the amount. */}
+            {isFuelCategory && !covered && (
               <div
                 style={{ marginTop: 12, padding: "10px 14px", background: "color-mix(in srgb, var(--bs-primary) 6%, var(--color-surface))", borderRadius: "var(--border-radius-md)", border: "1px solid color-mix(in srgb, var(--bs-primary) 25%, transparent)", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
                 onClick={() => {
@@ -417,7 +440,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             )}
 
             {/* ── Fuel details panel ── */}
-            {isFuelCategory && formik.values.showFuelDetails && (
+            {isFuelCategory && !covered && formik.values.showFuelDetails && (
               <FuelDetailsPanel
                 fuelType={formik.values.fuelType} pricePerUnit={formik.values.pricePerUnit}
                 quantity={formik.values.quantity} odometer={formik.values.odometer} place={formik.values.place}
@@ -443,7 +466,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
         {/* ── 3. Read it back before it is written ── */}
         {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} currency={displayCurrency} />}
-        {step === "review" && (
+        {step === "review" && !covered && (
           <ReviewCard
             accountId={formik.values.accountId}
             income={formik.values.type === "income"}
@@ -479,9 +502,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
         {/* Still gated on `dirty`: opening a record and closing it again should
             not offer to save it back unchanged. */}
-        {step === "details" && <Button color="primary" disabled={!formik.dirty} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
+        {step === "details" && <Button color="primary" disabled={!formik.dirty || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
         {step === "review" && (
-          <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting}>
+          <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting || checking}>
             {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
           </Button>
         )}

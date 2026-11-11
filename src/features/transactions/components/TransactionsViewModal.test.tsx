@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import TransactionViewModal from "./TransactionsViewModal";
@@ -66,5 +67,40 @@ describe("the record's sheet", () => {
     );
     expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Edit/ })).toBeDisabled();
+  });
+});
+
+describe("the expense of a goal a friend paid", () => {
+  const covered = { lock: { kind: "covered" as const, debtId: "d1", person: "Nikos", payeeLocked: false }, pending: false };
+
+  function DebtsStub() {
+    const state = useLocation().state as { person?: string } | null;
+    return <p>debts page for {state?.person}</p>;
+  }
+
+  it("is edited (payee, notes) but not deleted here, and says where it changes", async () => {
+    const onEdit = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/transactions"]}>
+        <Routes>
+          <Route path="/transactions" element={<TransactionViewModal transaction={row({ amount: 550 })} categories={[]} formatCurrency={format} onClose={() => {}} onEdit={onEdit} onDelete={() => {}} lock={covered} />} />
+          <Route path="/debts" element={<DebtsStub />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Edit/ })).toBeEnabled();
+    expect(screen.getByText(/Nikos/)).toBeInTheDocument();
+
+    // The link opens Debts on the person the debt is with.
+    await userEvent.click(screen.getByRole("link", { name: /Changed from Debts/ }));
+    expect(screen.getByText("debts page for Nikos")).toBeInTheDocument();
+  });
+
+  it("holds both buttons while it isn't known yet whether a debt owns it", () => {
+    render(<TransactionViewModal transaction={row()} categories={[]} formatCurrency={format} onClose={() => {}} onEdit={() => {}} onDelete={() => {}} lock={{ lock: undefined, pending: true }} />);
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Edit/ })).toBeDisabled();
+    expect(screen.getByText(/Checking whether it belongs to a debt/)).toBeInTheDocument();
   });
 });

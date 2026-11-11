@@ -42,6 +42,7 @@ import styles from "./css/AccountsPage.module.css";
 import TransferWizard from "../transactions/components/TransferWizard";
 import { oneRowPerTransfer } from "../transactions/transfers";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
+import { AddButton } from "../../shared/components/AddButton";
 
 const HISTORY_SHOWN = 6;
 
@@ -204,13 +205,8 @@ export function AccountsPage() {
   return (
     <PageShell>
       <Header
-        action={
-          // The app's one "add" button: solid, "+ name" — a bare "+" on a phone.
-          <Button color="primary" onClick={() => setEditing("new")} className="flex-shrink-0 text-nowrap" aria-label={t("accounts.add")}>
-            <span className="d-none d-sm-inline">+ {t("accounts.add")}</span>
-            <span className="d-sm-none">+</span>
-          </Button>
-        }
+        // The app's one «+» (`AddButton`), its words those the floating «+» says.
+        action={<AddButton label={t("accounts.addTitle")} onClick={() => setEditing("new")} />}
       />
 
       <Row className="g-3">
@@ -475,12 +471,13 @@ export function AccountsPage() {
 function Header({ action }: { action?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="d-flex justify-content-between align-items-start mb-3 gap-2">
-      <div style={{ minWidth: 0 }}>
+    <div className="d-flex align-items-center mb-3 gap-2">
+      {/* The add pinned left; the title beside it is what wraps. */}
+      {action}
+      <div className="flex-grow-1" style={{ minWidth: 0 }}>
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("accounts.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("accounts.subtitle")}</p>
       </div>
-      {action}
     </div>
   );
 }

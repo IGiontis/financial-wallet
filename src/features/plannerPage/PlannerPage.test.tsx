@@ -149,10 +149,15 @@ describe("the four tiles", () => {
     renderPage();
     // 1.000 now; 94,35 on the eve of pay, the Overview's figure; the lowest
     // the line goes is that same evening; 1.000 + 4.350 − 2.755 at the end.
-    expect(screen.getByRole("button", { name: "You have: €1000.00, details" })).toBeInTheDocument();
+    const tile = (label: string) => screen.getByText(label).closest("[class*=_tile_]")!;
+    expect(tile("You have")).toHaveTextContent("€1000.00");
     expect(screen.getByRole("button", { name: `Until payday: €${overviewAnswer().left.toFixed(2)}, details` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lowest point: €94.35, details" })).toBeInTheDocument();
+    expect(tile("Lowest point")).toHaveTextContent("€94.35");
     expect(screen.getByRole("button", { name: "You end with: €2595.00, details" })).toBeInTheDocument();
+    // Each sheet behind one tile only: two eyes, two sheets — none on what you have or the lowest point.
+    expect(screen.queryByRole("button", { name: /^You have: .*details$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Lowest point: .*details$/ })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "At a glance" })).getAllByRole("button", { name: /, details$/ })).toHaveLength(2);
     expect(1000 + 4350 - 2755).toBe(2595);
 
     // The second way: the sheet's own subtraction lands on the tile's figure.
@@ -216,8 +221,9 @@ describe("the pay-day sheet", () => {
     settings.set("planner-opening", "1500");
     renderPage();
     // The tile says it is a figure of your own before anything is opened.
-    expect(screen.getByRole("button", { name: "If you had: €1500.00, details" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "If you had: €1500.00, details" }));
+    expect(screen.getByText("If you had").closest("[class*=_tile_]")).toHaveTextContent("€1500.00");
+    // Changed where it is worked out: the pay-day sheet, behind the pay-day tile.
+    await userEvent.click(screen.getByRole("button", { name: /^Until payday: .*details$/ }));
 
     expect(screen.getByText("Scenario: your own figure")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "If you had" })).toHaveValue(1500);
@@ -516,6 +522,37 @@ describe("the scales at the top of «Τα ποσά σου»", () => {
     )!;
     expect(asEuro(month.in)).toBe(tileIn!.slice(1));
     expect(asEuro(month.out)).toBe(tileOut!.slice(1));
+  });
+
+  it("opens «Coming in» and «Going out» as lists that add up to the tiles, once each", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Month" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next month" }));
+    // Two eyes on the month's four tiles, one list each: the start and the end are figures to read.
+    expect(within(screen.getByRole("region", { name: "At a glance" })).getAllByRole("button", { name: /, details$/ })).toHaveLength(2);
+    const euros = (text: string) => Number(text.replace(/[^0-9.]/g, ""));
+    const read = () => {
+      const sheet = screen.getByRole("dialog");
+      const rows = within(sheet).getAllByTestId("flow-item");
+      const sum = Math.round(rows.reduce((total, row) => total + euros(row.lastElementChild!.textContent!), 0) * 100) / 100;
+      return { sheet, rows, sum, total: within(sheet).getByTestId("flow-total").textContent };
+    };
+
+    await userEvent.click(screen.getByRole("button", { name: "Coming in: +€1850.00, details" }));
+    const coming = read();
+    // By hand: the salary 1.450 and the rent collected 400, each on its day.
+    expect(coming.rows.map((row) => row.firstElementChild!.firstElementChild!.textContent)).toEqual(expect.arrayContaining(["Rent I collect"]));
+    expect(coming.rows).toHaveLength(2);
+    expect(coming.total).toBe("+€1850.00");
+    expect(coming.sum).toBe(1850);
+    await userEvent.click(within(coming.sheet).getByRole("button", { name: "Close" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Going out: −€915.00, details" }));
+    const going = read();
+    // By hand: the bills 515, the goal 100, 300 of one's own.
+    expect(going.total).toBe("−€915.00");
+    expect(going.sum).toBe(515 + 100 + 300);
+    expect(within(going.sheet).getByText("Mine")).toBeInTheDocument();
   });
 
   it("takes a row out with a tap on its eye, and puts it back with another", async () => {

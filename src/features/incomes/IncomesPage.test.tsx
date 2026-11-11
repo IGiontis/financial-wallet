@@ -7,6 +7,7 @@ import i18n from "../../i18n";
 import type { Category, Transaction } from "../../shared/types/IndexTypes";
 import type { Income } from "./incomesUtils";
 import IncomesPage from "./IncomesPage";
+import { draftToIncome, incomeToDraft } from "./incomeForm";
 
 // Whole pages, many clicks each: alone they take a second or two, but under a
 // full parallel run the 5 s default was missed now and then. Room, not a fix
@@ -352,7 +353,7 @@ describe("the form", () => {
     expect(step(2)).toHaveAttribute("aria-current", "step");
   });
 
-  it("saves only from the fourth step, the check, which says every answer back", async () => {
+  it("saves only from the fifth step, the check, which says every answer back", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
@@ -360,9 +361,9 @@ describe("the form", () => {
 
     // One way forward at a time: no Save beside Next.
     expect(within(form).queryByRole("button", { name: "Αποθήκευση" })).toBeNull();
-    await userEvent.click(within(form).getByRole("button", { name: /^4/ }));
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
     expect(within(form).getByText("Έλεγχος: όλα όσα έβαλες")).toBeInTheDocument();
-    const answer = (label: string) => within(form).getByText(label).nextElementSibling;
+    const answer = (label: string) => within(form.querySelector<HTMLElement>("[class*=wizCard]")!).getByText(label).nextElementSibling;
     expect(answer("Όνομα")).toHaveTextContent("Επίδομα");
     expect(answer("Ποσό")).toHaveTextContent(/70,00\s?€ · σταθερό/);
     expect(answer("Κάθε πότε")).toHaveTextContent("κάθε μήνα στις 20");
@@ -373,15 +374,113 @@ describe("the form", () => {
     await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ id: "allow", amount: 70, day: 20 })])), { timeout: 2000 });
   });
 
-  it("does not let a new income skip ahead before its first step is filled in", async () => {
+  it("asks yes / no in tiles, no switches: «Ναι» on a break shows its months in the step, «Όχι» hides them, and «Ναι» on salary is saved", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
+    const form = screen.getByRole("dialog");
+    const tile = (question: RegExp, yes: boolean) => within(within(form).getByRole("radiogroup", { name: question })).getByRole("radio", { name: yes ? /^Ναι/ : /^Όχι/ });
+    expect(within(form).queryByRole("switch")).toBeNull();
+    await userEvent.click(within(form).getByRole("button", { name: /^2/ }));
+    expect(tile(/Αλλάζει το ποσό/, false)).toBeChecked();
+
+    await userEvent.click(within(form).getByRole("button", { name: /^4/ }));
+    expect(within(form).queryByRole("switch")).toBeNull();
+    expect(within(form).queryByText("Από")).toBeNull();
+    await userEvent.click(tile(/Κάνει παύση/, true));
+    expect(within(form).getByText("Από")).toBeInTheDocument();
+    await userEvent.click(tile(/Κάνει παύση/, false));
+    expect(within(form).queryByText("Από")).toBeNull();
+
+    await userEvent.click(tile(/μισθός σου/, true));
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
+    expect(within(form).getByText("Ο μισθός μου").nextElementSibling).toHaveTextContent("Ναι");
+  });
+
+  it("writes exactly what the one-page form wrote: an unchanged edit saves the income field by field as it was", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
+    const form = screen.getByRole("dialog");
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
+    await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.anything()), { timeout: 2000 });
+    const list = api.saveWorkspaceValue.mock.calls.find(([, key]) => key === "incomes")![2] as Income[];
+    const allow = incomes.find((i) => i.id === "allow")!;
+    // The old form's save: its draft turned back into an income, the same function both use.
+    const before = draftToIncome(incomeToDraft(allow, (n) => n, NOW), (n) => n)!;
+    expect(list.find((i) => i.id === "allow")).toStrictEqual(before);
+    expect(before).toMatchObject({ id: "allow", name: "Επίδομα", kind: "allowance", amount: 70, frequency: "monthly", day: 20, start: "2025-09" });
+  });
+
+  it("asks «how often» as a number and a unit from lists on one row, the day from 1–31, and has delete far left on an edit", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
+    const form = screen.getByRole("dialog");
+    const footer = form.querySelector(".modal-footer")!;
+    expect(footer.firstElementChild!.firstElementChild).toHaveAccessibleName(/Διαγραφή/);
+    await userEvent.click(within(form).getByRole("button", { name: /^3/ }));
+    const count = within(form).getByLabelText("Κάθε") as HTMLSelectElement;
+    const unit = within(form).getByLabelText("Μονάδα") as HTMLSelectElement;
+    expect(count.parentElement).toBe(unit.parentElement);
+    expect(count.options).toHaveLength(11);
+    await userEvent.selectOptions(unit, "weekly");
+    expect((within(form).getByLabelText("Κάθε") as HTMLSelectElement).options).toHaveLength(3);
+    await userEvent.selectOptions(unit, "monthly");
+    const day = form.querySelector("#income-day") as HTMLSelectElement;
+    expect(day.tagName).toBe("SELECT");
+    expect(day.options).toHaveLength(32);
+  });
+
+  it("starts every text field empty, and a name left empty becomes the kind's at save, said on the check", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Νέο έσοδο" }));
+    const form = screen.getByRole("dialog");
+    for (const input of form.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type]), textarea')) expect(input.value).toBe("");
+    // Picking a kind does not write its name in either.
+    await userEvent.click(within(form).getByRole("radio", { name: /Ενοίκιο/ }));
+    expect((within(form).getByLabelText(/Όνομα/) as HTMLInputElement).value).toBe("");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    await userEvent.type(within(form).getByLabelText(/^Ποσό/), "300");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    await userEvent.selectOptions(form.querySelector<HTMLSelectElement>("#income-day")!, "5");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    const answer = (label: string) => within(form.querySelector<HTMLElement>("[class*=wizCard]")!).getByText(label).nextElementSibling;
+    expect(answer("Όνομα")).toHaveTextContent("Ενοίκιο");
+    await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ name: "Ενοίκιο", amount: 300, day: 5 })])), { timeout: 2000 });
+  });
+
+  it("does not let a new income skip ahead before its amount is filled in", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Νέο έσοδο" }));
     const form = screen.getByRole("dialog");
     expect(within(form).getByRole("button", { name: /^3/ })).toBeDisabled();
-    await userEvent.clear(within(form).getByLabelText(/Όνομα/));
+    // A name is not needed — an empty one becomes the kind's — so on to the amount.
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
-    // Still on the first step, the name asked for.
-    expect(within(form).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
+    expect(within(form).getByRole("button", { name: /^2/ })).toHaveAttribute("aria-current", "step");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    // Still on the amount, which is asked for.
+    expect(within(form).getByRole("button", { name: /^2/ })).toHaveAttribute("aria-current", "step");
+  });
+});
+
+describe("the add on every view", () => {
+  it.each(["overview", "record", "manage", "all"] as const)("«%s» has the «+», and it opens the new-income form", async (view) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <IncomesPage view={view} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const add = await screen.findByRole("button", { name: "Νέο έσοδο" });
+    expect(add).toHaveAttribute("title", "Νέο έσοδο");
+    await userEvent.click(add);
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
   });
 });
 
@@ -400,8 +499,12 @@ describe("an empty page", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Πρόσθεσέ τον" }));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByLabelText(/Όνομα/)).toHaveValue("Μισθός");
-    expect(within(sheet).getByLabelText(/Ποσό/)).toHaveValue(1450);
+    // Nothing written in for you: the name starts empty, its fallback shown as the placeholder.
+    expect((within(sheet).getByLabelText(/Όνομα/) as HTMLInputElement).value).toBe("");
+    expect(within(sheet).getByLabelText(/Όνομα/)).toHaveAttribute("placeholder", expect.stringContaining("«Μισθός»"));
+    // The amount is the next step's, already filled in.
+    await userEvent.click(within(sheet).getByRole("button", { name: /Επόμενο/ }));
+    expect(within(sheet).getByLabelText(/^Ποσό/)).toHaveValue(1450);
     expect(api.saveWorkspaceValue).not.toHaveBeenCalledWith("u1", "incomes", expect.anything());
   });
 

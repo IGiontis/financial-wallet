@@ -37,6 +37,11 @@ import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDebtTransfer, isMoneyMove } from "../../../shared/utils/moneyModel";
 import { findCategory } from "../../../shared/utils/categories";
+import { useRecordLocks, type LockState } from "../hooks/useRecordLocks";
+import { isFullyLocked } from "../linkedRecords";
+import { LockNote } from "../components/LockNote";
+import { useSavedFlash } from "../../../shared/feedback/saveFeedback";
+import { AddButton } from "../../../shared/components/AddButton";
 
 const PAGE_SIZE = 15;
 
@@ -64,15 +69,19 @@ function getGoalBadgeStyle(contributionType: string | undefined): React.CSSPrope
  * money in deep green and the money out plain ink (`--figure-chip-*`).
  */
 function getAmountChipStyle(tx: Transaction): React.CSSProperties {
-  const chip = (accent: string, text: string): React.CSSProperties => ({
+  // The tone's own 1px edge drawn inside (an inset shadow, as `toneChip`
+  // does), so the chip keeps its size; the lettering stays the figure's exact
+  // shade (`--figure-chip-*`), the owner's red and green.
+  const chip = (accent: string, text: string, edge: string): React.CSSProperties => ({
     background: `color-mix(in srgb, var(${accent}) var(--figure-chip-wash), transparent)`,
     color: `var(${text})`,
+    boxShadow: `inset 0 0 0 1px var(${edge})`,
   });
   // Neither side's colour: the money only changed account.
-  if (tx.transferId) return tinted("--color-text-secondary");
-  if (tx.isGoalTransaction) return chip("--color-goal", "--figure-chip-goal");
-  if (tx.isInvestmentTransaction) return chip("--color-invest", "--figure-chip-invest");
-  return tx.type === "income" ? chip("--color-income", "--figure-chip-income") : chip("--color-expense", "--figure-chip-expense");
+  if (tx.transferId) return { ...tinted("--color-text-secondary"), boxShadow: "inset 0 0 0 1px var(--border)" };
+  if (tx.isGoalTransaction) return chip("--color-goal", "--figure-chip-goal", "--goal-edge");
+  if (tx.isInvestmentTransaction) return chip("--color-invest", "--figure-chip-invest", "--invest-edge");
+  return tx.type === "income" ? chip("--color-income", "--figure-chip-income", "--income-edge") : chip("--color-expense", "--figure-chip-expense", "--expense-edge");
 }
 
 // ─── Filter summary ───────────────────────────────────────────────────────────
@@ -219,9 +228,11 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
   );
 }
 
-function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
+function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose, lock }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void; lock?: LockState }) {
   const { t } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
+  // Half of a linked set goes only with the rest of it, from where it was written.
+  const held = !!lock?.pending || !!lock?.lock;
 
   return (
     <Modal isOpen toggle={onClose} centered size="sm">
@@ -232,12 +243,13 @@ function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose }: { t
         </p>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
         {deleteGuard.locked && <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
+        <LockNote state={lock} onLeave={onClose} />
       </ModalBody>
       <ModalFooter>
         <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked}>
+        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked || held}>
           {isDeleting ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>
@@ -254,7 +266,7 @@ const isMoneyIn = (tx: Transaction) => (tx.isGoalTransaction || tx.isInvestmentT
  * row took a third of its width from the name and made a list of fifteen a
  * column of thirty buttons.
  */
-function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Transaction; categories: Category[]; formatCurrency: (n: number) => string; onView: () => void }) {
+function TransactionCard({ tx, categories, formatCurrency, onView, flash = "" }: { tx: Transaction; categories: Category[]; formatCurrency: (n: number) => string; onView: () => void; flash?: string }) {
   const { t } = useTranslation();
   const cat = resolveCategory(tx, categories);
   const isInvestment = !!tx.isInvestmentTransaction;
@@ -267,7 +279,7 @@ function TransactionCard({ tx, categories, formatCurrency, onView }: { tx: Trans
       : undefined;
 
   return (
-    <button type="button" className={styles.txCard} onClick={onView}>
+    <button type="button" className={`${styles.txCard} ${flash}`.trim()} onClick={onView}>
       <span className={styles.txIcon} style={{ background: tx.transferId ? "var(--color-background-secondary)" : isPositive ? "var(--income-wash)" : "var(--expense-wash)" }} aria-hidden>
         {cat?.icon ?? "💳"}
       </span>
@@ -328,7 +340,7 @@ function MobileSummary({ transactions, formatCurrency }: { transactions: Transac
  * The page's records under the day they happened, newest first, each day with
  * what it came to — so "what did Saturday cost" is a heading, not a sum.
  */
-function DayGroups({ transactions, categories, formatCurrency, onView }: { transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string; onView: (tx: Transaction) => void }) {
+function DayGroups({ transactions, categories, formatCurrency, onView, flashClass }: { transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string; onView: (tx: Transaction) => void; flashClass: (id: string) => string }) {
   const { i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const weekdayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short" }), [lang]);
@@ -362,7 +374,7 @@ function DayGroups({ transactions, categories, formatCurrency, onView }: { trans
             </div>
             <div className={styles.dayCards}>
               {day.rows.map((tx) => (
-                <TransactionCard key={tx.id} tx={tx} categories={categories} formatCurrency={formatCurrency} onView={() => onView(tx)} />
+                <TransactionCard key={tx.id} tx={tx} categories={categories} formatCurrency={formatCurrency} onView={() => onView(tx)} flash={flashClass(tx.id)} />
               ))}
             </div>
           </section>
@@ -448,6 +460,9 @@ export function TransactionsPage() {
   }, [currentPage]);
 
   const [viewTransaction, setViewTransaction] = useState<Transaction | null>(null);
+  // Which records are half of a linked set. The debts are read only once a
+  // record is opened and only if nothing has loaded them — see `useRecordLocks`.
+  const lockOf = useRecordLocks(!!(viewTransaction || editTransaction || deleteTransaction));
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -470,6 +485,37 @@ export function TransactionsPage() {
 
   const handleUpdate = (transactionId: string, data: UpdateTransactionDTO): Promise<void> =>
     saveWithoutWaiting(updateMutation, { transactionId, data }, () => toast.error(t("transactions.updateFailed")));
+
+  // A transfer is corrected as the pair it is, never one half at a time.
+  const transferDraft = (tx: Transaction): TransferDraft => {
+    const pair = transferOf(transactions, tx.transferId!);
+    return {
+      id: tx.transferId!,
+      from: tx.accountId ?? "",
+      to: pair.in?.accountId ?? "",
+      amount: tx.amount,
+      date: firestoreToDate(tx.date),
+      note: tx.notes,
+      createdAt: firestoreToDate(tx.createdAt),
+    };
+  };
+  // A pair with a half missing — one deleted alone before transfer rows were
+  // locked, or lost — is an orphan: it can't be corrected as a pair, and it
+  // is deleted as the one record it is. Naming the missing half in the
+  // pair's batch would have the rules refuse the whole batch, for good.
+  const isOrphanTransfer = (tx: Transaction) => {
+    const pair = transferOf(transactions, tx.transferId!);
+    return !(pair.out && pair.in);
+  };
+  const deleteTransfer = (tx: Transaction) => {
+    const done = {
+      onSuccess: () => toast.success(t("transactions.deleteSuccess")),
+      onError: () => toast.error(t("transactions.deleteFailed")),
+    };
+    const pair = transferOf(transactions, tx.transferId!);
+    if (pair.out && pair.in) deleteTransferMutation.mutate(tx.transferId!, done);
+    else deleteMutation.mutate(pair.out ?? pair.in ?? tx, done);
+  };
 
   const handleDelete = () => {
     if (!deleteTransaction) return;
@@ -578,6 +624,9 @@ export function TransactionsPage() {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredTransactions.slice(start, start + PAGE_SIZE);
   }, [filteredTransactions, currentPage]);
+  // The row just saved lights up, on the table and on the phone's cards alike.
+  const pagedIds = useMemo(() => pagedTransactions.map((tx) => tx.id), [pagedTransactions]);
+  const flashClass = useSavedFlash("transactions", pagedIds);
 
   const isLoading = txLoading || catLoading;
 
@@ -682,9 +731,7 @@ export function TransactionsPage() {
                       {/* Label only where there's room for it */}
                       <span className="d-none d-xl-inline ms-1">{t("transactions.payees")}</span>
                     </Button>
-                    <Button color="primary" size="sm" className="flex-shrink-0" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAddModal(true)}>
-                      + {t("transactions.addTransactionBtn")}
-                    </Button>
+                    <AddButton small label={t("transactions.addTransaction")} onClick={() => setShowAddModal(true)} />
                   </div>
                 </div>
 
@@ -765,7 +812,7 @@ export function TransactionsPage() {
                             const isPositive = isMoneyIn(tx);
                             const chipStyle = getAmountChipStyle(tx);
                             return (
-                              <tr key={tx.id} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
+                              <tr key={tx.id} className={flashClass(tx.id)} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
                                   {formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
                                 </td>
@@ -791,6 +838,7 @@ export function TransactionsPage() {
                                       fontWeight: 500,
                                       background: chipStyle.background,
                                       color: chipStyle.color,
+                                      boxShadow: chipStyle.boxShadow,
                                       whiteSpace: "nowrap",
                                     }}
                                   >
@@ -846,23 +894,41 @@ export function TransactionsPage() {
                                         {tx.contributionType === "withdrawal" ? t("transactions.withdrawal") : t("transactions.deposit")}
                                       </span>
                                     )}
-                                    <Button
-                                      size="sm"
-                                      color="light"
-                                      disabled={tx.isInvestmentTransaction || tx.isGoalTransaction || !!tx.debtId}
-                                      style={{
-                                        padding: "2px 8px",
-                                        opacity: tx.isInvestmentTransaction || tx.isGoalTransaction || tx.debtId ? 0.35 : 1,
-                                        cursor: tx.isInvestmentTransaction || tx.isGoalTransaction || tx.debtId ? "not-allowed" : "pointer",
-                                      }}
-                                      onClick={() => {
-                                        if (!tx.isInvestmentTransaction && !tx.isGoalTransaction && !tx.debtId) setEditTransaction(tx);
-                                      }}
-                                      title={t("common.edit")}
-                                    >
-                                      <FiEdit2 size={13} />
-                                    </Button>
-                                    <DeleteButton opensConfirm iconOnly size="sm" disabled={tx.isInvestmentTransaction || tx.isGoalTransaction || !!tx.debtId} onClick={() => setDeleteTransaction(tx)} />
+                                    {(() => {
+                                      // Half of a linked set: a goal's or a loan's record can't be
+                                      // touched here; a transfer goes as its pair; a covered
+                                      // expense keeps its payee and notes editable and is deleted
+                                      // only with its debt.
+                                      const { lock } = lockOf(tx);
+                                      const orphan = !!tx.transferId && isOrphanTransfer(tx);
+                                      const noEdit = isFullyLocked(lock) || orphan;
+                                      const noDelete = noEdit || lock?.kind === "covered";
+                                      const why = lock?.kind === "covered" ? t("transactions.lockFromDebts") : lock?.kind === "debt" ? t("transactions.debtLocked") : undefined;
+                                      return (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            color="light"
+                                            disabled={noEdit}
+                                            style={{ padding: "2px 8px", opacity: noEdit ? 0.35 : 1, cursor: noEdit ? "not-allowed" : "pointer" }}
+                                            onClick={() => {
+                                              if (noEdit) return;
+                                              if (tx.transferId) setTransferEdit(transferDraft(tx));
+                                              else setEditTransaction(tx);
+                                            }}
+                                            title={orphan ? t("transactions.transfer.orphan") : lock?.kind === "transfer" ? t("transactions.lockTransferRow") : (why ?? t("common.edit"))}
+                                          >
+                                            <FiEdit2 size={13} />
+                                          </Button>
+                                          {tx.transferId ? (
+                                            // Asks first, as the transfer's own sheet does, and takes both halves.
+                                            <DeleteButton iconOnly size="sm" what={tx.description} title={t("transactions.lockTransferRow")} onClick={() => deleteTransfer(tx)} />
+                                          ) : (
+                                            <DeleteButton opensConfirm iconOnly size="sm" disabled={noDelete} title={why} onClick={() => setDeleteTransaction(tx)} />
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 </td>
                               </tr>
@@ -901,9 +967,7 @@ export function TransactionsPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder={t("transactions.searchShort")} block />
           </div>
-          <Button color="primary" className="flex-shrink-0" onClick={() => setShowAddModal(true)} aria-label={t("transactions.addTransaction")}>
-            +
-          </Button>
+          <AddButton label={t("transactions.addTransaction")} onClick={() => setShowAddModal(true)} />
         </div>
         <div className="d-flex gap-2 align-items-center mb-3">
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -927,7 +991,7 @@ export function TransactionsPage() {
         ) : pagedTransactions.length === 0 ? (
           <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
         ) : (
-          <DayGroups transactions={pagedTransactions} categories={categories} formatCurrency={formatCurrency} onView={setViewTransaction} />
+          <DayGroups transactions={pagedTransactions} categories={categories} formatCurrency={formatCurrency} onView={setViewTransaction} flashClass={flashClass} />
         )}
         <Card className="border-0 shadow-sm mt-3">
           <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
@@ -962,34 +1026,24 @@ export function TransactionsPage() {
           }
         />
       )}
-      {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} />}
+      {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} lock={lockOf(editTransaction)} />}
       {deleteTransaction && (
-        <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} />
+        <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} lock={lockOf(deleteTransaction)} />
       )}
       {viewTransaction?.transferId && (
         <TransferSheet
           out={viewTransaction}
           inn={transferOf(transactions, viewTransaction.transferId).in}
           formatCurrency={formatCurrency}
+          editBlocked={isOrphanTransfer(viewTransaction) ? t("transactions.transfer.orphan") : undefined}
           onClose={() => setViewTransaction(null)}
           onEdit={() => {
-            const pair = transferOf(transactions, viewTransaction.transferId!);
-            setTransferEdit({
-              id: viewTransaction.transferId!,
-              from: viewTransaction.accountId ?? "",
-              to: pair.in?.accountId ?? "",
-              amount: viewTransaction.amount,
-              date: firestoreToDate(viewTransaction.date),
-              note: viewTransaction.notes,
-              createdAt: firestoreToDate(viewTransaction.createdAt),
-            });
+            if (isOrphanTransfer(viewTransaction)) return;
+            setTransferEdit(transferDraft(viewTransaction));
             setViewTransaction(null);
           }}
           onDelete={() => {
-            deleteTransferMutation.mutate(viewTransaction.transferId!, {
-              onSuccess: () => toast.success(t("transactions.deleteSuccess")),
-              onError: () => toast.error(t("transactions.deleteFailed")),
-            });
+            deleteTransfer(viewTransaction);
             setViewTransaction(null);
           }}
         />
@@ -999,6 +1053,7 @@ export function TransactionsPage() {
           transaction={viewTransaction}
           categories={categories}
           formatCurrency={formatCurrency}
+          lock={lockOf(viewTransaction)}
           onClose={() => setViewTransaction(null)}
           // Handed on, not stacked: the record's own sheet gives way to the editor or the "are you sure".
           onEdit={() => {

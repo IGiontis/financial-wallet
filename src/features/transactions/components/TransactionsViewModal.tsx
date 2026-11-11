@@ -23,6 +23,8 @@ import { formatTable } from "../transactionDates";
 import { findCategory } from "../../../shared/utils/categories";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { mainAccount } from "../../accounts/accountsUtils";
+import { LockNote } from "./LockNote";
+import type { LockState } from "../hooks/useRecordLocks";
 
 function resolveCategory(tx: Transaction, categories: Category[]) {
   if (tx.isGoalTransaction) return { icon: "🎯", name: "Goal" };
@@ -44,6 +46,8 @@ interface Props {
   /** Where the phone list's records are changed and deleted — the list itself only opens them. */
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Half of a linked set? See `useRecordLocks`. Without it, only a loan's own cash is known to be. */
+  lock?: LockState;
 }
 
 export default function TransactionViewModal({
@@ -53,6 +57,7 @@ export default function TransactionViewModal({
   onClose,
   onEdit,
   onDelete,
+  lock,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { displayCurrency } = useCurrencyConverter();
@@ -75,6 +80,11 @@ export default function TransactionViewModal({
       ? new Intl.DateTimeFormat(lang, sameDay ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(created)
       : undefined;
   const isGoal = !!tx.isGoalTransaction;
+  const lockState: LockState = lock ?? { lock: tx.debtId ? { kind: "debt", debtId: tx.debtId } : undefined, pending: false };
+  // A covered expense keeps its payee and notes editable; it is deleted only with its debt.
+  const covered = lockState.lock?.kind === "covered";
+  const noEdit = isGoal || !!tx.isInvestmentTransaction || !!tx.debtId || lockState.pending;
+  const noDelete = noEdit || covered;
   /**
    * The card, said the way the money moved. A goal's money kept in your own
    * bank never left it: "kept in". Handed to someone (`heldBy`) it did leave —
@@ -206,8 +216,9 @@ export default function TransactionViewModal({
           account={accountName ? goalAccount(accountName) : undefined}
           recordedAt={recordedAt}
         />
-        {/* A loan's money: written by the debt and kept in step with it. */}
-        {tx.debtId && <p className="small text-body-secondary mt-3 mb-0">{t("transactions.debtLocked")}</p>}
+        {/* A loan's money, or the expense of a goal a friend paid: written
+            by the debt and kept in step with it — changed from there. */}
+        <LockNote state={lockState} onLeave={onClose} />
       </ModalBody>
       {(onEdit || onDelete) && (
         <>
@@ -219,7 +230,7 @@ export default function TransactionViewModal({
             {onDelete ? (
               <DeleteButton opensConfirm
                 onClick={onDelete}
-                disabled={isGoal || !!tx.isInvestmentTransaction || !!tx.debtId}
+                disabled={noDelete}
               />
             ) : (
               <span />
@@ -229,7 +240,7 @@ export default function TransactionViewModal({
                 <Button
                   color="primary"
                   onClick={onEdit}
-                  disabled={isGoal || !!tx.isInvestmentTransaction || !!tx.debtId}
+                  disabled={noEdit}
                 >
                   <FiEdit2 size={14} className="me-1" aria-hidden />
                   {t("common.edit")}

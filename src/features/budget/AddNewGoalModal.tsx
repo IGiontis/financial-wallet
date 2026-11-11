@@ -20,22 +20,21 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
 import { Trans, useTranslation } from "react-i18next";
-import { DateField } from "../../shared/components/DateField";
-import { PlanFromField } from "./components/PlanFromField";
 import { validationMessage } from "../../shared/utils/validationMessage";
-import { Badge, Button, Col, FormFeedback, FormGroup, FormText, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
-import type { CreateInvestmentGoalDTO, GoalPart, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
-import { ViewSwitch } from "../../shared/components/ViewSwitch";
-import { GoalPartsEditor } from "./components/GoalPartsEditor";
+import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { useGoalPartsField } from "./components/useGoalPartsField";
 import { addMonths, format } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { YesNoChoice } from "../../shared/components/YesNoChoice";
+import { WizardSteps } from "../transactions/components/WizardSteps";
+import segmented from "../../shared/css/Segmented.module.css";
+import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizard";
+import { GOAL_STEP_FIELDS, GOAL_STEP_LABEL, goalReviewRows, type GoalStep } from "./components/goalWizardSteps";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRESET_ICONS = ["💰", "🚗", "🏠", "✈️", "🎓", "💻", "🛡️", "🏖️", "🏋️", "💍", "🎸", "📱", "🌍", "🚀", "🐾", "🎉"];
-const PRESET_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
 const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -98,105 +97,15 @@ const validationSchema = Yup.object({
   isActive: Yup.boolean(),
 });
 
-// ─── ReviewScreen ─────────────────────────────────────────────────────────────
-
-function ReviewScreen({
-  values,
-  isGoalsPage,
-  onBack,
-  onConfirm,
-  isSubmitting,
-  formatCurrency,
-  parts,
-}: {
-  values: GoalFormValues;
-  isGoalsPage: boolean;
-  onBack: () => void;
-  onConfirm: () => void;
-  isSubmitting: boolean;
-  formatCurrency: (n: number) => string;
-  /** What the target is made of, when it was given in parts. */
-  parts?: GoalPart[];
-}) {
-  const { t } = useTranslation();
-  const isTargeted = values.goalType === "targeted";
-  const kindLabel = t(isTargeted ? (isGoalsPage ? "goals.kindTargeted" : "goals.kindRecurring") : "goals.kindTracking");
-
-  const rows = [
-    {
-      label: t("goals.typeLabel"),
-      value: kindLabel,
-    },
-    ...(isTargeted && values.targetAmount ? [{ label: t("goals.targetLabel"), value: formatCurrency(Number(values.targetAmount)) }] : []),
-    ...(parts && parts.length > 0 ? [{ label: t("goals.partsTitle"), value: parts.map((p) => `${p.label} ${p.min === p.max ? formatCurrency(p.max) : `${formatCurrency(p.min)}–${formatCurrency(p.max)}`}`).join(" · ") }] : []),
-    // Show Period row only for InvestmentsPage recurring goals
-    ...(isTargeted && !isGoalsPage ? [{ label: t("goals.periodLabel"), value: values.targetPeriod === "monthly" ? t("goals.periodMonthly") : t("goals.periodYearly") }] : []),
-    // Show Deadline row only for GoalsPage (custom period)
-    ...(isGoalsPage && isTargeted && values.deadline ? [{ label: t("goals.deadline"), value: format(new Date(values.deadline), "dd/MM/yyyy") }] : []),
-    ...(isGoalsPage && isTargeted && values.planFrom ? [{ label: t("goals.planFromShort"), value: format(new Date(values.planFrom), "dd/MM/yyyy") }] : []),
-    ...(values.notes ? [{ label: t("common.notes"), value: values.notes }] : []),
-    { label: t("goals.statusLabel"), value: values.isActive ? t("goals.statusActive") : t("common.paused") },
-  ];
-
-  return (
-    <>
-      <ModalBody>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("goals.reviewBeforeCreating")}</p>
-        <div
-          style={{
-            border: `2px solid ${values.color || "#3B82F6"}`,
-            borderRadius: "var(--border-radius-lg)",
-            padding: "var(--space-4)",
-            marginBottom: "1rem",
-          }}
-        >
-          <div className="d-flex align-items-center gap-3 mb-3">
-            <span style={{ fontSize: 32 }}>{values.icon || "💰"}</span>
-            <div>
-              <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>{values.name}</p>
-              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>{kindLabel}</p>
-            </div>
-            <div style={{ width: 16, height: 16, borderRadius: "var(--radius-round)", background: values.color || "#3B82F6", marginLeft: "auto", flexShrink: 0 }} />
-          </div>
-          {rows.map((r) => (
-            <div key={r.label} className="d-flex justify-content-between" style={{ padding: "6px 0", borderTop: "0.5px solid var(--color-border-tertiary)", fontSize: 13 }}>
-              <span style={{ color: "var(--color-text-secondary)" }}>{r.label}</span>
-              <span style={{ fontWeight: 500, textTransform: "capitalize" }}>{r.value}</span>
-            </div>
-          ))}
-        </div>
-
-        {!values.isActive && (
-          <div
-            style={{
-              background: "var(--bs-warning-bg-subtle)",
-              border: "1px solid var(--bs-warning-border-subtle)",
-              borderRadius: "var(--border-radius-md)",
-              padding: "var(--space-2) var(--space-3)",
-              fontSize: 13,
-            }}
-          >
-            <Trans i18nKey="goals.createdPausedNote" components={{ strong: <strong /> }} />
-          </div>
-        )}
-      </ModalBody>
-      <ModalFooter className="justify-content-between">
-        <Button type="button" color="secondary" outline onClick={onBack} disabled={isSubmitting}>
-          {t("common.back")}
-        </Button>
-        <Button type="button" color="primary" onClick={onConfirm} disabled={isSubmitting}>
-          {isSubmitting ? t("goals.creating") : t("goals.confirmAndCreate")}
-        </Button>
-      </ModalFooter>
-    </>
-  );
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
+// A wizard like every other add form: «Τι» (name, and on Investments the kind)
+// → «Στόχος» (a targeted one only) → «Εμφάνιση» (icon, colour, notes, active?)
+// → «Έλεγχος», whose rows jump back to their step. Save only on the review;
+// what it writes is the same DTO the one-page form wrote.
 
 export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoalType }: AddNewGoalModalProps) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<"form" | "review">("form");
+  const [step, setStep] = useState<GoalStep>("what");
   const { format: formatCurrency } = useCurrencyConverter();
 
   // GoalsPage passes "targeted" → lock to targeted + custom deadline
@@ -212,9 +121,6 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
       icon: "",
       color: "#3B82F6",
       notes: "",
-      // GoalsPage  → always targeted
-      // InvestmentsPage → default to open_ended (tracking)
-      // goalType: isGoalsPage ? "targeted" : "open_ended",
       goalType: "targeted",
       targetAmount: "",
       // GoalsPage  → always custom (deadline picker shown)
@@ -248,7 +154,9 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
         await onSubmit(dto, values.isActive);
         toast.success(t("goals.createdSuccess", { name: values.name }));
         resetForm({ values: computedInitialValues });
-        setStep("form");
+        // The modal stays mounted: the next new goal must not start with these parts.
+        partsField.reset();
+        setStep("what");
         onClose();
       } catch (err) {
         toast.error(t("goals.createFailed"));
@@ -259,48 +167,79 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
 
   const handleClose = () => {
     formik.resetForm({ values: computedInitialValues });
-    setStep("form");
+    partsField.reset();
+    setStep("what");
     onClose();
-  };
-
-  const handleReview = async () => {
-    const errors = await formik.validateForm();
-    if (!partsField.check()) return;
-    if (Object.keys(errors).length === 0) {
-      setStep("review");
-    } else {
-      formik.setTouched(Object.keys(formik.values).reduce<Record<string, boolean>>((acc, key) => ({ ...acc, [key]: true }), {}));
-    }
   };
 
   const isTargeted = formik.values.goalType === "targeted";
   // A trip's target written as its parts — see `goalParts`. The amount follows their «έως» total.
   const partsField = useGoalPartsField(undefined, (amount) => formik.setFieldValue("targetAmount", amount));
 
+  // A tracking investment has no target, so no step for one.
+  const steps: GoalStep[] = isTargeted ? ["what", "target", "look", "review"] : ["what", "look", "review"];
+  const index = Math.max(steps.indexOf(step), 0);
+  // Forward only past steps that are valid; back is always free.
+  const goTo = async (target: GoalStep) => {
+    const to = steps.indexOf(target);
+    const errors = await formik.validateForm();
+    for (const s of steps.slice(0, to)) {
+      const bad = GOAL_STEP_FIELDS[s].filter((f) => f in errors);
+      const partsBad = s === "target" && !partsField.check();
+      if (bad.length > 0 || partsBad) {
+        void formik.setTouched({ ...formik.touched, ...Object.fromEntries(bad.map((f) => [f, true])) }, false);
+        setStep(s);
+        return;
+      }
+    }
+    setStep(target);
+  };
+
+  const kindLabel = t(isTargeted ? (isGoalsPage ? "goals.kindTargeted" : "goals.kindRecurring") : "goals.kindTracking");
+  const rows = goalReviewRows({
+    values: formik.values,
+    kindLabel,
+    isTargeted,
+    withDeadline: isGoalsPage,
+    parts: partsField.usingParts ? partsField.parts : undefined,
+    formatCurrency,
+    t,
+    extra: [{ step: "look", label: t("goals.statusLabel"), value: formik.values.isActive ? t("goals.statusActive") : t("common.paused") }],
+  });
+  const kinds = [
+    { value: "targeted" as InvestmentGoalType, title: t("investments.typeRecurringTitle"), desc: t("investments.typeRecurringDesc") },
+    { value: "open_ended" as InvestmentGoalType, title: t("investments.tracking"), desc: t("investments.typeTrackingDesc") },
+  ];
+
   return (
     <Modal {...FORM_MODAL} isOpen={isOpen} toggle={handleClose} centered size="m" scrollable>
-      <ModalHeader toggle={handleClose}>{step === "form" ? modalTitle : t(isGoalsPage ? "goals.reviewYourGoal" : "investments.reviewYourInvestment")}</ModalHeader>
+      <ModalHeader toggle={handleClose}>{modalTitle}</ModalHeader>
+      <form
+        id="new-goal-form"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (step === "review") void formik.submitForm();
+          else void goTo(steps[index + 1]);
+        }}
+      >
+        <ModalBody>
+          <WizardSteps steps={steps} current={step} onGo={(s) => void goTo(s)} label={(s) => t(GOAL_STEP_LABEL[s])} large />
+          <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
+            {t(`goals.wizard.title_${step}`)}
+          </div>
 
-      {step === "review" ? (
-        <ReviewScreen
-          values={formik.values}
-          isGoalsPage={isGoalsPage}
-          onBack={() => setStep("form")}
-          onConfirm={() => formik.submitForm()}
-          isSubmitting={formik.isSubmitting}
-          formatCurrency={formatCurrency}
-          parts={partsField.usingParts ? partsField.parts : undefined}
-        />
-      ) : (
-        <>
-          <ModalBody>
-            <form id="new-goal-form" onSubmit={formik.handleSubmit} noValidate>
-              {/* ── Goal / Investment name ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{isGoalsPage ? t("goals.goalNameLabel") : t("investments.nameLabel")} *</Label>
+          {step === "what" && (
+            <>
+              <FormGroup className={isGoalsPage ? "mb-0" : undefined}>
+                <Label for="goal-name" className="small fw-medium">
+                  {isGoalsPage ? t("goals.goalNameLabel") : t("investments.nameLabel")} *
+                </Label>
                 <Input
+                  id="goal-name"
                   type="text"
                   name="name"
+                  autoFocus
                   placeholder={isGoalsPage ? t("goals.namePlaceholder") : t("investments.namePlaceholder")}
                   value={formik.values.name}
                   onChange={formik.handleChange}
@@ -310,276 +249,81 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               </FormGroup>
 
-              {/* ── Type selector — ONLY shown on InvestmentsPage ── */}
+              {/* The kind — only on Investments: a goal that repeats, or one only tracked. */}
               {!isGoalsPage && (
-                <FormGroup>
-                  <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.typeLabel")} *</Label>
-                  <Row className="g-2">
-                    {(
-                      [
-                        {
-                          value: "targeted" as InvestmentGoalType,
-                          title: t("investments.typeRecurringTitle"),
-                          desc: t("investments.typeRecurringDesc"),
-                        },
-                        {
-                          value: "open_ended" as InvestmentGoalType,
-                          title: t("investments.tracking"),
-                          desc: t("investments.typeTrackingDesc"),
-                        },
-                      ] as const
-                    ).map(({ value, title, desc }) => {
-                      const isSelected = formik.values.goalType === value;
-                      return (
-                        <Col xs={6} key={value}>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => formik.setFieldValue("goalType", value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") formik.setFieldValue("goalType", value);
-                            }}
-                            style={{
-                              border: `2px solid ${isSelected ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
-                              borderRadius: "var(--border-radius-md)",
-                              padding: "10px var(--space-3)",
-                              cursor: "pointer",
-                              background: isSelected ? "var(--bs-primary-bg-subtle)" : "var(--color-background-secondary)",
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            <p style={{ fontWeight: 500, fontSize: 13, margin: "0 0 2px" }}>{title}</p>
-                            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>{desc}</p>
-                          </div>
-                        </Col>
-                      );
-                    })}
-                  </Row>
+                <FormGroup className="mb-0">
+                  <div id="goal-kind" className="small fw-medium mb-2">
+                    {t("goals.typeLabel")} *
+                  </div>
+                  <div className={`${segmented.group} ${segmented.even}`} role="radiogroup" aria-labelledby="goal-kind">
+                    {kinds.map(({ value, title }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={formik.values.goalType === value}
+                        className={`${segmented.item} ${formik.values.goalType === value ? segmented.active : ""}`}
+                        onClick={() => formik.setFieldValue("goalType", value)}
+                      >
+                        {title}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="form-text">{kinds.find((k) => k.value === formik.values.goalType)?.desc}</div>
                 </FormGroup>
               )}
+            </>
+          )}
 
-              {/* ── Targeted fields ── */}
-              {isTargeted && (
-                <>
-                  {isGoalsPage && (
-                    <FormGroup>
-                      <ViewSwitch
-                        block
-                        className="mb-2"
-                        label={t("goals.amountHow")}
-                        value={partsField.usingParts ? "parts" : "one"}
-                        onChange={(v) => partsField.choose(v === "parts")}
-                        options={[
-                          { id: "one", label: t("goals.amountOne") },
-                          { id: "parts", label: t("goals.amountParts") },
-                        ]}
-                      />
-                      {partsField.usingParts && <GoalPartsEditor drafts={partsField.drafts} onChange={partsField.setDrafts} formatCurrency={formatCurrency} showErrors={partsField.showErrors} />}
-                    </FormGroup>
-                  )}
-                  <Row className="g-3">
-                    {/* Target amount — always half width; given in parts, the parts above are it. */}
-                    {!partsField.usingParts && (
-                    <Col xs={6}>
-                      <FormGroup className="mb-0">
-                        <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.targetAmount")} *</Label>
-                        <Input
-                          type="number"
-                          name="targetAmount"
-                          min={1}
-                          step={1}
-                          placeholder="0"
-                          value={formik.values.targetAmount}
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          invalid={!!(formik.touched.targetAmount && formik.errors.targetAmount)}
-                        />
-                        <FormFeedback>{validationMessage(formik.errors.targetAmount, t)}</FormFeedback>
-                      </FormGroup>
-                    </Col>
-                    )}
+          {step === "target" && <GoalTargetStep form={formik} partsField={partsField} withDeadline={isGoalsPage} formatCurrency={formatCurrency} />}
 
-                    {/* GoalsPage → deadline | InvestmentsPage → period dropdown */}
-                    <Col xs={6}>
-                      {isGoalsPage ? (
-                        <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.deadline")} *</Label>
-                          <DateField
-                            name="deadline"
-                            value={formik.values.deadline}
-                            onChange={(v) => formik.setFieldValue("deadline", v)}
-                            onBlur={() => formik.setFieldTouched("deadline", true)}
-                            invalid={!!(formik.touched.deadline && formik.errors.deadline)}
-                          />
-                          <FormFeedback>{validationMessage(formik.errors.deadline, t)}</FormFeedback>
-                        </FormGroup>
-                      ) : (
-                        <FormGroup className="mb-0">
-                          <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("goals.periodLabel")} *</Label>
-                          <Input
-                            type="select"
-                            name="targetPeriod"
-                            value={formik.values.targetPeriod}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            invalid={!!(formik.touched.targetPeriod && formik.errors.targetPeriod)}
-                          >
-                            <option value="monthly">{t("goals.periodMonthly")}</option>
-                            <option value="yearly">{t("goals.periodYearly")}</option>
-                          </Input>
-                          <FormFeedback>{validationMessage(formik.errors.targetPeriod, t)}</FormFeedback>
-                        </FormGroup>
-                      )}
-                    </Col>
-                  </Row>
-                  {isGoalsPage && (
-                    <PlanFromField
-                      value={formik.values.planFrom}
-                      onChange={(v) => formik.setFieldValue("planFrom", v)}
-                      maxDate={formik.values.deadline ? new Date(formik.values.deadline) : undefined}
-                      error={formik.errors.planFrom ? validationMessage(formik.errors.planFrom, t) : undefined}
-                    />
-                  )}
-                </>
-              )}
+          {step === "look" && (
+            <GoalLookStep form={formik} notesPlaceholder={t("goals.notesPlaceholder")}>
+              {/* Asked, not a checkbox: does it start running, or paused? */}
+              <YesNoChoice
+                question={t("goals.wizard.startActive")}
+                value={formik.values.isActive}
+                onChange={(yes) => formik.setFieldValue("isActive", yes)}
+                yesLabel={t("goals.statusActive")}
+                noLabel={t("common.paused")}
+                noHint={t("goals.wizard.startPausedHint")}
+                className="mb-0"
+              />
+            </GoalLookStep>
+          )}
 
-              <hr style={{ borderColor: "var(--color-border-tertiary)" }} />
-
-              {/* ── Icon picker ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  {t("goals.icon")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                </Label>
-                <div className="d-flex flex-wrap gap-1 mb-2">
-                  {PRESET_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => formik.setFieldValue("icon", formik.values.icon === icon ? "" : icon)}
-                      style={{
-                        fontSize: 20,
-                        border: `2px solid ${formik.values.icon === icon ? "var(--bs-primary)" : "var(--color-border-tertiary)"}`,
-                        borderRadius: "var(--border-radius-md)",
-                        padding: "var(--space-1) 6px",
-                        background: "transparent",
-                        cursor: "pointer",
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-                <Input
-                  type="text"
-                  name="icon"
-                  maxLength={4}
-                  placeholder={t("goals.iconPlaceholder")}
-                  value={formik.values.icon}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.icon && formik.errors.icon)}
-                  style={{ maxWidth: 260 }}
-                />
-                <FormFeedback>{validationMessage(formik.errors.icon, t)}</FormFeedback>
-              </FormGroup>
-
-              {/* ── Color picker ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>
-                  {t("goals.color")} <span style={{ fontWeight: 400, color: "var(--color-text-secondary)" }}>({t("common.optional")})</span>
-                </Label>
-                <div className="d-flex flex-wrap gap-2 align-items-center">
-                  {PRESET_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => formik.setFieldValue("color", color)}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "var(--radius-round)",
-                        background: color,
-                        border: `3px solid ${formik.values.color === color ? "var(--color-text-primary)" : "transparent"}`,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                    />
-                  ))}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <Input type="color" name="color" value={formik.values.color} onChange={formik.handleChange} style={{ width: 36, height: 28, padding: 2, cursor: "pointer" }} />
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t("goals.customColor")}</span>
-                  </div>
-                </div>
-              </FormGroup>
-
-              {/* ── Notes ── */}
-              <FormGroup>
-                <Label style={{ fontSize: 13, fontWeight: 500 }}>{t("common.notes")}</Label>
-                <Input
-                  type="textarea"
-                  name="notes"
-                  rows={2}
-                  placeholder={t("goals.notesPlaceholder")}
-                  value={formik.values.notes}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  invalid={!!(formik.touched.notes && formik.errors.notes)}
-                />
-                <FormFeedback>{validationMessage(formik.errors.notes, t)}</FormFeedback>
-                <FormText style={{ fontSize: 11 }}>{formik.values.notes.length} / 300</FormText>
-              </FormGroup>
-
-              {/* ── Active toggle ── */}
-              <FormGroup check>
-                <Input type="checkbox" name="isActive" id="isActive" checked={formik.values.isActive} onChange={formik.handleChange} />
-                <Label check htmlFor="isActive" style={{ fontSize: 13 }}>
-                  {t("goals.statusActive")} <span style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>({t("goals.activeHint")})</span>
-                </Label>
-              </FormGroup>
-
-              {/* ── Live preview ── */}
-              {formik.values.name && (
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    padding: "10px 14px",
-                    borderRadius: "var(--border-radius-md)",
-                    background: "var(--color-background-secondary)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                >
-                  <span style={{ fontSize: 24, width: 36, textAlign: "center" }}>{formik.values.icon || "💰"}</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 500, margin: 0, fontSize: 14 }}>{formik.values.name}</p>
-                    <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: 0 }}>
-                      {t(isTargeted ? (isGoalsPage ? "goals.kindTargeted" : "goals.kindRecurring") : "goals.kindTracking")}
-                      {formik.values.targetAmount ? ` · ${t("goals.amountTarget", { amount: formatCurrency(Number(formik.values.targetAmount)) })}` : ""}
-                    </p>
-                  </div>
-                  <div style={{ width: 14, height: 14, borderRadius: "var(--radius-round)", background: formik.values.color ?? "var(--border)", flexShrink: 0 }} />
-                  {!formik.values.isActive && (
-                    <Badge color="warning" style={{ fontSize: 11 }}>
-                      {t("common.paused")}
-                    </Badge>
-                  )}
+          {step === "review" && (
+            <GoalReview values={formik.values} kindLabel={kindLabel} rows={rows} onGo={(s) => void goTo(s)}>
+              {!formik.values.isActive && (
+                <div className="small mt-3 p-2" style={{ background: "var(--bs-warning-bg-subtle)", border: "1px solid var(--bs-warning-border-subtle)", borderRadius: "var(--border-radius-md)" }}>
+                  <Trans i18nKey="goals.createdPausedNote" components={{ strong: <strong /> }} />
                 </div>
               )}
-            </form>
-          </ModalBody>
+            </GoalReview>
+          )}
+        </ModalBody>
 
-          <ModalFooter className="justify-content-between">
+        <ModalFooter className="justify-content-between">
+          {step === "what" ? (
             <Button type="button" color="secondary" outline onClick={handleClose}>
               {t("common.cancel")}
             </Button>
-            <Button type="button" color="primary" disabled={!formik.dirty} onClick={handleReview}>
-              {t("goals.review")}
+          ) : (
+            <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])} disabled={formik.isSubmitting}>
+              ‹ {t("common.back")}
             </Button>
-          </ModalFooter>
-        </>
-      )}
+          )}
+          {step === "review" ? (
+            <Button type="submit" color="success" disabled={formik.isSubmitting}>
+              {formik.isSubmitting ? t("goals.creating") : t("goals.confirmAndCreate")}
+            </Button>
+          ) : (
+            <Button type="submit" color="primary">
+              {t("common.next")} ›
+            </Button>
+          )}
+        </ModalFooter>
+      </form>
     </Modal>
   );
 }

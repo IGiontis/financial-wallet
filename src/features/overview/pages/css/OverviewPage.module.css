@@ -760,9 +760,13 @@ a.attentionName {
   border-bottom-color: color-mix(in srgb, var(--on-brand) 25%, transparent);
 }
 
-:global([data-bs-theme="light"]) .heroMoney .heroLabel,
-:global([data-bs-theme="light"]) .heroMoney :global(.text-body-secondary) {
-  color: color-mix(in srgb, var(--on-brand) 78%, var(--color-accent-strong)) !important;
+/* Over `.text-body-secondary` (`!important`): app `!important`s live in this
+   layer (index.css, «Cascade layers»). */
+@layer app-important {
+  :global([data-bs-theme="light"]) .heroMoney .heroLabel,
+  :global([data-bs-theme="light"]) .heroMoney :global(.text-body-secondary) {
+    color: color-mix(in srgb, var(--on-brand) 78%, var(--color-accent-strong)) !important;
+  }
 }
 
 :global([data-bs-theme="light"]) .heroMoney .strip {

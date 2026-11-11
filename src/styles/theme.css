@@ -122,7 +122,10 @@
      and a total. */
   --figure-income: var(--income-text);
   --figure-expense: var(--expense-text);
-  --figure-chip-wash: 0%;
+  /* The amount chips in a list (Transactions): a wash you can see on the
+     card, at 8% — over the card surface the red measures 4.73, the green
+     4.05 (contrast.test.ts, «figure chip»). It was 0%: no chip at all. */
+  --figure-chip-wash: 8%;
   --figure-chip-income: var(--income-text);
   --figure-chip-expense: var(--expense-text);
   --figure-chip-goal: var(--goal-text);
@@ -254,28 +257,40 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
-html {
-  background-color: var(--page);
-  -webkit-text-size-adjust: 100%;
+@layer theme {
+  html {
+    background-color: var(--page);
+    -webkit-text-size-adjust: 100%;
+  }
 }
 
-body {
-  margin: 0;
-  background-color: var(--page);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer theme {
+  body {
+    margin: 0;
+    background-color: var(--page);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
-::selection {
-  background: var(--brand);
-  color: var(--on-brand);
+@layer theme {
+  ::selection {
+    background: var(--brand);
+    color: var(--on-brand);
+  }
 }
 
-:focus-visible {
-  outline: var(--focus-width) solid var(--focus);
-  outline-offset: var(--focus-offset);
+/* Under Bootstrap (layer `app-base`, index.css): the default ring for whatever
+   Bootstrap draws none of its own, giving way — as it did before Bootstrap
+   moved into a layer — to the ring a button, a field or a tab already gets
+   (`.btn:focus-visible`, `.form-control:focus`: a box-shadow, outline 0). */
+@layer app-base {
+  :focus-visible {
+    outline: var(--focus-width) solid var(--focus);
+    outline-offset: var(--focus-offset);
+  }
 }
 
 /* ── Long words stay in their box ─────────────────────────────────────────────
@@ -293,20 +308,26 @@ body {
    3. A money figure never splits: anything marked tabular, nowrap or named
       for an amount, and everything inside it, wraps only at its spaces. */
 
-body {
-  overflow-wrap: break-word;
+@layer theme {
+  body {
+    overflow-wrap: break-word;
+  }
 }
 
-:where(h1, h2, h3, h4, h5, h6, .card-title, .modal-title, .stat-head, .nav-link, .form-label, legend) {
-  overflow-wrap: anywhere;
-  hyphens: auto;
+@layer theme {
+  :where(h1, h2, h3, h4, h5, h6, .card-title, .modal-title, .stat-head, .nav-link, .form-label, legend) {
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
 }
 
-:is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]),
-:is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]) * {
-  overflow-wrap: normal;
-  word-break: normal;
-  hyphens: manual;
+@layer theme {
+  :is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]),
+  :is(.tabular-nums, .text-nowrap, .badge, [class*="amount" i], [class*="figure" i], [class*="money" i], [class*="total" i], [class*="balance" i], [class*="price" i], [class*="nums" i]) * {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
+  }
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
@@ -314,225 +335,257 @@ body {
 /* The default size only; `.btn-sm`, `.btn-lg` and the button-group sizes keep
    Bootstrap's own. `:where()` holds this at `.btn`'s own weight, so a module
    class that sizes its button still wins as it did. */
-.btn:where(:not(.btn-sm, .btn-lg)) {
-  --bs-btn-padding-x: var(--pad-button-x);
-  --bs-btn-padding-y: var(--pad-button-y);
-  --bs-btn-border-radius: var(--radius-button);
+@layer theme {
+  .btn:where(:not(.btn-sm, .btn-lg)) {
+    --bs-btn-padding-x: var(--pad-button-x);
+    --bs-btn-padding-y: var(--pad-button-y);
+    --bs-btn-border-radius: var(--radius-button);
+  }
 }
 
-.btn-primary {
-  --bs-btn-color: var(--on-brand);
-  --bs-btn-bg: var(--brand);
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-color: var(--on-brand);
-  --bs-btn-hover-bg: var(--brand-hover);
-  --bs-btn-hover-border-color: var(--brand-hover);
-  --bs-btn-active-color: var(--on-brand);
-  --bs-btn-active-bg: var(--brand-active);
-  --bs-btn-active-border-color: var(--brand-active);
-  --bs-btn-disabled-color: var(--on-brand);
-  --bs-btn-disabled-bg: var(--brand);
-  --bs-btn-disabled-border-color: var(--brand);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+@layer theme {
+  .btn-primary {
+    --bs-btn-color: var(--on-brand);
+    --bs-btn-bg: var(--brand);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-color: var(--on-brand);
+    --bs-btn-hover-bg: var(--brand-hover);
+    --bs-btn-hover-border-color: var(--brand-hover);
+    --bs-btn-active-color: var(--on-brand);
+    --bs-btn-active-bg: var(--brand-active);
+    --bs-btn-active-border-color: var(--brand-active);
+    --bs-btn-disabled-color: var(--on-brand);
+    --bs-btn-disabled-bg: var(--brand);
+    --bs-btn-disabled-border-color: var(--brand);
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+  }
 }
 
-.btn-outline-primary {
-  --bs-btn-color: var(--brand-text);
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-color: var(--on-brand);
-  --bs-btn-hover-bg: var(--brand);
-  --bs-btn-hover-border-color: var(--brand);
-  --bs-btn-active-color: var(--on-brand);
-  --bs-btn-active-bg: var(--brand-hover);
-  --bs-btn-active-border-color: var(--brand-hover);
-  --bs-btn-disabled-color: var(--brand-text);
-  --bs-btn-disabled-border-color: var(--brand);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+@layer theme {
+  .btn-outline-primary {
+    --bs-btn-color: var(--brand-text);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-color: var(--on-brand);
+    --bs-btn-hover-bg: var(--brand);
+    --bs-btn-hover-border-color: var(--brand);
+    --bs-btn-active-color: var(--on-brand);
+    --bs-btn-active-bg: var(--brand-hover);
+    --bs-btn-active-border-color: var(--brand-hover);
+    --bs-btn-disabled-color: var(--brand-text);
+    --bs-btn-disabled-border-color: var(--brand);
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+  }
 }
 
 /* Bootstrap's "info" button is the brand too. */
-.btn-info {
-  --bs-btn-color: var(--on-brand);
-  --bs-btn-bg: var(--brand);
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-color: var(--on-brand);
-  --bs-btn-hover-bg: var(--brand-hover);
-  --bs-btn-hover-border-color: var(--brand-hover);
-  --bs-btn-active-color: var(--on-brand);
-  --bs-btn-active-bg: var(--brand-active);
-  --bs-btn-active-border-color: var(--brand-active);
-  --bs-btn-disabled-color: var(--on-brand);
-  --bs-btn-disabled-bg: var(--brand);
-  --bs-btn-disabled-border-color: var(--brand);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+@layer theme {
+  .btn-info {
+    --bs-btn-color: var(--on-brand);
+    --bs-btn-bg: var(--brand);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-color: var(--on-brand);
+    --bs-btn-hover-bg: var(--brand-hover);
+    --bs-btn-hover-border-color: var(--brand-hover);
+    --bs-btn-active-color: var(--on-brand);
+    --bs-btn-active-bg: var(--brand-active);
+    --bs-btn-active-border-color: var(--brand-active);
+    --bs-btn-disabled-color: var(--on-brand);
+    --bs-btn-disabled-bg: var(--brand);
+    --bs-btn-disabled-border-color: var(--brand);
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+  }
 }
 
-.btn-outline-info {
-  --bs-btn-color: var(--brand-text);
-  --bs-btn-border-color: var(--brand);
-  --bs-btn-hover-color: var(--on-brand);
-  --bs-btn-hover-bg: var(--brand);
-  --bs-btn-hover-border-color: var(--brand);
-  --bs-btn-active-color: var(--on-brand);
-  --bs-btn-active-bg: var(--brand-hover);
-  --bs-btn-active-border-color: var(--brand-hover);
-  --bs-btn-disabled-color: var(--brand-text);
-  --bs-btn-disabled-border-color: var(--brand);
+@layer theme {
+  .btn-outline-info {
+    --bs-btn-color: var(--brand-text);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-color: var(--on-brand);
+    --bs-btn-hover-bg: var(--brand);
+    --bs-btn-hover-border-color: var(--brand);
+    --bs-btn-active-color: var(--on-brand);
+    --bs-btn-active-bg: var(--brand-hover);
+    --bs-btn-active-border-color: var(--brand-hover);
+    --bs-btn-disabled-color: var(--brand-text);
+    --bs-btn-disabled-border-color: var(--brand);
+  }
 }
 
-.btn-secondary,
-.btn-light {
-  --bs-btn-color: var(--on-neutral-soft);
-  --bs-btn-bg: var(--neutral-soft);
-  --bs-btn-border-color: var(--border);
-  --bs-btn-hover-color: var(--text);
-  --bs-btn-hover-bg: var(--page-inset);
-  --bs-btn-hover-border-color: var(--text-2);
-  --bs-btn-active-color: var(--text);
-  --bs-btn-active-bg: var(--page-inset);
-  --bs-btn-active-border-color: var(--text-2);
-  --bs-btn-disabled-color: var(--text-2);
-  --bs-btn-disabled-bg: var(--neutral-soft);
-  --bs-btn-disabled-border-color: var(--border-soft);
-  --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+@layer theme {
+  .btn-secondary,
+  .btn-light {
+    --bs-btn-color: var(--on-neutral-soft);
+    --bs-btn-bg: var(--neutral-soft);
+    --bs-btn-border-color: var(--border);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--page-inset);
+    --bs-btn-hover-border-color: var(--text-2);
+    --bs-btn-active-color: var(--text);
+    --bs-btn-active-bg: var(--page-inset);
+    --bs-btn-active-border-color: var(--text-2);
+    --bs-btn-disabled-color: var(--text-2);
+    --bs-btn-disabled-bg: var(--neutral-soft);
+    --bs-btn-disabled-border-color: var(--border-soft);
+    --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+  }
 }
 
-.btn-outline-secondary,
-.btn-outline-light {
-  --bs-btn-color: var(--text-2);
-  --bs-btn-border-color: var(--border);
-  --bs-btn-hover-color: var(--text);
-  --bs-btn-hover-bg: var(--page-inset);
-  --bs-btn-hover-border-color: var(--text-2);
-  --bs-btn-active-color: var(--text);
-  --bs-btn-active-bg: var(--page-inset);
-  --bs-btn-active-border-color: var(--text-2);
-  --bs-btn-disabled-color: var(--text-2);
-  --bs-btn-disabled-border-color: var(--border-soft);
-  --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+@layer theme {
+  .btn-outline-secondary,
+  .btn-outline-light {
+    --bs-btn-color: var(--text-2);
+    --bs-btn-border-color: var(--border);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--page-inset);
+    --bs-btn-hover-border-color: var(--text-2);
+    --bs-btn-active-color: var(--text);
+    --bs-btn-active-bg: var(--page-inset);
+    --bs-btn-active-border-color: var(--text-2);
+    --bs-btn-disabled-color: var(--text-2);
+    --bs-btn-disabled-border-color: var(--border-soft);
+    --bs-btn-focus-shadow-rgb: var(--text-2-rgb);
+  }
 }
 
-.btn-dark {
-  --bs-btn-color: var(--page);
-  --bs-btn-bg: var(--text);
-  --bs-btn-border-color: var(--text);
-  --bs-btn-hover-color: var(--page);
-  --bs-btn-hover-bg: var(--text-2);
-  --bs-btn-hover-border-color: var(--text-2);
-  --bs-btn-active-color: var(--page);
-  --bs-btn-active-bg: var(--text-2);
-  --bs-btn-active-border-color: var(--text-2);
+@layer theme {
+  .btn-dark {
+    --bs-btn-color: var(--page);
+    --bs-btn-bg: var(--text);
+    --bs-btn-border-color: var(--text);
+    --bs-btn-hover-color: var(--page);
+    --bs-btn-hover-bg: var(--text-2);
+    --bs-btn-hover-border-color: var(--text-2);
+    --bs-btn-active-color: var(--page);
+    --bs-btn-active-bg: var(--text-2);
+    --bs-btn-active-border-color: var(--text-2);
+  }
 }
 
-.btn-outline-dark {
-  --bs-btn-color: var(--text);
-  --bs-btn-border-color: var(--text);
-  --bs-btn-hover-color: var(--page);
-  --bs-btn-hover-bg: var(--text);
-  --bs-btn-hover-border-color: var(--text);
-  --bs-btn-active-color: var(--page);
-  --bs-btn-active-bg: var(--text-2);
-  --bs-btn-active-border-color: var(--text-2);
+@layer theme {
+  .btn-outline-dark {
+    --bs-btn-color: var(--text);
+    --bs-btn-border-color: var(--text);
+    --bs-btn-hover-color: var(--page);
+    --bs-btn-hover-bg: var(--text);
+    --bs-btn-hover-border-color: var(--text);
+    --bs-btn-active-color: var(--page);
+    --bs-btn-active-bg: var(--text-2);
+    --bs-btn-active-border-color: var(--text-2);
+  }
 }
 
-.btn-success {
-  --bs-btn-color: var(--on-success-solid);
-  --bs-btn-bg: var(--success-solid);
-  --bs-btn-border-color: var(--success-solid);
-  --bs-btn-hover-color: var(--on-success-solid);
-  --bs-btn-hover-bg: var(--success-solid-hover);
-  --bs-btn-hover-border-color: var(--success-solid-hover);
-  --bs-btn-active-color: var(--on-success-solid);
-  --bs-btn-active-bg: var(--success-solid-active);
-  --bs-btn-active-border-color: var(--success-solid-active);
-  --bs-btn-disabled-color: var(--on-success-solid);
-  --bs-btn-disabled-bg: var(--success-solid);
-  --bs-btn-disabled-border-color: var(--success-solid);
-  --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+@layer theme {
+  .btn-success {
+    --bs-btn-color: var(--on-success-solid);
+    --bs-btn-bg: var(--success-solid);
+    --bs-btn-border-color: var(--success-solid);
+    --bs-btn-hover-color: var(--on-success-solid);
+    --bs-btn-hover-bg: var(--success-solid-hover);
+    --bs-btn-hover-border-color: var(--success-solid-hover);
+    --bs-btn-active-color: var(--on-success-solid);
+    --bs-btn-active-bg: var(--success-solid-active);
+    --bs-btn-active-border-color: var(--success-solid-active);
+    --bs-btn-disabled-color: var(--on-success-solid);
+    --bs-btn-disabled-bg: var(--success-solid);
+    --bs-btn-disabled-border-color: var(--success-solid);
+    --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+  }
 }
 
-.btn-danger {
-  --bs-btn-color: var(--on-danger-solid);
-  --bs-btn-bg: var(--danger-solid);
-  --bs-btn-border-color: var(--danger-solid);
-  --bs-btn-hover-color: var(--on-danger-solid);
-  --bs-btn-hover-bg: var(--danger-solid-hover);
-  --bs-btn-hover-border-color: var(--danger-solid-hover);
-  --bs-btn-active-color: var(--on-danger-solid);
-  --bs-btn-active-bg: var(--danger-solid-active);
-  --bs-btn-active-border-color: var(--danger-solid-active);
-  --bs-btn-disabled-color: var(--on-danger-solid);
-  --bs-btn-disabled-bg: var(--danger-solid);
-  --bs-btn-disabled-border-color: var(--danger-solid);
-  --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+@layer theme {
+  .btn-danger {
+    --bs-btn-color: var(--on-danger-solid);
+    --bs-btn-bg: var(--danger-solid);
+    --bs-btn-border-color: var(--danger-solid);
+    --bs-btn-hover-color: var(--on-danger-solid);
+    --bs-btn-hover-bg: var(--danger-solid-hover);
+    --bs-btn-hover-border-color: var(--danger-solid-hover);
+    --bs-btn-active-color: var(--on-danger-solid);
+    --bs-btn-active-bg: var(--danger-solid-active);
+    --bs-btn-active-border-color: var(--danger-solid-active);
+    --bs-btn-disabled-color: var(--on-danger-solid);
+    --bs-btn-disabled-bg: var(--danger-solid);
+    --bs-btn-disabled-border-color: var(--danger-solid);
+    --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+  }
 }
 
-.btn-warning {
-  --bs-btn-color: var(--on-warning-solid);
-  --bs-btn-bg: var(--warning-solid);
-  --bs-btn-border-color: var(--warning-solid);
-  --bs-btn-hover-color: var(--on-warning-solid);
-  --bs-btn-hover-bg: var(--warning-solid-hover);
-  --bs-btn-hover-border-color: var(--warning-solid-hover);
-  --bs-btn-active-color: var(--on-warning-solid);
-  --bs-btn-active-bg: var(--warning-solid-active);
-  --bs-btn-active-border-color: var(--warning-solid-active);
-  --bs-btn-disabled-color: var(--on-warning-solid);
-  --bs-btn-disabled-bg: var(--warning-solid);
-  --bs-btn-disabled-border-color: var(--warning-solid);
-  --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+@layer theme {
+  .btn-warning {
+    --bs-btn-color: var(--on-warning-solid);
+    --bs-btn-bg: var(--warning-solid);
+    --bs-btn-border-color: var(--warning-solid);
+    --bs-btn-hover-color: var(--on-warning-solid);
+    --bs-btn-hover-bg: var(--warning-solid-hover);
+    --bs-btn-hover-border-color: var(--warning-solid-hover);
+    --bs-btn-active-color: var(--on-warning-solid);
+    --bs-btn-active-bg: var(--warning-solid-active);
+    --bs-btn-active-border-color: var(--warning-solid-active);
+    --bs-btn-disabled-color: var(--on-warning-solid);
+    --bs-btn-disabled-bg: var(--warning-solid);
+    --bs-btn-disabled-border-color: var(--warning-solid);
+    --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+  }
 }
 
 /* An outlined meaning-button is lettered in the meaning's own text colour and
    fills with its solid on hover. */
-.btn-outline-success {
-  --bs-btn-color: var(--income-text);
-  --bs-btn-border-color: var(--income-text);
-  --bs-btn-hover-color: var(--on-success-solid);
-  --bs-btn-hover-bg: var(--success-solid);
-  --bs-btn-hover-border-color: var(--success-solid);
-  --bs-btn-active-color: var(--on-success-solid);
-  --bs-btn-active-bg: var(--success-solid-active);
-  --bs-btn-active-border-color: var(--success-solid-active);
-  --bs-btn-disabled-color: var(--income-text);
-  --bs-btn-disabled-border-color: var(--income-text);
-  --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+@layer theme {
+  .btn-outline-success {
+    --bs-btn-color: var(--income-text);
+    --bs-btn-border-color: var(--income-text);
+    --bs-btn-hover-color: var(--on-success-solid);
+    --bs-btn-hover-bg: var(--success-solid);
+    --bs-btn-hover-border-color: var(--success-solid);
+    --bs-btn-active-color: var(--on-success-solid);
+    --bs-btn-active-bg: var(--success-solid-active);
+    --bs-btn-active-border-color: var(--success-solid-active);
+    --bs-btn-disabled-color: var(--income-text);
+    --bs-btn-disabled-border-color: var(--income-text);
+    --bs-btn-focus-shadow-rgb: var(--success-solid-rgb);
+  }
 }
 
-.btn-outline-danger {
-  --bs-btn-color: var(--expense-text);
-  --bs-btn-border-color: var(--expense-text);
-  --bs-btn-hover-color: var(--on-danger-solid);
-  --bs-btn-hover-bg: var(--danger-solid);
-  --bs-btn-hover-border-color: var(--danger-solid);
-  --bs-btn-active-color: var(--on-danger-solid);
-  --bs-btn-active-bg: var(--danger-solid-active);
-  --bs-btn-active-border-color: var(--danger-solid-active);
-  --bs-btn-disabled-color: var(--expense-text);
-  --bs-btn-disabled-border-color: var(--expense-text);
-  --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+@layer theme {
+  .btn-outline-danger {
+    --bs-btn-color: var(--expense-text);
+    --bs-btn-border-color: var(--expense-text);
+    --bs-btn-hover-color: var(--on-danger-solid);
+    --bs-btn-hover-bg: var(--danger-solid);
+    --bs-btn-hover-border-color: var(--danger-solid);
+    --bs-btn-active-color: var(--on-danger-solid);
+    --bs-btn-active-bg: var(--danger-solid-active);
+    --bs-btn-active-border-color: var(--danger-solid-active);
+    --bs-btn-disabled-color: var(--expense-text);
+    --bs-btn-disabled-border-color: var(--expense-text);
+    --bs-btn-focus-shadow-rgb: var(--danger-solid-rgb);
+  }
 }
 
-.btn-outline-warning {
-  --bs-btn-color: var(--goal-text);
-  --bs-btn-border-color: var(--goal-text);
-  --bs-btn-hover-color: var(--on-warning-solid);
-  --bs-btn-hover-bg: var(--warning-solid);
-  --bs-btn-hover-border-color: var(--warning-solid);
-  --bs-btn-active-color: var(--on-warning-solid);
-  --bs-btn-active-bg: var(--warning-solid-active);
-  --bs-btn-active-border-color: var(--warning-solid-active);
-  --bs-btn-disabled-color: var(--goal-text);
-  --bs-btn-disabled-border-color: var(--goal-text);
-  --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+@layer theme {
+  .btn-outline-warning {
+    --bs-btn-color: var(--goal-text);
+    --bs-btn-border-color: var(--goal-text);
+    --bs-btn-hover-color: var(--on-warning-solid);
+    --bs-btn-hover-bg: var(--warning-solid);
+    --bs-btn-hover-border-color: var(--warning-solid);
+    --bs-btn-active-color: var(--on-warning-solid);
+    --bs-btn-active-bg: var(--warning-solid-active);
+    --bs-btn-active-border-color: var(--warning-solid-active);
+    --bs-btn-disabled-color: var(--goal-text);
+    --bs-btn-disabled-border-color: var(--goal-text);
+    --bs-btn-focus-shadow-rgb: var(--warning-solid-rgb);
+  }
 }
 
-.btn-link {
-  --bs-btn-color: var(--link);
-  --bs-btn-hover-color: var(--link-hover);
-  --bs-btn-active-color: var(--link-hover);
-  --bs-btn-disabled-color: var(--text-2);
-  --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+@layer theme {
+  .btn-link {
+    --bs-btn-color: var(--link);
+    --bs-btn-hover-color: var(--link-hover);
+    --bs-btn-active-color: var(--link-hover);
+    --bs-btn-disabled-color: var(--text-2);
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
+  }
 }
 
 /* In daylight the green cannot carry near-white lettering (4.4:1 on the
@@ -565,95 +618,110 @@ body {
    the dark modes the brand and the meaning-solids are pale. Each fill gets the
    role that sits on it. */
 
-.badge {
-  --bs-badge-padding-x: var(--pad-chip-x);
-  --bs-badge-padding-y: var(--pad-chip-y);
-  --bs-badge-border-radius: var(--radius-chip);
+@layer theme {
+  .badge {
+    --bs-badge-padding-x: var(--pad-chip-x);
+    --bs-badge-padding-y: var(--pad-chip-y);
+    --bs-badge-border-radius: var(--radius-chip);
+  }
 }
 
-.badge.bg-primary,
-.badge.bg-info,
-.badge.text-bg-primary,
-.badge.text-bg-info {
-  color: var(--on-brand) !important;
+/* Bootstrap's `.text-bg-*`, `.bg-*` and `.text-dark` are `!important`, and with
+   Bootstrap in a layer an unlayered `!important` loses to them — so these live
+   in `app-important`, the layer whose `!important`s win (index.css, top). */
+@layer app-important {
+  .badge.bg-primary,
+  .badge.bg-info,
+  .badge.text-bg-primary,
+  .badge.text-bg-info {
+    color: var(--on-brand) !important;
+  }
+
+  .badge.bg-success,
+  .badge.text-bg-success {
+    color: var(--on-success-solid) !important;
+  }
+
+  /* The green badge in daylight: a chip, the green on its wash (see the success
+     button above for why). */
+  [data-bs-theme="light"] .badge.bg-success,
+  [data-bs-theme="light"] .badge.text-bg-success {
+    background-color: var(--income-wash-strong-solid) !important;
+    color: var(--income-text) !important;
+  }
+
+  .badge.bg-danger,
+  .badge.text-bg-danger {
+    color: var(--on-danger-solid) !important;
+  }
+
+  .badge.bg-warning,
+  .badge.text-bg-warning {
+    color: var(--on-warning-solid) !important;
+  }
+
+  .badge.bg-secondary,
+  .badge.text-bg-secondary,
+  .badge.bg-dark,
+  .badge.text-bg-dark {
+    color: var(--page) !important;
+  }
+
+  .badge.bg-dark,
+  .badge.text-bg-dark {
+    background-color: var(--text) !important;
+  }
+
+  .badge.bg-light,
+  .badge.text-bg-light {
+    background-color: var(--neutral-soft) !important;
+    color: var(--on-neutral-soft) !important;
+  }
+
+  /* `.text-dark` forces readable text on a light badge; in the dark modes that is
+     near-black on a dark chip. */
+  .badge.text-dark {
+    color: var(--on-neutral-soft) !important;
+  }
 }
 
-.badge.bg-success,
-.badge.text-bg-success {
-  color: var(--on-success-solid) !important;
-}
-
-/* The green badge in daylight: a chip, the green on its wash (see the success
-   button above for why). */
 [data-bs-theme="light"] .badge.bg-success,
 [data-bs-theme="light"] .badge.text-bg-success {
-  background-color: var(--income-wash-strong-solid) !important;
-  color: var(--income-text) !important;
   box-shadow: inset 0 0 0 1px var(--income-edge);
-}
-
-.badge.bg-danger,
-.badge.text-bg-danger {
-  color: var(--on-danger-solid) !important;
-}
-
-.badge.bg-warning,
-.badge.text-bg-warning {
-  color: var(--on-warning-solid) !important;
-}
-
-.badge.bg-secondary,
-.badge.text-bg-secondary,
-.badge.bg-dark,
-.badge.text-bg-dark {
-  color: var(--page) !important;
-}
-
-.badge.bg-dark,
-.badge.text-bg-dark {
-  background-color: var(--text) !important;
-}
-
-.badge.bg-light,
-.badge.text-bg-light {
-  background-color: var(--neutral-soft) !important;
-  color: var(--on-neutral-soft) !important;
-}
-
-/* `.text-dark` forces readable text on a light badge; in the dark modes that is
-   near-black on a dark chip. */
-.badge.text-dark {
-  color: var(--on-neutral-soft) !important;
 }
 
 /* ── Cards ────────────────────────────────────────────────────────────────── */
 
-.card {
-  --bs-card-bg: var(--surface);
-  --bs-card-border-color: var(--border-soft);
-  --bs-card-border-radius: var(--radius-card);
-  --bs-card-inner-border-radius: calc(var(--radius-card) - 1px);
-  --bs-card-spacer-x: var(--pad-card-x);
-  --bs-card-spacer-y: var(--pad-card-y);
-  --bs-card-cap-bg: var(--surface);
-  --bs-card-cap-padding-x: var(--pad-card-x);
-  --bs-card-cap-padding-y: calc(var(--pad-card-y) * 0.5);
-  --bs-card-box-shadow: var(--shadow-sm);
-  box-shadow: var(--shadow-sm);
+@layer theme {
+  .card {
+    --bs-card-bg: var(--surface);
+    --bs-card-border-color: var(--border-soft);
+    --bs-card-border-radius: var(--radius-card);
+    --bs-card-inner-border-radius: calc(var(--radius-card) - 1px);
+    --bs-card-spacer-x: var(--pad-card-x);
+    --bs-card-spacer-y: var(--pad-card-y);
+    --bs-card-cap-bg: var(--surface);
+    --bs-card-cap-padding-x: var(--pad-card-x);
+    --bs-card-cap-padding-y: calc(var(--pad-card-y) * 0.5);
+    --bs-card-box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-sm);
+  }
 }
 
 /* ── Modals ───────────────────────────────────────────────────────────────── */
 
-.modal {
-  --bs-modal-bg: var(--surface-raised);
-  --bs-modal-border-color: var(--border-soft);
-  --bs-modal-border-radius: var(--radius-modal);
-  --bs-modal-inner-border-radius: calc(var(--radius-modal) - 1px);
-  --bs-modal-padding: var(--pad-modal);
-  --bs-modal-header-padding: var(--pad-modal) var(--pad-modal);
-  --bs-modal-header-border-color: var(--border-soft);
-  --bs-modal-footer-border-color: var(--border-soft);
-  --bs-modal-box-shadow: var(--shadow-lg);
+@layer theme {
+  .modal {
+    --bs-modal-bg: var(--surface-raised);
+    --bs-modal-border-color: var(--border-soft);
+    --bs-modal-border-radius: var(--radius-modal);
+    --bs-modal-inner-border-radius: calc(var(--radius-modal) - 1px);
+    --bs-modal-padding: var(--pad-modal);
+    --bs-modal-header-padding: var(--pad-modal) var(--pad-modal);
+    --bs-modal-header-border-color: var(--border-soft);
+    --bs-modal-footer-border-color: var(--border-soft);
+    --bs-modal-box-shadow: var(--shadow-lg);
+  }
 }
 
 /* ── Every dialog and sheet arrives and leaves the same way ──────────────────
@@ -695,8 +763,10 @@ body {
 
 /* The ink under a dialog: the page's text colour in daylight, the near-black
    in the dark (`--shadow-ink`), never black. */
-.modal-backdrop {
-  --bs-backdrop-bg: var(--shadow-ink);
+@layer theme {
+  .modal-backdrop {
+    --bs-backdrop-bg: var(--shadow-ink);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -712,50 +782,56 @@ body {
    drawer and dialogs: menus are rendered on the body now, so one opened from a
    row must still draw over the chrome it was opened from. */
 
-.dropdown-menu {
-  --bs-dropdown-bg: var(--surface-raised);
-  --bs-dropdown-color: var(--text);
-  --bs-dropdown-border-color: var(--border-soft);
-  --bs-dropdown-border-radius: var(--radius-menu);
-  --bs-dropdown-inner-border-radius: calc(var(--radius-menu) - 1px);
-  --bs-dropdown-divider-bg: var(--border-soft);
-  --bs-dropdown-box-shadow: var(--shadow-lg);
-  --bs-dropdown-link-color: var(--text);
-  --bs-dropdown-link-hover-color: var(--text);
-  --bs-dropdown-link-hover-bg: var(--page-inset);
-  --bs-dropdown-link-active-color: var(--on-brand);
-  --bs-dropdown-link-active-bg: var(--brand);
-  --bs-dropdown-link-disabled-color: var(--text-2);
-  --bs-dropdown-header-color: var(--text-2);
-  --bs-dropdown-item-padding-x: var(--pad-menu-item-x);
-  --bs-dropdown-item-padding-y: var(--pad-menu-item-y);
-  max-height: min(70vh, 26.25rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  max-width: calc(100vw - 1rem);
-  z-index: var(--z-menu);
+@layer theme {
+  .dropdown-menu {
+    --bs-dropdown-bg: var(--surface-raised);
+    --bs-dropdown-color: var(--text);
+    --bs-dropdown-border-color: var(--border-soft);
+    --bs-dropdown-border-radius: var(--radius-menu);
+    --bs-dropdown-inner-border-radius: calc(var(--radius-menu) - 1px);
+    --bs-dropdown-divider-bg: var(--border-soft);
+    --bs-dropdown-box-shadow: var(--shadow-lg);
+    --bs-dropdown-link-color: var(--text);
+    --bs-dropdown-link-hover-color: var(--text);
+    --bs-dropdown-link-hover-bg: var(--page-inset);
+    --bs-dropdown-link-active-color: var(--on-brand);
+    --bs-dropdown-link-active-bg: var(--brand);
+    --bs-dropdown-link-disabled-color: var(--text-2);
+    --bs-dropdown-header-color: var(--text-2);
+    --bs-dropdown-item-padding-x: var(--pad-menu-item-x);
+    --bs-dropdown-item-padding-y: var(--pad-menu-item-y);
+    max-height: min(70vh, 26.25rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    max-width: calc(100vw - 1rem);
+    z-index: var(--z-menu);
+  }
 }
 
-.dropdown-item {
-  min-height: 2.75rem; /* comfortable touch target */
-  display: flex;
-  align-items: center;
+@layer theme {
+  .dropdown-item {
+    min-height: 2.75rem; /* comfortable touch target */
+    display: flex;
+    align-items: center;
+  }
 }
 
 /* ── Tables ───────────────────────────────────────────────────────────────────
    Bootstrap tables are transparent, which showed the page through; pin them to
    the card surface, with the head a step under it. */
 
-.table {
-  --bs-table-bg: var(--surface);
-  --bs-table-color: var(--text);
-  --bs-table-border-color: var(--border-soft);
-  --bs-table-striped-bg: var(--page-inset);
-  --bs-table-striped-color: var(--text);
-  --bs-table-hover-bg: var(--page-inset);
-  --bs-table-hover-color: var(--text);
-  --bs-table-active-bg: var(--brand-soft);
-  --bs-table-active-color: var(--on-brand-soft);
+@layer theme {
+  .table {
+    --bs-table-bg: var(--surface);
+    --bs-table-color: var(--text);
+    --bs-table-border-color: var(--border-soft);
+    --bs-table-striped-bg: var(--page-inset);
+    --bs-table-striped-color: var(--text);
+    --bs-table-hover-bg: var(--page-inset);
+    --bs-table-hover-color: var(--text);
+    --bs-table-active-bg: var(--brand-soft);
+    --bs-table-active-color: var(--on-brand-soft);
+  }
 }
 
 .table > :not(caption) > * > * {
@@ -778,12 +854,14 @@ body {
    3:1. Their size and corners are Bootstrap's, read from --bs-border-radius
    (shape.css: --radius-base). */
 
-.form-control,
-.form-select,
-.input-group-text {
-  background-color: var(--surface);
-  border-color: var(--border);
-  color: var(--text);
+@layer theme {
+  .form-control,
+  .form-select,
+  .input-group-text {
+    background-color: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
 }
 
 .form-control:focus,
@@ -829,9 +907,11 @@ body {
   color: var(--text-2);
 }
 
-.form-check-input {
-  background-color: var(--surface);
-  border-color: var(--border);
+@layer theme {
+  .form-check-input {
+    background-color: var(--surface);
+    border-color: var(--border);
+  }
 }
 
 .form-check-input:checked,
@@ -843,6 +923,81 @@ body {
 .form-check-input:focus {
   border-color: var(--focus);
   box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--focus) 30%, transparent);
+}
+
+/* ── Controls inside a form: the input's white, not the page's beige ─────────
+   Out on a page a resting tab, chip or secondary button is the soft neutral
+   (`--neutral-soft`, warm in daylight) so it reads apart from the card. Inside
+   a dialog it sits beside inputs, which are `--surface` with the `--border`
+   edge — and a beige option among white fields read as disabled or as a
+   different kind of thing (the owner, on the unselected yes/no tile). So in a
+   dialog every resting control takes the input's ground and edge: the shared
+   two-way choice (Segmented, YesNoChoice: `--segment-item`) and Bootstrap's
+   secondary / light buttons. Under the pointer they still step to
+   `--page-inset`; chosen they are still the brand. Text on them is the same
+   roles on `--surface` (contrast.test.ts, ≥ 8:1). */
+.modal-content {
+  --segment-item: var(--surface);
+  --segment-item-border: var(--border);
+}
+
+.modal-content .btn-secondary,
+.modal-content .btn-light {
+  --bs-btn-bg: var(--surface);
+  --bs-btn-border-color: var(--border);
+  --bs-btn-disabled-bg: var(--surface);
+}
+
+/* Bootstrap's validation states, said again. They outweighed the plain field
+   rules above by specificity; with Bootstrap in a layer the unlayered rules
+   above would win outright and a field marked invalid would lose its red edge.
+   Same colours and ring as Bootstrap's own (--bs-form-*: set further up). */
+.form-control.is-invalid,
+.form-select.is-invalid,
+.form-check-input.is-invalid,
+.was-validated .form-control:invalid,
+.was-validated .form-select:invalid,
+.was-validated .form-check-input:invalid {
+  border-color: var(--bs-form-invalid-border-color);
+}
+
+.form-control.is-valid,
+.form-select.is-valid,
+.form-check-input.is-valid,
+.was-validated .form-control:valid,
+.was-validated .form-select:valid,
+.was-validated .form-check-input:valid {
+  border-color: var(--bs-form-valid-border-color);
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus,
+.form-check-input.is-invalid:focus,
+.was-validated .form-control:invalid:focus,
+.was-validated .form-select:invalid:focus,
+.was-validated .form-check-input:invalid:focus {
+  border-color: var(--bs-form-invalid-border-color);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-danger-rgb), 0.25);
+}
+
+.form-control.is-valid:focus,
+.form-select.is-valid:focus,
+.form-check-input.is-valid:focus,
+.was-validated .form-control:valid:focus,
+.was-validated .form-select:valid:focus,
+.was-validated .form-check-input:valid:focus {
+  border-color: var(--bs-form-valid-border-color);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-success-rgb), 0.25);
+}
+
+.form-check-input.is-invalid:checked,
+.was-validated .form-check-input:invalid:checked {
+  background-color: var(--bs-form-invalid-color);
+}
+
+.form-check-input.is-valid:checked,
+.was-validated .form-check-input:valid:checked {
+  background-color: var(--bs-form-valid-color);
 }
 
 /* Bootstrap draws the tick, the dot and the switch's knob in white — right on a
@@ -865,100 +1020,122 @@ body {
 
 /* ── Navs, list groups, progress, pagination, popovers ──────────────────────── */
 
-.nav {
-  --bs-nav-link-color: var(--link);
-  --bs-nav-link-hover-color: var(--link-hover);
-  --bs-nav-link-disabled-color: var(--text-2);
-  --bs-nav-link-padding-x: var(--pad-tab-x);
-  --bs-nav-link-padding-y: var(--pad-tab-y);
+@layer theme {
+  .nav {
+    --bs-nav-link-color: var(--link);
+    --bs-nav-link-hover-color: var(--link-hover);
+    --bs-nav-link-disabled-color: var(--text-2);
+    --bs-nav-link-padding-x: var(--pad-tab-x);
+    --bs-nav-link-padding-y: var(--pad-tab-y);
+  }
 }
 
-.nav-tabs {
-  --bs-nav-tabs-border-color: var(--border-soft);
-  --bs-nav-tabs-border-radius: var(--radius-tab);
-  --bs-nav-tabs-link-hover-border-color: var(--border-soft) var(--border-soft) var(--border-soft);
-  --bs-nav-tabs-link-active-color: var(--text);
-  --bs-nav-tabs-link-active-bg: var(--surface);
-  --bs-nav-tabs-link-active-border-color: var(--border) var(--border) var(--surface);
+@layer theme {
+  .nav-tabs {
+    --bs-nav-tabs-border-color: var(--border-soft);
+    --bs-nav-tabs-border-radius: var(--radius-tab);
+    --bs-nav-tabs-link-hover-border-color: var(--border-soft) var(--border-soft) var(--border-soft);
+    --bs-nav-tabs-link-active-color: var(--text);
+    --bs-nav-tabs-link-active-bg: var(--surface);
+    --bs-nav-tabs-link-active-border-color: var(--border) var(--border) var(--surface);
+  }
 }
 
-.nav-pills {
-  --bs-nav-pills-border-radius: var(--radius-tab);
-  --bs-nav-pills-link-active-color: var(--on-brand);
-  --bs-nav-pills-link-active-bg: var(--brand);
+@layer theme {
+  .nav-pills {
+    --bs-nav-pills-border-radius: var(--radius-tab);
+    --bs-nav-pills-link-active-color: var(--on-brand);
+    --bs-nav-pills-link-active-bg: var(--brand);
+  }
 }
 
-.list-group {
-  --bs-list-group-bg: var(--surface);
-  --bs-list-group-color: var(--text);
-  --bs-list-group-border-color: var(--border-soft);
-  --bs-list-group-border-radius: var(--radius-base);
-  --bs-list-group-action-color: var(--text);
-  --bs-list-group-action-hover-color: var(--text);
-  --bs-list-group-action-hover-bg: var(--page-inset);
-  --bs-list-group-action-active-color: var(--text);
-  --bs-list-group-action-active-bg: var(--brand-soft);
-  --bs-list-group-active-color: var(--on-brand);
-  --bs-list-group-active-bg: var(--brand);
-  --bs-list-group-active-border-color: var(--brand);
-  --bs-list-group-disabled-color: var(--text-2);
-  --bs-list-group-disabled-bg: var(--page-inset);
+@layer theme {
+  .list-group {
+    --bs-list-group-bg: var(--surface);
+    --bs-list-group-color: var(--text);
+    --bs-list-group-border-color: var(--border-soft);
+    --bs-list-group-border-radius: var(--radius-base);
+    --bs-list-group-action-color: var(--text);
+    --bs-list-group-action-hover-color: var(--text);
+    --bs-list-group-action-hover-bg: var(--page-inset);
+    --bs-list-group-action-active-color: var(--text);
+    --bs-list-group-action-active-bg: var(--brand-soft);
+    --bs-list-group-active-color: var(--on-brand);
+    --bs-list-group-active-bg: var(--brand);
+    --bs-list-group-active-border-color: var(--brand);
+    --bs-list-group-disabled-color: var(--text-2);
+    --bs-list-group-disabled-bg: var(--page-inset);
+  }
 }
 
-.progress {
-  --bs-progress-bg: var(--page-inset);
-  --bs-progress-bar-bg: var(--brand);
-  --bs-progress-bar-color: var(--on-brand);
-  --bs-progress-border-radius: var(--radius-progress);
+@layer theme {
+  .progress {
+    --bs-progress-bg: var(--page-inset);
+    --bs-progress-bar-bg: var(--brand);
+    --bs-progress-bar-color: var(--on-brand);
+    --bs-progress-border-radius: var(--radius-progress);
+  }
 }
 
-.pagination {
-  --bs-pagination-color: var(--link);
-  --bs-pagination-bg: var(--surface);
-  --bs-pagination-border-color: var(--border);
-  --bs-pagination-hover-color: var(--link-hover);
-  --bs-pagination-hover-bg: var(--page-inset);
-  --bs-pagination-hover-border-color: var(--border);
-  --bs-pagination-focus-color: var(--link-hover);
-  --bs-pagination-focus-bg: var(--page-inset);
-  --bs-pagination-active-color: var(--on-brand);
-  --bs-pagination-active-bg: var(--brand);
-  --bs-pagination-active-border-color: var(--brand);
-  --bs-pagination-disabled-color: var(--text-2);
-  --bs-pagination-disabled-bg: var(--page-inset);
-  --bs-pagination-disabled-border-color: var(--border-soft);
+@layer theme {
+  .pagination {
+    --bs-pagination-color: var(--link);
+    --bs-pagination-bg: var(--surface);
+    --bs-pagination-border-color: var(--border);
+    --bs-pagination-hover-color: var(--link-hover);
+    --bs-pagination-hover-bg: var(--page-inset);
+    --bs-pagination-hover-border-color: var(--border);
+    --bs-pagination-focus-color: var(--link-hover);
+    --bs-pagination-focus-bg: var(--page-inset);
+    --bs-pagination-active-color: var(--on-brand);
+    --bs-pagination-active-bg: var(--brand);
+    --bs-pagination-active-border-color: var(--brand);
+    --bs-pagination-disabled-color: var(--text-2);
+    --bs-pagination-disabled-bg: var(--page-inset);
+    --bs-pagination-disabled-border-color: var(--border-soft);
+  }
 }
 
-.popover {
-  --bs-popover-bg: var(--surface-raised);
-  --bs-popover-border-color: var(--border-soft);
-  --bs-popover-border-radius: var(--radius-popover);
-  --bs-popover-header-bg: var(--page-inset);
-  --bs-popover-header-color: var(--text);
-  --bs-popover-body-color: var(--text);
-  --bs-popover-box-shadow: var(--shadow-lg);
+@layer theme {
+  .popover {
+    --bs-popover-bg: var(--surface-raised);
+    --bs-popover-border-color: var(--border-soft);
+    --bs-popover-border-radius: var(--radius-popover);
+    --bs-popover-header-bg: var(--page-inset);
+    --bs-popover-header-color: var(--text);
+    --bs-popover-body-color: var(--text);
+    --bs-popover-box-shadow: var(--shadow-lg);
+  }
 }
 
-.tooltip {
-  --bs-tooltip-bg: var(--color-tooltip-bg);
-  --bs-tooltip-color: var(--color-tooltip-text);
-  --bs-tooltip-border-radius: var(--radius-tooltip);
+@layer theme {
+  .tooltip {
+    --bs-tooltip-bg: var(--color-tooltip-bg);
+    --bs-tooltip-color: var(--color-tooltip-text);
+    --bs-tooltip-border-radius: var(--radius-tooltip);
+  }
 }
 
-.alert {
-  --bs-alert-border-radius: var(--radius-base);
+@layer theme {
+  .alert {
+    --bs-alert-border-radius: var(--radius-base);
+  }
 }
 
 /* ── Toasts (react-toastify) ──────────────────────────────────────────────────
-   A card, not a coloured slab: the raised surface with the body text on it
-   (8:1 like every other card), the meaning in a stripe down its leading edge
-   and in its icon — green for done, red for failed, amber for a warning, the
-   brand for news. On a phone it is a full-width card along the bottom, where
-   the thumb and the eye already are; on a wide screen a card in the
-   bottom-right corner — at every width just above the «+» and the home bar. It stays long enough to be
-   read (6s, errors 10s, warnings 8s — lib/toastDefaults.ts), waits while the
-   pointer or focus is on it or the window is in the background, and can be
-   swiped away. It rises and fades in like a dialog (`toast-enter`).
+   Quiet and modern (item 78): a small raised card on the body text (8:1 like
+   every card), its meaning only in a thin stripe down the leading edge and in
+   the icon on a soft round of its colour — green done, red failed, amber a
+   warning, the brand for news. No progress bar, no coloured slab. Rounded like
+   the menus, a light shadow, compact text. Every colour is a role, so it
+   follows light and dark and both colourways.
+
+   Where: on a phone (narrow, or on its side — the same query as
+   lib/toastDefaults.ts) at the TOP, under the status bar and notch
+   (safe-area), centred, `min(100% − 2 gutters, 28rem)` wide, never taller than
+   the visible screen (dvh) — far from the «+» and the footer at the bottom.
+   On a wider screen the bottom-right corner, above the «+». It goes on a tap or
+   a swipe and waits while touched (lib/toastDefaults.ts has the timings).
 
    react-toastify's sheet loads after this one, so its variables are set on
    `html:root` and its classes are qualified by `.Toastify`, to win. */
@@ -966,31 +1143,23 @@ body {
 html:root {
   --toastify-z-index: var(--z-toast);
   --toastify-font-family: inherit;
-  --toastify-toast-width: 22.5rem;
+  --toastify-toast-width: 24rem;
   --toastify-toast-offset: var(--space-4);
-  /* Above the «+» at every width (3.25rem, 1rem from the bottom right —
-     AddFab), so the toast a new record raises never covers the
-     button for the next one; and above the home bar. */
+  --toastify-toast-top: calc(var(--space-2) + env(safe-area-inset-top, 0px));
+  /* Above the «+» (3.25rem, 1rem from the corner — AddFab) and the home bar. */
   --toastify-toast-bottom: calc(var(--space-4) + 3.25rem + var(--space-3) + env(safe-area-inset-bottom, 0px));
-  --toastify-toast-min-height: 3.5rem;
-  --toastify-toast-padding: var(--space-3) var(--space-7) var(--space-3) var(--space-3);
+  --toastify-toast-min-height: 3rem;
+  --toastify-toast-padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
   --toastify-toast-bd-radius: var(--radius-menu);
-  --toastify-toast-shadow: var(--shadow-lg);
+  --toastify-toast-shadow: var(--shadow-md);
   --toastify-color-light: var(--surface-raised);
   --toastify-text-color-light: var(--text);
   --toastify-color-dark: var(--surface-raised);
   --toastify-text-color-dark: var(--text);
   --toastify-icon-color-info: var(--brand-text);
-  --toastify-icon-color-success: var(--income);
+  --toastify-icon-color-success: var(--income-text);
   --toastify-icon-color-warning: var(--goal);
-  --toastify-icon-color-error: var(--expense);
-  --toastify-color-progress-light: var(--brand);
-  --toastify-color-progress-dark: var(--brand);
-  --toastify-color-progress-info: var(--brand);
-  --toastify-color-progress-success: var(--income);
-  --toastify-color-progress-warning: var(--goal);
-  --toastify-color-progress-error: var(--expense);
-  --toastify-color-progress-bgo: 0.15;
+  --toastify-icon-color-error: var(--expense-text);
   --toastify-spinner-color: var(--text-2);
   --toastify-spinner-color-empty-area: var(--border-soft);
 }
@@ -1000,44 +1169,76 @@ html:root {
 }
 
 .Toastify .Toastify__toast {
-  /* The edge a toast's meaning is drawn on. */
+  /* The meaning: the stripe, and the round behind the icon. */
   --toast-tone: var(--brand);
+  --toast-tone-wash: var(--brand-soft);
+  position: relative;
+  align-items: center;
+  overflow: hidden;
   border: 1px solid var(--border-soft);
-  border-inline-start: 4px solid var(--toast-tone);
   background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
   color: var(--text);
   font-size: 0.875rem;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.35;
   margin-bottom: var(--space-2);
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* The thin stripe down the leading edge, inside the rounded corner. */
+.Toastify .Toastify__toast::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: var(--toast-tone);
 }
 
 .Toastify .Toastify__toast--success {
   --toast-tone: var(--income);
+  --toast-tone-wash: var(--income-chip);
 }
 
 .Toastify .Toastify__toast--error {
   --toast-tone: var(--expense);
+  --toast-tone-wash: var(--expense-chip);
 }
 
 .Toastify .Toastify__toast--warning {
   --toast-tone: var(--goal);
+  --toast-tone-wash: var(--goal-chip);
 }
 
 .Toastify .Toastify__toast-icon {
-  width: 1.375rem;
-  margin-inline-end: var(--space-3);
-}
-
-/* A ✕ you can hit: the library's is a 14px glyph at 30% opacity. */
-.Toastify .Toastify__close-button {
-  top: var(--space-1);
-  right: var(--space-1);
   display: grid;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--radius-sm);
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-inline-end: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--toast-tone-wash);
+}
+
+.Toastify .Toastify__toast-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* A small ✕ that is still easy to hit: the library's is a 14px glyph at 30%. */
+.Toastify .Toastify__close-button {
+  position: absolute;
+  top: 50%;
+  right: var(--space-1);
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
   color: var(--text-2);
   opacity: 1;
   transition: background-color var(--motion-fast) ease;
@@ -1054,46 +1255,53 @@ html:root {
   outline-offset: 0;
 }
 
-/* The time left, as a hairline along the bottom rather than a 5px bar. */
-.Toastify .Toastify__progress-bar--wrp {
-  height: 3px;
-}
-
-/* A phone: one card the width of the screen less its gutters, along the
-   bottom, clear of the «+» (3.25rem, 1rem from the edge — AddFab) and of
-   the home bar. The library's own phone rule made it a square, edge-to-edge
-   slab pressed against the very bottom. */
-@media (max-width: 575.98px) {
-  .Toastify .Toastify__toast-container {
-    left: var(--space-3);
-    right: var(--space-3);
-    width: auto;
-    bottom: var(--toastify-toast-bottom);
-    transform: none;
-    align-items: stretch;
+/* A phone, upright or on its side: one card at the top, centred, the width of
+   the screen less its gutters up to 28rem, clear of the status bar and notch;
+   the stack never runs past the visible screen. The library's own phone rule
+   made it an edge-to-edge slab. */
+@media (max-width: 575.98px), (max-height: 500px) {
+  .Toastify .Toastify__toast-container,
+  .Toastify .Toastify__toast-container--top-center {
+    top: var(--toastify-toast-top);
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    width: min(100% - 2 * var(--space-3), 28rem);
+    max-width: calc(100vw - 2 * var(--space-3) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    max-height: calc(100dvh - var(--toastify-toast-top) - var(--space-4));
+    padding: 0;
+    transform: translateX(-50%);
+    overflow: visible;
   }
 
   .Toastify .Toastify__toast {
     --toastify-toast-width: 100%;
+    width: 100%;
     margin-bottom: var(--space-2);
     border-radius: var(--radius-menu);
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
+  }
+
+  /* It drops in from above rather than rising from below. */
+  .Toastify {
+    --toast-from: calc(var(--rise) * -1);
   }
 }
 
-/* In and out: a rise and a fade, the dialogs' own motion (App.tsx hands this
-   to the container as its transition). */
+/* In and out: a short travel and a fade, the dialogs' own motion (the
+   container's transition, lib/toastDefaults.ts). Under reduced motion --rise
+   is 0, so only the fade is left. */
 @keyframes toast-enter {
   from {
     opacity: 0;
-    transform: translateY(var(--rise));
+    transform: translateY(var(--toast-from, var(--rise)));
   }
 }
 
 @keyframes toast-exit {
   to {
     opacity: 0;
-    transform: translateY(calc(var(--rise) * 0.5));
+    transform: translateY(calc(var(--toast-from, var(--rise)) * 0.5));
   }
 }
 
@@ -1124,19 +1332,114 @@ html:root {
   animation: row-flash var(--motion-flash) var(--ease-standard);
 }
 
+/* The dialog that just saved (`celebrateSave`, shared/feedback/saveFeedback.ts):
+   a ring of the money-in green breathes out round the card while it gives a
+   tiny swell. Under reduced motion the ring alone — a colour, nothing moves. */
+@keyframes save-pulse {
+  0% {
+    box-shadow: var(--shadow-lg), 0 0 0 0 var(--income-edge-strong);
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.012);
+  }
+  100% {
+    box-shadow: var(--shadow-lg), 0 0 0 0.75rem transparent;
+    transform: scale(1);
+  }
+}
+
+@keyframes save-ring {
+  0% {
+    box-shadow: var(--shadow-lg), 0 0 0 0.25rem var(--income-edge-strong);
+  }
+  100% {
+    box-shadow: var(--shadow-lg), 0 0 0 0.25rem transparent;
+  }
+}
+
+.save-pulse {
+  animation: save-pulse 700ms var(--ease-out);
+}
+
+/* Confetti, for a milestone only (a goal reached, a debt paid off): small
+   pieces in the app's colours falling from the top, gone in 1.6s, under the
+   toasts and never in the way. */
+.mfw-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-toast) - 1);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@keyframes confetti-fall {
+  from {
+    opacity: 1;
+    transform: translate3d(0, -2rem, 0) rotate(0deg);
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(var(--drift), 100dvh, 0) rotate(var(--spin));
+  }
+}
+
+.mfw-confetti__piece {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: 0.5rem;
+  height: 0.75rem;
+  border-radius: var(--radius-xs);
+  background: var(--c);
+  animation: confetti-fall 1600ms var(--ease-out) var(--delay) both;
+}
+
+/* Reduced motion: no pieces (saveFeedback.ts draws none), a wash of the brand
+   that fades out — the moment marked in colour. */
+@keyframes confetti-wash {
+  from {
+    opacity: 0.18;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.mfw-confetti--calm {
+  background: var(--brand-soft);
+  animation: confetti-wash 1600ms var(--ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-pulse {
+    animation: save-ring 700ms var(--ease-standard);
+  }
+
+  .mfw-confetti__piece {
+    animation: none;
+    display: none;
+  }
+}
+
 /* ── The app's touch: what answers a press ────────────────────────────────────
    Small, quick and the same everywhere: a button gives a little under the
    finger; a card or row that is itself a control lifts on hover and settles
    when pressed; a menu fades in. Under reduced motion the give and the lift
    go; the colours and the menu's fade stay. */
 
-.btn {
-  transition:
-    color var(--motion-fast) ease,
-    background-color var(--motion-fast) ease,
-    border-color var(--motion-fast) ease,
-    box-shadow var(--motion-fast) ease,
-    transform var(--motion-fast) ease;
+@layer theme {
+  .btn {
+    transition:
+      color var(--motion-fast) ease,
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease,
+      transform var(--motion-fast) ease;
+  }
 }
 
 .btn:active:not(:disabled, .disabled, .btn-link, [class*="translate-"]) {
@@ -1182,12 +1485,14 @@ html:root {
 /* ── Smooth theme change ──────────────────────────────────────────────────────
    For everyone: colours easing from light to dark is not motion. */
 
-body,
-.card,
-.modal-content,
-.dropdown-menu {
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+@layer theme {
+  body,
+  .card,
+  .modal-content,
+  .dropdown-menu {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
 }

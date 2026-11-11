@@ -37,8 +37,8 @@ describe("the tone scale", () => {
     expect(strays).toEqual([]);
   });
 
-  it("gives a chip the shared wash and the text-safe colour, stronger when asked", () => {
-    expect(toneChip("income")).toEqual({ background: "var(--income-wash)", color: "var(--color-income-text)" });
-    expect(toneChip("goal", true)).toEqual({ background: "var(--goal-wash-strong)", color: "var(--color-goal-text)" });
+  it("gives a chip its own ground, an edge and the text-safe colour, stronger when asked", () => {
+    expect(toneChip("income")).toEqual({ background: "var(--income-chip)", color: "var(--color-income-text)", boxShadow: "inset 0 0 0 1px var(--income-edge)" });
+    expect(toneChip("goal", true)).toEqual({ background: "var(--goal-chip-strong)", color: "var(--color-goal-text)", boxShadow: "inset 0 0 0 1px var(--goal-edge-strong)" });
   });
 });

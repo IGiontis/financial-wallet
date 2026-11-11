@@ -48,6 +48,26 @@
   white-space: nowrap;
 }
 
+/* The letters typed so far, inside each suggestion: brand lettering (≥ 8:1 on
+   every ground, contrast.test.ts) and bold; the rest of the name stays plain. */
+.hit {
+  padding: 0;
+  background: none;
+  color: var(--brand-text);
+  font-weight: 700;
+}
+
+/* On a phone the field is read-only — a tap opens the sheet instead of a
+   keyboard — and theme.css paints read-only fields as locked (the inset
+   ground, secondary text). This one isn't locked, so it keeps the look of
+   every other input: surface and text (the border, height, corners and
+   padding are .form-control's already). A disabled field still greys. */
+.wrap > .field[readonly]:not(:disabled) {
+  background-color: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .createRow {
   border-top: 1px solid var(--color-border-tertiary);
   margin-top: 0.25rem;

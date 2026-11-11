@@ -8,6 +8,8 @@ import AddNewGoalModal from "./AddNewGoalModal";
 
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, baseCurrency: "EUR" }) }));
 
+const next = () => userEvent.click(screen.getByRole("button", { name: /^Next/ }));
+
 beforeAll(async () => {
   window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
   await i18n.changeLanguage("en");
@@ -19,6 +21,7 @@ describe("a new goal from parts", () => {
     render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={onSubmit} defaultGoalType="targeted" />);
 
     await userEvent.type(document.querySelector<HTMLInputElement>('input[name="name"]')!, "Ski");
+    await next();
     await userEvent.click(screen.getByRole("button", { name: "Parts" }));
     await userEvent.type(screen.getByLabelText("Part 1: what for"), "House");
     await userEvent.type(screen.getByLabelText("Part 1: from"), "150");
@@ -30,7 +33,9 @@ describe("a new goal from parts", () => {
     // The total under them, as a range.
     expect(screen.getByText("€200.00 – €290.00")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Review" }));
+    // Target → look → review; Save only there.
+    await next();
+    await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
 
     const [dto] = onSubmit.mock.calls[0];
@@ -47,10 +52,13 @@ describe("a new goal from parts", () => {
     const onSubmit = vi.fn();
     render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={onSubmit} defaultGoalType="targeted" />);
     await userEvent.type(document.querySelector<HTMLInputElement>('input[name="name"]')!, "Ski");
+    await next();
     await userEvent.click(screen.getByRole("button", { name: "Parts" }));
     await userEvent.type(screen.getByLabelText("Part 1: what for"), "House");
-    await userEvent.click(screen.getByRole("button", { name: "Review" }));
+    await next();
+    // It stays on the target step and says what is missing.
     expect(screen.getByText("Needs a name and a «to».")).toBeInTheDocument();
+    expect(document.querySelector("[aria-current=step]")?.textContent).toMatch(/Target/);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

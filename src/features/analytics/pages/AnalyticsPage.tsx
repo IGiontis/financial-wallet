@@ -37,6 +37,7 @@ import {
 } from "../analyticsUtils";
 import { ChartCard } from "../components/ChartCard";
 import { Legend } from "../components/Legend";
+import { useFixedMonth } from "../useFixedMonth";
 import { signedWith, weekdayNames } from "../components/chartTheme";
 import { DashboardKpis } from "../components/DashboardKpis";
 import {
@@ -116,6 +117,8 @@ export function AnalyticsPage() {
 
   const from = useMemo(() => rangeStart(range, now), [range, now]);
   const scoped = useMemo(() => withinRange(transactions, from, now), [transactions, from, now]);
+  // This month's fixed part — the Incomes page's income, the Bills page's bills — for the charts' markers.
+  const fixedMonth = useFixedMonth(transactions, now);
   const flows = useMemo(() => monthlyFlows(scoped, from, now), [scoped, from, now]);
 
   const nameFor = useCallback(
@@ -398,7 +401,7 @@ export function AnalyticsPage() {
           <div className={styles.grid}>
             {/* The Overview's «Ταμειακή ροή», over this page's range, and the
                 year of incomes against bills beside it. */}
-            <CashFlowCard transactions={scoped} from={from} now={now} single={range === "1m"} formatCurrency={formatCurrency} noData={noData} />
+            <CashFlowCard transactions={scoped} from={from} now={now} single={range === "1m"} formatCurrency={formatCurrency} noData={noData} fixed={fixedMonth} />
             <IncomesBillsCard transactions={transactions} now={now} formatCurrency={formatCurrency} />
 
             {/* The running net position, the savings rate and income against
@@ -461,13 +464,13 @@ export function AnalyticsPage() {
                         data={incomeMonths}
                         average={incomeAverage}
                         note={incomeSpread === undefined ? t("analytics.income.stabilityHint") : t("analytics.income.spread", { percent: incomeSpread })}
-                        legend={<Legend items={[{ color: "var(--color-text-primary)", label: t("analytics.income.average") }]} />}
+                        legend={<Legend items={[{ color: "var(--color-text-primary)", label: t("analytics.income.average") }, ...(fixedMonth.income > 0 ? [{ color: "var(--color-income)", label: t("analytics.fixed.income") }] : [])]} />}
                         formatCurrency={formatCurrency}
                       />
                     ),
                   }}
                 >
-                  <IncomeMonthsChart data={incomeMonths} average={incomeAverage} formatCurrency={formatCurrency} compact />
+                  <IncomeMonthsChart data={incomeMonths} average={incomeAverage} fixed={fixedMonth.income} formatCurrency={formatCurrency} compact />
                 </ChartCard>
 
                 <ChartCard

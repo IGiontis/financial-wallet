@@ -951,10 +951,11 @@
 }
 
 /* The check at the end of the figure wizard: each answer, a way back to its step. */
+/* On the inputs' white surface, as every control in a form: never a beige page tone. */
 .wizCard {
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  background: var(--surface);
 }
 
 .wizRow {
@@ -977,7 +978,7 @@
 }
 
 .wizRow:hover {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--brand) 6%, var(--surface));
 }
 
 .wizLabel {
@@ -1165,8 +1166,11 @@
   font-size: 13px;
 }
 
-.cadencePreview :global(.text-body-secondary) {
-  color: var(--on-brand-soft) !important;
+/* App `!important`s live in this layer (index.css, «Cascade layers»). */
+@layer app-important {
+  .cadencePreview :global(.text-body-secondary) {
+    color: var(--on-brand-soft) !important;
+  }
 }
 
 /* ── The four tiles at the top ───────────────────────────────────────────── */
@@ -1290,8 +1294,10 @@
   background: transparent;
 }
 
-.sheetCard:not(.scenarioCard) > :global(.card-body) {
-  padding: 0 !important;
+@layer app-important {
+  .sheetCard:not(.scenarioCard) > :global(.card-body) {
+    padding: 0 !important;
+  }
 }
 
 /* ── A month's sheet ─────────────────────────────────────────────────────── */

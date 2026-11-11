@@ -16,10 +16,12 @@ const { installToastDefaults, TOAST_CONTAINER, TOAST_MS, TOAST_MS_BY_TYPE } = aw
 const { toast } = await import("react-toastify");
 
 describe("toast timings", () => {
-  it("gives every toast time to be read, and pauses it while it is looked at", () => {
+  it("keeps a «saved» short, gives the rest time to be read, and pauses while touched", () => {
     expect(TOAST_CONTAINER.autoClose).toBe(TOAST_MS);
-    expect(TOAST_MS).toBeGreaterThanOrEqual(5000);
-    expect(TOAST_CONTAINER).toMatchObject({ pauseOnHover: true, pauseOnFocusLoss: true, draggable: true });
+    expect(TOAST_MS_BY_TYPE.success).toBeGreaterThanOrEqual(2500);
+    expect(TOAST_MS_BY_TYPE.success).toBeLessThanOrEqual(3000);
+    expect(TOAST_MS).toBeGreaterThan(TOAST_MS_BY_TYPE.success);
+    expect(TOAST_CONTAINER).toMatchObject({ pauseOnHover: true, pauseOnFocusLoss: true, draggable: true, closeOnClick: true });
   });
 
   it("keeps errors and warnings longer, unless a call says otherwise", () => {
@@ -33,7 +35,7 @@ describe("toast timings", () => {
       { type: "error", options: { autoClose: TOAST_MS_BY_TYPE.error } },
       { type: "warning", options: { autoClose: TOAST_MS_BY_TYPE.warning } },
       { type: "error", options: { autoClose: 2000 } },
-      { type: "success", options: undefined },
+      { type: "success", options: { autoClose: TOAST_MS_BY_TYPE.success } },
     ]);
     expect(TOAST_MS_BY_TYPE.error).toBeGreaterThan(TOAST_MS);
   });

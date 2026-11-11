@@ -89,12 +89,13 @@ describe("money as a tree", () => {
     expect(screen.getByText(`−${money(3 * 425)}`, { selector: "b" })).toBeInTheDocument();
   });
 
-  it("steps a week at a time, and a month shows the whole month", async () => {
+  it("offers a month, 3, 6 or 12 months — no week — and steps a month at a time", async () => {
     tree("all");
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Week/ }));
+    const spans = within(screen.getByRole("group", { name: "Period" })).getAllByRole("button");
+    expect(spans.map((button) => button.textContent)).toEqual(["Month1m", "3 months3m", "6 months6m", "Year12m"]); // each with its tiny-phone short form
+    expect(within(screen.getByRole("group", { name: "Period" })).queryByRole("button", { name: /Week/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Next period" }));
-    // 2 to 8 November: no salary, no bills — and a way back.
-    expect(screen.getByText("Nothing in this period.")).toBeInTheDocument();
+    expect(screen.getByText("November 2026")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back to today" }));
     await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Month/ }));
     // The whole of October: the rent of the 1st, unpaid and so late; the phone; the salary.
@@ -116,14 +117,16 @@ describe("money as a tree", () => {
   });
 
   it("weighs each leaf by what it wants: to pay, to come, or done", async () => {
-    const { container } = tree("out");
-    await userEvent.click(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: /Week/ }));
+    tree("out");
     // The phone bill on the 28th, two days off: to come, and how soon.
     const phone = screen.getByText("Phone").closest("li")!;
     expect(phone.className).toMatch(/_upcoming_/);
+    expect(phone.className).not.toMatch(/_late_/);
     expect(phone).toHaveTextContent("to come · in 2 days");
-    // Nothing in this week is overdue yet, so nothing is filled red.
-    expect(container.querySelectorAll("[class*=_late_]")).toHaveLength(0);
+    // The rent of the 1st, unpaid: late, and filled so.
+    const rent = screen.getByText("Rent").closest("li")!;
+    expect(rent.className).toMatch(/_late_/);
+    expect(rent).toHaveTextContent("to pay");
   });
 
   it("says a goal's money for today is to put in, not to pay", () => {

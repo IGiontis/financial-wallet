@@ -67,6 +67,9 @@ Kept in the Firebase console by the owner, not in this repo. What they allow:
   step that shows every figure, Save only on review, delete far left, `{...FORM_MODAL}`
   (no close on backdrop). A yes/no question inside a step is two choice tiles (see
   `MoneyMovedPicker`); picking «Ναι» reveals what it needs in the same step.
+- **No prefilled text in forms**: fields start empty with a placeholder only; an edit shows the
+  stored values; a fallback name, if one is needed, is applied at save and shown in the review.
+  Controls inside a form rest on the inputs' white `--surface`, never a beige page tone.
 - **Every change that reaches Firestore is confirmed**: a delete dialog (`DeleteButton`),
   a before → after summary for edits, the wizard's review for new records. Bulk or
   cascading deletes say what else goes with them and how many.
@@ -77,9 +80,19 @@ Kept in the Firebase console by the owner, not in this repo. What they allow:
 - **The floating «+»** opens the page's own add (`usePageAdd`) or a new transaction.
 - **Saves**: optimistic, through `saveWithoutWaiting` and the hooks' cache patches; a lost
   write shows a toast. Offline, deletes and settings are locked (`useOfflineGuard`).
+- **Every successful submit answers** through ONE helper, `shared/feedback/saveFeedback.ts`
+  (reference: `AddTransactionModal`). In the form, after the save resolved:
+  `celebrateSave({ collection: "debts", id, milestone })` — the dialog pulses, the list's
+  row lights up, and `milestone: true` (a goal reached, a debt paid off — nothing else)
+  adds light confetti. On the list page: `const flashClass = useSavedFlash("debts",
+  rows.map((r) => r.id))` and `className={flashClass(row.id)}` on each row; with no `id`
+  (an optimistic new record) the row that appears is the one lit. Reduced motion keeps
+  colour and fades only. Toasts stay as they are (lib/toastDefaults.ts: success 2.8 s,
+  errors/warnings 6 s, tap or swipe to close; phones at the top).
 - **Per-user settings** live on the user document (`useWorkspaceSetting`), costing no
   extra reads.
-- **Money meanings**: tone colours through `toneChip` and the tone scale in index.css;
+- **Money meanings**: tone colours through `toneChip` (a chip: its own visible ground
+  `--{tone}-chip` + a 1px tone edge) and the tone scale in index.css;
   figures through the shared currency formatter; signs: − out / + in where meaningful.
 - **Names** (payees, categories, goals …) are trimmed and compared ignoring case, accents
   and extra spaces; a near-duplicate (or the same word in Greeklish) is offered, not
@@ -97,6 +110,12 @@ needs sensible demo data, and `fixtures.test.ts` keeps the figures consistent.
 
 - Bootstrap classes and variables first → a CSS module only for what Bootstrap can't do →
   plain CSS last.
+- **Bootstrap sits in a cascade layer** (`@layer bootstrap`, top of index.css): any app rule,
+  even one class, beats it whatever order the build links the files in — never double a
+  class to win. theme.css's one-class rules on Bootstrap pieces sit in `@layer theme`
+  (over Bootstrap, under modules). An app `!important` must go inside
+  `@layer app-important { … }` or Bootstrap's own `!important` utilities beat it
+  (`cssLayers.test.ts` checks all of it).
 - **Colours come only from `src/styles/tokens.css`** (two colourways: blue, the default,
   and black & gold; each light and dark). Components use roles (`--surface`, `--text`,
   `--brand`, `--income`, `--expense-text` …), never hex. `src/styles/shape.css` holds radius,

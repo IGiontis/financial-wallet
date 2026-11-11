@@ -24,6 +24,7 @@ import {
   type TimePeriod,
 } from "../overviewUtils";
 import OverviewHero from "../components/OverviewHero";
+import { LiveClock } from "../components/LiveClock";
 import BankStrip from "../components/BankStrip";
 import { usePaydayOutlook } from "../usePaydayOutlook";
 import { CashFlowLegend } from "../components/CashFlowLegend";
@@ -408,7 +409,12 @@ export const OverviewPage = () => {
           is opened to learn, a sentence about what the app does is not. */}
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
-        <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
+        <p className="small text-body-secondary mb-0">
+          {new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+          {" · "}
+          {/* Ticks on its own: the page is not re-rendered each second. */}
+          <LiveClock locale={locale} />
+        </p>
       </div>
 
 

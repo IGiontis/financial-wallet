@@ -27,7 +27,8 @@ import {
   monthSummary,
   salarySuggestion,
   suggestIncomeCategory,
-  type Income,  type IncomeStatus,
+  type Income,
+  type IncomeStatus,
   lateCount,
 } from "./incomesUtils";
 import { emptyDraft, incomeToDraft, type DraftStep, type IncomeDraft } from "./incomeForm";
@@ -44,6 +45,7 @@ import IncomeFormModal from "./components/IncomeFormModal";
 import { ConfirmSheet } from "./components/ConfirmSheet";
 import ThisTimeSheet from "./components/ThisTimeSheet";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { AddHeader } from "../../shared/components/AddButton";
 import { FiBarChart2, FiCalendar, FiGitCommit, FiList } from "react-icons/fi";
 import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
 import styles from "./css/IncomesPage.module.css";
@@ -85,8 +87,8 @@ interface ArrivingState {
 /**
  * The three pages of «Έσοδα», as «Πάγια» has them.
  *
- *   overview — to read: the month, the figures, the year. Nothing to press.
- *   record   — to act: every income with «Ήρθε», as a list or a calendar, and the "+".
+ *   overview — to read: the month, the figures, the year. The «+» adds an income here too.
+ *   record   — to act: every income with «Ήρθε», as a list or a calendar.
  *   all      — the page as it was, both together.
  */
 export type IncomesPageView = "overview" | "record" | "manage" | "all";
@@ -145,9 +147,10 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
 
   const openNew = (preset: Partial<IncomeDraft> = {}) => {
     const kind = preset.kind ?? (salaryIncome ? "other" : "salary");
+    // No name written in: the form leaves it empty, and an empty one is saved as the kind's.
     setCardId(null);
     setForm({
-      draft: emptyDraft(now, { kind, name: t(`incomes.kind.${kind}`), categoryId: suggestIncomeCategory(kind, categories)?.id ?? "", isSalary: kind === "salary" && !salaryIncome, ...preset }),
+      draft: emptyDraft(now, { kind, categoryId: suggestIncomeCategory(kind, categories)?.id ?? "", isSalary: kind === "salary" && !salaryIncome, ...preset }),
       isEdit: false,
       key: Date.now(),
     });
@@ -202,7 +205,6 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     if (!suggestion) return;
     openNew({
       kind: "salary",
-      name: t("incomes.kind.salary"),
       amount: String(Number(convert(suggestion.pattern.amount).toFixed(2))),
       day: String(suggestion.pattern.dayOfMonth),
       start: suggestion.since,
@@ -222,20 +224,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
 
   return (
     <PageShell>
-      <div className="d-flex justify-content-between align-items-start mb-3 gap-2">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("incomes.title")}</h1>
-          <p className="small text-body-secondary mb-0">{t("incomes.subtitle")}</p>
-        </div>
-        {page !== "overview" && (
-          <Button color="primary" onClick={() => openNew()} className="flex-shrink-0" aria-label={t("incomes.new")}>
-            <span className="d-none d-sm-inline">+ {t("incomes.new")}</span>
-            <span className="d-sm-none" aria-hidden>
-              +
-            </span>
-          </Button>
-        )}
-      </div>
+      {/* The add on every view, «Σύνοψη» too. */}
+      <AddHeader label={t("incomes.new")} onAdd={() => openNew()} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
 
       <SubPageTabs
         label={t("incomes.title")}
@@ -436,6 +426,14 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           f={f}
           now={now}
           onClose={() => setForm(null)}
+          // Delete far left on an edit: the page's own confirm asks.
+          onDelete={
+            form.isEdit && form.draft.id && byId.get(form.draft.id)
+              ? () => askDelete(byId.get(form.draft.id!)!)
+              : undefined
+          }
+          deleteLocked={deleteGuard.locked}
+          deleteReason={deleteGuard.reason}
           onSave={(income) => {
             saveIncome(income);
             setForm(null);

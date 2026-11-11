@@ -225,8 +225,12 @@
   background: var(--color-background-primary);
 }
 
-.stickyDates > :global(.card) {
-  margin-bottom: 0.5rem !important;
+/* Over Bootstrap's `.mb-3` (`!important`): app `!important`s live in this
+   layer (index.css, «Cascade layers»). */
+@layer app-important {
+  .stickyDates > :global(.card) {
+    margin-bottom: 0.5rem !important;
+  }
 }
 
 /* No offset of its own under the menu style whose top bar lies over the page

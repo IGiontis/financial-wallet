@@ -152,3 +152,35 @@ describe("inside the transaction form", () => {
     expect(screen.getByRole("combobox")).not.toHaveClass("is-invalid");
   });
 });
+
+describe("what was typed stands out in each suggestion", () => {
+  it("marks the matching letters on the desktop menu, the rest stays plain", async () => {
+    setScreen(false);
+    renderPicker("los");
+    await userEvent.click(screen.getByRole("combobox"));
+
+    const option = screen.getByRole("option", { name: /Vasilopoulos/ });
+    const mark = option.querySelector("mark");
+    expect(mark?.textContent).toBe("los");
+    // The whole name is still there, in order.
+    expect(option.textContent).toBe("AB Vasilopoulos");
+  });
+
+  it("marks them in the phone's sheet as the search is typed", async () => {
+    setScreen(true);
+    renderPicker();
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.type(within(screen.getByRole("dialog")).getByRole("searchbox"), "GER");
+
+    const row = within(screen.getByRole("dialog")).getByRole("button", { name: "Germanos" });
+    expect(row.querySelector("mark")?.textContent).toBe("Ger");
+  });
+
+  it("keeps the phone's field looking like every other input, not a locked one", () => {
+    setScreen(true);
+    renderPicker();
+    const field = screen.getByRole("combobox");
+    expect(field).toHaveClass("form-control");
+    expect(field.className).toMatch(/field/);
+  });
+});

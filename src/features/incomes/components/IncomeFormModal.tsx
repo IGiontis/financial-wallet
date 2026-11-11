@@ -7,7 +7,6 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "../../../shared/utils/dates";
-import NewCategoryButton from "../../categories/NewCategoryButton";
 import type { MoneyAccount } from "../../accounts/accountsUtils";
 import { INCOME_KINDS, KIND_ICON, incomeOccurrences, incomeYear, suggestIncomeCategory, type Income, type IncomeKind } from "../incomesUtils";
 import { draftToIncome, validateAll, validateDraft, type DraftErrors, type DraftStep, type IncomeDraft } from "../incomeForm";
@@ -16,11 +15,15 @@ import segmented from "../../../shared/css/Segmented.module.css";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
 import styles from "../css/IncomesPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { YesNoChoice } from "../../../shared/components/YesNoChoice";
+import { DeleteButton } from "../../../shared/components/DeleteButton";
+import { EveryPicker, MONTH_DAYS } from "../../../shared/components/EveryPicker";
+import wiz from "../../../shared/css/Wizard.module.css";
 
-// One sheet for a new income and for changing one, in three steps, in the
-// order of the Bills form — name, amount, «αλλάζει» → how often, which day,
-// from when → pause — plus the two that are new here: where the money lands,
-// and «ο μισθός μου».
+// One sheet for a new income and for changing one, a topic a step, in the
+// order of the Bills wizard — what it is → how much, and its category → how
+// often, which day, from when → where it lands, «ο μισθός μου», a break, an
+// end — then the check.
 //
 // The steps are the Transactions wizard's rail: numbered circles, back and
 // forward. The fourth is the check — everything typed, row by row, each row a
@@ -41,18 +44,39 @@ export interface IncomeFormModalProps {
   now: Date;
   onSave: (income: Income) => void;
   onClose: () => void;
+  /** On an edit: delete, far left in the footer (opens the page's own confirm). */
+  onDelete?: () => void;
+  deleteLocked?: boolean;
+  deleteReason?: string;
 }
 
-/** The three steps that ask, then the check. */
-type View = DraftStep | 4;
+/** Four steps that ask, then the check. */
+const STEPS = ["what", "amount", "when", "where", "review"] as const;
+type View = (typeof STEPS)[number];
 
-const STEPS = ["1", "2", "3", "4"] as const;
+/** Where a caller's «open on step N» of the old three lands. */
+const FROM_DRAFT_STEP: Record<DraftStep, View> = { 1: "what", 2: "when", 3: "where" };
 
-export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onClose }: IncomeFormModalProps) {
+/** What each asking step checks, out of the draft's three checks. */
+function stepErrors(draft: IncomeDraft, view: View): DraftErrors {
+  if (view === "what") {
+    const { name } = validateDraft(draft, 1);
+    return name ? { name } : {};
+  }
+  if (view === "amount") {
+    const { amount } = validateDraft(draft, 1);
+    return amount ? { amount } : {};
+  }
+  if (view === "when") return validateDraft(draft, 2);
+  if (view === "where") return validateDraft(draft, 3);
+  return {};
+}
+
+export default function IncomeFormModal({ draft: initial, isEdit, startStep, categories, accounts, salaryName, f, now, onSave, onClose, onDelete, deleteLocked, deleteReason }: IncomeFormModalProps) {
   const { t } = useTranslation();
   const { convertToBase, baseCurrency, displayCurrency, format } = useCurrencyConverter();
   const [draft, setDraft] = useState<IncomeDraft>(initial);
-  const [view, setView] = useState<View>(startStep ?? 1);
+  const [view, setView] = useState<View>(startStep ? FROM_DRAFT_STEP[startStep] : "what");
   const [errors, setErrors] = useState<DraftErrors>({});
   // Whether the category was chosen by hand: until it is, it follows the kind.
   const [categoryTouched, setCategoryTouched] = useState(isEdit || !!initial.categoryId);
@@ -64,14 +88,18 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
   const chooseKind = (kind: IncomeKind) =>
     setDraft((d) => {
-      const kindName = (k: IncomeKind) => t(`incomes.kind.${k}`);
-      const renamed = !d.name.trim() || d.name === kindName(d.kind) ? kindName(kind) : d.name;
       const category = categoryTouched ? d.categoryId : (suggestIncomeCategory(kind, categories)?.id ?? d.categoryId);
-      return { ...d, kind, name: renamed, categoryId: category, isSalary: kind === "salary" && !salaryName && !isEdit ? true : d.isSalary };
+      // The name is never written in for you: left empty, the kind's name is used at save (`named`).
+      return { ...d, kind, categoryId: category, isSalary: kind === "salary" && !salaryName && !isEdit ? true : d.isSalary };
     });
 
   // The draft as far as it goes, for the two previews — the next three dates,
   // and what a pause leaves of the year.
+  // Fields start empty; a name left empty becomes the kind's — «Μισθός» —
+  // applied here, for the checks, the save and the review alike.
+  const fallbackName = t(`incomes.kind.${draft.kind}`);
+  const named: IncomeDraft = draft.name.trim() ? draft : { ...draft, name: fallbackName };
+
   const preview = useMemo(() => {
     const step2Ok = Object.keys(validateDraft(draft, 2)).length === 0;
     if (!step2Ok) return undefined;
@@ -84,14 +112,16 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const nextDates = useMemo(() => (preview ? incomeOccurrences(preview, now, new Date(now.getFullYear() + 3, 0, 1)).slice(0, 3) : []), [preview, now]);
   const pauseYear = useMemo(() => (preview && draft.hasPause && Number(draft.amount) > 0 ? incomeYear([preview], [], now) : undefined), [preview, draft.hasPause, draft.amount, now]);
 
+  const index = STEPS.indexOf(view);
   const goTo = (target: View) => {
     // Forward only over steps that are complete: jumping from the first to the
     // check stops at the first step with something missing, and says what.
-    for (let step = view; step < target && step <= 3; step++) {
-      const found = validateDraft(draft, step as DraftStep);
+    const to = STEPS.indexOf(target);
+    for (const step of STEPS.slice(0, to)) {
+      const found = stepErrors(named, step);
       if (Object.keys(found).length > 0) {
         setErrors(found);
-        setView(step as DraftStep);
+        setView(step);
         return;
       }
     }
@@ -100,26 +130,25 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   };
 
   const save = () => {
-    const found = validateAll(draft);
+    const found = validateAll(named);
     setErrors(found);
     if (Object.keys(found).length > 0) {
       // Back to the first step with something wrong on it.
-      const first = ([1, 2, 3] as DraftStep[]).find((s) => Object.keys(validateDraft(draft, s)).length > 0);
+      const first = STEPS.find((s) => Object.keys(stepErrors(named, s)).length > 0);
       if (first) setView(first);
       return;
     }
-    const income = draftToIncome(draft, toBase);
+    const income = draftToIncome(named, toBase);
     if (income) onSave(income);
   };
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(f.lang, new Date(2020, m, 1))), [f.lang]);
-  const unit = draft.frequency === "weekly" ? "incomes.form.unitWeeks" : draft.frequency === "yearly" ? "incomes.form.unitYears" : "incomes.form.unitMonths";
-  const stepTitle = view === 1 ? t("incomes.form.step1") : view === 2 ? t("incomes.form.step2") : view === 3 ? t("incomes.form.step3") : t("incomes.form.step4");
+  const stepTitle = t({ what: "incomes.form.step1", amount: "incomes.form.stepAmount", when: "incomes.form.step2", where: "incomes.form.step3", review: "incomes.form.step4" }[view]);
 
 
   // Every answer of the three steps, said back in words — each row a way back
   // to the step that asked it.
-  const savedAs = view === 4 ? draftToIncome(draft, toBase) : undefined;
+  const savedAs = view === "review" ? draftToIncome(named, toBase) : undefined;
   const categoryName = (() => {
     const category = categories.find((c) => c.id === draft.categoryId);
     return category ? categoryLabel(category.name, t) : t("incomes.form.categoryAuto");
@@ -132,24 +161,24 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     const date = draft.frequency === "weekly" ? parseISODay(draft.start) : parseISOMonth(draft.start);
     return date ? (draft.frequency === "weekly" ? f.dayMonth.format(date) : f.monthYearShort.format(date)) : "—";
   })();
-  const reviewRows: { step: DraftStep; label: string; value: string }[] = [
-    { step: 1, label: t("incomes.form.kind"), value: `${KIND_ICON[draft.kind]} ${t(`incomes.kind.${draft.kind}`)}` },
-    { step: 1, label: t("common.name"), value: draft.name.trim() || "—" },
-    { step: 1, label: t("common.amount"), value: `${draft.variable ? "≈ " : ""}${format(toBase(Number(draft.amount) || 0))} · ${draft.variable ? t("incomes.form.reviewVariable") : t("incomes.form.reviewFixed")}` },
-    { step: 1, label: t("common.category"), value: categoryName },
-    { step: 2, label: t("incomes.card.howOften"), value: savedAs ? scheduleText(savedAs, t, f) : "—" },
-    { step: 2, label: t("incomes.form.reviewFrom"), value: startLabel },
-    ...(nextDates.length > 0 ? [{ step: 2 as DraftStep, label: t("incomes.form.reviewNext"), value: nextDates.map((o) => f.dayMonth.format(o.date)).join(" · ") }] : []),
-    { step: 3, label: t("incomes.card.where"), value: accounts.find((a) => a.id === draft.accountId)?.name ?? t("incomes.card.noAccount") },
+  const reviewRows: { step: View; label: string; value: string }[] = [
+    { step: "what", label: t("incomes.form.kind"), value: `${KIND_ICON[draft.kind]} ${t(`incomes.kind.${draft.kind}`)}` },
+    { step: "what", label: t("common.name"), value: named.name.trim() },
+    { step: "amount", label: t("common.amount"), value: `${draft.variable ? "≈ " : ""}${format(toBase(Number(draft.amount) || 0))} · ${draft.variable ? t("incomes.form.reviewVariable") : t("incomes.form.reviewFixed")}` },
+    { step: "amount", label: t("common.category"), value: categoryName },
+    { step: "when", label: t("incomes.card.howOften"), value: savedAs ? scheduleText(savedAs, t, f) : "—" },
+    { step: "when", label: t("incomes.form.reviewFrom"), value: startLabel },
+    ...(nextDates.length > 0 ? [{ step: "when" as View, label: t("incomes.form.reviewNext"), value: nextDates.map((o) => f.dayMonth.format(o.date)).join(" · ") }] : []),
+    { step: "where", label: t("incomes.card.where"), value: accounts.find((a) => a.id === draft.accountId)?.name ?? t("incomes.card.noAccount") },
     {
-      step: 3,
+      step: "where",
       label: t("incomes.card.pause"),
       value: draft.hasPause
         ? `${monthLabel(draft.pauseFrom)} – ${draft.pauseTo ? monthLabel(draft.pauseTo) : t("incomes.form.pauseForever")}${draft.pauseYearly ? ` · ${t("incomes.form.reviewYearly")}` : ""}`
         : t("incomes.form.reviewNoPause"),
     },
-    { step: 3, label: t("incomes.form.reviewEnds"), value: draft.hasEnd && draft.end ? monthLabel(draft.end) : t("incomes.form.reviewNoEnd") },
-    { step: 3, label: t("incomes.form.reviewSalary"), value: draft.isSalary ? t("incomes.form.reviewSalaryYes") : t("incomes.form.reviewSalaryNo") },
+    { step: "where", label: t("incomes.form.reviewEnds"), value: draft.hasEnd && draft.end ? monthLabel(draft.end) : t("incomes.form.reviewNoEnd") },
+    { step: "where", label: t("incomes.form.reviewSalary"), value: draft.isSalary ? t("incomes.form.reviewSalaryYes") : t("incomes.form.reviewSalaryNo") },
   ];
 
   return (
@@ -160,36 +189,36 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (view === 4) save();
-          else goTo((view + 1) as View);
+          if (view === "review") save();
+          else goTo(STEPS[index + 1]);
         }}
       >
-        <ModalBody>
+        <ModalBody className="wash-income">
           {/* Across the whole sheet, as on the Transactions form: in the
               header it shrank to the title's width. */}
           <WizardSteps
             steps={STEPS}
-            current={String(view) as (typeof STEPS)[number]}
-            onGo={(step) => goTo(Number(step) as View)}
-            label={(step) => t(`incomes.form.stepShort${step}`)}
+            current={view}
+            onGo={goTo}
+            label={(step) => t({ what: "incomes.form.stepShort1", amount: "incomes.form.stepShortAmount", when: "incomes.form.stepShort2", where: "incomes.form.stepShort3", review: "incomes.form.stepShort4" }[step])}
             open={isEdit}
             large
           />
           <div className="fw-semibold mb-3" style={{ fontSize: 14 }}>
             {stepTitle}
           </div>
-          {view === 4 && (
-            <div className={styles.readCard}>
+          {view === "review" && (
+            <div className={wiz.wizCard}>
               {reviewRows.map((row) => (
-                <button key={row.label} type="button" className={`${styles.readRow} ${styles.readRowButton}`} onClick={() => goTo(row.step)}>
-                  <span className={styles.readLabel}>{row.label}</span>
-                  <span className={styles.readValue}>{row.value}</span>
+                <button key={row.label} type="button" className={wiz.wizRow} onClick={() => goTo(row.step)}>
+                  <span className={wiz.wizLabel}>{row.label}</span>
+                  <span className={wiz.wizValue}>{row.value}</span>
                 </button>
               ))}
             </div>
           )}
 
-          {view === 1 && (
+          {view === "what" && (
             <>
               <FormGroup>
                 <Label className="small fw-medium d-block">{t("incomes.form.kind")}</Label>
@@ -206,35 +235,27 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 <Label for="income-name" className="small fw-medium">
                   {t("common.name")} *
                 </Label>
-                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholder")} onChange={(e) => set("name", e.target.value)} invalid={!!errors.name} />
+                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderKind", { name: fallbackName })} onChange={(e) => set("name", e.target.value)} invalid={!!errors.name} />
                 <FormFeedback>{error("name")}</FormFeedback>
               </FormGroup>
+            </>
+          )}
 
-              <FormGroup switch className="d-flex align-items-start gap-2">
-                <Input id="income-variable" type="switch" role="switch" checked={draft.variable} onChange={(e) => set("variable", e.target.checked)} />
-                <div>
-                  <Label for="income-variable" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
-                    {t("incomes.form.variable")}
+          {view === "amount" && (
+            <>
+              {/* The amount and its category on one row. */}
+              <div className="row g-2 mb-3">
+                <div className="col-5">
+                  <Label for="income-amount" className="small fw-medium">
+                    {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
                   </Label>
-                  <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
-                    {t("incomes.form.variableHint")}
-                  </div>
+                  <Input id="income-amount" type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
+                  <FormFeedback>{error("amount")}</FormFeedback>
                 </div>
-              </FormGroup>
-
-              <FormGroup>
-                <Label for="income-amount" className="small fw-medium">
-                  {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
-                </Label>
-                <Input id="income-amount" type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
-                <FormFeedback>{error("amount")}</FormFeedback>
-              </FormGroup>
-
-              <FormGroup className="mb-0">
-                <Label for="income-category" className="small fw-medium">
-                  {t("common.category")}
-                </Label>
-                <div className="d-flex gap-2">
+                <div className="col-7">
+                  <Label for="income-category" className="small fw-medium">
+                    {t("common.category")}
+                  </Label>
                   <Input
                     id="income-category"
                     type="select"
@@ -251,56 +272,38 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                       </option>
                     ))}
                   </Input>
-                  <NewCategoryButton
-                    categories={categories}
-                    type="income"
-                    onCreated={(id) => {
-                      setCategoryTouched(true);
-                      set("categoryId", id);
-                    }}
-                  />
+                  <FormText style={{ fontSize: 11.5 }}>{t("incomes.form.categoryHint")}</FormText>
                 </div>
-                <FormText style={{ fontSize: 11.5 }}>{t("incomes.form.categoryHint")}</FormText>
-              </FormGroup>
+              </div>
+              {/* «Ναι» needs nothing more: the amount above becomes the estimate. */}
+              <YesNoChoice className="mb-0" question={<Question text={t("incomes.form.qVariable")} hint={t("incomes.form.variableHint")} />} value={draft.variable} onChange={(yes) => set("variable", yes)} />
+
             </>
           )}
 
-          {view === 2 && (
+          {view === "when" && (
             <>
               <FormGroup>
-                <Label className="small fw-medium d-block">{t("incomes.form.repeats")}</Label>
-                <div className="btn-group w-100" role="group" aria-label={t("incomes.form.repeats")}>
-                  {(["weekly", "monthly", "yearly"] as const).map((freq) => (
-                    <Button
-                      key={freq}
-                      type="button"
-                      color="primary"
-                      outline={draft.frequency !== freq}
-                      onClick={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          frequency: freq,
-                          // A weekday and a day of the month are different numbers; a change of
-                          // cadence clears it rather than reading the 5th as Friday.
-                          day: freq === d.frequency ? d.day : "",
-                          start: freq === "weekly" ? (parseISODay(d.start) ? d.start : toISODay(now)) : d.start.slice(0, 7),
-                        }))
-                      }
-                    >
-                      {t(`incomes.form.freq.${freq}`)}
-                    </Button>
-                  ))}
-                </div>
-              </FormGroup>
-
-              <FormGroup>
-                <Label for="income-every" className="small fw-medium">
-                  {t("incomes.form.every")}
-                </Label>
-                <div className="input-group">
-                  <Input id="income-every" type="number" min={1} max={24} step={1} value={draft.every} onChange={(e) => set("every", e.target.value)} invalid={!!errors.every} />
-                  <span className="input-group-text">{t(unit, { count: Number(draft.every) || 1 })}</span>
-                </div>
+                <EveryPicker
+                  id="income-every"
+                  label={t("incomes.form.every")}
+                  unitAria={t("incomes.form.everyUnit")}
+                  unit={draft.frequency}
+                  count={Math.max(1, Number(draft.every) || 1)}
+                  unitText={(u, n) => t(u === "weekly" ? "incomes.form.unitWeeks" : u === "yearly" ? "incomes.form.unitYears" : "incomes.form.unitMonths", { count: n })}
+                  onChange={(freq, n) =>
+                    setDraft((d) => ({
+                      ...d,
+                      frequency: freq,
+                      every: String(n),
+                      // A weekday and a day of the month are different numbers; a change of
+                      // cadence clears it rather than reading the 5th as Friday.
+                      day: freq === d.frequency || (freq !== "weekly" && d.frequency !== "weekly") ? d.day : "",
+                      start: freq === "weekly" ? (parseISODay(d.start) ? d.start : toISODay(now)) : d.start.slice(0, 7),
+                    }))
+                  }
+                  invalid={!!errors.every}
+                />
                 {errors.every && <div className="invalid-feedback d-block">{error("every")}</div>}
               </FormGroup>
 
@@ -339,7 +342,14 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                     <Label for="income-day" className="small fw-medium">
                       {t("incomes.form.dayOfMonth")}
                     </Label>
-                    <Input id="income-day" type="number" min={1} max={31} step={1} inputMode="numeric" value={draft.day} onChange={(e) => set("day", e.target.value)} invalid={!!errors.day} />
+                    <Input id="income-day" type="select" value={draft.day} onChange={(e) => set("day", e.target.value)} invalid={!!errors.day}>
+                      <option value="">—</option>
+                      {MONTH_DAYS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </Input>
                     <FormFeedback>{error("day")}</FormFeedback>
                   </FormGroup>
                 </div>
@@ -366,7 +376,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
             </>
           )}
 
-          {view === 3 && (
+          {view === "where" && (
             <>
               {accounts.length > 0 && (
                 <FormGroup>
@@ -388,14 +398,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 </FormGroup>
               )}
 
-              <FormGroup switch className="d-flex align-items-start gap-2">
-                <Input id="income-pause" type="switch" role="switch" checked={draft.hasPause} onChange={(e) => set("hasPause", e.target.checked)} />
-                <Label for="income-pause" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
-                  {t("incomes.form.pause")}
-                </Label>
-              </FormGroup>
-              {draft.hasPause && (
-                <div className="ps-2 mb-3">
+              {/* «Ναι» shows the months of the break, in this step. */}
+              <YesNoChoice question={t("incomes.form.qPause")} value={draft.hasPause} onChange={(yes) => set("hasPause", yes)}>
+                <div className="ps-2">
                   <div className="d-flex gap-2">
                     <FormGroup className="mb-2" style={{ flex: 1 }}>
                       <Label for="income-pause-from" className="small">
@@ -423,7 +428,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                     </div>
                   )}
                 </div>
-              )}
+              </YesNoChoice>
 
               <FormGroup>
                 <Label className="small fw-medium d-block">{t("incomes.form.ends")}</Label>
@@ -442,32 +447,31 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 )}
               </FormGroup>
 
-              <FormGroup switch className="d-flex align-items-start gap-2 mb-0">
-                <Input id="income-salary" type="switch" role="switch" checked={draft.isSalary} onChange={(e) => set("isSalary", e.target.checked)} />
-                <div>
-                  <Label for="income-salary" className="small fw-medium mb-0" style={{ cursor: "pointer" }}>
-                    {t("incomes.form.isSalary")}
-                  </Label>
-                  <div className="text-body-secondary" style={{ fontSize: 11.5 }}>
-                    {draft.isSalary && salaryName ? t("incomes.form.isSalaryMoves", { name: salaryName }) : t("incomes.form.isSalaryHint")}
-                  </div>
-                </div>
-              </FormGroup>
+              <YesNoChoice
+                className="mb-0"
+                question={<Question text={t("incomes.form.qSalary")} hint={draft.isSalary && salaryName ? t("incomes.form.isSalaryMoves", { name: salaryName }) : t("incomes.form.isSalaryHint")} />}
+                value={draft.isSalary}
+                onChange={(yes) => set("isSalary", yes)}
+              />
             </>
           )}
         </ModalBody>
 
+        {/* Delete far left, then Back / Cancel; Next / Save alone on the right. */}
         <ModalFooter className="justify-content-between">
-          {view === 1 ? (
-            <Button type="button" color="secondary" outline onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-          ) : (
-            <Button type="button" color="secondary" outline onClick={() => goTo((view - 1) as View)}>
-              ‹ {t("common.back")}
-            </Button>
-          )}
-          {view === 4 ? (
+          <div className="d-flex gap-2">
+            {isEdit && onDelete && <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteLocked} title={deleteReason} />}
+            {view === "what" ? (
+              <Button type="button" color="secondary" outline onClick={onClose}>
+                {t("common.cancel")}
+              </Button>
+            ) : (
+              <Button type="button" color="secondary" outline onClick={() => setView(STEPS[index - 1])}>
+                ‹ {t("common.back")}
+              </Button>
+            )}
+          </div>
+          {view === "review" ? (
             <Button type="submit" color="success">
               {t("common.save")}
             </Button>
@@ -479,5 +483,17 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
         </ModalFooter>
       </form>
     </Modal>
+  );
+}
+
+/** A yes / no question with the words that explain it under it. */
+function Question({ text, hint }: { text: string; hint: string }) {
+  return (
+    <>
+      <span className="d-block">{text}</span>
+      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: 11.5 }}>
+        {hint}
+      </span>
+    </>
   );
 }

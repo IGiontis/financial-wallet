@@ -185,3 +185,123 @@
   color: var(--color-text-primary);
   white-space: nowrap;
 }
+
+/* ── The header band ─────────────────────────────────────────────────────────
+   A deep, saturated step of the card's tone (--band, set on the card): the
+   tone mixed into the band ink at --tone-band (index.css), lettered in
+   --on-band. Strengths live on the tone scale, never here or in the TSX;
+   goalBand.test.ts holds the lettering at ≥ 8:1 for every tone, colourway and
+   mode. A recurring goal's band is the brand, which takes --tone-band-brand. */
+.band {
+  --band-strength: var(--tone-band);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-3) 14px;
+  background: color-mix(in srgb, var(--band) var(--band-strength), var(--band-ink));
+  color: var(--on-band);
+  /* Inside the card's own border, so a pixel tighter than its radius. */
+  border-top-left-radius: calc(var(--border-radius-lg) - 1px);
+  border-top-right-radius: calc(var(--border-radius-lg) - 1px);
+}
+
+.band[data-tone="brand"] {
+  --band-strength: var(--tone-band-brand);
+}
+
+/* Paused: the colour drains out of the band — the inset grey of the page,
+   lettered in the body ink — and the chip in it says why. */
+.band[data-tone="paused"] {
+  --on-band: var(--text);
+  background: var(--page-inset);
+}
+
+/* Everything on the card but the veil: inert under it while paused. */
+.cardInner {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: inherit;
+}
+
+.bandIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-round);
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  flex-shrink: 0;
+  background: var(--color-surface-raised);
+}
+
+/* The name alone in the band, across all of it, and onto a second line only
+   when it does not fit: cut short, «Μετακόμιση & Νέο Σπ…» lost the name. */
+.bandName {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: var(--stat-card-title-size);
+  font-weight: var(--stat-label-weight);
+  line-height: 1.3;
+  color: var(--on-band);
+}
+
+/* The status chip sits on the card's surface, in the tone's readable ink. */
+.bandChip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  color: var(--band-chip-text);
+  background: var(--color-surface-raised);
+}
+
+.band .bandMenu,
+.band .bandMenu:hover {
+  color: var(--on-band);
+}
+
+/* ── Paused: a frosted veil over the whole card ─────────────────────────────
+   The card stays faintly readable underneath, so it can still be told apart,
+   but nothing on it can be used: the veil takes every tap, and the card under
+   it is inert. «Συνέχιση» on the veil is all it offers. Without
+   backdrop-filter the veil is simply thicker. */
+.pausedVeil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--surface) var(--tone-veil-solid), transparent);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .pausedVeil {
+    background: color-mix(in srgb, var(--surface) var(--tone-veil), transparent);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+}
+
+.pausedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-md);
+}
+

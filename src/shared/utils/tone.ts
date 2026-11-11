@@ -4,12 +4,14 @@ import type { CSSProperties } from "react";
 export type Tone = "income" | "expense" | "goal" | "invest" | "pending";
 
 /**
- * A chip in a meaning's colour: the shared wash behind it and the text-safe
- * shade of the colour on it. From the tone tokens, so every chip in the app is
- * the same strength and follows the theme; `strong` for the one chosen or
- * meant to stand out.
+ * A chip in a meaning's colour: its own chip ground (`--{tone}-chip`, the tone
+ * mixed into the card surface at a strength you can see — index.css, «Chips»),
+ * a 1px edge in the tone drawn inside it (an inset shadow, so no chip changes
+ * size), and the text-safe shade of the colour on it. `strong` for the one
+ * chosen or meant to stand out: the stronger ground and edge.
  */
 export const toneChip = (tone: Tone, strong = false): CSSProperties => ({
-  background: `var(--${tone}-wash${strong ? "-strong" : ""})`,
+  background: `var(--${tone}-chip${strong ? "-strong" : ""})`,
   color: `var(--color-${tone}-text)`,
+  boxShadow: `inset 0 0 0 1px var(--${tone}-edge${strong ? "-strong" : ""})`,
 });

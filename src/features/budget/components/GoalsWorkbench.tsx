@@ -48,7 +48,8 @@ export interface GoalsWorkbenchProps {
   groupOptions: GoalGroupBy[];
   groupBy: GoalGroupBy;
   onGroupBy: (by: GoalGroupBy) => void;
-  renderCards: (goals: InvestmentGoalWithStats[]) => ReactNode;
+  /** `status` is the status filter picked («paused» lists only paused ones). */
+  renderCards: (goals: InvestmentGoalWithStats[], status: string) => ReactNode;
   renderList: (goals: InvestmentGoalWithStats[]) => ReactNode;
   /** What an empty tab says, when nothing is searched and every status is shown. */
   empty: ReactNode;
@@ -128,7 +129,7 @@ export function GoalsWorkbench({
           )
         ) : isError ? null : shown.length > 0 ? (
           which === "cards" ? (
-            renderCards(shown)
+            renderCards(shown, option?.id ?? "")
           ) : (
             renderList(shown)
           )
@@ -150,12 +151,13 @@ export function GoalsWorkbench({
 
   return (
     <>
+      {/* The add («+», `AddButton`) pinned left; the title beside it is what wraps. */}
       <div className={styles.header}>
+        <div className={styles.headActions}>{action}</div>
         <div className={styles.headText}>
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{title}</h1>
           <p className="small text-body-secondary mb-0">{subtitle}</p>
         </div>
-        <div className={styles.headActions}>{action}</div>
       </div>
 
       <GoalTabs base={base} label={title} value={tab} onChange={setTab} />

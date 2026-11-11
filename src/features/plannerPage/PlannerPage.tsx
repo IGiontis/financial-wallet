@@ -54,6 +54,7 @@ import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipp
 import PlanLedger, { type LedgerItem } from "./components/PlanLedger";
 import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
+import { AddHeader } from "../../shared/components/AddButton";
 import styles from "./css/PlannerPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
 
@@ -555,10 +556,14 @@ export function PlannerPage() {
 
       {/* The day, as on the Overview: a date is what a page about the weeks
           ahead is opened to learn. */}
-      <div className="mb-3">
-        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("planner.title")}</h1>
-        <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
-      </div>
+      {/* The «+» adds a line of what goes out — the planner's own entry; a
+          one-off coming in is added from «Μπαίνουν» in «Τα ποσά σου». */}
+      <AddHeader
+        label={t("planner.addExpenseLine")}
+        onAdd={() => setEditor({ mode: "line", draft: { label: "", amount: "" } })}
+        title={t("planner.title")}
+        subtitle={new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+      />
 
       <Row className="g-3">
         <Col xs={12} lg={7}>

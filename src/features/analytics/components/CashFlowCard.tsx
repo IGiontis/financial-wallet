@@ -8,6 +8,7 @@ import { CashFlowLegend } from "../../overview/components/CashFlowLegend";
 import { ChartCard } from "./ChartCard";
 import { ChartDetails, DetailsTable, type DetailsColumn } from "./DetailsTable";
 import { signedWith } from "./chartTheme";
+import { Legend } from "./Legend";
 
 /** The height the Overview's chart draws itself at; the card holds exactly that, so nothing scrolls inside it. */
 const CHART_HEIGHT = 280;
@@ -21,7 +22,7 @@ const leftOf = (p: ChartDataPoint) => p.income - p.expenses - p.investments - p.
  * range. The very chart and the very grouping the Overview uses
  * (`groupByMonth` / `groupByWeek`), so the two screens draw the same bars.
  */
-export function CashFlowCard({ transactions, from, now, single, formatCurrency, noData }: { transactions: Transaction[]; from: Date | null; now: Date; single: boolean; formatCurrency: (n: number) => string; noData: string }) {
+export function CashFlowCard({ transactions, from, now, single, formatCurrency, noData, fixed }: { transactions: Transaction[]; from: Date | null; now: Date; single: boolean; formatCurrency: (n: number) => string; noData: string; /** This month's fixed income and bills — see `useFixedMonth`. Drawn only over months, not weeks. */ fixed?: { income: number; bills: number } }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const narrow = useNarrowScreen();
@@ -33,6 +34,15 @@ export function CashFlowCard({ transactions, from, now, single, formatCurrency, 
   }, [transactions, single, from, now, t, lang]);
 
   const signed = signedWith(formatCurrency);
+  const marks = !single && fixed && (fixed.income > 0 || fixed.bills > 0) ? fixed : undefined;
+  const fixedLegend = marks ? (
+    <Legend
+      items={[
+        ...(marks.income > 0 ? [{ color: "var(--color-income)", label: t("analytics.fixed.incomeLine", { amount: formatCurrency(marks.income) }) }] : []),
+        ...(marks.bills > 0 ? [{ color: "var(--color-expense)", label: t("analytics.fixed.billsLine", { amount: formatCurrency(marks.bills) }) }] : []),
+      ]}
+    />
+  ) : null;
   const sum = (pick: (p: ChartDataPoint) => number) => Math.round(data.reduce((s, p) => s + pick(p), 0) * 100) / 100;
   const left = sum(leftOf);
 
@@ -57,21 +67,27 @@ export function CashFlowCard({ transactions, from, now, single, formatCurrency, 
       footer={
         <div className="mt-2">
           <CashFlowLegend />
+          {fixedLegend}
         </div>
       }
       details={{
         content: (
           <ChartDetails
             note={t("analytics.cashFlow.note")}
-            chart={<CashFlowChart data={data} formatCurrency={formatCurrency} />}
-            legend={<CashFlowLegend />}
+            chart={<CashFlowChart data={data} formatCurrency={formatCurrency} fixed={marks} />}
+            legend={
+              <>
+                <CashFlowLegend />
+                {fixedLegend}
+              </>
+            }
             tableTitle={t("analytics.details.table")}
             table={<DetailsTable rows={[...data].reverse()} rowKey={(r) => r.label} columns={columns} footLabel={t("common.total")} />}
           />
         ),
       }}
     >
-      <CashFlowChart data={data} formatCurrency={formatCurrency} compact={narrow} />
+      <CashFlowChart data={data} formatCurrency={formatCurrency} compact={narrow} fixed={marks} />
     </ChartCard>
   );
 }

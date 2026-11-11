@@ -12,6 +12,7 @@ import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { expectedByAccount, mainAccount } from "../accounts/accountsUtils";
 import { WizardSteps } from "../transactions/components/WizardSteps";
+import wiz from "../../shared/css/Wizard.module.css";
 import { formatTable } from "../transactions/transactionDates";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
@@ -240,8 +241,8 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           else void goTo(STEPS[index + 1]);
         }}
       >
-        <ModalBody>
-          <WizardSteps steps={STEPS} current={step} onGo={(s) => void goTo(s)} label={(s) => t(`bills.pay.step_${s}`)} />
+        <ModalBody className="wash-expense">
+          <WizardSteps steps={STEPS} current={step} onGo={(s) => void goTo(s)} label={(s) => t(`bills.pay.step_${s}`)} large />
           <p className={wizard.prompt}>{t(`bills.pay.ask_${step}`)}</p>
 
           {step === "amount" && (
@@ -351,11 +352,11 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
 
           {step === "review" && (
             <>
-              <div className={wizard.reviewRows}>
+              <div className={wiz.wizCard}>
                 {rows.map((row) => (
-                  <button key={row.label} type="button" onClick={() => void goTo(row.step)}>
-                    <span>{row.label}</span>
-                    <strong>{row.value}</strong>
+                  <button key={row.label} type="button" className={wiz.wizRow} onClick={() => void goTo(row.step)}>
+                    <span className={wiz.wizLabel}>{row.label}</span>
+                    <span className={wiz.wizValue}>{row.value}</span>
                   </button>
                 ))}
               </div>

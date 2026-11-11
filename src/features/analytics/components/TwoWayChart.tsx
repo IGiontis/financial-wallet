@@ -1,6 +1,6 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, GRID_STROKE, compactNumber, signedWith } from "./chartTheme";
+import { AXIS_TICK, GRID_STROKE, moneyAxis, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 import type { TwoWayBucket } from "../twoWay";
 
@@ -29,7 +29,7 @@ function TwoWayTooltip({ active, payload, running, formatCurrency }: { active?: 
  * period or added up from the start. Added up, the gap between them is the
  * whole story — a betting habit reads as two lines drifting apart.
  */
-export default function TwoWayChart({ data, running, formatCurrency, compact }: { data: TwoWayPoint[]; running: boolean; formatCurrency: (n: number) => string; compact?: boolean }) {
+export default function TwoWayChart({ data, running, formatCurrency }: { data: TwoWayPoint[]; running: boolean; formatCurrency: (n: number) => string; compact?: boolean }) {
   const inKey = running ? "cumIn" : "in";
   const outKey = running ? "cumOut" : "out";
   // A dot where something happened, so one win in a quiet year is not a bend in a line.
@@ -45,7 +45,7 @@ export default function TwoWayChart({ data, running, formatCurrency, compact }: 
       <LineChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
         <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={14} />
-        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis {...moneyAxis(formatCurrency)} />
         <Tooltip content={<TwoWayTooltip running={running} formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         <Line type="monotone" dataKey={inKey} stroke="var(--color-income)" strokeWidth={2} dot={dot("inCount", "var(--color-income)")} activeDot={{ r: 4 }} isAnimationActive={false} />
         <Line type="monotone" dataKey={outKey} stroke="var(--color-expense)" strokeWidth={2} dot={dot("outCount", "var(--color-expense)")} activeDot={{ r: 4 }} isAnimationActive={false} />

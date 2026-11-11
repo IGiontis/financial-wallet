@@ -2,16 +2,16 @@
    tab its own block — the overview's figures, or a search row over the cards
    or the list. See GoalsWorkbench.tsx, GoalTabs.tsx, GoalsOverview.tsx. */
 
+/* The «+» first, on the left, never wrapping; the title takes the rest. */
 .header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
 .headText {
+  flex: 1 1 auto;
   min-width: 0;
 }
 

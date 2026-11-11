@@ -8,7 +8,10 @@
   flex-wrap: wrap;
   padding: 0.375rem var(--space-2);
   border-radius: var(--border-radius-sm);
-  background: var(--color-background-secondary);
+  /* Editable rows inside a dialog: the inputs' surface and edge, never the
+     beige inset ground. */
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-surface);
 }
 
 .rowDanger {

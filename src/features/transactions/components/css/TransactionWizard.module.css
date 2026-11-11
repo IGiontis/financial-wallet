@@ -436,10 +436,12 @@
 
 /* ── The check of a wizard: rows of label and value, each back to its step ── */
 
+/* Each row is a button back to its step: a control, so it sits on the inputs'
+   surface, never the inset (beige) ground. */
 .reviewRows {
   border: 1px solid var(--color-border-tertiary);
   border-radius: var(--border-radius-md);
-  background: var(--color-background-secondary);
+  background: var(--surface);
 }
 
 .reviewRows > * {

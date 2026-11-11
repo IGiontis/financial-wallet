@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, compactNumber, seriesColor, seriesDash } from "./chartTheme";
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, moneyAxis, seriesColor, seriesDash } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 export interface TrendPoint {
@@ -42,7 +42,7 @@ export default function CategoryTrendChart({ data, series, bars, formatCurrency,
     <>
       {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
       <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={10} />
-      <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+      <YAxis {...moneyAxis(formatCurrency)} />
     </>
   );
 

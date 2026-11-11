@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
-import { AXIS_TICK, CURSOR_FILL, weekdayNames } from "./chartTheme";
+import { AXIS_TICK, CURSOR_FILL, moneyAxis, weekdayNames } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 interface Point {
@@ -47,8 +47,9 @@ export default function WeekdayChart({ totals, formatCurrency, locale }: { total
 
   return (
     <ResponsiveContainer width="100%" height="100%" debounce={200}>
-      <BarChart data={data} margin={{ top: 8, right: 4, left: 4, bottom: 0 }} barCategoryGap="22%">
+      <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap="22%">
         <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={4} interval={0} />
+        <YAxis {...moneyAxis(formatCurrency)} />
         <Tooltip content={<WeekdayTooltip formatCurrency={formatCurrency} />} cursor={CURSOR_FILL} />
         <Bar dataKey="amount" radius={[3, 3, 0, 0]} isAnimationActive={false}>
           {data.map((point) => (

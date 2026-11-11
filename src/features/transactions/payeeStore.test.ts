@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addPayee, filterPayees, isUnsavedPayee, payeeKey, removePayee, renamePayee, sortPayees, validatePayee, MAX_PAYEE_LENGTH } from "./payeeStore";
+import { addPayee, filterPayees, isUnsavedPayee, payeeKey, payeeMatch, removePayee, renamePayee, sortPayees, validatePayee, MAX_PAYEE_LENGTH } from "./payeeStore";
 
 describe("payeeKey", () => {
   it("ignores case and surrounding whitespace", () => {
@@ -193,5 +193,46 @@ describe("payee suggestions", () => {
       { letter: "Ω", names: ["Ωκεανός", "Ώρα"] },
       { letter: "#", names: ["7-Eleven"] },
     ]);
+  });
+});
+
+describe("payeeMatch — which letters of a suggestion were typed", () => {
+  it("finds them ignoring case, and gives offsets into the name as shown", () => {
+    expect(payeeMatch("Shell Rhodes", "rho")).toEqual([6, 9]);
+    expect("Shell Rhodes".slice(6, 9)).toBe("Rho");
+  });
+
+  it("ignores accents and the final sigma, both ways", () => {
+    const name = "Καφές Λόφος";
+    const hit = payeeMatch(name, "καφεσ");
+    expect(hit).toEqual([0, 5]);
+    expect(name.slice(...hit!)).toBe("Καφές");
+    expect(name.slice(...payeeMatch(name, "ΛΟΦ")!)).toBe("Λόφ");
+  });
+
+  it("keeps a decomposed accent with its letter", () => {
+    // «έ» typed as ε + combining acute: two code units, one letter on screen.
+    const name = "Cafe\u0301 Nero";
+    const [start, end] = payeeMatch(name, "cafe")!;
+    expect(name.slice(start, end)).toBe("Cafe");
+    expect(payeeMatch(name, "ne")).toEqual([6, 8]);
+  });
+
+  it("collapses extra spaces in what is typed", () => {
+    expect(payeeMatch("Super Market", "super   mar")).toEqual([0, 9]);
+  });
+
+  it("is null when nothing is typed or nothing matches", () => {
+    expect(payeeMatch("Lidl", "  ")).toBeNull();
+    expect(payeeMatch("Lidl", "zz")).toBeNull();
+  });
+
+  it("agrees with the filter: a name is listed exactly when it has a match", () => {
+    const payees = ["Καφές Λόφος", "Shell", "Fresh Market", "Lidl"];
+    for (const q of ["καφε", "sh", "ΛΟΦΟΣ", "x", "e"]) {
+      expect(filterPayees(payees, q)).toEqual(
+        payees.filter((p) => payeeMatch(p, q)).sort((a, b) => (payeeMatch(a, q)![0] === 0 ? 0 : 1) - (payeeMatch(b, q)![0] === 0 ? 0 : 1)),
+      );
+    }
   });
 });

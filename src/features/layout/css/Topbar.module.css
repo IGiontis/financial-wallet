@@ -18,7 +18,14 @@
   padding: 0;
   background-color: var(--shell-mid);
   background-image: var(--shell-gradient);
-  border-color: var(--shell-rule) !important;
+}
+
+/* Over Bootstrap's `.border-bottom` colour (`!important`): app `!important`s
+   live in this layer (index.css, «Cascade layers»). */
+@layer app-important {
+  .topbar {
+    border-color: var(--shell-rule) !important;
+  }
 }
 
 .topbarContainer {

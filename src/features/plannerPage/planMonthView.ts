@@ -157,3 +157,76 @@ export function planMonth(plan: PlannerPlan, month: Date): PlanMonth | undefined
 export function monthRange(now: Date): { first: Date; last: Date } {
   return { first: startOfMonth(now), last: startOfMonth(horizonEnd(MAX_HORIZON_MONTHS, now)) };
 }
+
+/** What a line of a month's in / out list is. */
+export type MonthFlowKind = "income" | "bill" | "goal" | "debt" | "oneoff" | "line";
+
+/** One thing behind «Μπαίνουν» or «Βγαίνουν»: its name, its day, its amount. */
+export interface MonthFlowItem {
+  key: string;
+  kind: MonthFlowKind;
+  label: string;
+  /** Positive, whichever side it is on. */
+  amount: number;
+  /** The day it lands; absent for a line that runs the whole month, a little a day. */
+  date?: Date;
+  /** The plan's own event, for a dated one. */
+  event?: PlannerEvent;
+}
+
+const kindOf = (event: PlannerEvent): MonthFlowKind =>
+  event.billId ? "bill" : event.debtId ? "debt" : event.goalId ? "goal" : event.oneOffId ? "oneoff" : event.kind === "income" ? "income" : event.kind;
+
+/**
+ * What comes in and what goes out in a month, one by one — the list behind
+ * the month's «Μπαίνουν» and «Βγαίνουν».
+ *
+ * Built from the very slice those two figures are (`planMonth`): its pay and
+ * its dated items, as they are, then the lines charged by the day, each with
+ * what its stretches come to over the month's days. Those last are fractions
+ * of a cent a day; apportioned (`apportion`) so that each side lands, to the
+ * cent, on the figure the tile shows — the dated ones are whole cents already.
+ */
+export function monthFlows(month: PlanMonth): { in: MonthFlowItem[]; out: MonthFlowItem[] } {
+  const { slice, view } = month;
+  const dated = [...slice.payEvents, ...slice.items]
+    .map((event, index) => ({ key: `e${index}`, kind: kindOf(event), label: event.label, amount: event.amount, date: event.date, event }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Each line's stretches over the month's days, at the walk's own daily share.
+  const perRow = new Map<string, number>();
+  for (const stretch of view.stretches ?? []) {
+    const first = Math.max(stretch.from, slice.from);
+    const last = Math.min(stretch.to, slice.to);
+    let sum = 0;
+    for (let offset = first; offset <= last; offset++) {
+      const day = new Date(view.start.getFullYear(), view.start.getMonth(), view.start.getDate() + (offset - slice.from));
+      sum += stretch.rate / getDaysInMonth(day);
+    }
+    if (last >= first) perRow.set(stretch.rowId, (perRow.get(stretch.rowId) ?? 0) + sum);
+  }
+  const labelOf = new Map(view.rows.map((row) => [row.id, row]));
+  // One side, every item on it — the dated ones and the lines — at its raw
+  // amount, then apportioned together (largest remainder, as `rowsBetween`
+  // does) so the list lands on the figure to the cent, whichever of them
+  // carries the fractions: the lines' daily shares, or a dated amount that
+  // was converted from another currency. A remainder either way is placed.
+  const side = (sign: 1 | -1, figure: number): MonthFlowItem[] => {
+    const items: MonthFlowItem[] = [
+      ...dated.filter((item) => sign * item.amount > 0).map((item) => ({ ...item, amount: sign * item.amount })),
+      ...[...perRow.entries()]
+        .filter(([, v]) => sign * v > 0.000001)
+        .map(([rowId, v]) => {
+          const row = labelOf.get(rowId);
+          return { key: `l${rowId}`, kind: (row?.source === "income" ? "income" : "line") as MonthFlowKind, label: row?.label ?? "", amount: sign * v };
+        }),
+    ];
+    const amounts = apportion(
+      items.map((item) => item.amount),
+      figure,
+    );
+    // Only what comes to nothing is left out; it adds nothing to the sum.
+    return items.map((item, k) => ({ ...item, amount: amounts[k] })).filter((item) => item.amount !== 0);
+  };
+  return { in: side(1, month.in), out: side(-1, month.out) };
+}

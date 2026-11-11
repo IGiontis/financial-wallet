@@ -39,21 +39,43 @@ export function BankCard({
   children?: ReactNode;
 }) {
   const Tag = onClick ? "button" : "div";
+  const top = (
+    <span className={styles.top}>
+      <span className={styles.name}>{name}</span>
+      {badge && <span className={styles.badge}>{badge}</span>}
+    </span>
+  );
+  const bottom = (
+    <span className={styles.bottom}>
+      <span className={styles.amount}>{amount}</span>
+      {note && <span className={styles.note}>{note}</span>}
+    </span>
+  );
   return (
     <Tag
       {...(onClick ? { type: "button" as const, onClick, "aria-pressed": selected, "aria-label": label } : {})}
       className={`${styles.card} ${kind === "cash" ? styles.cash : ""} ${selected ? styles.selected : ""} ${compact ? styles.compact : ""}`}
       style={kind === "cash" ? undefined : { ["--card" as string]: CARD_FINISH[finish].background }}
     >
-      <span className={styles.top}>
-        <span className={styles.name}>{name}</span>
-        {badge && <span className={styles.badge}>{badge}</span>}
-      </span>
-      {!compact && (kind === "cash" ? <span className={styles.seal}>€</span> : <span className={styles.chip} aria-hidden />)}
-      <span className={styles.bottom}>
-        <span className={styles.amount}>{amount}</span>
-        {note && <span className={styles.note}>{note}</span>}
-      </span>
+      {kind === "cash" ? (
+        // A wallet: the note (drawn by the stylesheet) out of its top, the € on
+        // the note, and the name and balance on the pocket.
+        <>
+          <span className={styles.seal} aria-hidden>
+            €
+          </span>
+          <span className={styles.pocket}>
+            {top}
+            {bottom}
+          </span>
+        </>
+      ) : (
+        <>
+          {top}
+          {!compact && <span className={styles.chip} aria-hidden />}
+          {bottom}
+        </>
+      )}
       {selected && (
         <span className={styles.check} aria-hidden>
           <FiCheck size={13} strokeWidth={3} />

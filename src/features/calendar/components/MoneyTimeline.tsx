@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { addDays, addMonths, differenceInCalendarDays, endOfMonth, startOfDay, startOfMonth } from "date-fns";
+import { addMonths, differenceInCalendarDays, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import { FiAlertTriangle, FiCalendar, FiCheck, FiChevronLeft, FiChevronRight, FiClock, FiFlag } from "react-icons/fi";
 import { useLoadMore } from "../../../shared/hooks/useLoadMore";
 import { ViewSwitch } from "../../../shared/components/ViewSwitch";
@@ -11,23 +11,19 @@ import styles from "../css/MoneyTimeline.module.css";
 /** What a timeline shows: money in, money out, or both — in to the left of the trunk, out to the right. */
 export type TimelineSide = "in" | "out" | "all";
 
-/**
- * How long a stretch it shows at a time: a month to begin with, up to a year;
- * a week stays as the small extra for a close look.
- */
-type Span = "month" | "quarter" | "half" | "year" | "week";
+/** How long a stretch it shows at a time: a month to begin with, up to a year. */
+type Span = "month" | "quarter" | "half" | "year";
 
-/** How many months a month-based span covers. */
-const SPAN_MONTHS: Record<Exclude<Span, "week">, number> = { month: 1, quarter: 3, half: 6, year: 12 };
+/** How many months a span covers. */
+const SPAN_MONTHS: Record<Span, number> = { month: 1, quarter: 3, half: 6, year: 12 };
 
 /** Days drawn at a time: a year of a busy calendar is a few hundred, drawn as the reader gets to them. */
 const DAYS_PAGE = 21;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** The days a stretch covers, from the day (a week) or the month (the rest) it is anchored on. */
+/** The days a stretch covers, from the month it is anchored on. */
 function stretch(span: Span, anchor: Date): { from: Date; to: Date } {
-  if (span === "week") return { from: anchor, to: addDays(anchor, 6) };
   const from = startOfMonth(anchor);
   return { from, to: startOfDay(endOfMonth(addMonths(from, SPAN_MONTHS[span] - 1))) };
 }
@@ -37,7 +33,7 @@ function stretch(span: Span, anchor: Date): { from: Date; to: Date } {
  * of the trunk and out to the right, or one of them with the days taking turns.
  *
  * A month at a time to begin with — this one — or three, six or twelve, stepped
- * with ‹ ›; a week for a close look. A long stretch is drawn a few weeks at a
+ * with ‹ ›. A long stretch is drawn a few weeks at a
  * time as it is scrolled (`useLoadMore`), so a year costs no more to open
  * than a month. The items are the calendar's own (`calendarItemsBetween`), so
  * a leaf here and the same day on «Ημερολόγιο» say the same.
@@ -94,19 +90,18 @@ export function MoneyTimeline({
   const totalIn = round2(items.filter((i) => i.direction === "in").reduce((sum, i) => sum + i.amount, 0));
   const totalOut = round2(items.filter((i) => i.direction === "out").reduce((sum, i) => sum + i.amount, 0));
 
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }), [locale]);
   const monthShortFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }), [locale]);
-  const title = span === "week" ? `${dayFmt.format(from)} – ${dayFmt.format(to)}` : span === "month" ? monthFmt.format(from) : `${monthShortFmt.format(from)} – ${monthShortFmt.format(to)}`;
+  const title = span === "month" ? monthFmt.format(from) : `${monthShortFmt.format(from)} – ${monthShortFmt.format(to)}`;
 
-  const moved = (by: number) => (span === "week" ? addDays(anchor, by * 7) : addMonths(startOfMonth(anchor), by * SPAN_MONTHS[span]));
+  const moved = (by: number) => addMonths(startOfMonth(anchor), by * SPAN_MONTHS[span]);
   const step = (by: number) => setAnchor(moved(by));
   // Back as far as a whole stretch fits; forward while the next one starts
   // inside the sources — its tail is cut at their last month.
   const canBack = stretch(span, moved(-1)).from >= first;
   const canForward = stretch(span, moved(1)).from <= end;
   const holdsToday = today >= from && today <= to;
-  const backToToday = () => setAnchor(span === "week" ? today : startOfMonth(today));
+  const backToToday = () => setAnchor(startOfMonth(today));
 
   // Drawn a few weeks at a time: the next lot on its way as the end comes into view.
   const { limit, hasMore, more, sentinel } = useLoadMore(days.length, DAYS_PAGE, `${span}|${from.getTime()}|${side}|${kinds?.join(",") ?? ""}`);
@@ -156,15 +151,14 @@ export function MoneyTimeline({
           value={span}
           onChange={(next) => {
             setSpan(next);
-            setAnchor(next === "week" ? today : startOfMonth(today));
+            setAnchor(startOfMonth(today));
           }}
-          // On the narrowest phones each by its length alone — «1μ», «3μ», «7ημ».
+          // On the narrowest phones each by its length alone — «1μ», «3μ», «12μ».
           options={[
             { id: "month", label: t("timeline.month"), icon: FiCalendar, short: t("timeline.shortMonths", { count: 1 }) },
             { id: "quarter", label: t("timeline.months", { count: 3 }), short: t("timeline.shortMonths", { count: 3 }) },
             { id: "half", label: t("timeline.months", { count: 6 }), short: t("timeline.shortMonths", { count: 6 }) },
             { id: "year", label: t("timeline.year"), short: t("timeline.shortMonths", { count: 12 }) },
-            { id: "week", label: t("timeline.week"), short: t("timeline.shortDays", { count: 7 }) },
           ]}
         />
       </div>

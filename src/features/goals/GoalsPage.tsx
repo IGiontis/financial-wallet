@@ -34,6 +34,7 @@ import { PageShell } from "../../shared/components/PageShell";
 import { isSavingsGoal } from "../budget/goalKinds";
 import { useCancelCoveredDebts } from "../debts/useDebts";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
+import { AddButton } from "../../shared/components/AddButton";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 // A goal "belongs" to GoalsPage if it is targeted AND not recurring.
@@ -172,7 +173,7 @@ export default function GoalsPage() {
         screen="goals"
         title={t("goals.title")}
         subtitle={t("goals.subtitle")}
-        action={newGoalButton}
+        action={<AddButton label={t("goals.newGoal")} onClick={() => setShowNewGoal(true)} />}
         goals={mine}
         isLoading={isLoading}
         isError={isError}
@@ -193,7 +194,7 @@ export default function GoalsPage() {
         groupOptions={GOAL_GROUPINGS}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
-        renderCards={(shown) => (
+        renderCards={(shown, status) => (
           <Row className="g-3">
             {shown.map((goal) => (
               <Col xs={12} md={6} xl={4} key={goal.id}>
@@ -206,6 +207,7 @@ export default function GoalsPage() {
                   onDelete={setDeleteGoal}
                   onEdit={setEditGoal}
                   onTogglePause={handleTogglePause}
+                  pausedView={status === "paused"}
                 />
               </Col>
             ))}
@@ -242,7 +244,7 @@ export default function GoalsPage() {
       {historyGoal && <HistoryModal goal={historyGoal} onClose={() => setHistoryGoal(null)} formatCurrency={formatCurrency} />}
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
-      {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} />}
+      {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} onDelete={() => { setDeleteGoal(editGoal); setEditGoal(null); }} />}
       {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
         defaultGoalType="targeted":

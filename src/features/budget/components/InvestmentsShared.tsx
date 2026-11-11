@@ -5,12 +5,11 @@
 // File location:  src/features/budget/investmentShared.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { FiCalendar, FiChevronRight, FiClock, FiDatabase, FiEye, FiTarget } from "react-icons/fi";
+import { FiCalendar, FiChevronRight, FiClock, FiDatabase, FiEye, FiPause, FiPlay, FiTarget } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Fragment, useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
-  Badge,
   Button,
   Card,
   CardBody,
@@ -49,7 +48,7 @@ function ProgressRing({ pct, accent, centre }: { pct: number; accent: string; ce
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }} aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={`color-mix(in srgb, var(${accent}) 20%, transparent)`} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={`color-mix(in srgb, var(${accent}) var(--tone-track), transparent)`} strokeWidth={stroke} />
         {filled > 0 && (
           <circle
             cx={size / 2}
@@ -188,9 +187,14 @@ export interface GoalCardProps {
   onEdit: (goal: InvestmentGoalWithStats) => void;
   onTogglePause: (goal: InvestmentGoalWithStats) => void;
   formatCurrency: (n: number) => string;
+  /**
+   * The page lists only paused ones («Σε παύση» picked in the status menu):
+   * no veil, so they can be read — a grey band with the chip says it instead.
+   */
+  pausedView?: boolean;
 }
 
-export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency }: GoalCardProps) {
+export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency, pausedView = false }: GoalCardProps) {
   // Read once per render: the pace and the projection are measured against it,
   // and two different "now"s inside one card would report two different days.
   const now = new Date();
@@ -201,6 +205,15 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 
   const st = goal.status ? getStatusConfig(goal.status) : null;
   const isPaused = !goal.isActive && !goal.isCompleted;
+  // Among running cards a paused one sits under its veil, locked; listed with
+  // only paused ones it is readable, its actions still cut to resume / view.
+  const locked = isPaused && !pausedView;
+  const pausedMenu = [
+    { label: i18n.t("goals.history"), onSelect: () => onViewHistory(goal) },
+    { label: i18n.t("goals.resume"), onSelect: () => onTogglePause(goal) },
+    MENU_DIVIDER,
+    { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
+  ];
   const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
 
   // ── Raw values ─────────────────────────────────────────────────────────────
@@ -399,83 +412,52 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
         // Deliberately not `overflow: hidden`. Clipping tidies the band's
         // corners and takes the row menu with it: the dropdown opened inside
         // the card and was cut off at its edge.
-        opacity: isPaused ? 0.72 : 1,
-        transition: "opacity 0.2s",
+        // The paused veil is laid over the whole card.
+        position: "relative",
         display: "flex",
         flexDirection: "column",
       }}
     >
+      {/* Everything on the card. Under the paused veil it is inert: no tap,
+          no tab stop, nothing read out — the veil says what it is. */}
+      <div className={styles.cardInner} inert={locked || undefined} aria-hidden={locked || undefined}>
       {/* ── Identity band ─────────────────────────────────────────────────── */}
+      {/* A deep, saturated step of the card's tone. The strengths are on the
+          tone scale (index.css), the drawing in GoalCard.module.css. Paused,
+          it greys out and says so. */}
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "var(--space-3) 14px",
-          background: `color-mix(in srgb, var(${accent}) 10%, transparent)`,
-          borderBottom: `1px solid color-mix(in srgb, var(${accent}) 26%, transparent)`,
-          // Inside the card's own border, so a pixel tighter than its radius.
-          borderTopLeftRadius: "calc(var(--border-radius-lg) - 1px)",
-          borderTopRightRadius: "calc(var(--border-radius-lg) - 1px)",
-        }}
+        className={styles.band}
+        data-tone={isPaused ? "paused" : accent === "--bs-primary" ? "brand" : undefined}
+        style={{ "--band": `var(${accent})`, "--band-chip-text": `var(${accentText})` } as CSSProperties}
       >
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: "var(--radius-round)",
-            display: "grid",
-            placeItems: "center",
-            fontSize: 17,
-            flexShrink: 0,
-            background: "var(--color-surface-raised)",
-            border: `1px solid color-mix(in srgb, var(${accent}) 38%, transparent)`,
-          }}
-        >
-          {goal.icon ?? "💰"}
-        </span>
+        <span className={styles.bandIcon}>{goal.icon ?? "💰"}</span>
 
-        {/* The name alone in the band, across all of it, and onto a second
-            line only when it does not fit: cut short, «Μετακόμιση & Νέο Σπ…»
-            lost the name. The deadline it shared the band with is in the body. */}
-        <p style={{ margin: 0, minWidth: 0, flex: 1, overflowWrap: "anywhere", fontSize: "var(--stat-card-title-size)", fontWeight: "var(--stat-label-weight)", lineHeight: 1.3, color: "var(--color-text-primary)" }}>
-          {goal.name}
-        </p>
+        {/* The name alone in the band, across all of it; the deadline it once
+            shared the band with is in the body. */}
+        <p className={styles.bandName}>{goal.name}</p>
 
         <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
-          {isPaused && (
-            <Badge color="warning" style={{ fontSize: 10.5 }}>
-              {i18n.t("common.paused")}
-            </Badge>
-          )}
-          {st && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "var(--space-0) var(--space-2)",
-                borderRadius: "var(--radius-pill)",
-                whiteSpace: "nowrap",
-                color: `var(${accentText})`,
-                // The card's surface rather than another tint: stacked on the
-                // band's own 10% wash, a 15% pill left the red label at 3.82:1
-                // in dark mode. On the surface it clears 5:1 and reads as a chip
-                // sitting on the band, which is what it is.
-                background: "var(--color-surface-raised)",
-                border: `1px solid color-mix(in srgb, var(${accent}) 38%, transparent)`,
-              }}
-            >
-              {st.label}
+          {isPaused ? (
+            <span className={styles.pausedChip} data-testid="goal-paused-chip">
+              <FiPause aria-hidden /> {i18n.t("common.paused")}
             </span>
+          ) : (
+            /* The status chip on the card's surface, in the tone's readable ink. */
+            st && <span className={styles.bandChip}>{st.label}</span>
           )}
           <RowMenu
             label={goal.name}
-            entries={[
-              { label: i18n.t("common.edit"), onSelect: () => onEdit(goal) },
-              { label: i18n.t(goal.isActive ? "goals.pause" : "goals.resume"), onSelect: () => onTogglePause(goal), disabled: isEffectivelyCompleted },
-              MENU_DIVIDER,
-              { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
-            ]}
+            className={styles.bandMenu}
+            entries={
+              isPaused
+                ? pausedMenu
+                : [
+                    { label: i18n.t("common.edit"), onSelect: () => onEdit(goal) },
+                    { label: i18n.t("goals.pause"), onSelect: () => onTogglePause(goal), disabled: isEffectivelyCompleted },
+                    MENU_DIVIDER,
+                    { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
+                  ]
+            }
           />
         </div>
       </div>
@@ -530,7 +512,8 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
             pushed to its foot, so a card stretched to its row's height keeps
             the room above the date rather than an empty band under it. */}
         {/* The deadline opens the goal's details — the sheet a row of the list opens. */}
-        <button type="button" className={styles.deadline} style={{ marginTop: "auto" }} onClick={() => setDetailsOpen(true)} aria-label={i18n.t("goals.openDetails", { name: goal.name })}>
+        {/* Paused, the details sheet (which deposits and edits) is not offered. */}
+        <button type="button" className={styles.deadline} style={{ marginTop: "auto" }} disabled={isPaused} onClick={() => setDetailsOpen(true)} aria-label={i18n.t("goals.openDetails", { name: goal.name })}>
           {!isRecurring && deadlineDate && <FiCalendar aria-hidden />}
           <span>{bandSubtitle}</span>
           <FiChevronRight className={styles.deadlineMore} aria-hidden />
@@ -562,13 +545,19 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
       )}
 
       {/* ── Actions ───────────────────────────────────────────────────────── */}
+      {/* Paused: nothing goes in or out — resume, or look at its history. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "var(--space-3) 14px", borderTop: "1px solid var(--color-border-tertiary)" }}>
-        {!isEffectivelyCompleted && (
+        {isPaused && (
+          <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 96 }} onClick={() => onTogglePause(goal)}>
+            <FiPlay aria-hidden /> {i18n.t("goals.resume")}
+          </Button>
+        )}
+        {!isPaused && !isEffectivelyCompleted && (
           <Button size="sm" color="primary" style={{ flex: "1 1 auto", minWidth: 96 }} onClick={() => onAddDeposit(goal)}>
             {i18n.t("investments.addDeposit")}
           </Button>
         )}
-        {ownSaved(goal) > 0 && !isEffectivelyCompleted && (
+        {!isPaused && ownSaved(goal) > 0 && !isEffectivelyCompleted && (
           <Button size="sm" color="secondary" outline style={{ flex: "1 1 auto", minWidth: 84 }} onClick={() => onWithdraw(goal)}>
             {i18n.t("investments.withdraw")}
           </Button>
@@ -577,6 +566,20 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
           {i18n.t("goals.history")}
         </Button>
       </div>
+      </div>
+      {/* Paused, among running ones: a frosted veil over the whole card. It
+          takes every tap (the card under it is inert) and offers one thing
+          only: «Συνέχιση». No «⋯», no other action. */}
+      {locked && (
+        <div className={styles.pausedVeil} role="group" aria-label={i18n.t("goals.pausedCard", { name: goal.name })} data-testid="goal-paused-veil">
+          <span className={styles.pausedChip}>
+            <FiPause aria-hidden /> {i18n.t("common.paused")}
+          </span>
+          <Button size="sm" color="primary" onClick={() => onTogglePause(goal)} aria-label={`${i18n.t("goals.resume")} · ${goal.name}`}>
+            <FiPlay aria-hidden /> {i18n.t("goals.resume")}
+          </Button>
+        </div>
+      )}
       {detailsOpen && (
         <GoalDetailsModal
           goal={goal}

@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import type { PacePoint } from "../analyticsUtils";
-import { AXIS_TICK, GRID_STROKE, compactNumber, signedWith } from "./chartTheme";
+import { AXIS_TICK, GRID_STROKE, moneyAxis, signedWith } from "./chartTheme";
 import { TooltipRow, TooltipShell } from "./TooltipShell";
 
 function PaceTooltip({ active, payload, label, formatCurrency }: { active?: boolean; payload?: { payload?: PacePoint }[]; label?: number; formatCurrency: (n: number) => string }) {
@@ -38,7 +38,7 @@ export default function MonthPaceChart({ data, formatCurrency, compact }: { data
       <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
         {!compact && <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />}
         <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" minTickGap={18} />
-        <YAxis hide={compact} tickFormatter={compactNumber} tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} />
+        <YAxis {...moneyAxis(formatCurrency)} />
         <Tooltip content={<PaceTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: GRID_STROKE }} />
         <Line type="monotone" dataKey="previous" stroke="var(--color-text-secondary)" strokeWidth={1.75} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
         <Line type="monotone" dataKey="current" stroke="var(--color-expense)" strokeWidth={2.25} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />

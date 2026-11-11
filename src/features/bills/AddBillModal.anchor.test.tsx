@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "../../i18n";
 import AddBillModal from "./AddBillModal";
+import { toStep } from "./billWizardTest";
 import type { Bill, Category, CreateBillDTO } from "../../shared/types/IndexTypes";
 
 // "Starting from" — the month a bill that comes every few months starts
@@ -56,6 +57,7 @@ beforeAll(async () => {
 describe("the bill form's starting month", () => {
   it("is the app's own calendar, not the browser's", async () => {
     open(water);
+    await toStep(3);
 
     const field = await screen.findByLabelText("Starting from");
     expect(field.tagName).toBe("BUTTON");
@@ -64,15 +66,18 @@ describe("the bill form's starting month", () => {
 
   it("shows the month the bill was saved with", async () => {
     open(water);
+    await toStep(3);
 
     expect(await screen.findByLabelText("Starting from")).toHaveTextContent("Mar 2026");
   });
 
   it("saves the month picked, on its first day", async () => {
     const saved = open(water);
+    await toStep(3);
 
     await userEvent.click(await screen.findByLabelText("Starting from"));
     await userEvent.click(await screen.findByText("Jun"));
+    await toStep(5);
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
@@ -85,6 +90,7 @@ describe("the bill form's starting month", () => {
 
     // Save only enables once something changed — here, anything but the month.
     await userEvent.type(await screen.findByDisplayValue("Water"), " board");
+    await toStep(5);
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(saved).toHaveLength(1));

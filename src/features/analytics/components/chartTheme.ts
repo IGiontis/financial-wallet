@@ -61,6 +61,33 @@ export function compactNumber(value: number): string {
   return String(Math.round(value));
 }
 
+/**
+ * A money axis tick in the app's own currency style, compact: «1,2k €» in
+ * Greek, «€1.2k» in English. The symbol, where it sits and the decimal mark
+ * are read off the app's formatter itself, so the axis can't disagree with the
+ * figures in the tooltip. Below zero with a true minus.
+ */
+export function moneyTickWith(format: (n: number) => string): (n: number) => string {
+  const zero = format(0);
+  const digits = zero.match(/0(?:[.,]0+)?/)?.[0];
+  const comma = /1,5/.test(format(1.5));
+  return (n: number) => {
+    const figure = compactNumber(Math.abs(n));
+    const local = comma ? figure.replace(".", ",") : figure;
+    const text = digits ? zero.replace(digits, local) : local;
+    return n < 0 ? `−${text}` : text;
+  };
+}
+
+/**
+ * The vertical money axis every Statistics chart carries: compact figures, no
+ * line or ticks, wide enough for «12,5k €» and narrow enough to leave a phone
+ * its bars. Spread onto recharts' <YAxis>.
+ */
+export const moneyAxis = (format: (n: number) => string) =>
+  // Whole units only: on a tiny range the axis would pick 1.25, 2.5 … and the
+  // ticks, rounded for display, would read «1 €, 3 €» — steps that lie.
+  ({ tickFormatter: moneyTickWith(format), tick: AXIS_TICK, axisLine: false, tickLine: false, width: 50, tickCount: 4, allowDecimals: false }) as const;
 
 /**
  * Gridline values for an amount axis, chosen so the steps suit the numbers.

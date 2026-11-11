@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Input } from "reactstrap";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
 import { normalizeCategoryName } from "../../shared/utils/categoryNames";
 import NewCategoryButton from "./NewCategoryButton";
+import { settingsTabPath } from "../settings/settingsTabs";
 import styles from "./css/CategoryPicker.module.css";
 
 type PickerType = "expense" | "income";
@@ -19,6 +21,13 @@ interface CategoryPickerProps {
   invalid?: boolean;
   /** On a page: the whole grid, scrolled with the page, rather than a box sized for a dialog that scrolls inside. */
   onPage?: boolean;
+  /**
+   * Beside the filter: a «+» that makes a category on the spot, or (`"link"`)
+   * only a small way to where categories are managed — the owner's rule for
+   * the new income / expense flows: a category is not made halfway through
+   * writing down money.
+   */
+  manage?: "create" | "link";
 }
 
 /**
@@ -36,7 +45,7 @@ interface CategoryPickerProps {
  * The filter box earns its place past a couple of dozen categories: scanning a
  * grid is fast until it isn't, and typing two letters beats scrolling.
  */
-export default function CategoryPicker({ categories, value, type, onChange, invalid, onPage = false }: CategoryPickerProps) {
+export default function CategoryPicker({ categories, value, type, onChange, invalid, onPage = false, manage = "create" }: CategoryPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
@@ -50,7 +59,7 @@ export default function CategoryPicker({ categories, value, type, onChange, inva
 
   return (
     <div className={invalid ? styles.wrapInvalid : undefined}>
-      <div className="d-flex gap-2 mb-2">
+      <div className="d-flex gap-2 mb-2 align-items-center">
         <Input
           bsSize="sm"
           value={query}
@@ -58,10 +67,16 @@ export default function CategoryPicker({ categories, value, type, onChange, inva
           placeholder={t("categories.filterPlaceholder")}
           aria-label={t("categories.filterPlaceholder")}
         />
-        <NewCategoryButton categories={categories} type={type} size="sm" onCreated={(id) => {
-          const created = categories.find((c) => c.id === id);
-          if (created) onChange(id, created);
-        }} />
+        {manage === "link" ? (
+          <Link to={settingsTabPath("data")} className="small text-nowrap flex-shrink-0">
+            {t("categories.manageLink")}
+          </Link>
+        ) : (
+          <NewCategoryButton categories={categories} type={type} size="sm" onCreated={(id) => {
+            const created = categories.find((c) => c.id === id);
+            if (created) onChange(id, created);
+          }} />
+        )}
       </div>
 
       {visible.length === 0 ? (
@@ -83,13 +98,6 @@ export default function CategoryPicker({ categories, value, type, onChange, inva
                   {category.icon ?? "🧾"}
                 </span>
                 <span className={styles.cardName}>{categoryLabel(category.name, t)}</span>
-                {/* A category that fills the form in for you is worth flagging —
-                    otherwise the prefilled fields look like a glitch. */}
-                {(category.defaultPayee || category.defaultAmount != null) && (
-                  <span className={styles.cardAuto} title={t("categories.autoFillTitle")}>
-                    ⚡
-                  </span>
-                )}
               </button>
             );
           })}
