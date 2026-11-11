@@ -135,7 +135,7 @@ export function useDeleteBill() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (billId: string) => deleteBill(billId),
+    mutationFn: (billId: string) => deleteBill(userId, billId),
     // Deletes wait for a connection and the dialog waits for the answer, so
     // the bill goes from the list once the server has agreed.
     onSuccess: (_void, billId) => confirmList(queryClient, billKeys.all(userId), editBills(removeWhere<Bill>((b) => b.id === billId))),

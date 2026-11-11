@@ -1,6 +1,6 @@
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, getCountFromServer, addDoc, serverTimestamp, deleteField, writeBatch, getDocsFromServer, getDocFromServer, waitForPendingWrites, type Query } from "./firestoreApi";
 import { db } from "./config";
-import { noteDeleted, noteRecreated, noteReset, syncedList } from "./syncList";
+import { noteDeleted, noteDeletions, noteRecreated, noteReset, syncedList } from "./syncList";
 import { OWNED_COLLECTIONS, USERS_COLLECTION } from "./ownedCollections";
 import { beginAccountDeletion } from "./deletionGate";
 import { meterRead } from "../lib/readMeter";
@@ -157,7 +157,10 @@ export interface BillPaymentLink {
 }
 
 const billPaymentIdsFor = async ({ userId, paymentId }: BillPaymentLink, transactionId: string): Promise<string[]> => {
-  if (paymentId) return [paymentId];
+  // The id comes from this device's copy; another device may have deleted that
+  // payment since, and naming a missing document fails the whole batch in
+  // production. One read to make sure is cheaper than a write that never lands.
+  if (paymentId) return (await stillThere("billPayments", paymentId)) ? [paymentId] : [];
   const snap = await getDocs(query(collection(db, "billPayments"), where("userId", "==", userId), where("transactionId", "==", transactionId)));
   return snap.docs.map((d) => d.id);
 };
@@ -184,7 +187,7 @@ export const updateTransaction = async (transactionId: string, data: UpdateTrans
   const paymentIds = await billPaymentIdsFor(billPayment, transactionId);
   const batch = writeBatch(db);
   batch.update(doc(db, "transactions", transactionId), firestoreData);
-  for (const id of paymentIds) batch.update(doc(db, "billPayments", id), paymentChanges);
+  for (const id of paymentIds) batch.update(doc(db, "billPayments", id), { ...paymentChanges, updatedAt: serverTimestamp() });
   await batch.commit();
 };
 
@@ -204,7 +207,7 @@ export const deleteTransaction = async (userId: string, transactionId: string, b
   batch.delete(doc(db, "transactions", transactionId));
   for (const id of paymentIds) batch.delete(doc(db, "billPayments", id));
   await batch.commit();
-  await noteDeleted(userId, "transactions", [transactionId]);
+  await noteDeletions(userId, { transactions: [transactionId], billPayments: paymentIds });
 };
 
 // ─── CATEGORIES ───────────────────────────────────────────────────────────────
@@ -232,10 +235,14 @@ const getDefaultCategories = async (): Promise<Category[]> => {
   return rows;
 };
 
+/**
+ * The shared defaults (kept on the device for a week, above) and the user's own
+ * categories, which are read whole once per device and then only what changed
+ * — see `syncedList`. The own list is the one with `userId` set; the defaults
+ * carry none, so the two never overlap.
+ */
 export const getCategories = async (userId: string) => {
-  const [userSnap, defaultCats] = await Promise.all([readAll("categories (own)", query(collection(db, "categories"), where("userId", "==", userId))), getDefaultCategories()]);
-
-  const userCats = userSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Category);
+  const [userCats, defaultCats] = await Promise.all([syncedList<Category>("categories", userId), getDefaultCategories()]);
 
   // Merge — user categories take priority over defaults with the same name+type
   const all = [...defaultCats, ...userCats];
@@ -302,24 +309,26 @@ export const updateCategories = async (categoryIds: string[], data: UpdateCatego
 };
 
 /** Removes a whole pair, so "both" never half-disappears either. */
-export const deleteCategories = async (categoryIds: string[]) => {
+export const deleteCategories = async (userId: string, categoryIds: string[]) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   const batch = writeBatch(db);
   for (const id of categoryIds) batch.delete(doc(db, "categories", id));
   await batch.commit();
+  await noteDeleted(userId, "categories", categoryIds);
 };
 
 export const updateCategory = async (categoryId: string, data: UpdateCategoryDTO) => {
   await updateDoc(doc(db, "categories", categoryId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
 };
 
-export const deleteCategory = async (categoryId: string) => {
+export const deleteCategory = async (userId: string, categoryId: string) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   await deleteDoc(doc(db, "categories", categoryId));
+  await noteDeleted(userId, "categories", [categoryId]);
 };
 
 /**
@@ -354,11 +363,8 @@ export const createInvestmentGoal = async (userId: string, data: CreateInvestmen
   return id;
 };
 
-export const getInvestmentGoals = async (userId: string) => {
-  const q = query(collection(db, "investmentGoals"), where("userId", "==", userId));
-  const snap = await readAll("investmentGoals", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentGoal);
-};
+/** Read whole once per device, then only what changed — see `syncedList`. */
+export const getInvestmentGoals = (userId: string) => syncedList<InvestmentGoal>("investmentGoals", userId);
 
 export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmentGoalDTO) => {
   const cleaned = clean({ ...data });
@@ -398,7 +404,7 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
   // The goal last: see `commitDeletes`. A goal with up to ~220 contributions
   // goes in one batch, all or nothing.
   await commitDeletes([...mirrors.docs.map((d) => d.ref), ...contributions.docs.map((d) => d.ref), doc(db, "investmentGoals", goalId)]);
-  await noteDeleted(userId, "transactions", mirrors.docs.map((d) => d.id));
+  await noteDeletions(userId, { transactions: mirrors.docs.map((d) => d.id), investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId] });
 
   return { contributionIds: contributions.docs.map((d) => d.id), transactionIds: mirrors.docs.map((d) => d.id) };
 };
@@ -421,6 +427,7 @@ export const closeInvestmentGoal = async (userId: string, goalId: string, record
   for (const d of contributions.docs) batch.delete(d.ref);
   batch.delete(doc(db, "investmentGoals", goalId));
   await batch.commit();
+  await noteDeletions(userId, { investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId] });
   return { contributionIds: contributions.docs.map((d) => d.id) };
 };
 
@@ -428,11 +435,8 @@ export const closeInvestmentGoal = async (userId: string, goalId: string, record
 
 // Fetches every contribution for a user in a single query, so goal stats can be
 // computed without an N+1 fan-out (one read per goal).
-export const getAllContributions = async (userId: string) => {
-  const q = query(collection(db, "investmentContributions"), where("userId", "==", userId));
-  const snap = await readAll("investmentContributions", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as InvestmentContribution);
-};
+// Read whole once per device, then only what changed — see `syncedList`.
+export const getAllContributions = (userId: string) => syncedList<InvestmentContribution>("investmentContributions", userId);
 
 // Atomically writes a contribution AND its mirrored transaction in one batch.
 // Either both land or neither does — no orphaned records if one write fails.
@@ -524,17 +528,14 @@ export const deleteContribution = async (userId: string, contribution: Investmen
   batch.delete(doc(db, "investmentContributions", contribution.id));
   if (mirror) batch.delete(mirror.ref);
   await batch.commit();
-  if (mirror) await noteDeleted(userId, "transactions", [mirror.id]);
+  await noteDeletions(userId, { investmentContributions: [contribution.id], transactions: mirror ? [mirror.id] : [] });
   return { transactionId: mirror?.id ?? null };
 };
 
 // ─── BILLS ────────────────────────────────────────────────────────────────────
 
-export const getBills = async (userId: string) => {
-  const q = query(collection(db, "bills"), where("userId", "==", userId));
-  const snap = await readAll("bills", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Bill);
-};
+/** Read whole once per device, then only what changed — see `syncedList`. */
+export const getBills = (userId: string) => syncedList<Bill>("bills", userId);
 
 /** `id` comes from `newDocId` when the caller has already shown the bill under it. */
 export const createBill = async (userId: string, data: CreateBillDTO, id: string = newDocId("bills")) => {
@@ -562,20 +563,22 @@ export const updateBill = async (billId: string, data: UpdateBillDTO) => {
   });
 };
 
-export const deleteBill = async (billId: string) => {
+export const deleteBill = async (userId: string, billId: string) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   await deleteDoc(doc(db, "bills", billId));
+  await noteDeleted(userId, "bills", [billId]);
 };
 
 // ─── BILL PAYMENTS ────────────────────────────────────────────────────────────
 
-export const getBillPayments = async (userId: string) => {
-  const q = query(collection(db, "billPayments"), where("userId", "==", userId));
-  const snap = await readAll("billPayments", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BillPayment);
-};
+/**
+ * Read whole once per device, then only what changed — see `syncedList`.
+ * Payments written before they carried `updatedAt` came with that first whole
+ * read; every write since stamps it, so an old one corrected later is found.
+ */
+export const getBillPayments = (userId: string) => syncedList<BillPayment>("billPayments", userId);
 
 // Marks a bill paid for a period: writes the payment record AND a mirrored
 // expense transaction atomically, so paid bills always show up in expenses.
@@ -617,6 +620,7 @@ export const markBillPaid = async (
   batch.set(paymentRef, {
     ...clean({ ...payment, userId }),
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
   await batch.commit();
@@ -636,7 +640,7 @@ export const updateBillPayment = async (payment: { id: string; transactionId?: s
   const batch = writeBatch(db);
   const fields = clean(changes);
 
-  batch.update(doc(db, "billPayments", payment.id), fields);
+  batch.update(doc(db, "billPayments", payment.id), { ...fields, updatedAt: serverTimestamp() });
 
   // An update of a missing document fails the batch as a delete does.
   if (payment.transactionId && (await stillThere("transactions", payment.transactionId))) {
@@ -672,7 +676,7 @@ export const markBillPeriodsSettled = async (
   const batch = writeBatch(db);
   for (const { id, ...payment } of payments) {
     const record: CreateBillPaymentDTO = payment;
-    batch.set(doc(db, "billPayments", id), { ...clean({ ...record, userId }), createdAt: serverTimestamp() });
+    batch.set(doc(db, "billPayments", id), { ...clean({ ...record, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
   await batch.commit();
 };
@@ -686,7 +690,7 @@ export const unmarkBillPaid = async (userId: string, payment: { id: string; tran
   if (expenseId) batch.delete(doc(db, "transactions", expenseId));
   batch.delete(doc(db, "billPayments", payment.id));
   await batch.commit();
-  if (expenseId) await noteDeleted(userId, "transactions", [expenseId]);
+  await noteDeletions(userId, { billPayments: [payment.id], transactions: expenseId ? [expenseId] : [] });
 };
 
 /**
@@ -709,17 +713,11 @@ const stillThere = async (collectionName: string, id: string) => {
 // borrowed money is not income, and everything that reads transactions would
 // otherwise have to learn to exclude it.
 
-export const getDebts = async (userId: string) => {
-  const q = query(collection(db, "debts"), where("userId", "==", userId));
-  const snap = await readAll("debts", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Debt);
-};
+/** Read whole once per device, then only what changed — see `syncedList`. */
+export const getDebts = (userId: string) => syncedList<Debt>("debts", userId);
 
-export const getDebtPayments = async (userId: string) => {
-  const q = query(collection(db, "debtPayments"), where("userId", "==", userId));
-  const snap = await readAll("debtPayments", q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DebtPayment);
-};
+/** As `getDebts`. Repayments written before they carried `updatedAt` came with the first whole read. */
+export const getDebtPayments = (userId: string) => syncedList<DebtPayment>("debtPayments", userId);
 
 export const createDebt = async (userId: string, data: CreateDebtDTO) => {
   const ref = await addDoc(collection(db, "debts"), {
@@ -762,15 +760,16 @@ export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
  * when that expense is known to exist: deleting a missing document fails the
  * whole batch under the rules.
  */
-export const cancelCoveredDebt = async (debtId: string, expenseId: string | undefined, refund: DebtForgiveness) => {
+export const cancelCoveredDebt = async (userId: string, debtId: string, expenseId: string | undefined, refund: DebtForgiveness) => {
   const batch = writeBatch(db);
   batch.update(doc(db, "debts", debtId), { accountId: deleteField(), forgiven: clean({ ...refund }), updatedAt: serverTimestamp() });
   if (expenseId) batch.delete(doc(db, "transactions", expenseId));
   await batch.commit();
+  if (expenseId) await noteDeleted(userId, "transactions", [expenseId]);
 };
 
 /** Deleting a loan takes its repayments with it — they mean nothing alone. */
-export const deleteDebt = async (debtId: string, paymentIds: string[]) => {
+export const deleteDebt = async (userId: string, debtId: string, paymentIds: string[]) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
@@ -778,12 +777,14 @@ export const deleteDebt = async (debtId: string, paymentIds: string[]) => {
   for (const id of paymentIds) batch.delete(doc(db, "debtPayments", id));
   batch.delete(doc(db, "debts", debtId));
   await batch.commit();
+  await noteDeletions(userId, { debtPayments: paymentIds, debts: [debtId] });
 };
 
 export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO) => {
   const ref = await addDoc(collection(db, "debtPayments"), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
   return ref.id;
 };
@@ -794,14 +795,15 @@ export const updateDebtPayment = async (paymentId: string, data: { amount: numbe
   const account = data.accountId === null ? { accountId: deleteField() } : data.accountId !== undefined ? { accountId: data.accountId } : {};
   const note = data.notes ? cleanText(data.notes) : data.notes;
   const notes = note === undefined ? {} : note ? { notes: note } : { notes: deleteField() };
-  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account, ...notes });
+  await updateDoc(doc(db, "debtPayments", paymentId), { amount: data.amount, date: data.date, ...account, ...notes, updatedAt: serverTimestamp() });
 };
 
-export const deleteDebtPayment = async (paymentId: string) => {
+export const deleteDebtPayment = async (userId: string, paymentId: string) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   await deleteDoc(doc(db, "debtPayments", paymentId));
+  await noteDeleted(userId, "debtPayments", [paymentId]);
 };
 
 /**
@@ -1057,7 +1059,7 @@ export const saveGapRecords = async (
     batch.set(doc(db, "debts", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
   for (const { id, data } of writes.payments) {
-    batch.set(doc(db, "debtPayments", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp() });
+    batch.set(doc(db, "debtPayments", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
   for (const { id, ...record } of writes.debtCash) {
     batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), updatedAt: serverTimestamp() });
@@ -1126,6 +1128,11 @@ export const deleteCoveredDebt = async (userId: string, debtId: string, paymentI
   if (expense) batch.delete(doc(db, "transactions", covered.expenseId!));
   batch.delete(doc(db, "debts", debtId));
   await batch.commit();
-  if (expense) await noteDeleted(userId, "transactions", [covered.expenseId!]);
+  await noteDeletions(userId, {
+    debtPayments: paymentIds,
+    debts: [debtId],
+    investmentContributions: contribution ? [covered.contributionId!] : [],
+    transactions: expense ? [covered.expenseId!] : [],
+  });
   return { contributionId: contribution ? covered.contributionId : undefined, expenseId: expense ? covered.expenseId : undefined };
 };

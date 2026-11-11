@@ -179,7 +179,7 @@ export function useCancelCoveredDebts() {
   return useMutation({
     mutationFn: async (items: { debtId: string; expenseId?: string; amount: number }[]) => {
       for (const item of items) {
-        await cancelCoveredDebt(item.debtId, item.expenseId, { date: new Date(), amount: item.amount, refund: true });
+        await cancelCoveredDebt(userId, item.debtId, item.expenseId, { date: new Date(), amount: item.amount, refund: true });
         await sync(item.debtId);
       }
     },
@@ -198,7 +198,7 @@ export function useDeleteDebt() {
   return useMutation({
     mutationFn: async ({ debtId, paymentIds, covered }: { debtId: string; paymentIds: string[]; covered?: { contributionId?: string; expenseId?: string } }) => {
       if (!covered?.contributionId && !covered?.expenseId) {
-        await deleteDebt(debtId, paymentIds);
+        await deleteDebt(userId, debtId, paymentIds);
         return;
       }
       const gone = await deleteCoveredDebt(userId, debtId, paymentIds, covered);
@@ -217,9 +217,9 @@ export function useRecordRepayment() {
 
 /** Deleting a repayment: its own records go, and the loan's later interest is worked out again. */
 export function useDeleteRepayment() {
-  const { sync } = useDebtRefresh();
+  const { userId, sync } = useDebtRefresh();
   return useMutation({
-    mutationFn: ({ paymentId }: { paymentId: string; debtId: string }) => deleteDebtPayment(paymentId),
+    mutationFn: ({ paymentId }: { paymentId: string; debtId: string }) => deleteDebtPayment(userId, paymentId),
     onSuccess: (_, { paymentId, debtId }) => sync(debtId, [debtCashIds.principal(paymentId), debtCashIds.interest(paymentId)]),
     onError: failed("debts.deleteFailed"),
   });

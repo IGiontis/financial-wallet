@@ -131,10 +131,26 @@ function pruneLog(userId: string, log: unknown, now: number) {
  * next whole read, within a week.
  */
 export async function noteDeleted(userId: string, name: string, ids: string[]) {
-  if (!userId || ids.length === 0) return;
+  await noteDeletions(userId, { [name]: ids });
+}
+
+/**
+ * `noteDeleted` for a delete that took documents of several lists at once — a
+ * goal with its contributions, a debt with its repayments — in ONE write to the
+ * user document rather than one per list.
+ */
+export async function noteDeletions(userId: string, byList: Record<string, string[]>) {
+  const lists = Object.entries(byList).filter(([, ids]) => ids.length > 0);
+  if (!userId || lists.length === 0) return;
   const at = Date.now();
   userRead = undefined;
-  await Promise.all([updateFields(userId, ids.map((id) => [new FieldPath(LOG_FIELD, logKey(name, id)), at])).catch(() => {}), forgetLocally(userId, name, ids)]);
+  await Promise.all([
+    updateFields(
+      userId,
+      lists.flatMap(([name, ids]) => ids.map((id): [FieldPath, unknown] => [new FieldPath(LOG_FIELD, logKey(name, id)), at])),
+    ).catch(() => {}),
+    ...lists.map(([name, ids]) => forgetLocally(userId, name, ids)),
+  ]);
 }
 
 /**

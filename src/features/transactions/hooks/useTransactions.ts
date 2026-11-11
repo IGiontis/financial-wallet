@@ -268,7 +268,7 @@ export function useDeleteCategory() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (categoryId: string) => deleteCategory(categoryId),
+    mutationFn: (categoryId: string) => deleteCategory(userId, categoryId),
     onSuccess: (_void, categoryId) => dropCategories(queryClient, userId, [categoryId]),
   });
 }
@@ -315,7 +315,7 @@ export function useDeleteCategoryGroup() {
   const userId = currentUser?.uid ?? "";
 
   return useMutation({
-    mutationFn: (categoryIds: string[]) => deleteCategories(categoryIds),
+    mutationFn: (categoryIds: string[]) => deleteCategories(userId, categoryIds),
     onSuccess: (_void, categoryIds) => dropCategories(queryClient, userId, categoryIds),
   });
 }

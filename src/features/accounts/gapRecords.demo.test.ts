@@ -9,7 +9,7 @@ import { gapWrites, type GapRecord } from "./gapRecords";
 
 vi.mock("../../demo/demoMode", async (importOriginal) => ({ ...(await importOriginal<object>()), isDemo: () => true }));
 vi.mock("../../firebase/config", () => ({ db: {} }));
-vi.mock("../../firebase/syncList", () => ({ syncedList: async () => [], noteDeleted: async () => {}, noteRecreated: async () => {}, noteReset: async () => {} }));
+vi.mock("../../firebase/syncList", () => ({ syncedList: async () => [], noteDeleted: async () => {}, noteDeletions: async () => {}, noteRecreated: async () => {}, noteReset: async () => {} }));
 
 const db = {};
 const NOW = new Date(2026, 10, 3, 18);

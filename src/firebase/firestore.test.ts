@@ -135,6 +135,9 @@ const noted = vi.hoisted(() => ({ deleted: [] as [string, string, string[]][] })
 vi.mock("./syncList", () => ({
   syncedList: async () => [],
   noteDeleted: async (userId: string, name: string, ids: string[]) => void noted.deleted.push([userId, name, ids]),
+  noteDeletions: async (userId: string, byList: Record<string, string[]>) => {
+    for (const [name, ids] of Object.entries(byList)) if (ids.length > 0) noted.deleted.push([userId, name, ids]);
+  },
   noteRecreated: async () => {},
   noteReset: async () => {},
 }));
@@ -316,6 +319,17 @@ describe("deleteTransaction", () => {
     await deleteTransaction("u1", "t-bill", { userId: "u1", paymentId: "p1" });
 
     expect(fs.batches).toHaveLength(1);
+    expect(ids("transactions")).toEqual([]);
+    expect(ids("billPayments")).toEqual(["p-other"]);
+  });
+
+  it("still deletes the expense when another device already removed the payment the screen knew", async () => {
+    seedPaidBill();
+    fs.rules.strictDeletes = true; // production: a missing document fails the batch
+    fs.table("billPayments").delete("p1");
+
+    await deleteTransaction("u1", "t-bill", { userId: "u1", paymentId: "p1" });
+
     expect(ids("transactions")).toEqual([]);
     expect(ids("billPayments")).toEqual(["p-other"]);
   });
@@ -570,7 +584,8 @@ describe("a bill payment whose expense is gone", () => {
     await unmarkBillPaid("u1", payment);
     expect(ids("billPayments")).toEqual([]);
     expect(fs.batches[0].map(([kind, r]) => `${kind} ${r.col}/${r.id}`)).toEqual(["delete billPayments/p1"]);
-    expect(noted.deleted).toHaveLength(notedBefore);
+    // The payment is logged for the other devices; the missing expense is not.
+    expect(noted.deleted.slice(notedBefore)).toEqual([["u1", "billPayments", ["p1"]]]);
   });
 
   it("is corrected without touching the missing expense", async () => {
@@ -584,7 +599,10 @@ describe("a bill payment whose expense is gone", () => {
     await unmarkBillPaid("u1", payment);
     expect(ids("billPayments")).toEqual([]);
     expect(ids("transactions")).toEqual([]);
-    expect(noted.deleted.at(-1)).toEqual(["u1", "transactions", ["t-gone"]]);
+    expect(noted.deleted.slice(-2)).toEqual([
+      ["u1", "billPayments", ["p1"]],
+      ["u1", "transactions", ["t-gone"]],
+    ]);
   });
 });
 
