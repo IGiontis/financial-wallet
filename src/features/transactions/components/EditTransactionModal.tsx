@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { firestoreToDate } from "../../../shared/utils/dates";
@@ -230,6 +231,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
           if (corrected !== checkIns) setCheckIns(corrected);
         }
         toast.success(t("transactions.updatedSuccess", { name: values.description }));
+        celebrateSave({ collection: "transactions", id: transaction.id });
         resetForm();
         setStep("category");
         onClose();

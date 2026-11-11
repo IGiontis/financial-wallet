@@ -118,6 +118,8 @@
   --motion-modal: 220ms;
   --motion-toast: 260ms;
   --motion-flash: 1600ms;
+  /* A goal tank's level moving to a new amount (GoalCard.module.css). */
+  --motion-tank: 900ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   /* How far a dialog or a toast rises as it fades in. */

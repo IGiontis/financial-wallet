@@ -30,6 +30,8 @@ export interface IncomeListActions {
   /** Whether there is an «Ήρθε» to take back, and taking it back (asks first). */
   canUndoArrival: (income: Income) => boolean;
   onUndoArrival: (income: Income) => void;
+  /** The saved flash for an income just added, edited or marked arrived (`useSavedFlash`). */
+  flash?: (id: string) => string;
 }
 
 interface ListProps extends IncomeListActions {
@@ -243,7 +245,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
   const canArrive = section === "waiting" && focus?.canArrive && !asking;
 
   return (
-    <div className={`${styles.lineWrap} ${section === "later" ? styles.lineQuiet : ""}`} data-tour="income-line">
+    <div className={`${styles.lineWrap} ${section === "later" ? styles.lineQuiet : ""} ${props.flash?.(income.id) ?? ""}`} data-tour="income-line">
       <div className={styles.line}>
         <button type="button" className={styles.lineButton} onClick={() => onOpen(income)} aria-label={t("incomes.list.openCard", { name: income.name })}>
           <span className={styles.lineIcon} aria-hidden>

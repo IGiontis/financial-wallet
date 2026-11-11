@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
@@ -68,6 +69,8 @@ export default function CategoryManager() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const own = useMemo(() => groupCategories(categories.filter((c) => !c.isDefault)), [categories]);
+  // The category just made or edited lights once its dialog has gone.
+  const categoryFlash = useSavedFlash("categories", useMemo(() => own.flatMap((g) => g.members.map((m) => m.id)), [own]));
   const defaultCount = categories.filter((c) => c.isDefault).length;
 
   // Both halves of a «both» at once: a pair is deleted together, so it is in
@@ -93,6 +96,7 @@ export default function CategoryManager() {
     try {
       await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
       for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
+      celebrateSave({ collection: "categories", id: group.members[0]?.id });
       setEditing(null);
     } catch {
       // Left open, as it was, to try again.
@@ -122,7 +126,7 @@ export default function CategoryManager() {
           {own.map((group) => (
             <div
               key={group.members.map((m) => m.id).join("-")}
-              className="d-flex align-items-center gap-2 px-2 py-2"
+              className={`d-flex align-items-center gap-2 px-2 py-2 ${group.members.map((m) => categoryFlash(m.id)).find(Boolean) ?? ""}`}
               style={{ background: "var(--color-background-secondary)", borderRadius: "var(--radius-md)" }}
             >
               <span style={{ fontSize: 18 }} aria-hidden>
@@ -149,7 +153,15 @@ export default function CategoryManager() {
           scope="expense"
           isSaving={createCategory.isPending}
           onClose={() => setCreating(false)}
-          onSubmit={(values) => createCategory.mutate(values, { onSuccess: () => setCreating(false) })}
+          onSubmit={(values) =>
+            createCategory.mutate(values, {
+              onSuccess: () => {
+                // Its id is the server's: the row that appears is the one lit.
+                celebrateSave({ collection: "categories" });
+                setCreating(false);
+              },
+            })
+          }
         />
       )}
 

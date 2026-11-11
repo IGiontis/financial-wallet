@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { PayeeInput } from "../transactions/components/PayeeInput";
@@ -251,6 +252,8 @@ export default function AddDebtModal({
         () => toast.error(t("goalWizard.coveredFailed")),
       ).finally(() => {
         setSavingCovered(false);
+        // The new debt's id is the batch's own: the row that appears is lit.
+        celebrateSave({ collection: "debts" });
         onClose();
       });
       return;
@@ -262,10 +265,23 @@ export default function AddDebtModal({
         toast.error(t("debts.coveredLocked"));
         return;
       }
-      edit.mutate({ debtId: debt.id, data, covered: plan.edit }, { onSuccess: onClose });
+      edit.mutate(
+        { debtId: debt.id, data, covered: plan.edit },
+        {
+          onSuccess: () => {
+            celebrateSave({ collection: "debts", id: debt.id });
+            onClose();
+          },
+        },
+      );
       return;
     }
-    create.mutate(data, { onSuccess: onClose });
+    create.mutate(data, {
+      onSuccess: (id) => {
+        celebrateSave({ collection: "debts", id });
+        onClose();
+      },
+    });
   };
 
   // ── The review ──────────────────────────────────────────────────────────

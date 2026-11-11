@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { startOfMonth } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import IncomeQuickView from "../incomes/components/IncomeQuickView";
@@ -144,6 +145,8 @@ export function PlannerPage() {
   // here — see `migratePlannerIncomes`.
   const lines = useMemo(() => allLines.filter((l) => l.kind !== "income"), [allLines]);
   const oneOffs = useMemo(() => cleanOneOffs(storedOneOffs), [storedOneOffs]);
+  // The line or one-off just added or edited lights once its editor has gone.
+  const planFlash = useSavedFlash("plannerLines", useMemo(() => [...lines.map((l) => l.id), ...oneOffs.map((o) => o.id)], [lines, oneOffs]));
   const skipped = useMemo(() => cleanSkipped(storedSkipped), [storedSkipped]);
 
   // One dialog for every figure the user owns, rather than an inline editor
@@ -328,6 +331,7 @@ export function PlannerPage() {
         ...(draft.every && draft.until ? { until: draft.until } : {}),
       };
       setOneOffs(draft.id ? oneOffs.map((o) => (o.id === draft.id ? entry : o)) : [...oneOffs, entry]);
+      celebrateSave({ collection: "plannerLines", id: entry.id });
     } else {
       const label = draft.label || t("planner.lineFallbackName");
       // Undefined rather than "" for an unset end, so a line with no season
@@ -348,6 +352,7 @@ export function PlannerPage() {
       // Through the whole stored list, so the old income lines kept there are
       // written back as they were.
       setLines(draft.id ? allLines.map((l) => (l.id === draft.id ? entry : l)) : [...allLines, entry]);
+      celebrateSave({ collection: "plannerLines", id: entry.id });
     }
     setEditor(null);
   };
@@ -628,6 +633,7 @@ export function PlannerPage() {
               left, then one side at a time — see `PlanLedger`. */}
           <div className="card px-3 px-lg-4 py-3">
             <PlanLedger
+              flash={planFlash}
               inItems={ledgerIn}
               outItems={ledgerOut}
               months={monthsShown}

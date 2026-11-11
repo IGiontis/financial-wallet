@@ -21,6 +21,7 @@ export function IncomeManage({
   deleteLocked,
   deleteReason,
   onToggle,
+  flash,
 }: {
   incomes: Income[];
   onToggle: (income: Income, active: boolean) => void;
@@ -30,6 +31,8 @@ export function IncomeManage({
   onDelete: (income: Income) => void;
   deleteLocked?: boolean;
   deleteReason?: string;
+  /** The saved flash for an income just added or edited (`useSavedFlash`). */
+  flash?: (id: string) => string;
 }) {
   const iconOf = useIncomeIcon();
   const { t, i18n } = useTranslation();
@@ -66,6 +69,7 @@ export function IncomeManage({
   const byId = (id: string) => incomes.find((income) => income.id === id);
   return (
     <ManageList
+      flash={flash}
       groups={groups}
       hint={t("incomes.manageHint", { count: incomes.length })}
       onEdit={(id) => {

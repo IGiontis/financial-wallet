@@ -24,6 +24,7 @@ import { SkeletonRows } from "../../shared/components/Skeletons";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { useStepTried } from "../../shared/hooks/useStepTried";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
@@ -180,6 +181,8 @@ export default function ContributionWizard({
 
   // ── What it does, in figures ──
   const savedAfter = round2(balance + (deposit ? totalInBase : -totalInBase));
+  /** This deposit completes a goal to reach once: the one milestone here (confetti). */
+  const reachesTarget = deposit && isDeadlineGoal && !!goal.targetAmount && balance < goal.targetAmount - 0.005 && savedAfter >= goal.targetAmount - 0.005;
   const gainPart = takingAll && totalInBase > balance + 0.005 ? round2(totalInBase - balance) : 0;
   const named = accounts.find((a) => a.id === cardAccount);
   const main = mainAccount(accounts);
@@ -212,6 +215,8 @@ export default function ContributionWizard({
           () => toast.error(t("goalWizard.coveredFailed")),
         );
         toast.success(doneMessage());
+        // The goal card's tanks play the move once this dialog has gone (item 95).
+        celebrateSave({ collection: "investmentContributions", id: goal.id, milestone: reachesTarget });
         onClose();
       } finally {
         setSaving(false);
@@ -244,6 +249,7 @@ export default function ContributionWizard({
         await saveWithoutWaiting(createExpense, expense, () => toast.error(t("transactions.saveFailed")));
       }
       toast.success(doneMessage());
+      celebrateSave({ collection: "investmentContributions", id: goal.id, milestone: reachesTarget });
       onClose();
     } finally {
       setSaving(false);

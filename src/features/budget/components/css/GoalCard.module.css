@@ -41,7 +41,14 @@
 
 /* Its money: three tiles, each a small tank of its own colour (--tile) that is
    --level full: «έβαλες» fills from the bottom as money goes in, «μένουν»
-   drains as it is put in, the whole stays full. Icon and figure float on it. */
+   drains as it is put in, the whole stays full. Icon and figure float on it.
+
+   The two are CONNECTED vessels (item 95): a deposit or a withdrawal plays as
+   one move once its dialog has gone (tankPlay.ts) — the levels ease from old
+   to new together, money poured into «έβαλες» from the top with a small splash
+   and two or three bubbles, a drain at the foot of the one that goes down.
+   Everything drawn here is the liquid, its paler foam, or the tile's surface,
+   so the lettering keeps ≥ 8:1 over all of it (goalBand.test.ts). */
 .tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -49,8 +56,11 @@
 }
 
 .tile {
-  /* Opaque, so the liquid and its crest can overlap without a darker seam. */
-  --tile-liquid: color-mix(in srgb, var(--tile) var(--tone-tank), var(--surface));
+  /* Opaque, so the liquid and its crests can overlap without a darker seam. */
+  --tank-strength: var(--tone-tank);
+  --tile-liquid: color-mix(in srgb, var(--tile) var(--tank-strength), var(--surface));
+  /* The far wave and the bubbles: between the liquid and the surface. */
+  --tile-foam: color-mix(in srgb, var(--tile-liquid) 55%, var(--surface));
   --tile-rim: color-mix(in srgb, var(--tile) var(--tone-edge), transparent);
   --tile-icon: var(--tile);
   position: relative;
@@ -67,6 +77,12 @@
   text-align: center;
 }
 
+/* The brand's tank takes its own strength (index.css): gold's dark brand is
+   pale, and at the others' strength the lettering fell under 8:1. */
+.tile[data-tone="brand"] {
+  --tank-strength: var(--tone-tank-brand);
+}
+
 /* In the dark a bright colour glares: the liquid is held to what the body ink
    still reads on at 8:1 (--tone-tank, index.css), the rim barely there, the
    icon the pale lettering tint of the colour. */
@@ -75,61 +91,286 @@
   --tile-icon: var(--tile-text);
 }
 
-/* The liquid. */
-.tile::before {
-  content: "";
+/* The liquid: rises and falls over --motion-tank, easing out. On a deposit both
+   tanks wait a moment for the stream to reach the surface — together. Its
+   level is steady: nothing but a save moves it. */
+.liquid {
   position: absolute;
   inset: auto 0 0;
   z-index: -1;
   height: var(--level, 0%);
   background: var(--tile-liquid);
-  transition: height 0.8s ease;
+  transition: height var(--motion-tank) var(--ease-out);
 }
 
-/* Its surface: a row of low crests drifting sideways — one transform on one
-   pseudo-element, so the compositor does it and nothing is laid out again.
-   A shape in the liquid's own colour, not a shading. */
-.tile::after {
+.tiles[data-move="in"] .liquid {
+  transition-delay: 120ms;
+}
+
+/* Its surface: a wave that FLOWS to the left without end (the owner,
+   2026-11-11) — two rows of rounded crests and troughs, each a little wider
+   than the tank and slid left by exactly one of its own wavelengths, so the
+   loop has no seam. The rows differ in wavelength, height and speed, so where
+   they cross the surface changes shape slowly; both are the liquid's own
+   colour, so nothing brightens, darkens or blinks — only the shape travels.
+   The troughs touch the level; the crests rise a few px above it.
+
+   Each row is a crest (an ellipse filling the first half of a wavelength) and
+   a trough (the lower half of the strip, filled but for an ellipse cut out
+   of its second half): together the rounded S of a wave.
+
+   It plays under reduced motion too — the one named exception there
+   (reducedMotion.test.ts): small, slow and sideways, it is not the kind of
+   motion that setting is for. Settings → «Κινούμενα εφέ: Όχι» stops it
+   (--loop-play, index.css). */
+.liquid::before,
+.liquid::after {
+  --wave: 32px;
+  --crest: 6px;
   content: "";
   position: absolute;
   left: 0;
-  bottom: var(--level, 0%);
-  z-index: -1;
-  width: calc(100% + 24px);
-  height: 5px;
-  background: radial-gradient(12px 5px at 50% 100%, var(--tile-liquid) 98%, transparent 100%) 0 0 / 24px 5px repeat-x;
-  transition: bottom 0.8s ease;
-  animation: tileSway 3.2s linear infinite;
+  bottom: 100%;
+  width: calc(100% + var(--wave));
+  height: var(--crest);
+  background:
+    radial-gradient(calc(var(--wave) / 4) calc(var(--crest) / 2) at 25% 50%, var(--tile-liquid) 98%, transparent 100%) 0 0 / var(--wave) var(--crest) repeat-x,
+    radial-gradient(calc(var(--wave) / 4) calc(var(--crest) / 2) at 75% 0, transparent 98%, var(--tile-liquid) 100%) 0 100% / var(--wave) calc(var(--crest) / 2) repeat-x;
+  pointer-events: none;
+  animation: tankFlow 6s linear infinite;
+  animation-play-state: var(--loop-play, running);
 }
 
-.tile[data-surface="empty"]::after,
-.tile[data-surface="full"]::after {
+/* The second row: longer and lower, slower, half a wavelength along. */
+.liquid::before {
+  --wave: 48px;
+  --crest: 4px;
+  animation-duration: 11s;
+  animation-delay: -5s;
+}
+
+@keyframes tankFlow {
+  to {
+    transform: translateX(calc(-1 * var(--wave)));
+  }
+}
+
+/* An empty tank has no surface, and a full one (the whole) a flat, still lid. */
+.tile[data-surface="empty"] .liquid::before,
+.tile[data-surface="empty"] .liquid::after,
+.tile[data-surface="full"] .liquid::before,
+.tile[data-surface="full"] .liquid::after {
   display: none;
 }
 
-@keyframes tileSway {
-  to {
-    transform: translateX(-24px);
-  }
+/* ── A save playing ──────────────────────────────────────────────────────────
+   Only while one plays (data-fx on the tile, PLAY_MS in tankPlay.ts), never
+   at rest. */
+.fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
-/* Reduced motion: the liquid neither rises nor drifts — the crests stay where
-   they are and shimmer instead, a slow change of opacity, so the tile still
-   looks like liquid on a laptop that asked for less motion. */
-@keyframes tileShimmer {
+/* The stream: falls from the top of the tank to where the surface was, then
+   its tail follows it in. As thick and as long as the amount is big
+   (--pour-w 2–10px, --pour-ms 300–900ms; pourSize in tankPlay.ts). */
+.stream {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: -1;
+  width: var(--pour-w, 5px);
+  height: calc(100% - var(--from, 0%));
+  margin-left: calc(var(--pour-w, 5px) / -2);
+  border-radius: 0 0 3px 3px;
+  background: var(--tile-liquid);
+  transform-origin: 50% 100%;
+  animation: tankPour var(--pour-ms, 520ms) var(--ease-standard) both;
+  pointer-events: none;
+}
+
+@keyframes tankPour {
+  0% {
+    transform: translateY(-100%);
+  }
   50% {
-    opacity: 0.45;
+    transform: translateY(0) scaleY(1);
+  }
+  100% {
+    transform: translateY(0) scaleY(0);
   }
 }
 
+/* The splash where it lands: two drops thrown up and out, riding the surface. */
+.splash {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.splash::before,
+.splash::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-round);
+  background: var(--tile-liquid);
+  animation: tankSplashLeft 520ms var(--ease-out) calc(var(--pour-ms, 520ms) * 0.45) both;
+}
+
+.splash::after {
+  animation-name: tankSplashRight;
+}
+
+@keyframes tankSplashLeft {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-9px, -9px) scale(1);
+  }
+  100% {
+    transform: translate(-14px, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes tankSplashRight {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(8px, -11px) scale(1);
+  }
+  100% {
+    transform: translate(13px, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* Bubbles (1–5, more for a bigger amount): as tall as the tank's liquid, so
+   -100% carries one from the floor to the surface, where it is gone. Where,
+   how big and in what turn: --x, --d, --i — the first as the stream lands. */
+.bubble {
+  position: absolute;
+  inset: 0;
+  animation: tankBubble 900ms var(--ease-standard) calc(var(--pour-ms, 520ms) * 0.5 + var(--i, 0) * 120ms) both;
+}
+
+.bubble::before {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: var(--x, 50%);
+  width: var(--d, 5px);
+  height: var(--d, 5px);
+  border-radius: var(--radius-round);
+  background: var(--tile-foam);
+  box-shadow: inset 0 0 0 1px var(--surface);
+}
+
+@keyframes tankBubble {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(calc(-100% + 4px));
+    opacity: 0;
+  }
+}
+
+/* The drain: a whirl opening at the foot of the tank that goes down, and
+   closing again — wider and longer the bigger the amount. */
+.drain {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: calc(var(--pour-w, 5px) * 4 + 8px);
+  height: calc(var(--pour-w, 5px) + 4px);
+  margin-left: calc(var(--pour-w, 5px) * -2 - 4px);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: radial-gradient(closest-side at 50% 100%, var(--surface), var(--tile-foam) 60%, transparent);
+  transform-origin: 50% 100%;
+  animation: tankDrain calc(var(--pour-ms, 520ms) + 240ms) var(--ease-standard) both;
+}
+
+@keyframes tankDrain {
+  0% {
+    transform: scale(0.2, 0);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1, 1);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.85, 1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.3, 0);
+    opacity: 0;
+  }
+}
+
+/* Reduced motion's play: no stream, splash, bubbles or sway. The band between
+   the old level and the new one fades instead — the surface's colour fading
+   off what is new (up), the liquid's fading off what has gone (down). */
+.fade {
+  display: none;
+}
+
+@keyframes tankFade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: the level does not slide and a save brings no stream,
+   splash, bubbles or drain — only the one-off fade above. The surface keeps
+   flowing (see «Its surface»); nothing pulses or blinks. */
 @media (prefers-reduced-motion: reduce) {
-  .tile::before,
-  .tile::after {
+  .liquid {
     transition: none;
   }
 
-  .tile::after {
-    animation: tileShimmer 2.4s ease-in-out infinite;
+  .stream,
+  .fx {
+    display: none;
+  }
+
+  .fade {
+    display: block;
+    position: absolute;
+    bottom: min(var(--from), var(--level));
+    left: 0;
+    right: 0;
+    z-index: -1;
+    height: max(calc(var(--level) - var(--from)), calc(var(--from) - var(--level)));
+    background: var(--surface);
+    animation: tankFade var(--motion-tank) var(--ease-out) both;
+  }
+
+  .fade[data-way="down"] {
+    background: var(--tile-liquid);
   }
 }
 

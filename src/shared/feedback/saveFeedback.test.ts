@@ -36,12 +36,26 @@ describe("celebrateSave", () => {
   });
 });
 
+/** The dialog that saved closes, and its fade-out ends. */
+const dialogGone = () =>
+  act(() => {
+    document.querySelector(".modal")?.remove();
+    vi.advanceTimersByTime(400);
+  });
+
 describe("useSavedFlash", () => {
-  it("lights the row the save named, in its own list only", () => {
+  it("lights the row the save named, in its own list only — once the dialog has gone", () => {
     const { result } = renderHook(() => useSavedFlash("debts", ["a", "b"]));
     act(() => celebrateSave({ collection: "transactions", id: "b" }));
+    dialogGone();
     expect(result.current("b")).toBe("");
+    document.body.innerHTML = '<div class="modal show"></div>';
     act(() => celebrateSave({ collection: "debts", id: "b" }));
+    act(() => void vi.advanceTimersByTime(3000));
+    // Not under the dialog, where nobody would see it…
+    expect(result.current("b")).toBe("");
+    dialogGone();
+    // …but after it.
     expect(result.current("b")).toBe("row-flash");
     expect(result.current("a")).toBe("");
   });
@@ -50,13 +64,22 @@ describe("useSavedFlash", () => {
     const { result, rerender } = renderHook(({ ids }) => useSavedFlash("transactions", ids), { initialProps: { ids: ["a"] } });
     act(() => celebrateSave({ collection: "transactions" }));
     rerender({ ids: ["n", "a"] });
+    dialogGone();
     expect(result.current("n")).toBe("row-flash");
+  });
+
+  it("rings a card rather than washing it", () => {
+    const { result } = renderHook(() => useSavedFlash("investmentGoals", ["g"], "card"));
+    act(() => celebrateSave({ collection: "investmentGoals", id: "g" }));
+    dialogGone();
+    expect(result.current("g")).toBe("card-flash");
   });
 
   it("…or drawn a moment before it (an optimistic save)", () => {
     const { result, rerender } = renderHook(({ ids }) => useSavedFlash("transactions", ids), { initialProps: { ids: ["a"] } });
     rerender({ ids: ["n", "a"] });
     act(() => celebrateSave({ collection: "transactions" }));
+    dialogGone();
     expect(result.current("n")).toBe("row-flash");
     expect(result.current("a")).toBe("");
   });
@@ -67,8 +90,10 @@ describe("useSavedFlash", () => {
     const { result, rerender } = renderHook(({ ids }) => useSavedFlash("transactions", ids), { initialProps: { ids: page1 } });
     act(() => celebrateSave({ collection: "transactions" })); // its row is on another page
     rerender({ ids: page2 }); // the reader turns the page
+    dialogGone();
     for (const id of page2) expect(result.current(id)).toBe("");
     rerender({ ids: ["x", ...page2] }); // …and later a row really is added
+    dialogGone();
     expect(result.current("x")).toBe(""); // nobody announced it
   });
 
@@ -77,6 +102,7 @@ describe("useSavedFlash", () => {
     rerender({ ids: ["n", "a", "b"] });
     vi.advanceTimersByTime(2000);
     act(() => celebrateSave({ collection: "transactions" }));
+    dialogGone();
     expect(result.current("n")).toBe("");
   });
 
@@ -85,6 +111,7 @@ describe("useSavedFlash", () => {
     act(() => celebrateSave({ collection: "transactions" }));
     vi.advanceTimersByTime(6000);
     rerender({ ids: ["n", "a", "b"] });
+    dialogGone();
     expect(result.current("n")).toBe("");
   });
 });

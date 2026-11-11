@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Badge, Button, Col, Row, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
@@ -730,12 +731,15 @@ function BillLine({
   formatCurrency,
   onOpenDetails,
   now,
+  flash = "",
 }: {
   bill: BillWithStatus;
   category: Category | undefined;
   formatCurrency: (n: number) => string;
   onOpenDetails: (b: BillWithStatus) => void;
   now: Date;
+  /** The saved flash (`useSavedFlash`), when this bill was just saved or paid. */
+  flash?: string;
 }) {
   const { t, i18n } = useTranslation();
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
@@ -765,7 +769,7 @@ function BillLine({
   const when = late ? overdue.oldestDue : bill.nextDueDate;
 
   return (
-    <button type="button" className={`${styles.billLine} ${!bill.isActive ? styles.billOff : settled || stopped ? styles.billLineQuiet : ""}`} onClick={() => onOpenDetails(bill)}>
+    <button type="button" className={`${styles.billLine} ${!bill.isActive ? styles.billOff : settled || stopped ? styles.billLineQuiet : ""} ${flash}`} onClick={() => onOpenDetails(bill)}>
       <span className={styles.lineIcon} aria-hidden>
         {category?.icon ?? "🧾"}
       </span>
@@ -863,6 +867,7 @@ function BillCard({
   onOpenDetails,
   now,
   done = false,
+  flash = "",
 }: {
   bill: BillWithStatus;
   category: Category | undefined;
@@ -871,6 +876,8 @@ function BillCard({
   now: Date;
   /** Paid and not coming back: greyed, at the foot of the paid ones. */
   done?: boolean;
+  /** The saved flash (`useSavedFlash`), when this bill was just saved or paid. */
+  flash?: string;
 }) {
   const { t, i18n } = useTranslation();
   // Settled means this period paid and nothing earlier still owed. A card paid
@@ -889,7 +896,7 @@ function BillCard({
 
   return (
     <div
-      className={`${styles.billCard} ${!bill.isActive ? styles.billOff : `${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`}`}
+      className={`${styles.billCard} ${!bill.isActive ? styles.billOff : `${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`} ${flash}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpenDetails(bill)}
@@ -1062,6 +1069,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const showFigures = view === "overview" || view === "all";
   const showList = view === "pay" || view === "all";
   const { data: bills = [], isLoading, isError } = useBills();
+  // The bill just added, edited or paid lights once its dialog has gone.
+  const billFlash = useSavedFlash("bills", useMemo(() => bills.map((b) => b.id), [bills]));
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
 
@@ -1211,6 +1220,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number, accountId?: string) => {
     if (!payingBill) return;
     markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex, accountId }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+    celebrateSave({ collection: "bills", id: payingBill.id });
     setPayingBill(null);
   };
 
@@ -1253,6 +1263,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // other save here — see `saveWithoutWaiting`.
   const handleSubmit = (data: CreateBillDTO): Promise<void> => {
     const failed = () => toast.error(t("bills.saveFailed"));
+    // A new bill's id is not known here: the row that appears is the one lit.
+    celebrateSave({ collection: "bills", id: editBill?.id });
     return editBill ? saveWithoutWaiting(updateBill, { billId: editBill.id, data }, failed) : saveWithoutWaiting(createBill, data, failed);
   };
 
@@ -1370,6 +1382,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
 
                 {view === "manage" && (
                   <BillManage
+                    flash={billFlash}
                     bills={bills}
                     categoryFor={categoryFor}
                     now={now}
@@ -1458,7 +1471,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                                   <button
                                     key={bill.id}
                                     type="button"
-                                    className={`${styles.activeCard} ${!bill.isActive ? `${styles.billOff} ${styles.activeCardOff}` : overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""}`}
+                                    className={`${styles.activeCard} ${!bill.isActive ? `${styles.billOff} ${styles.activeCardOff}` : overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""} ${billFlash(bill.id)}`}
                                     onClick={() => setDetailBill(bill)}
                                   >
                                     <span className={styles.activeCardName}>{bill.name}</span>
@@ -1502,7 +1515,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                             </div>
                             <div className={styles.billLines}>
                               {group.bills.map((bill) => (
-                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} />
+                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} flash={billFlash(bill.id)} />
                               ))}
                             </div>
                           </div>
@@ -1521,6 +1534,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                             onOpenDetails={setDetailBill}
                             now={now}
                             done={section.key === "settled" && !willBePaidAgain(bill, now)}
+                            flash={billFlash(bill.id)}
                           />
                         ))}
                       </div>
@@ -1673,6 +1687,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           onClose={() => setSettlingBill(null)}
           onConfirm={(items) => {
             settleOverdue.mutate({ bill: settlingBill, items }, { onError: () => toast.error(t("bills.settleOverdueFailed")) });
+            celebrateSave({ collection: "bills", id: settlingBill.id });
             setSettlingBill(null);
           }}
         />

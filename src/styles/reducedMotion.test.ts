@@ -69,6 +69,44 @@ describe("reduced motion", () => {
     expect(shape.some(({ body }) => /--rise:\s*0\b/.test(body))).toBe(true);
   });
 
+  // THE ONE NAMED EXCEPTION (the owner, 2026-11-11): the goal tanks' surface — a
+  // small, slow wave flowing sideways — keeps playing under reduce. His own
+  // Windows asks for reduced motion and the water has to move; this is gentle,
+  // non-vestibular motion. What follows reduce there is the big one-off play
+  // (stream, splash, bubbles, drain) and the level's slide. People who need
+  // stillness have Settings → «Κινούμενα εφέ: Όχι», which stops every endless
+  // animation (next test). CLAUDE.md, «Reduced motion drops movement…», says so.
+  it("lets the goal tanks' wave flow under reduce — sideways only, never a blink — and nothing else of theirs", () => {
+    const card = sources.find(({ path }) => path.endsWith("GoalCard.module.css"))!;
+    const reduce = reduceBlocks.filter(({ path }) => path === card.path).map((b) => b.body).join("\n");
+    expect(reduce, "the wave is not switched off under reduce").not.toMatch(/\.liquid::(before|after)/);
+    // The wave: a row slid left, nothing that brightens, pulses, rises or turns.
+    const flow = keyframes.get("tankFlow");
+    expect(flow).toBeDefined();
+    expect(flow).toMatch(/translateX\(/);
+    expect(flow).not.toMatch(/opacity|translateY|scale|rotate|filter|background|color/);
+    const wave = [...card.css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, sel]) => /\.liquid::(before|after)/.test(sel)).map(([, , body]) => body).join(";");
+    expect(wave).toMatch(/animation:\s*tankFlow\b[^;]*infinite/);
+    expect(wave).not.toMatch(/opacity/);
+    // What follows reduce: the level does not slide, the save's play is hidden.
+    expect(blocks(reduce, /\.liquid\s/).map((b) => b.body).join(";")).toMatch(/transition:\s*none/);
+    expect(reduce).toMatch(/\.stream,\s*\.fx\s*\{[^}]*display:\s*none/);
+  });
+
+  it("stops every endless animation with «Κινούμενα εφέ: Όχι» (--loop-play)", () => {
+    const index = sources.find(({ path }) => path === "src/index.css")!;
+    expect(index.css).toMatch(/:root\[data-motion="off"\]\s*\{[^}]*--loop-play:\s*paused/);
+    const endless = sources.flatMap(({ path, css }) =>
+      [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, , body]) => /animation[\w-]*\s*:[^;]*\binfinite\b/.test(body)).map(([, sel, body]) => ({ path, sel: sel.trim(), body })),
+    );
+    expect(endless.length).toBeGreaterThanOrEqual(4);
+    for (const { path, sel, body } of endless) {
+      expect(body, `${path} ${sel}`).toMatch(/animation-play-state:\s*var\(--loop-play,\s*running\)/);
+    }
+    // The loading shimmer is the library's own loop: it is held to it as well.
+    expect(index.css).toMatch(/\.react-loading-skeleton::after\s*\{\s*animation-play-state:\s*var\(--loop-play,\s*running\)/);
+  });
+
   it("plays only keyframes that do not move anything", () => {
     const played = reduceBlocks.flatMap(({ path, body }) =>
       [...body.matchAll(/animation(?:-name)?\s*:\s*([^;]+);/g)]

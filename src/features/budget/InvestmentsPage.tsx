@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from "react";
+import { useGoalFlash } from "./components/useGoalFlash";
 import { Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, DeleteConfirmModal, HistoryModal } from "./components/InvestmentsShared";
@@ -90,6 +91,8 @@ export default function InvestmentsPage() {
   // ── The tabs ──────────────────────────────────────────────────────────────
 
   const mine = useMemo(() => goals.filter(belongsHere), [goals]);
+  // The card or row of a goal just saved, or money just moved in or out of, lights once its dialog has gone.
+  const goalFlash = useGoalFlash(useMemo(() => mine.map((g) => g.id), [mine]));
 
   // «Όλα ▾»: everything on the screen first, then running, by kind, and paused.
   const statuses = useMemo<GoalStatusOption[]>(
@@ -180,6 +183,7 @@ export default function InvestmentsPage() {
             {shown.map((goal) => (
               <Col xs={12} md={6} xl={3} key={goal.id}>
                 <GoalCard
+                  flashed={goalFlash}
                   goal={goal}
                   formatCurrency={formatCurrency}
                   onViewHistory={setHistoryGoal}
@@ -198,6 +202,7 @@ export default function InvestmentsPage() {
           /* Nothing here has a deadline, so "kind" is the natural stack —
              the rest are the reader's to pick. See `goalGrouping`. */
           <GoalStacks
+            flashed={goalFlash}
             groups={groupGoals(shown, groupBy)}
             storageKey={`investments:stack:${groupBy}`}
             formatCurrency={formatCurrency}

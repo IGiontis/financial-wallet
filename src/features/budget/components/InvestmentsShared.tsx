@@ -7,7 +7,7 @@
 
 import { FiCalendar, FiChevronRight, FiClock, FiDatabase, FiEye, FiPause, FiPlay, FiTarget } from "react-icons/fi";
 import type { IconType } from "react-icons";
-import { Fragment, useState, type CSSProperties } from "react";
+import { Fragment, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   Button,
@@ -32,6 +32,8 @@ import { fillParts } from "../goalParts";
 import { GoalDetailsModal } from "./GoalDetailsModal";
 import partStyles from "./css/GoalParts.module.css";
 import styles from "./css/GoalCard.module.css";
+import { pourSize, tankLevels, useTankPlay, type PourSize } from "./tankPlay";
+import { CARD_FLASH } from "../../../shared/feedback/saveFeedback";
 
 // ─── Progress ring ────────────────────────────────────────────────────────────
 // The share of the target, drawn once and read at a glance. It replaced a row
@@ -130,6 +132,13 @@ const TILE_TONE: Record<TileTone, CSSProperties> = {
   invest: { "--tile": "var(--color-invest)", "--tile-text": "var(--color-invest-text)" } as CSSProperties,
 };
 
+/**
+ * What a tank does while a save plays (item 95, tankPlay.ts): money poured in
+ * from the top with a splash and bubbles, a drain at the bottom, or a rise with
+ * bubbles alone (what is left growing back after a withdrawal).
+ */
+type TileFx = "pour" | "drain" | "rise";
+
 interface MoneyTileProps {
   label: string;
   value: string;
@@ -137,15 +146,47 @@ interface MoneyTileProps {
   tone: TileTone;
   /** How full the tank is, 0–100. */
   level: number;
+  /** While a save plays: the level it started from, and what the tank does. */
+  from?: number;
+  fx?: TileFx;
+  /** One more per play, so its effects start afresh. */
+  playKey?: number;
+  /** The play scaled to the amount moved: the stream's width and length, the bubbles. */
+  size?: PourSize;
 }
 
-function MoneyTile({ label, value, icon: Icon, tone, level }: MoneyTileProps) {
-  const fill = Math.max(0, Math.min(level, 100));
+const pct = (n: number) => Math.max(0, Math.min(n, 100));
+
+/** Up to five bubbles: where each rises, how big, and its turn (--i, spacing them out). */
+const BUBBLES = [
+  { "--x": "34%", "--d": "5px", "--i": 0 },
+  { "--x": "58%", "--d": "4px", "--i": 1 },
+  { "--x": "46%", "--d": "6px", "--i": 2 },
+  { "--x": "24%", "--d": "4px", "--i": 3 },
+  { "--x": "68%", "--d": "5px", "--i": 4 },
+] as unknown as CSSProperties[];
+
+function MoneyTile({ label, value, icon: Icon, tone, level, from, fx, playKey, size }: MoneyTileProps) {
+  const fill = pct(level);
   // At either end there is no surface to ripple: a crest on an empty tank, or
   // one pressed against the lid of a full one, would only be noise.
   const surface = fill <= 0 ? "empty" : fill >= 100 ? "full" : "partial";
   return (
-    <div className={styles.tile} data-surface={surface} style={{ ...TILE_TONE[tone], "--level": `${fill}%` } as CSSProperties}>
+    <div className={styles.tile} data-tone={tone} data-surface={surface} data-fx={fx} style={{ ...TILE_TONE[tone], "--level": `${fill}%`, "--from": `${pct(from ?? level)}%`, ...(size && { "--pour-w": `${size.width}px`, "--pour-ms": `${size.ms}ms` }) } as CSSProperties}>
+      {/* The liquid, its two waves on top (GoalCard.module.css), and while a save
+          plays its splash, bubbles or drain — all behind the lettering. */}
+      <span className={styles.liquid} aria-hidden>
+        {fx && (
+          <span key={playKey} className={styles.fx}>
+            {fx === "pour" && <span className={styles.splash} />}
+            {fx !== "drain" && BUBBLES.slice(0, size?.bubbles ?? 3).map((bubble, i) => <span key={i} className={styles.bubble} style={bubble} />)}
+            {fx === "drain" && <span className={styles.drain} />}
+          </span>
+        )}
+      </span>
+      {/* The stream falls from the top of the tank; the fade is reduced motion's whole play. */}
+      {fx === "pour" && <span key={`s${playKey}`} className={styles.stream} aria-hidden />}
+      {fx && <span key={`f${playKey}`} className={styles.fade} data-way={fx === "drain" ? "down" : "up"} aria-hidden />}
       <Icon className={styles.tileIcon} aria-hidden />
       <p className={styles.tileValue}>{value}</p>
       <p className={styles.tileLabel}>{label}</p>
@@ -187,6 +228,8 @@ export interface GoalCardProps {
   onEdit: (goal: InvestmentGoalWithStats) => void;
   onTogglePause: (goal: InvestmentGoalWithStats) => void;
   formatCurrency: (n: number) => string;
+  /** Whether this goal just saved (`useGoalFlash`): its card rings once. */
+  flashed?: (id: string) => boolean;
   /**
    * The page lists only paused ones («Σε παύση» picked in the status menu):
    * no veil, so they can be read — a grey band with the chip says it instead.
@@ -194,7 +237,7 @@ export interface GoalCardProps {
   pausedView?: boolean;
 }
 
-export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency, pausedView = false }: GoalCardProps) {
+export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, formatCurrency, flashed, pausedView = false }: GoalCardProps) {
   // Read once per render: the pace and the projection are measured against it,
   // and two different "now"s inside one card would report two different days.
   const now = new Date();
@@ -215,6 +258,9 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
     { label: i18n.t("common.delete"), onSelect: () => onDelete(goal), danger: true },
   ];
   const isEffectivelyCompleted = goal.isCompleted && goal.goalType !== "open_ended" && !isRecurring;
+  // The goal's tanks (the three money tiles below): what they hold now.
+  const tankTarget = useMemo(() => tankLevels(goal.totalSaved, goal.targetAmount ?? 0), [goal.totalSaved, goal.targetAmount]);
+  const tilesRef = useRef<HTMLDivElement>(null);
 
   // ── Raw values ─────────────────────────────────────────────────────────────
   const arrears = goal.arrears ?? 0;
@@ -377,13 +423,29 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   // tile of its own colour — green what is in, blue what is left (green once
   // nothing is), violet the whole — so they catch the eye before they are read.
   const reachOnce = !isRecurring && isTargetedGoal && !!goal.targetAmount;
-  // The two tanks' levels are shares of the whole: what is in, and what is left.
-  const tankOf = (amount: number) => (goal.targetAmount ? (Math.max(amount, 0) / goal.targetAmount) * 100 : 0);
+  // The two tanks' levels are shares of the whole: what is in, and what is
+  // left (the whole less what is in) — connected vessels, one fills as the
+  // other drains. A deposit or withdrawal plays once its dialog has gone
+  // (tankPlay.ts); until then the card holds the old levels.
+  const tank = useTankPlay(goal.id, tankTarget, tilesRef);
+  const size = tank.play ? pourSize(tank.share) : undefined;
+  const fxOf = (forIn: boolean): TileFx | undefined => (tank.play === "in" ? (forIn ? "pour" : "drain") : tank.play === "out" ? (forIn ? "drain" : "rise") : undefined);
   const moneyTiles: MoneyTileProps[] | undefined = reachOnce
     ? [
-        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved), icon: FiDatabase, tone: "income", level: tankOf(goal.totalSaved) },
-        { label: i18n.t("goals.boxLeft"), value: formatCurrency(Math.max(remaining, 0)), icon: FiClock, tone: remaining <= 0 ? "income" : "brand", level: tankOf(remaining) },
-        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0), icon: FiTarget, tone: "invest", level: 100 },
+        { label: i18n.t("goals.boxIn"), value: formatCurrency(goal.totalSaved), icon: FiDatabase, tone: "income", level: tank.levels.in, from: tank.from.in, fx: fxOf(true), playKey: tank.key, size },
+        {
+          label: i18n.t("goals.boxLeft"),
+          value: formatCurrency(Math.max(remaining, 0)),
+          icon: FiClock,
+          tone: remaining <= 0 ? "income" : "brand",
+          level: tank.levels.left,
+          from: tank.from.left,
+          fx: fxOf(false),
+          playKey: tank.key,
+          size,
+        },
+        // The whole: full and still.
+        { label: i18n.t("goals.boxTarget"), value: formatCurrency(goal.targetAmount ?? 0), icon: FiTarget, tone: "invest", level: tank.levels.total },
       ]
     : undefined;
   const askLines =
@@ -404,7 +466,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   return (
     <Card
       data-tour="goal-card"
-      className="mb-3 h-100"
+      className={`mb-3 h-100 ${flashed?.(goal.id) ? CARD_FLASH : ""}`}
       style={{
         border: "1px solid var(--color-border-tertiary)",
         borderRadius: "var(--border-radius-lg)",
@@ -524,7 +586,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 
         {/* ── Its money: three tiles ───────────────────────────────────────── */}
         {moneyTiles && (
-          <div className={styles.tiles}>
+          <div ref={tilesRef} className={styles.tiles} data-move={tank.play ?? undefined}>
             {moneyTiles.map((tile) => (
               <MoneyTile key={tile.label} {...tile} />
             ))}

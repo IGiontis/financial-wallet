@@ -1134,8 +1134,9 @@
    lib/toastDefaults.ts) at the TOP, under the status bar and notch
    (safe-area), centred, `min(100% − 2 gutters, 28rem)` wide, never taller than
    the visible screen (dvh) — far from the «+» and the footer at the bottom.
-   On a wider screen the bottom-right corner, above the «+». It goes on a tap or
-   a swipe and waits while touched (lib/toastDefaults.ts has the timings).
+   On a wider screen the TOP-RIGHT corner, just under the top bar and clear of
+   it (--toastify-toast-top-wide). It goes on a tap or a swipe and waits while
+   touched (lib/toastDefaults.ts has the timings).
 
    react-toastify's sheet loads after this one, so its variables are set on
    `html:root` and its classes are qualified by `.Toastify`, to win. */
@@ -1146,6 +1147,8 @@ html:root {
   --toastify-toast-width: 24rem;
   --toastify-toast-offset: var(--space-4);
   --toastify-toast-top: calc(var(--space-2) + env(safe-area-inset-top, 0px));
+  /* A wider screen: under the top bar, a gutter clear of it. */
+  --toastify-toast-top-wide: calc(var(--topbar-height) + var(--space-3) + env(safe-area-inset-top, 0px));
   /* Above the «+» (3.25rem, 1rem from the corner — AddFab) and the home bar. */
   --toastify-toast-bottom: calc(var(--space-4) + 3.25rem + var(--space-3) + env(safe-area-inset-bottom, 0px));
   --toastify-toast-min-height: 3rem;
@@ -1166,6 +1169,44 @@ html:root {
 
 .Toastify .Toastify__toast-container {
   color: var(--text);
+}
+
+/* A wider screen: the top-right corner, under the top bar (lib/toastDefaults.ts),
+   and bigger than on a phone — at the library's 320px it read as a footnote in
+   the corner of a laptop screen. */
+.Toastify .Toastify__toast-container--top-right {
+  top: var(--toastify-toast-top-wide);
+  right: var(--toastify-toast-offset);
+  width: min(26rem, calc(100vw - 2 * var(--toastify-toast-offset)));
+}
+
+@media (min-width: 576px) and (min-height: 501px) {
+  .Toastify .Toastify__toast {
+    --toastify-toast-width: 100%;
+    width: 100%;
+    min-height: 4rem;
+    padding: var(--space-3) var(--space-6) var(--space-3) var(--space-4);
+    font-size: 1rem;
+  }
+
+  .Toastify .Toastify__toast::before {
+    width: 4px;
+  }
+
+  .Toastify .Toastify__toast-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .Toastify .Toastify__toast-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+/* At the top everywhere now, so a toast drops in from above rather than rising. */
+.Toastify {
+  --toast-from: calc(var(--rise) * -1);
 }
 
 .Toastify .Toastify__toast {
@@ -1330,6 +1371,23 @@ html:root {
 
 .row-flash {
   animation: row-flash var(--motion-flash) var(--ease-standard);
+}
+
+/* The same answer on a CARD (a goal, a bank card — `useSavedFlash(…, "card")`):
+   its own ground is a surface or a picture, so a ring of the brand round it
+   instead, fading out with the row's timing. A colour, nothing that moves:
+   it plays under reduced motion too. */
+@keyframes card-flash {
+  from,
+  25% {
+    box-shadow:
+      0 0 0 2px var(--brand-edge),
+      0 0 0 6px var(--brand-soft);
+  }
+}
+
+.card-flash {
+  animation: card-flash var(--motion-flash) var(--ease-standard);
 }
 
 /* The dialog that just saved (`celebrateSave`, shared/feedback/saveFeedback.ts):

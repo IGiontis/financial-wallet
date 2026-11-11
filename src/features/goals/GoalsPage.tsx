@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useMemo, useState } from "react";
+import { useGoalFlash } from "../budget/components/useGoalFlash";
 import { Button, Col, Row } from "reactstrap";
 import type { CreateInvestmentContributionDTO, CreateInvestmentGoalDTO, InvestmentGoalWithStats, UpdateInvestmentGoalDTO } from "../../shared/types/IndexTypes";
 import { GoalCard, HistoryModal } from "../budget/components/InvestmentsShared";
@@ -137,6 +138,8 @@ export default function GoalsPage() {
   // ── The tabs ──────────────────────────────────────────────────────────────
 
   const mine = useMemo(() => goals.filter(belongsHere), [goals]);
+  // The card or row of a goal just saved, or money just moved in or out of, lights once its dialog has gone.
+  const goalFlash = useGoalFlash(useMemo(() => mine.map((g) => g.id), [mine]));
 
   // «Όλοι ▾»: every goal on the screen first, then each status on its own.
   const statuses = useMemo<GoalStatusOption[]>(
@@ -199,6 +202,7 @@ export default function GoalsPage() {
             {shown.map((goal) => (
               <Col xs={12} md={6} xl={4} key={goal.id}>
                 <GoalCard
+                  flashed={goalFlash}
                   goal={goal}
                   formatCurrency={formatCurrency}
                   onViewHistory={setHistoryGoal}
@@ -217,6 +221,7 @@ export default function GoalsPage() {
           /* The same goals and the same actions, stacked the way the reader
              asked for — see `goalGrouping`. */
           <GoalStacks
+            flashed={goalFlash}
             groups={groupGoals(shown, groupBy)}
             storageKey={`goals:stack:${groupBy}`}
             formatCurrency={formatCurrency}

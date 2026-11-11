@@ -144,6 +144,7 @@
   border-radius: inherit;
   background: var(--brand);
   animation: welcome-bar 1.2s ease-in-out infinite;
+  animation-play-state: var(--loop-play, running);
 }
 
 @keyframes welcome-bar {
@@ -191,6 +192,7 @@
 
   .bar {
     animation: welcome-breathe 1.2s ease-in-out infinite;
+    animation-play-state: var(--loop-play, running);
     transform: translateX(80%);
   }
 }

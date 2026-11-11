@@ -29,8 +29,9 @@ export const ToastRise = cssTransition({ enter: "toast-enter", exit: "toast-exit
  *
  * On a phone a toast drops in at the TOP, under the status bar — never over
  * the «+» or the footer at the bottom, where the old one sat and got lost —
- * newest first, swiped up (or down) to go. On a wider screen a card in the
- * bottom-right corner, above the «+», swiped sideways. Everywhere: a tap
+ * newest first, swiped up (or down) to go. On a wider screen a card at the
+ * TOP-RIGHT, just under the top bar and clear of it (the owner, 2026-11-11:
+ * the bottom corner went unseen), newest first, swiped sideways. Everywhere: a tap
  * closes it; it waits while a finger or the pointer is on it (dragging pauses
  * it too), while it has focus and while the window is in the background; at
  * most three at once. Decided once, when the app starts: a phone turned on its
@@ -39,10 +40,10 @@ export const ToastRise = cssTransition({ enter: "toast-enter", exit: "toast-exit
 export const TOAST_CONTAINER: ToastContainerProps = (() => {
   const phone = onPhone();
   return {
-    position: phone ? "top-center" : "bottom-right",
+    position: phone ? "top-center" : "top-right",
     autoClose: TOAST_MS,
     hideProgressBar: true,
-    newestOnTop: phone,
+    newestOnTop: true,
     closeOnClick: true,
     pauseOnHover: true,
     pauseOnFocusLoss: true,

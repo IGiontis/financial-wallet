@@ -3,6 +3,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { toast } from "react-toastify";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback } from "reactstrap";
@@ -121,6 +122,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
         };
         await onSubmit(goal.id, data);
         toast.success(t("goals.updatedSuccess", { name: values.name }));
+        celebrateSave({ collection: "investmentGoals", id: goal.id });
         resetForm();
         setStep("what");
         onClose();

@@ -1,5 +1,9 @@
-import { useEffect, useRef } from "react";
-import { useRowFlash } from "../hooks/useRowFlash";
+import { useCallback, useEffect, useRef } from "react";
+import { ROW_FLASH, useRowFlash } from "../hooks/useRowFlash";
+import { MODAL_MS } from "../components/modalMotion";
+
+/** A card's flash (theme.css): a ring round it, a colour, nothing that moves. */
+export const CARD_FLASH = "card-flash";
 
 /**
  * «Did that save?» — the one answer every form gives after a successful save
@@ -50,6 +54,21 @@ const listeners = new Set<(a: Announcement) => void>();
 /** Tells the list showing `collection` that a record was saved. */
 export function announceSaved(collection: string, id?: string) {
   for (const listen of listeners) listen({ collection, id });
+}
+
+/**
+ * Hears every save announced for `collection` — for a view that answers a save
+ * in its own way rather than with a row flash (the goal card's tanks, item 95).
+ * Returns the unsubscribe.
+ */
+export function onSaved(collection: string, listener: (id?: string) => void): () => void {
+  const listen = (a: Announcement) => {
+    if (a.collection === collection) listener(a.id);
+  };
+  listeners.add(listen);
+  return () => {
+    listeners.delete(listen);
+  };
 }
 
 /** How long the dialog's pulse runs (theme.css, `.save-pulse`: 700ms). */
@@ -108,6 +127,30 @@ export function celebrateSave({ collection, id, milestone = false, dialog }: Sav
   if (milestone) confetti();
 }
 
+/** After the last dialog lost `.show`: its fade-out (modalMotion.ts) and a frame. */
+export const DIALOG_GONE_MS = MODAL_MS + 30;
+
+/**
+ * Runs `run` once the dialog on top has closed and faded out. A form
+ * says it saved while its dialog is still up, over the list: a row lit then
+ * was lit under the dialog, and had faded by the time it went (the owner saw
+ * nothing). Returns the cancel.
+ */
+export function afterDialogs(run: () => void): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // The dialog on top now is the one that saved. Only it is waited for: a
+  // list shown inside a sheet below it (a person's debts) lights as soon as
+  // the form over it has gone.
+  const shown = typeof document !== "undefined" ? document.querySelectorAll(".modal.show") : [];
+  const saving = shown.length > 0 ? shown[shown.length - 1] : null;
+  const open = () => !!saving && saving.isConnected && saving.classList.contains("show");
+  const look = () => {
+    timer = open() ? setTimeout(look, 100) : setTimeout(run, DIALOG_GONE_MS);
+  };
+  look();
+  return () => clearTimeout(timer);
+}
+
 /** An id that showed up before the form announced its save still counts this long. */
 const ARRIVED_MS = 1500;
 /** How long a save without an id waits for its row to appear. */
@@ -133,8 +176,18 @@ export function grewBy(before: ReadonlySet<string>, ids: readonly string[]): str
  * (the new record arriving in the list) is the one lit. Returns the class for
  * a row, as `useRowFlash`'s `flashClass` does.
  */
-export function useSavedFlash(collection: string, ids: readonly string[]) {
-  const { flash, flashClass } = useRowFlash<string>();
+export function useSavedFlash(collection: string, ids: readonly string[], kind: "row" | "card" = "row") {
+  const { flash: flashNow, flashClass: rowClass } = useRowFlash<string>();
+  // Lit once the dialog that saved it has gone (see `afterDialogs`).
+  const cancel = useRef<() => void>(() => {});
+  useEffect(() => () => cancel.current(), []);
+  const flash = useCallback((id: string) => {
+    cancel.current();
+    cancel.current = afterDialogs(() => flashNow(id));
+  }, [flashNow]);
+  // A card (a goal, a bank card) answers with a ring round it rather than a
+  // row's wash: its own background is a picture or a surface of its own.
+  const flashClass = useCallback((id: string) => (rowClass(id) ? (kind === "card" ? CARD_FLASH : ROW_FLASH) : ""), [rowClass, kind]);
   const known = useRef<Set<string>>(new Set(ids));
   // The id that arrived as a GROWTH of the list (see `grewBy` below), with when —
   // an optimistic save can draw its row a moment BEFORE the form says it saved.

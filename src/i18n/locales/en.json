@@ -2174,6 +2174,8 @@
     "signOutSubtitle": "Sign out of MyFiWallet on this device.",
     "colourway": "Colours",
     "colourwaySubtitle": "The app's colours: the sidebar, the top bar, the cards and the buttons. Only the colours change. Applies straight away, on this device.",
+    "motion": "Moving effects",
+    "motionSubtitle": "What moves all the time, like the water in the goals' boxes. «No» stops it. Applies straight away, on this device.",
     "colourwayBlue": "Trust blue",
     "colourwayGold": "Black & gold",
     "notifications": "Notifications",

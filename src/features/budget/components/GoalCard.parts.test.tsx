@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "../../../i18n";
 import { GoalCard } from "./InvestmentsShared";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
+import { celebrateSave } from "../../../shared/feedback/saveFeedback";
+import { PLAY_MS, pourSize } from "./tankPlay";
 
 // The ski trip, written as its parts and 280 € in: one line saying 280 / 690 = 410,
 // and the 👁 opening the parts — house and lift met, travel filling, food empty.
@@ -42,12 +44,12 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
-const renderCard = (goal = SKI) =>
-  render(
-    <MemoryRouter>
-      <GoalCard goal={goal} formatCurrency={money} onViewHistory={noop} onAddDeposit={noop} onWithdraw={noop} onDelete={noop} onEdit={noop} onTogglePause={noop} />
-    </MemoryRouter>,
-  );
+const card = (goal: InvestmentGoalWithStats) => (
+  <MemoryRouter>
+    <GoalCard goal={goal} formatCurrency={money} onViewHistory={noop} onAddDeposit={noop} onWithdraw={noop} onDelete={noop} onEdit={noop} onTogglePause={noop} />
+  </MemoryRouter>
+);
+const renderCard = (goal = SKI) => render(card(goal));
 
 describe("a goal card", () => {
   it("puts its money in the three boxes: put in, what is left, the total", () => {
@@ -113,5 +115,51 @@ describe("a goal card", () => {
     // The sheet's own close, in its foot, puts it away again.
     await userEvent.click(within(sheet).getAllByRole("button", { name: "Close" }).at(-1)!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("plays a deposit on its tanks after the dialog over it has gone — once, the two tanks together", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderCard();
+      const tile = (label: string) => screen.getByText(label).parentElement as HTMLElement;
+      const level = (label: string) => parseFloat(tile(label).style.getPropertyValue("--level"));
+      // The deposit dialog is open over the card; 100 € goes in.
+      const dialog = document.createElement("div");
+      dialog.className = "modal show";
+      document.body.appendChild(dialog);
+      rerender(card({ ...SKI, totalSaved: 380, remaining: 310 } as InvestmentGoalWithStats));
+      act(() => celebrateSave({ collection: "investmentContributions", id: "ski" }));
+      act(() => void vi.advanceTimersByTime(3000));
+      // Under the dialog the card holds the old levels; the figure is already the new one.
+      expect(level("put in")).toBeCloseTo((280 / 690) * 100, 5);
+      expect(tile("put in").dataset.fx).toBeUndefined();
+      expect(screen.getByText("put in").previousElementSibling!.textContent).toBe("€380.00");
+
+      dialog.remove();
+      act(() => void vi.advanceTimersByTime(1000));
+      // Poured into «put in», drained from «left», from the old levels to the new.
+      expect(level("put in")).toBeCloseTo((380 / 690) * 100, 5);
+      expect(level("left")).toBeCloseTo((310 / 690) * 100, 5);
+      expect(level("put in") + level("left")).toBeCloseTo(100, 5);
+      expect(parseFloat(tile("put in").style.getPropertyValue("--from"))).toBeCloseTo((280 / 690) * 100, 5);
+      expect(parseFloat(tile("left").style.getPropertyValue("--from"))).toBeCloseTo((410 / 690) * 100, 5);
+      expect([tile("put in").dataset.fx, tile("left").dataset.fx, tile("total").dataset.fx]).toEqual(["pour", "drain", undefined]);
+      // Sized by the amount: 100 of 690 in, so the stream and the bubbles of that share.
+      const size = pourSize(100 / 690);
+      expect(tile("put in").querySelectorAll("[class*=bubble]")).toHaveLength(size.bubbles);
+      expect(tile("put in").style.getPropertyValue("--pour-w")).toBe(`${size.width}px`);
+      expect(tile("put in").style.getPropertyValue("--pour-ms")).toBe(`${size.ms}ms`);
+      expect(level("total")).toBe(100);
+
+      act(() => void vi.advanceTimersByTime(PLAY_MS));
+      expect(tile("put in").dataset.fx).toBeUndefined();
+      // Another goal's save, or the same figures again: nothing more.
+      act(() => celebrateSave({ collection: "investmentContributions", id: "other" }));
+      rerender(card({ ...SKI, totalSaved: 380, remaining: 310 } as InvestmentGoalWithStats));
+      act(() => void vi.advanceTimersByTime(3000));
+      expect(tile("put in").dataset.fx).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

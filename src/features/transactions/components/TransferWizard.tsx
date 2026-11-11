@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { Link } from "react-router-dom";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -138,6 +139,8 @@ export default function TransferWizard({
       return;
     }
     toast.success(t("transactions.transfer.savedToast"));
+    // Its two halves land in the list: the one that appears is lit.
+    celebrateSave({ collection: "transactions" });
     onClose();
   };
 

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // The library's two calls, replaced by spies before the wrapper is installed,
 // so what reaches them is what the wrapper passed on.
@@ -38,5 +40,23 @@ describe("toast timings", () => {
       { type: "success", options: { autoClose: TOAST_MS_BY_TYPE.success } },
     ]);
     expect(TOAST_MS_BY_TYPE.error).toBeGreaterThan(TOAST_MS);
+  });
+});
+
+describe("toast place", () => {
+  // The owner, 2026-11-11: bottom-right went unseen on his laptop. Top-right,
+  // under the top bar and clear of it; a phone keeps the top, centred.
+  const theme = readFileSync(join(__dirname, "..", "styles", "theme.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("sits top-right on a wider screen, newest first", () => {
+    // jsdom has no phone-sized screen: this is the laptop's container.
+    expect(TOAST_CONTAINER).toMatchObject({ position: "top-right", newestOnTop: true, draggableDirection: "x" });
+  });
+
+  it("is placed under the top bar, a gutter clear of it", () => {
+    expect(theme).toMatch(/--toastify-toast-top-wide:\s*calc\(var\(--topbar-height\)\s*\+\s*var\(--space-\d\)/);
+    expect(theme).toMatch(/\.Toastify \.Toastify__toast-container--top-right\s*\{[^}]*top:\s*var\(--toastify-toast-top-wide\)/);
+    // And on a phone: the top, centred.
+    expect(theme).toMatch(/@media \(max-width: 575\.98px\), \(max-height: 500px\)\s*\{\s*\.Toastify \.Toastify__toast-container,\s*\.Toastify \.Toastify__toast-container--top-center\s*\{[^}]*left:\s*50%/);
   });
 });

@@ -122,3 +122,70 @@ describe("the goal card's header band", () => {
     expect(band).not.toMatch(/\d+%/);
   });
 });
+
+// The money tiles' tanks (item 95): the figure and its label float on the
+// liquid, its far wave, its bubbles and the drain, and on the tile's surface —
+// every one of them ≥ 8:1 behind the body ink, in both colourways × modes, for
+// the three tank colours (put in: income; left: brand, or income once nothing
+// is left; the whole: invest).
+const THEME = strip(readFileSync(join(SRC, "styles", "theme.css"), "utf8"));
+const TANK_TONES = ["income", "brand", "invest"] as const;
+const CARD = strip(CARD_CSS);
+/** Every declaration block whose selector list names `selector`, joined. */
+const rule = (selector: string) =>
+  [...CARD.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, prelude]) => prelude.split(",").map((x) => x.trim()).includes(selector))
+    .map(([, , body]) => body)
+    .join(";");
+const FOAM = CARD.match(/--tile-foam:\s*color-mix\(in srgb,\s*var\(--tile-liquid\)\s*(\d+)%,\s*var\(--surface\)\);/);
+
+const tankCases = Object.keys(colourway).flatMap((cw) =>
+  (["light", "dark"] as Mode[]).flatMap((mode) =>
+    TANK_TONES.map((tone) => {
+      const v = { ...vars(cw, mode), ...bandScale(mode) };
+      const surface = colour(v.surface, v);
+      // The brand's tank has a strength of its own (gold's dark brand is pale).
+      const liquid = mix(colour(v[tone], v), surface, parseFloat(v[tone === "brand" ? "tone-tank-brand" : "tone-tank"]) / 100);
+      const foam = mix(liquid, surface, parseFloat(FOAM?.[1] ?? "NaN") / 100);
+      return { name: `${cw} ${mode} ${tone}`, text: colour(v.text, v), surface, liquid, foam };
+    }),
+  ),
+);
+
+describe("the goal card's money tanks", () => {
+  it("covers both colourways in both modes, three tank colours each", () => {
+    expect(tankCases).toHaveLength(2 * 2 * TANK_TONES.length);
+  });
+
+  it("letters the figure and its label in the body ink", () => {
+    expect(rule(".tileValue")).toMatch(/color:\s*var\(--color-text-primary\)/);
+    expect(THEME).toMatch(/--color-text-primary:\s*var\(--text\)/);
+    expect(rule(".tileLabel")).toMatch(/color:\s*var\(--text\)/);
+  });
+
+  it("draws everything behind the lettering in the liquid, its foam or the surface", () => {
+    expect(rule(".tile")).toMatch(/--tile-liquid:\s*color-mix\(in srgb,\s*var\(--tile\)\s*var\(--tank-strength\),\s*var\(--surface\)\)/);
+    expect(rule(".tile")).toMatch(/--tank-strength:\s*var\(--tone-tank\)/);
+    expect(rule('.tile[data-tone="brand"]')).toMatch(/--tank-strength:\s*var\(--tone-tank-brand\)/);
+    expect(FOAM, "--tile-foam is a mix of the liquid and the surface").not.toBeNull();
+    const painted = [".tile", ".liquid", ".liquid::before", ".liquid::after", ".stream", ".splash::before", ".bubble::before", ".drain", '.fade[data-way="down"]'];
+    for (const selector of painted) {
+      const body = rule(selector);
+      expect(body, `${selector} not found`).not.toBe("");
+      const paints = [...body.matchAll(/(?:background|box-shadow)\s*:\s*([^;]+);/g)].map((m) => m[1]);
+      for (const paint of paints) {
+        const used = [...paint.matchAll(/var\(--([\w-]+)\)/g)].map((m) => m[1]);
+        // --wave and --crest are the wave's sizes, not colours.
+        expect(used.filter((name) => !["tile-liquid", "tile-foam", "surface", "wave", "crest"].includes(name)), `${selector}: ${paint}`).toEqual([]);
+      }
+    }
+    // The reduced-motion fade paints the surface, or the liquid going down.
+    expect(CARD).toMatch(/\.fade\s*\{[^}]*background:\s*var\(--surface\)/);
+  });
+
+  it.each(tankCases)("$name: the lettering reads at ≥ 8:1 over the liquid, its foam and the surface", ({ text, surface, liquid, foam }) => {
+    expect(ratio(text, liquid)).toBeGreaterThanOrEqual(8);
+    expect(ratio(text, foam)).toBeGreaterThanOrEqual(8);
+    expect(ratio(text, surface)).toBeGreaterThanOrEqual(8);
+  });
+});

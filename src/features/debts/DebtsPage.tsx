@@ -1,4 +1,5 @@
 import { useContext, useMemo, useState } from "react";
+import { useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { UNSAFE_LocationContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
@@ -35,6 +36,9 @@ export function DebtsPage() {
 
   const debtsQuery = useDebts();
   const { data: debts = [], isLoading } = debtsQuery;
+  // The person whose debt was just saved (made, edited, a repayment) lights
+  // once the form has gone — `celebrateSave({ collection: "debts", id })`.
+  const debtFlash = useSavedFlash("debts", useMemo(() => debts.map((d) => d.id), [debts]));
   // Money a lost signal left out of step with its debt, put right on arrival.
   useHealDebtCash(debtsQuery, useTransactions());
   // From a laptop up, the person is a panel beside the list rather than a dialog
@@ -157,7 +161,7 @@ export function DebtsPage() {
               const started = progress.reduce((sum, x) => sum + x.started, 0);
               const cleared = started > 0 ? Math.min(Math.round((progress.reduce((sum, x) => sum + x.principal, 0) / started) * 100), 100) : 0;
               return (
-                <button key={p.person} type="button" className={`${styles.person} ${selected ? styles.personOn : ""}`} aria-pressed={wide ? !!selected : undefined} onClick={() => setOpenPerson(p.person)}>
+                <button key={p.person} type="button" className={`${styles.person} ${selected ? styles.personOn : ""} ${p.debts.map((d) => debtFlash(d.id)).find(Boolean) ?? ""}`} aria-pressed={wide ? !!selected : undefined} onClick={() => setOpenPerson(p.person)}>
                   <span className={styles.personName}>{p.person}</span>
                   <span className={styles.personCount}>{t("debts.loanCount", { count: p.openCount })}</span>
                   <span className={`${styles.personBalance} ${p.openCount === 0 ? styles.settled : ""}`} style={{ color: balance.tone }}>

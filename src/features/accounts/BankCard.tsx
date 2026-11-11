@@ -21,6 +21,7 @@ export function BankCard({
   compact,
   onClick,
   label,
+  className = "",
   children,
 }: {
   name: string;
@@ -37,6 +38,8 @@ export function BankCard({
   label?: string;
   /** Laid over the card — a delete button in edit mode. */
   children?: ReactNode;
+  /** Added to the card's own (the saved flash, `useSavedFlash(…, "card")`). */
+  className?: string;
 }) {
   const Tag = onClick ? "button" : "div";
   const top = (
@@ -54,7 +57,7 @@ export function BankCard({
   return (
     <Tag
       {...(onClick ? { type: "button" as const, onClick, "aria-pressed": selected, "aria-label": label } : {})}
-      className={`${styles.card} ${kind === "cash" ? styles.cash : ""} ${selected ? styles.selected : ""} ${compact ? styles.compact : ""}`}
+      className={`${styles.card} ${kind === "cash" ? styles.cash : ""} ${selected ? styles.selected : ""} ${compact ? styles.compact : ""} ${className}`}
       style={kind === "cash" ? undefined : { ["--card" as string]: CARD_FINISH[finish].background }}
     >
       {kind === "cash" ? (

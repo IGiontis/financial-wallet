@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Alert, Badge, Button, Card, CardBody, Col, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiRepeat, FiTrash2, FiTrendingUp, FiX } from "react-icons/fi";
@@ -66,6 +67,8 @@ export function AccountsPage() {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
   const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, isLoading } = useMoneyAccounts();
+  // The card just added or edited rings once its dialog has gone.
+  const accountFlash = useSavedFlash("accounts", useMemo(() => accounts.map((a) => a.id), [accounts]), "card");
   // For writing down what a difference turned out to be, from inside the reading.
   const { data: categories = [] } = useCategories();
   const deleteGuard = useOfflineGuard("delete");
@@ -120,10 +123,12 @@ export function AccountsPage() {
       // Joins with the others at what they are expected to hold, so adding an
       // account never shows up as money found or lost.
       record({ ...expected, [id]: draft.amount ?? 0 });
+      celebrateSave({ collection: "accounts", id });
     } else if (editing) {
       let next = accounts.map((a) => (a.id === editing.id ? { ...a, name: draft.name, kind: draft.kind, color: draft.kind === "bank" ? draft.color : undefined } : a));
       next = withMain(next, editing.id, draft.main);
       setAccounts(next);
+      celebrateSave({ collection: "accounts", id: editing.id });
     }
     setEditing(null);
   };
@@ -282,6 +287,7 @@ export function AccountsPage() {
                         badge={account.id === main?.id && accounts.length > 1 ? t("accounts.mainShort") : undefined}
                         onClick={() => setViewing(account)}
                         label={t("accounts.openAccount", { name: account.name })}
+                        className={accountFlash(account.id)}
                       />
                       {managing && (
                         <button

@@ -18,6 +18,7 @@ export function BillManage({
   deleteLocked,
   deleteReason,
   onToggle,
+  flash,
 }: {
   bills: BillWithStatus[];
   onToggle: (bill: BillWithStatus, active: boolean) => void;
@@ -27,6 +28,8 @@ export function BillManage({
   onDelete: (bill: BillWithStatus) => void;
   deleteLocked?: boolean;
   deleteReason?: string;
+  /** The saved flash for a bill just added or edited (`useSavedFlash`). */
+  flash?: (id: string) => string;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
@@ -76,6 +79,7 @@ export function BillManage({
   const byId = (id: string) => bills.find((bill) => bill.id === id);
   return (
     <ManageList
+      flash={flash}
       groups={groups}
       hint={t("bills.manageHint", { count: bills.length })}
       onEdit={(id) => {

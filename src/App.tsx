@@ -17,12 +17,15 @@ import { useOnlineStatus } from "./shared/hooks/useOnlineStatus";
 import { useCurrencyConverter } from "./shared/hooks/useCurrencyConverter";
 import { UpdatePrompt } from "./shared/components/UpdatePrompt";
 import { installModalMotion } from "./shared/components/modalMotion";
+import { installMotionEffects } from "./shared/hooks/useMotionEffects";
 import { installToastDefaults, TOAST_CONTAINER } from "./lib/toastDefaults";
 
 // Before the first dialog or toast: every dialog fades and rises the same way,
 // and errors and warnings stay longer than the rest (see each for why).
 installModalMotion();
 installToastDefaults();
+// «Κινούμενα εφέ» from this device, before the first frame (Settings).
+installMotionEffects();
 
 // Devtools are a development-only aid — lazily imported so the bundle Vite ships
 // to users never contains them.

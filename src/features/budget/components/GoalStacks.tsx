@@ -6,6 +6,7 @@ import { formatDate, getStatusConfig, goalHeadline, relativeToNow, toDate } from
 import styles from "./css/GoalStacks.module.css";
 import type { GoalGroup } from "./goalGrouping";
 import type { GoalCardProps } from "./InvestmentsShared";
+import { ROW_FLASH } from "../../../shared/hooks/useRowFlash";
 import { GoalDetailsModal } from "./GoalDetailsModal";
 import { CoveredMark } from "./CoveredMark";
 import type { InvestmentGoalStatus, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
@@ -53,7 +54,7 @@ const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoal
   return (
     <>
     <div
-      className={styles.row}
+      className={`${styles.row} ${props.flashed?.(goal.id) ? ROW_FLASH : ""}`}
       role="button"
       tabIndex={0}
       aria-label={t("goals.openDetails", { name: goal.name })}
@@ -169,10 +170,10 @@ export function GoalStacks({ groups, storageKey, ...actions }: { groups: GoalGro
   // down and spread onto every row — so every row saw new props whatever the
   // page did about its handlers. Holding it steady is what makes the work the
   // page has done upstream reach the rows at all.
-  const { formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause } = actions;
+  const { formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, flashed } = actions;
   const steady = useMemo<RowActions>(
-    () => ({ formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause }),
-    [formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause],
+    () => ({ formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, flashed }),
+    [formatCurrency, onViewHistory, onAddDeposit, onWithdraw, onDelete, onEdit, onTogglePause, flashed],
   );
 
   return (

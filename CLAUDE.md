@@ -125,7 +125,10 @@ needs sensible demo data, and `fixtures.test.ts` keeps the figures consistent.
 - Text pairs ≥ 8:1 (`contrast.test.ts`). The owner's exact red #C4302B and green #12855A
   in light mode are named AA exceptions there. One red and one green, everywhere.
 - Money figures never wrap; long words in labels do (central rule in theme.css).
-- Reduced motion drops movement, not fades. Animations must play on phone, tablet,
+- Reduced motion drops movement, not fades — with ONE named exception: the goal tanks'
+  small, slow wave keeps flowing (`reducedMotion.test.ts`). Settings → «Κινούμενα εφέ: Όχι»
+  (this device) stops every endless animation; each one must declare
+  `animation-play-state: var(--loop-play, running)`. Animations must play on phone, tablet,
   desktop and in the installed PWA.
 - Add/record forms are wizards: numbered steps, a review step, Save only on review, delete
   far left, `{...FORM_MODAL}` (no close on backdrop). Choices inside steps are YES/NO tiles,

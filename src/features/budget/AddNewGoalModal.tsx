@@ -19,6 +19,7 @@ import { useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Trans, useTranslation } from "react-i18next";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
@@ -154,6 +155,10 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
         };
         await onSubmit(dto, values.isActive);
         toast.success(t("goals.createdSuccess", { name: values.name }));
+        // Its card lights once this dialog has gone (the id is not known here:
+        // the card that appears is the one lit). A new goal starts at 0, so its
+        // tanks have nothing to pour until the first deposit.
+        celebrateSave({ collection: "investmentGoals" });
         resetForm({ values: computedInitialValues });
         // The modal stays mounted: the next new goal must not start with these parts.
         partsField.reset();

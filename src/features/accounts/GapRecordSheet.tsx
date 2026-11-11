@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiX } from "react-icons/fi";
@@ -175,6 +176,8 @@ export default function GapRecordSheet({
         newId: gapNewId,
       });
       await save.mutateAsync(writes);
+      // The records land on this account: its card rings once the sheet has gone.
+      celebrateSave({ collection: "accounts", id: accountId });
       onClose();
     } catch {
       setFailed(true);

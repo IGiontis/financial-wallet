@@ -56,6 +56,7 @@ export function PlanLedger({
   onAddIn,
   onAddOut,
   inFooter,
+  flash,
 }: {
   inItems: LedgerItem[];
   outItems: LedgerItem[];
@@ -68,6 +69,8 @@ export function PlanLedger({
   onAddOut: () => void;
   /** Under the money-in list: where incomes are changed, or the empty state. */
   inFooter?: ReactNode;
+  /** The saved flash for a line just added or edited (`useSavedFlash`). */
+  flash?: (id: string) => string;
 }) {
   const { t } = useTranslation();
   const [side, setSide] = useState<Side>("in");
@@ -166,7 +169,7 @@ export function PlanLedger({
     );
 
     return (
-      <div key={item.id} className={`${styles.scaleRow} ${item.enabled || !item.canToggle ? "" : styles.scaleRowOff}`}>
+      <div key={item.id} className={`${styles.scaleRow} ${item.enabled || !item.canToggle ? "" : styles.scaleRowOff} ${flash?.(item.id) ?? ""}`}>
         {/* The row is the way in: what it is, and what it is made of. */}
         {item.link ? (
           <Link to={item.link.to} className={styles.scaleToggle} aria-label={item.link.label}>

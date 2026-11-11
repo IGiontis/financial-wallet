@@ -28,6 +28,7 @@ import { ThemeSwitch } from "../../../shared/components/ThemeSwitch";
 import { NavStylePicker } from "../components/NavStylePicker";
 import { useSignOut } from "../../layout/useProfile";
 import { SettingsTabs } from "../components/SettingsTabs";
+import { MotionEffectsSetting } from "../components/MotionEffectsSetting";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
 import { FiLogOut } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
@@ -557,6 +558,14 @@ export function SettingsPage() {
                   the sidebar and top bar change behind the card. */}
               <Section title={t("settings.colourway")} subtitle={t("settings.colourwaySubtitle")} fill>
                 <NavStylePicker />
+              </Section>
+            </Col>
+            <Col xs={12} lg={6}>
+              {/* ── Moving effects ────────────────────────────────────────────── */}
+              {/* On this device, applied as it is pressed: «Όχι» stops what loops
+                  for ever (the goal tanks' water, the loading shimmer). */}
+              <Section title={t("settings.motion")} subtitle={t("settings.motionSubtitle")} fill>
+                <MotionEffectsSetting />
               </Section>
             </Col>
             <Col xs={12}>

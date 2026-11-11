@@ -43,6 +43,7 @@ export function ManageList({
   deleteLocked,
   deleteReason,
   onToggle,
+  flash,
 }: {
   groups: ManageGroup[];
   /** Switches one on or off. Absent: no switches. */
@@ -52,6 +53,8 @@ export function ManageList({
   onDelete: (id: string) => void;
   deleteLocked?: boolean;
   deleteReason?: string;
+  /** The saved flash for an item just added or edited (`useSavedFlash`). */
+  flash?: (id: string) => string;
 }) {
   const { t } = useTranslation();
   return (
@@ -68,7 +71,7 @@ export function ManageList({
               </Badge>
               <ul className={styles.list}>
                 {group.items.map((item) => (
-                  <li key={item.id} className={`${styles.row} ${item.offTag || item.active === false ? styles.rowOff : ""}`}>
+                  <li key={item.id} className={`${styles.row} ${item.offTag || item.active === false ? styles.rowOff : ""} ${flash?.(item.id) ?? ""}`}>
                     <button type="button" className={styles.main} onClick={() => onEdit(item.id)} aria-label={t("manage.editName", { name: item.name })}>
                       <span className={styles.icon} aria-hidden>
                         {item.icon}

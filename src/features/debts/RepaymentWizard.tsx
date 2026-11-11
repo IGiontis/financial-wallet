@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
@@ -83,7 +84,17 @@ export default function RepaymentWizard({
 
   const save = () => {
     if (!amountOk || !when) return;
-    record.mutate({ debtId: debt.id, amount: value, date: when, accountId: account, notes: notes.trim() || undefined }, { onSuccess: onClose });
+    // Paid off by this one: the debt's milestone (confetti).
+    const paidOff = !debt.isSettled && !!preview?.settles;
+    record.mutate(
+      { debtId: debt.id, amount: value, date: when, accountId: account, notes: notes.trim() || undefined },
+      {
+        onSuccess: () => {
+          celebrateSave({ collection: "debts", id: debt.id, milestone: paidOff });
+          onClose();
+        },
+      },
+    );
   };
 
   const left = (n: number) => (n > 0 ? t("debts.wizard.remains", { amount: formatCurrency(n) }) : t("debts.wizard.cleared"));

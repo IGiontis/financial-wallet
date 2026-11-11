@@ -1,4 +1,5 @@
 import { SubPageTabs } from "../../shared/components/SubPageTabs";
+import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useMemo, useState } from "react";
 import { Button, Col, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -101,6 +102,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const f = useMemo(() => makeFormats(i18n.resolvedLanguage ?? "en"), [i18n.resolvedLanguage]);
   const { format: formatCurrency, convert } = useCurrencyConverter();
   const { incomes, statuses, transactions, overrides, lastReadingAt, now, isLoading, saveIncome, removeIncome, setOverride } = useIncomes();
+  // The income just added, edited or marked arrived lights once its sheet has gone.
+  const incomeFlash = useSavedFlash("incomes", useMemo(() => incomes.map((i) => i.id), [incomes]));
   const { data: categories = [] } = useCategories();
   const accounts = useAccountList();
   const main = mainAccount(accounts);
@@ -293,6 +296,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
 
             {page === "manage" && (
               <IncomeManage
+                flash={incomeFlash}
                 incomes={incomes}
                 f={f}
                 now={now}
@@ -347,6 +351,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 onThisTime={(income, status) => setThisTime({ incomeId: income.id, status })}
                 canUndoArrival={(income) => undoable(income).length > 0}
                 onUndoArrival={askUndo}
+                flash={incomeFlash}
               />
             )}
 
@@ -414,6 +419,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           onClose={() => setArriving(null)}
           onConfirm={(status, input) => {
             void recordArrival(arrivingIncome, status, input);
+            celebrateSave({ collection: "incomes", id: arrivingIncome.id });
             setArriving(null);
           }}
         />
@@ -441,6 +447,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           deleteReason={deleteGuard.reason}
           onSave={(income) => {
             saveIncome(income);
+            // A new income's id is given at save: the row that appears is lit.
+            celebrateSave({ collection: "incomes", id: income.id || undefined });
             setForm(null);
           }}
         />

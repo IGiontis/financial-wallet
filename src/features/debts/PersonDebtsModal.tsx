@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from "react";
+import { useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
@@ -376,6 +377,8 @@ export default function PersonDebtsModal({
   // Open loans first: a settled one is history, and the sheet should open on
   // something that still needs doing.
   const loans = useMemo(() => [...person.debts.filter((d) => !d.isSettled), ...person.debts.filter((d) => d.isSettled)], [person.debts]);
+  // The loan just saved (edited, a repayment) lights once its form has gone.
+  const loanFlash = useSavedFlash("debts", useMemo(() => loans.map((d) => d.id), [loans]));
 
   const [pickedId, setPickedId] = useState<string | undefined>(() => loans[0]?.id);
   // A deleted loan cannot stay in front; fall back to whatever is first.
@@ -556,7 +559,7 @@ export default function PersonDebtsModal({
         {loans.map((d) => {
           const tone = d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)";
           return (
-            <li key={d.id} className={styles.allRow} style={{ borderLeftColor: tone }}>
+            <li key={d.id} className={`${styles.allRow} ${loanFlash(d.id)}`} style={{ borderLeftColor: tone }}>
               {/* The row opens that loan on its own — its receipt, payments and actions. */}
               <button type="button" className={styles.allOpen} onClick={() => openFromColumn(d)}>
                 <span className={styles.allMain}>

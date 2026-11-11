@@ -119,6 +119,7 @@
      at a glance. Its lettering is the body ink, not the tone's own: ≥ 12:1 at
      this strength on every tone. */
   --tone-tank: 28%;
+  --tone-tank-brand: 28%;
   /* The goal / investment card's header band (GoalCard.module.css): a deep,
      saturated step of the card's tone — the tone mixed into the body ink —
      lettered in the page's off-white. ≥ 8:1 for every tone in both colourways
@@ -139,6 +140,9 @@
   /* The tanks' liquid in the dark: as strong as the body ink allows at 8:1
      (goal amber, the palest, measures 8.4 at 18%). */
   --tone-tank: 18%;
+  /* Gold's dark brand is a pale cream: its tank («μένουν») holds less of it to
+     stay at 8:1 (7.4 at 18%; goalBand.test.ts), as its band does. */
+  --tone-tank-brand: 14%;
   /* The band in the dark: the bright tone sunk into the page, lettered in the
      body ink. Gold's dark brand is a pale cream, so the brand band holds less
      of it to stay at 8:1. */
@@ -602,6 +606,11 @@
   }
 }
 
+/* «Κινούμενα εφέ: Όχι» (Settings) stops the loading shimmer where it stands. */
+.react-loading-skeleton::after {
+  animation-play-state: var(--loop-play, running);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .react-loading-skeleton::after {
     animation: none;
@@ -609,7 +618,19 @@
 
   .react-loading-skeleton {
     animation: skeleton-breathe 1.6s ease-in-out infinite;
+    animation-play-state: var(--loop-play, running);
   }
+}
+
+/* ── «Κινούμενα εφέ» (Settings → appearance, kept on this device) ─────────────
+   Off, every animation that loops for ever — the goal tanks' flowing surface,
+   the loading shimmer, the welcome bar — stops where it stands: each declares
+   `animation-play-state: var(--loop-play, running)` (reducedMotion.test.ts
+   holds every endless animation to it). One-off effects (a dialog's fade, a
+   row's flash, a save's pour) still play, and follow reduced motion as before.
+   shared/motion/motionEffects.ts sets the attribute. */
+:root[data-motion="off"] {
+  --loop-play: paused;
 }
 
 /* ── Scrollbars ───────────────────────────────────────────────────────────── */
