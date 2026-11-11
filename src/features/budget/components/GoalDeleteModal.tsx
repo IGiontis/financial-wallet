@@ -8,7 +8,7 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { parseISODay, toISODay } from "../../../shared/utils/dates";
 import AccountPicker from "../../accounts/AccountPicker";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
-import { expectedByAccount, goalHeldTotal, mainAccount } from "../../accounts/accountsUtils";
+import { accountMissing, chosenAccount, expectedByAccount, goalHeldTotal, mainAccount } from "../../accounts/accountsUtils";
 import CategoryPicker from "../../categories/CategoryPicker";
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { closingRecords, goalHolding, ownSaved, undoByAccount } from "../goalHolding";
@@ -73,7 +73,8 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   const [stage, setStage] = useState<"choose" | "review">(held ? "choose" : "review");
   const [ending, setEnding] = useState<"dropped" | "spent" | null>(held && ownHeld ? null : "dropped");
   const [account, setAccount] = useState("");
-  const [cardPicked, setCardPicked] = useState(false);
+  // Required (item 97a); with one place only, that one — see `chosenAccount`.
+  const bankAccount = chosenAccount(accounts, account);
   const [picked, setPicked] = useState("");
   const [changingCategory, setChangingCategory] = useState(false);
   const [tried, setTried] = useState(false);
@@ -81,7 +82,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   const category = picked || otherExpense;
   const categoryName = category ? categoryLabel(categories.find((c) => c.id === category)?.name, t) : "—";
   // A card is asked for only where money leaves one now: what sat in your bank.
-  const ready = refundsChosen && (ending === "dropped" || (ending === "spent" && (!inBanks || cardPicked) && !!category));
+  const ready = refundsChosen && (ending === "dropped" || (ending === "spent" && (!inBanks || !accountMissing(accounts, account)) && !!category));
 
   // ── Card by card ──
   const main = mainAccount(accounts);
@@ -96,9 +97,9 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   const closing = useMemo(
     () =>
       ending === "spent"
-        ? closingRecords(goal, transactions, { bankAccountId: account || undefined, categoryId: category, date: parseISODay(toISODay(new Date()))!, note: t("goalWizard.fromGoal", { name: goal.name }) })
+        ? closingRecords(goal, transactions, { bankAccountId: bankAccount || undefined, categoryId: category, date: parseISODay(toISODay(new Date()))!, note: t("goalWizard.fromGoal", { name: goal.name }) })
         : [],
-    [ending, goal, transactions, account, category, t],
+    [ending, goal, transactions, bankAccount, category, t],
   );
 
   // What giving it up frees and closing it spends: what someone else paid was spent the day they paid.
@@ -192,7 +193,11 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                   role="radio"
                   aria-checked={ending === value}
                   className={`btn text-start ${ending === value ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => setEnding(value)}
+                  onClick={() => {
+                    setEnding(value);
+                    // A new answer opens fresh: its own fields are not wrong before they are touched.
+                    setTried(false);
+                  }}
                 >
                   <div className="fw-semibold">{t(`goalDelete.${value}`)}</div>
                   <div className="small" style={{ opacity: 0.8 }}>
@@ -212,14 +217,10 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                     <Label className="small fw-medium">{t("goalDelete.bankLeftFrom", { amount: format(holding.inBanks) })}</Label>
                     <AccountPicker
                       value={account}
-                      unset={!cardPicked}
-                      onChoose={(id) => {
-                        setAccount(id);
-                        setCardPicked(true);
-                      }}
+                      onChoose={setAccount}
                       income={false}
+                      invalid={tried}
                     />
-                    {tried && !cardPicked && <div className="small text-danger mt-1">{t("goalWizard.pickCard")}</div>}
                   </>
                 )}
                 <div className="small text-body-secondary mt-3 d-flex flex-wrap align-items-center gap-2">
@@ -341,7 +342,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
                       </div>
                     ))}
                   {holding.holders.map((h) => cardRow(h.accountId ?? "", 0, t("goalDelete.alreadyLeft", { who: h.name })))}
-                  {inBanks && cardRow(account, -holding.inBanks)}
+                  {inBanks && cardRow(bankAccount, -holding.inBanks)}
                   <div>
                     <span>{t("goalDelete.spendable")}</span>
                     <strong>{t("goalDelete.spendableSame", { amount: format(spendable) })}</strong>

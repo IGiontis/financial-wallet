@@ -287,3 +287,82 @@ describe("pay on a date", () => {
     expect(saved.until).toBeUndefined();
   });
 });
+
+// ── Item 97c: a new figure from «+» asks money in or out first ───────────────
+describe("a new figure from the page's «+»", () => {
+  const fresh = () => {
+    onSave.mockReset();
+    return render(<EntryEditor draft={{ label: "", amount: "" }} formatCurrency={fmt} onSave={onSave} onClose={() => {}} now={NOW} />);
+  };
+  const steps = () => [...document.querySelectorAll("[aria-current], button")].filter((b) => b.querySelector("span")?.textContent?.match(/^\d$/)).map((b) => b.textContent);
+
+  it("asks «Money in or money out?» as two tiles, nothing picked, no error until Next", async () => {
+    fresh();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("radiogroup", { name: "Money in or money out?" })).toBeInTheDocument();
+    const tiles = within(dialog).getAllByRole("radio");
+    expect(tiles.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
+    expect(within(dialog).queryByText("Choose money in or money out.")).toBeNull();
+    // Four steps now: the kind, then the three of that kind.
+    expect(steps()).toEqual(["1Kind", "2When", "3What", "4Review"]);
+    await next();
+    expect(within(dialog).getByText("Choose money in or money out.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "How often" })).toBeNull();
+  });
+
+  it("«Money out» goes on as a cost line, and is saved as one", async () => {
+    fresh();
+    await userEvent.click(screen.getByRole("radio", { name: /^Money out/ }));
+    await next();
+    expect(cadence(/^Every month/)).toHaveAttribute("aria-checked", "true");
+    await next();
+    await userEvent.type(screen.getByLabelText(/Name/), "Gym");
+    await userEvent.type(screen.getByLabelText("Amount each month"), "40");
+    await next();
+    await save();
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ label: "Gym", amount: "40" }), "line");
+  });
+
+  it("«Money in» goes on as pay on a date, and Back returns to the question", async () => {
+    fresh();
+    await userEvent.click(screen.getByRole("radio", { name: /^Money in/ }));
+    await next();
+    expect(cadence(/^Once/)).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    expect(screen.getByRole("radio", { name: /^Money in/ })).toHaveAttribute("aria-checked", "true");
+    await next();
+    await userEvent.type(screen.getByLabelText(/day|date/i), "2026-12-20");
+    await next();
+    await userEvent.type(screen.getByLabelText(/Name/), "Bonus");
+    await userEvent.type(screen.getByLabelText(/Amount/), "500");
+    await next();
+    await save();
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ label: "Bonus", amount: "500", date: "2026-12-20" }), "oneoff");
+  });
+
+  it("editing a figure skips the question: three steps, its kind known", () => {
+    setup("line", { id: "l1", label: "Food", amount: "300" });
+    expect(screen.queryByRole("radiogroup", { name: "Money in or money out?" })).toBeNull();
+    expect(steps()).toEqual(["1When", "2What", "3Review"]);
+  });
+});
+
+describe("«every year?» on a new cost of some months", () => {
+  it("starts with neither tile chosen, asks for an answer on Next, and saves «No» as no repeat", async () => {
+    setup("line", { label: "Ski", amount: "200" });
+    await userEvent.click(cadence(/^Only some months/));
+    const group = screen.getByRole("radiogroup", { name: "Does it come back every year?" });
+    expect(within(group).getByRole("radio", { name: /^Yes/ })).not.toBeChecked();
+    expect(within(group).getByRole("radio", { name: /^No/ })).not.toBeChecked();
+    expect(screen.queryByText("Pick Yes or No")).toBeNull();
+    await userEvent.type(screen.getAllByRole("textbox")[0], "2026-12");
+    await next();
+    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Amount/)).toBeNull();
+    await userEvent.click(within(group).getByRole("radio", { name: /^No/ }));
+    await next();
+    await next();
+    await save();
+    expect(onSave.mock.calls[0][0].yearly).toBeUndefined();
+  });
+});

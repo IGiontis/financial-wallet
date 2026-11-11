@@ -31,7 +31,7 @@ import { useCategories } from "../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../shared/utils/categories";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useAccountList } from "../accounts/useMoneyAccounts";
-import { mainAccount } from "../accounts/accountsUtils";
+import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -112,10 +112,14 @@ export default function AddDebtModal({
   const [free, setFree] = useState(asInput(debt?.interestFreeMonths));
   const [touched, setTouched] = useState(false);
   const [askedInterest, setAskedInterest] = useState(false);
-  // Where the money went or came from. A new debt starts on "no particular
-  // card" (the main account) and moves money; `undefined` is a debt with no
-  // money handed over — answered «Όχι» below, or one saved before cards existed.
-  const [account, setAccount] = useState<string | undefined>(debt ? debt.accountId : "");
+  // Where the money went or came from. `null`: not answered yet — a new debt
+  // starts with neither tile chosen (no prefill, tiles included); an edit shows
+  // what is stored. `undefined` is «Όχι», a debt with no money handed over (or
+  // one saved before cards existed). A string is «Ναι»: a card must then be
+  // chosen (item 97a), and a saved "" (the main account, from before cards were
+  // required) asks again.
+  const [account, setAccount] = useState<string | undefined | null>(debt ? debt.accountId : null);
+  const [moneyTried, setMoneyTried] = useState(false);
   // Everything typed, as one string: a correction saved with nothing changed
   // would still write (and bump `updatedAt` on every device), so it is not offered.
   const snapshot = JSON.stringify([direction, person.trim(), label.trim(), amount, date, dueDate, withInterest, rateType, rate, base, margin, term, free, account]);
@@ -138,6 +142,10 @@ export default function AddDebtModal({
   // and that no card moved stay as they are — they are what make it that debt.
   const covered = useCoveredLink(debt);
   const linked = isLive(covered.link);
+  // «Ναι» needs its card; a covered debt's money step is not asked (no card moved).
+  const moneyMissing = !linked && (account === null || (account !== undefined && accountMissing(accounts, account)));
+  // As written: the card chosen, or the only place there is. With no places at all, as before.
+  const writtenAccount = account === null ? undefined : account === undefined || accounts.length === 0 || linked ? account : chosenAccount(accounts, account);
 
   const value = parseFloat(amount);
   const termValue = parseInt(term, 10);
@@ -175,6 +183,11 @@ export default function AddDebtModal({
       setStep("dates");
       return;
     }
+    if (to > 3 && moneyMissing) {
+      setMoneyTried(true);
+      setStep("money");
+      return;
+    }
     setStep(target);
   };
 
@@ -206,6 +219,11 @@ export default function AddDebtModal({
   const save = () => {
     setTouched(true);
     if (!personOk || !amountOk || !when) return;
+    if (moneyMissing) {
+      setMoneyTried(true);
+      setStep("money");
+      return;
+    }
 
     // The index date says when the rate was last read. Re-saving a loan to fix
     // its label has not re-read anything, so an unchanged rate keeps its date.
@@ -231,7 +249,7 @@ export default function AddDebtModal({
       baseRate: isLoanEntry && floating ? num(base) : undefined,
       margin: isLoanEntry && floating ? num(margin) : undefined,
       rateReviewedAt: isLoanEntry && floating ? reviewedAt : undefined,
-      accountId: account,
+      accountId: writtenAccount,
     };
 
     if (forGoal) {
@@ -289,8 +307,10 @@ export default function AddDebtModal({
   const due = parseISODay(dueDate);
   const cardName = (() => {
     if (account === undefined) return t("debts.noMoney");
-    const named = accounts.find((a) => a.id === account);
+    if (account === null) return "—";
+    const named = accounts.find((a) => a.id === writtenAccount);
     if (named) return named.name;
+    if (accounts.length > 0 && !linked) return t("accounts.notChosen");
     const main = mainAccount(accounts);
     return main ? t("debts.wizard.mainCard", { name: main.name }) : t("accounts.noCard");
   })();
@@ -559,8 +579,13 @@ export default function AddDebtModal({
               <div className={linked ? "d-none" : undefined}>
                 <MoneyMovedPicker
                   value={account}
-                  onChange={setAccount}
+                  onChange={(next) => {
+                    // A new yes / no answer opens fresh: its card is not wrong before it is asked.
+                    if (typeof next !== typeof account) setMoneyTried(false);
+                    setAccount(next);
+                  }}
                   income={borrowed}
+                  invalid={moneyTried}
                   hideQuestion
                   toGoal={
                     !debt && borrowed && goals.length > 0 ? (

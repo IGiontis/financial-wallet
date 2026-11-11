@@ -67,8 +67,8 @@ function stepErrors(draft: IncomeDraft, view: View): DraftErrors {
     return { ...(categoryId ? { categoryId } : {}), ...(name ? { name } : {}) };
   }
   if (view === "amount") {
-    const { amount } = validateDraft(draft, 1);
-    return amount ? { amount } : {};
+    const { amount, variable } = validateDraft(draft, 1);
+    return { ...(amount ? { amount } : {}), ...(variable ? { variable } : {}) };
   }
   if (view === "when") return validateDraft(draft, 2);
   if (view === "where") return validateDraft(draft, 3);
@@ -104,7 +104,8 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const preview = useMemo(() => {
     const step2Ok = Object.keys(validateDraft(draft, 2)).length === 0;
     if (!step2Ok) return undefined;
-    const filled = { ...draft, name: draft.name.trim() || "—", amount: Number(draft.amount) > 0 ? draft.amount : "1" };
+    // The yes / no answers not given yet read as «no» here: the preview is only the dates.
+    const filled = { ...draft, name: draft.name.trim() || "—", amount: Number(draft.amount) > 0 ? draft.amount : "1", variable: !!draft.variable, isSalary: !!draft.isSalary, hasPause: !!draft.hasPause };
     return draftToIncome({ ...filled, hasPause: filled.hasPause && Object.keys(validateDraft(filled, 3)).length === 0, hasEnd: false }, toBase);
     // `toBase` changes only with the currency, which does not change while the sheet is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,6 +249,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               </div>
               {/* «Ναι» needs nothing more: the amount above becomes the estimate. */}
               <YesNoChoice className="mb-0" question={<Question text={t("incomes.form.qVariable")} hint={t("incomes.form.variableHint")} />} value={draft.variable} onChange={(yes) => set("variable", yes)} />
+              {errors.variable && <div className="invalid-feedback d-block">{error("variable")}</div>}
 
             </>
           )}
@@ -393,6 +395,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                   )}
                 </div>
               </YesNoChoice>
+              {errors.hasPause && <div className="invalid-feedback d-block mb-3">{error("hasPause")}</div>}
 
               <FormGroup>
                 <Label className="small fw-medium d-block">{t("incomes.form.ends")}</Label>
@@ -417,6 +420,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 value={draft.isSalary}
                 onChange={(yes) => set("isSalary", yes)}
               />
+              {errors.isSalary && <div className="invalid-feedback d-block">{error("isSalary")}</div>}
             </>
           )}
         </ModalBody>

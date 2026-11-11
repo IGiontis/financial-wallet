@@ -40,7 +40,12 @@ function useDateNames(locale: string) {
 interface BillFormValues {
   name: string;
   amount: number | "";
-  isVariableAmount: boolean;
+  /**
+   * The four yes / no questions (variable amount, payment window, pause,
+   * active): undefined until answered — a new bill starts with neither tile
+   * chosen (no prefill, tiles included); an edit shows what is stored.
+   */
+  isVariableAmount: boolean | undefined;
   categoryId: string;
   frequency: BillFrequency;
   intervalCount: number | "";
@@ -51,10 +56,10 @@ interface BillFormValues {
   startsOn: string;
   dueDay: number | "";
   dueMonth: number | "";
-  hasGrace: boolean;
+  hasGrace: boolean | undefined;
   graceDays: number | "";
   /** The bill stops for a while — see `BillPause`. */
-  hasPause: boolean;
+  hasPause: boolean | undefined;
   /** Comes back after a stretch, or does not come back. */
   pauseKind: "stretch" | "forever";
   pauseFrom: string; // "YYYY-MM"
@@ -62,15 +67,15 @@ interface BillFormValues {
   pauseYearly: boolean;
   notes: string;
   /** Off: kept in the list, counted nowhere. */
-  isActive: boolean;
+  isActive: boolean | undefined;
 }
 
 /** The fields each step asks, for stopping a jump at the first step with something wrong. */
 const STEP_FIELDS: Record<Step, (keyof BillFormValues)[]> = {
-  what: ["name"],
-  amount: ["amount", "categoryId"],
+  what: ["name", "isActive"],
+  amount: ["amount", "categoryId", "isVariableAmount"],
   when: ["intervalCount", "installmentCount"],
-  extras: ["graceDays", "pauseFrom", "pauseTo", "notes"],
+  extras: ["hasGrace", "graceDays", "hasPause", "pauseFrom", "pauseTo", "notes"],
   review: [],
 };
 
@@ -118,6 +123,10 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           .positive("validation.amountPositive")
           .max(1_000_000, "validation.amountTooLarge"),
         categoryId: Yup.string().required("validation.categoryRequired"),
+        isVariableAmount: Yup.boolean().required("validation.answerYesNo"),
+        hasGrace: Yup.boolean().required("validation.answerYesNo"),
+        hasPause: Yup.boolean().required("validation.answerYesNo"),
+        isActive: Yup.boolean().required("validation.answerYesNo"),
         frequency: Yup.mixed<BillFrequency>().oneOf(["weekly", "monthly", "yearly"]).required(),
         graceDays: Yup.number().when("hasGrace", {
           is: true,
@@ -157,7 +166,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       name: bill?.name ?? "",
       // Show the stored (base-currency) amount in the user's display currency for editing.
       amount: bill ? Number(convert(bill.amount).toFixed(2)) : "",
-      isVariableAmount: bill?.isVariableAmount ?? false,
+      isVariableAmount: bill ? !!bill.isVariableAmount : undefined,
       categoryId: bill?.categoryId ?? "",
       frequency: bill?.frequency ?? "monthly",
       intervalCount: bill?.intervalCount ?? 1,
@@ -167,9 +176,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       startsOn: bill?.startsOn ?? "",
       dueDay: bill?.dueDay ?? "",
       dueMonth: bill?.dueMonth ?? "",
-      hasGrace: (bill?.graceDays ?? 0) > 0,
+      hasGrace: bill ? (bill.graceDays ?? 0) > 0 : undefined,
       graceDays: bill?.graceDays ?? "",
-      hasPause: !!bill?.pause,
+      hasPause: bill ? !!bill.pause : undefined,
       pauseKind: bill?.pause && !bill.pause.to ? "forever" : "stretch",
       // Next month by default: a pause is almost always decided ahead of the
       // month it starts in.
@@ -177,7 +186,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       pauseTo: bill?.pause?.to ?? "",
       pauseYearly: bill?.pause?.yearly ?? false,
       notes: bill?.notes ?? "",
-      isActive: bill?.isActive ?? true,
+      isActive: bill ? bill.isActive !== false : undefined,
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -204,7 +213,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         const data: CreateBillDTO = {
           name: values.name.trim(),
           amount: amountInBase,
-          isVariableAmount: values.isVariableAmount,
+          isVariableAmount: !!values.isVariableAmount,
           categoryId: values.categoryId,
           frequency: values.frequency,
           intervalCount: interval,
@@ -224,7 +233,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           pause: pauseFromValues(values) ?? (isEdit ? null : undefined),
           // Cleared on an edit is "starts as before", said out loud like the pause.
           startsOn: parseISOMonth(values.startsOn) ? values.startsOn : isEdit ? null : undefined,
-          isActive: values.isActive,
+          isActive: values.isActive !== false,
         };
         await onSubmit(data);
         resetForm();
@@ -266,6 +275,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
   };
 
   const { frequency } = formik.values;
+  /** A yes / no question left unanswered: said only once Next was pressed on its step. */
+  const yesNoError = (key: "isActive" | "isVariableAmount" | "hasGrace" | "hasPause") =>
+    formik.touched[key] && formik.errors[key] ? <div className="invalid-feedback d-block">{validationMessage(formik.errors[key], t)}</div> : null;
   const intervalCount = Math.max(1, Number(formik.values.intervalCount) || 1);
   // Instalments only make sense when a period is long enough to spread them
   // across: a yearly bill, or a cycle of several months. Offering them on a
@@ -396,6 +408,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               </FormGroup>
               <YesNoChoice className="mb-0" question={<Question text={t("bills.qActive")} hint={t("bills.activeSwitchHint")} />} value={formik.values.isActive} onChange={(yes) => formik.setFieldValue("isActive", yes)} />
+              {yesNoError("isActive")}
             </>
           )}
 
@@ -459,6 +472,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 value={formik.values.isVariableAmount}
                 onChange={(yes) => formik.setFieldValue("isVariableAmount", yes)}
               />
+              {yesNoError("isVariableAmount")}
 
             </>
           )}
@@ -654,6 +668,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   <FormText className="small">{t("bills.graceDaysHint")}</FormText>
                 </FormGroup>
               </YesNoChoice>
+              {yesNoError("hasGrace")}
 
               {/* A stop — the holiday house over the winter, the flat that was
                   left. Same yes-and-reveal as the payment window above, so the
@@ -726,6 +741,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   )}
                 </div>
               </YesNoChoice>
+              {yesNoError("hasPause")}
 
               <FormGroup className="mt-3 mb-0">
                 <Label className="small fw-medium">{t("common.notes")}</Label>

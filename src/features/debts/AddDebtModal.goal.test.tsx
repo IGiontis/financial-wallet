@@ -141,8 +141,9 @@ describe("a new loan whose money went to a goal", () => {
   it("keeps the value contract: «yes» is \"\" (any card), «no» is undefined", async () => {
     open();
     await toMoney("50");
-    // A new debt starts on «yes»: money moved, no particular card yet.
-    expect(screen.getByRole("radio", { name: /^Yes, into a card or cash/ })).toHaveAttribute("aria-checked", "true");
+    // A new debt starts unanswered: neither tile chosen (no prefill, item 97).
+    expect(screen.getByRole("radio", { name: /^Yes, into a card or cash/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /^No — they paid for you/ })).toHaveAttribute("aria-checked", "false");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
     await next();

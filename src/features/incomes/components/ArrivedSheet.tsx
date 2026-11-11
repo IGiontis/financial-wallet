@@ -9,7 +9,7 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { parseISODay, toISODay, toISOMonth } from "../../../shared/utils/dates";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { isPausedOn } from "../../bills/billsUtils";
-import type { MoneyAccount } from "../../accounts/accountsUtils";
+import { accountMissing, chosenAccount, type MoneyAccount } from "../../accounts/accountsUtils";
 import { bankAnswerDate, isOnReadingDay, isSettled, type ArrivalInput, type ExpectedAmount, type Income, type IncomeStatus } from "../incomesUtils";
 import type { IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
@@ -21,7 +21,8 @@ import { FORM_MODAL } from "../../../shared/components/formModal";
 //   Πόσα ήρθαν — the figure, or for a variable income its mean, with the
 //                 reminder to write what actually came.
 //   Πότε       — today; from the bank question, no later than the reading.
-//   Πού μπήκαν — the income's own account, else the main one.
+//   Πού μπήκαν — the income's own account if it names one; else asked, never
+//                 assumed (item 97a) — only one place, and that one is it.
 //   Για τον μήνα — which time it settles, like a bill's period: money that
 //                 comes early is still for the month it is for.
 //
@@ -43,7 +44,6 @@ export interface ArrivedSheetProps {
   /** Set when opened from «Ναι, ήταν μέσα»: the date may not pass the reading. */
   readingAt?: Date;
   accounts: MoneyAccount[];
-  mainAccountId?: string;
   category?: Category;
   f: IncomeFormats;
   onConfirm: (status: IncomeStatus, input: ArrivalInput) => void;
@@ -81,7 +81,7 @@ function choicesFor(income: Income, status: IncomeStatus, options: IncomeStatus[
   return around.map((s) => ({ key: s.key, label: f.dayMonthShort.format(s.date), status: s, note: s.key !== status.key && isSettled(s) ? t("incomes.arrived.alreadyIn") : undefined }));
 }
 
-export default function ArrivedSheet({ income, status, options, expected, readingAt, accounts, mainAccountId, category, f, onConfirm, onClose }: ArrivedSheetProps) {
+export default function ArrivedSheet({ income, status, options, expected, readingAt, accounts, category, f, onConfirm, onClose }: ArrivedSheetProps) {
   const { t } = useTranslation();
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
 
@@ -93,7 +93,9 @@ export default function ArrivedSheet({ income, status, options, expected, readin
   const [amount, setAmount] = useState(() => String(Number(convert(status.expected).toFixed(2))));
   const [date, setDate] = useState(() => toISODay(readingAt ? bankAnswerDate(status, readingAt) : new Date()));
   const ownAccount = income.accountId && accounts.some((a) => a.id === income.accountId) ? income.accountId : undefined;
-  const [accountId, setAccountId] = useState(ownAccount ?? mainAccountId ?? "");
+  const [accountId, setAccountId] = useState(ownAccount ?? "");
+  const placeMissing = accountMissing(accounts, accountId);
+  const place = chosenAccount(accounts, accountId);
   const [touched, setTouched] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
@@ -105,7 +107,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
   // The fields first; the check after; the write only from the check.
   const submit = () => {
     setTouched(true);
-    if (amountError || dateError || !day) return;
+    if (amountError || dateError || !day || placeMissing) return;
     if (!reviewing) {
       setReviewing(true);
       return;
@@ -114,7 +116,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
       amount: baseCurrency === displayCurrency ? typed : convertToBase(typed),
       date: day,
       categoryId: category?.id ?? income.categoryId ?? "",
-      accountId: accountId || undefined,
+      accountId: place || undefined,
       inReading: !!readingAt && isOnReadingDay(day, readingAt),
     });
   };
@@ -149,7 +151,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
               {[
                 { label: t("incomes.arrived.amount"), value: display },
                 { label: t("incomes.arrived.when"), value: f.weekdayDate.format(day) },
-                ...(accounts.length > 0 ? [{ label: t("incomes.arrived.where"), value: accounts.find((a) => a.id === accountId)?.name ?? t("incomes.card.noAccount") }] : []),
+                ...(accounts.length > 0 ? [{ label: t("incomes.arrived.where"), value: accounts.find((a) => a.id === place)?.name ?? t("incomes.card.noAccount") }] : []),
                 {
                   label: income.frequency === "monthly" ? t("incomes.arrived.forMonth") : t("incomes.arrived.forTime"),
                   value: income.frequency === "monthly" ? `${f.monthName(chosen.date)} ${chosen.date.getFullYear()}` : f.dayMonth.format(chosen.date),
@@ -219,8 +221,8 @@ export default function ArrivedSheet({ income, status, options, expected, readin
                     key={account.id}
                     type="button"
                     role="radio"
-                    aria-checked={accountId === account.id}
-                    className={`${segmented.item} ${accountId === account.id ? segmented.active : ""}`}
+                    aria-checked={place === account.id}
+                    className={`${segmented.item} ${place === account.id ? segmented.active : ""}`}
                     onClick={() => setAccountId(account.id)}
                   >
                     {account.kind === "cash" ? "💵 " : ""}
@@ -228,6 +230,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
                   </button>
                 ))}
               </div>
+              {touched && placeMissing && <div className="invalid-feedback d-block">{t("accounts.pickRequiredIn")}</div>}
             </FormGroup>
           )}
 

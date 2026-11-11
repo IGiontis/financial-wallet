@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountMissing,
+  chosenAccount,
+  freeByAccount,
+  goalHeldByAccount,
+  goalHeldTotal,
+  orderByFree,
   anchorAt,
   balanceAnchors,
   daysSince,
@@ -484,5 +490,109 @@ describe("putting a reading's difference to rest", () => {
 
   it("is never accepted without having been", () => {
     expect(gapAccepted(readCheckIns([c1, wrong], accounts, [win])[1])).toBe(false);
+  });
+});
+
+// ── Item 97a: forms must name the card; stored records keep counting as before ──
+
+describe("chosenAccount — what a form writes (item 97a)", () => {
+  it("is the place chosen while it exists, the only place when there is one, and nothing otherwise", () => {
+    expect(chosenAccount(accounts, "rev")).toBe("rev");
+    // Nothing chosen, or a card deleted since: asked again, never the main one.
+    expect(chosenAccount(accounts, "")).toBe("");
+    expect(chosenAccount(accounts, undefined)).toBe("");
+    expect(chosenAccount(accounts, "gone")).toBe("");
+    // One place only: it is the answer.
+    expect(chosenAccount([accounts[2]], "")).toBe("cash");
+    expect(chosenAccount([accounts[2]], "gone")).toBe("cash");
+    // No places at all: nothing to name.
+    expect(chosenAccount([], "")).toBe("");
+  });
+
+  it("asks only where there is something to choose and nothing is chosen", () => {
+    expect(accountMissing(accounts, "")).toBe(true);
+    expect(accountMissing(accounts, "gone")).toBe(true);
+    expect(accountMissing(accounts, "eb")).toBe(false);
+    expect(accountMissing([accounts[2]], "")).toBe(false);
+    expect(accountMissing([], "")).toBe(false);
+  });
+});
+
+describe("old records that name no card: the totals do not move (item 97a)", () => {
+  // Read on the 21st (Eurobank 1,950 · Revolut 180 · cash 120 = 2,250). Since
+  // then, written before cards were required, none naming a card: an expense,
+  // an income, and 100 put into a goal and kept in the bank.
+  const goalIn = tx(100, 25, { type: "investment" as Transaction["type"], isInvestmentTransaction: true, isGoalTransaction: true, contributionType: "deposit", goalId: "g" });
+  const old = [tx(62.4, 23), tx(300, 24, { type: "income" }), goalIn];
+  const readings = readCheckIns([c1], accounts, old);
+
+  it("still counts them all on the main account", () => {
+    const expected = expectedByAccount(accounts, readings[0], old);
+    // By hand: Eurobank 1,950 − 62.40 + 300 (the goal's 100 never left the bank).
+    expect(expected).toEqual({ eb: 2187.6, rev: 180, cash: 120 });
+    const pending = pendingByAccount(accounts, readings[0], old);
+    expect(pending.eb.every((p) => p.assumed)).toBe(true);
+  });
+
+  it("projects the same total two ways: the accounts summed, and the reading plus the records", () => {
+    const expected = expectedByAccount(accounts, readings[0], old);
+    const summed = Object.values(expected).reduce((a, b) => a + b, 0);
+    expect(summed).toBeCloseTo(projectedTotal(readings[0], old), 2);
+    expect(summed).toBeCloseTo(2250 - 62.4 + 300, 2);
+  });
+
+  it("finds no gap when the bank shows exactly that, and the goal's 100 as set aside, not spent", () => {
+    const next = reading("n", "2026-09-28T19:00:00", { eb: 2187.6, rev: 180, cash: 120 });
+    expect(readCheckIns([c1, next], accounts, old)[1].unlogged).toBe(0);
+    expect(goalHeldTotal(old)).toBe(100);
+    // The goal's money, per account, is on the main one — and adds up to the total.
+    expect(goalHeldByAccount(accounts, old)).toEqual({ eb: 100 });
+  });
+});
+
+// ── Item 97d: what a card holds that is not already in a goal ────────────────
+
+describe("free money per account (item 97d)", () => {
+  const goalTx = (amount: number, day: number, over: Partial<Transaction> = {}) =>
+    tx(amount, day, { type: "investment" as Transaction["type"], isInvestmentTransaction: true, isGoalTransaction: true, contributionType: "deposit", goalId: "g", ...over });
+
+  it("is the expected balance less the goal money kept in it — reconciled against the reading by hand", () => {
+    const rows = [
+      goalTx(150, 19, { accountId: "rev" }), // before the reading: the reading holds it
+      goalTx(30, 20, { accountId: "rev", contributionType: "withdrawal" }),
+      goalTx(40, 24, { accountId: "rev" }), // after: still in Revolut, set aside
+      goalTx(70, 24, { accountId: "rev", heldBy: "Athanasia" }), // handed over: left the card
+      tx(25, 25, { accountId: "rev" }), // an ordinary expense
+      goalTx(60, 25), // names no card: the main one's
+    ];
+    const latest = readCheckIns([c1], accounts, rows).at(-1);
+    const free = freeByAccount(accounts, latest, rows);
+
+    // Revolut by hand: read 180; since, −70 handed over, −25 spent → 85 there.
+    // Set aside in it: 150 − 30 + 40 = 160 → free 85 − 160 = −75.
+    expect(free.rev).toEqual({ expected: 85, held: 160, free: -75 });
+    // Eurobank: read 1,950, nothing left it; the 60 kept there → 1,890 free.
+    expect(free.eb).toEqual({ expected: 1950, held: 60, free: 1890 });
+    expect(free.cash).toEqual({ expected: 120, held: 0, free: 120 });
+    // Second route: what the banks hold in all, less everything in goals, is the free money summed.
+    const allFree = Object.values(free).reduce((sum, f) => sum + f.free, 0);
+    expect(allFree).toBeCloseTo(projectedTotal(latest!, rows) - goalHeldTotal(rows), 2);
+  });
+
+  it("is unknown — absent — with no reading, and for an account the reading did not read", () => {
+    expect(freeByAccount(accounts, undefined, [])).toEqual({});
+    const partial = readCheckIns([reading("p", "2026-09-21T18:00:00", { eb: 500 })], accounts, []).at(-1);
+    expect(Object.keys(freeByAccount(accounts, partial, []))).toEqual(["eb"]);
+  });
+
+  it("orders the places most free first, the unknown ones last in their usual order", () => {
+    const free = {
+      eb: { expected: 50, held: 0, free: 50 },
+      rev: { expected: 900, held: 0, free: 900 },
+    };
+    const many: MoneyAccount[] = [...accounts, { id: "x", name: "X", kind: "bank" }];
+    expect(orderByFree(many, free).map((a) => a.id)).toEqual(["rev", "eb", "cash", "x"]);
+    // Equal free money keeps the usual order.
+    expect(orderByFree(accounts, { eb: free.eb, rev: { ...free.rev, free: 50 } }).map((a) => a.id)).toEqual(["eb", "rev", "cash"]);
   });
 });

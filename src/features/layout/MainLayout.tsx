@@ -14,6 +14,8 @@ import { AddFab } from "./AddFab";
 import { PageAddProvider } from "../../shared/components/PageAddProvider";
 import { TourGate } from "../tour/TourGate";
 import { PAGE_ENTER_MS, pageEnterFrames, prefersReducedMotion } from "./pageEnter";
+import { NavPendingBar } from "./NavPendingBar";
+import { startPagePrefetch } from "../../lib/prefetchPages";
 
 /** Below Bootstrap's `lg` the sidebar is a drawer behind ☰; from it up, a fixed bar. */
 const DRAWER_QUERY = "(max-width: 991.98px)";
@@ -25,6 +27,14 @@ export function MainLayout() {
     false,
   );
   const isDrawer = useNarrowScreen(DRAWER_QUERY);
+
+  // Signed in (or the demo): every page's code, fetched while the browser is
+  // idle, so the first tap on a page does not wait for its download. Code only
+  // — no Firestore read (lib/prefetchPages.ts). Not in tests, which would load
+  // every page module for nothing.
+  useEffect(() => {
+    if (import.meta.env.MODE !== "test") startPagePrefetch();
+  }, []);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Each page opens at its top. The page scrolls inside `.page-content`, not
   // the window, so the browser's own reset on navigation never reaches it and
@@ -86,6 +96,8 @@ export function MainLayout() {
     // colourway itself is `data-nav-style` on <html>, set by ThemeProvider.
     <PageAddProvider>
       <div className={`main-layout ${isCollapsed ? "sidebar-collapsed" : ""}`}>
+        {/* While a tapped page is on its way, a thin bar says the tap was heard. */}
+        <NavPendingBar />
         <Sidebar
           isOpen={drawerOpen}
           onClose={closeSidebar}

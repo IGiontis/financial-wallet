@@ -37,9 +37,15 @@ export interface EntryDraft {
   categoryIds?: string[];
 }
 
+export type EntryMode = "line" | "oneoff";
+
 interface EntryEditorProps {
-  /** A rate per month, or a single dated amount. */
-  mode: "line" | "oneoff";
+  /**
+   * A rate per month (money out), or a single dated amount (extra pay, money
+   * in). Absent for a new figure from the page's «+»: the first step then asks
+   * «Μπαίνουν ή βγαίνουν;» (item 97c).
+   */
+  mode?: EntryMode;
   draft: EntryDraft;
   formatCurrency: (n: number) => string;
   /** For a monthly line: the categories it can pay for. */
@@ -48,14 +54,17 @@ interface EntryEditorProps {
   takenBy?: Map<string, { id: string; label: string }>;
   /** Absent while creating. */
   onDelete?: () => void;
-  onSave: (draft: EntryDraft) => void;
+  /** With the kind it was written as — the one asked on the first step, when it was. */
+  onSave: (draft: EntryDraft, mode: EntryMode) => void;
   onClose: () => void;
   /** Today, for the next dates the preview lists; the real one when absent. */
   now?: Date;
 }
 
 const STEPS = ["1", "2", "3"] as const;
-type Step = (typeof STEPS)[number];
+/** «kind» is asked first only for a new figure whose kind is not known yet. */
+type Step = "kind" | (typeof STEPS)[number];
+const WITH_KIND: readonly Step[] = ["kind", ...STEPS];
 
 /** "2026-12" as "Dec 2026", or undefined for anything else. */
 function monthText(key: string | undefined, lang: string): string | undefined {
@@ -82,14 +91,26 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
  * opens on the cadence it is. Opening one lets the rail jump, since everything
  * is filled in.
  */
-export function EntryEditor({ mode, draft, formatCurrency, categories = [], takenBy, onDelete, onSave, onClose, now }: EntryEditorProps) {
+export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories = [], takenBy, onDelete, onSave, onClose, now }: EntryEditorProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const [value, setValue] = useState<EntryDraft>(draft);
-  const [step, setStep] = useState<Step>("1");
+  // Money in or money out: given by the caller, or asked on the first step.
+  const askKind = !givenMode;
+  const steps: readonly Step[] = askKind ? WITH_KIND : STEPS;
+  const [chosenMode, setChosenMode] = useState<EntryMode | null>(givenMode ?? null);
+  const mode: EntryMode = chosenMode ?? "line";
+  const [step, setStep] = useState<Step>(steps[0]);
   const { tried: triedOn, mark: markTried } = useStepTried<Step>();
   const tried = triedOn(step);
   const [cadence, setCadence] = useState<Cadence>(() => (draft.id ? cadenceOf(mode, draft) : mode === "line" ? "monthly" : "once"));
+  /** The first step's answer: what is typed so far stays, the cadence starts over for that kind. */
+  const chooseMode = (next: EntryMode) => {
+    if (next === chosenMode) return;
+    setChosenMode(next);
+    setCadence(next === "line" ? "monthly" : "once");
+    setValue((v) => (next === "oneoff" ? { label: v.label, amount: v.amount, date: "" } : { label: v.label, amount: v.amount }));
+  };
   // The categories, open from the start when some are already linked.
   const [linking, setLinking] = useState(!!draft.categoryIds?.length);
   const expenseCategories = categories.filter((c) => c.type === "expense").sort((a, b) => categoryLabel(a.name, t).localeCompare(categoryLabel(b.name, t)));
@@ -111,20 +132,30 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   // What would be stored, worked out once: the check, the sentence and Save all read it.
   const stored = useMemo(() => draftFor(mode, cadence, value), [mode, cadence, value]);
   const problem = cadenceProblem(mode, cadence, value);
-  const whenOk = !problem;
+  // «Every year?» on «some months» is asked, not answered for you (no prefill,
+  // tiles included): unanswered until a tile is picked — except a stored
+  // season being edited, which shows what it is (absent = «Όχι»).
+  const seasonYearly = value.yearly ?? (edit && givenMode && cadenceOf(givenMode, draft) === "season" ? false : undefined);
+  const yearlyMissing = !dated && cadence === "season" && seasonYearly === undefined;
+  const whenOk = !problem && !yearlyMissing;
   const valid = amountOk && labelOk && whenOk;
   const today = useMemo(() => now ?? new Date(), [now]);
 
-  const index = STEPS.indexOf(step);
+  const index = steps.indexOf(step);
   const goTo = (target: Step) => {
-    const to = STEPS.indexOf(target);
+    const to = steps.indexOf(target);
     // Forward only as far as what is filled in allows; back is always free.
-    if (to > 0 && !whenOk) {
+    if (askKind && to > 0 && !chosenMode) {
+      markTried("kind");
+      setStep("kind");
+      return;
+    }
+    if (to > steps.indexOf("1") && !whenOk) {
       markTried("1");
       setStep("1");
       return;
     }
-    if (to > 1 && (!amountOk || !labelOk)) {
+    if (to > steps.indexOf("2") && (!amountOk || !labelOk)) {
       markTried("2");
       setStep("2");
       return;
@@ -133,11 +164,11 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   };
 
   const save = () => {
-    if (!valid) return;
+    if (!valid || !chosenMode) return;
     const clean: EntryDraft = { ...stored, label: cleanLine(value.label) };
     // No categories is no limit: nothing stored rather than an empty list.
     if (!clean.categoryIds?.length) delete clean.categoryIds;
-    onSave(clean);
+    onSave(clean, chosenMode);
   };
 
   const shortMonth = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
@@ -230,7 +261,7 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: "var(--fs-lead)" }}>{t(edit ? "planner.editEntry" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
+        <span style={{ fontSize: "var(--fs-lead)" }}>{t(edit ? "planner.editEntry" : !chosenMode ? "planner.addAmount" : dated ? "planner.addOneOff" : "planner.addEntry")}</span>
       </ModalHeader>
 
       <form
@@ -238,14 +269,33 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
         onSubmit={(e) => {
           e.preventDefault();
           if (step === "3") save();
-          else goTo(STEPS[index + 1]);
+          else goTo(steps[index + 1]);
         }}
       >
         <ModalBody>
-          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`planner.cadence_stepShort${s}`)} open={edit} large />
-          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
-            {t(`planner.cadence_${dated ? "oneoff" : "line"}${step}`)}
+          <WizardSteps steps={steps} current={step} onGo={goTo} label={(s) => t(s === "kind" ? "planner.kind_stepShort" : `planner.cadence_stepShort${s}`)} open={edit} large />
+          <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }} aria-hidden={step === "kind" ? true : undefined}>
+            {step === "kind" ? t("planner.kind_question") : t(`planner.cadence_${dated ? "oneoff" : "line"}${step}`)}
           </div>
+
+          {/* Money in or money out — the planner's two kinds — as two tiles; the
+              question is the step's title. Asked only of a new figure from «+». */}
+          {step === "kind" && (
+            <>
+              <YesNoChoice
+                question={t("planner.kind_question")}
+                hideQuestion
+                value={chosenMode === null ? undefined : chosenMode === "oneoff"}
+                onChange={(isIn) => chooseMode(isIn ? "oneoff" : "line")}
+                yesLabel={t("planner.kind_in")}
+                yesHint={t("planner.kind_inHint")}
+                noLabel={t("planner.kind_out")}
+                noHint={t("planner.kind_outHint")}
+                className="mb-0"
+              />
+              {tried && !chosenMode && <div className="invalid-feedback d-block">{t("planner.kind_needed")}</div>}
+            </>
+          )}
 
           {step === "1" && (
             <>
@@ -288,7 +338,8 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
                       <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => set({ to: v })} placeholder={t("planner.seasonToLabel")} />
                     </div>
                     <p className={styles.fieldHint}>{t("planner.wizard_someMonthsHint")}</p>
-                    <YesNoChoice className="mt-2 mb-0" question={t("planner.wizard_qEveryYear")} value={!!value.yearly} onChange={(yes) => set({ yearly: yes })} />
+                    <YesNoChoice className="mt-2 mb-0" question={t("planner.wizard_qEveryYear")} value={seasonYearly} onChange={(yes) => set({ yearly: yes })} />
+                    {tried && yearlyMissing && <p className={styles.fieldError}>{t("validation.answerYesNo")}</p>}
                   </>
                 )}
 
@@ -414,12 +465,12 @@ export function EntryEditor({ mode, draft, formatCurrency, categories = [], take
               by side is how a delete gets pressed by accident. */}
           {onDelete ? <DeleteButton iconOnly onClick={onDelete} what={draft.label || undefined} /> : <span />}
           <span className="d-flex gap-2">
-            {step === "1" ? (
+            {index === 0 ? (
               <Button type="button" color="secondary" outline onClick={onClose}>
                 {t("common.cancel")}
               </Button>
             ) : (
-              <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+              <Button type="button" color="secondary" outline onClick={() => setStep(steps[index - 1])}>
                 ‹ {t("common.back")}
               </Button>
             )}

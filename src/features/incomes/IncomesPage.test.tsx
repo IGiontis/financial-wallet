@@ -457,10 +457,22 @@ describe("the form", () => {
     await userEvent.type(name, "  Ιδιαίτερα   μαθήματα ");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.type(within(form).getByLabelText(/^Ποσό/), "300");
+    // «Αλλάζει το ποσό;» starts unanswered (no prefill, tiles included): Next asks for it.
+    expect(within(form).queryAllByRole("radio", { checked: true })).toHaveLength(0);
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    expect(within(form).getByText("Διάλεξε Ναι ή Όχι")).toBeInTheDocument();
+    await userEvent.click(within(form).getByRole("radio", { name: /^Όχι/ }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.click(form.querySelector<HTMLButtonElement>("#income-day")!);
     await userEvent.click(within(form).getByRole("option", { name: "5 του μήνα" }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    // A break? Your salary? Both asked, neither answered for you.
+    const yesNo = [...within(form).getAllByRole("radio", { name: /^Ναι/ }), ...within(form).getAllByRole("radio", { name: /^Όχι/ })].filter((r) => !r.closest(`[aria-label="${i18n.t("incomes.form.ends")}"]`));
+    expect(yesNo).toHaveLength(4);
+    for (const tile of yesNo) expect(tile).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    expect(within(form).getAllByText("Διάλεξε Ναι ή Όχι")).toHaveLength(2);
+    for (const no of within(form).getAllByRole("radio", { name: /^Όχι/ }).filter((r) => !r.closest(`[aria-label="${i18n.t("incomes.form.ends")}"]`))) await userEvent.click(no);
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     const answer = (label: string) => within(form.querySelector<HTMLElement>("[class*=wizCard]")!).getByText(label).nextElementSibling;
     expect(answer("Κατηγορία")).toHaveTextContent("Ελεύθερος επαγγελματίας");

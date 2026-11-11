@@ -160,7 +160,10 @@ describe("the bill form's pause", () => {
     await fillNew("Water", "18", "c1");
     await next();
     await next();
-    expect(await tile(/stop for a while/i, false)).toBeChecked();
+    // Asked, not answered for you: neither tile chosen until «Όχι» is picked.
+    expect(await tile(/stop for a while/i, false)).not.toBeChecked();
+    expect(await tile(/stop for a while/i, true)).not.toBeChecked();
+    await userEvent.click(await tile(/stop for a while/i, false));
     await save();
 
     await waitFor(() => expect(saved).toHaveLength(1));
@@ -178,9 +181,14 @@ describe("the bill form's on/off question", () => {
     expect(saved[0].isActive).toBe(true);
   });
 
-  it("saves a new bill switched on unless turned off", async () => {
+  it("asks a new bill whether it is active, neither answer chosen for you, and says so only after Next", async () => {
     open(null);
-    expect(await tile(/is it active/i, true)).toBeChecked();
+    expect(await tile(/is it active/i, true)).not.toBeChecked();
+    expect(await tile(/is it active/i, false)).not.toBeChecked();
+    expect(screen.queryByText("Pick Yes or No")).toBeNull();
+    await userEvent.type(await screen.findByLabelText(/^name/i), "Water");
+    expect(await next()).toBe(false);
+    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
   });
 });
 

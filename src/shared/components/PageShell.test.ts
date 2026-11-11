@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const src = resolve(here, "../..");
 
-const routes = readFileSync(resolve(src, "lib/lazyRoutes.ts"), "utf8");
+const routes = readFileSync(resolve(src, "lib/pageChunks.ts"), "utf8");
 
 /** Every page module the router can land on, straight from the route table. */
 const pageFiles = [...routes.matchAll(/import\("\.\.\/([^"]+)"\)/g)]

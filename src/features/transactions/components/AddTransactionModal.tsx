@@ -15,6 +15,8 @@ import { PayeeInput } from "./PayeeInput";
 import AccountPicker from "../../accounts/AccountPicker";
 import ReviewCard from "../../accounts/ReviewCard";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
+import { accountMissing, chosenAccount } from "../../accounts/accountsUtils";
+import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
 import { frequentPayees, recentPayees } from "../payeeStore";
@@ -189,6 +191,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   const accounts = useAccountList();
   const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
   const afterCategory: Step = accounts.length > 0 ? "account" : "details";
+  // The card is required (item 97a); its error shows only once Next was pressed without one.
+  const { tried, mark: markTried, reset: resetTried } = useStepTried<Step>();
 
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
@@ -199,6 +203,12 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
+      // Never saved without its card: the review is reachable only past that step, but a save must not depend on it.
+      if (accountMissing(accounts, values.accountId)) {
+        markTried("account");
+        setStep("account");
+        return;
+      }
       try {
         const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
         const metadata: FuelMetadata | undefined = values.showFuelDetails
@@ -216,7 +226,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
           amount: amountInBase, type: values.type, categoryId: values.categoryId,
           date: new Date(values.date), description: values.description,
           notes: values.notes || undefined, metadata,
-          accountId: values.accountId || undefined,
+          accountId: chosenAccount(accounts, values.accountId) || undefined,
         };
 
         await onSubmit(dto);
@@ -226,6 +236,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         if (asPage) setSaved(values);
         else toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
+        resetTried();
         setStep("type");
         setIsFuelCategory(false);
         if (!asPage) onClose();
@@ -286,6 +297,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
   const handleClose = () => {
     formik.resetForm();
+    resetTried();
     setStep("type");
     setIsFuelCategory(false);
     onClose();
@@ -293,7 +305,17 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
   const goBack = () => setStep(steps[Math.max(0, steps.indexOf(step) - 1)]);
 
+  /** Past the card step only with a card or cash chosen. */
+  const leaveAccount = () => {
+    if (accountMissing(accounts, formik.values.accountId)) return markTried("account");
+    setStep("details");
+  };
+
   const handleReview = async () => {
+    if (accountMissing(accounts, formik.values.accountId)) {
+      markTried("account");
+      return setStep("account");
+    }
     const errors = await formik.validateForm();
     if (Object.keys(errors).length === 0) {
       setStep("review");
@@ -406,6 +428,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             <AccountPicker
               value={formik.values.accountId}
               income={formik.values.type === "income"}
+              invalid={tried("account")}
               onChoose={(id) => {
                 formik.setFieldValue("accountId", id);
                 setStep("details");
@@ -564,7 +587,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         {step === "category" && (
           <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
-        {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
+        {step === "account" && <Button color="primary" onClick={leaveAccount}>{t("common.next")}</Button>}
         {step === "details" && <Button color="primary" onClick={handleReview}>{t("transactions.reviewBtn")}</Button>}
         {!saved && step === "review" && (
           <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting}>

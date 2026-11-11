@@ -63,6 +63,7 @@ const sdk = vi.hoisted(() => {
       "reauthenticateWithPopup",
       "deleteUser",
       "verifyBeforeUpdateEmail",
+      "sendPasswordResetEmail",
     ].map((name) => [name, refuse(`auth.${name}`)]),
   );
   auth.GoogleAuthProvider = class GoogleAuthProvider {} as never;
@@ -196,6 +197,8 @@ describe("the demo never reaches Firebase", () => {
     await expect(auth.updateUserPassword("x")).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     await expect(auth.deleteAccount()).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     await expect(auth.reauthenticateWithGoogle()).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
+    // A reset link only from the sign-in dialog's own way in, never the app's.
+    await expect(auth.sendPasswordReset("maria@example.test")).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     const { deleteMyAccount } = await import("../firebase/accountDeletion");
     await expect(deleteMyAccount({ uid: DEMO_UID, google: true, leave: () => {} })).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });
     await expect(auth.loginWithEmail("a@b.c", "x")).rejects.toMatchObject({ code: auth.DEMO_UNAVAILABLE });

@@ -32,14 +32,26 @@ export function countByStatus(goals: InvestmentGoalWithStats[], options: GoalSta
   return Object.fromEntries(options.map((option) => [option.id, goals.filter(option.test).length]));
 }
 
-/** The goals a tab shows: those its status keeps, whose name or note holds the search. */
+/**
+ * When a goal was made, for the order the cards stand in. One saved a moment ago
+ * and not yet back from the server has no date yet, and it is the newest of all.
+ */
+const createdTime = (g: InvestmentGoalWithStats) => toDate(g.createdAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+
+/**
+ * The goals a tab shows: those its status keeps, whose name or note holds the
+ * search — the newest made first, and the paused ones gathered at the end, so
+ * under «Όλα» the running goals are what the eye meets.
+ */
 export function filterGoals(goals: InvestmentGoalWithStats[], option: GoalStatusOption | undefined, search: string): InvestmentGoalWithStats[] {
   const query = search.trim().toLowerCase();
-  return goals.filter((g) => {
-    if (option && !option.test(g)) return false;
-    if (!query) return true;
-    return g.name.toLowerCase().includes(query) || (g.notes?.toLowerCase().includes(query) ?? false);
-  });
+  return goals
+    .filter((g) => {
+      if (option && !option.test(g)) return false;
+      if (!query) return true;
+      return g.name.toLowerCase().includes(query) || (g.notes?.toLowerCase().includes(query) ?? false);
+    })
+    .sort((a, b) => Number(!a.isActive) - Number(!b.isActive) || createdTime(b) - createdTime(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 // ─── The savings goals' tiles ───────────────────────────────────────────────

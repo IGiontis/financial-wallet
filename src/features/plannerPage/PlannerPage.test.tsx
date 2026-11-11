@@ -750,3 +750,32 @@ describe("«Month» on the card", () => {
     expect(screen.getByRole("button", { name: /^You end with: / })).toBeInTheDocument();
   });
 });
+
+// ── Item 97c: the «+» buttons open the planner's own add ─────────────────────
+describe("adding a figure", () => {
+  it("the header «+» opens the planner's add on «Money in or money out?»", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "New amount" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("radiogroup", { name: "Money in or money out?" })).toBeInTheDocument();
+  });
+
+  it("the floating «+» opens the same, not a new transaction", async () => {
+    const { PageAddProvider } = await import("../../shared/components/PageAddProvider");
+    const { AddFab } = await import("../layout/AddFab");
+    render(
+      <MemoryRouter initialEntries={["/planner"]}>
+        <PageAddProvider>
+          <PlannerPage />
+          <AddFab />
+        </PageAddProvider>
+      </MemoryRouter>,
+    );
+    const fab = await screen.findAllByRole("button", { name: "New amount" });
+    // The header's and the floating one say the same; the floating one is the last.
+    await userEvent.click(fab[fab.length - 1]);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("radiogroup", { name: "Money in or money out?" })).toBeInTheDocument();
+    expect(screen.queryByText("Add transaction")).toBeNull();
+  });
+});

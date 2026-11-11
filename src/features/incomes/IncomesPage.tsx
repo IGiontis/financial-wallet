@@ -14,7 +14,6 @@ import { toISOMonth } from "../../shared/utils/dates";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { IncomeCategoriesContext } from "./components/incomeIconContext";
 import { useAccountList } from "../accounts/useMoneyAccounts";
-import { mainAccount } from "../accounts/accountsUtils";
 import { useDeclinedSalaries, useIncomes, useRecordArrival, useUndoArrival } from "./useIncomes";
 import {
   KIND_ICON,
@@ -106,7 +105,6 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const incomeFlash = useSavedFlash("incomes", useMemo(() => incomes.map((i) => i.id), [incomes]));
   const { data: categories = [] } = useCategories();
   const accounts = useAccountList();
-  const main = mainAccount(accounts);
   const recordArrival = useRecordArrival();
   const undoArrival = useUndoArrival(overrides, setOverride);
   const deleteGuard = useOfflineGuard("delete");
@@ -156,7 +154,9 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     const salaryCategory = preset.kind === "salary" ? suggestIncomeCategory("salary", categories)?.id : undefined;
     setCardId(null);
     setForm({
-      draft: emptyDraft(now, { isSalary: !salaryIncome, ...(salaryCategory ? { categoryId: salaryCategory } : {}), ...preset }),
+      // «Is it your salary?» is asked, not answered for you (no prefill, tiles included) —
+      // except when it is the salary found in the records, which says so.
+      draft: emptyDraft(now, { ...(salaryCategory ? { categoryId: salaryCategory } : {}), ...preset }),
       isEdit: false,
       key: Date.now(),
     });
@@ -413,7 +413,6 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           expected={expectedAmount(arrivingIncome, transactions)}
           readingAt={arriving.readingAt}
           accounts={accounts}
-          mainAccountId={main?.id}
           category={categoryFor(arrivingIncome)}
           f={f}
           onClose={() => setArriving(null)}

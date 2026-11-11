@@ -12,7 +12,12 @@ export interface IncomeDraft {
   id?: string;
   kind: IncomeKind;
   name: string;
-  variable: boolean;
+  /**
+   * The three yes / no questions: `undefined` until answered — a new income
+   * starts with neither tile chosen (no prefill, tiles included), and the step
+   * will not go on until it is answered. An edit shows what is stored.
+   */
+  variable: boolean | undefined;
   /** In the display currency, as typed. */
   amount: string;
   categoryId: string;
@@ -25,13 +30,13 @@ export interface IncomeDraft {
   /** "YYYY-MM", or "YYYY-MM-DD" for a weekly income. */
   start: string;
   accountId: string;
-  hasPause: boolean;
+  hasPause: boolean | undefined;
   pauseFrom: string;
   pauseTo: string;
   pauseYearly: boolean;
   hasEnd: boolean;
   end: string;
-  isSalary: boolean;
+  isSalary: boolean | undefined;
   active: boolean;
 }
 
@@ -45,7 +50,7 @@ export function emptyDraft(now: Date, preset: Partial<IncomeDraft> = {}): Income
   return {
     kind: "salary",
     name: "",
-    variable: false,
+    variable: undefined,
     amount: "",
     categoryId: "",
     frequency: "monthly",
@@ -54,13 +59,13 @@ export function emptyDraft(now: Date, preset: Partial<IncomeDraft> = {}): Income
     month: String(now.getMonth()),
     start: toISOMonth(now),
     accountId: "",
-    hasPause: false,
+    hasPause: undefined,
     pauseFrom: toISOMonth(new Date(now.getFullYear(), now.getMonth() + 1, 1)),
     pauseTo: "",
     pauseYearly: false,
     hasEnd: false,
     end: "",
-    isSalary: false,
+    isSalary: undefined,
     active: true,
     ...preset,
   };
@@ -106,6 +111,7 @@ export function validateDraft(draft: IncomeDraft, step: DraftStep): DraftErrors 
     if (!Number.isFinite(amount)) errors.amount = "validation.amountRequired";
     else if (amount <= 0) errors.amount = "validation.amountPositive";
     else if (amount > 1_000_000) errors.amount = "validation.amountTooLarge";
+    if (draft.variable === undefined) errors.variable = "validation.answerYesNo";
   }
   if (step === 2) {
     const every = num(draft.every);
@@ -124,6 +130,8 @@ export function validateDraft(draft: IncomeDraft, step: DraftStep): DraftErrors 
     }
   }
   if (step === 3) {
+    if (draft.hasPause === undefined) errors.hasPause = "validation.answerYesNo";
+    if (draft.isSalary === undefined) errors.isSalary = "validation.answerYesNo";
     if (draft.hasPause) {
       if (!parseISOMonth(draft.pauseFrom)) errors.pauseFrom = "validation.required";
       if (draft.pauseYearly && !parseISOMonth(draft.pauseTo)) errors.pauseTo = "validation.pauseToRequired";
@@ -162,7 +170,7 @@ export function draftToIncome(draft: IncomeDraft, toBase: (display: number) => n
     name: cleanLine(draft.name),
     kind: draft.kind,
     amount: toBase(num(draft.amount)),
-    variable: draft.variable,
+    variable: !!draft.variable,
     frequency: draft.frequency,
     every: num(draft.every),
     day: num(draft.day),
@@ -172,7 +180,7 @@ export function draftToIncome(draft: IncomeDraft, toBase: (display: number) => n
     pause: draft.hasPause ? { from: draft.pauseFrom, to: draft.pauseTo || undefined, yearly: draft.pauseYearly && !!draft.pauseTo } : undefined,
     accountId: draft.accountId || undefined,
     categoryId: draft.categoryId || undefined,
-    isSalary: draft.isSalary,
+    isSalary: !!draft.isSalary,
     active: draft.active ? undefined : false,
   });
 }

@@ -4,9 +4,9 @@ import { isAfterReading } from "../../shared/utils/balance";
 import { useTranslation } from "react-i18next";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useMoneyAccounts } from "./useMoneyAccounts";
-import { accountOf, expectedByAccount, mainAccount, realDelta } from "./accountsUtils";
+import { accountOf, chosenAccount, expectedByAccount, mainAccount, realDelta } from "./accountsUtils";
 import { accountFinishes } from "./accountTones";
-import { BankCard, NoCard } from "./BankCard";
+import { BankCard } from "./BankCard";
 
 /**
  * The card a transaction is about to be saved against, shown on the review
@@ -47,20 +47,18 @@ export default function ReviewCard({
   const holds = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   if (accounts.length === 0) return null;
 
-  const account = accounts.find((a) => a.id === accountId);
+  // What the form will write: the place chosen, or the only one there is (item 97a).
+  const account = accounts.find((a) => a.id === chosenAccount(accounts, accountId));
   const main = mainAccount(accounts);
   const label = t(income ? "accounts.reviewIntoLabel" : "accounts.reviewFromLabel");
 
+  // Nothing chosen — the form will not save until it is; said here so the check never reads as complete.
   if (!account) {
     return (
-      <div className="d-flex align-items-center gap-3 mt-3">
-        <div style={{ width: 128, flexShrink: 0 }}>
-          <NoCard title={t("accounts.noCard")} compact />
-        </div>
-        <div className="small" style={{ minWidth: 0 }}>
-          <div className="text-body-secondary">{label}</div>
-          <div className="fw-semibold">{t("accounts.noCard")}</div>
-          {main && <div className="text-body-secondary">{t("accounts.noCardHint", { name: main.name })}</div>}
+      <div className="small mt-3">
+        <div className="text-body-secondary">{label}</div>
+        <div className="fw-semibold" style={{ color: "var(--color-expense-text)" }}>
+          {t("accounts.notChosen")}
         </div>
       </div>
     );

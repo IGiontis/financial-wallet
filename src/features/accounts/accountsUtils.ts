@@ -280,6 +280,22 @@ export function mainAccount(accounts: MoneyAccount[]): MoneyAccount | undefined 
   return accounts.find((a) => a.main) ?? accounts.find((a) => a.kind === "bank") ?? accounts[0];
 }
 
+/**
+ * The card or cash a FORM names (item 97a): the one chosen, if it still
+ * exists; with exactly one place, that one — there is nothing to choose;
+ * otherwise "" — nothing chosen yet, and the form asks for it.
+ *
+ * Only for what is being written now. A stored record that names nothing still
+ * counts on the main account (`accountOf`): no migration, the totals stand.
+ */
+export function chosenAccount(accounts: readonly MoneyAccount[], value: string | undefined): string {
+  if (value && accounts.some((a) => a.id === value)) return value;
+  return accounts.length === 1 ? accounts[0].id : "";
+}
+
+/** A form must still ask where the money went: there are places to choose from and none is chosen. */
+export const accountMissing = (accounts: readonly MoneyAccount[], value: string | undefined): boolean => accounts.length > 0 && !chosenAccount(accounts, value);
+
 /** The account a record belongs to: the one it names, if that still exists, else the main one. */
 export function accountOf(tx: Transaction, accounts: MoneyAccount[], main: MoneyAccount | undefined): string | undefined {
   return tx.accountId && accounts.some((a) => a.id === tx.accountId) ? tx.accountId : main?.id;
@@ -303,6 +319,66 @@ export function expectedByAccount(accounts: MoneyAccount[], latest: CheckInReadi
   }
   for (const id of Object.keys(result)) result[id] = round2(result[id]);
   return result;
+}
+
+/**
+ * Goal money set aside in each account now — the per-account form of
+ * `goalHeldTotal`: each goal record on the account it names, one that names
+ * none (or a deleted one) on the main account, as the balances count it.
+ */
+export function goalHeldByAccount(accounts: MoneyAccount[], transactions: Transaction[]): Record<string, number> {
+  const main = mainAccount(accounts);
+  const result: Record<string, number> = {};
+  for (const tx of transactions) {
+    const delta = goalHeldDelta(tx);
+    if (delta === 0) continue;
+    const id = accountOf(tx, accounts, main);
+    if (id) result[id] = (result[id] ?? 0) + delta;
+  }
+  for (const id of Object.keys(result)) result[id] = round2(result[id]);
+  return result;
+}
+
+export interface FreeMoney {
+  /** What the account should hold now (`expectedByAccount`). */
+  expected: number;
+  /** Of that, set aside in goals. */
+  held: number;
+  /** The rest: what a new goal deposit or payment can take from it. */
+  free: number;
+}
+
+/**
+ * What each account holds that is not already in a goal (item 97d): its
+ * expected balance less the goal money set aside in it.
+ *
+ * Only for an account whose balance is known — one the latest reading read.
+ * With no reading at all, or for an account added since, it is absent: the
+ * balance is unknown, and nothing is refused on a guess.
+ */
+export function freeByAccount(accounts: MoneyAccount[], latest: CheckInReading | undefined, transactions: Transaction[]): Record<string, FreeMoney> {
+  const result: Record<string, FreeMoney> = {};
+  if (!latest) return result;
+  const expected = expectedByAccount(accounts, latest, transactions);
+  const held = goalHeldByAccount(accounts, transactions);
+  for (const account of accounts) {
+    if (!Number.isFinite(latest.checkIn.amounts[account.id])) continue;
+    const e = expected[account.id] ?? 0;
+    const h = Math.max(held[account.id] ?? 0, 0);
+    result[account.id] = { expected: e, held: h, free: round2(e - h) };
+  }
+  return result;
+}
+
+/**
+ * The places in the order a goal deposit offers them (item 97d): most free
+ * money first; those whose balance is unknown last, in their usual order.
+ */
+export function orderByFree(accounts: MoneyAccount[], free: Record<string, FreeMoney>): MoneyAccount[] {
+  const known = accounts.filter((a) => free[a.id]);
+  const unknown = accounts.filter((a) => !free[a.id]);
+  // A stable sort: two with the same free money keep their usual order.
+  return [...known.sort((a, b) => free[b.id].free - free[a.id].free), ...unknown];
 }
 
 /** One record a new reading's prefilled figure already counts. */

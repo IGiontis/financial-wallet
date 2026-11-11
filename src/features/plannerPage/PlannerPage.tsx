@@ -53,7 +53,8 @@ import OccurrenceSheet from "./components/OccurrenceSheet";
 import type { OccurrenceOverride, ResolvedOccurrence } from "./plannerActuals";
 import { answerUnconfirmed, cleanLines, cleanOneOffs, cleanOverrides, cleanSkipped, PLANNER_KEYS, withOverride } from "./plannerInputs";
 import PlanLedger, { type LedgerItem } from "./components/PlanLedger";
-import EntryEditor, { type EntryDraft } from "./components/EntryEditor";
+import EntryEditor, { type EntryDraft, type EntryMode } from "./components/EntryEditor";
+import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { AddHeader } from "../../shared/components/AddButton";
 import styles from "./css/PlannerPage.module.css";
@@ -151,7 +152,11 @@ export function PlannerPage() {
 
   // One dialog for every figure the user owns, rather than an inline editor
   // permanently unrolled under each row.
-  const [editor, setEditor] = useState<{ mode: "line" | "oneoff"; draft: EntryDraft } | null>(null);
+  // `mode` absent: a new figure from «+», whose first step asks money in or out.
+  const [editor, setEditor] = useState<{ mode?: EntryMode; draft: EntryDraft } | null>(null);
+  const addEntry = () => setEditor({ draft: { label: "", amount: "" } });
+  // The floating «+» on this page opens the planner's own add, not a transaction.
+  usePageAdd(t("planner.addAmount"), addEntry);
 
   const skipIds = useMemo(() => new Set(skipped), [skipped]);
 
@@ -300,7 +305,7 @@ export function PlannerPage() {
   // spread back into the next write.
   const toggleRow = (id: string) => setSkipped(skipped.includes(id) ? skipped.filter((s) => s !== id) : [...skipped, id]);
 
-  type Editor = { mode: "line" | "oneoff"; draft: EntryDraft };
+  type Editor = { mode?: EntryMode; draft: EntryDraft };
 
   const openLineEditor = (line: BudgetLine) =>
     setEditor({
@@ -315,10 +320,10 @@ export function PlannerPage() {
     return line ? () => openLineEditor(line) : undefined;
   };
 
-  const saveEntry = (editor: Editor, draft: EntryDraft) => {
+  const saveEntry = (draft: EntryDraft, mode: EntryMode) => {
     const amount = parseFloat(draft.amount);
 
-    if (editor.mode === "oneoff") {
+    if (mode === "oneoff") {
       const label = draft.label;
       // Undefined rather than 0 or "" for an entry that happens once, so what
       // is stored says "no repeat" instead of "a repeat of nothing".
@@ -561,11 +566,11 @@ export function PlannerPage() {
 
       {/* The day, as on the Overview: a date is what a page about the weeks
           ahead is opened to learn. */}
-      {/* The «+» adds a line of what goes out — the planner's own entry; a
-          one-off coming in is added from «Μπαίνουν» in «Τα ποσά σου». */}
+      {/* The «+» adds the planner's own figure: its first step asks money in
+          or money out (item 97c). The floating «+» opens the same (`usePageAdd`). */}
       <AddHeader
-        label={t("planner.addExpenseLine")}
-        onAdd={() => setEditor({ mode: "line", draft: { label: "", amount: "" } })}
+        label={t("planner.addAmount")}
+        onAdd={addEntry}
         title={t("planner.title")}
         subtitle={new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}
       />
@@ -756,7 +761,7 @@ export function PlannerPage() {
           categories={categories}
           takenBy={categoryOwners(lines)}
           onDelete={editor.draft.id ? () => deleteEntry(editor) : undefined}
-          onSave={(draft) => saveEntry(editor, draft)}
+          onSave={saveEntry}
           onClose={() => setEditor(null)}
         />
       )}

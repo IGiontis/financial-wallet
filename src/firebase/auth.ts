@@ -16,6 +16,7 @@ import {
 import { auth } from "./config";
 import { forgetAllLocal } from "./syncList";
 import { isDemo, leaveDemo } from "../demo/demoMode";
+import { sendResetLink } from "../features/auth/passwordReset";
 
 // ─── In the demo ──────────────────────────────────────────────────────────────
 // There is no Firebase Auth behind the demo (see `config`): its user is a
@@ -55,6 +56,14 @@ export const loginWithGoogle = async () => {
   refuseInDemo();
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
+};
+
+// ─── Forgotten password ───────────────────────────────────────────────────────
+// Firebase emails the link itself. The demo's dialog has its own (demoSignIn).
+
+export const sendPasswordReset = async (email: string) => {
+  refuseInDemo();
+  await sendResetLink(auth, email);
 };
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

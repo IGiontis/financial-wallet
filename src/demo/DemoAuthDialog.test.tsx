@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../i18n";
 import { closeAuthDialog, openAuthDialog, useAuthDialogMode } from "./authDialog";
 import DemoAuthDialog from "./DemoAuthDialog";
+import { resetCooldown } from "../features/auth/passwordReset";
 
 // The real forms in a dialog over the demo. What they call is the demo's own
 // way in (a real Auth started on demand); once in, the page loads again as the
@@ -16,12 +17,13 @@ const signIn = vi.hoisted(() => ({
     loginWithEmail: vi.fn(async () => ({ uid: "u-1", email: "maria@example.test", displayName: null })),
     registerWithEmail: vi.fn(async () => ({ uid: "u-new", email: "maria@example.test", displayName: null })),
     loginWithGoogle: vi.fn(async () => ({ uid: "u-g", email: "g@example.test", displayName: "Maria Papa" })),
+    sendPasswordReset: vi.fn(async () => {}),
   },
   enterRealApp: vi.fn(),
 }));
 vi.mock("./demoSignIn", () => signIn);
 // The app's own sign-in, which refuses in the demo: must not be what the dialog calls.
-const appAuth = vi.hoisted(() => ({ loginWithEmail: vi.fn(), registerWithEmail: vi.fn(), loginWithGoogle: vi.fn() }));
+const appAuth = vi.hoisted(() => ({ loginWithEmail: vi.fn(), registerWithEmail: vi.fn(), loginWithGoogle: vi.fn(), sendPasswordReset: vi.fn() }));
 vi.mock("../firebase/auth", () => appAuth);
 vi.mock("../firebase/firestore", () => ({ createUser: vi.fn(), getUser: vi.fn() }));
 
@@ -70,6 +72,22 @@ describe("the demo's sign-in dialog", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: /Google/ }));
     await waitFor(() => expect(signIn.enterRealApp).toHaveBeenCalledTimes(1));
     expect(signIn.enterRealApp).toHaveBeenCalledWith({ kind: "google", uid: "u-g", email: "g@example.test", displayName: "Maria Papa", locale: "en" });
+  });
+
+  it("asks for a new password through the demo's way in, and stays in the dialog", async () => {
+    resetCooldown.until = 0;
+    renderHost();
+    openAuthDialog("login");
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Email"), "maria@example.test");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Forgot password?" }));
+    expect(within(dialog).getByLabelText("Email")).toHaveValue("maria@example.test");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send me a link" }));
+
+    expect(await within(dialog).findByRole("status")).toHaveTextContent(/If there is an account with this email/);
+    expect(signIn.demoAuthActions.sendPasswordReset).toHaveBeenCalledWith("maria@example.test");
+    expect(appAuth.sendPasswordReset).not.toHaveBeenCalled();
+    expect(signIn.enterRealApp).not.toHaveBeenCalled();
   });
 
   it("switches between signing in and signing up in place", async () => {

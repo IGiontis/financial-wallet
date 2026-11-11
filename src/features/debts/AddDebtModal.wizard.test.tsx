@@ -21,8 +21,20 @@ vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: 
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }) }));
 vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: vi.fn() }) }));
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => ({ link: undefined, goalName: undefined, ready: true, failed: false, retry: () => {} }) }));
-vi.mock("../accounts/AccountPicker", () => ({ default: () => null }));
-vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => [{ id: "eb", name: "Eurobank", kind: "bank", main: true }] }));
+// The picker stands in as one button for Revolut; its own error shows when the step was tried (item 97a).
+vi.mock("../accounts/AccountPicker", () => ({
+  default: ({ onChoose, invalid }: { onChoose: (id: string) => void; invalid?: boolean }) => (
+    <>
+      <button type="button" onClick={() => onChoose("rev")}>
+        pick Revolut
+      </button>
+      {invalid && <p>card required</p>}
+    </>
+  ),
+}));
+const ONE_PLACE = [{ id: "eb", name: "Eurobank", kind: "bank", main: true }];
+const places = vi.hoisted(() => ({ list: [] as unknown[] }));
+vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => places.list }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
 beforeAll(async () => {
@@ -32,12 +44,15 @@ beforeAll(async () => {
 beforeEach(() => {
   spies.create.mockClear();
   spies.edit.mockClear();
+  places.list = ONE_PLACE;
 });
 
 const next = () => userEvent.click(screen.getByRole("button", { name: /^Next/ }));
 const current = () => document.querySelector("[aria-current=step]")?.textContent;
 const yes = () => screen.getByRole("radio", { name: /^Yes, with interest/ });
 const no = () => screen.getByRole("radio", { name: /^No, a plain debt/ });
+// «Did money move?» starts unanswered on a new debt (no prefill): answered «Yes» where a test needs it.
+const moneyYes = () => userEvent.click(screen.getByRole("radio", { name: /^Yes, (into|from) a card or cash/ }));
 const open = () => render(<AddDebtModal knownPeople={["Keki"]} onClose={() => {}} />);
 
 async function fillWho(person: string, amount: string) {
@@ -59,6 +74,7 @@ describe("the loan wizard's steps", () => {
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     await next();
     expect(current()).toMatch(/Money/);
+    await moneyYes();
     await next();
     expect(current()).toMatch(/Review/);
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
@@ -119,6 +135,7 @@ describe("the loan wizard's steps", () => {
     await userEvent.click(no());
     await next();
     await next();
+    await moneyYes();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /^Who with/ }));
     expect(current()).toMatch(/Who/);
@@ -136,6 +153,7 @@ describe("what the wizard saves", () => {
     await userEvent.click(no());
     await next();
     await next();
+    await moneyYes();
     await next();
     // Plain: the receipt is the amount alone, no interest.
     const receipt = screen.getByRole("group", { name: "What you pay back" });
@@ -160,7 +178,8 @@ describe("what the wizard saves", () => {
       baseRate: undefined,
       margin: undefined,
       rateReviewedAt: undefined,
-      accountId: "",
+      // The only place there is (Eurobank) is the answer — nothing to choose (item 97a).
+      accountId: "eb",
     });
   });
 
@@ -173,6 +192,7 @@ describe("what the wizard saves", () => {
     await userEvent.type(screen.getByLabelText("Paid over"), "60");
     await next();
     await next();
+    await moneyYes();
     await next();
 
     // Worked out by hand, the annuity formula: P·r / (1 − (1 + r)^−n).
@@ -194,7 +214,7 @@ describe("what the wizard saves", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [data] = spies.create.mock.calls[0];
-    expect(data).toMatchObject({ person: "Bank", amount: 10000, interestRate: 6, termMonths: 60, accountId: "" });
+    expect(data).toMatchObject({ person: "Bank", amount: 10000, interestRate: 6, termMonths: 60, accountId: "eb" });
     expect(data.interestFreeMonths).toBeUndefined();
     expect(data.rateType).toBeUndefined();
     expect(data.baseRate).toBeUndefined();
@@ -213,6 +233,7 @@ describe("what the wizard saves", () => {
     await userEvent.type(screen.getByLabelText("Interest-free"), "3");
     await next();
     await next();
+    await moneyYes();
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [data] = spies.create.mock.calls[0];
@@ -230,6 +251,7 @@ describe("what the wizard saves", () => {
     expect(screen.getByText(/With no term in months it is saved as a plain debt/)).toBeInTheDocument();
     await next();
     await next();
+    await moneyYes();
     await next();
     expect(screen.getByText(/With no term in months it is saved as a plain debt/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -323,5 +345,116 @@ describe("correcting a saved loan", () => {
   it("offers no bin on a new loan", () => {
     render(<AddDebtModal knownPeople={[]} onClose={() => {}} onDelete={() => {}} />);
     expect(screen.queryByRole("button", { name: "Delete loan" })).toBeNull();
+  });
+});
+
+// ── Item 97a: «Ναι» needs its card ───────────────────────────────────────────
+describe("where the money went is asked, never assumed", () => {
+  const TWO_PLACES = [...ONE_PLACE, { id: "rev", name: "Revolut", kind: "bank" }];
+
+  it("a new debt: «Yes» with no card will not move on, says so only after Next, and saves the card chosen", async () => {
+    places.list = TWO_PLACES;
+    open();
+    await fillWho("Keki", "80");
+    await next();
+    await userEvent.click(no());
+    await next();
+    await next();
+    expect(current()).toMatch(/Money/);
+    expect(screen.queryByText("card required")).toBeNull();
+    await moneyYes();
+    // «Yes» just picked: the card is asked, not yet wrong.
+    expect(screen.queryByText("card required")).toBeNull();
+    await next();
+    expect(current()).toMatch(/Money/);
+    expect(screen.getByText("card required")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "pick Revolut" }));
+    await next();
+    expect(current()).toMatch(/Review/);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.create.mock.calls[0][0]).toMatchObject({ amount: 80, accountId: "rev" });
+  });
+
+  it("an old debt saved on «no particular card» is asked for one before a correction is saved", async () => {
+    places.list = TWO_PLACES;
+    const day = new Date(2026, 0, 15);
+    const old = { id: "d2", userId: "u", person: "Keki", direction: "owed_by_me", amount: 50, date: day, accountId: "", createdAt: day, updatedAt: day } as Debt;
+    render(<AddDebtModal debt={old} knownPeople={["Keki"]} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("What for"), "Taxi");
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    // The rail is open on an edit, but not past an unanswered card.
+    expect(current()).toMatch(/Money/);
+    expect(screen.getByText("card required")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "pick Revolut" }));
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.edit.mock.calls[0][0].data).toMatchObject({ amount: 50, label: "Taxi", accountId: "rev" });
+  });
+});
+
+// ── «Did money move?» starts unanswered on a new debt (no prefill, tiles included) ──
+describe("the money question on a new debt", () => {
+  const toMoney = async () => {
+    open();
+    await fillWho("Keki", "60");
+    await next();
+    await userEvent.click(no());
+    await next();
+    await next();
+    expect(current()).toMatch(/Money/);
+  };
+  const moneyYesTile = () => screen.getByRole("radio", { name: /^Yes, into a card or cash/ });
+  const moneyNoTile = () => screen.getByRole("radio", { name: /^No — they paid for you/ });
+
+  it("opens with neither tile chosen, no card list and no error", async () => {
+    await toMoney();
+    expect(moneyYesTile()).toHaveAttribute("aria-checked", "false");
+    expect(moneyNoTile()).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("button", { name: "pick Revolut" })).toBeNull();
+    expect(screen.queryByText("Pick Yes or No")).toBeNull();
+  });
+
+  it("Next without an answer stays and says so", async () => {
+    await toMoney();
+    await next();
+    expect(current()).toMatch(/Money/);
+    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
+    // The rail cannot jump past it either.
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(current()).toMatch(/Money/);
+  });
+
+  it("«No» saves without a card, exactly as before", async () => {
+    await toMoney();
+    await userEvent.click(moneyNoTile());
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    const [data] = spies.create.mock.calls[0];
+    expect(data.amount).toBe(60);
+    expect(data.accountId).toBeUndefined();
+    expect("accountId" in data && data.accountId !== undefined).toBe(false);
+  });
+
+  it("«Yes» needs a card: with two places it will not go on until one is picked", async () => {
+    places.list = [...ONE_PLACE, { id: "rev", name: "Revolut", kind: "bank" }];
+    await toMoney();
+    await userEvent.click(moneyYesTile());
+    expect(screen.getByRole("button", { name: "pick Revolut" })).toBeInTheDocument();
+    await next();
+    expect(current()).toMatch(/Money/);
+    expect(screen.getByText("card required")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "pick Revolut" }));
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.create.mock.calls[0][0]).toMatchObject({ amount: 60, accountId: "rev" });
+  });
+
+  it("an edit shows the stored answer: a debt saved with no money moving opens on «No»", () => {
+    const day = new Date(2026, 0, 15);
+    const saved = { id: "d3", userId: "u", person: "Keki", direction: "owed_by_me", amount: 20, date: day, createdAt: day, updatedAt: day } as Debt;
+    render(<AddDebtModal debt={saved} knownPeople={["Keki"]} onClose={() => {}} />);
+    return userEvent.click(screen.getByRole("button", { name: /Money/ })).then(() => {
+      expect(moneyNoTile()).toHaveAttribute("aria-checked", "true");
+    });
   });
 });

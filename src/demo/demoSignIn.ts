@@ -3,6 +3,7 @@ import { authForDemoSignIn } from "../firebase/config";
 import { rememberKnownDevice, rememberSession, rememberWelcomeName } from "../lib/sessionHint";
 import { savePendingSignUp, type PendingSignUp } from "../features/auth/pendingSignUp";
 import type { AuthActions } from "../features/auth/authActions";
+import { sendResetLink } from "../features/auth/passwordReset";
 
 // ─── Signing in from the demo ────────────────────────────────────────────────
 //
@@ -26,6 +27,7 @@ export const demoAuthActions: AuthActions = {
   loginWithEmail: async (email, password) => (await signInWithEmailAndPassword(authForDemoSignIn(), email, password)).user,
   registerWithEmail: async (email, password) => (await createUserWithEmailAndPassword(authForDemoSignIn(), email, password)).user,
   loginWithGoogle: async () => (await signInWithPopup(authForDemoSignIn(), googleProvider)).user,
+  sendPasswordReset: (email) => sendResetLink(authForDemoSignIn(), email),
 };
 
 /**

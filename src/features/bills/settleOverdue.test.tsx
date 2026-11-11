@@ -199,8 +199,8 @@ describe("paying a bill, step by step", () => {
     expect(screen.queryByRole("button", { name: /Mark as paid|Confirm/i })).toBeNull();
     await next();
     await next();
-    // The card step: the app's own picker, with "no particular card" first.
-    expect(screen.getByText(/What did you pay from/)).toBeInTheDocument();
+    // The card step: the app's own picker, asking where the money came from.
+    expect(screen.getByText(/Where did the money come from/)).toBeInTheDocument();
     await next();
     expect(screen.getByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
     expect(onConfirm).not.toHaveBeenCalled();
@@ -220,7 +220,7 @@ describe("paying a bill, step by step", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     const [amount, , periodKey, , accountId] = onConfirm.mock.calls[0];
     expect([amount, periodKey]).toEqual([60, "2026-07"]);
-    // No card chosen: the main account, written as none.
+    // No cards or cash on the Banks page at all: nothing to name, written as none.
     expect(accountId).toBeUndefined();
   });
 });

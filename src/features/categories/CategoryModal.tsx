@@ -84,7 +84,8 @@ export default function CategoryModal({ existing, scope: initialScope, category,
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => setTouched(true)}
+              // Only once something was typed: the dialog takes the focus as it opens (item 97b).
+              onBlur={(e) => e.target.value.trim() !== "" && setTouched(true)}
               placeholder={t("categories.namePlaceholder")}
               invalid={touched && (!!error || !!duplicate)}
               maxLength={60}

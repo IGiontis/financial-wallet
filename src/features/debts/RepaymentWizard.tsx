@@ -9,7 +9,7 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
-import { mainAccount } from "../accounts/accountsUtils";
+import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { previewRepayment } from "./debtsUtils";
 import { useRecordRepayment } from "./useDebts";
@@ -46,12 +46,15 @@ export default function RepaymentWizard({
   const [step, setStep] = useState<Step>("1");
   const [amount, setAmount] = useState(String(suggested));
   const [date, setDate] = useState(() => toISODay(new Date()));
-  // The card the debt itself went through is the likeliest one for paying it
-  // back. A debt that moved no money still starts as money moving: someone who
-  // owes you for a dinner you paid usually pays you back in money. Switched off
-  // only when it was settled some other way.
-  const [account, setAccount] = useState<string | undefined>(debt.accountId ?? "");
+  // Did money move, and through which card: asked, never assumed — neither
+  // tile starts chosen (`null`), and the card is not even the one the debt
+  // itself went through (item 97a). «Όχι» is `undefined`: settled some other way.
+  const [account, setAccount] = useState<string | undefined | null>(null);
   const [tried, setTried] = useState(false);
+  const [moneyTried, setMoneyTried] = useState(false);
+  const moneyMissing = account === null || (account !== undefined && accountMissing(accounts, account));
+  // As written: the card chosen, or the only place there is. With no places at all, as before.
+  const writtenAccount = account === null ? undefined : account === undefined || accounts.length === 0 ? account : chosenAccount(accounts, account);
   const [notes, setNotes] = useState("");
 
   const value = parseFloat(amount);
@@ -70,24 +73,32 @@ export default function RepaymentWizard({
       setStep("2");
       return;
     }
+    if (STEPS.indexOf(target) > 2 && moneyMissing) {
+      setMoneyTried(true);
+      setStep("3");
+      return;
+    }
     setStep(target);
   };
 
   const preview = amountOk && when ? previewRepayment(debt, value, when) : undefined;
   const cardName = (() => {
     if (account === undefined) return t("debts.noMoney");
-    const named = accounts.find((a) => a.id === account);
+    if (account === null) return "—";
+    const named = accounts.find((a) => a.id === writtenAccount);
     if (named) return named.name;
+    if (accounts.length > 0) return t("accounts.notChosen");
     const main = mainAccount(accounts);
     return main ? t("debts.wizard.mainCard", { name: main.name }) : t("accounts.noCard");
   })();
 
   const save = () => {
     if (!amountOk || !when) return;
+    if (moneyMissing) return goTo("4");
     // Paid off by this one: the debt's milestone (confetti).
     const paidOff = !debt.isSettled && !!preview?.settles;
     record.mutate(
-      { debtId: debt.id, amount: value, date: when, accountId: account, notes: notes.trim() || undefined },
+      { debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined },
       {
         onSuccess: () => {
           celebrateSave({ collection: "debts", id: debt.id, milestone: paidOff });
@@ -170,7 +181,17 @@ export default function RepaymentWizard({
 
           {step === "3" && (
             <>
-              <MoneyMovedPicker value={account} onChange={setAccount} income={!borrowed} hideQuestion />
+              <MoneyMovedPicker
+                value={account}
+                onChange={(next) => {
+                  // A new yes / no answer opens fresh: its card is not wrong before it is asked.
+                  if (typeof next !== typeof account) setMoneyTried(false);
+                  setAccount(next);
+                }}
+                income={!borrowed}
+                invalid={moneyTried}
+                hideQuestion
+              />
               <PaymentNote value={notes} onChange={setNotes} className="mt-3" />
             </>
           )}

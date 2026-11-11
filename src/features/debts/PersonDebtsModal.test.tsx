@@ -192,6 +192,8 @@ describe("recording a payment", () => {
   // The wizard is a dialog of its own, over the sheet.
   const wizard = () => screen.getAllByRole("dialog").at(-1)!;
   const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
+  // «Did money move?» starts unanswered (no prefill): answered «Yes» here.
+  const moneyMoved = () => userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
 
   it("offers the month's payment on a loan, and fills it in", async () => {
     renderSheet([car]);
@@ -202,6 +204,7 @@ describe("recording a payment", () => {
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(185.26);
     await next();
     await next();
+    await moneyMoved();
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
@@ -215,6 +218,7 @@ describe("recording a payment", () => {
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(300);
     await next();
     await next();
+    await moneyMoved();
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
@@ -232,6 +236,7 @@ describe("recording a payment", () => {
     await next();
     await next();
     expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await moneyMoved();
     await next();
     expect(within(wizard()).getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(spies.record).not.toHaveBeenCalled();
@@ -257,6 +262,7 @@ describe("recording a payment", () => {
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "100");
     await next();
     await next();
+    await moneyMoved();
     await next();
 
     // 300 was left of the 500 after the two payments; 100 more leaves 200.
@@ -271,6 +277,7 @@ describe("recording a payment", () => {
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "300");
     await next();
     await next();
+    await moneyMoved();
     await next();
     expect(within(wizard()).getByRole("group", { name: "What changes" })).toHaveTextContent("Owed afterPaid off");
   });
@@ -281,6 +288,7 @@ describe("recording a payment", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
     await next();
     await next();
+    await moneyMoved();
     await next();
 
     const effect = within(wizard()).getByRole("group", { name: "What changes" });
@@ -619,6 +627,7 @@ describe("how each payment went", () => {
     await userEvent.click(screen.getByRole("button", { name: "Money back" }));
     await next();
     await next();
+    await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
     await userEvent.type(within(wizard()).getByLabelText(/^Note/), "  handed over in cash  ");
     await next();
     expect(wizard()).toHaveTextContent("«handed over in cash»");
@@ -633,6 +642,7 @@ describe("how each payment went", () => {
     await userEvent.click(screen.getByRole("button", { name: "Money back" }));
     await next();
     await next();
+    await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
     expect(spies.record.mock.calls[0][0].notes).toBeUndefined();

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import { GoalDeleteModal } from "./GoalDeleteModal";
 import type { InvestmentGoalWithStats, Transaction } from "../../../shared/types/IndexTypes";
+import { expectNoErrors } from "../../../test/noEarlyErrors";
 
 // Deleting a goal with money in it: what became of the money, then a check —
 // card by card — then delete. The owner's case: 500 of the trip handed to
@@ -14,11 +15,15 @@ const debtList = vi.hoisted(() => ({ data: [] as unknown[] }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: debtList.data }) }));
 vi.mock("../../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
+// The picker stands in as one card; its own error (item 97a) shows when the form says the step was tried.
 vi.mock("../../accounts/AccountPicker", () => ({
-  default: ({ onChoose }: { onChoose: (id: string) => void }) => (
-    <button type="button" onClick={() => onChoose("revolut")}>
-      Revolut
-    </button>
+  default: ({ onChoose, invalid }: { onChoose: (id: string) => void; invalid?: boolean }) => (
+    <>
+      <button type="button" onClick={() => onChoose("revolut")}>
+        Revolut
+      </button>
+      {invalid && <p>card required</p>}
+    </>
   ),
 }));
 const store = vi.hoisted(() => ({ transactions: [] as unknown[] }));
@@ -66,11 +71,17 @@ describe("deleting a goal", () => {
 
   it("with money in it, says who holds what and waits for an answer", async () => {
     render(<GoalDeleteModal goal={goal(700)} isDeleting={false} onConfirm={vi.fn()} onClose={() => {}} />);
+    // Item 97b: nothing red before an answer was asked for — nor once «spent» opens its card question.
+    expectNoErrors(screen.getByRole("dialog"));
     expect(screen.getByText(/€500.00 held by Athanasia/)).toHaveTextContent("€200.00 in your bank");
     expect(screen.getAllByRole("radio").map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     await next();
     expect(screen.getByText("Choose what became of the money")).toBeInTheDocument();
+    // A new answer opens fresh: its own card question is not wrong yet.
+    await userEvent.click(screen.getByRole("radio", { name: /money was spent/ }));
+    expect(screen.queryByText("Choose what became of the money")).toBeNull();
+    expect(screen.queryByText("card required")).toBeNull();
   });
 
   it("given up on: Athanasia gives back 500 into Eurobank, the 200 is freed — then delete", async () => {
@@ -95,7 +106,7 @@ describe("deleting a goal", () => {
     await userEvent.click(screen.getByRole("radio", { name: /money was spent/ }));
     await next();
     // A card is asked for the bank's part only.
-    expect(screen.getByText("Choose the card it left")).toBeInTheDocument();
+    expect(screen.getByText("card required")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Revolut" }));
     await next();
 

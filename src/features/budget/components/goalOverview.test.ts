@@ -104,6 +104,18 @@ describe("the «Όλοι ▾» menu", () => {
     expect(filterGoals(stats, options[1], "laptop")).toEqual([]);
     expect(filterGoals(stats, options[0], "").length).toBe(3);
   });
+
+  it("puts the newest made first and gathers the paused ones at the end", () => {
+    const made = (id: string, month: number, isActive = true) => goal({ id, name: id, targetAmount: 100, isActive, createdAt: new Date(2026, month, 1) });
+    const just = { ...goal({ id: "just", name: "just", targetAmount: 100 }), createdAt: undefined } as unknown as InvestmentGoal;
+    const list = withStats([made("old", 0), made("pausedNew", 9, false), made("mid", 4), just, made("pausedOld", 1, false), made("new", 8)], []);
+    const order = filterGoals(list, options[0], "").map((g) => g.id);
+    expect(order).toEqual(["just", "new", "mid", "old", "pausedNew", "pausedOld"]);
+    // The same goals, none lost or doubled, and every paused one after every running one.
+    expect([...order].sort()).toEqual(list.map((g) => g.id).sort());
+    const firstPaused = order.findIndex((id) => id.startsWith("paused"));
+    expect(order.slice(firstPaused).every((id) => id.startsWith("paused"))).toBe(true);
+  });
 });
 
 // ─── The investments ────────────────────────────────────────────────────────

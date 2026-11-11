@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
-import { mainAccount } from "../../accounts/accountsUtils";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useIncomes, useRecordArrival, useUndoArrival } from "../useIncomes";
 import { expectedAmount, suggestIncomeCategory, undoableArrivals, type ArrivalUndo, type IncomeStatus } from "../incomesUtils";
@@ -67,7 +66,6 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
         options={statuses}
         expected={expected}
         accounts={accounts}
-        mainAccountId={mainAccount(accounts)?.id}
         category={category}
         f={f}
         onClose={() => setArriving(null)}

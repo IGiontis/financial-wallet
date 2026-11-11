@@ -14,7 +14,7 @@ import { usePayees } from "../transactions/hooks/usePayees";
 import { categoryLabel } from "../../shared/utils/categories";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
-import { expectedByAccount, mainAccount } from "../accounts/accountsUtils";
+import { chosenAccount, expectedByAccount, freeByAccount, mainAccount } from "../accounts/accountsUtils";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
 import { goalHolding } from "./goalHolding";
@@ -87,6 +87,8 @@ export default function ContributionWizard({
   // what each card holds both read as nothing.
   const { accounts, latest, transactions, isLoading: moneyLoading } = useMoneyAccounts();
   const holds = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
+  // What each card holds that is not already in a goal (item 97d) — known only where a reading read it.
+  const freeMoney = useMemo(() => freeByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   const holding = useMemo(() => goalHolding(goal, transactions), [goal, transactions]);
   const { data: categories = [] } = useCategories();
   const { payees } = usePayees();
@@ -109,7 +111,6 @@ export default function ContributionWizard({
   const [date, setDate] = useState(() => toISODay(new Date()));
   const [notes, setNotes] = useState("");
   const [account, setAccount] = useState("");
-  const [cardPicked, setCardPicked] = useState(false);
   const { tried: triedOn, mark: markTried } = useStepTried<Step>();
   const tried = triedOn(step);
   const [saving, setSaving] = useState(false);
@@ -130,13 +131,19 @@ export default function ContributionWizard({
   // ── What each mode needs ──
   const leavesCard = !isGoal ? deposit : mode === "given" || mode === "spent";
   const entersCard = !isGoal ? !deposit : mode === "returned";
-  /** The card is said, not assumed, wherever the money leaves or enters one. */
-  const cardMustBeChosen = isGoal && (mode === "given" || mode === "spent" || mode === "returned");
+  /**
+   * The card is said, not assumed (item 97a): wherever money leaves or enters
+   * one, and for money set aside, which bank holds it. Not when someone else
+   * paid (no card of yours moves) or spent what they held (it left when handed
+   * over). With one place only, that one is the answer — see `chosenAccount`.
+   */
+  const pickedAccount = chosenAccount(accounts, account);
+  const cardMustBeChosen = accounts.length > 0 && mode !== null && mode !== "covered" && mode !== "theySpent";
   const isCovered = isGoal && mode === "covered";
   const needsPerson = isGoal && (mode === "given" || mode === "spent" || mode === "covered");
   const writesExpense = isGoal && (mode === "spent" || mode === "theySpent");
   // "theySpent" moves no card: the record is written on the card it was handed from.
-  const cardAccount = mode === "theySpent" ? (holder?.accountId ?? "") : account;
+  const cardAccount = mode === "theySpent" ? (holder?.accountId ?? "") : pickedAccount;
 
   const typed = parseFloat(amount);
   const typedGain = Math.max(parseFloat(gain) || 0, 0);
@@ -159,13 +166,28 @@ export default function ContributionWizard({
   const when = parseISODay(date);
   const notesTooLong = notes.length > 40;
 
+  // A deposit cannot set aside, or hand over, money the card does not have
+  // (item 97d): kept in it, given from it, or into an investment from it. Its
+  // free money is what it holds less what goals already keep in it. A card whose
+  // balance is unknown (no reading yet) is never refused on a guess.
+  const checksFree = deposit && (!isGoal || mode === "kept" || mode === "given");
+  const cardFree = checksFree && pickedAccount ? freeMoney[pickedAccount] : undefined;
+  const overFree = !!cardFree && totalInBase > cardFree.free + 0.005;
+  const freeMessage = (id: string) => {
+    const known = freeMoney[id];
+    const name = accounts.find((a) => a.id === id)?.name ?? "";
+    if (!known) return "";
+    const values = { name, free: format(Math.max(known.free, 0)), held: format(known.held) };
+    return known.held > 0.005 ? t("goalWizard.freeOnCardHeld", values) : t("goalWizard.freeOnCard", values);
+  };
+
   const index = STEPS.indexOf(step);
   /** Whether a step is filled in enough to go past it. */
   const done = (s: Step) => {
     if (s === "use") return mode !== null && (mode !== "returned" && mode !== "theySpent" ? true : !!holder);
     if (s === "amount") return !amountError;
     if (s === "when") return !!when && !notesTooLong;
-    if (s === "card") return (!cardMustBeChosen || cardPicked) && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
+    if (s === "card") return (!cardMustBeChosen || !!pickedAccount) && !overFree && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
     return true;
   };
   // Forward only as far as what is filled in allows; back is always free.
@@ -194,7 +216,7 @@ export default function ContributionWizard({
   const heldBy = mode === "given" ? person.trim() : mode === "returned" || mode === "theySpent" ? holder?.name : undefined;
 
   const save = async () => {
-    if (amountError || !when) return;
+    if (amountError || !when || (cardMustBeChosen && !pickedAccount) || overFree) return;
     setSaving(true);
     if (isCovered) {
       // Someone else paid: the goal's deposit, the debt to them and the expense,
@@ -390,7 +412,8 @@ export default function ContributionWizard({
                     onClick={() => {
                       setMode(c.mode);
                       setHolderName(c.holder ?? "");
-                      setCardPicked(false);
+                      // A new answer here asks the card again: nothing carried over from another use.
+                      setAccount("");
                     }}
                   >
                     <div className="fw-semibold">{c.title}</div>
@@ -437,6 +460,17 @@ export default function ContributionWizard({
                   <FormFeedback>{amountError}</FormFeedback>
                 </InputGroup>
                 {capped && !full && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.maxDepositHint", { amount: format(remaining) })}</FormText>}
+                {/* What each card can give, before the amount is typed: the card itself is chosen two steps on. */}
+                {checksFree && Object.keys(freeMoney).length > 0 && (
+                  <FormText className="d-block" style={{ fontSize: "var(--fs-caption)" }}>
+                    {t("goalWizard.freeNow", {
+                      list: accounts
+                        .filter((a) => freeMoney[a.id])
+                        .map((a) => `${a.name} ${format(Math.max(freeMoney[a.id].free, 0))}`)
+                        .join(" · "),
+                    })}
+                  </FormText>
+                )}
               </FormGroup>
               {!deposit && available > 0 && (
                 <Button type="button" size="sm" color="secondary" outline onClick={() => setAmount(String(availableInDisplay))}>
@@ -484,14 +518,23 @@ export default function ContributionWizard({
                 <>
                   <AccountPicker
                     value={account}
-                    unset={cardMustBeChosen && !cardPicked}
-                    onChoose={(id) => {
-                      setAccount(id);
-                      setCardPicked(true);
-                    }}
+                    onChoose={setAccount}
                     income={entersCard}
+                    invalid={cardMustBeChosen && tried}
+                    free={checksFree ? { amounts: freeMoney, need: totalInBase } : undefined}
                   />
-                  {cardMustBeChosen && tried && !cardPicked && <div className="small text-danger mt-1">{t("goalWizard.pickCard")}</div>}
+                  {/* Said as soon as the card is chosen: choosing it is the touch. */}
+                  {overFree && cardFree ? (
+                    <div className="invalid-feedback d-block mt-2" role="alert">
+                      {t(cardFree.held > 0.005 ? "goalWizard.tooLittleFreeHeld" : "goalWizard.tooLittleFree", {
+                        name: accounts.find((a) => a.id === pickedAccount)?.name ?? "",
+                        free: format(Math.max(cardFree.free, 0)),
+                        held: format(cardFree.held),
+                      })}
+                    </div>
+                  ) : (
+                    cardFree && <p className="small text-body-secondary mt-2 mb-0">{freeMessage(pickedAccount)}</p>
+                  )}
                   <p className="small text-body-secondary mt-2 mb-0">{cardHint()}</p>
                 </>
               )}

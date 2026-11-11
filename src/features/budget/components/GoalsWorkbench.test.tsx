@@ -112,7 +112,8 @@ describe("the goal screen's tabs", () => {
 describe("a tab of goals", () => {
   it("filters by the status menu, with each choice's count", async () => {
     renderAt("/goals?tab=cards");
-    expect(names("cards")).toEqual(["Trip", "Laptop", "Phone", "Tent"]);
+    // Made the same day, so in the order they came; the paused Laptop gathered at the end.
+    expect(names("cards")).toEqual(["Trip", "Phone", "Tent", "Laptop"]);
     await userEvent.click(screen.getByRole("button", { name: "Status: All" }));
     const items = screen.getAllByRole("menuitem").map((m) => m.textContent);
     expect(items).toEqual(["All (4)", "Active (2)", "Paused (1)", "Completed (1)"]);
@@ -140,7 +141,7 @@ describe("a tab of goals", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: "List" }));
     expect(screen.getByRole("searchbox", { name: "Search goals" })).toHaveValue("");
-    expect(names("list")).toEqual(["Trip", "Laptop", "Phone", "Tent"]);
+    expect(names("list")).toEqual(["Trip", "Phone", "Tent", "Laptop"]);
     // Grouping is the list's alone.
     expect(screen.getByRole("button", { name: "Group by: Deadline" })).toBeInTheDocument();
 

@@ -93,3 +93,68 @@
   padding-top: var(--space-4);
   padding-bottom: var(--space-3);
 }
+
+/* ── A page on its way ──────────────────────────────────────────────────────
+   While a tapped page is still loading, the old one stays on screen (React
+   keeps it during the router's transition); this thin bar along the very top
+   says the tap was heard. It fades in after a moment, so a page that opens at
+   once never blinks it. A short stretch of the menu's accent runs across a faint
+   track; under reduced motion the whole bar breathes in place instead, and with
+   «Κινούμενα εφέ: Όχι» it stops where it stands — started part-way through, so
+   a stopped bar is still in sight. (NavPendingBar.tsx) */
+.nav-pending-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: var(--z-toast);
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--shell-accent) 25%, transparent);
+  /* Held back for the delay by the fill, not by a resting opacity of 0: were the
+     fade ever not to play, the bar is still there. */
+  animation: nav-pending-in var(--motion-base) ease-out 150ms both;
+}
+
+.nav-pending-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  border-radius: var(--radius-pill);
+  background: var(--shell-accent);
+  animation: nav-pending-run 1.2s ease-in-out -0.5s infinite;
+  animation-play-state: var(--loop-play, running);
+}
+
+@keyframes nav-pending-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes nav-pending-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes nav-pending-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pending-bar::before {
+    width: 100%;
+    animation: nav-pending-breathe 1.6s ease-in-out infinite;
+    animation-play-state: var(--loop-play, running);
+  }
+}

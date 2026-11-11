@@ -15,6 +15,9 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
+// «Start it active?» starts unanswered on a new goal (no prefill, tiles included).
+const answerActive = () => userEvent.click(screen.getByRole("radio", { name: /^Active/ }));
+
 describe("a new goal from parts", () => {
   it("adds the parts up into the target, and saves them in their order", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -35,6 +38,7 @@ describe("a new goal from parts", () => {
 
     // Target → look → review; Save only there.
     await next();
+    await answerActive();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
 

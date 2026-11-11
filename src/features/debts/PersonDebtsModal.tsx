@@ -20,6 +20,7 @@ import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { moneyMovedName } from "./moneyMovedName";
 import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
+import { accountMissing, chosenAccount } from "../accounts/accountsUtils";
 import RepaymentWizard from "./RepaymentWizard";
 import { useCoveredLink } from "../budget/useCoveredLink";
 import { CoveredLoadFailed } from "./CoveredLoadFailed";
@@ -213,6 +214,10 @@ function PaymentPanel({
   const value = parseFloat(amount);
   const amountValid = Number.isFinite(value) && value > 0;
   const valid = amountValid && parseISODay(date) !== null;
+  // «Ναι» needs its card (item 97a) — an older repayment that names none is asked for one.
+  const places = useAccountList();
+  const cardMissing = account !== undefined && accountMissing(places, account);
+  const [tried, setTried] = useState(false);
 
   return (
     <div className={styles.paymentPanel}>
@@ -245,11 +250,19 @@ function PaymentPanel({
           card. Or none: settled without money changing hands. The picker asks
           that as its own question. */}
       <div className={styles.paymentAccount}>
-        <MoneyMovedPicker value={account} onChange={onAccount} income={income} />
+        <MoneyMovedPicker value={account} onChange={onAccount} income={income} invalid={tried} />
       </div>
       <PaymentNote value={notes} onChange={onNotes} className="mb-2" small />
       <div className={styles.paymentButtons}>
-        <Button color="primary" size="sm" onClick={onSave} disabled={saving || !valid}>
+        <Button
+          color="primary"
+          size="sm"
+          onClick={() => {
+            if (cardMissing) return setTried(true);
+            onSave();
+          }}
+          disabled={saving || !valid}
+        >
           {t("common.save")}
         </Button>
         {onDelete && (
@@ -620,10 +633,13 @@ export default function PersonDebtsModal({
     const value = parseFloat(panelAmount);
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
+    if (panelAccount !== undefined && accountMissing(accounts, panelAccount)) return;
+    // As written: the card chosen, or the only place there is. With no places at all, as before.
+    const written = panelAccount === undefined || accounts.length === 0 ? panelAccount : chosenAccount(accounts, panelAccount);
 
     // `null` when switched off, so the card it had is taken off rather than kept.
     updateRepayment.mutate(
-      { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: panelAccount ?? null, notes: panelNotes.trim() || null },
+      { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null },
       { onSuccess: () => setPanel(null) },
     );
   };

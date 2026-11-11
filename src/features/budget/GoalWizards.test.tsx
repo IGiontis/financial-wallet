@@ -5,6 +5,7 @@ import i18n from "../../i18n";
 import AddNewGoalModal from "./AddNewGoalModal";
 import EditGoalModal from "./EditGoalModal";
 import type { InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
+import { expectNoErrors, shownErrors } from "../../test/noEarlyErrors";
 
 // The goal and investment forms as wizards: «What» → «Target» → «Look» →
 // «Review», Save only on the review, rows jumping back. What they save must be
@@ -23,6 +24,9 @@ const next = () => userEvent.click(screen.getByRole("button", { name: /^Next/ })
 const current = () => document.querySelector("[aria-current=step]")?.textContent;
 const nameInput = () => document.querySelector<HTMLInputElement>('input[name="name"]')!;
 
+// «Start it active?» starts unanswered on a new goal (no prefill, tiles included).
+const answerActive = () => userEvent.click(screen.getByRole("radio", { name: /^Active/ }));
+
 describe("a new goal (Goals page)", () => {
   it("walks what → target → look → review, with Save only on the review", async () => {
     render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="targeted" />);
@@ -38,6 +42,7 @@ describe("a new goal (Goals page)", () => {
     expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
     await next();
     expect(current()).toMatch(/Look/);
+    await answerActive();
     await next();
     expect(current()).toMatch(/Review/);
     expect(screen.getByRole("button", { name: /Confirm/ })).toBeInTheDocument();
@@ -88,6 +93,7 @@ describe("the new-goal modal, which stays mounted between uses", () => {
     await userEvent.type(screen.getByLabelText("Part 1: what for"), "House");
     await userEvent.type(screen.getByLabelText("Part 1: to"), "200");
     await next();
+    await answerActive();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
     expect(onSubmit.mock.calls[0][0].parts).toHaveLength(1);
@@ -99,6 +105,7 @@ describe("the new-goal modal, which stays mounted between uses", () => {
     expect(screen.queryByLabelText("Part 1: what for")).toBeNull();
     await userEvent.type(screen.getByLabelText(/Target amount/), "900");
     await next();
+    await answerActive();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
     expect(onSubmit.mock.calls[1][0]).toMatchObject({ name: "Car", targetAmount: 900, parts: undefined });
@@ -126,6 +133,7 @@ describe("a new investment (Investments page)", () => {
     expect(screen.queryByRole("button", { name: /Target/ })).toBeNull();
     await next();
     expect(current()).toMatch(/Look/);
+    await answerActive();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
     expect(onSubmit.mock.calls[0]).toEqual([
@@ -142,6 +150,7 @@ describe("a new investment (Investments page)", () => {
     await userEvent.type(screen.getByLabelText(/Target amount/), "150");
     await userEvent.selectOptions(screen.getByLabelText(/Period/), "yearly");
     await next();
+    await answerActive();
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
     expect(onSubmit.mock.calls[0][0]).toEqual({
@@ -235,5 +244,90 @@ describe("editing a goal", () => {
     expect(cancel).toHaveTextContent("Cancel");
     await userEvent.click(bin);
     expect(onDelete).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Item 97b: no error before anything was touched ───────────────────────────
+describe("the goal dialogs open without errors", () => {
+  it("a new goal: none on opening — not even once the focused name loses its focus empty", async () => {
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="targeted" />);
+    const dialog = screen.getByRole("dialog");
+    expectNoErrors(dialog);
+    // The dialog, a tile or Cancel takes the focus before anything is typed.
+    nameInput().focus();
+    nameInput().blur();
+    await userEvent.click(dialog);
+    expectNoErrors(dialog);
+    // Next with no name: now it is said.
+    await next();
+    expect(shownErrors(dialog)).not.toEqual([]);
+  });
+
+  it("a new goal: the target step opens clean, the parts editor too", async () => {
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="targeted" />);
+    await userEvent.type(nameInput(), "Trip");
+    await next();
+    expect(current()).toMatch(/Target/);
+    expectNoErrors(screen.getByRole("dialog"));
+    await userEvent.click(screen.getByRole("button", { name: "Parts" }));
+    expectNoErrors(screen.getByRole("dialog"));
+    await next();
+    await next();
+    expect(current()).toMatch(/Target/);
+  });
+
+  it("a new investment: none on opening, none after picking its kind", async () => {
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="recurring" />);
+    const dialog = screen.getByRole("dialog");
+    expectNoErrors(dialog);
+    await userEvent.click(within(dialog).getAllByRole("radio")[1]);
+    expectNoErrors(dialog);
+  });
+
+  it("editing: none on opening, none on any step walked without a change", async () => {
+    const goal = {
+      id: "g2",
+      userId: "u",
+      name: "Trip",
+      icon: "✈️",
+      color: "#10B981",
+      goalType: "targeted",
+      targetAmount: 700,
+      targetPeriod: "custom",
+      deadline: new Date(Date.UTC(2027, 5, 1)),
+      isActive: true,
+      isCompleted: false,
+      totalSaved: 0,
+      createdAt: new Date(2026, 0, 1),
+      updatedAt: new Date(2026, 0, 1),
+    } as unknown as InvestmentGoalWithStats;
+    render(<EditGoalModal goal={goal} isOpen onClose={() => {}} onSubmit={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expectNoErrors(dialog);
+    await next();
+    expectNoErrors(dialog);
+    await next();
+    expectNoErrors(dialog);
+  });
+});
+
+describe("«Start it active?» on a new goal", () => {
+  it("starts with neither tile chosen and no error; Next asks for an answer; «Paused» is saved as paused", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={onSubmit} defaultGoalType="recurring" />);
+    await userEvent.type(nameInput(), "ETF");
+    await userEvent.click(screen.getByRole("radio", { name: /Tracking/ }));
+    await next();
+    expect(current()).toMatch(/Look/);
+    expect(screen.getByRole("radio", { name: /^Active/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /^Paused/ })).toHaveAttribute("aria-checked", "false");
+    expectNoErrors(screen.getByRole("dialog"));
+    await next();
+    expect(current()).toMatch(/Look/);
+    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /^Paused/ }));
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
+    expect(onSubmit.mock.calls[0][1]).toBe(false);
   });
 });

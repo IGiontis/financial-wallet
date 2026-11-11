@@ -103,9 +103,14 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
       {withDeadline && (
         <PlanFromField
           value={values.planFrom}
-          onChange={(v) => form.setFieldValue("planFrom", v)}
+          onChange={(v) => {
+            form.setFieldValue("planFrom", v);
+            form.setFieldTouched("planFrom", true);
+          }}
           maxDate={values.deadline ? new Date(values.deadline) : undefined}
-          error={form.errors.planFrom ? msg(form.errors.planFrom, t) : undefined}
+          // Only once it was touched or Next pressed (item 97b): a stored day that a
+          // new deadline overtook is not wrong before anyone looks at this field.
+          error={invalid(form, "planFrom") ? msg(form.errors.planFrom, t) : undefined}
         />
       )}
     </>

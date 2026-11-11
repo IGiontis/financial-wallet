@@ -28,9 +28,29 @@ export async function next(): Promise<boolean> {
 
 export const saveButton = () => screen.queryByRole("button", { name: /save changes|add bill/i });
 
+/**
+ * A new bill's yes / no questions start unanswered (no prefill, tiles
+ * included): any still unanswered on the current step is answered «Όχι» —
+ * what the form used to assume. A test that means «Ναι» picks it itself.
+ */
+export async function answerLeftWithNo() {
+  const dialog = screen.queryByRole("dialog");
+  if (!dialog) return;
+  for (const group of within(dialog).queryAllByRole("radiogroup")) {
+    const radios = within(group).queryAllByRole("radio");
+    const no = radios.find((r) => /^no/i.test(r.textContent ?? ""));
+    const yes = radios.find((r) => /^yes/i.test(r.textContent ?? ""));
+    if (!no || !yes || radios.some((r) => r.getAttribute("aria-checked") === "true")) continue;
+    await userEvent.click(no);
+  }
+}
+
 /** Forward with «Next» to the check and save there — as far as the answers allow. */
 export async function save() {
-  for (let i = 0; i < 6 && !saveButton(); i++) if (!(await next())) return;
+  for (let i = 0; i < 6 && !saveButton(); i++) {
+    await answerLeftWithNo();
+    if (!(await next())) return;
+  }
   const button = saveButton();
   if (button) await userEvent.click(button);
 }
@@ -38,10 +58,16 @@ export async function save() {
 /** The «Ναι» or «Όχι» tile of the question that matches. */
 export const tile = async (question: RegExp, yes: boolean) => within(await screen.findByRole("radiogroup", { name: question })).getByRole("radio", { name: yes ? /^yes/i : /^no/i });
 
-/** A new bill's first two steps filled in: a name, then an amount and a category. Leaves it on «Ποσό». */
+/**
+ * A new bill's first two steps filled in: a name and «active? Ναι», then an
+ * amount, a category and «changes? Όχι» — the answers the form used to assume.
+ * Leaves it on «Ποσό».
+ */
 export async function fillNew(name: string, amount: string, categoryId: string) {
   await userEvent.type(await screen.findByLabelText(/^name/i), name);
+  await userEvent.click(await tile(/is it active/i, true));
   await next();
   await userEvent.type(screen.getByLabelText(/^amount \(/i), amount);
   await userEvent.selectOptions(screen.getByLabelText(/^category/i), categoryId);
+  await userEvent.click(await tile(/amount change/i, false));
 }

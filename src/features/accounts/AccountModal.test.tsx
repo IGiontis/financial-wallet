@@ -62,6 +62,14 @@ describe("adding an account", () => {
     await userEvent.type(screen.getByLabelText("Name"), "Wallet");
     await next();
     await userEvent.type(screen.getByLabelText("Holds now"), "0");
+    // «Is it the main one?» starts unanswered (no prefill, tiles included): Next asks for it.
+    expect(screen.getByRole("radio", { name: "Yes" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText("Pick Yes or No")).toBeNull();
+    await next();
+    expect(current()).toMatch(/Details/);
+    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "No" }));
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith({ name: "Wallet", kind: "cash", main: false, amount: 0, color: undefined });

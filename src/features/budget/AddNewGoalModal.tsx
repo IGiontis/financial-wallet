@@ -34,6 +34,7 @@ import segmented from "../../shared/css/Segmented.module.css";
 import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizard";
 import { GOAL_STEP_FIELDS, GOAL_STEP_LABEL, goalReviewRows, type GoalStep } from "./components/goalWizardSteps";
 import { iconProblem } from "../../shared/utils/iconText";
+import { typedBlur } from "../../shared/utils/typedBlur";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ interface GoalFormValues {
   deadline: string;
   /** "YYYY-MM-DD", or "" — see `InvestmentGoal.planFrom`. */
   planFrom: string;
-  isActive: boolean;
+  /** «Start it active?» — undefined until answered: neither tile starts chosen (no prefill, tiles included). */
+  isActive: boolean | undefined;
 }
 
 interface AddNewGoalModalProps {
@@ -96,7 +98,7 @@ const validationSchema = Yup.object({
     return !value || !deadline || value <= deadline;
   }),
   notes: Yup.string().max(300, "validation.maxChars|300"),
-  isActive: Yup.boolean(),
+  isActive: Yup.boolean().required("validation.answerYesNo"),
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -130,7 +132,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
       targetPeriod: isGoalsPage ? "custom" : "monthly",
       deadline: defaultDeadline,
       planFrom: "",
-      isActive: true,
+      isActive: undefined,
     }),
     [isGoalsPage],
   );
@@ -153,7 +155,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           planFrom: isGoalsPage && values.goalType === "targeted" && values.planFrom ? values.planFrom : undefined,
           parts: isGoalsPage && values.goalType === "targeted" && partsField.usingParts ? partsField.parts : undefined,
         };
-        await onSubmit(dto, values.isActive);
+        await onSubmit(dto, values.isActive !== false);
         toast.success(t("goals.createdSuccess", { name: values.name }));
         // Its card lights once this dialog has gone (the id is not known here:
         // the card that appears is the one lit). A new goal starts at 0, so its
@@ -249,7 +251,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   placeholder={isGoalsPage ? t("goals.namePlaceholder") : t("investments.namePlaceholder")}
                   value={formik.values.name}
                   onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
+                  onBlur={typedBlur(formik.handleBlur)}
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
@@ -295,12 +297,13 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                 noHint={t("goals.wizard.startPausedHint")}
                 className="mb-0"
               />
+              {formik.touched.isActive && formik.errors.isActive && <div className="invalid-feedback d-block">{validationMessage(formik.errors.isActive, t)}</div>}
             </GoalLookStep>
           )}
 
           {step === "review" && (
             <GoalReview values={formik.values} kindLabel={kindLabel} rows={rows} onGo={(s) => void goTo(s)}>
-              {!formik.values.isActive && (
+              {formik.values.isActive === false && (
                 <div className="small mt-3 p-2" style={{ background: "var(--bs-warning-bg-subtle)", border: "1px solid var(--bs-warning-border-subtle)", borderRadius: "var(--border-radius-md)" }}>
                   <Trans i18nKey="goals.createdPausedNote" components={{ strong: <strong /> }} />
                 </div>

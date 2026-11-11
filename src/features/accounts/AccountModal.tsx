@@ -68,7 +68,10 @@ export default function AccountModal({
   const [step, setStep] = useState<Step>("what");
   const [name, setName] = useState(account?.name ?? "");
   const [kind, setKind] = useState<MoneyAccountKind>(account?.kind ?? "bank");
-  const [main, setMain] = useState(isMain);
+  // «Is it the main one?»: a new account that is not already the main starts
+  // unanswered — neither tile chosen (no prefill, tiles included). The main one
+  // is locked on «Ναι»; an edit shows what is stored.
+  const [main, setMain] = useState<boolean | undefined>(account || isMain ? isMain : undefined);
   const [color, setColor] = useState<CardColor>(defaultColor && defaultColor !== "cash" ? defaultColor : "blue");
   const [amount, setAmount] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -79,6 +82,7 @@ export default function AccountModal({
   const value = parseAmount(amount);
   const nameOk = name.trim().length > 0;
   const amountOk = !!account || value !== undefined;
+  const mainOk = main !== undefined;
   const index = STEPS.indexOf(step);
   // An edit with nothing changed writes nothing: Save waits for a change.
   const unchanged = !!account && name.trim() === account.name && kind === account.kind && main === isMain && (kind !== "bank" || color === (defaultColor && defaultColor !== "cash" ? defaultColor : "blue"));
@@ -91,7 +95,7 @@ export default function AccountModal({
       setStep("what");
       return;
     }
-    if (to > 1 && !amountOk) {
+    if (to > 1 && (!amountOk || !mainOk)) {
       markTried("details");
       setStep("details");
       return;
@@ -101,9 +105,9 @@ export default function AccountModal({
 
   const save = () => {
     if (!nameOk) markTried("what");
-    if (!amountOk) markTried("details");
-    if (!nameOk || !amountOk) return;
-    onSave({ name: name.trim(), kind, main, amount: account ? undefined : value, color: kind === "bank" ? color : undefined });
+    if (!amountOk || !mainOk) markTried("details");
+    if (!nameOk || !amountOk || !mainOk) return;
+    onSave({ name: name.trim(), kind, main: !!main, amount: account ? undefined : value, color: kind === "bank" ? color : undefined });
   };
 
   const shownName = name.trim() || (kind === "bank" ? t("accounts.namePlaceholderBank") : t("accounts.kindCash"));
@@ -201,6 +205,7 @@ export default function AccountModal({
                   there is always exactly one, so it is moved by making another the
                   main, never by answering «Όχι» here. */}
               <YesNoChoice question={t("accounts.mainQuestion")} value={main} onChange={setMain} disabled={isMain} className="mb-0" />
+              {touched && !mainOk && <div className="invalid-feedback d-block">{t("validation.answerYesNo")}</div>}
               <div className="form-text">{t(isMain ? "accounts.mainIsHint" : "accounts.mainHint")}</div>
             </>
           )}

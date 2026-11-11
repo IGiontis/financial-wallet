@@ -14,6 +14,8 @@ import { PayeeInput } from "./PayeeInput";
 import AccountPicker from "../../accounts/AccountPicker";
 import ReviewCard from "../../accounts/ReviewCard";
 import { useAccountList, useMoneyAccounts } from "../../accounts/useMoneyAccounts";
+import { accountMissing, chosenAccount } from "../../accounts/accountsUtils";
+import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { adjustCheckInsForEdit } from "../../accounts/accountsUtils";
 import { usePayees } from "../hooks/usePayees";
 import { useTransactions } from "../hooks/useTransactions";
@@ -167,6 +169,10 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const withCards = accounts.length > 0 && !covered;
   const steps: readonly Step[] = useMemo(() => (withCards ? STEPS : STEPS.filter((s) => s !== "account")), [withCards]);
   const afterCategory: Step = withCards ? "account" : "details";
+  // The card is required (item 97a): an older record that names none is asked
+  // for one here, and the error shows only once Next was pressed without it.
+  const { tried, mark: markTried, reset: resetTried } = useStepTried<Step>();
+  const cardMissing = (value: string) => withCards && accountMissing(accounts, value);
 
   const initialIsFuelCategory = categories.find((c) => c.id === transaction.categoryId)?.name === "Fuel";
   const [isFuelCategory, setIsFuelCategory] = useState(initialIsFuelCategory);
@@ -190,6 +196,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
+      if (cardMissing(values.accountId)) {
+        markTried("account");
+        setStep("account");
+        return;
+      }
+      // The card as it will be written: chosen, or the only place there is.
+      const accountId = withCards ? chosenAccount(accounts, values.accountId) : values.accountId;
       try {
         const amountInBase = baseCurrency === displayCurrency ? (values.amount as number) : convertToBase(values.amount as number);
         const metadata: FuelMetadata | undefined = values.showFuelDetails
@@ -217,7 +230,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               amount: amountInBase, type: values.type, categoryId: values.categoryId,
               date: new Date(values.date), description: values.description,
               notes: values.notes || undefined, metadata,
-              accountId: values.accountId || null,
+              accountId: accountId || null,
             };
 
         await onSubmit(transaction.id, data);
@@ -226,13 +239,14 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         // covered expense's money didn't move, so there is nothing to correct.
         if (adjustReading && !covered) {
           const amount = baseCurrency === displayCurrency ? Number(values.amount) : convertToBase(Number(values.amount));
-          const changed = { ...transaction, amount, date: new Date(values.date), accountId: values.accountId || undefined };
+          const changed = { ...transaction, amount, date: new Date(values.date), accountId: accountId || undefined };
           const corrected = adjustCheckInsForEdit(checkIns, moneyAccounts, transaction, changed);
           if (corrected !== checkIns) setCheckIns(corrected);
         }
         toast.success(t("transactions.updatedSuccess", { name: values.description }));
         celebrateSave({ collection: "transactions", id: transaction.id });
         resetForm();
+        resetTried();
         setStep("category");
         onClose();
       } catch (err) {
@@ -271,11 +285,22 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
 
   const handleClose = () => {
     formik.resetForm();
+    resetTried();
     setStep("category");
     onClose();
   };
 
+  /** Past the card step only with a card or cash chosen. */
+  const leaveAccount = () => {
+    if (cardMissing(formik.values.accountId)) return markTried("account");
+    setStep("details");
+  };
+
   const handleReview = async () => {
+    if (cardMissing(formik.values.accountId)) {
+      markTried("account");
+      return setStep("account");
+    }
     const errors = await formik.validateForm();
     if (Object.keys(errors).length === 0) {
       setStep("review");
@@ -336,6 +361,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
             <AccountPicker
               value={formik.values.accountId}
               income={formik.values.type === "income"}
+              invalid={tried("account")}
               onChoose={(id) => {
                 formik.setFieldValue("accountId", id);
                 setStep("details");
@@ -483,7 +509,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                       ...transaction,
                       amount: baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)),
                       date: new Date(formik.values.date),
-                      accountId: formik.values.accountId || undefined,
+                      accountId: chosenAccount(accounts, formik.values.accountId) || undefined,
                     },
                   }
             }
@@ -501,7 +527,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         {step === "category" && (
           <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
-        {step === "account" && <Button color="primary" onClick={() => setStep("details")}>{t("common.next")}</Button>}
+        {step === "account" && <Button color="primary" onClick={leaveAccount}>{t("common.next")}</Button>}
         {/* Still gated on `dirty`: opening a record and closing it again should
             not offer to save it back unchanged. */}
         {step === "details" && <Button color="primary" disabled={!formik.dirty || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}

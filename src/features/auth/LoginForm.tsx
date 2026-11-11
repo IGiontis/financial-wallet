@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -9,6 +9,7 @@ import { AgeTermsNotice } from "../legal/AgeTermsConsent";
 import { appAuthActions, type AuthActions } from "./authActions";
 import type { PendingSignUp } from "./pendingSignUp";
 import { isInAppBrowser } from "./inAppBrowser";
+import { PasswordResetStep } from "./PasswordResetStep";
 import styles from "./css/Auth.module.css";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -54,12 +55,17 @@ export interface LoginFormProps {
 
 /**
  * The sign-in form: Google, or an email and a password. Shared by /login and
- * the demo's dialog, so the two never drift apart.
+ * the demo's dialog, so the two never drift apart. «Ξέχασα τον κωδικό;» swaps
+ * it, in place, for the step that emails a link for a new password.
  */
 export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, showHeading = true }: LoginFormProps) {
   const { t, i18n } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  // Back from the reset step: the focus goes to the password, the field still to fill.
+  const [cameBack, setCameBack] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const formik = useFormik({
     initialValues: { email: "", password: "" },
@@ -75,6 +81,10 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
     },
   });
 
+  useEffect(() => {
+    if (cameBack && !resetting) passwordRef.current?.focus();
+  }, [cameBack, resetting]);
+
   const handleGoogleLogin = async () => {
     setError(null);
     setGoogleLoading(true);
@@ -87,6 +97,21 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
       setGoogleLoading(false);
     }
   };
+
+  if (resetting) {
+    return (
+      <PasswordResetStep
+        actions={actions}
+        showHeading={showHeading}
+        initialEmail={formik.values.email.trim()}
+        onBack={(email) => {
+          if (email) void formik.setFieldValue("email", email, false);
+          setResetting(false);
+          setCameBack(true);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -132,11 +157,28 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
         </FormGroup>
 
         <FormGroup className="mb-4">
-          <Label className="small fw-medium" for="login-password">
-            {t("auth.password")}
-          </Label>
+          <div className="d-flex flex-wrap justify-content-between align-items-baseline column-gap-3">
+            <Label className="small fw-medium" for="login-password">
+              {t("auth.password")}
+            </Label>
+            <span className="small">
+              <button
+                type="button"
+                className={`btn btn-link p-0 align-baseline fw-medium text-decoration-none ${styles.switchLink}`}
+                // Not leaving the password first: its error would grow the centred dialog and move this link from under the pointer.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setError(null);
+                  setResetting(true);
+                }}
+              >
+                {t("auth.forgotPassword")}
+              </button>
+            </span>
+          </div>
           <Input
             id="login-password"
+            innerRef={passwordRef}
             type="password"
             name="password"
             autoComplete="current-password"

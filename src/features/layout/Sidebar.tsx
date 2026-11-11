@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { FloatingPortal, autoUpdate, offset, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import { useBillsNeedingAttention } from "../bills/useBills";
 import { useIncomesNeedingAttention } from "../incomes/useIncomes";
 import "./css/Sidebar.css";
+import { linkMatches, useShownPathname } from "./usePendingNav";
+import { prefetchPath } from "../../lib/prefetchPages";
 
 import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
 
@@ -128,6 +130,9 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
   // that holds a callback ref as a ref, and every read of it as a read in render.
   const { open: tipOpen, close: closeTip, reference, setReference, handlers } = useRailTip(railTips);
   const Icon = item.icon;
+  // Marked the moment it is tapped, not once its page has arrived: a slow page
+  // otherwise left the old item lit, as if the tap had not been heard.
+  const current = linkMatches(item.path, useShownPathname(), item.path === "/");
   // Read out as part of the link's name rather than left as a bare number,
   // which a screen reader would announce as "Bills, 2".
   const badgeLabel = item.badge ? (item.badgeLabel?.(item.badge) ?? t("bills.dueCount", { count: item.badge })) : undefined;
@@ -139,12 +144,16 @@ function SidebarLink({ item, railTips, onNavigate, children }: { item: NavItemPr
         end={item.path === "/"}
         ref={setReference}
         {...handlers}
+        // A head start on the page's code when a finger or pointer reaches the link.
+        onPointerEnter={() => prefetchPath(item.path)}
         onClick={() => {
           closeTip();
           onNavigate();
         }}
         // `aria-current="page"` comes from NavLink itself; the class is only for the look.
-        className={({ isActive }) => `nav-link sidebar-link ${isActive ? "nav-link-current" : ""}`}
+        // A function, not a string: given a string NavLink adds its own `active`
+        // from the page still on screen, which would light the old item too.
+        className={() => `nav-link sidebar-link ${current ? "nav-link-current" : ""}`}
         aria-label={badgeLabel ? `${item.label} — ${badgeLabel}` : undefined}
       >
         {children}
@@ -186,7 +195,8 @@ function WordBadge({ count, tone }: { count: number; tone?: "danger" | "warning"
  */
 function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { children: NavChild[] }; rail: boolean; onNavigate: () => void }) {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
+  // The page being opened as soon as it is tapped (see `SidebarLink`).
+  const pathname = useShownPathname();
   // The count read out with the name, as on a plain link — see `SidebarLink`.
   const badgeLabel = item.badge ? (item.badgeLabel?.(item.badge) ?? t("bills.dueCount", { count: item.badge })) : undefined;
   const listId = useId();
@@ -245,7 +255,7 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
         <ul id={listId} className="nav flex-column flex-nowrap sidebar-sub">
           {item.children.map((child) => (
             <li key={child.path} className="nav-item">
-              <NavLink to={child.path} end onClick={onNavigate} className={({ isActive }) => `nav-link sidebar-link sidebar-sublink ${isActive ? "nav-link-current" : ""}`}>
+              <NavLink to={child.path} end onClick={onNavigate} onPointerEnter={() => prefetchPath(child.path)} className={() => `nav-link sidebar-link sidebar-sublink ${linkMatches(child.path, pathname, true) ? "nav-link-current" : ""}`}>
                 {child.icon && <child.icon className="nav-icon sidebar-subicon" aria-hidden />}
                 <span className="nav-label">
                   {child.label}
@@ -265,7 +275,7 @@ function SidebarGroupLink({ item, rail, onNavigate }: { item: NavItemProp & { ch
             <ul className="nav flex-column flex-nowrap">
               {item.children.map((child) => (
                 <li key={child.path} className="nav-item">
-                  <NavLink to={child.path} end onClick={leave} className={({ isActive }) => `sidebar-flyout-link ${isActive ? "active" : ""}`}>
+                  <NavLink to={child.path} end onClick={leave} onPointerEnter={() => prefetchPath(child.path)} className={() => `sidebar-flyout-link ${linkMatches(child.path, pathname, true) ? "active" : ""}`}>
                     {child.icon && <child.icon className="sidebar-flyout-icon" aria-hidden />}
                     {child.label}
                   </NavLink>

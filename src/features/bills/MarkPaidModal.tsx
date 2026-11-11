@@ -10,7 +10,8 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { parseISODay, toISODay } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
-import { expectedByAccount, mainAccount } from "../accounts/accountsUtils";
+import { accountMissing, chosenAccount, expectedByAccount, mainAccount } from "../accounts/accountsUtils";
+import { useStepTried } from "../../shared/hooks/useStepTried";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import wiz from "../../shared/css/Wizard.module.css";
 import { formatTable } from "../transactions/transactionDates";
@@ -157,18 +158,27 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   );
 
   const [step, setStep] = useState<Step>("amount");
-  // The card or cash it was paid from; "" is the main account, as on any expense.
+  // The card or cash it was paid from — required (item 97a): nothing starts
+  // chosen, except the one place when there is only one (`chosenAccount`).
   const [account, setAccount] = useState("");
+  const picked = chosenAccount(accounts, account);
+  const cardMissing = accountMissing(accounts, account);
+  const { tried, mark: markTried } = useStepTried<Step>();
 
   const formik = useFormik({
     initialValues: { amount: suggestedInDisplay, date: toISODay(new Date()), periodKey: defaultPeriodKey },
     validationSchema,
     onSubmit: (values) => {
+      if (cardMissing) {
+        markTried("card");
+        setStep("card");
+        return;
+      }
       const typed = Number(values.amount);
       const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
       const when = parseISODay(values.date) ?? new Date(values.date);
       const period = periods.find((p) => p.key === values.periodKey);
-      onConfirm(amountInBase, when, values.periodKey, installmentTotal > 1 ? installmentIndex : undefined, account || undefined);
+      onConfirm(amountInBase, when, values.periodKey, installmentTotal > 1 ? installmentIndex : undefined, picked || undefined);
       // Said once it is done, for what it is: the bill, how much, from where, for when.
       toast.success(t("bills.pay.done", { name: bill.name, amount: format(typed), card: cardName, period: period ? periodLabel(period) : values.periodKey }));
     },
@@ -193,7 +203,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   const dateBelongsElsewhere = periodForDate && periodForDate.offset < 0 && periodForDate.key !== formik.values.periodKey ? periodForDate : undefined;
 
   // ── The card, said in words, and what it will hold ──
-  const named = accounts.find((a) => a.id === account);
+  const named = accounts.find((a) => a.id === picked);
   const main = mainAccount(accounts);
   const cardName = named ? named.name : main ? t("bills.pay.mainCard", { name: main.name }) : t("accounts.noCard");
   const effective = named ?? main;
@@ -215,6 +225,10 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
         formik.setFieldTouched("date", true);
         formik.setFieldTouched("periodKey", true);
         return setStep("when");
+      }
+      if (to > 2 && cardMissing) {
+        markTried("card");
+        return setStep("card");
       }
     }
     setStep(target);
@@ -348,7 +362,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
             </>
           )}
 
-          {step === "card" && <AccountPicker value={account} onChoose={setAccount} income={false} />}
+          {step === "card" && <AccountPicker value={account} onChoose={setAccount} income={false} invalid={tried("card")} />}
 
           {step === "review" && (
             <>
