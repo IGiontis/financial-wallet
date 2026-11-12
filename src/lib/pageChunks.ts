@@ -11,6 +11,7 @@ export const pageChunks = {
   transactions: () => import("../features/transactions/pages/TransactionPage"),
   newTransaction: () => import("../features/transactions/pages/NewTransactionPage"),
   ledger: () => import("../features/transactions/pages/LedgerPage"),
+  names: () => import("../features/names/NamesPage"),
   analytics: () => import("../features/analytics/pages/AnalyticsPage"),
   goals: () => import("../features/goals/GoalsPage"),
   settings: () => import("../features/settings/pages/SettingsPage"),
@@ -47,5 +48,6 @@ export const APP_PAGES: readonly PageChunk[] = [
   "analytics",
   "calendar",
   "ledger",
+  "names",
   "settings",
 ];

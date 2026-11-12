@@ -137,8 +137,10 @@ export function useDeleteBill() {
   return useMutation({
     mutationFn: (billId: string) => deleteBill(userId, billId),
     // Deletes wait for a connection and the dialog waits for the answer, so
-    // the bill goes from the list once the server has agreed.
-    onSuccess: (_void, billId) => confirmList(queryClient, billKeys.all(userId), editBills(removeWhere<Bill>((b) => b.id === billId))),
+    // the bill goes from the list once the server has agreed. Its payments go
+    // with it (each bill's status is worked out from its own payments only);
+    // the expenses they wrote stay, so the transactions list is not touched.
+    onSuccess: (_result, billId) => confirmList(queryClient, billKeys.all(userId), editBills(removeWhere<Bill>((b) => b.id === billId))),
   });
 }
 

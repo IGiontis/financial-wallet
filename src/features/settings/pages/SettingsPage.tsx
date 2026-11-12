@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "react-toastify";
@@ -9,7 +9,6 @@ import { getUser, updateUser } from "../../../firebase/firestore";
 import { deleteMyAccount, AccountDeletionError } from "../../../firebase/accountDeletion";
 import { OfflineActionError } from "../../../shared/utils/offlinePolicy";
 import { DISPLAY_NAME_MAX, cleanDisplayName } from "../displayName";
-import CategoryManager from "../../categories/CategoryManager";
 import { SkeletonCard, SkeletonHeading, SkeletonRows } from "../../../shared/components/Skeletons";
 import ResetDataSection from "../components/ResetDataSection";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
@@ -587,9 +586,13 @@ export function SettingsPage() {
 
         {tab === "data" && (
           <>
-            {/* ── Custom categories ───────────────────────────────────────────────── */}
-            <Section title={t("categories.manageTitle")} subtitle={t("categories.manageSubtitle")}>
-              <CategoryManager />
+            {/* ── Categories: managed on their own page, with the payees ──────────── */}
+            {/* One place for them (item 85): «Δικαιούχοι & κατηγορίες», under
+                Transactions. Here only the way there. */}
+            <Section title={t("categories.manageTitle")} subtitle={t("names.settingsHint")}>
+              <Link to="/transactions/names?tab=categories" className="btn btn-outline-secondary btn-sm">
+                {t("names.settingsLink")} ›
+              </Link>
             </Section>
 
             {/* ── Statement ───────────────────────────────────────────────────────── */}

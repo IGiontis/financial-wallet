@@ -191,8 +191,8 @@ describe("demoData", () => {
       }
     }
     expect(failures.slice(0, 20)).toEqual([]);
-    // Seven hundred accounts built and checked: seconds, not the default five.
-  }, 60_000);
+    // Seven hundred accounts built and checked: about forty seconds alone, and over a minute while the whole suite runs beside it.
+  }, 180_000);
 
   it("holds together through a leap year's February", () => {
     const failures: string[] = [];

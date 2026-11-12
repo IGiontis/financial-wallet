@@ -563,12 +563,35 @@ export const updateBill = async (billId: string, data: UpdateBillDTO) => {
   });
 };
 
+/**
+ * Deletes a bill with every payment recorded against it.
+ *
+ * Deleting the bill document alone left its payments behind for good: nothing
+ * shows a payment without its bill, so no screen could ever remove them. The
+ * expenses those payments wrote STAY — they are money that really left, and
+ * the balance, the month's spending and the Transactions screen keep counting
+ * them as before. They keep their `billId`, which every reader treats as "this
+ * was a fixed cost" and nothing follows to a bill (see `useTransactions`: with
+ * no payment to find, editing or deleting one touches the expense alone).
+ *
+ * The payments come from the server, not from this device's copy: one query
+ * finds exactly the ones that are there now, so the batch never names one
+ * another device already deleted (the rules refuse that and the whole batch
+ * with it), and finds any this device has not synced yet. Equality on `userId`
+ * plus one field, as `deleteInvestmentGoal`.
+ *
+ * Returns the payments that went.
+ */
 export const deleteBill = async (userId: string, billId: string) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
-  await deleteDoc(doc(db, "bills", billId));
-  await noteDeleted(userId, "bills", [billId]);
+  const payments = await readAll("billPayments (bill deletion)", query(collection(db, "billPayments"), where("userId", "==", userId), where("billId", "==", billId)));
+  const paymentIds = payments.docs.map((d) => d.id);
+  // The bill last: see `commitDeletes`. Up to ~450 payments go with it in one batch.
+  await commitDeletes([...payments.docs.map((d) => d.ref), doc(db, "bills", billId)]);
+  await noteDeletions(userId, { bills: [billId], billPayments: paymentIds });
+  return { paymentIds };
 };
 
 // ─── BILL PAYMENTS ────────────────────────────────────────────────────────────

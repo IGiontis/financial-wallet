@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { goalHeldTotal } from "../features/accounts/accountsUtils";
+import { expectedByAccount, goalHeldTotal, projectedTotal, readCheckIns, type BalanceCheckIn, type MoneyAccount } from "../features/accounts/accountsUtils";
+import { committedSplit, monthlyFlows } from "../features/analytics/analyticsUtils";
+import { calculateMetrics, calculateMoneyLeft } from "../features/overview/overviewUtils";
+import { buildLedger } from "../features/transactions/ledger";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import type { InvestmentContribution, InvestmentGoal, Transaction } from "../shared/types/IndexTypes";
 import { OWNED_COLLECTIONS } from "./ownedCollections";
 import { ACCOUNT_DELETING, endAccountDeletion } from "./deletionGate";
 import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
-import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
+import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteBill, deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 
 // The data layer against a small in-memory Firestore.
@@ -387,6 +390,202 @@ describe("updateTransaction", () => {
     expect(fs.batches).toHaveLength(0);
     expect(fs.table("transactions").get("t-coffee")).toMatchObject({ amount: 4 });
     expect(fs.table("billPayments").get("p1")).toMatchObject({ amount: 80 });
+  });
+});
+
+// ─── Deleting a bill: its payments go, its expenses stay ─────────────────────
+
+describe("deleteBill", () => {
+  const ACCOUNTS: MoneyAccount[] = [
+    { id: "eb", name: "Eurobank", kind: "bank", main: true },
+    { id: "rev", name: "Revolut", kind: "bank" },
+  ];
+  // Read at noon on the 1st, before every record below.
+  const CHECK_IN: BalanceCheckIn = { id: "ci", at: new Date(2026, 5, 1, 12).toISOString(), amounts: { eb: 400, rev: 100 } };
+
+  /** Power: three paid months and one settled outside the app; Water: one; plus a coffee and a salary. */
+  function seedBills() {
+    put("bills", "b1", { userId: "u1", name: "Power", amount: 80 });
+    put("bills", "b2", { userId: "u1", name: "Water", amount: 30 });
+    const paid = (paymentId: string, txId: string, billId: string, amount: number, d: number, periodKey: string, accountId?: string) => {
+      put("transactions", txId, { userId: "u1", amount, type: "expense", categoryId: "utilities", date: day(d), description: billId, billId, ...(accountId ? { accountId } : {}) });
+      put("billPayments", paymentId, { userId: "u1", billId, periodKey, amount, paidDate: day(d), transactionId: txId });
+    };
+    paid("p1", "t1", "b1", 80, 2, "2026-03");
+    paid("p2", "t2", "b1", 75, 3, "2026-04", "rev");
+    paid("p3", "t3", "b1", 92, 4, "2026-05");
+    // Settled outside the app: a payment with no expense behind it.
+    put("billPayments", "p4", { userId: "u1", billId: "b1", periodKey: "2026-02", amount: 80, paidDate: day(1) });
+    paid("pw", "tw", "b2", 30, 5, "2026-06");
+    put("transactions", "t-coffee", { userId: "u1", amount: 3, type: "expense", categoryId: "food", date: day(6), description: "Coffee" });
+    put("transactions", "t-salary", { userId: "u1", amount: 1000, type: "income", categoryId: "salary", date: day(7), description: "Salary" });
+    // Someone else's payment under the same bill id is never touched.
+    put("billPayments", "p-theirs", { userId: "u2", billId: "b1", periodKey: "2026-03", amount: 50, paidDate: day(2) });
+  }
+
+  /** Every figure the screens show, from the app's own functions. */
+  function screens() {
+    const txs = rows<Transaction>("transactions").filter((t) => t.userId === "u1");
+    const metrics = calculateMetrics(txs);
+    const ledger = buildLedger(txs, { from: day(1), to: day(30), now: day(30) });
+    const latest = readCheckIns([CHECK_IN], ACCOUNTS, txs).at(-1)!;
+    const committed = committedSplit(txs, monthlyFlows(txs, day(1), day(30)));
+    return {
+      overview: { income: metrics.totalIncome, expenses: metrics.totalExpenses, left: calculateMoneyLeft(txs) },
+      transactions: { in: ledger.in, out: ledger.out, net: ledger.net, count: ledger.count },
+      accounts: { total: projectedTotal(latest, txs), byAccount: expectedByAccount(ACCOUNTS, latest, txs) },
+      analytics: { committed: committed.reduce((s, m) => s + m.committed, 0), free: committed.reduce((s, m) => s + m.free, 0) },
+    };
+  }
+
+  /** The same figures summed by hand from the records seeded above. */
+  const BY_HAND = (() => {
+    const bills = 80 + 75 + 92 + 30;
+    const expenses = bills + 3;
+    return {
+      overview: { income: 1000, expenses, left: 1000 - expenses },
+      transactions: { in: 1000, out: expenses, net: 1000 - expenses, count: 6 },
+      // Revolut paid the €75; every other record lands on the main account.
+      accounts: { total: 400 + 100 + 1000 - expenses, byAccount: { eb: 400 + 1000 - (expenses - 75), rev: 100 - 75 } },
+      analytics: { committed: bills, free: 3 },
+    };
+  })();
+
+  it("deletes the bill and all its payments in one batch, and leaves every expense", async () => {
+    seedBills();
+    const expensesBefore = rows("transactions");
+
+    const { paymentIds } = await deleteBill("u1", "b1");
+
+    expect(fs.batches).toHaveLength(1);
+    expect(fs.batches[0].map(([kind, r]) => `${kind} ${r.col}/${r.id}`)).toEqual([
+      "delete billPayments/p1",
+      "delete billPayments/p2",
+      "delete billPayments/p3",
+      "delete billPayments/p4",
+      "delete bills/b1",
+    ]);
+    expect(paymentIds.sort()).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(ids("bills")).toEqual(["b2"]);
+    expect(ids("billPayments")).toEqual(["p-theirs", "pw"]);
+    // The expenses are untouched, field for field — `billId` included.
+    expect(rows("transactions")).toEqual(expensesBefore);
+    expect(fs.table("transactions").get("t1")).toMatchObject({ billId: "b1", amount: 80 });
+  });
+
+  it("changes no total on Overview, Transactions, Banks & cash or Analytics", async () => {
+    seedBills();
+    expect(screens()).toEqual(BY_HAND);
+
+    await deleteBill("u1", "b1");
+
+    // Before and after both agree with the sum by hand.
+    expect(screens()).toEqual(BY_HAND);
+  });
+
+  it("does not fail when another device already deleted one of the payments", async () => {
+    seedBills();
+    fs.rules.strictDeletes = true; // production: a missing document fails the batch
+    fs.table("billPayments").delete("p2"); // this device's list still shows it
+
+    const { paymentIds } = await deleteBill("u1", "b1");
+
+    expect(paymentIds.sort()).toEqual(["p1", "p3", "p4"]);
+    expect(fs.batches.flat().map(([, r]) => r.id)).not.toContain("p2");
+    expect(ids("bills")).toEqual(["b2"]);
+    expect(ids("billPayments")).toEqual(["p-theirs", "pw"]);
+    expect(screens()).toEqual(BY_HAND);
+  });
+
+  it("tells other devices exactly what it removed, after the commit", async () => {
+    seedBills();
+    noted.deleted.length = 0;
+
+    await deleteBill("u1", "b1");
+
+    const logged = Object.fromEntries(noted.deleted.map(([user, list, listIds]) => [`${user} ${list}`, [...listIds].sort()]));
+    expect(logged).toEqual({ "u1 bills": ["b1"], "u1 billPayments": ["p1", "p2", "p3", "p4"] });
+    // A second way: what the log names is what left the store, and nothing else did.
+    const removed = (col: string, before: string[]) => before.filter((id) => !ids(col).includes(id));
+    expect(removed("billPayments", ["p1", "p2", "p3", "p4", "p-theirs", "pw"])).toEqual(logged["u1 billPayments"]);
+    expect(removed("transactions", ["t1", "t2", "t3", "tw", "t-coffee", "t-salary"])).toEqual([]);
+  });
+
+  it("logs nothing when the batch is refused", async () => {
+    seedBills();
+    fs.rules.strictDeletes = true;
+    fs.table("bills").delete("b1"); // gone already: the rules refuse the batch
+    noted.deleted.length = 0;
+
+    await expect(deleteBill("u1", "b1")).rejects.toThrow(/PERMISSION_DENIED/);
+    expect(noted.deleted).toEqual([]);
+    expect(ids("billPayments")).toEqual(["p-theirs", "p1", "p2", "p3", "p4", "pw"]);
+  });
+
+  it("deletes a bill never paid on its own, logging no payments", async () => {
+    put("bills", "b9", { userId: "u1", name: "New", amount: 10 });
+    noted.deleted.length = 0;
+
+    const { paymentIds } = await deleteBill("u1", "b9");
+
+    expect(paymentIds).toEqual([]);
+    expect(fs.batches.map((b) => b.map(([, r]) => `${r.col}/${r.id}`))).toEqual([["bills/b9"]]);
+    expect(noted.deleted).toEqual([["u1", "bills", ["b9"]]]);
+  });
+
+  it("stays under the 500-write batch limit, with the bill in the last batch", async () => {
+    put("bills", "bBig", { userId: "u1", name: "Rent", amount: 500 });
+    for (let i = 0; i < 600; i++) put("billPayments", `pb${i}`, { userId: "u1", billId: "bBig", periodKey: `k${i}`, amount: 1, paidDate: day(1) });
+
+    await deleteBill("u1", "bBig");
+
+    expect(fs.batches.length).toBeGreaterThan(1);
+    for (const batch of fs.batches) expect(batch.length).toBeLessThan(500);
+    expect(fs.batches.at(-1)!.at(-1)![1]).toEqual({ kind: "doc", col: "bills", id: "bBig" });
+    expect(fs.batches.flat()).toHaveLength(601);
+    expect(ids("billPayments")).toEqual([]);
+  });
+
+  it("refuses without a connection, and deletes nothing", async () => {
+    seedBills();
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+
+    await expect(deleteBill("u1", "b1")).rejects.toThrow(/connection/);
+    expect(fs.batches).toHaveLength(0);
+    expect(ids("billPayments")).toEqual(["p-theirs", "p1", "p2", "p3", "p4", "pw"]);
+  });
+
+  it("leaves expenses that edit and delete on their own once their bill is gone", async () => {
+    seedBills();
+    await deleteBill("u1", "b1");
+    fs.rules.strictDeletes = true;
+    fs.batches.length = 0;
+
+    // What `useTransactions` sends for a row with a `billId` and no payment on screen.
+    await updateTransaction("t1", { amount: 81 }, { userId: "u1" });
+    await deleteTransaction("u1", "t3", { userId: "u1" });
+
+    expect(fs.table("transactions").get("t1")).toMatchObject({ amount: 81, billId: "b1" });
+    expect(ids("transactions")).not.toContain("t3");
+    expect(fs.batches.flat().map(([kind, r]) => `${kind} ${r.col}/${r.id}`)).toEqual(["update transactions/t1", "delete transactions/t3"]);
+    expect(ids("billPayments")).toEqual(["p-theirs", "pw"]);
+  });
+
+  it("leaves account deletion able to remove everything that is left", async () => {
+    seedBills();
+    put("users", "u1", { id: "u1" });
+    await deleteBill("u1", "b1");
+    fs.rules.strictDeletes = true;
+
+    try {
+      const wipe = await deleteAllUserData("u1");
+      expect(wipe.leftovers).toBe(0);
+      expect(wipe.profile).toBe(true);
+    } finally {
+      endAccountDeletion();
+    }
+    for (const col of OWNED_COLLECTIONS) expect(rows<{ userId?: string }>(col).filter((d) => d.userId === "u1")).toEqual([]);
+    expect(ids("billPayments")).toEqual(["p-theirs"]);
   });
 });
 

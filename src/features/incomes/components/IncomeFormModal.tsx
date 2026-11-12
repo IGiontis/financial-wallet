@@ -20,6 +20,11 @@ import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { EveryPicker } from "../../../shared/components/EveryPicker";
 import { DayPicker } from "../../../shared/components/DayPicker";
 import wiz from "../../../shared/css/Wizard.module.css";
+import { useCachedWorkspaceList } from "../../../shared/hooks/useCachedList";
+import { matchNameIn } from "../../../shared/utils/nameMatch";
+import { NameCheck } from "../../../shared/components/NameCheck";
+import { INCOMES_KEY, cleanIncomes, type Income as StoredIncome } from "../incomesUtils";
+import { typedBlur } from "../../../shared/utils/typedBlur";
 
 // One sheet for a new income and for changing one, a topic a step, in the
 // order of the Bills wizard — what it is → how much, and its category → how
@@ -87,6 +92,13 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const toBase = (n: number) => (baseCurrency === displayCurrency ? n : convertToBase(n));
   const set = <K extends keyof IncomeDraft>(key: K, value: IncomeDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const error = (key: keyof IncomeDraft) => validationMessage(errors[key], t);
+  // Another income's name is refused, a similar one only pointed out — from the
+  // list on the user document the page already holds: no read (`matchName`).
+  const otherNames = cleanIncomes(useCachedWorkspaceList<StoredIncome>(INCOMES_KEY))
+    .filter((i) => i.id !== draft.id)
+    .map((i) => i.name);
+  const nameMatch = matchNameIn(draft.name, otherNames);
+  const [nameTouched, setNameTouched] = useState(false);
 
   // The draft as far as it goes, for the two previews — the next three dates,
   // and what a pause leaves of the year.
@@ -119,6 +131,11 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     // Forward only over steps that are complete: jumping from the first to the
     // check stops at the first step with something missing, and says what.
     const to = STEPS.indexOf(target);
+    if (to > 0 && nameMatch?.kind === "same") {
+      setNameTouched(true);
+      setView("what");
+      return;
+    }
     for (const step of STEPS.slice(0, to)) {
       const found = stepErrors(checked, step);
       if (Object.keys(found).length > 0) {
@@ -230,8 +247,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 <Label for="income-name" className="small fw-medium">
                   {t("common.name")} *
                 </Label>
-                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderExample")} onChange={(e) => set("name", e.target.value)} invalid={!!errors.name} />
+                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderExample")} onChange={(e) => set("name", e.target.value)} onBlur={typedBlur(() => setNameTouched(true))} invalid={!!errors.name || (nameTouched && nameMatch?.kind === "same")} />
                 <FormFeedback>{error("name")}</FormFeedback>
+                <NameCheck match={nameMatch?.kind === "same" && !nameTouched ? null : nameMatch} />
               </FormGroup>
             </>
           )}

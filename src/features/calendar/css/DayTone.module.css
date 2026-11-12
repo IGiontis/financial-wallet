@@ -2,8 +2,8 @@
    One set of colours for every day or month square in the app, the one the
    «Ημερολόγιο» page drew first (see dayTone.ts):
 
-     money in            green — strong while it is to come, pale once it came
-     money out           red   — strong while it is to pay,  pale once paid
+     money in            green — strong while it is to come, a tone chip once it came
+     money out           red   — strong while it is to pay,  a tone chip once paid
      both on one day     a diagonal, red at the top left to green at the bottom right
      all of it happened  struck through with thin green lines
      later on            the colour as a dashed edge only: coming, not yet due
@@ -12,56 +12,68 @@
      today               an outline in the style's own colour
 
    Each calendar keeps its own layout (size, padding, what is written inside)
-   and takes its colours from here, so a paid bill on «Πάγια» is the same pale
-   red as a paid bill on «Ημερολόγιο».
+   and takes its colours from here, so a paid bill on «Πάγια» is the same red
+   chip as a paid bill on «Ημερολόγιο».
 
    The fill is the meaning's colour at 20% over the surface, with the colour at
    full strength as the edge — the edge is what is read from across the month.
-   Stronger than the tone scale's washes on purpose, and mixed through the
-   --c-in / --c-out variables, so the pale ones are the tone scale's own strong
-   solid wash. 20%, not the 36% the calendar had: measured in the browser, the
+   Stronger than the tone scale's washes on purpose. 20%, not the 36% the
+   calendar had: measured in the browser, the
    body text on a 36% fill was 5.9:1 (green) and 7.7:1 (red) in dark mode; at
    20% it is 8.8:1 and 10.2:1 dark, 12.2:1 and 11.6:1 light. Lettering on a
-   fill must be the body text: the secondary text falls to 6–8:1 there. */
+   fill must be the body text: the secondary text falls to 6–8:1 there.
+
+   Once it happened, a side is a tone chip (index.css, «Chips»): the chip's own
+   ground and the tone's edge, as every chip in the app — quieter than what is
+   still to come, and still plainly green or red. It used to be the strong wash
+   at 20% with a wash for its edge, which on a lit screen was hardly there. */
 
 .cell {
-  --c-in: var(--income);
-  --c-out: var(--expense);
+  /* 19%: at 20% the body text on a green day measured 7.9:1 in black & gold's
+     dark mode; 19% is the most that holds 8:1 in every colourway and mode
+     (contrast.test.ts, «calendar days», reads this value). */
+  --day-fill: 19%;
+  --in-fill: color-mix(in srgb, var(--income) var(--day-fill), transparent);
+  --in-edge: var(--income);
+  --out-fill: color-mix(in srgb, var(--expense) var(--day-fill), transparent);
+  --out-edge: var(--expense);
   position: relative;
   border: 2px solid transparent;
   background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--border-soft) border-box;
   color: var(--text);
 }
 
-/* Pale: the same hue, mostly surface. Before the fills, so they read it. */
+/* Happened: the tone chip's ground and edge. Before the fills, so they read it. */
 .inDone {
-  --c-in: var(--income-wash-strong-solid);
+  --in-fill: var(--income-chip);
+  --in-edge: color-mix(in srgb, var(--income) var(--tone-edge), var(--surface));
 }
 
 .outDone {
-  --c-out: var(--expense-wash-strong-solid);
+  --out-fill: var(--expense-chip);
+  --out-edge: color-mix(in srgb, var(--expense) var(--tone-edge), var(--surface));
 }
 
 .in {
   background:
-    linear-gradient(color-mix(in srgb, var(--c-in) 20%, transparent), color-mix(in srgb, var(--c-in) 20%, transparent)) padding-box,
+    linear-gradient(var(--in-fill), var(--in-fill)) padding-box,
     linear-gradient(var(--surface), var(--surface)) padding-box,
-    var(--c-in) border-box;
+    var(--in-edge) border-box;
 }
 
 .out {
   background:
-    linear-gradient(color-mix(in srgb, var(--c-out) 20%, transparent), color-mix(in srgb, var(--c-out) 20%, transparent)) padding-box,
+    linear-gradient(var(--out-fill), var(--out-fill)) padding-box,
     linear-gradient(var(--surface), var(--surface)) padding-box,
-    var(--c-out) border-box;
+    var(--out-edge) border-box;
 }
 
 /* Both: red at the top left, green at the bottom right, in the fill and the outline. */
 .both {
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--c-out) 20%, transparent), color-mix(in srgb, var(--c-in) 20%, transparent)) padding-box,
+    linear-gradient(135deg, var(--out-fill), var(--in-fill)) padding-box,
     linear-gradient(var(--surface), var(--surface)) padding-box,
-    linear-gradient(135deg, var(--c-out), var(--c-in)) border-box;
+    linear-gradient(135deg, var(--out-edge), var(--in-edge)) border-box;
 }
 
 /* Later on: the colour as an edge, dashed, on a plain day — it is coming, and

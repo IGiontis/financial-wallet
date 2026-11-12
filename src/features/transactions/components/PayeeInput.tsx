@@ -6,6 +6,9 @@ import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
 import { FiCheck, FiPlus, FiX } from "react-icons/fi";
 import { filterPayees, isUnsavedPayee, payeeKey, payeeMatch, payeesByInitial } from "../payeeStore";
 import styles from "./css/PayeeInput.module.css";
+import { NameCheck } from "../../../shared/components/NameCheck";
+import { matchNameIn } from "../../../shared/utils/nameMatch";
+import { cleanLine } from "../../../shared/utils/cleanText";
 
 const MENU_MAX_HEIGHT = 232;
 /** Below this the anchored menu gives way to a full-height sheet. */
@@ -97,6 +100,14 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
   const matches = useMemo(() => filterPayees(payees, query), [payees, query]);
   const grouped = useMemo(() => payeesByInitial(payees), [payees]);
   const showUseTyped = useMemo(() => isUnsavedPayee(payees, query), [payees, query]);
+  // The name in the field against the saved ones (`matchName`). Never an
+  // error here — a payee is free text — only a nudge: the same one spelled
+  // another way («lidl» for «Lidl»), or a similar one («Sklavenitis» for
+  // «Σκλαβενίτης»), offered with one tap. Spelled exactly as saved: nothing.
+  const nameHint = useMemo(() => {
+    const hit = matchNameIn(value, payees);
+    return hit && !(hit.kind === "same" && hit.name === cleanLine(value)) ? hit : null;
+  }, [payees, value]);
 
   // One flat list of what Enter can land on, so keyboard and mouse agree.
   const optionCount = matches.length + (showUseTyped ? 1 : 0);
@@ -266,6 +277,15 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
             {t("transactions.payeeAll")}
           </button>
         </div>
+      )}
+
+      {!disabled && nameHint && (
+        <NameCheck
+          // Not refused: the same name spelled otherwise is offered as quietly as a similar one.
+          match={{ ...nameHint, kind: "similar" }}
+          label={nameHint.name}
+          onUse={() => commit(nameHint.name)}
+        />
       )}
 
       {open &&

@@ -275,7 +275,7 @@ describe("the drawer on a phone", () => {
 describe("an item with pages under it", () => {
   const transactions = () => within(sidebar()).getByRole("button", { name: "Transactions" });
 
-  it("opens in place on a tap, new first, the list second, the ledger third, and folds away again", async () => {
+  it("opens in place on a tap, new first, the list second, the ledger third, the names last, and folds away again", async () => {
     localStorage.setItem("sidebar-collapsed", "false");
     renderAt("/");
     await userEvent.click(transactions());
@@ -285,6 +285,7 @@ describe("an item with pages under it", () => {
       ["New transaction", "/transactions/new"],
       ["All transactions", "/transactions"],
       ["Ledger", "/transactions/ledger"],
+      ["Payees & categories", "/transactions/names"],
     ]);
 
     await userEvent.click(transactions());

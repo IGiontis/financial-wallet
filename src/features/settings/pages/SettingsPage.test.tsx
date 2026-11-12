@@ -47,7 +47,6 @@ vi.mock("../../../demo/demoMode", async (original) => ({ ...(await original<type
 vi.mock("../../../demo/authDialog", async (original) => ({ ...(await original<typeof import("../../../demo/authDialog")>()), openAuthDialog: vi.fn() }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ exchangeRateKeys: { user: (uid: string) => ["userCurrency", uid], rates: () => ["exchangeRates"] } }));
 // The data cards are each their own world; stand-ins are enough to see where they land.
-vi.mock("../../categories/CategoryManager", () => ({ default: () => <p>category manager</p> }));
 vi.mock("../components/StatementSection", () => ({ default: () => <p>statement button</p> }));
 vi.mock("../components/ResetDataSection", () => ({ default: () => <p>reset button</p> }));
 
@@ -109,10 +108,11 @@ describe("settings tabs", () => {
   it("keeps the data cards together, with the statement right above starting over", async () => {
     // The «Αρχικό υπόλοιπο» card is gone: the bank and cash readings replaced it.
     renderAt("/settings/data");
-    await within(panel()).findByText("category manager");
+    // The categories live on their own page now: here, only the link there.
+    expect(await within(panel()).findByRole("link", { name: /Payees & categories/ })).toHaveAttribute("href", "/transactions/names?tab=categories");
     expect(within(panel()).queryByText(/opening balance/i)).toBeNull();
     const text = panel().textContent ?? "";
-    const order = ["category manager", "statement button", "reset button"].map((s) => text.indexOf(s));
+    const order = ["Payees & categories", "statement button", "reset button"].map((s) => text.indexOf(s));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(within(panel()).queryByRole("button", { name: "Delete account" })).not.toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("settings tabs", () => {
     expect(within(panel()).getAllByText("Change password").length).toBeGreaterThan(0);
     expect(within(panel()).getByRole("button", { name: "Sign Out" })).toBeInTheDocument();
     expect(within(panel()).getByRole("button", { name: "Delete account" })).toBeInTheDocument();
-    expect(within(panel()).queryByText("category manager")).not.toBeInTheDocument();
+    expect(within(panel()).queryByRole("link", { name: /Payees & categories/ })).not.toBeInTheDocument();
   });
 
   it("moves between tabs by address, by click and by arrow key", async () => {

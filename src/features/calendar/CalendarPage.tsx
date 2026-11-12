@@ -1,22 +1,20 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { FiChevronDown, FiChevronLeft, FiChevronRight, FiGitCommit, FiGrid } from "react-icons/fi";
-import { addMonths, endOfMonth, isSameDay, startOfMonth } from "date-fns";
+import { FiChevronRight, FiGitCommit, FiGrid } from "react-icons/fi";
+import { startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
-import { MonthPicker } from "../../shared/components/DateField";
 import { Skeleton, SkeletonPageHeader } from "../../shared/components/Skeletons";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { useCalendarSources } from "./useCalendarSources";
 import { MoneyTimeline } from "./components/MoneyTimeline";
+import { MonthCalendar } from "./components/MonthCalendar";
+import { signedMoney } from "./signedMoney";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { CALENDAR_KIND_ICON, calendarItems, groupByDay, monthTotals, shownNet, type CalendarDay, type CalendarItem, type CalendarKind } from "./calendarDays";
 import { InfoLegend, type LegendEntry } from "../../shared/components/InfoLegend";
-import { dayTone } from "./dayTone";
 import { dayKey } from "./components/dayKey";
 import styles from "./css/CalendarPage.module.css";
 
@@ -29,9 +27,6 @@ import styles from "./css/CalendarPage.module.css";
 
 const KIND_PATH: Record<CalendarKind, string> = { bill: "/bills/pay", income: "/incomes/record", debt: "/debts", goal: "/goals" };
 
-/** Below a tablet: the day's list sits under the month instead of in a dialog. */
-const PHONE_QUERY = "(max-width: 767.98px)";
-
 export default function CalendarPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
@@ -43,37 +38,12 @@ export default function CalendarPage() {
   const { now } = sources;
 
   const [month, setMonth] = useState(() => startOfMonth(now));
-  // A phone reads the chosen day in a list under the month — today's, until
-  // another is tapped. A tablet or a desk opens it in a dialog, only when tapped.
-  const phone = useNarrowScreen(PHONE_QUERY);
+  // The tapped day lives here, above the view switch: back from the timeline, it is still open.
   const [picked, setPicked] = useState<Date | null>(null);
-  const selected = picked ?? (phone && isSameDay(month, startOfMonth(now)) ? now : null);
-  const setSelected = setPicked;
 
   const items = useMemo(() => calendarItems(month, sources), [month, sources]);
   const days = useMemo(() => groupByDay(items), [items]);
   const totals = useMemo(() => monthTotals(items), [items]);
-
-  const monthTitle = useMemo(() => new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(month), [lang, month]);
-  const dayTitle = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }), [lang]);
-  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(lang, { weekday: "narrow" }).format(new Date(2024, 0, 1 + i))), [lang]);
-  // Whole euros in a cell, signed. A desk's cell has room for the currency, and
-  // it comes from the page's own formatter so it converts like every other
-  // figure; a phone's is about 48px, where the figure goes without it and
-  // thousands as 1,45k. The cents are the sheet's.
-  const withCurrency = (n: number) => formatCurrency(Math.round(Math.abs(n))).replace(/[.,]00(?!\d)/, "");
-  const plain = useMemo(() => {
-    const whole = new Intl.NumberFormat(lang, { maximumFractionDigits: 0 });
-    const thousands = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 });
-    return (n: number) => (Math.abs(n) >= 1000 ? `${thousands.format(Math.round(Math.abs(n) / 10) / 100)}k` : whole.format(Math.abs(n)));
-  }, [lang]);
-
-  const cells = useMemo(() => {
-    const lead = (month.getDay() + 6) % 7;
-    const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const total = Math.ceil((lead + length) / 7) * 7;
-    return Array.from({ length: total }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i - lead + 1));
-  }, [month]);
 
   if (isLoading) {
     return (
@@ -83,16 +53,6 @@ export default function CalendarPage() {
       </PageShell>
     );
   }
-
-  const step = (by: number) => {
-    setMonth((m) => addMonths(m, by));
-    setSelected(null);
-  };
-  const atStart = month <= first;
-  const atEnd = month >= last;
-  const thisMonth = isSameDay(month, startOfMonth(now));
-
-  const selectedDay: CalendarDay | undefined = selected ? days.get(selected.getDate()) : undefined;
 
   return (
     <PageShell className={styles.page}>
@@ -118,136 +78,46 @@ export default function CalendarPage() {
           <MoneyTimeline side="all" sources={sources} first={first} last={last} formatCurrency={formatCurrency} locale={lang} />
         </>
       ) : (
-        <>
-        <div className={styles.head}>
-          <button type="button" className={styles.nav} onClick={() => step(-1)} disabled={atStart} aria-label={t("calendar.prev")}>
-            <FiChevronLeft aria-hidden />
-          </button>
-          <div className={styles.title}>
-            {/* The title is the way to any month and year: it opens the grid of months. */}
-            <MonthPicker
-              value={month}
-              onChange={(picked) => {
-                setMonth(picked);
-                setSelected(null);
-              }}
-              minDate={first}
-              maxDate={endOfMonth(last)}
-              className={styles.titleButton}
-              // The month too: a label alone would hide the title it is written on.
-              label={`${monthTitle} · ${t("calendar.pickMonth")}`}
-              caption={
-                <>
-                  <h1 className="h5 fw-semibold text-body-emphasis mb-0">{monthTitle}</h1>
-                  <FiChevronDown size={16} aria-hidden />
-                </>
-              }
-            />
-            {!thisMonth && (
-              <button
-                type="button"
-                className={styles.todayLink}
-                onClick={() => {
-                  setMonth(startOfMonth(now));
-                  setSelected(null);
-                }}
-              >
-                {t("calendar.today")}
-              </button>
-            )}
-          </div>
-          <button type="button" className={styles.nav} onClick={() => step(1)} disabled={atEnd} aria-label={t("calendar.next")}>
-            <FiChevronRight aria-hidden />
-          </button>
-        </div>
-
-        {/* What it is drawn from, said once: it is not the transactions' calendar.
-            The key to the colours sits beside it, behind the ⓘ. */}
-        <div className={styles.scopeRow}>
-          <p className={styles.scope}>{t("calendar.scope")}</p>
-          <InfoLegend title={t("calendar.keyTitle")} entries={calendarKey(t)}>
-            <p>{t("calendar.keySign")}</p>
-          </InfoLegend>
-        </div>
-
-        <div className={styles.totals}>
-          <span className={`${styles.totalIn} tone-tile tone-tile-income`}>
-            <span className={styles.totalLabel}>{t("calendar.in")}</span>
-            <strong>{formatCurrency(totals.in)}</strong>
-            <span className={styles.totalSub}>{t("calendar.cameOf", { amount: formatCurrency(totals.inDone) })}</span>
-          </span>
-          <span className={`${styles.totalOut} tone-tile tone-tile-expense`}>
-            <span className={styles.totalLabel}>{t("calendar.out")}</span>
-            <strong>{formatCurrency(totals.out)}</strong>
-            <span className={styles.totalSub}>{t("calendar.paidOf", { amount: formatCurrency(totals.outDone) })}</span>
-          </span>
-        </div>
-
-        <div className={styles.weekdays} aria-hidden>
-          {weekdays.map((w, i) => (
-            <span key={i}>{w}</span>
-          ))}
-        </div>
-
-        <div className={styles.grid} role="group" aria-label={monthTitle} data-tour="calendar-grid">
-          {cells.map((date) => {
-            const inside = date.getMonth() === month.getMonth();
-            if (!inside) return <span key={date.toISOString()} className={styles.outside} aria-hidden />;
+        <MonthCalendar
+          month={month}
+          onMonthChange={setMonth}
+          now={now}
+          first={first}
+          last={last}
+          data-tour="calendar-grid"
+          picked={picked}
+          onPick={setPicked}
+          // What it is drawn from, said once: it is not the transactions' calendar.
+          // The key to the colours sits beside it, behind the ⓘ.
+          scope={
+            <>
+              <p className={styles.scope}>{t("calendar.scope")}</p>
+              <InfoLegend title={t("calendar.keyTitle")} entries={calendarKey(t)}>
+                <p>{t("calendar.keySign")}</p>
+              </InfoLegend>
+            </>
+          }
+          totals={{
+            in: totals.in,
+            out: totals.out,
+            inSub: t("calendar.cameOf", { amount: formatCurrency(totals.inDone) }),
+            outSub: t("calendar.paidOf", { amount: formatCurrency(totals.outDone) }),
+          }}
+          dayOf={(date) => {
             const day = days.get(date.getDate());
-            const isToday = isSameDay(date, now);
-            return (
-              <button
-                key={date.toISOString()}
-                type="button"
-                className={`${styles.day} ${dayTone({ ...(day ? daySides(day) : {}), today: isToday, selected: !!selected && isSameDay(date, selected) })}`}
-                aria-pressed={!!selected && isSameDay(date, selected)}
-                onClick={() => setSelected(date)}
-                aria-label={`${dayTitle.format(date)}${day ? ` · ${day.items.map((i) => `${i.label} ${i.direction === "in" ? "+" : "−"}${formatCurrency(i.amount)}`).join(", ")}` : ""}`}
-              >
-                <span className={styles.num}>{date.getDate()}</span>
-                {day && (
-                  <>
-                    <span className={`${styles.net} ${netOf(day) > 0 ? styles.netPos : netOf(day) < 0 ? styles.netNeg : ""}`}>
-                      <span className={styles.signMark}>{sign(day)}</span>
-                      <span className={styles.withCurrency}>{withCurrency(netOf(day))}</span>
-                      <span className={styles.plain}>{plain(netOf(day))}</span>
-                    </span>
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-
-        {/* On a phone the day's list is under the month rather than in a dialog
-            over it: there is room for it, and the month stays in sight. */}
-        {phone && (
-          <section className={styles.dayPanel} aria-live="polite">
-            {!selected ? (
-              <p className={styles.dayHint}>{t("calendar.pickDay")}</p>
-            ) : (
-              <>
-                <div className={styles.dayPanelTitle}>{dayTitle.format(selected)}</div>
-                {!selectedDay ? <p className={styles.dayHint}>{t("calendar.emptyDay")}</p> : <DayList day={selectedDay} formatCurrency={formatCurrency} />}
-              </>
-            )}
-          </section>
-        )}
-
-        {/* A tablet or a desk: the day in a dialog, as it was. */}
-        {!phone && selected && (
-          <Modal isOpen toggle={() => setSelected(null)} centered scrollable>
-            <ModalHeader toggle={() => setSelected(null)}>
-              <span style={{ fontSize: "var(--fs-lead)", textTransform: "capitalize" }}>{dayTitle.format(selected)}</span>
-            </ModalHeader>
-            <ModalBody>
-              {!selectedDay ? <p className={styles.dayHint}>{t("calendar.emptyDay")}</p> : <DayList day={selectedDay} formatCurrency={formatCurrency} onLeave={() => setSelected(null)} />}
-            </ModalBody>
-          </Modal>
-        )}
-
-        </>
+            if (!day) return undefined;
+            return {
+              look: daySides(day),
+              net: netOf(day),
+              spoken: day.items.map((i) => `${i.label} ${i.direction === "in" ? "+" : "−"}${formatCurrency(i.amount)}`).join(", "),
+            };
+          }}
+          renderDay={(date, onLeave) => {
+            const day = days.get(date.getDate());
+            return day ? <DayList day={day} formatCurrency={formatCurrency} onLeave={onLeave} /> : null;
+          }}
+          emptyDay={t("calendar.emptyDay")}
+        />
       )}
     </PageShell>
   );
@@ -255,9 +125,6 @@ export default function CalendarPage() {
 
 /** The figure in a cell: what is still to happen, in less out — see `shownNet`. */
 const netOf = (day: CalendarDay) => shownNet(day);
-
-/** "+" for a day that nets in, "−" for one that nets out, nothing at exactly zero. */
-const sign = (day: CalendarDay) => (netOf(day) > 0 ? "+" : netOf(day) < 0 ? "−" : "");
 
 /**
  * What is on a day, in the calendars' shared colour language (`dayTone`):
@@ -285,8 +152,6 @@ const calendarKey = (t: TFunction): LegendEntry[] => [
   dayKey("today", { today: true }, t("calendar.keyToday")),
 ];
 
-/** Signed, with its currency: "+70,00 €", "−25,98 €". */
-const signedMoney = (n: number, formatCurrency: (n: number) => string) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
 const netOfItems = (items: CalendarItem[]) => Math.round(items.reduce((sum, i) => sum + (i.direction === "in" ? i.amount : -i.amount), 0) * 100) / 100;
 
 /**

@@ -16,6 +16,12 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizard";
 import { GOAL_STEP_FIELDS, GOAL_STEP_LABEL, goalReviewRows, type GoalStep } from "./components/goalWizardSteps";
 import { iconProblem } from "../../shared/utils/iconText";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useCachedList } from "../../shared/hooks/useCachedList";
+import { matchNameIn } from "../../shared/utils/nameMatch";
+import { NameCheck } from "../../shared/components/NameCheck";
+import { investmentKeys } from "./useInvestments";
+import type { InvestmentGoal } from "../../shared/types/IndexTypes";
 
 interface EditGoalFormValues {
   name: string;
@@ -143,12 +149,24 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
   };
 
   const changed = formik.dirty || partsField.dirty;
+  // Another goal's name is refused; its own is not a clash (`matchName`).
+  const { currentUser } = useAuth();
+  const otherNames = useCachedList<InvestmentGoal>(investmentKeys.goals(currentUser?.uid ?? ""))
+    .filter((g) => g.id !== goal.id)
+    .map((g) => g.name);
+  const nameMatch = matchNameIn(formik.values.name, otherNames);
 
   const steps: GoalStep[] = isTargeted ? ["what", "target", "look", "review"] : ["what", "look", "review"];
   const index = Math.max(steps.indexOf(step), 0);
   // Any step can be reached, but not past one that is no longer valid.
   const goTo = async (target: GoalStep) => {
     const to = steps.indexOf(target);
+    // A name already used by another goal: refused, on its own step (`matchName`).
+    if (to > steps.indexOf("what") && nameMatch?.kind === "same") {
+      void formik.setFieldTouched("name", true, false);
+      setStep("what");
+      return;
+    }
     const errors = await formik.validateForm();
     for (const s of steps.slice(0, to)) {
       const bad = GOAL_STEP_FIELDS[s].filter((f) => f in errors);
@@ -200,6 +218,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
               </Label>
               <Input id="goal-name" type="text" name="name" value={formik.values.name} onChange={formik.handleChange} onBlur={formik.handleBlur} invalid={!!(formik.touched.name && formik.errors.name)} />
               <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
+              <NameCheck match={nameMatch?.kind === "same" && !formik.touched.name ? null : nameMatch} />
               {/* The kind is what it was saved as. */}
               <div className="form-text">
                 {t("goals.typeLabel")}: {kindLabel}

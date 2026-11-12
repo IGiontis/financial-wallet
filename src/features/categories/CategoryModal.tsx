@@ -3,7 +3,9 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, I
 import { useTranslation } from "react-i18next";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
-import { cleanCategoryName, findScopeDuplicates, firstGrapheme, type CategoryScope } from "../../shared/utils/categoryNames";
+import { categoryAliases, cleanCategoryName, findScopeDuplicates, firstGrapheme, scopeTypes, type CategoryScope } from "../../shared/utils/categoryNames";
+import { matchName } from "../../shared/utils/nameMatch";
+import { NameCheck } from "../../shared/components/NameCheck";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
@@ -21,6 +23,12 @@ interface CategoryModalProps {
   isSaving: boolean;
   onClose: () => void;
   onSubmit: (values: { name: string; scope: CategoryScope; icon: string }) => void;
+  /**
+   * «Χρήση αυτού»: the one already there is taken instead of a new one — the
+   * same name refused, or a similar one suggested («Kafes» for «Καφές»). Left
+   * out, the dialog only says so.
+   */
+  onUseExisting?: (category: Category, label: string) => void;
 }
 
 /**
@@ -38,7 +46,7 @@ interface CategoryModalProps {
  * has always handled it. Editing, a one-sided category may still be widened to
  * «both», never turned to the other side — see `categoryScope`.
  */
-export default function CategoryModal({ existing, scope: initialScope, category, isSaving, onClose, onSubmit }: CategoryModalProps) {
+export default function CategoryModal({ existing, scope: initialScope, category, isSaving, onClose, onSubmit, onUseExisting }: CategoryModalProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(category?.name ?? "");
   const [scope, setScope] = useState<CategoryScope>(category?.scope ?? initialScope);
@@ -51,6 +59,9 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   const others = category ? existing.filter((c) => c.name !== category.name) : existing;
   const duplicates = findScopeDuplicates(cleaned, scope, others);
   const duplicate = duplicates[0];
+  // Not the same, but maybe meant: Greeklish or one typo away. Only suggested.
+  const similar = duplicate ? null : matchName(cleaned, others.filter((c) => scopeTypes(scope).includes(c.type)), (c) => [categoryLabel(c.name, t), ...categoryAliases(c.name)]);
+  const shownName = (c: Category) => `${c.icon ?? ""} ${categoryLabel(c.name, t)}`.trim();
 
   const tooShort = cleaned.length > 0 && cleaned.length < 2;
   const error = !cleaned ? "categories.nameRequired" : tooShort ? "categories.nameTooShort" : cleaned.length > 40 ? "categories.nameTooLong" : "";
@@ -96,9 +107,21 @@ export default function CategoryModal({ existing, scope: initialScope, category,
 
           {/* Shown the moment it applies, not held back until Save */}
           {duplicate && (
-            <Alert color="warning" className="py-2" style={{ fontSize: "var(--fs-small)" }}>
-              {t("categories.duplicateWarning", { name: `${duplicate.icon ?? ""} ${categoryLabel(duplicate.name, t)}`.trim() })}
+            <Alert color="warning" className="py-2 d-flex flex-wrap align-items-center gap-2" style={{ fontSize: "var(--fs-small)" }}>
+              <span className="text-break" style={{ minWidth: 0, flex: "1 1 10rem" }}>
+                {t("categories.duplicateWarning", { name: shownName(duplicate) })}
+              </span>
+              {onUseExisting && (
+                <Button type="button" size="sm" color="secondary" outline onClick={() => onUseExisting(duplicate, categoryLabel(duplicate.name, t))}>
+                  {t("names.useExisting", { name: shownName(duplicate) })}
+                </Button>
+              )}
             </Alert>
+          )}
+          {similar?.kind === "similar" && (
+            <div className="mb-3">
+              <NameCheck match={similar} label={shownName(similar.item)} onUse={onUseExisting ? () => onUseExisting(similar.item, categoryLabel(similar.item.name, t)) : undefined} />
+            </div>
           )}
 
           <FormGroup>

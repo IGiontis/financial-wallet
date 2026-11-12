@@ -25,6 +25,7 @@ const expected: Record<string, string> = {
   TransactionsPage: "transactions",
   NewTransactionPage: "newTransaction",
   LedgerPage: "ledger",
+  NamesPage: "names",
   AnalyticsPage: "analytics",
   GoalsPage: "goals",
   SettingsPage: "settings",

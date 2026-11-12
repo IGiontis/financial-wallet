@@ -17,6 +17,9 @@ const strip = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 const TOKENS = strip(readFileSync(join(STYLES_DIR, "tokens.css"), "utf8"));
 const INDEX = strip(readFileSync(join(STYLES_DIR, "..", "index.css"), "utf8"));
 const THEME = strip(readFileSync(join(STYLES_DIR, "theme.css"), "utf8"));
+// The calendars' day squares (dayTone): the fill strength of a day with money on it.
+const DAY_TONE = strip(readFileSync(join(STYLES_DIR, "..", "features", "calendar", "css", "DayTone.module.css"), "utf8"));
+const DAY_FILL = parseFloat(DAY_TONE.match(/--day-fill:\s*([\d.]+)%/)?.[1] ?? "NaN") / 100;
 
 type Mode = "light" | "dark";
 type Vars = Record<string, string>;
@@ -125,6 +128,12 @@ function resolve(expr: string, cw: string, mode: Mode): RGBA {
     const p = kind === "figure-chip" ? strength(THEME, "figure-chip-wash", mode) : strength(INDEX, kind === "chip" ? "chip-wash" : "chip-wash-strong", mode);
     if (Number.isNaN(p)) throw new Error(`no strength for ${expr} in ${mode}`);
     return over([fill[0], fill[1], fill[2], p], resolve("surface", cw, mode));
+  }
+  // A calendar day with money still to come or to pay: the tone at --day-fill over the card.
+  const day = expr.match(/^(income|expense) day-fill$/);
+  if (day) {
+    const fill = parse(v[day[1]], v);
+    return over([fill[0], fill[1], fill[2], DAY_FILL], resolve("surface", cw, mode));
   }
   const layered = expr.match(/^(.+?) over (.+)$/);
   if (layered) return over(resolve(layered[1], cw, mode), resolve(layered[2], cw, mode));
@@ -270,6 +279,14 @@ export const PAIRS: Pair[] = [
       return [{ fg: `${tone}-text`, bg }];
     }),
   ),
+
+  // Calendar days (Ημερολόγιο, the Transactions calendar, Πάγια's months): the
+  // day's number and figure are the body text, on a day still to come (the
+  // tone at --day-fill) and on one that happened (the tone's chip ground).
+  ...["income", "expense"].flatMap((tone): Pair[] => [
+    { fg: "text", bg: `${tone} day-fill` },
+    { fg: "text", bg: `${tone} chip` },
+  ]),
 ];
 
 // ─── The roles every colourway must define ────────────────────────────────────

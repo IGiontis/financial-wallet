@@ -8,7 +8,7 @@ import "./css/Sidebar.css";
 import { linkMatches, useShownPathname } from "./usePendingNav";
 import { prefetchPath } from "../../lib/prefetchPages";
 
-import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid } from "react-icons/fi";
+import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid, FiTag } from "react-icons/fi";
 
 import type { IconType } from "react-icons";
 
@@ -355,6 +355,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
             { path: "/transactions", label: t("nav.allTransactions"), icon: FiList },
             // To read only: dense, by day, the month as it happened.
             { path: "/transactions/ledger", label: t("nav.ledger"), icon: FiBookOpen },
+            // The names records are filed by: who was paid, and under what.
+            { path: "/transactions/names", label: t("nav.names"), icon: FiTag },
           ],
         },
         // Money in before money out. Amber rather than red: a late income is

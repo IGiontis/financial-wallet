@@ -18,6 +18,11 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import { EveryPicker } from "../../shared/components/EveryPicker";
 import { DayPicker } from "../../shared/components/DayPicker";
 import wiz from "../../shared/css/Wizard.module.css";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useCachedList } from "../../shared/hooks/useCachedList";
+import { matchNameIn } from "../../shared/utils/nameMatch";
+import { NameCheck } from "../../shared/components/NameCheck";
+import { billKeys } from "./billCache";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -258,8 +263,20 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
     if (isOpen) setStep("what");
   }, [isOpen]);
   const index = BILL_STEPS.indexOf(step);
+  // Another bill's name is refused (two «ΔΕΗ» rows read as one paid twice);
+  // a similar one is only pointed out. From the list the page holds: no read.
+  const { currentUser } = useAuth();
+  const otherBillNames = useCachedList<Bill>(billKeys.all(currentUser?.uid ?? ""))
+    .filter((b) => b.id !== bill?.id)
+    .map((b) => b.name);
+  const nameMatch = matchNameIn(formik.values.name, otherBillNames);
   const goTo = async (target: Step) => {
     const to = BILL_STEPS.indexOf(target);
+    if (to > 0 && nameMatch?.kind === "same") {
+      void formik.setFieldTouched("name", true, false);
+      setStep("what");
+      return;
+    }
     if (to > 0) {
       const errors = await formik.validateForm();
       for (const s of BILL_STEPS.slice(0, to)) {
@@ -406,6 +423,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
+                <NameCheck match={nameMatch?.kind === "same" && !formik.touched.name ? null : nameMatch} />
               </FormGroup>
               <YesNoChoice className="mb-0" question={<Question text={t("bills.qActive")} hint={t("bills.activeSwitchHint")} />} value={formik.values.isActive} onChange={(yes) => formik.setFieldValue("isActive", yes)} />
               {yesNoError("isActive")}

@@ -12,6 +12,7 @@ export const TransactionsPage = lazy(() => pageChunks.transactions().then((m) =>
 export const LegalPage = lazy(pageChunks.legal);
 export const NewTransactionPage = lazy(() => pageChunks.newTransaction().then((m) => ({ default: m.NewTransactionPage })));
 export const LedgerPage = lazy(() => pageChunks.ledger().then((m) => ({ default: m.LedgerPage })));
+export const NamesPage = lazy(() => pageChunks.names().then((m) => ({ default: m.NamesPage })));
 export const AnalyticsPage = lazy(() => pageChunks.analytics().then((m) => ({ default: m.AnalyticsPage })));
 export const GoalsPage = lazy(pageChunks.goals);
 export const SettingsPage = lazy(() => pageChunks.settings().then((m) => ({ default: m.SettingsPage })));

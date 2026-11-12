@@ -72,6 +72,7 @@ import { monthTimeline } from "./monthTimeline";
 import { useSalaryIncome } from "../incomes/useSalaryIncome";
 import AddBillModal from "./AddBillModal";
 import BillDetailModal from "./BillDetailModal";
+import BillDeleteMessage from "./BillDeleteMessage";
 import CategoryBillsModal from "./CategoryBillsModal";
 import MarkPaidModal from "./MarkPaidModal";
 import MonthBreakdownModal from "./MonthBreakdownModal";
@@ -1761,9 +1762,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
         <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>
         <ModalBody>
-          <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
-            {t("bills.deleteConfirm", { name: deleteTarget?.name ?? "" })}
-          </p>
+          {deleteTarget && <BillDeleteMessage bill={deleteTarget} />}
           {deleteGuard.locked && (
             <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)" }}>
               {deleteGuard.reason}

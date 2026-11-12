@@ -454,7 +454,8 @@ describe("the form", () => {
     expect(name.value).toBe("");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     expect(within(form).getByRole("button", { name: /^1/ })).toHaveAttribute("aria-current", "step");
-    await userEvent.type(name, "  Ιδιαίτερα   μαθήματα ");
+    // «Ιδιαίτερα μαθήματα» is already in the list: a second one is refused (item 86).
+    await userEvent.type(name, "  Ιδιαίτερα   μαθήματα πιάνου ");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.type(within(form).getByLabelText(/^Ποσό/), "300");
     // «Αλλάζει το ποσό;» starts unanswered (no prefill, tiles included): Next asks for it.
@@ -478,7 +479,7 @@ describe("the form", () => {
     expect(answer("Κατηγορία")).toHaveTextContent("Ελεύθερος επαγγελματίας");
     await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
     // Stored cleaned, under the category picked, with the kind that category means («work»).
-    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ name: "Ιδιαίτερα μαθήματα", categoryId: "c-free", kind: "work", amount: 300, day: 5 })])), { timeout: 2000 });
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ name: "Ιδιαίτερα μαθήματα πιάνου", categoryId: "c-free", kind: "work", amount: 300, day: 5 })])), { timeout: 2000 });
   });
 
   it("does not let a new income skip ahead before its amount is filled in", async () => {

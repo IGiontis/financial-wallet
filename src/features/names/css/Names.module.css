@@ -1,0 +1,119 @@
+/* «Δικαιούχοι & κατηγορίες»: the explanation, the add + search row, the list,
+   and the «Πιθανά διπλά» box. Everything else is Bootstrap. */
+
+.intro {
+  color: var(--text-2);
+  font-size: var(--fs-text);
+  margin-bottom: var(--space-3);
+  max-width: 60ch;
+}
+
+/* The «+» pinned left, the search taking the rest. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.toolbar > :last-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.icon {
+  flex: 0 0 auto;
+  width: 24px;
+  text-align: center;
+  font-size: var(--fs-figure);
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  font-size: var(--fs-lead);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  flex: 0 0 auto;
+  text-align: right;
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+/* ── «Πιθανά διπλά» ─────────────────────────────────────────────────────── */
+
+.similar {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.similarTitle {
+  font-size: var(--fs-lead);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 var(--space-1);
+}
+
+.similarHint {
+  font-size: var(--fs-small);
+  color: var(--text-2);
+  margin: 0 0 var(--space-2);
+}
+
+.similarList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.similarRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-text);
+}
+
+.similarNames {
+  min-width: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+/* Where a built-in row has no ⋯, so its count lines up with the others. */
+.menuSpace {
+  flex: 0 0 auto;
+  width: 2rem;
+}

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Row, Col, Card, CardBody, Table, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { FiEdit2, FiGitCommit, FiList, FiUsers } from "react-icons/fi";
 import { ViewSwitch } from "../../../shared/components/ViewSwitch";
@@ -21,8 +21,6 @@ import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
 import { tapDay } from "../dateRanges";
-import ManagePayeesModal from "../components/ManagePayeesModal";
-import { usePayees } from "../hooks/usePayees";
 import AddTransactionModal from "../components/AddTransactionModal";
 import TransferWizard, { type TransferDraft } from "../components/TransferWizard";
 import TransferSheet from "../components/TransferSheet";
@@ -35,7 +33,11 @@ import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
-import { isDebtTransfer, isMoneyMove } from "../../../shared/utils/moneyModel";
+import { isDebtTransfer } from "../../../shared/utils/moneyModel";
+import { computeFilterTotals } from "../filterTotals";
+import { UnderlineTabs } from "../../../shared/components/UnderlineTabs";
+import { underlineTabIds } from "../../../shared/utils/underlineTabIds";
+import { TransactionsCalendarTab } from "../components/TransactionsCalendarTab";
 import { findCategory } from "../../../shared/utils/categories";
 import { useRecordLocks, type LockState } from "../hooks/useRecordLocks";
 import { isFullyLocked } from "../linkedRecords";
@@ -90,30 +92,7 @@ function getAmountChipStyle(tx: Transaction): React.CSSProperties {
 // spent/earned figures (they are transfers, not spending); withdrawals count as
 // money coming back in, matching the Overview's model.
 
-interface FilterTotals {
-  earned: number;
-  spent: number;
-  net: number;
-  count: number;
-}
-
-function computeFilterTotals(transactions: Transaction[]): FilterTotals {
-  let earned = 0;
-  let spent = 0;
-
-  for (const tx of transactions) {
-    if (tx.isInvestmentTransaction) {
-      if (tx.contributionType === "withdrawal") earned += tx.amount;
-      continue;
-    }
-    // A loan or a transfer moved a card; it did not come in or go out.
-    if (isMoneyMove(tx)) continue;
-    if (tx.type === "income") earned += tx.amount;
-    else spent += Math.abs(tx.amount);
-  }
-
-  return { earned, spent, net: earned - spent, count: transactions.length };
-}
+// The rule itself lives in `filterTotals.ts`, shared with the calendar tab.
 
 function FilterSummary({ transactions, formatCurrency }: { transactions: Transaction[]; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
@@ -430,17 +409,33 @@ function Pagination({
   );
 }
 
+type TransactionsTab = "list" | "calendar";
+
 export function TransactionsPage() {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   // Seeded from the URL so a category clicked on the Analytics screen arrives
   // here already applied, rather than dumping the reader into an unfiltered list.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The list, or the same records as a month's calendar — the open one kept in
+  // the address (`?tab=calendar`), so a reload or a link lands on it.
+  const tab: TransactionsTab = searchParams.get("tab") === "calendar" ? "calendar" : "list";
+  const chooseTab = (next: TransactionsTab) =>
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === "list") p.delete("tab");
+        else p.set("tab", next);
+        return p;
+      },
+      // «back» leaves the page rather than stepping through each tab looked at.
+      { replace: true },
+    );
+  const tabIds = underlineTabIds("transactions", tab);
   const [selectedCategory, setSelectedCategory] = useState<string>(() => searchParams.get("category") ?? "all");
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
   const [toDate, setToDate] = useState<Date | null>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showPayeesModal, setShowPayeesModal] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
   // A transfer being written or corrected: "new" from the wizard's third kind, or the pair's figures.
@@ -469,7 +464,6 @@ export function TransactionsPage() {
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
   const { data: categories = [], isLoading: catLoading } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
-  const { payees, isReady: payeesReady, add: addPayee, rename: renamePayee, remove: removePayee } = usePayees();
 
   const createMutation = useCreateTransaction();
   const updateMutation = useUpdateTransaction();
@@ -683,6 +677,48 @@ export function TransactionsPage() {
 
   return (
     <PageShell>
+      <div className="mb-3">
+        <UnderlineTabs
+          base="transactions"
+          label={t("transactions.tabsLabel")}
+          tabs={[
+            { id: "list", label: t("transactions.tabList") },
+            { id: "calendar", label: t("transactions.tabCalendar") },
+          ]}
+          value={tab}
+          onChange={chooseTab}
+        />
+      </div>
+
+      {tab === "calendar" ? (
+        <div role="tabpanel" id={tabIds.panel} aria-labelledby={tabIds.tab}>
+          {isLoading ? (
+            <Skeleton height={460} />
+          ) : (
+            <TransactionsCalendarTab
+              transactions={transactions}
+              renderRecords={(records, onLeave) => (
+                <div className={styles.dayCards}>
+                  {records.map((tx) => (
+                    <TransactionCard
+                      key={tx.id}
+                      tx={tx}
+                      categories={categories}
+                      formatCurrency={formatCurrency}
+                      // The record's own read-only view, as on the list; editing is a step from there.
+                      onView={() => {
+                        onLeave?.();
+                        setViewTransaction(tx);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            />
+          )}
+        </div>
+      ) : (
+      <div role="tabpanel" id={tabIds.panel} aria-labelledby={tabIds.tab}>
       {/* ── Desktop ── */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
@@ -716,21 +752,18 @@ export function TransactionsPage() {
                     />
                   </div>
                   <div className="d-flex gap-2 ms-auto flex-shrink-0">
-                    <Button
-                      color="secondary"
-                      outline
-                      size="sm"
-                      className="flex-shrink-0"
+                    {/* To «Δικαιούχοι & κατηγορίες», where a rename reaches every record. */}
+                    <Link
+                      to="/transactions/names?tab=payees"
+                      className="btn btn-outline-secondary btn-sm flex-shrink-0"
                       style={{ whiteSpace: "nowrap" }}
-                      onClick={() => setShowPayeesModal(true)}
-                      disabled={!payeesReady}
                       title={t("transactions.managePayees")}
                       aria-label={t("transactions.managePayees")}
                     >
                       <FiUsers size={14} />
                       {/* Label only where there's room for it */}
                       <span className="d-none d-xl-inline ms-1">{t("transactions.payees")}</span>
-                    </Button>
+                    </Link>
                     <AddButton small label={t("transactions.addTransaction")} onClick={() => setShowAddModal(true)} />
                   </div>
                 </div>
@@ -973,17 +1006,9 @@ export function TransactionsPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <CategorySelect value={selectedCategory} onChange={setSelectedCategory} categories={uniqueCategoriesByName} />
           </div>
-          <Button
-            color="secondary"
-            outline
-            className="flex-shrink-0"
-            onClick={() => setShowPayeesModal(true)}
-            disabled={!payeesReady}
-            aria-label={t("transactions.managePayees")}
-            title={t("transactions.managePayees")}
-          >
+          <Link to="/transactions/names?tab=payees" className="btn btn-outline-secondary flex-shrink-0" aria-label={t("transactions.managePayees")} title={t("transactions.managePayees")}>
             <FiUsers size={15} />
-          </Button>
+          </Link>
         </div>
 
         {isLoading ? (
@@ -997,9 +1022,7 @@ export function TransactionsPage() {
           <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredTransactions.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
         </Card>
       </div>
-
-      {showPayeesModal && (
-        <ManagePayeesModal payees={payees} onClose={() => setShowPayeesModal(false)} onAdd={addPayee} onRename={renamePayee} onRemove={removePayee} />
+      </div>
       )}
 
       <AddTransactionModal

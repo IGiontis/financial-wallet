@@ -14,6 +14,11 @@ import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useStepTried } from "../../shared/hooks/useStepTried";
+import { useCachedWorkspaceList } from "../../shared/hooks/useCachedList";
+import { ACCOUNTS_KEY } from "./accountsUtils";
+import { matchNameIn } from "../../shared/utils/nameMatch";
+import { NameCheck } from "../../shared/components/NameCheck";
+import { typedBlur } from "../../shared/utils/typedBlur";
 
 export interface AccountDraft {
   name: string;
@@ -80,7 +85,14 @@ export default function AccountModal({
   const { format: formatCurrency } = useCurrencyConverter();
 
   const value = parseAmount(amount);
-  const nameOk = name.trim().length > 0;
+  // Two cards with one name can't be told apart in any picker: refused. A
+  // similar one is only pointed out. From the list already held (no read).
+  const otherNames = useCachedWorkspaceList<MoneyAccount>(ACCOUNTS_KEY)
+    .filter((a) => !!a && typeof a.name === "string" && a.id !== account?.id)
+    .map((a) => a.name);
+  const nameMatch = matchNameIn(name, otherNames);
+  const [nameBlurred, setNameBlurred] = useState(false);
+  const nameOk = name.trim().length > 0 && nameMatch?.kind !== "same";
   const amountOk = !!account || value !== undefined;
   const mainOk = main !== undefined;
   const index = STEPS.indexOf(step);
@@ -154,8 +166,10 @@ export default function AccountModal({
                   placeholder={kind === "bank" ? t("accounts.namePlaceholderBank") : t("accounts.kindCash")}
                   invalid={touched && !nameOk}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={typedBlur(() => setNameBlurred(true))}
                   maxLength={40}
                 />
+                <NameCheck match={nameMatch?.kind === "same" && !touched && !nameBlurred ? null : nameMatch} />
               </FormGroup>
             </>
           )}

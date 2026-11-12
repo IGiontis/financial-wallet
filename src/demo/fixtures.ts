@@ -99,7 +99,10 @@ const WORDS = {
     presents: "Δώρα",
     rental: "Ενοίκια",
     coffee: "Καφές",
-    stores: ["Σκλαβενίτης", "Lidl", "Σκλαβενίτης", "ΑΒ Βασιλόπουλος"],
+    // The same shop typed twice ways: «Δικαιούχοι & κατηγορίες» offers to merge them.
+    stores: ["Σκλαβενίτης", "Lidl", "Sklavenitis", "ΑΒ Βασιλόπουλος"],
+    // A category made in Greeklish beside the built-in «Καφές»: offered as a merge too.
+    kafes: "Kafes",
     eatingOut: ["Σουβλάκια", "Ταβέρνα «Το Στέκι»", "Πίτσα", "Sushi"],
     drinks: "Ποτό με φίλους",
     barber: "Κουρείο",
@@ -134,7 +137,8 @@ const WORDS = {
     presents: "Presents",
     rental: "Rental income",
     coffee: "Coffee",
-    stores: ["Sklavenitis", "Lidl", "Sklavenitis", "AB Vassilopoulos"],
+    stores: ["Sklavenitis", "Lidl", "Sklavenits", "AB Vassilopoulos"],
+    kafes: "Cofee",
     eatingOut: ["Souvlaki", "Taverna", "Pizza", "Sushi"],
     drinks: "Drinks with friends",
     barber: "Barber",
@@ -198,7 +202,7 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     updatedAt: subMonths(start, 24),
   }));
   const custom = (id: string, name: string, type: TransactionType, icon: string, color: string): Category => ({ id, name, type, icon, color, isDefault: false, userId, createdAt: subMonths(start, 6), updatedAt: subMonths(start, 6) });
-  categories.push(custom("cat-market", w.market, "expense", "🥬", "#65A30D"), custom("cat-presents", w.presents, "expense", "🎁", "#DB2777"), custom("cat-rental", w.rental, "income", "🏠", "#0EA5E9"));
+  categories.push(custom("cat-market", w.market, "expense", "🥬", "#65A30D"), custom("cat-presents", w.presents, "expense", "🎁", "#DB2777"), custom("cat-rental", w.rental, "income", "🏠", "#0EA5E9"), custom("cat-kafes", w.kafes, "expense", "☕", "#92400E"));
   const cat = (name: string, type: TransactionType = "expense") => defaultCategoryId(name, type);
 
   // ── Banks & cash ──
@@ -367,7 +371,8 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
       if (happened(date)) record({ ...fields, date });
     };
     // Coffee with a colleague on Thursdays, always 3,50.
-    if (weekday === 4) add(8, 15, { amount: 3.5, type: "expense", categoryId: cat("Coffee"), description: w.coffee, accountId: ids.accounts.cash });
+    // Every third week filed under the Greeklish twin of «Καφές» (see `kafes`).
+    if (weekday === 4) add(8, 15, { amount: 3.5, type: "expense", categoryId: Math.floor(i / 7) % 3 === 0 ? "cat-kafes" : cat("Coffee"), description: w.coffee, accountId: ids.accounts.cash });
     // The supermarket on Wednesdays, the farmers' market every other Saturday.
     if (weekday === 3) add(19, 0, { amount: amountOn(day, 3, 34, 78), type: "expense", categoryId: cat("Groceries"), description: w.stores[Math.floor(i / 7) % w.stores.length], accountId: ids.accounts.main });
     if (weekday === 6 && Math.floor(i / 7) % 2 === 1) add(11, 0, { amount: amountOn(day, 6, 11, 24), type: "expense", categoryId: "cat-market", description: w.market, accountId: ids.accounts.cash });
@@ -540,6 +545,8 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     currency: "EUR",
     baseCurrency: "EUR",
     locale: lang,
+    // The payee suggestions: the usual shops; the Greeklish spelling only on records.
+    savedPayees: [w.stores[0], w.stores[1], w.stores[3], w.market, w.barber, w.pharmacy, "Skroutz"],
     workspace: {
       [ACCOUNTS_KEY]: accounts,
       [CHECK_INS_KEY]: checkIns,

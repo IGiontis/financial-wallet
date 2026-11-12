@@ -9,6 +9,9 @@ import type { MoneyAccount } from "./accountsUtils";
 // saves must be the draft the one-page form saved — written out here by hand.
 
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, baseCurrency: "EUR" }) }));
+// The accounts already held, as the name check reads them (no read of its own).
+const held = vi.hoisted(() => ({ accounts: [] as unknown[] }));
+vi.mock("../../shared/hooks/useCachedList", () => ({ useCachedWorkspaceList: () => held.accounts }));
 vi.mock("../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
 
 beforeAll(async () => {
@@ -105,5 +108,33 @@ describe("editing an account", () => {
     expect(onDelete).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onDelete).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the name check", () => {
+  it("refuses another card's name — after Next, not while typing — and only suggests a similar one", async () => {
+    held.accounts = [{ id: "a1", name: "Alpha Bank", kind: "bank" }];
+    render(<AccountModal isMain={false} baseCurrency="EUR" onSave={() => {}} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Name"), " alpha  BANK");
+    expect(screen.queryByTestId("name-exists")).toBeNull();
+    await next();
+    expect(current()).toMatch(/What/);
+    expect(screen.getByTestId("name-exists")).toHaveTextContent("Already exists: Alpha Bank");
+
+    await userEvent.clear(screen.getByLabelText("Name"));
+    await userEvent.type(screen.getByLabelText("Name"), "Alfa Bank");
+    expect(screen.getByTestId("name-similar")).toHaveTextContent("Did you mean “Alpha Bank”?");
+    await next();
+    expect(current()).toMatch(/Details/);
+    held.accounts = [];
+  });
+
+  it("an edit keeps its own name", async () => {
+    held.accounts = [{ id: "a1", name: "Alpha Bank", kind: "bank" }];
+    render(<AccountModal account={{ id: "a1", name: "Alpha Bank", kind: "bank" } as MoneyAccount} isMain baseCurrency="EUR" onSave={() => {}} onClose={() => {}} />);
+    await next();
+    expect(current()).toMatch(/Details/);
+    expect(screen.queryByTestId("name-exists")).toBeNull();
+    held.accounts = [];
   });
 });

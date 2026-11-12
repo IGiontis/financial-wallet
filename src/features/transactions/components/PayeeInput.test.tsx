@@ -184,3 +184,36 @@ describe("what was typed stands out in each suggestion", () => {
     expect(field.className).toMatch(/field/);
   });
 });
+
+describe("the name check under the field (never an error here)", () => {
+  it("the same payee spelled otherwise: offers the saved spelling, not an error", async () => {
+    setScreen(false);
+    const onChange = renderPicker("lidl ");
+    expect(screen.queryByTestId("name-exists")).toBeNull();
+    const hint = screen.getByTestId("name-similar");
+    expect(hint).toHaveTextContent("Did you mean “Lidl”?");
+    await userEvent.click(within(hint).getByRole("button", { name: /Lidl/ }));
+    expect(onChange).toHaveBeenLastCalledWith("Lidl");
+  });
+
+  it("a Greeklish or one-typo twin: «Did you mean…», with the saved one a tap away", async () => {
+    setScreen(false);
+    const onChange = renderPicker("Σκλαβενίτης");
+    const hint = screen.getByTestId("name-similar");
+    expect(hint).toHaveTextContent("Did you mean “Sklavenitis”?");
+    await userEvent.click(within(hint).getByRole("button", { name: /Sklavenitis/ }));
+    expect(onChange).toHaveBeenLastCalledWith("Sklavenitis");
+  });
+
+  it("says nothing for a saved payee spelled as saved, or a new one", () => {
+    setScreen(false);
+    renderPicker("Lidl");
+    expect(screen.queryByTestId("name-similar")).toBeNull();
+  });
+
+  it("says nothing for a new name", () => {
+    setScreen(false);
+    renderPicker("Μανάβης");
+    expect(screen.queryByTestId("name-similar")).toBeNull();
+  });
+});

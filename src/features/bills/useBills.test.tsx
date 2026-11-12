@@ -240,4 +240,20 @@ describe("bills themselves", () => {
     expectNoRefetch();
     expect(bills()?.map((b) => b.id)).toEqual(["b2"]);
   });
+
+  it("drops a paid bill's payments with it and leaves its expense in the transactions", async () => {
+    api.deleteBill.mockResolvedValue({ paymentIds: ["p-gym"] });
+    const { result } = await mountWith(useDeleteBill);
+    const before = txs();
+
+    await act(() => result.current.mutation.mutateAsync("b2"));
+    await settle();
+
+    expectNoRefetch();
+    expect(bills()?.map((b) => b.id)).toEqual(["b1"]);
+    expect(bills()?.flatMap((b) => b.payments)).toEqual([]);
+    // The expense is untouched: the same rows, the same €30.
+    expect(txs()).toBe(before);
+    expect(txs()?.map((t) => [t.id, t.amount])).toEqual([["t-gym", 30]]);
+  });
 });

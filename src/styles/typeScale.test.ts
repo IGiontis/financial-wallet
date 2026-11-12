@@ -90,7 +90,6 @@ const TSX_ALLOWED: Record<string, { count: number; why: string }> = {
   "src/features/bills/BillsPage.tsx": { count: 1, why: ICON },
   "src/features/bills/MonthBreakdownModal.tsx": { count: 1, why: ICON },
   "src/features/budget/components/GoalWizard.tsx": { count: 2, why: ICON },
-  "src/features/categories/CategoryManager.tsx": { count: 1, why: ICON },
   "src/features/categories/CategoryModal.tsx": { count: 2, why: ICON },
   "src/features/incomes/IncomesPage.tsx": { count: 1, why: ICON },
   "src/features/overview/pages/OverviewPage.tsx": { count: 1, why: ICON },

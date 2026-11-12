@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { sameName } from "../../shared/utils/nameMatch";
 import { FiPlus } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
 import { useCreateCategoryScope } from "../transactions/hooks/useTransactions";
@@ -48,6 +49,12 @@ export default function NewCategoryButton({ categories, type, onCreated, size }:
           scope={type}
           isSaving={createCategory.isPending}
           onClose={() => setOpen(false)}
+          // The one already there, on the side this form records.
+          onUseExisting={(existing) => {
+            setOpen(false);
+            const pick = existing.type === type ? existing : categories.find((c) => c.type === type && sameName(c.name, existing.name));
+            if (pick) onCreated(pick.id);
+          }}
           onSubmit={(values) =>
             createCategory.mutate(values, {
               onSuccess: (created) => {

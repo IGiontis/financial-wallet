@@ -119,6 +119,7 @@ describe("the page list", () => {
     expect(chunkForPath("/transactions")).toBe("transactions");
     expect(chunkForPath("/transactions/new")).toBe("newTransaction");
     expect(chunkForPath("/transactions/ledger")).toBe("ledger");
+    expect(chunkForPath("/transactions/names")).toBe("names");
     expect(chunkForPath("/bills/pay")).toBe("bills");
     expect(chunkForPath("/settings/data")).toBe("settings");
     expect(chunkForPath("/login")).toBeNull();

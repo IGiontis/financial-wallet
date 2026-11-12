@@ -265,6 +265,14 @@
   text-overflow: ellipsis;
 }
 
+/* A page under a section whose name is too long for the rail («Δικαιούχοι &
+   κατηγορίες») takes a second line rather than being cut: names are never
+   truncated. Two lines fit the sub-link's height. */
+.sidebar .sidebar-sublink .nav-label {
+  white-space: normal;
+  line-height: 1.2;
+}
+
 .sidebar .sidebar-link:hover {
   background-color: var(--shell-hover);
   color: var(--shell-text);

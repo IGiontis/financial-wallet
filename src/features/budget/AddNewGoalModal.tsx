@@ -35,6 +35,12 @@ import { GoalLookStep, GoalReview, GoalTargetStep } from "./components/GoalWizar
 import { GOAL_STEP_FIELDS, GOAL_STEP_LABEL, goalReviewRows, type GoalStep } from "./components/goalWizardSteps";
 import { iconProblem } from "../../shared/utils/iconText";
 import { typedBlur } from "../../shared/utils/typedBlur";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useCachedList } from "../../shared/hooks/useCachedList";
+import { matchNameIn } from "../../shared/utils/nameMatch";
+import { NameCheck } from "../../shared/components/NameCheck";
+import { investmentKeys } from "./useInvestments";
+import type { InvestmentGoal } from "../../shared/types/IndexTypes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,6 +117,9 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   const { t } = useTranslation();
   const [step, setStep] = useState<GoalStep>("what");
   const { format: formatCurrency } = useCurrencyConverter();
+  const { currentUser } = useAuth();
+  // Goals and investments already on screen: a new one may not take a name in use.
+  const existingNames = useCachedList<InvestmentGoal>(investmentKeys.goals(currentUser?.uid ?? "")).map((g) => g.name);
 
   // GoalsPage passes "targeted" → lock to targeted + custom deadline
   // InvestmentsPage passes "recurring" → show type selector
@@ -184,12 +193,20 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
   // A trip's target written as its parts — see `goalParts`. The amount follows their «έως» total.
   const partsField = useGoalPartsField(undefined, (amount) => formik.setFieldValue("targetAmount", amount));
 
+  const nameMatch = matchNameIn(formik.values.name, existingNames);
+
   // A tracking investment has no target, so no step for one.
   const steps: GoalStep[] = isTargeted ? ["what", "target", "look", "review"] : ["what", "look", "review"];
   const index = Math.max(steps.indexOf(step), 0);
   // Forward only past steps that are valid; back is always free.
   const goTo = async (target: GoalStep) => {
     const to = steps.indexOf(target);
+    // A name already used by another goal: refused, on its own step (`matchName`).
+    if (to > steps.indexOf("what") && nameMatch?.kind === "same") {
+      void formik.setFieldTouched("name", true, false);
+      setStep("what");
+      return;
+    }
     const errors = await formik.validateForm();
     for (const s of steps.slice(0, to)) {
       const bad = GOAL_STEP_FIELDS[s].filter((f) => f in errors);
@@ -255,6 +272,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
                   invalid={!!(formik.touched.name && formik.errors.name)}
                 />
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
+                <NameCheck match={nameMatch?.kind === "same" && !formik.touched.name ? null : nameMatch} />
               </FormGroup>
 
               {/* The kind — only on Investments: a goal that repeats, or one only tracked. */}

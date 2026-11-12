@@ -101,7 +101,7 @@ export function startPagePrefetch(): void {
 export function chunkForPath(pathname: string): PageChunk | null {
   const [first = "", second = ""] = pathname.replace(/^\/+/, "").split("/");
   if (first === "") return "overview";
-  if (first === "transactions") return second === "new" ? "newTransaction" : second === "ledger" ? "ledger" : "transactions";
+  if (first === "transactions") return second === "new" ? "newTransaction" : second === "ledger" ? "ledger" : second === "names" ? "names" : "transactions";
   // The other pages are named after their address (/bills, /goals …).
   return (APP_PAGES as readonly string[]).includes(first) ? (first as PageChunk) : null;
 }

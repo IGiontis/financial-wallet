@@ -40,7 +40,6 @@ vi.mock("../components/TransactionCalendar", () => ({ TransactionCalendar: () =>
 vi.mock("../components/AddTransactionModal", () => ({ default: () => null }));
 vi.mock("../components/EditTransactionModal", () => ({ default: () => null }));
 vi.mock("../components/TransactionsViewModal", () => ({ default: () => null }));
-vi.mock("../components/ManagePayeesModal", () => ({ default: () => null }));
 
 const today = new Date();
 const row = (id: string, description: string, extra: Partial<Transaction> = {}): Transaction =>
