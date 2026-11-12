@@ -34,7 +34,7 @@ const fs = vi.hoisted(() => {
   let auto = 0;
   // As the security rules do: a delete of a document that is not there has no
   // owner to check, is refused, and fails the whole batch with it.
-  const rules = { strictDeletes: false };
+  const rules = { strictDeletes: false, deniedCollections: new Set<string>() };
   const serverReads: string[] = [];
   const hooks: { afterServerRead?: (col: string) => void; pendingWrites?: () => void } = {};
 
@@ -70,6 +70,7 @@ const fs = vi.hoisted(() => {
       delete hooks.pendingWrites;
       auto = 0;
       rules.strictDeletes = false;
+      rules.deniedCollections.clear();
     },
     api: {
       collection: (_db: unknown, name: string) => ({ kind: "collection", col: name }),
@@ -86,6 +87,8 @@ const fs = vi.hoisted(() => {
       // The server's answer: the same store here. `serverReads` lets a test
       // act between one read and the next, as another device would.
       getDocsFromServer: async (q: { col: string; filters: { field: string; value: unknown }[] }) => {
+        // A collection the live rules have no block for: every read of it is refused.
+        if (rules.deniedCollections.has(q.col)) throw Object.assign(new Error("PERMISSION_DENIED"), { code: "permission-denied" });
         const docs = [...table(q.col).entries()]
           .filter(([, d]) => q.filters.every((f) => d[f.field] === f.value))
           .map(([id, d]) => ({ id, ref: ref(q.col, id), data: () => d }));
@@ -651,6 +654,29 @@ describe("deleteAllUserData", () => {
     // Counted a second way: one per collection, nothing came back.
     expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length, leftovers: 0, profile: true });
     expect(everythingOf("u1")).toEqual([]);
+  });
+
+  it("still deletes the account when the rules refuse a collection the owner has not opened yet", async () => {
+    // A new collection is dead until its block is pasted in the console. Nobody
+    // could have written there, so the refused read means "nothing of yours" —
+    // it must not sink the whole deletion.
+    fill();
+    fs.table("businessEntries").clear();
+    fs.rules.deniedCollections.add("businessEntries");
+    const wipe = await deleteAllUserData("u1");
+    for (const col of OWNED_COLLECTIONS.filter((c) => c !== "businessEntries")) expect(ids(col)).toEqual([`${col}-theirs`]);
+    expect(ids("users")).toEqual(["u2"]);
+    // Counted a second way: one per collection the rules let it read.
+    expect(wipe).toEqual({ deleted: OWNED_COLLECTIONS.length - 1, leftovers: 0, profile: true });
+  });
+
+  it("still fails on any other refusal — a real error is never read as \"nothing there\"", async () => {
+    fill();
+    fs.hooks.afterServerRead = (col) => {
+      if (col === "bills") throw Object.assign(new Error("UNAVAILABLE"), { code: "unavailable" });
+    };
+    await expect(deleteAllUserData("u1")).rejects.toMatchObject({ code: "unavailable" });
+    expect(ids("users")).toContain("u1");
   });
 
   it("leaves the shared default categories, which carry no userId", async () => {

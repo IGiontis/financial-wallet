@@ -975,7 +975,14 @@ const ownedOnServer = async (userId: string) =>
   (
     await Promise.all(
       OWNED_COLLECTIONS.map(async (name) => {
-        const snap = await getDocsFromServer(query(collection(db, name), where("userId", "==", userId)));
+        // A collection whose rules the owner has not pasted in the console yet
+        // refuses every read — and nobody could have written there either, so
+        // it holds nothing of the user's. Any other error still stops the deletion.
+        const snap = await getDocsFromServer(query(collection(db, name), where("userId", "==", userId))).catch((err: unknown) => {
+          if ((err as { code?: string })?.code === "permission-denied") return null;
+          throw err;
+        });
+        if (!snap) return [];
         meterRead(`${name} (account deletion)`, snap.size, false);
         return snap.docs.map((d) => d.ref);
       }),
