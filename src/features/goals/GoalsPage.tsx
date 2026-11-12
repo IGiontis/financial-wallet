@@ -93,11 +93,15 @@ export default function GoalsPage() {
   // closing records and the deletion in one batch, its history kept.
   const cancelCovered = useCancelCoveredDebts();
 
+  // Waits for every answer (`mutateAsync`) and reports each honestly: the
+  // dialog stays up and locked until then (`GoalDeleteModal`), closes on
+  // success with the toast, and on a failure stays with nothing removed.
+  // A second press is never a second delete — `useOnceMutation`.
   const handleDeleteGoal = async (ending: GoalEnding) => {
     if (!deleteGoal) return;
     const goal = deleteGoal;
-    const failed = () => toast.error(t("goals.deleteFailed"));
-    // Called off with the goal: the debts to whoever paid it and their expenses, before it goes.
+    // Called off with the goal: the debts to whoever paid it and their expenses,
+    // before it goes. A failure there is said by `useCancelCoveredDebts` itself.
     if (ending.refunded?.length) {
       try {
         await cancelCovered.mutateAsync(ending.refunded);
@@ -105,34 +109,31 @@ export default function GoalsPage() {
         return;
       }
     }
-    if (ending.close) {
-      closeGoalMutation.mutate(
-        { goalId: goal.id, records: ending.close },
-        {
-          onSuccess: () => {
-            setDeleteGoal(null);
-            toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name }));
-          },
-          onError: failed,
-        },
-      );
-      return;
-    }
-    deleteGoalMutation.mutate(goal.id, {
-      onSuccess: () => {
+    try {
+      if (ending.close) {
+        await closeGoalMutation.mutateAsync({ goalId: goal.id, records: ending.close });
         setDeleteGoal(null);
-        if (ownSaved(goal) > 0) toast.success(t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }));
-      },
-      onError: failed,
-    });
+        toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name }));
+        return;
+      }
+      await deleteGoalMutation.mutateAsync(goal.id);
+      setDeleteGoal(null);
+      toast.success(ownSaved(goal) > 0 ? t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }) : t("toasts.goalDeleted", { name: goal.name }));
+    } catch {
+      toast.error(t("goals.deleteFailed"));
+    }
   };
 
   // Stable, because it is handed to every row on the screen: a new function each
   // render is a new prop for every card, and nothing downstream can be memoised
   // past it.
   const handleTogglePause = useCallback(
-    (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } }),
-    [updateGoalMutation],
+    (goal: InvestmentGoalWithStats) =>
+      updateGoalMutation
+        .mutateAsync({ goalId: goal.id, data: { isActive: !goal.isActive } })
+        .then(() => toast.success(t(goal.isActive ? "toasts.goalPaused" : "toasts.goalResumed", { name: goal.name })))
+        .catch(() => toast.error(t("goals.updateFailed"))),
+    [updateGoalMutation, t],
   );
 
   // ── The tabs ──────────────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ export default function GoalsPage() {
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} onDelete={() => { setDeleteGoal(editGoal); setEditGoal(null); }} />}
-      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
+      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending || cancelCovered.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
         defaultGoalType="targeted":
           - Hides the goal type selector (always targeted)

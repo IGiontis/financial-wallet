@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { toast } from "react-toastify";
 import i18n from "../../i18n";
 import { useAuth } from "../../shared/hooks/useAuth";
@@ -134,12 +135,12 @@ const failed = (key: string) => () => toast.error(i18n.t(key));
 
 export function useCreateDebt() {
   const { userId, sync } = useDebtRefresh();
-  return useMutation({ mutationFn: (data: CreateDebtDTO) => createDebt(userId, data), onSuccess: (id) => sync(id), onError: failed("debts.saveFailed") });
+  return useOnceMutation({ onceBy: sameCall, mutationFn: (data: CreateDebtDTO) => createDebt(userId, data), onSuccess: (id) => sync(id), onError: failed("debts.saveFailed") });
 }
 
 export function useUpdateDebt() {
   const { sync } = useDebtRefresh();
-  return useMutation({ mutationFn: ({ debtId, data }: { debtId: string; data: UpdateDebtDTO }) => updateDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
+  return useOnceMutation({ onceBy: sameCall, mutationFn: ({ debtId, data }: { debtId: string; data: UpdateDebtDTO }) => updateDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
 }
 
 /**
@@ -150,7 +151,8 @@ export function useUpdateDebt() {
 export function useEditDebt() {
   const queryClient = useQueryClient();
   const { userId, sync } = useDebtRefresh();
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: async ({ debtId, data, covered }: { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }) => {
       if (!covered || isEmptyEdit(covered)) {
         await editDebt(debtId, data);
@@ -176,7 +178,8 @@ export function useEditDebt() {
 export function useCancelCoveredDebts() {
   const queryClient = useQueryClient();
   const { userId, sync } = useDebtRefresh();
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (items: { debtId: string }[]) => items.map((i) => i.debtId).join("|"),
     mutationFn: async (items: { debtId: string; expenseId?: string; amount: number }[]) => {
       for (const item of items) {
         await cancelCoveredDebt(userId, item.debtId, item.expenseId, { date: new Date(), amount: item.amount, refund: true });
@@ -195,7 +198,8 @@ export function useCancelCoveredDebts() {
 export function useDeleteDebt() {
   const queryClient = useQueryClient();
   const { userId, clear } = useDebtRefresh();
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (vars: { debtId: string }) => vars.debtId,
     mutationFn: async ({ debtId, paymentIds, covered }: { debtId: string; paymentIds: string[]; covered?: { contributionId?: string; expenseId?: string } }) => {
       if (!covered?.contributionId && !covered?.expenseId) {
         await deleteDebt(userId, debtId, paymentIds);
@@ -212,13 +216,14 @@ export function useDeleteDebt() {
 
 export function useRecordRepayment() {
   const { userId, sync } = useDebtRefresh();
-  return useMutation({ mutationFn: (data: CreateDebtPaymentDTO) => createDebtPayment(userId, data), onSuccess: (_, data) => sync(data.debtId), onError: failed("debts.saveFailed") });
+  return useOnceMutation({ onceBy: sameCall, mutationFn: (data: CreateDebtPaymentDTO) => createDebtPayment(userId, data), onSuccess: (_, data) => sync(data.debtId), onError: failed("debts.saveFailed") });
 }
 
 /** Deleting a repayment: its own records go, and the loan's later interest is worked out again. */
 export function useDeleteRepayment() {
   const { userId, sync } = useDebtRefresh();
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (vars: { paymentId: string }) => vars.paymentId,
     mutationFn: ({ paymentId }: { paymentId: string; debtId: string }) => deleteDebtPayment(userId, paymentId),
     onSuccess: (_, { paymentId, debtId }) => sync(debtId, [debtCashIds.principal(paymentId), debtCashIds.interest(paymentId)]),
     onError: failed("debts.deleteFailed"),
@@ -227,7 +232,8 @@ export function useDeleteRepayment() {
 
 export function useUpdateRepayment() {
   const { sync } = useDebtRefresh();
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ paymentId, amount, date, accountId, notes }: { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }) =>
       updateDebtPayment(paymentId, { amount, date, accountId, notes }),
     onSuccess: (_, { debtId }) => sync(debtId),

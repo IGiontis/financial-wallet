@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -129,7 +130,8 @@ export function SettingsPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  // Runs once — a ref refuses a second press before the button is drawn disabled.
+  const [runDelete, deleteLoading] = useRunOnce();
   const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
@@ -274,21 +276,27 @@ export function SettingsPage() {
   // Who it is first (password, or Google's window), then the data, then the
   // sign-in, then this device forgets it and loads again on the sign-in form —
   // see `accountDeletion`. What the message says depends on where it stopped.
-  const handleDeleteAccount = async () => {
+  // Done, the page loads again on the sign-in form — that is its answer.
+  const handleDeleteAccount = () =>
+    runDelete(async () => {
+      setDeleteError("");
+      try {
+        await deleteMyAccount({ uid: currentUser!.uid, google: googleUser, password: deletePassword });
+      } catch (err) {
+        const key = deleteErrorKey(err);
+        setDeleteError(key);
+        // Stopped with only the sign-in left, the device has signed out and this
+        // page is on its way to the sign-in form: the dialog goes with it, the
+        // toast stays until read. Anywhere else: said beside the button, and as a toast.
+        if (err instanceof AccountDeletionError && err.stage === "sign-in") toast.error(t(key), { autoClose: false });
+        else toast.error(t(key));
+      }
+    });
+  const closeDeleteModal = () => {
+    if (deleteLoading) return;
+    setShowDeleteModal(false);
     setDeleteError("");
-    setDeleteLoading(true);
-    try {
-      await deleteMyAccount({ uid: currentUser!.uid, google: googleUser, password: deletePassword });
-    } catch (err) {
-      const key = deleteErrorKey(err);
-      setDeleteError(key);
-      // Stopped with only the sign-in left, the device has signed out and this
-      // page is on its way to the sign-in form: the dialog goes with it, the
-      // toast stays until read.
-      if (err instanceof AccountDeletionError && err.stage === "sign-in") toast.error(t(key), { autoClose: false });
-    } finally {
-      setDeleteLoading(false);
-    }
+    setDeletePassword("");
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -822,22 +830,8 @@ export function SettingsPage() {
       </div>
 
       {/* ── Delete account modal ─────────────────────────────────────────────── */}
-      <Modal
-        isOpen={showDeleteModal}
-        toggle={() => {
-          setShowDeleteModal(false);
-          setDeleteError("");
-          setDeletePassword("");
-        }}
-        size="sm"
-      >
-        <ModalHeader
-          toggle={() => {
-            setShowDeleteModal(false);
-            setDeleteError("");
-            setDeletePassword("");
-          }}
-        >
+      <Modal isOpen={showDeleteModal} toggle={closeDeleteModal} backdrop={deleteLoading ? "static" : true} keyboard={!deleteLoading} size="sm">
+        <ModalHeader toggle={deleteLoading ? undefined : closeDeleteModal}>
           {t("settings.deleteAccount")}
         </ModalHeader>
         <ModalBody>
@@ -859,19 +853,10 @@ export function SettingsPage() {
           )}
         </ModalBody>
         <ModalFooter>
-          <Button
-            color="secondary"
-            outline
-            onClick={() => {
-              setShowDeleteModal(false);
-              setDeleteError("");
-              setDeletePassword("");
-            }}
-            disabled={deleteLoading}
-          >
+          <Button color="secondary" outline onClick={closeDeleteModal} disabled={deleteLoading}>
             {t("common.cancel")}
           </Button>
-          <Button color="danger" onClick={handleDeleteAccount} disabled={deleteLoading || (!googleUser && !deletePassword) || deleteGuard.locked} title={deleteGuard.reason}>
+          <Button color="danger" onClick={() => void handleDeleteAccount()} aria-busy={deleteLoading || undefined} disabled={deleteLoading || (!googleUser && !deletePassword) || deleteGuard.locked} title={deleteGuard.reason}>
             {deleteLoading ? t("common.deleting") : t("settings.deleteMyAccount")}
           </Button>
         </ModalFooter>

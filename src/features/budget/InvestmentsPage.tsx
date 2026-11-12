@@ -75,17 +75,29 @@ export default function InvestmentsPage() {
   const handleEditGoal = (goalId: string, data: UpdateInvestmentGoalDTO): Promise<void> =>
     saveWithoutWaiting(updateGoalMutation, { goalId, data }, () => toast.error(t("goals.updateFailed")));
 
-  const handleDeleteGoal = () => {
+  // Waits for the answer; the dialog stays locked until then — see `GoalsPage`.
+  const handleDeleteGoal = async () => {
     if (!deleteGoal) return;
-    deleteGoalMutation.mutate(deleteGoal.id, { onSuccess: () => setDeleteGoal(null) });
+    const goal = deleteGoal;
+    try {
+      await deleteGoalMutation.mutateAsync(goal.id);
+      setDeleteGoal(null);
+      toast.success(t("toasts.goalDeleted", { name: goal.name }));
+    } catch {
+      toast.error(t("goals.deleteFailed"));
+    }
   };
 
   // Stable, because it is handed to every row on the screen: a new function each
   // render is a new prop for every card, and nothing downstream can be memoised
   // past it.
   const handleTogglePause = useCallback(
-    (goal: InvestmentGoalWithStats) => updateGoalMutation.mutate({ goalId: goal.id, data: { isActive: !goal.isActive } }),
-    [updateGoalMutation],
+    (goal: InvestmentGoalWithStats) =>
+      updateGoalMutation
+        .mutateAsync({ goalId: goal.id, data: { isActive: !goal.isActive } })
+        .then(() => toast.success(t(goal.isActive ? "toasts.goalPaused" : "toasts.goalResumed", { name: goal.name })))
+        .catch(() => toast.error(t("goals.updateFailed"))),
+    [updateGoalMutation, t],
   );
 
   // ── The tabs ──────────────────────────────────────────────────────────────

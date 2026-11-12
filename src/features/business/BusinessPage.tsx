@@ -147,23 +147,30 @@ function BusinessScreen() {
   const close = () => setOpen(null);
   const askDelete = (entry: BusinessEntry) => setOpen({ kind: "delete", entry });
   const edit = (entry: BusinessEntry) => setOpen({ kind: "closing", entry });
-  const confirmDelete = (entry: BusinessEntry) =>
-    remove.mutate(entry, {
-      onSuccess: () => {
-        toast.success(t("business.deleted"));
-        close();
-      },
-      onError: () => toast.error(t("business.deleteFailed")),
-    });
-  const confirmDeleteBusiness = (business: Business) =>
-    removeBusiness.mutate(business.id, {
-      onSuccess: (done) => {
-        toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
-        if (filter === business.id) setFilter(undefined);
-        close();
-      },
-      onError: () => toast.error(t("business.deleteFailed")),
-    });
+  // Both wait for the server's answer (`mutateAsync`); the dialog stays up,
+  // locked, until then — and a second press is never a second batch.
+  const confirmDelete = async (entry: BusinessEntry) => {
+    try {
+      await remove.mutateAsync(entry);
+    } catch {
+      toast.error(t("business.deleteFailed"));
+      return;
+    }
+    toast.success(t("business.deleted"));
+    close();
+  };
+  const confirmDeleteBusiness = async (business: Business) => {
+    let done: { businessEntries: string[] };
+    try {
+      done = await removeBusiness.mutateAsync(business.id);
+    } catch {
+      toast.error(t("business.deleteFailed"));
+      return;
+    }
+    toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
+    if (filter === business.id) setFilter(undefined);
+    close();
+  };
 
   const tabs: { id: BusinessTab; label: string }[] = [
     { id: "overview", label: t("business.tabOverview") },

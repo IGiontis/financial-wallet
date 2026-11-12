@@ -17,6 +17,8 @@ import styles from "./css/DebtsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { toast } from "react-toastify";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
 // four steps as a transaction and an income: how much, when, through which
@@ -93,21 +95,28 @@ export default function RepaymentWizard({
     return main ? t("debts.wizard.mainCard", { name: main.name }) : t("accounts.noCard");
   })();
 
-  const save = () => {
-    if (!amountOk || !when) return;
-    if (moneyMissing) return goTo("4");
-    // Paid off by this one: the debt's milestone (confetti).
-    const paidOff = !debt.isSettled && !!preview?.settles;
-    record.mutate(
-      { debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined },
-      {
-        onSuccess: () => {
-          celebrateSave({ collection: "debts", id: debt.id, milestone: paidOff });
-          onClose();
-        },
-      },
-    );
+  // Runs once and waits for the server (debts do): Save says «Αποθήκευση…» and
+  // nothing can save again or close the dialog. A failure is said by the hook.
+  const [run, running] = useRunOnce();
+  const working = running || record.isPending;
+  const close = () => {
+    if (!working) onClose();
   };
+  const save = () =>
+    void run(async () => {
+      if (!amountOk || !when) return;
+      if (moneyMissing) return goTo("4");
+      // Paid off by this one: the debt's milestone (confetti).
+      const paidOff = !debt.isSettled && !!preview?.settles;
+      try {
+        await record.mutateAsync({ debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined });
+      } catch {
+        return;
+      }
+      celebrateSave({ collection: "debts", id: debt.id, milestone: paidOff });
+      toast.success(t(paidOff ? "toasts.repaymentSettled" : "toasts.repaymentSaved", { amount: formatCurrency(value), who: debt.person }));
+      onClose();
+    });
 
   const left = (n: number) => (n > 0 ? t("debts.wizard.remains", { amount: formatCurrency(n) }) : t("debts.wizard.cleared"));
 
@@ -119,8 +128,8 @@ export default function RepaymentWizard({
   ];
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered scrollable>
+      <ModalHeader toggle={working ? undefined : close}>
         {t(borrowed ? "debts.wizard.titleOut" : "debts.wizard.titleIn")} · {debt.person}
       </ModalHeader>
       <form
@@ -247,13 +256,13 @@ export default function RepaymentWizard({
               {t("common.cancel")}
             </Button>
           ) : (
-            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])}>
+            <Button type="button" color="secondary" outline onClick={() => setStep(STEPS[index - 1])} disabled={working}>
               ‹ {t("common.back")}
             </Button>
           )}
           {step === "4" ? (
-            <Button type="submit" color="primary" disabled={record.isPending || !amountOk || !when}>
-              {t("common.save")}
+            <Button type="submit" color="primary" disabled={working || !amountOk || !when} aria-busy={working || undefined}>
+              {working ? t("common.saving") : t("common.save")}
             </Button>
           ) : (
             <Button type="submit" color="primary">

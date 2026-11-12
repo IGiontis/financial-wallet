@@ -29,7 +29,7 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   useTransactions: () => ({ data: state.transactions, isSuccess: true }),
   useCreateCategoryScope: () => ({ isPending: false, mutate: vi.fn(), mutateAsync: state.create }),
   useUpdateCategoryGroup: () => ({ isPending: false, mutateAsync: state.update }),
-  useDeleteCategoryGroup: () => ({ isPending: false, mutate: state.remove }),
+  useDeleteCategoryGroup: () => ({ isPending: false, mutate: state.remove, mutateAsync: async (...args: unknown[]) => (state.remove(...(args as [never])), undefined) }),
 }));
 vi.mock("../bills/useBills", () => ({ useBills: () => ({ data: state.bills, isSuccess: true }) }));
 vi.mock("../incomes/useIncomes", () => ({ useIncomeList: () => ({ incomes: state.incomes, isLoading: false }) }));

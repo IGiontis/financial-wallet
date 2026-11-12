@@ -82,6 +82,7 @@ import RunwaySheet from "./RunwaySheet";
 import { dayTone, type DayToneInput } from "../calendar/dayTone";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { PageShell } from "../../shared/components/PageShell";
 
 // ─── Cash runway — how much, by when ─────────────────────────────────────────
@@ -1241,10 +1242,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // second payment.
   const handleEditPayment = (payment: BillPayment, changes: { amount?: number; paidDate?: Date }) => {
     if (changes.amount === undefined && changes.paidDate === undefined) return;
-    updatePayment.mutate(
-      { paymentId: payment.id, transactionId: payment.transactionId, ...changes },
-      { onError: () => toast.error(t("bills.editPaymentFailed")) },
-    );
+    // Optimistic, like every payment here: the toast as the change is applied;
+    // a write that is lost puts the payment back and says so.
+    void saveWithoutWaiting(updatePayment, { paymentId: payment.id, transactionId: payment.transactionId, ...changes }, () => toast.error(t("bills.editPaymentFailed")));
+    toast.success(t("toasts.paymentUpdated"));
   };
 
   const handlePayPeriod = (bill: BillWithStatus, cell: MonthCell) => {
@@ -1257,7 +1258,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   };
 
   const handleDeletePayment = (payment: BillPayment) => {
-    unmarkPaid.mutate({ paymentId: payment.id, transactionId: payment.transactionId }, { onError: () => toast.error(t("bills.undoPaymentFailed")) });
+    void saveWithoutWaiting(unmarkPaid, { paymentId: payment.id, transactionId: payment.transactionId }, () => toast.error(t("bills.undoPaymentFailed")));
+    toast.success(t(payment.transactionId ? "toasts.paymentUndoneWithExpense" : "toasts.paymentUndone"));
   };
 
   // Closes on the optimistic row rather than the server's answer, like every
@@ -1266,7 +1268,14 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     const failed = () => toast.error(t("bills.saveFailed"));
     // A new bill's id is not known here: the row that appears is the one lit.
     celebrateSave({ collection: "bills", id: editBill?.id });
+    toast.success(t(editBill ? "toasts.billUpdated" : "toasts.billCreated", { name: data.name }));
     return editBill ? saveWithoutWaiting(updateBill, { billId: editBill.id, data }, failed) : saveWithoutWaiting(createBill, data, failed);
+  };
+
+  /** On / off from «Διαχείριση»: optimistic, said at once, put back if lost. */
+  const toggleBill = (bill: Bill, active: boolean) => {
+    void saveWithoutWaiting(updateBill, { billId: bill.id, data: { isActive: active } }, () => toast.error(t("bills.saveFailed")));
+    toast.success(t(active ? "toasts.billResumed" : "toasts.billPaused", { name: bill.name }));
   };
 
   const openNew = () => {
@@ -1278,9 +1287,23 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     setShowModal(true);
   };
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteBill.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
+  // Waits for the server (deletes are online only); runs once, the dialog
+  // locked until the answer — then the toast says what happened.
+  const [runDelete, deleting] = useRunOnce();
+  const confirmDelete = () =>
+    runDelete(async () => {
+      if (!deleteTarget) return;
+      const bill = deleteTarget;
+      try {
+        await deleteBill.mutateAsync(bill.id);
+        setDeleteTarget(null);
+        toast.success(t("toasts.billDeleted", { name: bill.name }));
+      } catch {
+        toast.error(t("toasts.billDeleteFailed"));
+      }
+    });
+  const closeDelete = () => {
+    if (!deleting) setDeleteTarget(null);
   };
 
   return (
@@ -1391,7 +1414,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                     onDelete={setDeleteTarget}
                     deleteLocked={deleteGuard.locked}
                     deleteReason={deleteGuard.reason}
-                    onToggle={(bill, active) => updateBill.mutate({ billId: bill.id, data: { isActive: active } })}
+                    onToggle={toggleBill}
                   />
                 )}
 
@@ -1687,8 +1710,9 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           formatCurrency={formatCurrency}
           onClose={() => setSettlingBill(null)}
           onConfirm={(items) => {
-            settleOverdue.mutate({ bill: settlingBill, items }, { onError: () => toast.error(t("bills.settleOverdueFailed")) });
+            void saveWithoutWaiting(settleOverdue, { bill: settlingBill, items }, () => toast.error(t("bills.settleOverdueFailed")));
             celebrateSave({ collection: "bills", id: settlingBill.id });
+            toast.success(t("toasts.periodsSettled", { count: items.length, name: settlingBill.name }));
             setSettlingBill(null);
           }}
         />
@@ -1750,17 +1774,19 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           <Button
             color="warning"
             onClick={() => {
+              // Optimistic: the dialog closes on the first press, so there is no second.
               if (undoTarget) handleDeletePayment(undoTarget.payment);
               setUndoTarget(null);
             }}
+            disabled={!undoTarget}
           >
             {t("bills.undoPayment")}
           </Button>
         </ModalFooter>
       </Modal>
 
-      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered size="sm">
-        <ModalHeader toggle={() => setDeleteTarget(null)}>{t("bills.deleteBill")}</ModalHeader>
+      <Modal isOpen={!!deleteTarget} toggle={closeDelete} centered size="sm" backdrop={deleting ? "static" : true} keyboard={!deleting}>
+        <ModalHeader toggle={deleting ? undefined : closeDelete}>{t("bills.deleteBill")}</ModalHeader>
         <ModalBody>
           {deleteTarget && <BillDeleteMessage bill={deleteTarget} />}
           {deleteGuard.locked && (
@@ -1770,11 +1796,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           )}
         </ModalBody>
         <ModalFooter>
-          <Button color="secondary" outline onClick={() => setDeleteTarget(null)} disabled={deleteBill.isPending}>
+          <Button color="secondary" outline onClick={closeDelete} disabled={deleting}>
             {t("common.cancel")}
           </Button>
-          <Button color="danger" onClick={confirmDelete} disabled={deleteBill.isPending || deleteGuard.locked}>
-            {deleteBill.isPending ? t("common.deleting") : t("common.delete")}
+          <Button color="danger" onClick={() => void confirmDelete()} disabled={deleting || deleteGuard.locked} aria-busy={deleting || undefined}>
+            {deleting ? t("common.deleting") : t("common.delete")}
           </Button>
         </ModalFooter>
       </Modal>

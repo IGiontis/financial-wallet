@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -55,7 +55,15 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
   const [text, setText] = useState(mode === "rename" && row ? row.name : "");
   const [mergeInto, setMergeInto] = useState<PayeeRow | null>(into ?? null);
   const [touched, setTouched] = useState(false);
+  // Runs once: a ref refuses a second press before the button is drawn
+  // disabled (the same guard as `useRunOnce`, written out here because a
+  // closure handed to it trips the compiler's memo check on this form);
+  // until the answer, nothing saves again or closes the dialog.
+  const busy = useRef(false);
   const [saving, setSaving] = useState(false);
+  const close = () => {
+    if (!saving) onClose();
+  };
 
   const others = useMemo(() => (row ? rows.filter((r) => r.key !== row.key) : rows), [rows, row]);
   const cleaned = cleanLine(text);
@@ -79,14 +87,18 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
     if (!blocked) setStep("review");
   };
 
+  // The caller says how it went (toast); a failure leaves this open, as it was.
   const save = async () => {
+    if (busy.current) return;
+    busy.current = true;
     setSaving(true);
     try {
       if (mode === "add") await onAdd(cleaned);
       else await onRename({ ids, to: target, saved: savedChanges ? [...nextSaved] : undefined });
     } catch {
-      // The hook said so; left open to try again.
+      // The caller said so; left open, as it was, to try again.
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   };
@@ -97,8 +109,8 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
   const onUse = (picked: PayeeRow) => (mode === "add" ? onShow(picked.name) : setMergeInto(picked));
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
-      <ModalHeader toggle={onClose}>{title}</ModalHeader>
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!saving} centered>
+      <ModalHeader toggle={saving ? undefined : close}>{title}</ModalHeader>
       <form
         onSubmit={(e) => {
           e.preventDefault();

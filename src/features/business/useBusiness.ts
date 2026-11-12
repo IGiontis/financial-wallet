@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { useHasAccess } from "../../shared/hooks/useHasAccess";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
@@ -126,7 +127,8 @@ export function useSaveClosing() {
     return { entry: putEntry(entry), transactions };
   };
 
-  return useMutation<void, Error, ClosingSave, Snapshots>({
+  return useOnceMutation<void, Error, ClosingSave, Snapshots>({
+    onceBy: sameCall,
     mutationFn: async (vars) => {
       const { entryId, transactionId } = idsOf(vars);
       await saveClosing(userId, {
@@ -163,7 +165,8 @@ export function useDeleteClosing() {
   const key = businessKeys.all(userId);
   const txKey = transactionKeys.all(userId);
 
-  return useMutation<void, Error, Pick<BusinessEntry, "id" | "linkedTransactionId">>({
+  return useOnceMutation<void, Error, Pick<BusinessEntry, "id" | "linkedTransactionId">>({
+    onceBy: (entry) => entry.id,
     mutationFn: async (entry) => {
       await deleteClosing(userId, entry.id, entry.linkedTransactionId);
     },
@@ -196,7 +199,8 @@ export function useDeleteBusiness() {
     confirmList(queryClient, txKey, removeWhere<Transaction>((row) => records.has(row.id) || (!!businessId && row.businessId === businessId) || (!!row.businessEntryId && entries.has(row.businessEntryId))));
   };
 
-  return useMutation<{ businessEntries: string[]; transactions: string[] }, Error, string>({
+  return useOnceMutation<{ businessEntries: string[]; transactions: string[] }, Error, string>({
+    onceBy: (businessId) => businessId,
     mutationFn: (businessId) => deleteBusinessRecords(userId, businessId),
     onSuccess: (done, businessId) => {
       drop(done, businessId);

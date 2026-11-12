@@ -32,6 +32,7 @@ import styles from "./css/TransactionPage.module.css";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDebtTransfer } from "../../../shared/utils/moneyModel";
 import { computeFilterTotals } from "../filterTotals";
@@ -205,29 +206,35 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
   );
 }
 
-function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose, lock }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void; onClose: () => void; lock?: LockState }) {
+function DeleteConfirmModal({ transaction, isDeleting, onConfirm, onClose, lock }: { transaction: Transaction; isDeleting: boolean; onConfirm: () => void | Promise<unknown>; onClose: () => void; lock?: LockState }) {
   const { t } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
   // Half of a linked set goes only with the rest of it, from where it was written.
   const held = !!lock?.pending || !!lock?.lock;
+  // Runs once; nothing here closes or presses again until the delete answers.
+  const [run, running] = useRunOnce();
+  const working = running || isDeleting;
+  const close = () => {
+    if (!working) onClose();
+  };
 
   return (
-    <Modal isOpen toggle={onClose} centered size="sm">
-      <ModalHeader toggle={onClose}>{t("transactions.deleteTransaction")}</ModalHeader>
+    <Modal isOpen toggle={close} centered size="sm" backdrop={working ? "static" : true} keyboard={!working}>
+      <ModalHeader toggle={working ? undefined : close}>{t("transactions.deleteTransaction")}</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: "var(--fs-lead)", margin: 0 }}>
           {t("transactions.deleteConfirm", { defaultValue: "Are you sure you want to delete {{name}}?", name: transaction.description })}
         </p>
         <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{t("transactions.deleteUndoneWarning", { defaultValue: "This cannot be undone." })}</p>
         {deleteGuard.locked && <p style={{ fontSize: "var(--fs-small)", color: "var(--color-text-secondary)", marginTop: 8, marginBottom: 0 }}>{deleteGuard.reason}</p>}
-        <LockNote state={lock} onLeave={onClose} />
+        <LockNote state={lock} onLeave={close} />
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
+        <Button color="secondary" outline onClick={close} disabled={working}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked || held}>
-          {isDeleting ? t("common.deleting") : t("common.delete")}
+        <Button color="danger" onClick={() => void run(onConfirm)} disabled={working || deleteGuard.locked || held} aria-busy={working || undefined}>
+          {working ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>
@@ -491,26 +498,31 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
     const pair = transferOf(transactions, tx.transferId!);
     return !(pair.out && pair.in);
   };
-  const deleteTransfer = (tx: Transaction) => {
-    const done = {
-      onSuccess: () => toast.success(t("transactions.deleteSuccess")),
-      onError: () => toast.error(t("transactions.deleteFailed")),
-    };
+  // Deletes wait for the server's answer (`mutateAsync`) and say it honestly;
+  // a second press of the same delete is never a second batch (`useOnceMutation`).
+  const deleteTransfer = async (tx: Transaction) => {
     const pair = transferOf(transactions, tx.transferId!);
-    if (pair.out && pair.in) deleteTransferMutation.mutate(tx.transferId!, done);
-    else deleteMutation.mutate(pair.out ?? pair.in ?? tx, done);
+    try {
+      if (pair.out && pair.in) await deleteTransferMutation.mutateAsync(tx.transferId!);
+      else await deleteMutation.mutateAsync(pair.out ?? pair.in ?? tx);
+      toast.success(t("transactions.deleteSuccess"));
+      return true;
+    } catch {
+      toast.error(t("transactions.deleteFailed"));
+      return false;
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTransaction) return;
     // The whole row, not just its id: a bill's expense takes its payment with it.
-    deleteMutation.mutate(deleteTransaction, {
-      onSuccess: () => {
-        toast.success(t("transactions.deleteSuccess"));
-        setDeleteTransaction(null);
-      },
-      onError: () => toast.error(t("transactions.deleteFailed")),
-    });
+    try {
+      await deleteMutation.mutateAsync(deleteTransaction);
+      setDeleteTransaction(null);
+      toast.success(t("transactions.deleteSuccess"));
+    } catch {
+      toast.error(t("transactions.deleteFailed"));
+    }
   };
 
   // These only move the filter — resetting to page 1 is handled centrally below.
@@ -1046,9 +1058,9 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
             setTransferEdit(transferDraft(viewTransaction));
             setViewTransaction(null);
           }}
-          onDelete={() => {
-            deleteTransfer(viewTransaction);
-            setViewTransaction(null);
+          onDelete={async () => {
+            // The sheet stays, locked, until the answer — then closes on success.
+            if (await deleteTransfer(viewTransaction)) setViewTransaction(null);
           }}
         />
       )}

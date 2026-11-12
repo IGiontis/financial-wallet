@@ -16,6 +16,9 @@ Rules:
 - Use only the pieces in `docs/COMPONENTS.md`. If you think you need a new one, stop and say
   so in your report instead of inventing it. If one you use is listed under "Known drift",
   use the shared piece, not the drifted copy.
+- Every new/edit/delete ends with a toast; every action locks its controls while it runs and
+  reports success/failure honestly (`.claude/rules/ui.md`, "An action waits for its answer").
+  Card/account before amount; yes/no starts on «Ναι».
 - Colours only as token roles, font sizes only `--fs-*`, no hex, no new green buttons.
 - Every string in `el` and `en`; add keys without reordering the locale files.
 - Data: never call Firestore directly — use the feature's hooks (`docs/DATA_FLOW.md`).

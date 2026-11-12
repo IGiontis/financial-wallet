@@ -135,11 +135,12 @@ export default function TransferWizard({
       note: note.trim() || undefined,
     });
     void saveWithoutWaiting(save, { records, createdAt: initial?.createdAt }, () => toast.error(t("transactions.transfer.failed")));
+    // A toast either way (every new record says so); the page also keeps its panel.
+    toast.success(t("transactions.transfer.savedToast"));
     if (asPage && !edit) {
       setSaved({ from: fromAccount, to: toAccount, amount: round2(value), date: day });
       return;
     }
-    toast.success(t("transactions.transfer.savedToast"));
     // Its two halves land in the list: the one that appears is lit.
     celebrateSave({ collection: "transactions" });
     onClose();

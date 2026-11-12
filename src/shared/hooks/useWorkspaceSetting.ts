@@ -4,6 +4,8 @@ import { useAuth } from "./useAuth";
 import { getUser, saveWorkspaceValue } from "../../firebase/firestore";
 import { exchangeRateKeys } from "./useCurrencyConverter";
 import { isDemo, onDemoReseed } from "../../demo/demoMode";
+import { toast } from "react-toastify";
+import i18n from "../../i18n";
 
 // The planner's own state, kept with the account.
 //
@@ -225,7 +227,9 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
       if (timer.current) clearTimeout(timer.current);
       const madeUnder = generation;
       pending.current = () => {
-        if (madeUnder === generation) void saveWorkspaceValue(userId, key, resolved);
+        // Offline the write is queued and never fails here; a refusal is said
+        // (the value stays on this device, the account did not take it).
+        if (madeUnder === generation) Promise.resolve(saveWorkspaceValue(userId, key, resolved)).catch(() => toast.error(i18n.t("toasts.settingNotSaved")));
       };
       timer.current = setTimeout(() => {
         timer.current = null;

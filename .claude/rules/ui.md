@@ -48,6 +48,10 @@ side-by-side screenshots.
   step that shows every figure, Save only on review, delete far left, `{...FORM_MODAL}` (no
   close on backdrop). A yes/no question inside a step is two choice tiles (`MoneyMovedPicker`,
   `YesNoChoice`); picking «Ναι» reveals what it needs in the same step. No switches.
+- **Order inside a form: WHERE before HOW MUCH** — the card / cash / account is picked first,
+  the amount after it, in every form that has both.
+- **A yes/no choice starts on «Ναι»** (picked by default) — except a choice that would take
+  money from a card: never pre-pick a card or an answer that moves money out.
 - **No prefilled text**: fields start empty with a placeholder only; an edit shows the stored
   values; a fallback name, if needed, is applied at save and shown in the review. Controls
   inside a form rest on the inputs' `--surface`, never a beige page tone.
@@ -55,6 +59,14 @@ side-by-side screenshots.
   before → after summary for edits, the wizard's review for new records. Bulk or cascading
   deletes say what else goes with them and how many.
 - **Viewing a record** opens a read-only view first; editing is a step from there.
+- **Every new / edit / delete shows a toast** when it is done — MUST, no exceptions (a delete
+  says what went, e.g. «Ο στόχος διαγράφηκε»). Toasts per `src/lib/toastDefaults.ts`.
+- **An action waits for its answer** — MUST: while a save/delete/confirm runs, its button
+  shows it is working and every control that could start a second action is disabled (no
+  double delete, no closing the dialog mid-way); the result is reported honestly — success
+  toast only when it really succeeded, a failure says what did not happen and leaves things as
+  they were; never an error toast for something that actually went through. Use the mutation's
+  own pending/success/error state (TanStack `isPending`, `mutateAsync` + try/catch), not timers.
 - **Every successful submit answers** through `src/shared/feedback/saveFeedback.ts` (reference:
   `AddTransactionModal`): `celebrateSave({ collection, id, milestone })` in the form after the
   save; `useSavedFlash(collection, ids)` + `className={flashClass(row.id)}` on the list.

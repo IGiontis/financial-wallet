@@ -7,7 +7,7 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
 - **Keep it updated in the same change** that adds a read path, a save, a delete or a link
   between records.
 - **The code is the truth**: `src/firebase/*.ts`, `src/lib/listCache.ts`, the feature hooks.
-- Last checked against the code: 2026-11-12.
+- Last checked against the code: 2026-11-12 (run-once guard and toasts added the same day).
 
 ## Read path
 
@@ -46,6 +46,32 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
   message** (`uiConventions.test.ts` checks).
 - Sign-out: `forgetAllLocal()` clears every `sync:` key (`src/firebase/auth.ts:81`).
 
+## Every write runs once, and says how it went
+
+The owner's report (2026-11-12): «delete goal» pressed again while the first delete ran sent a second
+batch naming the documents the first had just deleted; production rules refuse a delete of a missing
+doc and fail the whole batch → an error toast for a goal that was gone (reproduced in
+`firebase/firestore.test.ts`, "run twice"). Two locks now, one per layer:
+
+- **Data hook**: every mutation is `useOnceMutation` (`shared/hooks/useOnceMutation.ts`), never TanStack's
+  `useMutation` (`shared/hooks/actionsRunOnce.test.ts`). `onceBy` (required) names what makes two calls the
+  same action: the record for deletes / online-only changes — a second call while the first is in flight
+  starts nothing and hears the first one's answer; `sameCall` (the same vars object) for optimistic saves,
+  where two equal saves are two records. Bill «Πληρώθηκε» is keyed by bill + period + instalment.
+- **Screen**: the button that started it is locked until the answer — `DeleteButton` / `ConfirmSheet` /
+  `GoalDeleteModal` wait for the promise their handler returns; anything else uses `useRunOnce` (a ref, so a
+  double-click is refused before React draws `disabled`). While it runs: «Διαγραφή…» / «Αποθήκευση…», every
+  other button disabled, no ✕, no Esc, static backdrop. A closing dialog takes no presses
+  (`theme.css`, `.modal.fade:not(.show) .modal-content`).
+- **Honest answer**: handlers use `mutateAsync` in try/catch — success toast only after it went, an error toast
+  saying what did not happen and the dialog left as it was (deletes are not applied to the lists until the
+  server agrees, except the two below that put the row back on error). Never `mutate(…, { onSuccess })` for
+  a delete: TanStack drops those callbacks when the component unmounts or a second `mutate` is made.
+- **A toast after every new / edit / delete** (`.claude/rules/ui.md`). Plain wording under `toasts.*` in the
+  locales; durations from `lib/toastDefaults.ts`. `celebrateSave` does not toast — a form that celebrates still
+  toasts once. Debt hooks toast their own failures (`debts.saveFailed` / `debts.deleteFailed`), the screens
+  only the success. A refused workspace write (`useWorkspaceSetting`) toasts `toasts.settingNotSaved`.
+
 ## Save path (create / edit)
 
     form wizard review → Save → saveWithoutWaiting(mutation, vars, onFailure)
@@ -70,6 +96,11 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
 - Every write is confirmed in the UI before it goes: the wizard's review step for new records,
   a before → after summary for edits, `DeleteButton` (`shared/components/DeleteButton.tsx`)
   for deletes, with counts for cascades.
+- The success toast of an optimistic save fires when the local write is applied (the dialog closes then); a
+  lost write still restores the lists and toasts through `onFailure`. A double Save cannot fire twice: formik's
+  `isSubmitting` / a `saving` state set in the click disables it, and the dialog is gone or inert at once.
+- Saves that wait for the server (debts, repayments, categories, gap records, «Χαρίστηκε», rate update):
+  `useRunOnce` + `mutateAsync`; the dialog stays locked until the answer.
 - After a resolved save: `celebrateSave({ collection, id?, milestone? })` and
   `useSavedFlash` on the list (`src/shared/feedback/saveFeedback.ts`; reference:
   `AddTransactionModal`). Costs nothing in Firestore.
@@ -86,6 +117,10 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
   names).
 - Deletes are not optimistic in most hooks: rows go in `onSuccess` (`confirmList`).
   Exceptions: `useDeleteTransaction`, `useDeleteTransfer` remove first and restore on error.
+- Every delete runs once (see «Every write runs once» above): the confirm waits for `mutateAsync`, locked,
+  then closes with the success toast — or stays, with the error toast and nothing removed.
+- «Ήρθε» undone (`useUndoArrival`): waits for every delete, then takes the word back; a failure leaves the
+  time «ήρθε» and says so.
 - After the batch: `noteDeleted(uid, name, ids)` or, for several lists, `noteDeletions(uid,
   {name: ids})` — ONE write to `users/{uid}.syncDeletes.<name>__<id>` and the rows leave this
   device's copy (`syncList.ts:133–154`). Every delete path must call it, or other devices keep
@@ -230,8 +265,9 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
 - Income definitions live on the user doc (`workspace.incomes`); «Ήρθε» writes one
   `transactions` income with `incomeId` + `incomeDue` (`arrivalTransaction`,
   `useRecordArrival`, `features/incomes/useIncomes.ts:163`).
-- Undo: each record deleted with `useDeleteTransaction` (separate writes, not one batch) and
-  the `planner-occurrences` override cleared (`useUndoArrival`, `useIncomes.ts:179`).
+- Undo: each record deleted with `useDeleteTransaction` (separate writes, not one batch, all
+  awaited) and only then the `planner-occurrences` override cleared (`useUndoArrival`); the
+  `ConfirmSheet` stays locked until the answer, a failure keeps the «Ήρθε» and toasts.
 - Not locked: deleting the transaction takes the «Ήρθε» back everywhere.
 - Tests: `features/incomes/IncomesPage.test.tsx`, `useSalaryIncome.test.tsx`.
 

@@ -761,6 +761,14 @@
   transition: opacity var(--motion-modal) linear;
 }
 
+/* A dialog on its way out takes no more presses. It stays in the page for its
+   fade (modalMotion.ts) — and a second tap on «Αποθήκευση» in those 240ms used
+   to land on a form that had already saved, and save it again («An action
+   waits for its answer», .claude/rules/ui.md). */
+.modal.fade:not(.show) .modal-content {
+  pointer-events: none;
+}
+
 /* The ink under a dialog: the page's text colour in daylight, the near-black
    in the dark (`--shadow-ink`), never black. */
 @layer theme {

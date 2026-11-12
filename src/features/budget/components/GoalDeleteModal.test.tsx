@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import { GoalDeleteModal } from "./GoalDeleteModal";
@@ -195,5 +195,48 @@ describe("deleting a goal someone else paid for", () => {
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(onConfirm).toHaveBeenCalledWith({});
+  });
+});
+
+// The owner's report (2026-11-12): «delete goal» pressed again while the first
+// delete was still running → an error, although the goal was gone. The second
+// press sent a second batch naming what the first had deleted, and the live
+// rules refused it (firestore.test.ts, "run twice").
+describe("while the delete runs", () => {
+  it("runs once however fast it is pressed, says it is working, and cannot be closed", async () => {
+    store.transactions = [];
+    let answer!: () => void;
+    const onConfirm = vi.fn(() => new Promise<void>((resolve) => (answer = resolve)));
+    const onClose = vi.fn();
+    render(<GoalDeleteModal goal={goal(0)} isDeleting={false} onConfirm={onConfirm} onClose={onClose} />);
+    const dialog = screen.getByRole("dialog");
+    const del = within(dialog).getByRole("button", { name: "Delete" });
+
+    act(() => {
+      fireEvent.click(del);
+      fireEvent.click(del);
+    });
+    expect(onConfirm).toHaveBeenCalledOnce();
+    expect(within(dialog).getByRole("button", { name: "Deleting..." })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    // No ✕, and Esc does nothing.
+    expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
+    fireEvent.keyDown(dialog, { key: "Escape", keyCode: 27 });
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => answer());
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("free again once the answer is in — a failure leaves it there to try again", async () => {
+    store.transactions = [];
+    let refuse!: () => void;
+    const onConfirm = vi.fn(() => new Promise<void>((resolve) => (refuse = resolve)));
+    render(<GoalDeleteModal goal={goal(0)} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    // The page's handler toasts the failure and resolves; the dialog stays.
+    await act(async () => refuse());
+    expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
 });

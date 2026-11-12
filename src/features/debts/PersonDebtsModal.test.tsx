@@ -35,13 +35,13 @@ vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ muta
 // None of these loans paid part of a goal.
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => ({ link: undefined, goalName: undefined, ready: true }) }));
 vi.mock("./useDebts", () => ({
-  useRecordRepayment: () => ({ mutate: spies.record, isPending: false }),
-  useUpdateRepayment: () => ({ mutate: spies.update, isPending: false }),
-  useDeleteRepayment: () => ({ mutate: spies.remove, isPending: false }),
-  useDeleteDebt: () => ({ mutate: spies.removeDebt, isPending: false }),
-  useUpdateDebt: () => ({ mutate: vi.fn(), isPending: false }),
-  useEditDebt: () => ({ mutate: spies.editDebt, isPending: false }),
-  useCreateDebt: () => ({ mutate: spies.createDebt, isPending: false }),
+  useRecordRepayment: () => ({ mutate: spies.record, mutateAsync: async (...args: unknown[]) => (spies.record(...(args as [never])), undefined), isPending: false }),
+  useUpdateRepayment: () => ({ mutate: spies.update, mutateAsync: async (...args: unknown[]) => (spies.update(...(args as [never])), undefined), isPending: false }),
+  useDeleteRepayment: () => ({ mutate: spies.remove, mutateAsync: async (...args: unknown[]) => (spies.remove(...(args as [never])), undefined), isPending: false }),
+  useDeleteDebt: () => ({ mutate: spies.removeDebt, mutateAsync: async (...args: unknown[]) => (spies.removeDebt(...(args as [never])), undefined), isPending: false }),
+  useUpdateDebt: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(async () => undefined), isPending: false }),
+  useEditDebt: () => ({ mutate: spies.editDebt, mutateAsync: async (...args: unknown[]) => (spies.editDebt(...(args as [never])), undefined), isPending: false }),
+  useCreateDebt: () => ({ mutate: spies.createDebt, mutateAsync: async (...args: unknown[]) => (spies.createDebt(...(args as [never])), "new-debt"), isPending: false }),
 }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }),
@@ -208,7 +208,7 @@ describe("recording a payment", () => {
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
-    expect(spies.record).toHaveBeenCalledWith(expect.objectContaining({ debtId: "car", amount: 185.26, accountId: "" }), expect.anything());
+    expect(spies.record).toHaveBeenCalledWith(expect.objectContaining({ debtId: "car", amount: 185.26, accountId: "" }));
   });
 
   it("offers what is left between people, dated today", async () => {
@@ -354,7 +354,7 @@ describe("correcting a payment", () => {
     const question = screen.getByText("Delete?").closest(".modal-content") as HTMLElement;
     await userEvent.click(within(question).getByRole("button", { name: "Delete" }));
 
-    expect(spies.remove).toHaveBeenCalledWith({ paymentId: "r1", debtId: "rent" }, expect.anything());
+    expect(spies.remove).toHaveBeenCalledWith({ paymentId: "r1", debtId: "rent" });
   });
 });
 

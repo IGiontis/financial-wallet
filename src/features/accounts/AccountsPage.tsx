@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { toast } from "react-toastify";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Alert, Badge, Button, Card, CardBody, Col, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -124,17 +125,20 @@ export function AccountsPage() {
       // account never shows up as money found or lost.
       record({ ...expected, [id]: draft.amount ?? 0 });
       celebrateSave({ collection: "accounts", id });
+      toast.success(t("toasts.accountCreated", { name: draft.name }));
     } else if (editing) {
       let next = accounts.map((a) => (a.id === editing.id ? { ...a, name: draft.name, kind: draft.kind, color: draft.kind === "bank" ? draft.color : undefined } : a));
       next = withMain(next, editing.id, draft.main);
       setAccounts(next);
       celebrateSave({ collection: "accounts", id: editing.id });
+      toast.success(t("toasts.accountUpdated", { name: draft.name }));
     }
     setEditing(null);
   };
 
   const deleteAccount = (id: string) => {
     if (deleteGuard.locked) return;
+    const gone = accounts.find((a) => a.id === id);
     const next = accounts.filter((a) => a.id !== id);
     // The main account went with it: the first bank takes over.
     const fallback = next.some((a) => a.main) ? next : next.map((a) => (a.id === mainAccount(next)?.id ? { ...a, main: true } : a));
@@ -143,12 +147,14 @@ export function AccountsPage() {
     setEditing(null);
     setDeleting(null);
     if (next.length === 0) setManaging(false);
+    toast.success(t("toasts.accountDeleted", { name: gone?.name ?? "" }));
   };
 
   const undoLatest = () => {
     if (!latest || deleteGuard.locked) return;
     setCheckIns((prev) => prev.filter((c) => c.id !== latest.checkIn.id));
     setConfirmUndo(false);
+    toast.success(t("toasts.readingDeleted"));
   };
 
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "";
@@ -181,6 +187,7 @@ export function AccountsPage() {
                 const mainId = (created.find((a) => a.kind === "bank") ?? created[0]).id;
                 setAccounts(created.map((a) => ({ ...a, main: a.id === mainId })));
                 record(Object.fromEntries(created.map((a, i) => [a.id, rows[i].amount])));
+                toast.success(t("toasts.accountsCreated", { count: created.length }));
               }}
             />
           </Col>
@@ -323,7 +330,11 @@ export function AccountsPage() {
             formatCurrency={formatCurrency}
             dayFmt={dayFmt}
             onFix={() => setFixing(latest ?? null)}
-            onAccept={() => latest && setCheckIns((prev) => prev.map((c) => (c.id === latest.checkIn.id ? { ...c, acceptedGap: latest.unlogged } : c)))}
+            onAccept={() => {
+              if (!latest) return;
+              setCheckIns((prev) => prev.map((c) => (c.id === latest.checkIn.id ? { ...c, acceptedGap: latest.unlogged } : c)));
+              toast.success(t("toasts.saved"));
+            }}
           />
 
           {age !== undefined && age >= STALE_AFTER_DAYS && (
@@ -404,6 +415,7 @@ export function AccountsPage() {
           onSave={(amounts) => {
             record(amounts);
             setReading(false);
+            toast.success(t("toasts.readingSaved"));
           }}
           onClose={() => setReading(false)}
         />
@@ -465,6 +477,7 @@ export function AccountsPage() {
             // Corrected figures are a new answer: an earlier "that is right" no longer applies.
             setCheckIns((prev) => prev.map((c) => (c.id === fixing.checkIn.id ? { id: c.id, at: c.at, amounts } : c)));
             setFixing(null);
+            toast.success(t("toasts.readingUpdated"));
           }}
           onClose={() => setFixing(null)}
         />

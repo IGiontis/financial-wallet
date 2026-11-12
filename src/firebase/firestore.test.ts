@@ -10,6 +10,10 @@ import { ACCOUNT_DELETING, endAccountDeletion } from "./deletionGate";
 import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
 import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteBill, deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
+import { createElement, type ReactNode } from "react";
+import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { investmentKeys, useDeleteGoal } from "../features/budget/useInvestments";
 
 // The data layer against a small in-memory Firestore.
 //
@@ -135,6 +139,7 @@ const fs = vi.hoisted(() => {
 
 vi.mock("firebase/firestore", () => fs.api);
 vi.mock("./config", () => ({ db: {} }));
+vi.mock("../shared/hooks/useAuth", () => ({ useAuth: () => ({ currentUser: { uid: "u1" } }) }));
 // The delta sync's own bookkeeping is tested in `deltaSync.test.ts`; here
 // only what reaches the collections matters.
 const noted = vi.hoisted(() => ({ deleted: [] as [string, string, string[]][] }));
@@ -276,6 +281,90 @@ describe("deleteInvestmentGoal", () => {
     await expect(deleteInvestmentGoal("u1", "gA")).rejects.toThrow(/connection/);
     expect(fs.batches).toHaveLength(0);
     expect(ids("investmentGoals")).toEqual(["gA", "gB", "gC"]);
+  });
+
+  // The owner's report (2026-11-12): «delete goal» pressed again while the
+  // first delete was still running → an error, although the goal was gone.
+  // A second run names the goal the first one already deleted; the live rules
+  // refuse a delete of a missing document and fail the whole batch. Why the
+  // screen must never start it twice — `useOnceMutation`, `DeleteButton`.
+  describe("run twice (a second press while the first is running)", () => {
+    it("the second run is refused although the first deleted everything", async () => {
+      seedGoals();
+      fs.rules.strictDeletes = true;
+
+      const first = deleteInvestmentGoal("u1", "gA");
+      const second = deleteInvestmentGoal("u1", "gA");
+
+      await expect(first).resolves.toBeDefined();
+      await expect(second).rejects.toMatchObject({ code: "permission-denied" });
+      // …and yet the goal and all it held went with the first.
+      expect(ids("investmentGoals")).toEqual(["gB", "gC"]);
+      expect(ids("investmentContributions")).toEqual(["c-b1", "c-c1", "c-other"]);
+    });
+
+    it("a run after the first one finished is refused too: the goal it names is gone", async () => {
+      seedGoals();
+      fs.rules.strictDeletes = true;
+
+      await deleteInvestmentGoal("u1", "gA");
+      await expect(deleteInvestmentGoal("u1", "gA")).rejects.toMatchObject({ code: "permission-denied" });
+      expect(fs.batches).toHaveLength(1);
+    });
+  });
+
+  // The fix, through the screen's own hook (`useDeleteGoal` → `useOnceMutation`)
+  // against the same strict rules: the second press is never a second batch.
+  describe("from the screen (useDeleteGoal), under the live rules", () => {
+    const setup = () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+      const goals = rows<InvestmentGoal>("investmentGoals").filter((g) => g.userId === "u1");
+      client.setQueryData(investmentKeys.goals("u1"), goals);
+      const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+      const { result } = renderHook(() => useDeleteGoal(), { wrapper });
+      const listed = () => (client.getQueryData<InvestmentGoal[]>(investmentKeys.goals("u1")) ?? []).map((g) => g.id).sort();
+      return { result, listed };
+    };
+
+    it("pressed twice while it runs: one batch, both presses hear the same success, no error", async () => {
+      seedGoals();
+      fs.rules.strictDeletes = true;
+      const { result, listed } = setup();
+
+      let first!: Promise<unknown>;
+      let second!: Promise<unknown>;
+      act(() => {
+        first = result.current.mutateAsync("gA");
+        second = result.current.mutateAsync("gA");
+      });
+      await act(async () => {
+        await expect(first).resolves.toBeDefined();
+        await expect(second).resolves.toBeDefined();
+      });
+
+      expect(fs.batches).toHaveLength(1);
+      expect(ids("investmentGoals")).toEqual(["gB", "gC"]);
+      expect(listed()).toEqual(["gB", "gC"]);
+    });
+
+    it("refused (offline): it says so, and the goal stays on screen and in the store", async () => {
+      seedGoals();
+      fs.rules.strictDeletes = true;
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+      const { result, listed } = setup();
+
+      let attempt!: Promise<unknown>;
+      act(() => {
+        attempt = result.current.mutateAsync("gA");
+      });
+      await act(async () => {
+        await expect(attempt).rejects.toThrow(/connection/);
+      });
+
+      expect(fs.batches).toHaveLength(0);
+      expect(listed()).toEqual(["gA", "gB", "gC"]);
+      expect(ids("investmentGoals")).toEqual(["gA", "gB", "gC"]);
+    });
   });
 });
 

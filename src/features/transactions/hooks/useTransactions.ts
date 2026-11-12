@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import {
@@ -134,7 +135,8 @@ export function useCreateTransaction() {
   const key = transactionKeys.all(userId);
   const idFor = (data: CreateTransactionDTO) => idsFor(createdIds, data, () => newDocId("transactions"));
 
-  return useMutation<string, Error, CreateTransactionDTO, CreateContext>({
+  return useOnceMutation<string, Error, CreateTransactionDTO, CreateContext>({
+    onceBy: sameCall,
     mutationFn: (data: CreateTransactionDTO) => createTransaction(userId, data, idFor(data)),
 
     onMutate: async (data) => {
@@ -171,7 +173,8 @@ export function useUpdateTransaction() {
     return row?.billId ? { userId, paymentId: paymentIdFor(queryClient, userId, transactionId) } : undefined;
   };
 
-  return useMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, UpdateContext>({
+  return useOnceMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, UpdateContext>({
+    onceBy: sameCall,
     mutationFn: ({ transactionId, data }) => updateTransaction(transactionId, data, billLinkFor(transactionId)),
 
     onMutate: async ({ transactionId, data }) => {
@@ -203,9 +206,10 @@ export function useDeleteTransaction() {
   const userId = currentUser?.uid ?? "";
   const key = transactionKeys.all(userId);
 
-  return useMutation<void, Error, DeletableTransaction, { transactions: ListSnapshot<Transaction> }>({
+  return useOnceMutation<void, Error, DeletableTransaction, { transactions: ListSnapshot<Transaction> }>({
     // The payment is looked up in the bills list, which this mutation edits
     // only after the delete has gone through — so it is still there to find.
+    onceBy: (tx) => tx.id,
     mutationFn: ({ id, billId }) => deleteTransaction(userId, id, billId ? { userId, paymentId: paymentIdFor(queryClient, userId, id) } : undefined),
 
     onMutate: async ({ id }) => ({ transactions: await editList(queryClient, key, removeWhere<Transaction>((row) => row.id === id)) }),
@@ -232,7 +236,8 @@ export function useCreateCategory() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: (data: CreateCategoryDTO) => createCategory(userId, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
   });
@@ -243,7 +248,8 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ categoryId, data }: { categoryId: string; data: UpdateCategoryDTO }) => updateCategory(categoryId, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
   });
@@ -267,7 +273,8 @@ export function useDeleteCategory() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (categoryId: string) => categoryId,
     mutationFn: (categoryId: string) => deleteCategory(userId, categoryId),
     onSuccess: (_void, categoryId) => dropCategories(queryClient, userId, [categoryId]),
   });
@@ -278,7 +285,7 @@ export function useCategoryUsage() {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({ mutationFn: (categoryId: string) => countCategoryUsage(userId, categoryId) });
+  return useOnceMutation({ onceBy: (categoryId: string) => categoryId, mutationFn: (categoryId: string) => countCategoryUsage(userId, categoryId) });
 }
 /**
  * Creates a category under one type or both at once, returning the new ids
@@ -289,7 +296,8 @@ export function useCreateCategoryScope() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ name, icon, scope }: { name: string; icon?: string; scope: CategoryScope }) =>
       createCategories(userId, { name, icon }, scopeTypes(scope)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
@@ -302,7 +310,8 @@ export function useUpdateCategoryGroup() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ categoryIds, data }: { categoryIds: string[]; data: UpdateCategoryDTO }) => updateCategories(categoryIds, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
   });
@@ -314,7 +323,8 @@ export function useDeleteCategoryGroup() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (categoryIds: string[]) => categoryIds.join("|"),
     mutationFn: (categoryIds: string[]) => deleteCategories(userId, categoryIds),
     onSuccess: (_void, categoryIds) => dropCategories(queryClient, userId, categoryIds),
   });
@@ -325,7 +335,8 @@ export function useCategoryGroupUsage() {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (categoryIds: string[]) => categoryIds.join("|"),
     mutationFn: async (categoryIds: string[]) => {
       const counts = await Promise.all(categoryIds.map((id) => countCategoryUsage(userId, id)));
       return counts.reduce((a, b) => a + b, 0);

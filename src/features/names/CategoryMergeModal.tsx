@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -48,7 +48,15 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
   const [step, setStep] = useState<Step>("into");
   const [keepKey, setKeepKey] = useState(into ? groupKey(into) : "");
   const [touched, setTouched] = useState(false);
+  // Runs once: a ref refuses a second press before the button is drawn
+  // disabled (the same guard as `useRunOnce`, written out here because a
+  // closure handed to it trips the compiler's memo check on this form);
+  // until the answer, nothing saves again or closes the dialog.
+  const busy = useRef(false);
   const [saving, setSaving] = useState(false);
+  const close = () => {
+    if (!saving) onClose();
+  };
 
   const label = (g: CategoryGroup) => `${g.icon ?? ""} ${categoryLabel(g.name, t)}`.trim();
   const dropLabel = label(drop);
@@ -65,14 +73,17 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
   const pairs = keep ? mergeTargets(drop.members, keep.members) : null;
   const plan = useMemo(() => (pairs ? planCategoryMerge(pairs, sources) : null), [pairs, sources]);
 
+  // The caller says how it went (toast); a failure leaves this open, as it was.
   const save = async () => {
-    if (!plan) return;
+    if (!plan || busy.current) return;
+    busy.current = true;
     setSaving(true);
     try {
       await onMerge(plan);
     } catch {
-      // The caller said so; left open to try again.
+      // The caller said so; left open, as it was, to try again.
     } finally {
+      busy.current = false;
       setSaving(false);
     }
   };
@@ -80,8 +91,8 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
   const groupTxCount = (g: CategoryGroup) => g.members.reduce((sum, m) => sum + (counts.get(m.id) ?? 0), 0);
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
-      <ModalHeader toggle={onClose}>{t("names.mergeTitle")}</ModalHeader>
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!saving} centered>
+      <ModalHeader toggle={saving ? undefined : close}>{t("names.mergeTitle")}</ModalHeader>
       <form
         onSubmit={(e) => {
           e.preventDefault();

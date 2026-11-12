@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
@@ -25,7 +26,8 @@ export function useRenamePayee() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ ids, to, saved }: { ids: string[]; to: string; saved?: string[] }) => renamePayeeEverywhere(userId, ids, to, saved),
     onSuccess: (_written, { ids, to, saved }) => {
       const description = cleanLine(to);
@@ -49,7 +51,8 @@ export function useMergeCategories() {
   const [, setIncomes] = useWorkspaceSetting<unknown[]>(INCOMES_KEY, []);
   const [, setLines] = useWorkspaceSetting<unknown[]>(PLANNER_KEYS.lines, []);
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: async (plan: CategoryMergePlan) => {
       // Before anything is written: the setters below would queue offline.
       requireConnection("delete");

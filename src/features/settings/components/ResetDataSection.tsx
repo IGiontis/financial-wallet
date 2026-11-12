@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
+import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import { Alert, Button, Modal, ModalHeader, ModalBody, ModalFooter, Input, Label } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,7 +38,8 @@ export default function ResetDataSection() {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<ResetScope>({ transactions: true, bills: true, goals: true, budgets: true, categories: false });
   const [confirmText, setConfirmText] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Runs once (a ref, before the button is drawn disabled); the dialog is locked meanwhile.
+  const [runOnce, busy] = useRunOnce();
   // Clearing collections is a deletion like any other: it waits for the live
   // account rather than being queued against a cached copy.
   const deleteGuard = useOfflineGuard("delete");
@@ -49,29 +52,30 @@ export default function ResetDataSection() {
   const confirmed = confirmText.trim().toUpperCase() === CONFIRM_WORD;
 
   const close = () => {
+    if (busy) return;
     setOpen(false);
     setConfirmText("");
     setError("");
     setDeleted(null);
   };
 
-  const run = async () => {
-    if (!currentUser || !anySelected || !confirmed) return;
-    setBusy(true);
-    setError("");
-    try {
-      const count = await resetUserData(currentUser.uid, scope);
-      // Everything on screen was built from what just went — drop the whole
-      // cache rather than trying to name each affected key.
-      await queryClient.invalidateQueries();
-      setDeleted(count);
-      setConfirmText("");
-    } catch {
-      setError(t("errors.generic"));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const run = () =>
+    runOnce(async () => {
+      if (!currentUser || !anySelected || !confirmed) return;
+      setError("");
+      try {
+        const count = await resetUserData(currentUser.uid, scope);
+        // Everything on screen was built from what just went — drop the whole
+        // cache rather than trying to name each affected key.
+        await queryClient.invalidateQueries();
+        setDeleted(count);
+        setConfirmText("");
+        toast.success(t("settings.resetDone", { count }));
+      } catch {
+        setError(t("errors.generic"));
+        toast.error(t("toasts.resetFailed"));
+      }
+    });
 
   return (
     <>
@@ -82,8 +86,8 @@ export default function ResetDataSection() {
         {t("settings.resetAction")}
       </Button>
 
-      <Modal {...FORM_MODAL} isOpen={open} toggle={close} centered>
-        <ModalHeader toggle={close}>{t("settings.resetTitle")}</ModalHeader>
+      <Modal {...FORM_MODAL} isOpen={open} toggle={close} keyboard={!busy} centered>
+        <ModalHeader toggle={busy ? undefined : close}>{t("settings.resetTitle")}</ModalHeader>
         <ModalBody>
           {deleted !== null ? (
             <Alert color="success" className="mb-0" style={{ fontSize: "var(--fs-text)" }}>
@@ -146,7 +150,7 @@ export default function ResetDataSection() {
             {deleted !== null ? t("common.close") : t("common.cancel")}
           </Button>
           {deleted === null && (
-            <Button color="danger" onClick={run} disabled={busy || !anySelected || !confirmed || deleteGuard.locked} title={deleteGuard.reason}>
+            <Button color="danger" onClick={() => void run()} aria-busy={busy || undefined} disabled={busy || !anySelected || !confirmed || deleteGuard.locked} title={deleteGuard.reason}>
               {busy ? t("common.deleting") : t("settings.resetConfirmAction")}
             </Button>
           )}

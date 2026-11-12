@@ -150,11 +150,30 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   save; the dialog closes at once, a lost write lands in `onFailure` (toast). Never `await` a Firestore write.
 - `src/shared/components/DeleteButton.tsx` — every delete: asks first (`what` names it in the question);
   `opensConfirm` when the page opens its own fuller confirm (cascades); `iconOnly`, `wordFromSm`. Far left.
+  **Runs once**: return the delete's promise from `onClick` (`mutateAsync` in a try/catch that toasts) and the
+  question stays up, «Διαγραφή…», every button and its close/Esc locked, until the answer; `busy` draws it
+  working when the delete runs elsewhere. Never `mutate(…, { onSuccess })` for a delete.
 - `src/features/incomes/components/ConfirmSheet.tsx` — the best existing "are you sure" sheet for a cascading
-  or irreversible action (`title`, `body`, `hint`, `confirmLabel`, `lockedReason`). Reuse rather than a new modal.
-- `src/features/budget/components/GoalDeleteModal.tsx` — goal delete with "what happens to the money" choice.
+  or irreversible action (`title`, `body`, `hint`, `confirmLabel`, `lockedReason`, `busyLabel`). Reuse rather
+  than a new modal. Same lock as `DeleteButton` when `onConfirm` returns a promise.
+- `src/features/budget/components/GoalDeleteModal.tsx` — goal delete with "what happens to the money" choice;
+  locked while `onConfirm`'s promise runs.
+- `src/shared/hooks/useRunOnce.ts` — `const [run, running] = useRunOnce()`: a button's lock while its action runs.
+  `run(action)` refuses a second call at once (a ref — a double-click lands before React draws `disabled`);
+  `running` for `disabled` / «Αποθήκευση…» / the dialog's `keyboard={!running}` + `backdrop="static"` + no ✕.
+  The action toasts its own result; `run` never rejects. Every save/delete/confirm that waits for the server
+  and is not already a `DeleteButton` / `ConfirmSheet` (reference: `ForgiveDebtModal`, `BillsPage` delete).
+- `src/shared/hooks/useOnceMutation.ts` — THE way to declare a write (never TanStack's `useMutation`;
+  `actionsRunOnce.test.ts` checks): `useMutation` + `onceBy` (required) — a second call that is the same action
+  while the first is in flight starts nothing (`mutate` drops it, `mutateAsync` returns the first promise).
+  `onceBy: (id) => id` for a delete / online-only change; `sameCall` (identity) for an optimistic save, where two
+  equal deposits are two records.
 - `src/lib/toastDefaults.ts` — toast timings per kind (success 2.8 s, error/warning 6 s), phone placement,
-  installed once; just call `toast.success/error/warning` without an `autoClose` of your own.
+  installed once; just call `toast.success/error/warning` without an `autoClose` of your own. Wording for the
+  plain «it went» of a record lives under `toasts.*` in the locales («Ο στόχος «…» διαγράφηκε», «Αποθηκεύτηκε»);
+  older feature keys (`goals.createdSuccess`, `business.deleted` …) stay where they are.
+- `src/styles/theme.css` «A dialog on its way out takes no more presses» — `.modal.fade:not(.show)
+  .modal-content { pointer-events: none }`: a second tap on a Save whose dialog is fading out lands nowhere.
 
 ## Money display & tones
 

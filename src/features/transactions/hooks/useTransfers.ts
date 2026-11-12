@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { deleteTransfer, saveTransfer } from "../../../firebase/firestore";
 import type { Transaction } from "../../../shared/types/IndexTypes";
@@ -27,7 +28,8 @@ export function useSaveTransfer() {
     return records.map((record) => ({ ...record, userId, createdAt: createdAt ?? now, updatedAt: now }) as Transaction);
   };
 
-  return useMutation<void, Error, { records: TransferRecord[]; createdAt?: Date }, { transactions: ListSnapshot<Transaction> }>({
+  return useOnceMutation<void, Error, { records: TransferRecord[]; createdAt?: Date }, { transactions: ListSnapshot<Transaction> }>({
+    onceBy: sameCall,
     mutationFn: ({ records, createdAt }) => saveTransfer(userId, records, createdAt),
     onMutate: async ({ records, createdAt }) => ({ transactions: await editList(queryClient, key, putPair(rowsOf(records, createdAt))) }),
     onError: (_err, _vars, context) => restoreList(queryClient, context?.transactions),
@@ -43,7 +45,8 @@ export function useDeleteTransfer() {
   const key = transactionKeys.all(userId);
   const dropPair = (transferId: string) => removeWhere<Transaction>((row) => row.transferId === transferId);
 
-  return useMutation<void, Error, string, { transactions: ListSnapshot<Transaction> }>({
+  return useOnceMutation<void, Error, string, { transactions: ListSnapshot<Transaction> }>({
+    onceBy: (transferId) => transferId,
     mutationFn: (transferId) => deleteTransfer(userId, transferId),
     onMutate: async (transferId) => ({ transactions: await editList(queryClient, key, dropPair(transferId)) }),
     onError: (_err, _id, context) => restoreList(queryClient, context?.transactions),

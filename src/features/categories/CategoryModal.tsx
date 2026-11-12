@@ -86,8 +86,9 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   ];
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
-      <ModalHeader toggle={onClose}>{category ? t("categories.editTitle") : t("categories.newTitle")}</ModalHeader>
+    // Locked while the save runs: no closing it half-way.
+    <Modal {...FORM_MODAL} isOpen toggle={isSaving ? () => undefined : onClose} keyboard={!isSaving} centered>
+      <ModalHeader toggle={isSaving ? undefined : onClose}>{category ? t("categories.editTitle") : t("categories.newTitle")}</ModalHeader>
 
       <form onSubmit={submit} noValidate>
         <ModalBody>

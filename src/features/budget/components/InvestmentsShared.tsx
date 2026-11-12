@@ -23,6 +23,7 @@ import { useContributions } from "../useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
+import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import i18n from "../../../i18n";
 import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
@@ -662,13 +663,19 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
 
 // ─── DeleteConfirmModal ───────────────────────────────────────────────────────
 
-export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void; onClose: () => void }) {
+export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: () => void | Promise<unknown>; onClose: () => void }) {
   const deleteGuard = useOfflineGuard("delete");
   const { t } = useTranslation();
+  // Runs once; nothing here closes or presses again until the delete answers.
+  const [run, running] = useRunOnce();
+  const working = running || isDeleting;
+  const close = () => {
+    if (!working) onClose();
+  };
 
   return (
-    <Modal isOpen toggle={onClose} centered size="sm">
-      <ModalHeader toggle={onClose}>{t("common.delete")}</ModalHeader>
+    <Modal isOpen toggle={close} centered size="sm" backdrop={working ? "static" : true} keyboard={!working}>
+      <ModalHeader toggle={working ? undefined : close}>{t("common.delete")}</ModalHeader>
       <ModalBody>
         <p style={{ fontSize: "var(--fs-lead)", margin: 0 }}>
           {/* The name goes in as an element, not as a value, so whatever the
@@ -690,11 +697,11 @@ export function DeleteConfirmModal({ goal, isDeleting, onConfirm, onClose }: { g
         )}
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
+        <Button color="secondary" outline onClick={close} disabled={working}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={isDeleting || deleteGuard.locked}>
-          {isDeleting ? t("common.deleting") : t("common.delete")}
+        <Button color="danger" onClick={() => void run(onConfirm)} disabled={working || deleteGuard.locked} aria-busy={working || undefined}>
+          {working ? t("common.deleting") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>

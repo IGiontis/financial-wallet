@@ -6,6 +6,7 @@ import { AddButton } from "../../shared/components/AddButton";
 import { RowMenu } from "../../shared/components/RowMenu";
 import { useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { toneChip } from "../../shared/utils/tone";
 import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
 import { BUSINESSES_MAX } from "./businessKeys";
@@ -106,13 +107,20 @@ export function FirstBusinessInvite({ onAdd }: { onAdd: () => void }) {
  * owner's own money, with what they added up to. Counted from the closings on
  * the device (no read); the delete itself asks the server what is there.
  */
-export function DeleteBusinessModal({ business, entries, busy, formatCurrency, onConfirm, onClose }: { business: Business; entries: readonly BusinessEntry[]; busy: boolean; formatCurrency: (n: number) => string; onConfirm: () => void; onClose: () => void }) {
+export function DeleteBusinessModal({ business, entries, busy, formatCurrency, onConfirm, onClose }: { business: Business; entries: readonly BusinessEntry[]; busy: boolean; formatCurrency: (n: number) => string; onConfirm: () => void | Promise<unknown>; onClose: () => void }) {
   const { t } = useTranslation();
   const guard = useOfflineGuard("delete");
+  // Runs once; nothing here closes or presses again until the delete answers.
+  const [run, running] = useRunOnce();
+  const working = running || busy;
+  const close = () => {
+    if (!working) onClose();
+  };
+
   const reach = businessReach(entries, business.id);
   return (
-    <Modal isOpen toggle={onClose} centered size="sm" zIndex={1080}>
-      <ModalHeader toggle={onClose}>{t("common.deleteConfirmTitle")}</ModalHeader>
+    <Modal isOpen toggle={close} backdrop={working ? "static" : true} keyboard={!working} centered size="sm" zIndex={1080}>
+      <ModalHeader toggle={working ? undefined : close}>{t("common.deleteConfirmTitle")}</ModalHeader>
       <ModalBody style={{ fontSize: "var(--fs-lead)" }}>
         <p className={reach.closings > 0 ? undefined : "mb-0"}>{t("business.deleteBusiness", { name: business.name })}</p>
         {reach.closings > 0 && <p className={reach.records > 0 ? "mb-2" : "mb-0"}>{t("business.deleteBusinessClosings", { count: reach.closings })}</p>}
@@ -129,11 +137,11 @@ export function DeleteBusinessModal({ business, entries, busy, formatCurrency, o
         {guard.locked && <p className="small text-body-secondary mt-2 mb-0">{guard.reason}</p>}
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
+        <Button color="secondary" outline onClick={close} disabled={working}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={busy || guard.locked}>
-          {busy ? t("common.deleting") : reach.closings > 0 ? t("business.deleteAll") : t("common.delete")}
+        <Button color="danger" onClick={() => void run(onConfirm)} disabled={working || guard.locked} aria-busy={working || undefined}>
+          {working ? t("common.deleting") : reach.closings > 0 ? t("business.deleteAll") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>

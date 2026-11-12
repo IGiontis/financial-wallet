@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { createCoveredFunding, newDocId } from "../../firebase/firestore";
 import { investmentKeys } from "./useInvestments";
@@ -33,7 +34,8 @@ export function useCoveredFunding() {
   const idsOf = (vars: CoveredFundingVars) =>
     idsFor(fundingIds, vars, () => ({ contributionId: newDocId("investmentContributions"), debtId: newDocId("debts"), expenseId: newDocId("transactions") }));
 
-  return useMutation<unknown, Error, CoveredFundingVars, Context>({
+  return useOnceMutation<unknown, Error, CoveredFundingVars, Context>({
+    onceBy: sameCall,
     mutationFn: async (vars) => {
       const ids = idsOf(vars);
       await createCoveredFunding(userId, ids, vars);

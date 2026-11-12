@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import {
   getInvestmentGoals,
@@ -129,7 +130,8 @@ export function useCreateGoal() {
   const userId = currentUser?.uid ?? "";
   const idOf = (vars: CreateGoalVars) => idsFor(goalIds, vars, () => newDocId("investmentGoals"));
 
-  return useMutation<string, Error, CreateGoalVars, { goal: InvestmentGoal; goals: ListSnapshot<InvestmentGoal> }>({
+  return useOnceMutation<string, Error, CreateGoalVars, { goal: InvestmentGoal; goals: ListSnapshot<InvestmentGoal> }>({
+    onceBy: sameCall,
     mutationFn: (vars) => createInvestmentGoal(userId, vars.data, vars.isActive, idOf(vars)),
     onMutate: async (vars) => {
       const now = new Date();
@@ -151,7 +153,8 @@ export function useUpdateGoal() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: sameCall,
     mutationFn: ({ goalId, data }: { goalId: string; data: UpdateInvestmentGoalDTO }) => updateInvestmentGoal(goalId, data),
     onSuccess: () => {
       // Goals only: nothing here writes a contribution.
@@ -170,7 +173,8 @@ export function useDeleteGoal() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (goalId: string) => goalId,
     mutationFn: (goalId: string) => deleteInvestmentGoal(userId, goalId),
     onSuccess: (_deleted, goalId) => {
       confirmList(queryClient, investmentKeys.goals(userId), removeWhere<InvestmentGoal>((g) => g.id === goalId));
@@ -189,7 +193,8 @@ export function useCloseGoal() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (vars: { goalId: string }) => vars.goalId,
     mutationFn: ({ goalId, records }: { goalId: string; records: CreateTransactionDTO[] }) =>
       closeInvestmentGoal(
         userId,
@@ -249,9 +254,10 @@ export function useAddContribution() {
   const idsOf = (vars: AddContributionVars) =>
     idsFor(contributionIds, vars, () => ({ contributionId: newDocId("investmentContributions"), transactionId: newDocId("transactions") }));
 
-  return useMutation<{ contributionId: string; transactionId: string }, Error, AddContributionVars, AddContext>({
+  return useOnceMutation<{ contributionId: string; transactionId: string }, Error, AddContributionVars, AddContext>({
     // Contribution record + its mirrored TransactionsPage entry, written
     // atomically so a partial failure can't leave the totals out of sync.
+    onceBy: sameCall,
     mutationFn: (vars: AddContributionVars) => createContributionWithTransaction(userId, vars.data, mirrorOf(vars), idsOf(vars)),
 
     // Both rows on screen at once, under the ids they will keep. The goal
@@ -292,7 +298,8 @@ export function useDeleteContribution() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (contribution: InvestmentContribution) => contribution.id,
     mutationFn: (contribution: InvestmentContribution) => deleteContribution(userId, contribution),
     onSuccess: ({ transactionId }, contribution) => {
       confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.id === contribution.id));

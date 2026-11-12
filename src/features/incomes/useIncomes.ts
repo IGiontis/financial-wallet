@@ -164,8 +164,12 @@ export function useRecordArrival() {
   const { t } = useTranslation();
   const createTransaction = useCreateTransaction();
   return useCallback(
-    (income: Pick<Income, "id" | "name">, occurrence: Pick<IncomeOccurrence | IncomeStatus, "due">, input: ArrivalInput) =>
-      saveWithoutWaiting(createTransaction, arrivalTransaction(income, occurrence, input), () => toast.error(t("incomes.arrived.failed"))),
+    (income: Pick<Income, "id" | "name">, occurrence: Pick<IncomeOccurrence | IncomeStatus, "due">, input: ArrivalInput) => {
+      const saved = saveWithoutWaiting(createTransaction, arrivalTransaction(income, occurrence, input), () => toast.error(t("incomes.arrived.failed")));
+      // Said as it is applied, like every optimistic save; a lost write says so and is put back.
+      toast.success(t("toasts.arrivalRecorded", { name: income.name }));
+      return saved;
+    },
     [createTransaction, t],
   );
 }
@@ -179,8 +183,18 @@ export function useRecordArrival() {
 export function useUndoArrival(overrides: Record<string, OccurrenceOverride>, setOverride: (key: string, value: OccurrenceOverride | undefined) => void) {
   const { t } = useTranslation();
   const deleteTransaction = useDeleteTransaction();
-  return (arrival: ArrivalUndo) => {
-    arrival.transactionIds.forEach((id) => deleteTransaction.mutate({ id }, { onError: () => toast.error(t("incomes.card.undoFailed")) }));
+  // Waits for every delete (online only), then takes the word back: a failure
+  // leaves the time as it was — still «ήρθε» — and says so. Returns whether it
+  // went through, for the sheet that asked (it stays, locked, until then).
+  return async (arrival: ArrivalUndo): Promise<boolean> => {
+    try {
+      await Promise.all(arrival.transactionIds.map((id) => deleteTransaction.mutateAsync({ id })));
+    } catch {
+      toast.error(t("incomes.card.undoFailed"));
+      return false;
+    }
     if (arrival.key && overrides[arrival.key]?.state === "received") setOverride(arrival.key, undefined);
+    toast.success(t("toasts.arrivalUndone"));
+    return true;
   };
 }

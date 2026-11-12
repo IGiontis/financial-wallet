@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { BUSINESS_CATEGORY_ID, VIRTUAL_CATEGORIES, categoryLabel } from "../../shared/utils/categories";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { formatTable } from "../transactions/transactionDates";
@@ -123,26 +124,33 @@ export function BusinessEntryView({
  * «Διαγραφή;» for a closing — and, plainly, that its record in the owner's
  * own money goes with it: how much, which card.
  */
-export function BusinessDeleteModal({ entry, businessName, formatCurrency, busy, onConfirm, onClose }: { entry: BusinessEntry; businessName: string; formatCurrency: (n: number) => string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
+export function BusinessDeleteModal({ entry, businessName, formatCurrency, busy, onConfirm, onClose }: { entry: BusinessEntry; businessName: string; formatCurrency: (n: number) => string; busy: boolean; onConfirm: () => void | Promise<unknown>; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
+  // Runs once; nothing here closes or presses again until the delete answers.
+  const [run, running] = useRunOnce();
+  const working = running || busy;
+  const close = () => {
+    if (!working) onClose();
+  };
+
   const personal = usePersonalSide(entry);
   const day = formatTable(firestoreToDate(entry.date), i18n.resolvedLanguage ?? "en");
   const linked = !!entry.linkedTransactionId && !!personal.move;
   return (
-    <Modal isOpen toggle={onClose} centered size="sm" zIndex={1080}>
-      <ModalHeader toggle={onClose}>{t("common.deleteConfirmTitle")}</ModalHeader>
+    <Modal isOpen toggle={close} backdrop={working ? "static" : true} keyboard={!working} centered size="sm" zIndex={1080}>
+      <ModalHeader toggle={working ? undefined : close}>{t("common.deleteConfirmTitle")}</ModalHeader>
       <ModalBody style={{ fontSize: "var(--fs-lead)" }}>
         <p className={linked ? undefined : "mb-0"}>{t("business.deleteClosing", { day, name: businessName })}</p>
         {linked && <p className="mb-0">{t(personal.move!.type === "income" ? "business.deleteClosingIncome" : "business.deleteClosingExpense", { amount: formatCurrency(personal.move!.amount), place: personal.place })}</p>}
         <p className="small text-body-secondary mt-2 mb-0">{t("business.cannotUndo")}</p>
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" outline onClick={onClose}>
+        <Button color="secondary" outline onClick={close} disabled={working}>
           {t("common.cancel")}
         </Button>
-        <Button color="danger" onClick={onConfirm} disabled={busy || deleteGuard.locked} title={deleteGuard.reason}>
-          {busy ? t("common.deleting") : linked ? t("business.deleteBoth") : t("common.delete")}
+        <Button color="danger" onClick={() => void run(onConfirm)} disabled={working || deleteGuard.locked} title={deleteGuard.reason} aria-busy={working || undefined}>
+          {working ? t("common.deleting") : linked ? t("business.deleteBoth") : t("common.delete")}
         </Button>
       </ModalFooter>
     </Modal>

@@ -46,7 +46,7 @@ vi.mock("../transactions/components/PayeeInput", () => ({
   PayeeInput: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => <input aria-label="Payee" value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
 const repay = vi.hoisted(() => vi.fn());
-vi.mock("../debts/useDebts", () => ({ useRecordRepayment: () => ({ mutate: repay, isPending: false }) }));
+vi.mock("../debts/useDebts", () => ({ useRecordRepayment: () => ({ mutate: repay, mutateAsync: async (...args: unknown[]) => (repay(...(args as [never])), undefined), isPending: false }) }));
 
 const OUT = "Choose where the money came from: a card or cash.";
 const IN = "Choose where the money went: a card or cash.";
@@ -265,6 +265,6 @@ describe("a repayment", () => {
     await user.click(within(dialog).getByRole("button", { name: "Revolut" }));
     await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(repay).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, accountId: "rev" }), expect.anything());
+    expect(repay).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, accountId: "rev" }));
   });
 });

@@ -1,4 +1,5 @@
 import { PageTabs } from "../../shared/components/PageTabs";
+import { toast } from "react-toastify";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useMemo, useState } from "react";
 import { Button, Col, Row } from "reactstrap";
@@ -196,15 +197,23 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     setConfirming(null);
   };
 
-  const confirm = () => {
+  // Handed to `ConfirmSheet`, which waits for it, locked: an undo deletes
+  // records and so waits for the server; the sheet goes only once it went.
+  const confirm = async () => {
     if (!confirming) return;
     if (confirming.kind === "delete") {
       removeIncome(confirming.income.id);
       closeConfirm(false);
+      toast.success(t("toasts.incomeDeleted", { name: confirming.income.name }));
       return;
     }
-    undoArrival(confirming.arrival);
-    closeConfirm(false);
+    if (await undoArrival(confirming.arrival)) closeConfirm(false);
+  };
+
+  /** A word about one time («όχι ακόμα», «δεν θα έρθει»…), said back. */
+  const say = (key: string, value: Parameters<typeof setOverride>[1]) => {
+    setOverride(key, value);
+    toast.success(t("toasts.saved"));
   };
 
   const acceptSuggestion = () => {
@@ -222,7 +231,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     // «Όχι ακόμα» is the Planner's «περίμενε»: an answer, so it is not asked
     // again, and the occurrence goes back to being due or late on its own day.
     if (yes) openArrive(income, status, lastReadingAt);
-    else setOverride(status.key, { state: "waiting" });
+    else say(status.key, { state: "waiting" });
   };
 
   const arrivingIncome = arriving ? byId.get(arriving.incomeId) : undefined;
@@ -305,7 +314,10 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 deleteLocked={deleteGuard.locked}
                 deleteReason={deleteGuard.reason}
                 // Off is archived, as the list's own «Αρχειοθέτηση» does; on again restores it.
-                onToggle={(income, active) => saveIncome({ ...income, active: active ? undefined : false })}
+                onToggle={(income, active) => {
+                  saveIncome({ ...income, active: active ? undefined : false });
+                  toast.success(t(active ? "toasts.incomeResumed" : "toasts.incomePaused", { name: income.name }));
+                }}
               />
             )}
 
@@ -346,7 +358,10 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
                 onBankAnswer={handleBankAnswer}
                 onSetDay={(income) => openEdit(income, 2)}
                 onEdit={(income) => openEdit(income)}
-                onRestore={(income) => saveIncome({ ...income, active: undefined })}
+                onRestore={(income) => {
+            saveIncome({ ...income, active: undefined });
+            toast.success(t("toasts.incomeResumed", { name: income.name }));
+          }}
                 onDelete={(income) => askDelete(income)}
                 onThisTime={(income, status) => setThisTime({ incomeId: income.id, status })}
                 canUndoArrival={(income) => undoable(income).length > 0}
@@ -400,7 +415,10 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           onClose={() => setCardId(null)}
           onEdit={(income) => openEdit(income)}
           onArrive={(income, status) => openArrive(income, status)}
-          onRestore={(income) => saveIncome({ ...income, active: undefined })}
+          onRestore={(income) => {
+            saveIncome({ ...income, active: undefined });
+            toast.success(t("toasts.incomeResumed", { name: income.name }));
+          }}
           onDelete={(income) => askDelete(income, income.id)}
         />
       )}
@@ -448,6 +466,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
             saveIncome(income);
             // A new income's id is given at save: the row that appears is lit.
             celebrateSave({ collection: "incomes", id: income.id || undefined });
+            toast.success(t(form.isEdit ? "toasts.incomeUpdated" : "toasts.incomeCreated", { name: income.name }));
             setForm(null);
           }}
         />
@@ -461,7 +480,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           f={f}
           onClose={() => setThisTime(null)}
           onArrive={(income, status) => openArrive(income, status)}
-          onSay={setOverride}
+          onSay={say}
         />
       )}
 

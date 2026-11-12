@@ -11,8 +11,8 @@ import { coveredFundingVars } from "../budget/coveredFunding";
 
 const spies = vi.hoisted(() => ({ create: vi.fn(), covered: vi.fn(), edit: vi.fn() }));
 vi.mock("./useDebts", () => ({
-  useCreateDebt: () => ({ mutate: spies.create, isPending: false }),
-  useEditDebt: () => ({ mutate: spies.edit, isPending: false }),
+  useCreateDebt: () => ({ mutate: spies.create, mutateAsync: async (...args: unknown[]) => (spies.create(...(args as [never])), "new-debt"), isPending: false }),
+  useEditDebt: () => ({ mutate: spies.edit, mutateAsync: async (...args: unknown[]) => (spies.edit(...(args as [never])), undefined), isPending: false }),
 }));
 vi.mock("../budget/useInvestments", () => ({
   useInvestmentGoals: () => ({
@@ -114,7 +114,7 @@ describe("a new loan whose money went to a goal", () => {
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.covered).not.toHaveBeenCalled();
-    expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ person: "Keki", amount: 200, accountId: undefined }), expect.anything());
+    expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ person: "Keki", amount: 200, accountId: undefined }));
   });
 
   it("says what no money moving means from the side the loan is on", async () => {
@@ -148,7 +148,7 @@ describe("a new loan whose money went to a goal", () => {
     await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }), expect.anything());
+    expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }));
   });
 });
 

@@ -16,6 +16,9 @@ Report each result plainly, including what failed or was skipped.
    localhost:5174 if [::1] is refused). Screenshot the changed screen **beside Goals and
    Debts/Bills** at 320px and 1366px, light and dark, Greek (and a glance in English). Fix every
    difference in header, tabs, tiles, rows, buttons, spacing. Check the console for errors.
+4b. **Every action you touched**: it shows a toast when done; double-click it and click around
+   while it runs — it must run once, lock its controls, and never show an error for something
+   that went through.
 5. **Docs** updated in the same change (`PROJECT_MAP`, `COMPONENTS`, `DATABASE`, `DATA_FLOW`,
    `DECISIONS` — whichever the change touched).
 6. A stale "does not provide an export named …" in the dev server after many edits is Vite's

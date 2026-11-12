@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { startOfMonth } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
@@ -240,6 +241,7 @@ export function PlannerPage() {
   const saveOverride = (key: string, value: OccurrenceOverride | undefined) => {
     setOverrides((previous) => withOverride(previous, key, value, now));
     setOpenOccurrence(null);
+    toast.success(t("toasts.saved"));
   };
   const answer = (o: ResolvedOccurrence, arrived: boolean) => saveOverride(o.key, answerUnconfirmed(o, arrived, now));
 
@@ -337,6 +339,7 @@ export function PlannerPage() {
       };
       setOneOffs(draft.id ? oneOffs.map((o) => (o.id === draft.id ? entry : o)) : [...oneOffs, entry]);
       celebrateSave({ collection: "plannerLines", id: entry.id });
+      toast.success(t(draft.id ? "toasts.plannerLineUpdated" : "toasts.plannerLineAdded", { name: entry.label }));
     } else {
       const label = draft.label || t("planner.lineFallbackName");
       // Undefined rather than "" for an unset end, so a line with no season
@@ -358,6 +361,7 @@ export function PlannerPage() {
       // written back as they were.
       setLines(draft.id ? allLines.map((l) => (l.id === draft.id ? entry : l)) : [...allLines, entry]);
       celebrateSave({ collection: "plannerLines", id: entry.id });
+      toast.success(t(draft.id ? "toasts.plannerLineUpdated" : "toasts.plannerLineAdded", { name: entry.label }));
     }
     setEditor(null);
   };
@@ -368,6 +372,7 @@ export function PlannerPage() {
     if (editor.mode === "oneoff") setOneOffs(oneOffs.filter((o) => o.id !== id));
     else setLines(allLines.filter((l) => l.id !== id));
     setEditor(null);
+    toast.success(t("toasts.plannerLineDeleted", { name: editor.draft.label || t("planner.lineFallbackName") }));
   };
 
   // Failed, the page keeps its skeleton while it is tried again on its own

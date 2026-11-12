@@ -17,6 +17,7 @@ import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { useDebts } from "../../debts/useDebts";
 import { coveredRefunds, type RefundItem } from "../coveredRefund";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 
 /** What deleting a goal means for its money. */
 export interface GoalEnding {
@@ -48,8 +49,15 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  *
  * Nothing is chosen for you, the card included.
  */
-export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: (ending: GoalEnding) => void; onClose: () => void }) {
+export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal: InvestmentGoalWithStats; isDeleting: boolean; onConfirm: (ending: GoalEnding) => void | Promise<unknown>; onClose: () => void }) {
   const { t } = useTranslation();
+  // Runs once: from the press until the delete answers, nothing here can be
+  // pressed again or close the dialog (`.claude/rules/ui.md`).
+  const [run, running] = useRunOnce();
+  const working = running || isDeleting;
+  const close = () => {
+    if (!working) onClose();
+  };
   const deleteGuard = useOfflineGuard("delete");
   const { format } = useCurrencyConverter();
   const { data: categories = [] } = useCategories();
@@ -131,8 +139,8 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   };
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable size={held ? undefined : "sm"}>
-      <ModalHeader toggle={onClose}>{t("common.delete")}</ModalHeader>
+    <Modal isOpen toggle={close} centered scrollable size={held ? undefined : "sm"} backdrop={working ? "static" : true} keyboard={!working}>
+      <ModalHeader toggle={working ? undefined : close}>{t("common.delete")}</ModalHeader>
       <ModalBody>
         {moneyLoading && <SkeletonRows count={3} icon={false} />}
         {!moneyLoading && stage === "choose" && (
@@ -363,11 +371,11 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
       </ModalBody>
       <ModalFooter className="justify-content-between">
         {stage === "review" && held ? (
-          <Button color="secondary" outline onClick={() => setStage("choose")} disabled={isDeleting}>
+          <Button color="secondary" outline onClick={() => setStage("choose")} disabled={working}>
             ‹ {t("common.back")}
           </Button>
         ) : (
-          <Button color="secondary" outline onClick={onClose} disabled={isDeleting}>
+          <Button color="secondary" outline onClick={close} disabled={working}>
             {t("common.cancel")}
           </Button>
         )}
@@ -376,8 +384,13 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
             {t("common.next")} ›
           </Button>
         ) : (
-          <Button color="danger" disabled={isDeleting || deleteGuard.locked || !ready || moneyLoading} onClick={() => onConfirm({ ...(ending === "spent" ? { close: closing } : {}), ...(calledOff.length > 0 ? { refunded: calledOff } : {}) })}>
-            {isDeleting ? t("common.deleting") : t(ending === "spent" ? "goalDelete.confirmSpent" : "common.delete")}
+          <Button
+            color="danger"
+            aria-busy={working || undefined}
+            disabled={working || deleteGuard.locked || !ready || moneyLoading}
+            onClick={() => void run(() => onConfirm({ ...(ending === "spent" ? { close: closing } : {}), ...(calledOff.length > 0 ? { refunded: calledOff } : {}) }))}
+          >
+            {working ? t("common.deleting") : t(ending === "spent" ? "goalDelete.confirmSpent" : "common.delete")}
           </Button>
         )}
       </ModalFooter>

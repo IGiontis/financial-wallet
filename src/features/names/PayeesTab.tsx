@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -50,7 +51,6 @@ export function PayeesTab() {
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [deleting, setDeleting] = useState<PayeeRow | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const records = useMemo(() => transactions.data ?? [], [transactions.data]);
   // Records named after what they are linked to — a bill, an income, a friend's
@@ -71,8 +71,14 @@ export function PayeesTab() {
   const ready = isReady && transactions.isSuccess && bills.isSuccess && debts.isSuccess;
 
   const onAdd = async (name: string) => {
-    await add(name);
+    try {
+      await add(name);
+    } catch (error) {
+      toast.error(t("names.saveFailed"));
+      throw error;
+    }
     celebrateSave({ collection: "payees", id: nameKey(name) });
+    toast.success(t("toasts.payeeAdded", { name }));
     setDialog(null);
   };
 
@@ -84,21 +90,25 @@ export function PayeesTab() {
       throw error;
     }
     celebrateSave({ collection: "payees", id: nameKey(vars.to) });
+    toast.success(t(dialog?.mode === "merge" ? "toasts.payeesMerged" : "toasts.payeeRenamed", { name: vars.to }));
     setDialog(null);
   };
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setBusy(true);
-    try {
-      await remove(deleting.name);
+  // Runs once; the dialog is locked until it answers.
+  const [runDelete, busy] = useRunOnce();
+  const confirmDelete = () =>
+    runDelete(async () => {
+      if (!deleting) return;
+      const row = deleting;
+      try {
+        await remove(row.name);
+      } catch {
+        toast.error(t("names.saveFailed"));
+        return;
+      }
       setDeleting(null);
-    } catch {
-      toast.error(t("names.saveFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
+      toast.success(t("toasts.payeeDeleted", { name: row.name }));
+    });
 
   const entries = (row: PayeeRow): RowMenuEntry[] => [
     { label: t("names.rename"), icon: <FiEdit2 aria-hidden />, onSelect: () => setDialog({ mode: "rename", row }) },
@@ -186,8 +196,8 @@ export function PayeesTab() {
         />
       )}
 
-      <Modal isOpen={!!deleting} toggle={() => setDeleting(null)} centered>
-        <ModalHeader toggle={() => setDeleting(null)}>{t("names.payeeDeleteTitle")}</ModalHeader>
+      <Modal isOpen={!!deleting} toggle={() => (busy ? undefined : setDeleting(null))} backdrop={busy ? "static" : true} keyboard={!busy} centered>
+        <ModalHeader toggle={busy ? undefined : () => setDeleting(null)}>{t("names.payeeDeleteTitle")}</ModalHeader>
         <ModalBody style={{ fontSize: "var(--fs-lead)" }}>
           <p className="mb-1">{t("names.payeeDeleteConfirm", { name: deleting?.name ?? "" })}</p>
           {!!deleting?.count && (

@@ -33,6 +33,7 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -91,7 +92,10 @@ export default function AddDebtModal({
   const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 });
   const create = useCreateDebt();
   const edit = useEditDebt();
-  const saving = create.isPending || edit.isPending;
+  // Runs once: from the press until the server answers (debts wait for it),
+  // Save says «Αποθήκευση…» and nothing can save again or close the dialog.
+  const [runSave, savingNow] = useRunOnce();
+  const saving = create.isPending || edit.isPending || savingNow;
   const [savingCovered, setSavingCovered] = useState(false);
   const accounts = useAccountList();
 
@@ -217,7 +221,8 @@ export default function AddDebtModal({
     </FormGroup>
   );
 
-  const save = () => {
+  const save = () => void runSave(saveNow);
+  const saveNow = async () => {
     setTouched(true);
     if (!personOk || !amountOk || !when) return;
     if (moneyMissing) {
@@ -273,6 +278,7 @@ export default function AddDebtModal({
         setSavingCovered(false);
         // The new debt's id is the batch's own: the row that appears is lit.
         celebrateSave({ collection: "debts" });
+        toast.success(t("toasts.debtCreated", { name: who }));
         onClose();
       });
       return;
@@ -284,23 +290,26 @@ export default function AddDebtModal({
         toast.error(t("debts.coveredLocked"));
         return;
       }
-      edit.mutate(
-        { debtId: debt.id, data, covered: plan.edit },
-        {
-          onSuccess: () => {
-            celebrateSave({ collection: "debts", id: debt.id });
-            onClose();
-          },
-        },
-      );
+      // A failure is said by the hook (`debts.saveFailed`); the form stays as it was.
+      try {
+        await edit.mutateAsync({ debtId: debt.id, data, covered: plan.edit });
+      } catch {
+        return;
+      }
+      celebrateSave({ collection: "debts", id: debt.id });
+      toast.success(t("toasts.debtUpdated", { name: data.person }));
+      onClose();
       return;
     }
-    create.mutate(data, {
-      onSuccess: (id) => {
-        celebrateSave({ collection: "debts", id });
-        onClose();
-      },
-    });
+    let id: string;
+    try {
+      id = await create.mutateAsync(data);
+    } catch {
+      return;
+    }
+    celebrateSave({ collection: "debts", id });
+    toast.success(t("toasts.debtCreated", { name: data.person }));
+    onClose();
   };
 
   // ── The review ──────────────────────────────────────────────────────────
@@ -365,8 +374,8 @@ export default function AddDebtModal({
   })();
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
+    <Modal {...FORM_MODAL} isOpen toggle={saving || savingCovered ? () => undefined : onClose} keyboard={!(saving || savingCovered)} centered scrollable>
+      <ModalHeader toggle={saving || savingCovered ? undefined : onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
       <form
         noValidate
         onSubmit={(e) => {
@@ -682,13 +691,13 @@ export default function AddDebtModal({
         {/* Delete far left (editing), then Back / Cancel; Next / Save alone on the right. */}
         <ModalFooter className="justify-content-between">
           <div className="d-flex gap-2">
-            {debt && onDelete && <DeleteButton opensConfirm iconOnly label={t("debts.deleteLoan")} onClick={onDelete} disabled={deleteLocked} title={deleteReason} />}
+            {debt && onDelete && <DeleteButton opensConfirm iconOnly label={t("debts.deleteLoan")} onClick={onDelete} disabled={deleteLocked || saving} title={deleteReason} />}
             {step === "who" ? (
               <Button type="button" color="secondary" outline onClick={onClose} disabled={saving}>
                 {t("common.cancel")}
               </Button>
             ) : (
-              <Button type="button" color="secondary" outline onClick={() => setStep(DEBT_STEPS[index - 1])}>
+              <Button type="button" color="secondary" outline onClick={() => setStep(DEBT_STEPS[index - 1])} disabled={saving || savingCovered}>
                 ‹ {t("common.back")}
               </Button>
             )}

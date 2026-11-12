@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from "react";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -162,8 +164,16 @@ export default function GapRecordSheet({
     return [t(`accounts.gap.kind_${r.kind}`), what, r.description].filter(Boolean).join(" · ");
   };
 
-  const submit = async () => {
-    if (records.length === 0 || save.isPending) return;
+  // Runs once and waits for the server: the button says «Αποθήκευση…» and
+  // nothing saves again or closes the sheet until the answer.
+  const [run, running] = useRunOnce();
+  const working = running || save.isPending;
+  const close = () => {
+    if (!working) onClose();
+  };
+  const submit = () => void run(saveAll);
+  const saveAll = async () => {
+    if (records.length === 0) return;
     setFailed(false);
     try {
       const writes = gapWrites(records, {
@@ -179,9 +189,11 @@ export default function GapRecordSheet({
       await save.mutateAsync(writes);
       // The records land on this account: its card rings once the sheet has gone.
       celebrateSave({ collection: "accounts", id: accountId });
+      toast.success(t("toasts.gapRecordsSaved", { count: records.length }));
       onClose();
     } catch {
       setFailed(true);
+      toast.error(t("accounts.gap.failed"));
     }
   };
 
@@ -220,8 +232,8 @@ export default function GapRecordSheet({
     );
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
-      <ModalHeader toggle={onClose}>{t(change < 0 ? "accounts.gap.titleOut" : "accounts.gap.titleIn", { amount: formatCurrency(Math.abs(change)) })}</ModalHeader>
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered scrollable fullscreen="sm">
+      <ModalHeader toggle={working ? undefined : close}>{t(change < 0 ? "accounts.gap.titleOut" : "accounts.gap.titleIn", { amount: formatCurrency(Math.abs(change)) })}</ModalHeader>
       <ModalBody>
         <WizardSteps steps={STEPS} current={step} onGo={(s) => (s === "2" && records.length === 0 ? undefined : setStep(s))} label={(s) => t(`accounts.gap.stepShort${s}`)} />
         {step === "1" && (
@@ -373,7 +385,7 @@ export default function GapRecordSheet({
             {t("accounts.gap.skip")}
           </Button>
         ) : (
-          <Button color="secondary" outline onClick={() => setStep("1")}>
+          <Button color="secondary" outline onClick={() => setStep("1")} disabled={working}>
             ‹ {t("common.back")}
           </Button>
         )}
@@ -382,7 +394,7 @@ export default function GapRecordSheet({
             {t("common.next")} ›
           </Button>
         ) : (
-          <Button color="primary" onClick={submit} disabled={records.length === 0 || save.isPending}>
+          <Button color="primary" onClick={submit} disabled={records.length === 0 || working} aria-busy={working || undefined}>
             {t("accounts.gap.saveAll", { count: records.length })}
           </Button>
         )}

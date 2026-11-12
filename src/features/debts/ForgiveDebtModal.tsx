@@ -9,6 +9,8 @@ import { useUpdateDebt } from "./useDebts";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { toast } from "react-toastify";
 
 const NOTE_MAX = 200;
 
@@ -30,14 +32,27 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
   const when = parseISODay(date);
   const values = { amount: formatCurrency(debt.remaining), who: debt.person };
 
-  const save = () => {
-    if (!when) return;
-    update.mutate({ debtId: debt.id, data: { forgiven: forgiveness(debt, when, note) } }, { onSuccess: onClose });
+  // Runs once, waits for the server; a failure is said by `useUpdateDebt`.
+  const [run, running] = useRunOnce();
+  const working = running || update.isPending;
+  const close = () => {
+    if (!working) onClose();
   };
+  const save = () =>
+    run(async () => {
+      if (!when) return;
+      try {
+        await update.mutateAsync({ debtId: debt.id, data: { forgiven: forgiveness(debt, when, note) } });
+      } catch {
+        return;
+      }
+      toast.success(t("toasts.debtForgiven", { who: debt.person }));
+      onClose();
+    });
 
   return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
-      <ModalHeader toggle={onClose}>
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered>
+      <ModalHeader toggle={working ? undefined : close}>
         <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
           <FiGift aria-hidden /> {t("debts.forgiveTitle")}
         </span>
@@ -69,11 +84,11 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
         </ul>
       </ModalBody>
       <ModalFooter className="justify-content-between">
-        <Button color="secondary" outline onClick={onClose} disabled={update.isPending}>
+        <Button color="secondary" outline onClick={close} disabled={working}>
           {t("common.cancel")}
         </Button>
-        <Button color="primary" onClick={save} disabled={!when || update.isPending}>
-          <FiGift size={14} aria-hidden /> {t("debts.forgiveConfirm", values)}
+        <Button color="primary" onClick={() => void save()} disabled={!when || working} aria-busy={working || undefined}>
+          <FiGift size={14} aria-hidden /> {working ? t("common.saving") : t("debts.forgiveConfirm", values)}
         </Button>
       </ModalFooter>
     </Modal>

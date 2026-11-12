@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { newDocId, saveGapRecords } from "../../firebase/firestore";
 import { confirmList, withoutUndefined } from "../../lib/listCache";
@@ -31,7 +32,8 @@ export function useSaveGapRecords() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation<void, Error, GapWrites>({
+  return useOnceMutation<void, Error, GapWrites>({
+    onceBy: sameCall,
     mutationFn: (writes) => saveGapRecords(userId, writes),
     onSuccess: (_void, writes) => {
       const key = transactionKeys.all(userId);

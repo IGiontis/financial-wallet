@@ -89,6 +89,14 @@ this file disagree, ask him — one of them is a bug.
   page tabs straight under the header; reuse tiles/rows; saves and «Ήρθε»/«Πληρώθηκε» in the
   brand colour, never green; required fields marked (*); never a "didn't load / retry" message —
   retries are silent; empty state = invitation. See CLAUDE.md and `docs/COMPONENTS.md`.
+- **Forms and actions (2026-11-12, MUST):** the card/cash/account is chosen BEFORE the amount,
+  everywhere; a yes/no choice starts on «Ναι» (never pre-pick something that takes money from
+  a card); every new/edit/delete shows a toast; an action waits for its answer — buttons
+  locked while it runs (he could press «delete goal» twice and saw an error for an action that
+  had gone through), honest success/failure.
+- **Business: «Οι δουλειές μου» is its own sub-page** in the menu (like Πάγια's pages), the
+  other tabs on the main page; a business keeps at least one income line (it can be 0 €), the
+  first line can't be removed (2026-11-12).
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles

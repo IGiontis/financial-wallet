@@ -15,8 +15,8 @@ import { markedLabels } from "../../test/requiredMarks";
 
 const spies = vi.hoisted(() => ({ create: vi.fn(), edit: vi.fn() }));
 vi.mock("./useDebts", () => ({
-  useCreateDebt: () => ({ mutate: spies.create, isPending: false }),
-  useEditDebt: () => ({ mutate: spies.edit, isPending: false }),
+  useCreateDebt: () => ({ mutate: spies.create, mutateAsync: async (...args: unknown[]) => (spies.create(...(args as [never])), "new-debt"), isPending: false }),
+  useEditDebt: () => ({ mutate: spies.edit, mutateAsync: async (...args: unknown[]) => (spies.edit(...(args as [never])), undefined), isPending: false }),
 }));
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [] }) }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }) }));

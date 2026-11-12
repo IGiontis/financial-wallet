@@ -234,8 +234,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         // The shared «it saved» answer: the dialog pulses, the new row lights
         // up on the list (useSavedFlash("transactions", …)) — CLAUDE.md.
         celebrateSave({ collection: "transactions" });
+        // A toast either way (every new record says so); the page also keeps its panel.
+        toast.success(t("transactions.addedSuccess", { name: values.description }));
         if (asPage) setSaved(values);
-        else toast.success(t("transactions.addedSuccess", { name: values.description }));
         resetForm();
         resetTried();
         setStep("type");

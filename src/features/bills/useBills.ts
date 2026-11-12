@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, markBillPeriodsSettled, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
 import { billsNeedingAttention, computeBillStatus, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
@@ -92,7 +93,8 @@ export function useCreateBill() {
   const key = billKeys.all(userId);
   const idFor = (data: CreateBillDTO) => idsFor(createdBillIds, data, () => newDocId("bills"));
 
-  return useMutation<string, Error, CreateBillDTO, Rollback & { bill: Bill }>({
+  return useOnceMutation<string, Error, CreateBillDTO, Rollback & { bill: Bill }>({
+    onceBy: sameCall,
     mutationFn: (data: CreateBillDTO) => createBill(userId, data, idFor(data)),
 
     // Shown at once, like every other save behind `saveWithoutWaiting`: the
@@ -119,7 +121,8 @@ export function useUpdateBill() {
   const key = billKeys.all(userId);
   const edit = (billId: string, data: UpdateBillDTO) => editBills((bills) => bills.map((b) => (b.id === billId ? applyBillUpdate(b, data) : b)));
 
-  return useMutation<void, Error, { billId: string; data: UpdateBillDTO }, Rollback>({
+  return useOnceMutation<void, Error, { billId: string; data: UpdateBillDTO }, Rollback>({
+    onceBy: sameCall,
     mutationFn: ({ billId, data }) => updateBill(billId, data),
     onMutate: async ({ billId, data }) => ({ bills: await editList(queryClient, key, edit(billId, data)) }),
     onError: (_error, _vars, context) => restoreList(queryClient, context?.bills),
@@ -134,7 +137,8 @@ export function useDeleteBill() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useMutation({
+  return useOnceMutation({
+    onceBy: (billId) => billId,
     mutationFn: (billId: string) => deleteBill(userId, billId),
     // Deletes wait for a connection and the dialog waits for the answer, so
     // the bill goes from the list once the server has agreed. Its payments go
@@ -199,10 +203,11 @@ export function useMarkBillPaid() {
     return { payment, expense };
   };
 
-  return useMutation<{ paymentId: string; transactionId: string }, Error, MarkPaidVars, Rollback & { payment: BillPayment; expense: Transaction }>({
+  return useOnceMutation<{ paymentId: string; transactionId: string }, Error, MarkPaidVars, Rollback & { payment: BillPayment; expense: Transaction }>({
     // `paidAmount` carries the real figure for variable bills (electricity, water).
     // `periodKey` defaults to the period we're in, but can name a later one when
     // the user settles a bill ahead of time.
+    onceBy: (vars) => `${vars.bill.id}|${vars.periodKey ?? vars.bill.currentPeriodKey}|${vars.installmentIndex ?? ""}`,
     mutationFn: (vars: MarkPaidVars) => {
       const { bill, paidDate, paidAmount, periodKey, installmentIndex, accountId } = vars;
       return markBillPaid(
@@ -290,7 +295,8 @@ export function useSettleOverdue() {
   };
   const addAll = (payments: BillPayment[]) => editPayments((list) => payments.reduce((rows, payment) => upsertById(payment)(rows), list));
 
-  return useMutation<void, Error, SettleOverdueVars, Rollback & { payments: BillPayment[] }>({
+  return useOnceMutation<void, Error, SettleOverdueVars, Rollback & { payments: BillPayment[] }>({
+    onceBy: (vars) => vars.bill.id,
     mutationFn: (vars) => markBillPeriodsSettled(userId, rowsFor(vars).map(({ id, billId, periodKey, installmentIndex, amount, paidDate }) => ({ id, billId, periodKey, installmentIndex, amount, paidDate }))),
 
     onMutate: async (vars) => {
@@ -315,7 +321,8 @@ export function useUnmarkBillPaid() {
   const dropPayment = (paymentId: string) => editPayments(removeWhere<BillPayment>((p) => p.id === paymentId));
   const dropExpense = (transactionId: string) => removeWhere<Transaction>((t) => t.id === transactionId);
 
-  return useMutation<void, Error, { paymentId: string; transactionId?: string }, Rollback>({
+  return useOnceMutation<void, Error, { paymentId: string; transactionId?: string }, Rollback>({
+    onceBy: (vars) => vars.paymentId,
     mutationFn: ({ paymentId, transactionId }) => unmarkBillPaid(userId, { id: paymentId, transactionId }),
 
     onMutate: async ({ paymentId, transactionId }) => ({
@@ -357,7 +364,8 @@ export function useUpdateBillPayment() {
   // The expense calls the same day `date`; the payment calls it `paidDate`.
   const editExpense = (transactionId: string, { amount, paidDate }: UpdatePaymentVars) => setTransactionFields(transactionId, { amount, date: paidDate });
 
-  return useMutation<void, Error, UpdatePaymentVars, Rollback>({
+  return useOnceMutation<void, Error, UpdatePaymentVars, Rollback>({
+    onceBy: sameCall,
     mutationFn: ({ paymentId, transactionId, amount, paidDate }: UpdatePaymentVars) => updateBillPayment({ id: paymentId, transactionId }, { amount, paidDate }),
 
     onMutate: async (vars: UpdatePaymentVars) => ({

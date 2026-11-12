@@ -27,7 +27,8 @@ export default function TransferSheet({
   inn?: Transaction;
   formatCurrency: (n: number) => string;
   onEdit: () => void;
-  onDelete: () => void;
+  /** The pair's delete; return its promise and the question waits, locked, for the answer. */
+  onDelete: () => void | Promise<unknown>;
   onClose: () => void;
   /** Why the pair can't be corrected here (one half is missing), or nothing. */
   editBlocked?: string;

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
@@ -90,7 +91,6 @@ export default function CategoryManager() {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CategoryGroup | null>(null);
   const [merging, setMerging] = useState<{ drop: CategoryGroup; into?: CategoryGroup } | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
   const [query, setQuery] = useState("");
 
   const label = (g: CategoryGroup) => categoryLabel(g.name, t);
@@ -129,9 +129,24 @@ export default function CategoryManager() {
   const usage = useMemo(() => (deleteTarget && usageReady ? categoryUsage(deleteTarget.members.map((m) => m.id), sources) : null), [deleteTarget, usageReady, sources]);
   const inUse = usage !== null && totalUsage(usage) > 0;
 
-  const confirmDelete = () => {
-    if (!deleteTarget || usage === null || inUse) return;
-    deleteCategory.mutate(deleteTarget.members.map((m) => m.id), { onSuccess: () => setDeleteTarget(null) });
+  // Each runs once and waits for the server; its dialog is locked meanwhile
+  // and the toast says how it went (`.claude/rules/ui.md`).
+  const [runDelete, deleting] = useRunOnce();
+  const confirmDelete = () =>
+    runDelete(async () => {
+      if (!deleteTarget || usage === null || inUse) return;
+      const group = deleteTarget;
+      try {
+        await deleteCategory.mutateAsync(group.members.map((m) => m.id));
+      } catch {
+        toast.error(t("toasts.categoryDeleteFailed"));
+        return;
+      }
+      setDeleteTarget(null);
+      toast.success(t("toasts.categoryDeleted", { name: label(group) }));
+    });
+  const closeDelete = () => {
+    if (!deleting) setDeleteTarget(null);
   };
 
   const merge = async (plan: CategoryMergePlan) => {
@@ -142,8 +157,24 @@ export default function CategoryManager() {
       throw error;
     }
     celebrateSave({ collection: "categories", id: Object.values(plan.pairs)[0] });
+    toast.success(t("toasts.categoriesMerged"));
     setMerging(null);
   };
+
+  const [runCreate, creatingNow] = useRunOnce();
+  const create = (values: { name: string; icon: string; scope: CategoryScope }) =>
+    runCreate(async () => {
+      try {
+        await createCategory.mutateAsync(values);
+      } catch {
+        toast.error(t("toasts.categorySaveFailed"));
+        return;
+      }
+      // Its id is the server's: the row that appears is the one lit.
+      celebrateSave({ collection: "categories" });
+      toast.success(t("toasts.categoryCreated", { name: values.name }));
+      setCreating(false);
+    });
 
   /** The one that goes into the other: one of the user's own, the less used. */
   const mergePair = ([a, b]: [CategoryGroup, CategoryGroup]) => {
@@ -159,21 +190,23 @@ export default function CategoryManager() {
    * failure in between leaves a one-sided category with its new name rather
    * than two halves that no longer match and list as two categories.
    */
-  const saveEdit = async (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope }) => {
-    const fields = { name: values.name, icon: values.icon };
-    const missing = typesToAdd(group.scope, values.scope);
-    setSavingEdit(true);
-    try {
-      await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
-      for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
+  const [runEdit, savingEdit] = useRunOnce();
+  const saveEdit = (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope }) =>
+    runEdit(async () => {
+      const fields = { name: values.name, icon: values.icon };
+      const missing = typesToAdd(group.scope, values.scope);
+      try {
+        await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
+        for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
+      } catch {
+        // Left open, as it was, to try again.
+        toast.error(t("toasts.categorySaveFailed"));
+        return;
+      }
       celebrateSave({ collection: "categories", id: group.members[0]?.id });
+      toast.success(t("toasts.categoryUpdated", { name: values.name }));
       setEditing(null);
-    } catch {
-      // Left open, as it was, to try again.
-    } finally {
-      setSavingEdit(false);
-    }
-  };
+    });
 
   const entries = (group: CategoryGroup): RowMenuEntry[] => [
     { label: t("common.edit"), icon: <FiEdit2 aria-hidden />, onSelect: () => setEditing(group) },
@@ -250,21 +283,13 @@ export default function CategoryManager() {
         <CategoryModal
           existing={categories}
           scope="expense"
-          isSaving={createCategory.isPending}
+          isSaving={creatingNow}
           onClose={() => setCreating(false)}
           onUseExisting={(_category, name) => {
             setCreating(false);
             setQuery(name);
           }}
-          onSubmit={(values) =>
-            createCategory.mutate(values, {
-              onSuccess: () => {
-                // Its id is the server's: the row that appears is the one lit.
-                celebrateSave({ collection: "categories" });
-                setCreating(false);
-              },
-            })
-          }
+          onSubmit={(values) => void create(values)}
         />
       )}
 
@@ -293,8 +318,8 @@ export default function CategoryManager() {
         />
       )}
 
-      <Modal isOpen={!!deleteTarget} toggle={() => setDeleteTarget(null)} centered>
-        <ModalHeader toggle={() => setDeleteTarget(null)}>{t("categories.deleteTitle")}</ModalHeader>
+      <Modal isOpen={!!deleteTarget} toggle={closeDelete} backdrop={deleting ? "static" : true} keyboard={!deleting} centered>
+        <ModalHeader toggle={deleting ? undefined : closeDelete}>{t("categories.deleteTitle")}</ModalHeader>
         <ModalBody>
           {usage === null ? (
             <Skeleton height={14} count={2} />
@@ -319,12 +344,12 @@ export default function CategoryManager() {
           )}
         </ModalBody>
         <ModalFooter>
-          <Button color="secondary" outline onClick={() => setDeleteTarget(null)} disabled={deleteCategory.isPending}>
+          <Button color="secondary" outline onClick={closeDelete} disabled={deleting}>
             {inUse ? t("common.close") : t("common.cancel")}
           </Button>
           {!inUse && usage !== null && (
-            <Button color="danger" onClick={confirmDelete} disabled={deleteCategory.isPending || deleteGuard.locked} title={deleteGuard.reason}>
-              {deleteCategory.isPending ? t("common.deleting") : t("common.delete")}
+            <Button color="danger" onClick={() => void confirmDelete()} disabled={deleting || deleteGuard.locked} title={deleteGuard.reason} aria-busy={deleting || undefined}>
+              {deleting ? t("common.deleting") : t("common.delete")}
             </Button>
           )}
         </ModalFooter>

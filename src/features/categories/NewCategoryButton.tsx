@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
+import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { sameName } from "../../shared/utils/nameMatch";
@@ -27,6 +29,8 @@ export default function NewCategoryButton({ categories, type, onCreated, size }:
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const createCategory = useCreateCategoryScope();
+  // Runs once and waits for the server: no second category from a second press.
+  const [run, creating] = useRunOnce();
 
   return (
     <>
@@ -47,7 +51,7 @@ export default function NewCategoryButton({ categories, type, onCreated, size }:
         <CategoryModal
           existing={categories}
           scope={type}
-          isSaving={createCategory.isPending}
+          isSaving={creating}
           onClose={() => setOpen(false)}
           // The one already there, on the side this form records.
           onUseExisting={(existing) => {
@@ -56,14 +60,20 @@ export default function NewCategoryButton({ categories, type, onCreated, size }:
             if (pick) onCreated(pick.id);
           }}
           onSubmit={(values) =>
-            createCategory.mutate(values, {
-              onSuccess: (created) => {
-                setOpen(false);
-                // A "both" choice writes two documents; select the half this
-                // form is actually recording, not whichever came back first.
-                const id = created[type];
-                if (id) onCreated(id);
-              },
+            void run(async () => {
+              let created: Awaited<ReturnType<typeof createCategory.mutateAsync>>;
+              try {
+                created = await createCategory.mutateAsync(values);
+              } catch {
+                toast.error(t("toasts.categorySaveFailed"));
+                return;
+              }
+              setOpen(false);
+              toast.success(t("toasts.categoryCreated", { name: values.name }));
+              // A "both" choice writes two documents; select the half this
+              // form is actually recording, not whichever came back first.
+              const id = created[type];
+              if (id) onCreated(id);
             })
           }
         />

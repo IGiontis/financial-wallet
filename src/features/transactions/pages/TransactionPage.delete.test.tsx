@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,6 +18,9 @@ import type { Transaction } from "../../../shared/types/IndexTypes";
 
 const mocks = vi.hoisted(() => ({ transactions: [] as Transaction[], deleteMutate: vi.fn(), deleteTransfer: vi.fn() }));
 
+// What the screen says after a delete — success only when it went, once.
+const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
+vi.mock("react-toastify", async (original) => ({ ...(await original<typeof import("react-toastify")>()), toast: toasts }));
 vi.mock("../../../shared/hooks/useAuth", () => ({ useAuth: () => ({ currentUser: { uid: "u1" } }) }));
 // Never reached: the debts are put in the cache below, as the Overview leaves them.
 vi.mock("../../../firebase/firestore", () => ({ getDebts: vi.fn(async () => { throw new Error("no read expected"); }), getDebtPayments: vi.fn(async () => []) }));
@@ -27,9 +30,10 @@ vi.mock("../hooks/useTransactions", () => ({
   useCategories: () => ({ data: [{ id: "food", name: "Groceries", icon: "🛒", type: "expense", isDefault: true, userId: null }], isLoading: false, isError: false }),
   useCreateTransaction: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateTransaction: () => ({ mutate: vi.fn(), isPending: false }),
-  useDeleteTransaction: () => ({ mutate: mocks.deleteMutate, isPending: false }),
+  // The screen waits for the delete's answer (`mutateAsync`); the spy hears what is sent.
+  useDeleteTransaction: () => ({ mutate: mocks.deleteMutate, mutateAsync: async (row: unknown) => mocks.deleteMutate(row), isPending: false }),
 }));
-vi.mock("../hooks/useTransfers", () => ({ useDeleteTransfer: () => ({ mutate: mocks.deleteTransfer }), useSaveTransfer: () => ({ mutate: vi.fn() }) }));
+vi.mock("../hooks/useTransfers", () => ({ useDeleteTransfer: () => ({ mutate: mocks.deleteTransfer, mutateAsync: async (id: string) => mocks.deleteTransfer(id) }), useSaveTransfer: () => ({ mutate: vi.fn() }) }));
 vi.mock("../components/TransferWizard", () => ({ default: () => null }));
 vi.mock("../components/TransferSheet", () => ({ default: () => null }));
 vi.mock("../hooks/usePayees", () => ({ usePayees: () => ({ payees: [], isReady: true, add: vi.fn(), rename: vi.fn(), remove: vi.fn() }) }));
@@ -68,8 +72,10 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  mocks.deleteMutate.mockClear();
-  mocks.deleteTransfer.mockClear();
+  mocks.deleteMutate.mockReset();
+  mocks.deleteTransfer.mockReset();
+  toasts.success.mockClear();
+  toasts.error.mockClear();
   mocks.transactions = [bread, power, holiday, etf];
 });
 
@@ -117,7 +123,48 @@ describe("deleting from the Transactions screen", () => {
     await user.click(deleteButtonFor("Power"));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: i18n.t("common.delete") }));
 
-    expect(mocks.deleteMutate).toHaveBeenCalledWith(expect.objectContaining({ id: "t-power", billId: "b1" }), expect.anything());
+    expect(mocks.deleteMutate).toHaveBeenCalledWith(expect.objectContaining({ id: "t-power", billId: "b1" }));
+  });
+
+  // The owner's report (2026-11-12, on Goals): a second press while the delete
+  // ran, and an error for a record that was gone. «An action waits for its answer».
+  it("pressed twice while it runs: one delete, the dialog locked meanwhile, one success and no error", async () => {
+    let answer!: () => void;
+    mocks.deleteMutate.mockImplementation(() => new Promise<void>((resolve) => (answer = resolve)));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(deleteButtonFor("Bread"));
+    const dialog = screen.getByRole("dialog");
+    const confirm = within(dialog).getByRole("button", { name: i18n.t("common.delete") });
+    act(() => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+    expect(mocks.deleteMutate).toHaveBeenCalledOnce();
+    expect(within(dialog).getByRole("button", { name: i18n.t("common.deleting") })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: i18n.t("common.cancel") })).toBeDisabled();
+
+    await act(async () => answer());
+    expect(mocks.deleteMutate).toHaveBeenCalledOnce();
+    expect(toasts.success).toHaveBeenCalledOnce();
+    expect(toasts.success).toHaveBeenCalledWith(i18n.t("transactions.deleteSuccess"));
+    expect(toasts.error).not.toHaveBeenCalled();
+  });
+
+  it("refused: says it did not delete, and leaves the record and its dialog as they were", async () => {
+    mocks.deleteMutate.mockRejectedValue(Object.assign(new Error("PERMISSION_DENIED"), { code: "permission-denied" }));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(deleteButtonFor("Bread"));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: i18n.t("common.delete") }));
+
+    await vi.waitFor(() => expect(toasts.error).toHaveBeenCalledWith(i18n.t("transactions.deleteFailed")));
+    expect(toasts.success).not.toHaveBeenCalled();
+    // Still there, and still asking — free to try again.
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: i18n.t("common.delete") })).toBeEnabled();
+    expect(deleteButtonFor("Bread")).toBeInTheDocument();
   });
 });
 
@@ -157,7 +204,7 @@ describe("half of a linked set, on the Transactions screen", () => {
     // The button's own "are you sure", then both halves by their transfer id.
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: i18n.t("common.delete") }));
 
-    expect(mocks.deleteTransfer).toHaveBeenCalledWith("tr1", expect.anything());
+    expect(mocks.deleteTransfer).toHaveBeenCalledWith("tr1");
     expect(mocks.deleteMutate).not.toHaveBeenCalled();
   });
 
@@ -169,7 +216,7 @@ describe("half of a linked set, on the Transactions screen", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: i18n.t("common.delete") }));
 
     expect(mocks.deleteTransfer).not.toHaveBeenCalled();
-    expect(mocks.deleteMutate).toHaveBeenCalledWith(expect.objectContaining({ id: "xfer_tr9_out" }), expect.anything());
+    expect(mocks.deleteMutate).toHaveBeenCalledWith(expect.objectContaining({ id: "xfer_tr9_out" }));
   });
 
   it("won't correct a broken transfer as a pair, and says why", () => {
