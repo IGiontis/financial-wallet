@@ -1,13 +1,15 @@
-/* The chrome around a goal screen: heading, three underline tabs, and in each
-   tab its own block — the overview's figures, or a search row over the cards
-   or the list. See GoalsWorkbench.tsx, GoalTabs.tsx, GoalsOverview.tsx. */
+/* The chrome around a goal screen: heading, the three tabs (`PageTabs`), and
+   in each tab its own block — the overview's figures, or a search row over the
+   cards or the list. See GoalsWorkbench.tsx, GoalsOverview.tsx. */
 
-/* The «+» first, on the left, never wrapping; the title takes the rest. */
+/* The «+» first, on the left, never wrapping; the title takes the rest. The
+   same room under it as `AddHeader` leaves (`mb-3`), so the tabs sit the same
+   distance under the header on every page. */
 .header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .headText {
@@ -20,43 +22,6 @@
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
-}
-
-/* ── The tabs: Bootstrap's underline nav, in the app's roles ──────────────── */
-/* The chosen tab in the brand's lettering colour with a 2px rule under it, the
-   others in the secondary text colour; one hairline under the whole strip so
-   the rule has something to sit on. Three short words fit a 320px phone; the
-   strip scrolls sideways rather than wrapping should a language need more. */
-
-.tabs {
-  --bs-nav-link-color: var(--text-2);
-  --bs-nav-link-hover-color: var(--text);
-  --bs-nav-underline-link-active-color: var(--brand-text);
-  --bs-nav-underline-border-width: 2px;
-  --bs-nav-underline-gap: var(--space-4);
-  --bs-nav-link-padding-x: 0;
-  --bs-nav-link-padding-y: var(--pad-tab-y);
-  margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-soft);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.tab {
-  /* Down onto the strip's hairline, so the chosen rule covers it. */
-  margin-bottom: -1px;
-  white-space: nowrap;
-  font-size: var(--fs-lead);
-}
-
-.tab:focus-visible {
-  outline: var(--focus-width) solid var(--focus);
-  outline-offset: var(--focus-offset);
-  border-radius: var(--radius-xs);
 }
 
 .panel:focus-visible {

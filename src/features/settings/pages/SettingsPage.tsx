@@ -26,10 +26,11 @@ import { PageShell } from "../../../shared/components/PageShell";
 import { ThemeSwitch } from "../../../shared/components/ThemeSwitch";
 import { NavStylePicker } from "../components/NavStylePicker";
 import { useSignOut } from "../../layout/useProfile";
-import { SettingsTabs } from "../components/SettingsTabs";
+import { PageTabs } from "../../../shared/components/PageTabs";
+import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { MotionEffectsSetting } from "../components/MotionEffectsSetting";
 import { BusinessSetting } from "../components/BusinessSetting";
-import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
+import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_TABS, SETTINGS_TABS_BASE, settingsTabPath } from "../settingsTabs";
 import { FiLogOut } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDemo } from "../../../demo/demoMode";
@@ -303,10 +304,20 @@ export function SettingsPage() {
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("settings.title")}</h1>
         <p className="small text-body-secondary mb-0">{t("settings.subtitle")}</p>
       </div>
-      <SettingsTabs current={tab} />
+      {/* Each tab its own address (/settings/<id>): «back» steps back through them, a link opens any one. */}
+      <PageTabs
+        base={SETTINGS_TABS_BASE}
+        label={t("settings.title")}
+        tabs={SETTINGS_TABS.map(({ id, labelKey }) => ({ id, label: t(labelKey) }))}
+        value={tab}
+        onChange={(next) => {
+          if (next !== tab) navigate(settingsTabPath(next));
+        }}
+      />
     </>
   );
-  const panelProps = { id: SETTINGS_PANEL_ID, role: "tabpanel", "aria-labelledby": settingsTabId(tab) } as const;
+  const tabIds = pageTabIds(SETTINGS_TABS_BASE, tab);
+  const panelProps = { id: tabIds.panel, role: "tabpanel", "aria-labelledby": tabIds.tab } as const;
 
   if (loadingUser) {
     return (

@@ -2,7 +2,6 @@ import { startOfMonth } from "date-fns";
 import { monthlyFlows } from "../../analytics/analyticsUtils";
 import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiBarChart2, FiCalendar, FiCheckSquare, FiGrid, FiTrendingUp } from "react-icons/fi";
 import { Row, Col, Card, CardBody, Progress } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
@@ -39,7 +38,9 @@ import { incomeInMonth, salaryIncome } from "../../incomes/incomesUtils";
 import { useOpeningBalance } from "../../../shared/hooks/useOpeningBalance";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
 import { expectedByAccount, daysSince, goalHeldTotal, projectedTotal, unloggedBetween } from "../../accounts/accountsUtils";
-import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
+import { usePageTab } from "../../../shared/hooks/usePageTab";
+import { PageTabs } from "../../../shared/components/PageTabs";
+import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { currentBalance } from "../../../shared/utils/balance";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
 import { monthTimeline } from "../../bills/monthTimeline";
@@ -77,20 +78,26 @@ const PERIODS: { value: TimePeriod; labelKey: string }[] = [
  *
  * Tabs rather than one long page because each answers a different first
  * question, and a newcomer faced with all four at once is exactly the "too much
- * at once" this page was redesigned to stop. The last one chosen is remembered
- * per device, so whoever prefers "Position" lands on it.
+ * at once" this page was redesigned to stop. The open one is in the address
+ * (`?tab=`), and the last one chosen is remembered per device, so whoever
+ * prefers "Position" lands on it.
  */
 type OverviewTab = "all" | "today" | "month" | "flow" | "position";
-const TABS: { id: OverviewTab; labelKey: string; icon: typeof FiGrid }[] = [
-  { id: "all", labelKey: "overview.tabAll", icon: FiGrid },
-  { id: "today", labelKey: "overview.tabToday", icon: FiCheckSquare },
-  { id: "month", labelKey: "overview.tabMonth", icon: FiCalendar },
+const TABS: { id: OverviewTab; labelKey: string }[] = [
+  { id: "all", labelKey: "overview.tabAll" },
+  { id: "today", labelKey: "overview.tabToday" },
+  { id: "month", labelKey: "overview.tabMonth" },
   // The period dashboard the page used to be: any range, its figures and the cash-flow chart.
-  { id: "flow", labelKey: "overview.tabFlow", icon: FiBarChart2 },
-  { id: "position", labelKey: "overview.tabPosition", icon: FiTrendingUp },
+  { id: "flow", labelKey: "overview.tabFlow" },
+  { id: "position", labelKey: "overview.tabPosition" },
 ];
-// A first visit opens on everything at a glance; after that, on the last tab chosen.
-const asTab = (value: unknown): OverviewTab => (TABS.some((tab) => tab.id === value) ? (value as OverviewTab) : "all");
+const TAB_IDS = TABS.map((tab) => tab.id);
+const TABS_BASE = "overview";
+/** A tab's panel, labelled by its tab (`PageTabs`). */
+const panelProps = (tab: OverviewTab) => {
+  const ids = pageTabIds(TABS_BASE, tab);
+  return { role: "tabpanel", id: ids.panel, "aria-labelledby": ids.tab } as const;
+};
 
 export const OverviewPage = () => {
   const { t, i18n } = useTranslation();
@@ -98,8 +105,9 @@ export const OverviewPage = () => {
   const locale = i18n.resolvedLanguage ?? "en";
   // One clock reading for the visit, so nothing memoised on it recomputes each render.
   const [now] = useState(() => new Date());
-  const [storedTab, setTab] = useLocalStorage<OverviewTab>("overview-tab", "all");
-  const tab = asTab(storedTab);
+  // In the address (`?tab=`) like every page's tabs; a first visit opens on
+  // everything at a glance, after that on the last tab chosen on this device.
+  const [tab, setTab] = usePageTab<OverviewTab>(TAB_IDS, "all", "overview-tab");
 
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("current_month");
   const [isPending, startTransition] = useTransition();
@@ -420,28 +428,21 @@ export const OverviewPage = () => {
 
       {/* First, under the page's name: which view is the first thing chosen.
           Labelled and full width, so on a phone each is a real target. */}
-      <div className={`${segmented.group} ${segmented.even} ${styles.tabBar} mb-3`} role="tablist" aria-label={t("overview.title")} data-tour="overview-tabs">
-        {TABS.map(({ id, labelKey, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            className={`${segmented.item} ${tab === id ? segmented.active : ""} ${styles.tabButton}`}
-            onClick={() => setTab(id)}
-          >
-            <Icon size={15} aria-hidden />
-            <span>{t(labelKey)}</span>
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        base={TABS_BASE}
+        label={t("overview.title")}
+        tabs={TABS.map(({ id, labelKey }) => ({ id, label: t(labelKey) }))}
+        value={tab}
+        onChange={setTab}
+        data-tour="overview-tabs"
+      />
 
       {/* Each tab its own: nothing is shown on two of them. "All" is the
           answer and the way out to every page; "Today" what needs doing and
           what moved today; "The month" its in and out, where it went and its
           bills in order; "Position" what you are worth and your goals. */}
       {tab === "all" && (
-        <div className={styles.allStack} role="tabpanel">
+        <div className={styles.allStack} {...panelProps("all")}>
           <div>
             <OverviewHero
               bankStrip={<BankStrip inCard hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />}
@@ -463,14 +464,14 @@ export const OverviewPage = () => {
       )}
 
       {tab === "today" && (
-        <div className={styles.stack} role="tabpanel">
+        <div className={styles.stack} {...panelProps("today")}>
           {attentionList}
           <TodayPanel transactions={transactions} categories={categories} now={now} formatCurrency={formatCurrency} />
         </div>
       )}
 
       {tab === "month" && (
-        <div className={styles.stack} role="tabpanel">
+        <div className={styles.stack} {...panelProps("month")}>
           <MonthInOut
             income={thisMonth.totalIncome}
             expenses={thisMonth.totalExpenses}
@@ -491,14 +492,14 @@ export const OverviewPage = () => {
       )}
 
       {tab === "position" && (
-        <div className={styles.stack} role="tabpanel">
+        <div className={styles.stack} {...panelProps("position")}>
           <PositionPanel series={position} formatCurrency={formatCurrency} locale={locale} />
           {goalsGlance}
         </div>
       )}
 
       {tab === "flow" && (
-      <div role="tabpanel">
+      <div {...panelProps("flow")}>
       <div className="d-flex justify-content-end mb-3">
         <div className={`${segmented.group} ${styles.periodPicker}`}>
           {PERIODS.map((p) => (

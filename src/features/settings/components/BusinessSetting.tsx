@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
-import { useWorkspace, useWorkspaceSetting } from "../../../shared/hooks/useWorkspaceSetting";
-import { BUSINESS_CATEGORIES_KEY, defaultBusinessCategories } from "../../business/businessKeys";
+import { useWorkspaceSetting } from "../../../shared/hooks/useWorkspaceSetting";
 import { FEATURE_KEYS, useHasAccess } from "../../../shared/hooks/useHasAccess";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { FORM_MODAL } from "../../../shared/components/formModal";
@@ -15,18 +14,13 @@ import styles from "../../../shared/css/ChoiceSwitch.module.css";
  * The same two-button switch as «Κινούμενα εφέ», but a change reaches the user
  * document, so it is said and confirmed first (before → after, and what it
  * does). Off by default; switched off, the page and its menu entry go and the
- * records stay, ready for when it is switched on again. The first time on, the
- * account gets its four starting expense categories, said in the same question.
+ * records stay, ready for when it is switched on again. Switching it on makes
+ * nothing: the businesses and their lines are the user's to make, on the page.
  */
 export function BusinessSetting() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const on = useHasAccess("business");
   const [, setOn] = useWorkspaceSetting<boolean>(FEATURE_KEYS.business, false);
-  const [, setCategories] = useWorkspaceSetting<{ id: string; name: string }[]>(BUSINESS_CATEGORIES_KEY, []);
-  const { data: workspace } = useWorkspace();
-  // The first time it is switched on, the account gets the four starting expense categories.
-  const starting = defaultBusinessCategories(i18n.resolvedLanguage);
-  const seeds = !!workspace && !(BUSINESS_CATEGORIES_KEY in workspace);
   const guard = useOfflineGuard("settings");
   const [asking, setAsking] = useState<boolean | null>(null);
   const onOff = (value: boolean) => t(value ? "common.yes" : "common.no");
@@ -37,7 +31,6 @@ export function BusinessSetting() {
   ];
   const confirm = () => {
     if (asking === null) return;
-    if (asking && seeds) setCategories(starting);
     setOn(asking);
     toast.success(t(asking ? "settings.businessTurnedOn" : "settings.businessTurnedOff"));
     setAsking(null);
@@ -71,7 +64,6 @@ export function BusinessSetting() {
             </span>
           </p>
           <p className="small text-body-secondary mb-0">{t(asking ? "settings.businessOnSays" : "settings.businessOffSays")}</p>
-          {asking && seeds && <p className="small text-body-secondary mt-2 mb-0">{t("settings.businessStartingCategories", { names: starting.map((c) => c.name).join(", ") })}</p>}
         </ModalBody>
         <ModalFooter>
           <Button color="secondary" outline onClick={() => setAsking(null)}>

@@ -1,26 +1,32 @@
 import { firestoreToDate } from "../../shared/utils/dates";
-import type { BusinessEntry, BusinessExpense } from "../../shared/types/IndexTypes";
+import { nameKey } from "../../shared/utils/nameMatch";
+import { BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
+import type { BusinessEntry, BusinessEntryInput, BusinessExpense, BusinessIncome, CreateTransactionDTO } from "../../shared/types/IndexTypes";
 
 // ─── «Δουλειά»: a day's closing, and a month of them ─────────────────────────
 //
-// The owner's own words: «Κάνω 800 ευρώ τζίρο. 40 βενζίνη, 350 εμπορεύματα,
-// 50 υπάλληλος, 100 ΦΠΑ + άδεια. Τζίρος τόσο, έξοδα τόσο, κέρδος τόσο.»
+// A user has 0..n businesses, each with its own income lines («Ταμείο»,
+// «Συνταγές ΕΟΠΥΥ») and expense lines («Εμπορεύματα», «Ενοίκιο»). A day's
+// closing of one business is what each line took in or paid out:
 //
-//   Τζίρος   turnover = what the day took in
-//   Έξοδα    expenses = Σ of the day's expense lines
+//   Τζίρος   turnover = Σ the day's incomes
+//   Έξοδα    expenses = Σ the day's expenses (lines and one-off «άλλο έξοδο»)
 //   Κέρδος   profit   = turnover − expenses   (negative: a loss)
 //
-// A month is the sum of its closings, figure by figure. The day's profit goes
-// into the owner's own money (`personalMove`): an income of the profit, or —
-// a loss — an expense of it, covered from their own money; nothing at 0.
+// A month is the sum of its closings, figure by figure — of one business, or
+// of all of them («Όλες»). The day's profit goes into the owner's own money
+// (`personalMove`): an income of the profit, or — a loss — an expense of it;
+// nothing at 0.
 //
 // Counted in whole cents, so 0,10 + 0,20 is 0,30 and not 0,30000000000000004;
 // a month runs from its 1st at 00:00 to the next 1st, local time.
 
-type Closing = Pick<BusinessEntry, "date" | "turnover" | "expenses">;
+type Closing = Pick<BusinessEntry, "date" | "incomes" | "expenses">;
 
 const cents = (amount: unknown) => (typeof amount === "number" && Number.isFinite(amount) ? Math.round(amount * 100) : 0);
-const linesOf = (entry: Pick<BusinessEntry, "expenses">): BusinessExpense[] => (Array.isArray(entry.expenses) ? entry.expenses : []);
+const incomesOf = (entry: Partial<Pick<BusinessEntry, "incomes">>): BusinessIncome[] => (Array.isArray(entry.incomes) ? entry.incomes : []);
+const expensesOf = (entry: Partial<Pick<BusinessEntry, "expenses">>): BusinessExpense[] => (Array.isArray(entry.expenses) ? entry.expenses : []);
+const sumCents = (rows: readonly { amount: number }[]) => rows.reduce((sum, row) => sum + cents(row.amount), 0);
 
 export interface ClosingFigures {
   turnover: number;
@@ -29,9 +35,9 @@ export interface ClosingFigures {
 }
 
 /** One closing's three figures. */
-export function closingFigures(entry: Pick<BusinessEntry, "turnover" | "expenses">): ClosingFigures {
-  const turnover = cents(entry.turnover);
-  const expenses = linesOf(entry).reduce((sum, line) => sum + cents(line.amount), 0);
+export function closingFigures(entry: Partial<Pick<BusinessEntry, "incomes" | "expenses">>): ClosingFigures {
+  const turnover = sumCents(incomesOf(entry));
+  const expenses = sumCents(expensesOf(entry));
   return { turnover: turnover / 100, expenses: expenses / 100, profit: (turnover - expenses) / 100 };
 }
 
@@ -51,6 +57,9 @@ export function inMonth(entry: Pick<BusinessEntry, "date">, month: Date): boolea
   return at >= from.getTime() && at < to.getTime();
 }
 
+/** The closings of one business; all of them when `businessId` is absent («Όλες»). */
+export const forBusiness = <T extends Pick<BusinessEntry, "businessId">>(entries: readonly T[], businessId: string | undefined): T[] => (businessId ? entries.filter((e) => e.businessId === businessId) : [...entries]);
+
 /** The month's closings, newest first (then the latest written first). */
 export function monthEntries<T extends Pick<BusinessEntry, "date"> & Partial<Pick<BusinessEntry, "createdAt">>>(entries: readonly T[], month: Date): T[] {
   return entries
@@ -65,40 +74,44 @@ export function monthSummary(entries: readonly Closing[], month: Date): Business
   let days = 0;
   for (const entry of entries) {
     if (!inMonth(entry, month)) continue;
-    turnover += cents(entry.turnover);
-    expenses += linesOf(entry).reduce((sum, line) => sum + cents(line.amount), 0);
+    turnover += sumCents(incomesOf(entry));
+    expenses += sumCents(expensesOf(entry));
     days += 1;
   }
   return { turnover: turnover / 100, expenses: expenses / 100, profit: (turnover - expenses) / 100, days };
 }
 
-export interface CategoryTotal {
-  /** The category's id; "" for lines whose category is not among the known ones (deleted since). */
-  categoryId: string;
+export interface ExpenseLineTotal {
+  /** `line:<lineId>` for an expense line, `once:<businessId>:<name>` for one-off expenses of one name. */
+  key: string;
+  businessId: string;
+  /** Set for an expense line of the business. */
+  lineId?: string;
+  /** Set for a one-off «άλλο έξοδο»: the name it was written with. */
+  name?: string;
   total: number;
-  /** How many lines. */
+  /** How many expenses. */
   count: number;
 }
 
 /**
- * The month's expense lines by category, biggest first. A line whose category
- * is not among `known` is counted under "" so the bars still add up to the tile.
+ * «Πού πήγαν τα έξοδα»: the month's expenses by expense line, biggest first.
+ * One-off expenses («άλλο έξοδο») are grouped by their name within their
+ * business. Every expense is in exactly one row, so the rows add up to the tile.
  */
-export function monthByCategory(entries: readonly Closing[], month: Date, known?: ReadonlySet<string>): CategoryTotal[] {
-  const totals = new Map<string, { cents: number; count: number }>();
+export function monthByExpenseLine(entries: readonly (Closing & Pick<BusinessEntry, "businessId">)[], month: Date): ExpenseLineTotal[] {
+  const totals = new Map<string, ExpenseLineTotal & { cents: number }>();
   for (const entry of entries) {
     if (!inMonth(entry, month)) continue;
-    for (const line of linesOf(entry)) {
-      const id = line.categoryId && (!known || known.has(line.categoryId)) ? line.categoryId : "";
-      const row = totals.get(id) ?? { cents: 0, count: 0 };
+    for (const line of expensesOf(entry)) {
+      const key = line.lineId ? `line:${line.lineId}` : `once:${entry.businessId}:${nameKey(line.name ?? "")}`;
+      const row = totals.get(key) ?? { key, businessId: entry.businessId, ...(line.lineId ? { lineId: line.lineId } : { name: line.name?.trim() ?? "" }), total: 0, count: 0, cents: 0 };
       row.cents += cents(line.amount);
       row.count += 1;
-      totals.set(id, row);
+      totals.set(key, row);
     }
   }
-  return [...totals]
-    .map(([categoryId, row]) => ({ categoryId, total: row.cents / 100, count: row.count }))
-    .sort((a, b) => b.total - a.total || a.categoryId.localeCompare(b.categoryId));
+  return [...totals.values()].map(({ cents: c, ...row }) => ({ ...row, total: c / 100 })).sort((a, b) => b.total - a.total || a.key.localeCompare(b.key));
 }
 
 /**
@@ -111,8 +124,70 @@ export function personalMove(profit: number): { type: "income" | "expense"; amou
   return { type: c > 0 ? "income" : "expense", amount: Math.abs(c) / 100 };
 }
 
-/** The distinct categories a closing's lines name, in the order they first appear. */
-export const lineCategoryIds = (expenses: readonly BusinessExpense[]): string[] => [...new Set(expenses.map((line) => line.categoryId).filter(Boolean))];
+/**
+ * The day's record in the owner's own money, as a closing writes it: an income
+ * of the profit or an expense of the loss, on the closing's day and card,
+ * filed under no category of the owner's (`BUSINESS_CATEGORY_ID`, «Δουλειά»)
+ * and named by `describe` («Κέρδος · Φαρμακείο» / «Ζημιά · Λαϊκή»). `null` at 0.
+ */
+export function personalRecord(closing: BusinessEntryInput, describe: (type: "income" | "expense") => string): CreateTransactionDTO | null {
+  const move = personalMove(closingFigures(closing).profit);
+  if (!move) return null;
+  return {
+    amount: move.amount,
+    type: move.type,
+    categoryId: BUSINESS_CATEGORY_ID,
+    date: closing.date,
+    description: describe(move.type),
+    businessId: closing.businessId,
+    ...(closing.accountId ? { accountId: closing.accountId } : {}),
+  };
+}
+
+/** The distinct lines a closing names — its incomes', then its expenses' — in the order they first appear. */
+export const closingLineIds = (closing: Partial<Pick<BusinessEntry, "incomes" | "expenses">>): string[] => [
+  ...new Set([...incomesOf(closing).map((l) => l.lineId), ...expensesOf(closing).map((l) => l.lineId)].filter((id): id is string => !!id)),
+];
+
+/** How many closings name each line, from the closings on the device (no read). */
+export function lineUses(entries: readonly Pick<BusinessEntry, "incomes" | "expenses">[]): Map<string, number> {
+  const uses = new Map<string, number>();
+  for (const e of entries) for (const id of closingLineIds(e)) uses.set(id, (uses.get(id) ?? 0) + 1);
+  return uses;
+}
+
+export interface BusinessReach {
+  /** Closings of the business. */
+  closings: number;
+  /** Their records in the owner's own money (profit incomes and loss expenses). */
+  records: number;
+  /** Σ of the profits those records brought in, and of the losses they took out. */
+  profitIn: number;
+  lossOut: number;
+}
+
+/**
+ * What deleting a business takes with it, counted from the closings on the
+ * device: its closings, and the records of their profits and losses in the
+ * owner's own money — said in the question before anything is deleted.
+ */
+export function businessReach(entries: readonly Pick<BusinessEntry, "businessId" | "incomes" | "expenses" | "linkedTransactionId">[], businessId: string): BusinessReach {
+  let closings = 0;
+  let records = 0;
+  let inCents = 0;
+  let outCents = 0;
+  for (const e of entries) {
+    if (e.businessId !== businessId) continue;
+    closings += 1;
+    if (!e.linkedTransactionId) continue;
+    const move = personalMove(closingFigures(e).profit);
+    if (!move) continue;
+    records += 1;
+    if (move.type === "income") inCents += cents(move.amount);
+    else outCents += cents(move.amount);
+  }
+  return { closings, records, profitIn: inCents / 100, lossOut: outCents / 100 };
+}
 
 export interface BusinessDay<T> {
   /** The day's closings, newest first. */
@@ -141,7 +216,7 @@ export interface BusinessCalendarMonth<T> {
  * moves `personalMove` writes into the owner's own money, so the two tiles are
  * what the personal records of the month add up to.
  */
-export function monthCalendar<T extends Pick<BusinessEntry, "date" | "turnover" | "expenses"> & Partial<Pick<BusinessEntry, "createdAt">>>(entries: readonly T[], month: Date): BusinessCalendarMonth<T> {
+export function monthCalendar<T extends Closing & Partial<Pick<BusinessEntry, "createdAt">>>(entries: readonly T[], month: Date): BusinessCalendarMonth<T> {
   const days = new Map<number, BusinessDay<T> & { cents: number }>();
   let inCents = 0;
   let outCents = 0;

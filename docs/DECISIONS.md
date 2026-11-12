@@ -63,6 +63,12 @@ this file disagree, ask him — one of them is a bug.
   templates, no auto-created categories** (no «Κέρδος δουλειάς» in his categories). The closing
   form asks which business first, then shows its lines. Closings in their own collection
   (`businessEntries`); business definitions on the user doc.
+  Mockups 2026-11-12, he picked **A**: one business picker under the page title («Όλες οι
+  δουλειές ▾», totals of all), then the usual tabs Επισκόπηση · Μέρες · Ημερολόγιο · «Οι
+  δουλειές μου». The personal record of a day carries **no category of his**: it reads
+  «Κέρδος · Φαρμακείο» / «Ζημιά · Λαϊκή» with a shop icon and counts as «Δουλειά» in the
+  analytics (option A; the alternative — each business pointing at one of his own categories —
+  was not chosen).
 
 ## How it looks
 
@@ -72,6 +78,13 @@ this file disagree, ask him — one of them is a bug.
 - **One red #C4302B and one green #12855A in light mode**, everywhere; named AA exceptions to
   the 8:1 rule in `contrast.test.ts`.
 - **Type scale B** (`--fs-*`, 2026-11-11); px only for the named exceptions in `typeScale.test.ts`.
+- **One tab look on every page: boxes** (2026-11-12, mockup Γ over underline and
+  underline-with-icons): `PageTabs`, the Overview's boxed segmented look, no icons, for page
+  tabs and section sub-pages alike (Overview, Settings, Goals, Investments, Bills, Incomes,
+  Names, Business). Never two rows: they scroll sideways when tight. *Don't:* bring back
+  underline tabs or a second tab style.
+- **Choices inside forms use the shared segmented control** (2026-11-12), the chosen one in
+  the brand colour — never a hand-made grey Bootstrap button group.
 - **Every page looks like the others** (2026-11-12, MUST): `AddHeader` with the square «+» left;
   page tabs straight under the header; reuse tiles/rows; saves and «Ήρθε»/«Πληρώθηκε» in the
   brand colour, never green; required fields marked (*); never a "didn't load / retry" message —

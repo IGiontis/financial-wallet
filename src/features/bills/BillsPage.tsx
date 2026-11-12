@@ -65,7 +65,7 @@ import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
 import BillYearAhead from "./BillYearAhead";
 import BillYearCost from "./BillYearCost";
-import { SubPageTabs } from "../../shared/components/SubPageTabs";
+import { PageTabs } from "../../shared/components/PageTabs";
 import { BillManage } from "./BillManage";
 import BillMonthTimeline from "./BillMonthTimeline";
 import { monthTimeline } from "./monthTimeline";
@@ -1289,9 +1289,9 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       {/* The add on every view, «Σύνοψη» too. */}
       <AddHeader label={t("bills.newBill")} onAdd={openNew} title={t("bills.title")} subtitle={t("bills.subtitle")} />
 
-      <SubPageTabs
+      <PageTabs
         label={t("bills.title")}
-        pages={[
+        links={[
           { to: "/bills", label: t("bills.pageOverview") },
           { to: "/bills/pay", label: t("bills.pagePay"), badge: billsDue, badgeLabel: t("bills.dueCount", { count: billsDue }) },
           // How many there are, once they are loaded — not a «(0)» while they load.

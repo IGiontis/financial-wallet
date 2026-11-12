@@ -27,6 +27,7 @@ export function BusinessCalendar({
   now,
   onOpen,
   formatCurrency,
+  businessName,
 }: {
   entries: readonly BusinessEntry[];
   month: Date;
@@ -35,6 +36,8 @@ export function BusinessCalendar({
   now: Date;
   onOpen: (entry: BusinessEntry) => void;
   formatCurrency: (n: number) => string;
+  /** The business a closing belongs to, said on its row — when the page shows all of them. */
+  businessName?: (entry: BusinessEntry) => string;
 }) {
   const { t } = useTranslation();
   const { days, totals } = useMemo(() => monthCalendar(entries, month), [entries, month]);
@@ -88,9 +91,10 @@ export function BusinessCalendar({
                           onLeave?.();
                           onOpen(entry);
                         }}
-                        aria-label={`${t("business.closingTitle")}: ${t("business.profit")} ${signed(f.profit, formatCurrency)}`}
+                        aria-label={`${businessName ? `${businessName(entry)} · ` : ""}${t("business.closingTitle")}: ${t("business.profit")} ${signed(f.profit, formatCurrency)}`}
                       >
                         <span className={styles.rowText}>
+                          {businessName && <span className={styles.rowBusiness}>{businessName(entry)}</span>}
                           <span className={styles.rowMeta}>
                             {t("business.turnover")} <span className={styles.rowFigure}>{formatCurrency(f.turnover)}</span>
                           </span>

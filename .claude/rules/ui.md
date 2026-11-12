@@ -20,8 +20,9 @@ every difference you can see.
 1. `PageShell` → the header: **`AddHeader`** (or GoalsWorkbench's header) — the square «+»
    (`AddButton`, icon only) pinned LEFT, then the `h1.h5` title and the one-line subtitle.
    Never a text button («+ Κάτι») above or below the title.
-2. **Page tabs come straight under the header** (`UnderlineTabs`, the Goals/Investments look)
-   — never below tiles or a month bar. Overview first. Anything that belongs to one tab
+2. **Page tabs come straight under the header** — `PageTabs`, the boxed look, the ONE tab look
+   on every page (state tabs or child-route links); never wrap, scroll sideways when tight —
+   never below tiles or a month bar. Overview first. Anything that belongs to one tab
    (tiles, month ‹ ›, charts) lives inside that tab's panel. The open tab is kept in the
    address (`?tab=`). A sub-page of a menu entry is a child route in the sidebar, not an
    inner tab of another page.

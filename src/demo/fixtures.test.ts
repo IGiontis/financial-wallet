@@ -14,16 +14,16 @@ import { debtCashDrift } from "../features/debts/debtCash";
 import { INCOMES_KEY, lateCount, resolveIncomes, type Income } from "../features/incomes/incomesUtils";
 import { computeGoalStats } from "../features/budget/investmentsUtils";
 import { fillParts, partsTotals } from "../features/budget/goalParts";
-import { VIRTUAL_CATEGORIES } from "../shared/utils/categories";
+import { BUSINESS_CATEGORY_ID, VIRTUAL_CATEGORIES } from "../shared/utils/categories";
 import { isSpending } from "../shared/utils/moneyModel";
 import { PLANNER_KEYS } from "../features/plannerPage/plannerInputs";
 import { ALLOCATION_KEYS } from "../features/plannerPage/allocationMigration";
 import { TOUR_SEEN_KEY } from "../features/tour/tourState";
 import { firestoreToDate, toISODay } from "../shared/utils/dates";
-import { closingFigures, monthByCategory, monthSummary, personalMove } from "../features/business/businessSummary";
-import { BUSINESS_CATEGORIES_KEY, BUSINESS_ON_KEY } from "../features/business/businessKeys";
+import { closingFigures, closingLineIds, forBusiness, monthByExpenseLine, monthSummary, personalMove } from "../features/business/businessSummary";
+import { BUSINESSES_KEY, BUSINESS_ON_KEY } from "../features/business/businessKeys";
 import { carriesPayee } from "../features/names/payeeNames";
-import type { BusinessCategory } from "../shared/types/IndexTypes";
+import type { Business } from "../shared/types/IndexTypes";
 
 // The demo's account has to look like a real one on whatever day it is opened:
 // every reference pointing at something that exists, nothing dated in the
@@ -81,30 +81,44 @@ function problems(data: DemoData, now: Date): string[] {
   }
   for (const income of incomesOf(data)) if (income.categoryId && !categoryIds.has(income.categoryId)) fail(`income ${income.id} has unknown category`);
 
-  // ── The business: every closing and its personal record name each other and agree ──
-  const businessCategories = workspaceOf(data)[BUSINESS_CATEGORIES_KEY] as BusinessCategory[];
+  // ── The businesses: every closing names its business's lines, and it and its personal record name each other and agree ──
+  const businesses = workspaceOf(data)[BUSINESSES_KEY] as Business[];
+  const words = data.user.locale === "el" ? { profit: "Κέρδος", loss: "Ζημιά" } : { profit: "Profit", loss: "Loss" };
+  if (categoryIds.has(BUSINESS_CATEGORY_ID)) fail("a categories document stands for «Δουλειά»");
   for (const e of data.businessEntries) {
     if (e.date.getTime() > now.getTime() || e.createdAt.getTime() > now.getTime()) fail(`closing ${e.id} is in the future`);
-    if (!(e.turnover >= 0)) fail(`closing ${e.id} has turnover ${e.turnover}`);
     if (e.userId !== DEMO_UID) fail(`closing ${e.id} belongs to ${e.userId}`);
-    if (e.expenses.length > 30) fail(`closing ${e.id} has ${e.expenses.length} lines`);
-    for (const l of e.expenses) {
-      if (!(l.amount > 0)) fail(`closing ${e.id} has a line of ${l.amount}`);
-      if (!businessCategories.some((c) => c.id === l.categoryId)) fail(`closing ${e.id} names unknown category ${l.categoryId}`);
+    const business = businesses.find((b) => b.id === e.businessId);
+    if (!business) {
+      fail(`closing ${e.id} names a missing business ${e.businessId}`);
+      continue;
     }
-    if (JSON.stringify(e.categoryIds) !== JSON.stringify([...new Set(e.expenses.map((l) => l.categoryId))])) fail(`closing ${e.id} has categoryIds out of step`);
+    if (e.incomes.length + e.expenses.length === 0) fail(`closing ${e.id} has no amount`);
+    if (e.incomes.length > 30 || e.expenses.length > 30) fail(`closing ${e.id} has too many lines`);
+    for (const l of e.incomes) {
+      if (!(l.amount > 0)) fail(`closing ${e.id} has an income of ${l.amount}`);
+      if (!business.incomeLines.some((x) => x.id === l.lineId)) fail(`closing ${e.id} names an income line ${l.lineId} not of ${business.name}`);
+    }
+    for (const l of e.expenses) {
+      if (!(l.amount > 0)) fail(`closing ${e.id} has an expense of ${l.amount}`);
+      if (l.lineId ? !business.expenseLines.some((x) => x.id === l.lineId) : !l.name?.trim()) fail(`closing ${e.id} has an expense with neither a line of ${business.name} nor a name`);
+    }
+    if (JSON.stringify(e.lineIds) !== JSON.stringify(closingLineIds(e))) fail(`closing ${e.id} has lineIds out of step`);
     const move = personalMove(closingFigures(e).profit);
     const record = data.transactions.find((t) => t.id === e.linkedTransactionId);
     if (!move) {
       if (e.linkedTransactionId) fail(`closing ${e.id} at zero names a record`);
     } else if (!record) fail(`closing ${e.id} has no personal record`);
-    else if (record.businessEntryId !== e.id || record.type !== move.type || record.amount !== move.amount || record.date.getTime() !== e.date.getTime() || record.accountId !== e.accountId) fail(`closing ${e.id} disagrees with its record`);
-    else if (!categoryIds.has(record.categoryId) || data.categories.find((c) => c.id === record.categoryId)?.type !== record.type) fail(`closing ${e.id}'s record is filed under ${record.categoryId}`);
+    else if (record.businessEntryId !== e.id || record.businessId !== e.businessId || record.type !== move.type || record.amount !== move.amount || record.date.getTime() !== e.date.getTime() || record.accountId !== e.accountId) fail(`closing ${e.id} disagrees with its record`);
+    else if (record.categoryId !== BUSINESS_CATEGORY_ID) fail(`closing ${e.id}'s record is filed under ${record.categoryId}`);
+    else if (record.description !== `${move.type === "income" ? words.profit : words.loss} · ${business.name}`) fail(`closing ${e.id}'s record reads ${record.description}`);
   }
   for (const tx of data.transactions.filter((t) => t.businessEntryId)) {
     if (!data.businessEntries.some((e) => e.id === tx.businessEntryId && e.linkedTransactionId === tx.id)) fail(`record ${tx.id} names a missing closing`);
     if (carriesPayee(tx)) fail(`closing record ${tx.id} is counted as a payee`);
   }
+  // Nothing else is filed under «Δουλειά».
+  for (const tx of data.transactions) if (tx.categoryId === BUSINESS_CATEGORY_ID && !tx.businessEntryId) fail(`record ${tx.id} is filed under «Δουλειά» with no closing`);
 
   // ── Bills: the internet late by days, not months; the phone soon; nothing else asking ──
   const statuses = data.bills.map((b) => computeBillStatus(b, data.billPayments, now));
@@ -208,42 +222,84 @@ const toDay = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()
 describe("demoData", () => {
   const now = new Date(2026, 9, 28, 17, 40);
 
-  it("runs a small shop on «Δουλειά» whose figures reconcile a second way, and whose profit reaches the owner's money", () => {
-    const data = demoData("el", now);
+  /**
+   * The businesses' figures from the raw closings, a second way: the month by
+   * its "YYYY-MM" text (not the timestamps `inMonth` compares), the profit as
+   * one signed walk over every amount in cents (+each income, −each expense).
+   */
+  const byHand = (data: DemoData, key: string, businessId?: string) => {
+    const mine = data.businessEntries.filter((e) => toISODay(e.date).slice(0, 7) === key && (!businessId || e.businessId === businessId));
+    const turnover = mine.reduce((s, e) => s + e.incomes.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
+    const out = mine.reduce((s, e) => s + e.expenses.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
+    let walk = 0;
+    for (const e of mine) {
+      for (const l of e.incomes) walk += Math.round(l.amount * 100);
+      for (const l of e.expenses) walk -= Math.round(l.amount * 100);
+    }
+    return { turnover, out, walk, days: mine.length };
+  };
+
+  it.each([new Date(2026, 9, 28, 17, 40), new Date(2026, 10, 10, 22, 0)])("runs two businesses on «Δουλειά» whose figures reconcile a second way, and whose profit reaches the owner's money (%s)", (when) => {
+    const data = demoData("el", when);
     const workspace = workspaceOf(data);
     expect(workspace[BUSINESS_ON_KEY]).toBe(true);
-    expect((workspace[BUSINESS_CATEGORIES_KEY] as BusinessCategory[]).map((c) => c.name)).toEqual(["Μεταφορικά", "Λειτουργικά έξοδα", "Εμπορεύματα", "Εφορία + ΕΦΚΑ"]);
-    const months = [new Date(2026, 7, 1), new Date(2026, 8, 1), new Date(2026, 9, 1)];
-    // Three months, every day but Sunday up to now: nothing before them, nothing after now.
-    expect(data.businessEntries.every((e) => e.date >= months[0] && e.date <= now && e.date.getDay() !== 0)).toBe(true);
+    const businesses = workspace[BUSINESSES_KEY] as Business[];
+    // Two businesses she made, with her own lines — nothing ready-made.
+    expect(businesses.map((b) => b.name)).toEqual(["Φαρμακείο", "Λαϊκή"]);
+    expect(businesses[0].incomeLines.map((l) => l.name)).toEqual(["Ταμείο", "Συνταγές ΕΟΠΥΥ"]);
+    expect(businesses[0].expenseLines.map((l) => l.name)).toEqual(["Εμπορεύματα", "Ενοίκιο", "Υπάλληλος", "Εφορία + ΕΦΚΑ"]);
+    expect(businesses[1].incomeLines.map((l) => l.name)).toEqual(["Πωλήσεις"]);
+    // About three weeks, nothing after now, never on a Sunday; the market only on Wednesdays and Saturdays.
+    expect(data.businessEntries.every((e) => e.date <= when && e.date.getDay() !== 0 && (when.getTime() - e.date.getTime()) / 86_400_000 < 21)).toBe(true);
+    expect(data.businessEntries.filter((e) => e.businessId === businesses[1].id).every((e) => [3, 6].includes(e.date.getDay()))).toBe(true);
+    expect(data.businessEntries.filter((e) => e.businessId === businesses[0].id).length).toBeGreaterThanOrEqual(16);
+
+    const months = [...new Set(data.businessEntries.map((e) => toISODay(e.date).slice(0, 7)))].map((key) => new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1));
     let losses = 0;
+    let days = 0;
     for (const month of months) {
-      const m = monthSummary(data.businessEntries, month);
-      // The second way: the month by its "YYYY-MM"; the profit as one signed walk over every amount, in cents.
       const key = toISODay(month).slice(0, 7);
-      const mine = data.businessEntries.filter((e) => toISODay(e.date).slice(0, 7) === key);
-      const turnover = mine.reduce((s, e) => s + Math.round(e.turnover * 100), 0);
-      const out = mine.reduce((s, e) => s + e.expenses.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
-      const walk = mine.reduce((s, e) => s + Math.round(e.turnover * 100) - e.expenses.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
-      expect(m.days).toBe(mine.length);
-      expect(Math.round(m.turnover * 100)).toBe(turnover);
-      expect(Math.round(m.expenses * 100)).toBe(out);
-      expect(Math.round(m.profit * 100)).toBe(walk);
-      // The bars add up to the tile.
-      expect(monthByCategory(data.businessEntries, month).reduce((s, b) => s + Math.round(b.total * 100), 0)).toBe(out);
-      // A third way, from the owner's own money: the month's closing records, incomes in and expenses out, are the month's profit.
+      // «Όλες»: the page's tiles.
+      const all = monthSummary(data.businessEntries, month);
+      const hand = byHand(data, key);
+      expect(all.days).toBe(hand.days);
+      expect(Math.round(all.turnover * 100)).toBe(hand.turnover);
+      expect(Math.round(all.expenses * 100)).toBe(hand.out);
+      expect(Math.round(all.profit * 100)).toBe(hand.walk);
+      // «Όλες» is the businesses added together, figure by figure — each business's tiles also checked by hand.
+      const each = businesses.map((b) => monthSummary(forBusiness(data.businessEntries, b.id), month));
+      businesses.forEach((b, i) => {
+        const h = byHand(data, key, b.id);
+        expect([Math.round(each[i].turnover * 100), Math.round(each[i].expenses * 100), Math.round(each[i].profit * 100), each[i].days]).toEqual([h.turnover, h.out, h.walk, h.days]);
+      });
+      expect(each.reduce((s, m) => s + Math.round(m.turnover * 100), 0)).toBe(hand.turnover);
+      expect(each.reduce((s, m) => s + Math.round(m.expenses * 100), 0)).toBe(hand.out);
+      expect(each.reduce((s, m) => s + Math.round(m.profit * 100), 0)).toBe(hand.walk);
+      expect(each.reduce((s, m) => s + m.days, 0)).toBe(hand.days);
+      // «Πού πήγαν τα έξοδα»: the bars add up to the tile, for all and for each.
+      expect(monthByExpenseLine(data.businessEntries, month).reduce((s, b) => s + Math.round(b.total * 100), 0)).toBe(hand.out);
+      for (const b of businesses) expect(monthByExpenseLine(forBusiness(data.businessEntries, b.id), month).reduce((s, r) => s + Math.round(r.total * 100), 0)).toBe(byHand(data, key, b.id).out);
+      // A third way, from the owner's own money: the month's records, incomes in and expenses out, are the month's profit — all, and each business.
       const personal = data.transactions.filter((t) => t.businessEntryId && toISODay(t.date).slice(0, 7) === key);
-      expect(personal.reduce((s, t) => s + (t.type === "income" ? 1 : -1) * Math.round(t.amount * 100), 0)).toBe(walk);
-      expect(personal.every((t) => t.accountId === DEMO_IDS.accounts.main && (t.type === "income" || t.type === "expense"))).toBe(true);
+      const signedSum = (rows: typeof personal) => rows.reduce((s, t) => s + (t.type === "income" ? 1 : -1) * Math.round(t.amount * 100), 0);
+      expect(signedSum(personal)).toBe(hand.walk);
+      for (const b of businesses) expect(signedSum(personal.filter((t) => t.businessId === b.id))).toBe(byHand(data, key, b.id).walk);
+      // Filed under «Δουλειά», never under a category of hers, into the main bank.
+      expect(personal.every((t) => t.categoryId === BUSINESS_CATEGORY_ID && t.accountId === DEMO_IDS.accounts.main && (t.type === "income" || t.type === "expense"))).toBe(true);
+      expect(data.categories.some((c) => c.id === BUSINESS_CATEGORY_ID)).toBe(false);
       losses += personal.filter((t) => t.type === "expense").length;
-      // A month the shop has had whole: some 26 days open, and a profit.
-      if (month < startOfMonth(now)) {
-        expect(m.days).toBeGreaterThanOrEqual(24);
-        expect(m.profit).toBeGreaterThan(0);
-      }
+      days += all.days;
     }
-    // Some days close at a loss, and come out of the owner's money.
-    expect(losses).toBeGreaterThan(0);
+    expect(days).toBe(data.businessEntries.length);
+    // Some days close at a loss — the pharmacy's rent and tax days, the rained-off market — and come out of her money.
+    expect(losses).toBeGreaterThanOrEqual(2);
+    expect(data.businessEntries.some((e) => e.businessId === businesses[1].id && closingFigures(e).profit < 0)).toBe(true);
+    // One one-off «άλλο έξοδο», with its own name and no line.
+    expect(data.businessEntries.flatMap((e) => e.expenses).filter((l) => !l.lineId).map((l) => l.name)).toEqual(["Επισκευή ψυγείου"]);
+    // The whole three weeks a profit: what reached her money, a second way, is the sum of the days' profits.
+    const total = data.businessEntries.reduce((s, e) => s + Math.round(closingFigures(e).profit * 100), 0);
+    expect(total).toBeGreaterThan(0);
+    expect(data.transactions.filter((t) => t.businessEntryId).reduce((s, t) => s + (t.type === "income" ? 1 : -1) * Math.round(t.amount * 100), 0)).toBe(total);
     // Nothing of the business's own money reaches the personal records but the closings' own.
     const businessIds = new Set(data.businessEntries.map((e) => e.id));
     expect(data.transactions.filter((t) => t.businessEntryId && !businessIds.has(t.businessEntryId))).toEqual([]);

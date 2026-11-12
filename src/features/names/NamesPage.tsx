@@ -1,8 +1,8 @@
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PageShell } from "../../shared/components/PageShell";
-import { UnderlineTabs } from "../../shared/components/UnderlineTabs";
-import { underlineTabIds } from "../../shared/utils/underlineTabIds";
+import { PageTabs } from "../../shared/components/PageTabs";
+import { pageTabIds } from "../../shared/utils/pageTabIds";
 import CategoryManager from "../categories/CategoryManager";
 import { PayeesTab } from "./PayeesTab";
 
@@ -13,7 +13,7 @@ const isNamesTab = (value: unknown): value is NamesTab => typeof value === "stri
 
 /**
  * «Δικαιούχοι & κατηγορίες» (under Transactions): the names the records are
- * filed by, in one place — who was paid, and under what. Two underline tabs,
+ * filed by, in one place — who was paid, and under what. Two tabs,
  * the one open kept in the address (`?tab=categories`), so Settings can link
  * straight to the categories and «back» lands where it was.
  *
@@ -37,7 +37,7 @@ export function NamesPage() {
       { replace: true },
     );
 
-  const ids = underlineTabIds("names", tab);
+  const ids = pageTabIds("names", tab);
 
   return (
     <PageShell>
@@ -45,7 +45,7 @@ export function NamesPage() {
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("names.title")}</h1>
       </div>
 
-      <UnderlineTabs
+      <PageTabs
         base="names"
         label={t("names.title")}
         tabs={[

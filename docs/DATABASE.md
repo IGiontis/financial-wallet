@@ -74,16 +74,21 @@ reasons are in `docs/DECISIONS.md`.
   - `debtId`, `debtPaymentId?`, `debtPart` `"loan" | "principal" | "interest"` → debt cash,
     ids `debt_<debtId>`, `debtpay_<paymentId>`, `debtint_<paymentId>`
     (`src/features/debts/debtCash.ts:40`)
-  - `businessEntryId` → businessEntries (the day's profit/loss)
+  - `businessEntryId` + `businessId` → businessEntries (the day's profit/loss) and its business;
+    `categoryId` is then always `BUSINESS_CATEGORY_ID` (`"__business__"`, `src/shared/utils/categories.ts`):
+    a virtual category shown as «🏪 Δουλειά» / «Business» through `findCategory` / `VIRTUAL_CATEGORIES`
+    — no `categories` document, never one of the user's.
 - Writers: `firestore.ts` (`createTransaction`, `updateTransaction`, `deleteTransaction`,
   `markBillPaid`, `createContributionWithTransaction`, `createCoveredFunding`,
   `closeInvestmentGoal`, `syncDebtCash`, `saveTransfer`, `deleteTransfer`, `saveGapRecords`,
-  `editCoveredDebt`, `cancelCoveredDebt`), `business.ts` (`saveClosing`, `deleteClosing`),
+  `editCoveredDebt`, `cancelCoveredDebt`), `business.ts` (`saveClosing`, `deleteClosing`,
+  `deleteBusinessRecords`),
   `names.ts` (payee rename, category merge).
 - Read: `getTransactions` → `syncedList("transactions")`; hook `useTransactions`
   (`src/features/transactions/hooks/useTransactions.ts`), key `["transactions", uid]`.
 - Other queries: `userId == + goalId ==` (goal delete, contribution delete), `userId == +
-  categoryId ==` count. Equality-only → automatic single-field indexes.
+  categoryId ==` count, `userId == + businessId ==` (business delete). Equality-only → automatic
+  single-field indexes.
 - Rules: `type` must be income/expense/investment; `|amount| ≤ 1e9`.
 
 ### categories
@@ -96,8 +101,8 @@ reasons are in `docs/DECISIONS.md`.
 - Fields: `name`, `type` (TransactionType), `icon?`, `color?`, `isDefault`, `userId`.
 - A "both" category is two docs with one name, one per type, written/renamed/deleted in one
   batch (`createCategories`, `updateCategories`, `deleteCategories`, `firestore.ts:279–320`).
-- Writers: `firestore.ts` category functions; `business.ts:282` (`newCategory` in a closing);
-  `names.ts` (merge deletes the dropped ones last).
+- Writers: `firestore.ts` category functions; `names.ts` (merge deletes the dropped ones last).
+  «Δουλειά» never writes here (its records use the virtual `BUSINESS_CATEGORY_ID`).
 - Read: `getCategories` (`firestore.ts:244`) = own via `syncedList("categories")` + defaults
   (`isDefault == true`, cached 7 days); merged and de-duplicated by `type-name`. Key
   `["categories", uid]`.
@@ -181,19 +186,26 @@ reasons are in `docs/DECISIONS.md`.
   `deleteCoveredDebt`, `saveGapRecords`.
 
 ### businessEntries
-- One «Κλείσιμο ημέρας» (a day's closing) on the «Δουλειά» page.
-- Fields: `date`, `turnover` ≥ 0, `expenses` `BusinessExpense[]` (`{categoryId, amount,
-  note?}`, ≤ 30 lines — `LINES_MAX`, `src/features/business/ClosingWizard.tsx:51`),
-  `categoryIds?` (distinct line categories, for `array-contains`), `notes?`, `accountId?`,
-  `linkedTransactionId?` (the personal income/expense; absent when profit = 0).
-- Line `categoryId`s are **business categories on the user doc** (`business-categories`), not
-  the `categories` collection.
-- Writers: `saveClosing`, `deleteClosing`, `moveBusinessCategory` (`src/firebase/business.ts`).
+- One «Κλείσιμο ημέρας» (a day's closing) of ONE business, on the «Δουλειά» page. Never in
+  production before 2026-11-12 (no old shape to migrate).
+- Fields: `businessId` (a business on the user doc, `businesses`), `date`, `incomes`
+  `BusinessIncome[]` (`{lineId, amount}`, only amounts > 0, ≤ 30), `expenses` `BusinessExpense[]`
+  (`{lineId?, name?, amount, note?}` — a line of the business, or a one-off «άλλο έξοδο» with a
+  `name` and no `lineId`; only amounts > 0, ≤ 30), `lineIds?` (distinct line ids of both lists,
+  ≤ 60), `notes?`, `accountId?`, `linkedTransactionId?` (the personal income/expense; absent when
+  profit = 0). Limits: `LINES_MAX` (`src/features/business/businessKeys.ts`), refused by
+  `saveClosing` before writing.
+- Figures (`src/features/business/businessSummary.ts`): turnover = Σ incomes, expenses =
+  Σ expenses, profit = turnover − expenses, in whole cents.
+- Line ids point at lines on the user doc (`businesses`); a rename touches no closing. A line
+  taken off a business while closings name it stays there as `removed: true` (names the old
+  amounts, not offered in new closings).
+- Writers: `saveClosing`, `deleteClosing`, `deleteBusinessRecords` (`src/firebase/business.ts`).
 - Read: `syncedList("businessEntries")`, only when the page opens; `useBusinessEntries`
   (`src/features/business/useBusiness.ts`), key `["businessEntries", uid]`.
-- Query: `userId == + categoryIds array-contains` (category move); falls back to the whole
-  list on `failed-precondition` (`business.ts:322–331`).
-- **Not in the live rules yet** — see Security rules.
+- Query: `userId == + businessId ==` from the server (business delete). Equality-only →
+  automatic indexes.
+- **Not in the live rules yet** — PENDING block below (Security rules).
 
 ## The `users/{uid}` document
 
@@ -226,7 +238,10 @@ Keyed by the uid (no `userId` field). Read by `getUser` (`firestore.ts:101`) and
     `bill-alerts-by-bill`, `bill-alerts-off`, `bill-alerts-seen`
     (`src/features/bills/useBillAlerts.ts`)
   - Business: `business-on` (feature switch, `FEATURE_KEYS` in `useHasAccess.ts`),
-    `business-categories` (`BusinessCategory[]`, `src/features/business/businessKeys.ts`)
+    `businesses` (`Business[]`: `{id, name, incomeLines, expenseLines}`, each line
+    `{id, name, removed?}`; ≤ 20 businesses, ≤ 30 offered lines of each kind —
+    `src/features/business/businessKeys.ts`, read defensively by `readBusinesses`). All made by
+    the user; nothing is seeded. (`business-categories` is gone; it was never in production.)
   - Legacy allocation: `allocation-buckets`, `allocation-moved-to-planner`
     (`allocationMigration.ts:15`)
   - Tour: `tour-seen` (`src/features/tour/tourState.ts`)
@@ -242,8 +257,6 @@ Keyed by the uid (no `userId` field). Read by `getUser` (`firestore.ts:101`) and
   one-click link and reads that list whole for the session (`syncList.ts:95–103`).
 - The owner was asked to create them in the Console; which exist is not recorded in the
   repo — check the Console or the `[sync]` warning in a dev session.
-- `businessEntries` `(userId, categoryIds array-contains)`: may need its own composite; falls
-  back to a whole read if refused.
 - All other queries are equality on `userId` + one field → automatic single-field indexes
   (`firestore.ts:391–393`). No query uses `orderBy` or `limit`.
 - No `firestore.indexes.json` in the repo; indexes live in the Console like the rules.
@@ -268,12 +281,37 @@ production (every read/write `permission-denied`). Live rules as of **2026-11-09
   an expense half).
 - Anything not listed is denied.
 
-**Pending — `businessEntries` (NOT live).** No block is written anywhere in the repo, and the
-live list above has none, so production denies it. Hand the owner a block in the same style
-as the "every other collection" group (owner-only read/delete/create/update on `userId`,
-`validDoc`), checking also: `turnover` a number 0..1e9, `expenses` a list ≤ 30, each line's
-`amount` within 1e9. The Business page is off by default (`business-on`), which limits the
-damage, but see the account-deletion trap below.
+**PENDING — `businessEntries` (NOT live).** The live rules have no block for it, so production
+denies every read and write until the owner pastes this one into the console (beside the
+other collections' blocks, inside `match /databases/{database}/documents`, where `validDoc` is
+defined):
+
+In the live rules' own style (their helpers `ownsExisting()`, `ownsIncoming()` and `validDoc()`
+take no arguments — they read `request.resource.data` themselves):
+
+```
+function validClosing() {
+  let d = request.resource.data;
+  return validDoc()
+    && d.businessId is string
+    && d.incomes is list && d.incomes.size() <= 30
+    && d.expenses is list && d.expenses.size() <= 30
+    && (!('lineIds' in d) || (d.lineIds is list && d.lineIds.size() <= 60));
+}
+
+match /businessEntries/{id} {
+  allow read, delete: if ownsExisting();
+  allow create: if ownsIncoming() && validClosing();
+  allow update: if ownsExisting() && ownsIncoming() && validClosing();
+}
+```
+
+`validClosing` goes beside `validTransaction` (rules functions sit at the `documents` level).
+The live rules were read from the console on 2026-11-12 (read-only) to match their style. Plus the
+index **businessEntries: `userId` ASC + `updatedAt` ASC** (delta sync). The personal records
+go to `transactions`, already covered (type income/expense, |amount| ≤ 1e9); the businesses
+themselves are on `users/{uid}` (already allowed). The page is off by default
+(`business-on`), which limits the damage until then.
 
 ## Traps
 

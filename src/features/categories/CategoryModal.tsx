@@ -10,6 +10,7 @@ import { FORM_MODAL } from "../../shared/components/formModal";
 import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import segmented from "../../shared/css/Segmented.module.css";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
 const ICON_CHOICES = ["🧾", "💳", "🏦", "🚗", "🏠", "🛠️", "📚", "🎁", "🍼", "🐶", "💊", "✂️", "📦", "🎓", "⚖️", "🧳"];
@@ -131,20 +132,19 @@ export default function CategoryModal({ existing, scope: initialScope, category,
 
           <FormGroup>
             <Label className="small fw-medium d-block">{t("categories.usedFor")}</Label>
-            <div className="btn-group w-100" role="group">
+            {/* The app's one-of-many control: the chosen one in the brand colour. */}
+            <div className={`${segmented.group} ${segmented.even}`} role="group" aria-label={t("categories.usedFor")}>
               {SCOPES.map((option) => (
-                <Button
+                <button
                   key={option.value}
                   type="button"
-                  color="secondary"
-                  outline={scope !== option.value}
-                  active={scope === option.value}
+                  className={`${segmented.item} ${scope === option.value ? segmented.active : ""}`}
+                  aria-pressed={scope === option.value}
                   onClick={() => setScope(option.value)}
                   disabled={!!category && !allowedScopes(category.scope).includes(option.value)}
-                  style={{ fontSize: "var(--fs-text)" }}
                 >
                   {t(option.labelKey)}
-                </Button>
+                </button>
               ))}
             </div>
             <FormText style={{ fontSize: "var(--fs-caption)" }}>{!category ? t("categories.scopeHint") : category.scope === "both" ? t("categories.scopeBothLocked") : t("categories.scopeWiden")}</FormText>

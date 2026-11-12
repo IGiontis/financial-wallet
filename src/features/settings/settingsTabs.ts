@@ -1,6 +1,3 @@
-import type { IconType } from "react-icons";
-import { FiDatabase, FiGlobe, FiLock, FiUser } from "react-icons/fi";
-
 // The Settings page in four tabs, each at its own address (/settings/<id>).
 //
 //   Profile      who you are: name, display name, age, city, country
@@ -11,11 +8,11 @@ import { FiDatabase, FiGlobe, FiLock, FiUser } from "react-icons/fi";
 //                out, deleting the account
 
 export const SETTINGS_TABS = [
-  { id: "profile", labelKey: "settings.profile", icon: FiUser },
-  { id: "preferences", labelKey: "settings.preferences", icon: FiGlobe },
-  { id: "data", labelKey: "settings.tabData", icon: FiDatabase },
-  { id: "account", labelKey: "settings.tabAccount", icon: FiLock },
-] as const satisfies readonly { id: string; labelKey: string; icon: IconType }[];
+  { id: "profile", labelKey: "settings.profile" },
+  { id: "preferences", labelKey: "settings.preferences" },
+  { id: "data", labelKey: "settings.tabData" },
+  { id: "account", labelKey: "settings.tabAccount" },
+] as const satisfies readonly { id: string; labelKey: string }[];
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
 
@@ -25,6 +22,5 @@ export const isSettingsTab = (value: string | undefined): value is SettingsTab =
 
 export const settingsTabPath = (tab: SettingsTab) => `/settings/${tab}`;
 
-/** The ids that tie each tab to the one panel it shows. */
-export const settingsTabId = (tab: SettingsTab) => `settings-tab-${tab}`;
-export const SETTINGS_PANEL_ID = "settings-panel";
+/** The `PageTabs` base: tab and panel ids are `pageTabIds(SETTINGS_TABS_BASE, tab)`. */
+export const SETTINGS_TABS_BASE = "settings";

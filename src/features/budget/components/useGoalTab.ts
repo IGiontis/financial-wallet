@@ -12,9 +12,6 @@ import { useSearchParams } from "react-router-dom";
 export const GOAL_TABS = ["overview", "cards", "list"] as const;
 export type GoalTab = (typeof GOAL_TABS)[number];
 
-/** The ids a tab and its panel point at each other by. */
-export const goalTabIds = (base: string, tab: GoalTab) => ({ tab: `${base}-tab-${tab}`, panel: `${base}-panel-${tab}` });
-
 const isGoalTab = (value: unknown): value is GoalTab => typeof value === "string" && (GOAL_TABS as readonly string[]).includes(value);
 
 function readStored(key: string): unknown {

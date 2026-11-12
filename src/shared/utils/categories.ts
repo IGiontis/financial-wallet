@@ -46,6 +46,8 @@ export const CATEGORY_KEYS: Record<string, string> = {
   Loans: "loans",
   "Loan Interest": "loanInterest",
   Transfer: "transfer",
+  // A business closing's profit or loss — see `BUSINESS_CATEGORY_ID`.
+  Business: "business",
 };
 
 /** The category every loan and repayment record carries — no category of the user's. */
@@ -54,16 +56,23 @@ export const DEBT_CATEGORY_ID = "__debt__";
 export const DEBT_INTEREST_CATEGORY_ID = "__debt_interest__";
 /** Both halves of a move between your own accounts. */
 export const TRANSFER_CATEGORY_ID = "__transfer__";
+/**
+ * A business closing's profit (an income) or loss (an expense) in the owner's
+ * own money: «Δουλειά», with a shop. No category of the user's and no
+ * `categories` document — the owner chose not to file it under one of his.
+ */
+export const BUSINESS_CATEGORY_ID = "__business__";
 
 /**
- * Categories with no document behind them: the ones a debt's records are
- * written under. Looked up like any other, so every list of categories names
+ * Categories with no document behind them: the ones a debt's records, a
+ * transfer's halves and a business closing's profit or loss are written under. Looked up like any other, so every list of categories names
  * them rather than calling them "uncategorised".
  */
 export const VIRTUAL_CATEGORIES: Record<string, { id: string; name: string; icon: string }> = {
   [DEBT_CATEGORY_ID]: { id: DEBT_CATEGORY_ID, name: "Loans", icon: "🤝" },
   [DEBT_INTEREST_CATEGORY_ID]: { id: DEBT_INTEREST_CATEGORY_ID, name: "Loan Interest", icon: "🏦" },
   [TRANSFER_CATEGORY_ID]: { id: TRANSFER_CATEGORY_ID, name: "Transfer", icon: "🔁" },
+  [BUSINESS_CATEGORY_ID]: { id: BUSINESS_CATEGORY_ID, name: "Business", icon: "🏪" },
 };
 
 /** A category by id — the user's, or one of `VIRTUAL_CATEGORIES`. */

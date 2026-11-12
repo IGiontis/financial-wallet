@@ -5,11 +5,12 @@ import { useTranslation } from "react-i18next";
 import { FiFilter, FiLayers } from "react-icons/fi";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { SkeletonCardGrid, SkeletonRows } from "../../../shared/components/Skeletons";
-import { GoalTabs } from "./GoalTabs";
+import { PageTabs } from "../../../shared/components/PageTabs";
+import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { GoalPickMenu } from "./GoalPickMenu";
 import { GROUP_BY_OPTIONS } from "./goalGrouping";
 import { countByStatus, filterGoals, type GoalStatusOption } from "./goalOverview";
-import { goalTabIds, useGoalTab, type GoalTab } from "./useGoalTab";
+import { GOAL_TABS, useGoalTab, type GoalTab } from "./useGoalTab";
 import styles from "./css/GoalsWorkbench.module.css";
 import type { GoalGroupBy } from "./goalGrouping";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
@@ -21,6 +22,12 @@ import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 // and the list each have their own search and their own «Όλοι ▾», so looking
 // for one goal in the list does not leave the cards filtered behind it. The tab
 // is in the address and remembered on the device (`useGoalTab`).
+
+const TAB_LABEL: Record<GoalTab, string> = {
+  overview: "goals.tabOverview",
+  cards: "goals.tabCards",
+  list: "goals.tabList",
+};
 
 /** What a tab of goals keeps of its own: what is typed and which status. */
 interface BrowseState {
@@ -87,7 +94,7 @@ export function GoalsWorkbench({
   );
 
   const panel = (which: GoalTab, body: ReactNode) => {
-    const ids = goalTabIds(base, which);
+    const ids = pageTabIds(base, which);
     return (
       <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab} tabIndex={0} className={styles.panel}>
         {body}
@@ -160,7 +167,16 @@ export function GoalsWorkbench({
         </div>
       </div>
 
-      <GoalTabs base={base} label={title} value={tab} onChange={setTab} />
+      {/* `goal-views` and each tab's `data-view` are what the demo's guided tour
+          presses to put the cards on screen before it points at one. */}
+      <PageTabs
+        base={base}
+        label={title}
+        tabs={GOAL_TABS.map((id) => ({ id, label: t(TAB_LABEL[id]) }))}
+        value={tab}
+        onChange={setTab}
+        data-tour="goal-views"
+      />
 
       {tab === "overview" && panel("overview", overview)}
       {tab === "cards" && panel("cards", browseTab("cards"))}

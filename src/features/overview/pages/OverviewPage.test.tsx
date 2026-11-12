@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import i18n from "../../../i18n";
 import { OverviewPage } from "./OverviewPage";
 import { computeBillStatus } from "../../bills/billsUtils";
@@ -53,10 +53,13 @@ const tx = (id: string, type: "income" | "expense", amount: number, date: Date):
 const bill = (id: string, name: string, amount: number, dueDay: number) =>
   computeBillStatus({ id, userId: "u", name, amount, categoryId: "c", frequency: "monthly", dueDay, isActive: true, anchorDate: new Date(2026, 0, 1), createdAt: new Date(2026, 0, 1), updatedAt: new Date(2026, 0, 1) } as Bill, [], NOW);
 
-const renderPage = () =>
+const Where = () => <p data-testid="where">{useLocation().search}</p>;
+
+const renderPage = (at = "/") =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[at]}>
       <OverviewPage />
+      <Where />
     </MemoryRouter>,
   );
 
@@ -238,6 +241,32 @@ describe("the overview", () => {
 
     renderPage();
     expect(screen.getByRole("tab", { name: /Net worth/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps the open tab in the address, as every page's tabs do", async () => {
+    renderPage();
+    expect(screen.getByTestId("where").textContent).toBe("?tab=all");
+    await userEvent.click(screen.getByRole("tab", { name: /Net worth/ }));
+    expect(screen.getByTestId("where").textContent).toBe("?tab=position");
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(/Net worth/);
+  });
+
+  it("opens the tab the address asks for, over the one remembered, and remembers it", () => {
+    localStorage.setItem("overview-tab", JSON.stringify("position"));
+    const first = renderPage("/?tab=month");
+    expect(screen.getByRole("tab", { name: /^Month$/ })).toHaveAttribute("aria-selected", "true");
+    first.unmount();
+
+    // Back from the menu, with no tab in the address: the one last opened.
+    renderPage();
+    expect(screen.getByRole("tab", { name: /^Month$/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("where").textContent).toBe("?tab=month");
+  });
+
+  it("ignores a tab it does not have", () => {
+    renderPage("/?tab=nonsense");
+    expect(screen.getByRole("tab", { name: /Summary/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("where").textContent).toBe("?tab=all");
   });
 
   it("says all clear when nothing wants doing", async () => {

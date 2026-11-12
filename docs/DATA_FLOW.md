@@ -17,7 +17,7 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
 - Hooks: `useTransactions`, `useCategories` (`features/transactions/hooks/useTransactions.ts`),
   `useInvestmentGoals` / `useAllContributions` (`features/budget/useInvestments.ts`),
   `useBills` (`features/bills/useBills.ts`), `useDebts` (`features/debts/useDebts.ts`),
-  `useBusinessEntries` (`features/business/useBusiness.ts`), `useWorkspace` /
+  `useBusinessEntries` / `useBusinesses` (`features/business/useBusiness.ts`), `useWorkspace` /
   `useWorkspaceSetting` (`shared/hooks/useWorkspaceSetting.ts`).
 - Data-layer getters (`getTransactions`, `getBills`, … in `src/firebase/firestore.ts`,
   `getBusinessEntries` in `business.ts`) all call `syncedList(name, uid)`
@@ -82,8 +82,8 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
 - **Online only.** `requireConnection("delete")` in the data layer throws
   `OfflineActionError` (`offlinePolicy.ts:305`); the screen disables the control with a reason
   through `useOfflineGuard("delete")` (`shared/hooks/useOfflineGuard.ts`). Same for
-  `"settings"` and `"bulk"` (mark many periods paid, rename/merge names, move business
-  category).
+  `"settings"` (business definitions too) and `"bulk"` (mark many periods paid, rename/merge
+  names).
 - Deletes are not optimistic in most hooks: rows go in `onSuccess` (`confirmList`).
   Exceptions: `useDeleteTransaction`, `useDeleteTransfer` remove first and restore on error.
 - After the batch: `noteDeleted(uid, name, ids)` or, for several lists, `noteDeletions(uid,
@@ -197,21 +197,34 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
   expense is gone", updateTransaction, deleteTransaction).
 
 ### Business closing → personal transaction
-- Docs, one batch (`saveClosing`, `src/firebase/business.ts:241`): `businessEntries`
-  (`linkedTransactionId`) + `transactions` (`businessEntryId`): an income of the profit, or an
-  expense of a loss; none when profit = 0. Optionally a new `categories` doc in the same
-  batch (`newCategory`).
-- Edit: the previous record is read (`stillThere`): there → updated (type may flip); gone →
-  re-`set` under its id + `noteRecreated`; no longer wanted → deleted only if there.
-- Delete: `deleteClosing` — entry + record (if there) in one batch, one log write
-  (`business.ts:298`).
-- Category move: `moveBusinessCategory` rewrites every closing naming it (`array-contains`,
-  ≤ 450 per batch), bulk/online only.
-- Hooks: `useSaveClosing` / `useDeleteClosing` (`features/business/useBusiness.ts:79,150`),
-  form `ClosingWizard.tsx`.
+- Businesses (name, income lines, expense lines) live on the user doc (`businesses`,
+  `useBusinesses`), written by `BusinessWizard` through `useWorkspaceSetting` — zero reads,
+  one debounced write. A rename touches no closing (lines are named by id).
+- Docs, one batch (`saveClosing`, `src/firebase/business.ts`): `businessEntries`
+  (`linkedTransactionId`) + `transactions` (`businessEntryId`, `businessId`): an income of the
+  profit, or an expense of a loss; none when profit = 0. Built by `personalRecord`
+  (`features/business/businessSummary.ts`): `categoryId` = `BUSINESS_CATEGORY_ID` (virtual,
+  «🏪 Δουλειά»), description «Κέρδος · <business>» / «Ζημιά · <business>»; `saveClosing`
+  forces the category and `businessId` again. No `categories` document is ever written.
+- Edit: the previous record is read (`stillThere`): there → updated (type may flip, business
+  and description follow the closing); gone → re-`set` under its id + `noteRecreated`; no longer
+  wanted → deleted only if there.
+- Delete a closing: `deleteClosing` — entry + record (if there) in one batch, one log write.
+- Delete a business: `deleteBusinessRecords` — `userId == + businessId ==` read FROM THE SERVER
+  on both `businessEntries` and `transactions` (only existing docs are named), each closing in
+  the same batch as its record, ≤ 450 deletes a batch, one log write (also on a part-way failure,
+  for what did go; the error carries `deleted`). Then `useDeleteBusiness` removes the business
+  from the user doc LAST. The confirmation's counts come from the closings on the device
+  (`businessReach`), no read. Cost: N + M reads, N + M deletes, 1 log write, 1 user-doc write.
+- Taking a line off a business: no closing is rewritten; a line closings name stays as
+  `removed: true` (`buildBusiness`, `features/business/businessEdit.ts`).
+- Hooks: `useSaveClosing` / `useDeleteClosing` / `useDeleteBusiness`
+  (`features/business/useBusiness.ts`), forms `ClosingWizard.tsx`, `BusinessWizard.tsx`.
 - Locked: the personal record (`business`), changed only on «Δουλειά».
-- Tests: `firebase/business.test.ts` (strict-delete rules simulated),
-  `firebase/syncBusiness.test.ts`, `features/business/businessSummary.test.ts`.
+- Tests: `firebase/business.test.ts` (strict-delete rules simulated, cascade chunks and
+  part-way failure), `firebase/syncBusiness.test.ts`, `features/business/businessSummary.test.ts`,
+  `businessEdit.test.ts`, `businessRecord.test.ts` (category display, counted once),
+  `demo/fixtures.test.ts`.
 
 ### Incomes «Ήρθε»
 - Income definitions live on the user doc (`workspace.incomes`); «Ήρθε» writes one

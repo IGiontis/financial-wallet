@@ -16,7 +16,7 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `small` in a row of small buttons) and `AddHeader` (`label`, `onAdd`, `title`, `subtitle`): «+» pinned
   left, `h1.h5` title + one-line subtitle. Reference: `DebtsPage`, `BillsPage`. Never a text «+ Κάτι» button.
 - `src/features/budget/components/GoalsWorkbench.tsx` — the Goals/Investments page frame (header with
-  `action={<AddButton/>}`, `GoalTabs`, overview/cards/list, `empty`). Use for another goal-like screen.
+  `action={<AddButton/>}`, `PageTabs`, overview/cards/list, `empty`). Use for another goal-like screen.
 - `src/shared/hooks/usePageAdd.ts` — `usePageAdd(label, onAdd)`: tell the floating «+»
   (`src/features/layout/AddFab.tsx`) what this page adds; same words as the page's `AddButton`.
   `src/shared/components/PageAddProvider.tsx` provides it (app shell only).
@@ -26,19 +26,24 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 ## Tabs & in-page views
 
-- `src/shared/components/UnderlineTabs.tsx` — THE page tabs (Goals/Investments look), a real tablist:
-  `base`, `label`, `tabs: {id,label}[]`, `value`, `onChange`. Panel ids via
-  `src/shared/utils/underlineTabIds.ts` (`underlineTabIds(base, tab)` → `{tab, panel}`); keep the tab in `?tab=`.
-  Reference: `BusinessPage`, `NamesPage`. Styles: `src/shared/css/UnderlineTabs.module.css`.
-- `src/features/budget/components/GoalTabs.tsx` — the Goals/Investments fixed three tabs (same look). Do not
-  copy it for a new page; use `UnderlineTabs`.
-- `src/shared/components/SubPageTabs.tsx` — links to a section's child routes («Σύνοψη · Πληρωμές · Όλα»),
-  with optional count badges. Today on Bills + Incomes only; see Known drift before reusing.
+- `src/shared/components/PageTabs.tsx` — THE page tabs, the one tab look on every page (boxes, the chosen one
+  in the brand, no icons; one row that scrolls sideways with snap when tight, never wraps). Straight under the
+  header. Two modes, same markup:
+  - state tabs — `base`, `label`, `tabs: {id,label}[]`, `value`, `onChange`: a real tablist (arrows, Home/End,
+    roving tabIndex, `data-view={id}` on each). Label the panel with `src/shared/utils/pageTabIds.ts`
+    (`pageTabIds(base, tab)` → `{tab, panel}`). Keep the tab in `?tab=`. Reference: `BusinessPage`, `NamesPage`,
+    `GoalsWorkbench`, `OverviewPage`; `SettingsPage` (each tab its own route, `onChange` navigates).
+  - link tabs — `label`, `links: {to,label,badge?,badgeTone?,badgeLabel?}[]`: a section's child routes
+    («Σύνοψη · Πληρωμές · Όλα», `NavLink end`), a count on a tab's corner. Reference: `BillsPage`, `IncomesPage`.
+  Optional `data-tour` for the guided tour. Styles: `src/shared/css/PageTabs.module.css` (Segmented's tokens).
+- `src/shared/hooks/usePageTab.ts` — `usePageTab(tabs, first, storageKey)` → `[tab, choose]`: the open tab in
+  `?tab=` (replace, not push), remembered on the device for a visit with no `?tab=`; the address wins.
+  Reference: `OverviewPage`, `BusinessPage`. (`useGoalTab` is an older copy of the same idea.)
 - `src/shared/components/ViewSwitch.tsx` — 2–3 ways of laying out the SAME rows («Λίστα | Ημερολόγιο»):
   `label`, `options: {id,label,icon?,short?}[]`, `value`, `onChange`, `stackOnPhone`, `block`. Not page tabs.
   Styles: `src/shared/css/ViewSwitch.module.css`.
-- `src/features/settings/settingsTabs.ts` — Settings' tab ids/paths (`/settings/<id>`); drawn by
-  `src/features/settings/components/SettingsTabs.tsx` (segmented look — drift, see below).
+- `src/features/settings/settingsTabs.ts` — Settings' tab ids/paths (`/settings/<id>`), drawn by `PageTabs`
+  in `SettingsPage`.
 
 ## Forms & wizards
 
@@ -77,8 +82,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/features/debts/MoneyMovedPicker.tsx` — "did money change hands, through which card?" — `YesNoChoice` +
   card pick (`value: null` unanswered, `""` yes-without-card). Any record that may or may not move cash.
 - `src/shared/css/Segmented.module.css` — THE one-of-many control: `.group` > `.item` (+ `.active`);
-  `.even` = equal halves for a two-way choice (+ `.owe` / `.lend` tints, see `AddDebtModal`); `.fit` = labels
-  keep their width. Period pickers, filters, scopes. Never a Bootstrap `btn-group`.
+  `.even` = equal halves for a two-way choice (+ `.owe` / `.lend` tints, see `AddDebtModal`).
+  Period pickers, filters, scopes. Never a Bootstrap `btn-group`, and never page tabs (`PageTabs`;
+  `uiConventions.test.ts` refuses `aria-selected`/`NavLink` beside it).
 - `src/shared/css/ChoiceSwitch.module.css` — sizing for a segmented control in a settings row
   (`ThemeSwitch`, `MotionEffectsSetting`, `BusinessSetting`).
 - `src/shared/components/EveryPicker.tsx` — «Κάθε πότε»: count + unit, both picked (`unit`, `count`,
@@ -106,8 +112,13 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 ## Lists, rows & row actions
 
 - `src/shared/components/RowMenu.tsx` — the ⋮ menu on a row: `label`, `entries: RowMenuItem[]` (`danger`
-  for delete) with `MENU_DIVIDER`. Floating UI, not reactstrap `Dropdown` (Popper misplaces it here).
+  for delete) with
+  `MENU_DIVIDER`. Floating UI, not reactstrap `Dropdown` (Popper misplaces it here).
   Styles: `src/shared/css/RowMenu.module.css`.
+- `src/features/budget/components/GoalPickMenu.tsx` — «Όλοι ▾»: a small button opening a one-of-many
+  choice under it (`label`, `value`, `options: {id,label,count?}[]`, `onChange`, `icon`, `compact`), built on
+  `RowMenu` (✓ on the chosen; the toggle's name says the current choice). A filter that applies to a whole page or toolbar. Reference:
+  `GoalsWorkbench` (status, group by), `BusinessPage` («Όλες οι δουλειές ▾», `?business=`).
 - `src/shared/components/ManageList.tsx` — «Διαχείριση»: grouped names with edit, bin, optional on/off
   (`groups`, `onEdit`, `onDelete`, `onToggle`, `flash`). Bills/Incomes manage tabs, categories.
   Styles: `src/shared/css/ManageList.module.css`.
@@ -160,7 +171,7 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   total in its meaning's colour (DebtsPage, MonthCalendar).
 - `src/features/budget/components/GoalsOverview.tsx` — overview tab: `OverviewTile[]` (`label`, `value`,
   `sub`, `tone` edge, `icon`) + "nearest" list + `MonthBars`. Tiles for any page's overview; Business
-  reuses its classes (`GoalsWorkbench.module.css .overviewTile*`).
+  reuses its classes (`GoalsWorkbench.module.css .overviewTile*`, `.nearList` for «Πού πήγαν τα έξοδα»).
 - `src/shared/utils/moneyModel.ts` — what counts as in/out: `isSpending`, `isEarning`, `isTransfer`,
   `isMoneyMove`… Every total. `src/shared/utils/balance.ts` — current balance from a reading
   (`currentBalance`, `affectsBalance`); `src/shared/hooks/useOpeningBalance.ts` supplies the opening figure.
@@ -175,7 +186,8 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `useCachedData`: names already loaded, zero reads — for `matchName` in a form.
 - `src/shared/utils/categoryNames.ts` — category key/aliases, `findScopeDuplicates`, `groupCategories`,
   `CategoryScope`. `src/shared/utils/categories.ts` — `categoryLabel(name, t)` (translated defaults),
-  `findCategory`, virtual ids (`DEBT_CATEGORY_ID`, `TRANSFER_CATEGORY_ID`).
+  `findCategory`, virtual ids (`DEBT_CATEGORY_ID`, `TRANSFER_CATEGORY_ID`, `BUSINESS_CATEGORY_ID` = «🏪 Δουλειά»):
+  a record under one of them shows its name and icon everywhere `findCategory` is used.
 
 ## Calendars & charts
 
@@ -237,7 +249,6 @@ Account card skins (`src/features/accounts/accountTones.ts`) and flags (`src/sha
   `src/shared/hooks/useAppUpdate.ts`, `src/shared/components/modalMotion.ts` (`installModalMotion`) — app shell.
 - `src/shared/hooks/useTheme.ts` — theme context (`useTheme`, `THEME_PREFERENCES`); use `ThemeSwitch` in UI.
 - `src/shared/hooks/useRowFlash.ts` — under `useSavedFlash`.
-- `src/shared/utils/underlineTabIds.ts` — used by `UnderlineTabs`; call it only to label the panel.
 - `src/shared/utils/offlinePolicy.ts` — the rule table behind `useOfflineGuard`.
 - `src/lib/deltaSync.ts`, `src/lib/localStore.ts`, `src/lib/readMeter.ts`, `src/lib/queryClient.ts` — sync/cache plumbing.
 
@@ -248,61 +259,49 @@ Places that do not use the shared piece today. Do not copy them; fix one when yo
 1. **Hand-made `btn-group`** — `src/features/categories/CategoryModal.tsx:134`: the scope picker
    («Έξοδο / Έσοδο / Και τα δύο») is a Bootstrap `btn-group` of `color="secondary"` buttons (grey active).
    Should be `Segmented.module.css` (`.group .even`).
-2. **Three page-tab looks** (rule: page tabs = `UnderlineTabs`):
-   - Underline: `GoalTabs` (Goals, Investments), `UnderlineTabs` (`BusinessPage.tsx:149`, `NamesPage.tsx:48`).
-   - Segmented-as-tabs: `src/features/overview/pages/OverviewPage.tsx:423` and
-     `src/features/settings/components/SettingsTabs.tsx:42`, each with its own copied `.tabBar .tabButton`
-     override (`OverviewPage.module.css:183`, `src/features/settings/css/SettingsPage.module.css:5`) — two
-     classes doubled to beat `Segmented .item`.
-   - Segmented links: `SubPageTabs` on `src/features/bills/BillsPage.tsx:1292` and
-     `src/features/incomes/IncomesPage.tsx:238`.
-3. **`GoalTabs` is a copy of `UnderlineTabs`** — `src/features/budget/components/GoalTabs.tsx:20`: same keyboard
-   code, own styles in `GoalsWorkbench.module.css`. Should render `UnderlineTabs`.
-4. **`SubPageTabs` overflow** — it uses `.group .even .fit` (`src/shared/components/SubPageTabs.tsx:24`): `.even`
-   sets `flex-wrap: nowrap`, so the row never wraps (no row gap question arises), and only below 768px does
-   `.even.fit` scroll (`Segmented.module.css:106`). From 768px up `.even` keeps `overflow-x: visible`, so tabs
-   too wide for the container spill out instead of wrapping or scrolling. Badge uses inline px (9.5px, listed
-   in `typeScale.test.ts`).
-5. **Hand-rolled page header** — `src/features/accounts/AccountsPage.tsx:477` `Header` duplicates `AddHeader`
+2. **Hand-rolled page header** — `src/features/accounts/AccountsPage.tsx:477` `Header` duplicates `AddHeader`
    markup. `src/features/transactions/pages/TransactionPage.tsx:984`: `AddButton` sits beside the search field,
    no title header.
-6. **Hand-rolled confirm dialogs** (no shared confirm; `ConfirmSheet` is the one to reuse/extract):
+3. **Hand-rolled confirm dialogs** (no shared confirm; `ConfirmSheet` is the one to reuse/extract):
    `src/features/bills/BillsPage.tsx:1762`, `src/features/accounts/AccountsPage.tsx:495`,
    `src/features/budget/components/InvestmentsShared.tsx:665` (`DeleteConfirmModal`),
    `src/features/transactions/pages/TransactionPage.tsx:208` (another `DeleteConfirmModal`).
-7. **Local currency formatting** instead of `useCurrencyConverter().format(n, displayCurrency)`:
+4. **Local currency formatting** instead of `useCurrencyConverter().format(n, displayCurrency)`:
    `src/features/transactions/components/AddTransactionModal.tsx:329`,
    `src/features/transactions/components/EditTransactionModal.tsx:315` (0–2 decimals, unlike everywhere else),
    `src/features/incomes/components/ArrivedSheet.tsx:127`, `src/features/categories/FuelDetailsPanel.tsx:167`
    (`fuelTypes.ts:22` formats a 3-decimal fuel price — legitimately different).
-8. **Copied number helpers** — `src/features/overview/components/CashFlowChart.tsx:157` has its own
+5. **Copied number helpers** — `src/features/overview/components/CashFlowChart.tsx:157` has its own
    `compactNumber` (use `chartTheme.compactNumber`); `const round2 = …` is re-declared in 43 files
    (e.g. `src/features/accounts/accountsUtils.ts:65`, `src/features/analytics/analyticsUtils.ts:14`) — no shared helper yet.
-9. **Copied wizard review CSS** — `src/features/plannerPage/css/PlannerPage.module.css:955` re-declares
+6. **Copied wizard review CSS** — `src/features/plannerPage/css/PlannerPage.module.css:955` re-declares
    `.wizCard/.wizRow/.wizLabel/.wizValue` (used at `src/features/plannerPage/components/EntryEditor.tsx:460`);
    use `src/shared/css/Wizard.module.css`.
-10. **Two overview-tile looks** — `src/features/overview/components/OverviewTabs.tsx:371` (`OverviewTile`,
-    `TileGrid`, own classes) vs `GoalsOverview`'s `OverviewTile`; `src/features/business/BusinessPage.tsx:262`
-    rebuilds the Goals tile markup from `GoalsWorkbench.module.css`. No shared `Tile` component yet.
-11. **Month ‹ › steppers hand-rolled** — `MonthCalendar.tsx:104` is the reference; copies at
+7. **Two overview-tile looks** — `src/features/overview/components/OverviewTabs.tsx:371` (`OverviewTile`,
+    `TileGrid`, own classes) vs `GoalsOverview`'s `OverviewTile`; `src/features/business/BusinessPage.tsx`
+    (`MonthTiles`) rebuilds the Goals tile markup from `GoalsWorkbench.module.css`. No shared `Tile` component yet.
+8. **Month ‹ › steppers hand-rolled** — `MonthCalendar.tsx:104` is the reference; copies at
     `src/features/business/businessShared.tsx:14` (`MonthNav`), `src/features/transactions/pages/LedgerPage.tsx:207`,
     `src/features/plannerPage/components/PlannerTiles.tsx:174` (+ a month `<select>` at :179),
     `src/features/incomes/components/IncomeCalendar.tsx:135`,
     `src/features/transactions/components/TransactionCalendar.tsx:376`,
     `src/features/analytics/components/CategoryTrendCard.tsx:93`, `src/features/analytics/components/IncomesBillsCard.tsx:49`,
     `src/features/plannerPage/components/LineSpendSheet.tsx:87`, `src/features/calendar/components/MoneyTimeline.tsx:168`.
-12. **reactstrap Dropdown** — `src/features/plannerPage/components/PlannerPaydayCard.tsx:97`
+9. **reactstrap Dropdown** — `src/features/plannerPage/components/PlannerPaydayCard.tsx:97`
     (`UncontrolledDropdown`); `RowMenu.tsx` explains why Popper misplaces menus in this app.
-13. **Switches inside forms** (rule: YES/NO tiles) — `src/features/accounts/ReviewCard.tsx:101` («adjust
+10. **Switches inside forms** (rule: YES/NO tiles) — `src/features/accounts/ReviewCard.tsx:101` («adjust
     reading» switch on a wizard's review step). Settings toggles (`BillAlertSetting.tsx:131`) and
     `TwoWayCard.tsx:157` are page controls, not forms.
-14. **A "try again" message** (rule 6) — `src/features/debts/CoveredLoadFailed.tsx:12` («Δοκίμασε ξανά»),
+11. **A "try again" message** (rule 6) — `src/features/debts/CoveredLoadFailed.tsx:12` («Δοκίμασε ξανά»),
     used at `AddDebtModal.tsx:382`, `PersonDebtsModal.tsx:910`.
-15. **Weekday as `<select>`** — `src/features/bills/AddBillModal.tsx:617` and
+12. **Weekday as `<select>`** — `src/features/bills/AddBillModal.tsx:617` and
     `src/features/incomes/components/IncomeFormModal.tsx:314`: no shared weekday picker (the day-of-month one is
     `DayPicker`); a candidate for `Segmented`.
-16. **Inline px/hard values** — `src/features/categories/FuelDetailsPanel.tsx:46,160` (`borderRadius: 10/8`,
+13. **Inline px/hard values** — `src/features/categories/FuelDetailsPanel.tsx:46,160` (`borderRadius: 10/8`,
     `padding: "8px 12px"`) instead of `--radius-*` / `--space-*`.
-17. **Dead / damaged** — `src/features/overview/components/MetricCard.tsx` is imported nowhere (and formats
-    with `toLocaleString`, `:13`); `src/features/overview/pages/css/OverviewPage.module.css:180` has a
-    mojibake comment rule.
+14. **Dead / damaged** — `src/features/overview/components/MetricCard.tsx` is imported nowhere (and formats
+    with `toLocaleString`, `:13`); `src/features/overview/pages/css/OverviewPage.module.css:1` and other
+    comment rules in it are mojibake.
+15. **An underline strip as a filter** — `src/features/budget/components/InvestmentsShared.tsx:745`
+    (`HistoryTabBar`, «Όλες · Καταθέσεις · Αναλήψεις» in a goal's history dialog): inline-styled underline
+    buttons, no tab roles. A one-of-many filter, so `Segmented.module.css` (or `ViewSwitch`), not `PageTabs`.

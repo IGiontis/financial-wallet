@@ -1,0 +1,103 @@
+/* A page's tabs — the ONE tab look on every page (the owner, 2026-11-12:
+   «κουτάκια παντού»). The boxes of the shared segmented control
+   (Segmented.module.css), in its own tokens: a resting tab is the neutral chip
+   with an edge you can see, the chosen one the brand, filled. No icons.
+
+   One row, always. The boxes share the row equally while they fit, none ever
+   narrower than its own label; when they don't fit — a 320px phone, a long
+   Greek word, a count beside a name — the row scrolls sideways and snaps, on
+   every width, rather than wrapping to a second row or spilling out of the
+   page. The scrollbar is hidden: the cut-off box at the edge says there is
+   more. */
+
+.strip {
+  display: grid;
+  grid-auto-flow: column;
+  /* Equal while they fit; a long label keeps its own width and the rest share
+     what is left; past the row's width the grid overflows and the strip scrolls. */
+  grid-auto-columns: minmax(max-content, 1fr);
+  gap: var(--segment-gap);
+  /* Room inside the scroller for the chosen box's shadow and the focus ring,
+     which the scroll box would otherwise cut; the negative margin keeps the
+     boxes' edges on the page's own lines. */
+  padding: var(--space-1);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) calc(var(--space-4) - var(--space-1));
+  border-radius: var(--border-radius-md);
+  background: var(--segment-track);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--space-1);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px; /* a comfortable touch target */
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--segment-item-border);
+  border-radius: var(--border-radius-sm);
+  background: var(--segment-item);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-text);
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  /* Labels are short and meaningful — never cut to «…», never broken. */
+  white-space: nowrap;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.tab:hover:not(.active) {
+  border-color: var(--segment-item-hover-border);
+  color: var(--color-text-primary);
+}
+
+.tab.active {
+  background: var(--color-segment-active);
+  border-color: var(--color-segment-active-border);
+  color: var(--color-segment-active-text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.tab:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* The word, and a count on its top-right corner as a notification has it —
+   rather than beside it on the line. The margin keeps the count's room inside
+   the box, so it never lands on the next tab. */
+.word {
+  position: relative;
+  display: inline-block;
+}
+
+.word.counted {
+  margin-right: 14px;
+}
+
+.badge {
+  position: absolute;
+  top: -7px;
+  left: 100%;
+  margin-left: 2px;
+  padding: 2px 5px;
+  font-size: 9.5px;
+  line-height: 1;
+}

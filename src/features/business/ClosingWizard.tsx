@@ -1,5 +1,5 @@
-import { Fragment, useId, useState, type ReactNode } from "react";
-import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Fragment, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { FiPlus, FiX } from "react-icons/fi";
@@ -11,155 +11,163 @@ import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useStepTried } from "../../shared/hooks/useStepTried";
-import { categoryLabel } from "../../shared/utils/categories";
+import { categoryLabel, VIRTUAL_CATEGORIES, BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
+import { cleanLine } from "../../shared/utils/cleanText";
 import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
-import { matchName } from "../../shared/utils/nameMatch";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
-import { newDocId } from "../../firebase/firestore";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
-import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
+import { useTransactions } from "../transactions/hooks/useTransactions";
 import AccountPicker from "../accounts/AccountPicker";
 import ReviewCard from "../accounts/ReviewCard";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
-import type { BusinessEntry, BusinessExpense, Category } from "../../shared/types/IndexTypes";
-import { closingFigures, personalMove } from "./businessSummary";
-import { categoryName, profitTone, signed } from "./businessFormat";
-import { useBusinessCategories, useSaveClosing } from "./useBusiness";
+import type { Business, BusinessEntry, BusinessExpense, BusinessIncome, BusinessLine } from "../../shared/types/IndexTypes";
+import { LINES_MAX as CLOSING_LINES_MAX } from "./businessKeys";
+import { closingFigures, personalMove, personalRecord } from "./businessSummary";
+import { businessOf, expenseName, lineName, profitTone, signed } from "./businessFormat";
+import { useSaveClosing } from "./useBusiness";
 import styles from "./css/Business.module.css";
+import tiles from "../../shared/components/css/YesNoChoice.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 
-// «Κλείσιμο ημέρας»: the day's turnover, what the business paid out of it, and
-// where the day's profit went in the owner's own money — the owner's words:
-// «Τζίρος τόσο, έξοδα τόσο, κέρδος τόσο. Και το κέρδος να προστίθεται στα ήδη
-// λεφτά μου.» Four steps — the day and its turnover, the expenses (one line
-// each, as many as there were, or none), the card or cash, the check — and
-// Save only on the check, which shows every figure and what reaches the
-// owner's money. A loss comes out of it instead (an expense of the loss).
+// «Κλείσιμο ημέρας» of one business: which business and which day, what each of
+// its income lines took in, what each of its expense lines paid out (and any
+// one-off «άλλο έξοδο»), where the day's profit goes in the owner's own money —
+// or where its loss comes out of — and the check, which shows every figure and
+// is the only place Save is. Every money field starts EMPTY, with a
+// placeholder; an empty one counts as 0. The business is asked only when there
+// is more than one, and comes chosen when the page shows one.
 //
-// Nothing starts filled in but today's date; a correction opens on the check,
-// every step a tap away, and the check says what changes: before → after.
+// A correction opens on the check, every step a tap away, and the check says
+// what changes: before → after.
 
-const STEPS = ["day", "expenses", "account", "review"] as const;
+const STEPS = ["day", "incomes", "expenses", "account", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 const AMOUNT_MAX = 1e9;
 const NOTE_MAX = 1000;
-const LINE_NOTE_MAX = 80;
-/** The most lines one closing keeps — the rules' limit. */
-const LINES_MAX = 30;
+const ONE_OFF_NAME_MAX = 80;
 
-interface Line {
+interface OneOff {
   key: number;
-  categoryId: string;
+  name: string;
   amount: string;
-  note: string;
+  note?: string;
 }
 
 const parse = (text: string) => parseFloat(text.replace(",", "."));
-const blank = (line: Line) => !line.categoryId && !line.amount.trim() && !line.note.trim();
+/** A money field as typed: empty is 0; anything else must be a number from 0 to the limit. */
+const amountOk = (text: string) => text.trim() === "" || (Number.isFinite(parse(text)) && parse(text) >= 0 && parse(text) <= AMOUNT_MAX);
+const amountOf = (text: string) => (text.trim() === "" || !amountOk(text) ? 0 : parse(text));
+const blankOneOff = (o: OneOff) => !o.name.trim() && !o.amount.trim();
+const oneOffOk = (o: OneOff) => blankOneOff(o) || (!!cleanLine(o.name) && amountOk(o.amount) && amountOf(o.amount) > 0);
 
-export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: BusinessEntry; onClose: () => void; onDelete?: () => void }) {
+/** The lines a closing of `business` offers: the ones on it now, and — for a correction — any taken off since that this closing names. */
+function linesFor(business: Business | undefined, kind: "incomeLines" | "expenseLines", named: readonly (string | undefined)[]): BusinessLine[] {
+  if (!business) return [];
+  return business[kind].filter((l) => !l.removed || named.includes(l.id));
+}
+
+export default function ClosingWizard({ entry, businesses, preset, onClose, onDelete }: { entry?: BusinessEntry; businesses: readonly Business[]; preset?: string; onClose: () => void; onDelete?: () => void }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
-  const [categories] = useBusinessCategories();
   const accounts = useAccountList();
-  const { data: personalCategories = [] } = useCategories();
   // The personal record being corrected: the shared list, usually held already (delta-synced when not).
   const { data: transactions } = useTransactions();
   const save = useSaveClosing();
   const deleteGuard = useOfflineGuard("delete");
   const { tried, mark } = useStepTried<Step>();
-  const ids = { date: useId(), turnover: useId(), notes: useId() };
-  const lineId = useId();
+  const ids = { date: useId(), notes: useId(), field: useId() };
 
   const editing = !!entry;
   const linked = editing ? transactions?.find((tx) => tx.id === entry.linkedTransactionId) : undefined;
   const shown = (n: number) => String(Math.round(convert(n) * 100) / 100);
   const base = (n: number) => Math.round((baseCurrency === displayCurrency ? n : convertToBase(n)) * 100) / 100;
+  const single = businesses.length === 1;
 
   const [step, setStep] = useState<Step>(editing ? "review" : "day");
+  const [businessId, setBusinessId] = useState(() => entry?.businessId ?? (preset && businessOf(businesses, preset) ? preset : single ? businesses[0].id : ""));
   const [date, setDate] = useState(editing ? toISODay(entry.date) : toISODay(new Date()));
-  const [turnover, setTurnover] = useState(editing ? shown(entry.turnover) : "");
   const [notes, setNotes] = useState(editing ? (entry.notes ?? "") : "");
-  const [lines, setLines] = useState<Line[]>(() =>
-    editing && entry.expenses?.length ? entry.expenses.map((l, i) => ({ key: i, categoryId: l.categoryId, amount: shown(l.amount), note: l.note ?? "" })) : [{ key: 0, categoryId: "", amount: "", note: "" }],
-  );
+  // Every amount by its line's id, as typed; nothing typed for a line is 0.
+  const [amounts, setAmounts] = useState<Record<string, string>>(() => {
+    const typed: Record<string, string> = {};
+    for (const l of [...(entry?.incomes ?? []), ...(entry?.expenses ?? [])]) if ("lineId" in l && l.lineId) typed[l.lineId] = shown(l.amount);
+    return typed;
+  });
+  const [oneOffs, setOneOffs] = useState<OneOff[]>(() => (entry?.expenses ?? []).filter((l) => !l.lineId).map((l, i) => ({ key: i, name: l.name ?? "", amount: shown(l.amount), note: l.note })));
   const [account, setAccount] = useState(editing ? (linked?.accountId ?? entry.accountId ?? "") : "");
-  // The personal category's id if it has to be made with this save — the same one for the screen and the write.
-  const [newCategoryDocId] = useState(() => newDocId("categories"));
 
   // ── What has been typed, checked ──
+  const business = businessOf(businesses, businessId);
+  const named = [...(entry?.incomes ?? []).map((l) => l.lineId), ...(entry?.expenses ?? []).map((l) => l.lineId)];
+  const keepNamed = editing && entry.businessId === businessId ? named : [];
+  const incomeLines = linesFor(business, "incomeLines", keepNamed);
+  const expenseLines = linesFor(business, "expenseLines", keepNamed);
   const when = parseISODay(date);
-  const turnoverValue = parse(turnover);
-  const turnoverOk = turnover.trim() !== "" && Number.isFinite(turnoverValue) && turnoverValue >= 0 && turnoverValue <= AMOUNT_MAX;
-  const filled = lines.filter((l) => !blank(l));
-  const lineOk = (l: Line) => categories.some((c) => c.id === l.categoryId) && Number.isFinite(parse(l.amount)) && parse(l.amount) > 0 && parse(l.amount) <= AMOUNT_MAX;
-  const linesOk = filled.every(lineOk) && filled.length <= LINES_MAX;
-  const expenses: BusinessExpense[] = filled.filter(lineOk).map((l) => ({ categoryId: l.categoryId, amount: base(parse(l.amount)), ...(l.note.trim() ? { note: l.note.trim() } : {}) }));
-  const figures = closingFigures({ turnover: turnoverOk ? base(turnoverValue) : 0, expenses });
+  const typedOf = (id: string) => amounts[id] ?? "";
+  const incomesOk = incomeLines.every((l) => amountOk(typedOf(l.id)));
+  const expenseFieldsOk = expenseLines.every((l) => amountOk(typedOf(l.id))) && oneOffs.every(oneOffOk);
+  const notesOfLine = new Map((entry?.expenses ?? []).filter((l) => l.lineId && l.note).map((l) => [l.lineId!, l.note!]));
+
+  const incomes: BusinessIncome[] = incomeLines.filter((l) => amountOf(typedOf(l.id)) > 0).map((l) => ({ lineId: l.id, amount: base(amountOf(typedOf(l.id))) }));
+  const expenses: BusinessExpense[] = [
+    ...expenseLines.filter((l) => amountOf(typedOf(l.id)) > 0).map((l) => ({ lineId: l.id, amount: base(amountOf(typedOf(l.id))), ...(notesOfLine.get(l.id) ? { note: notesOfLine.get(l.id) } : {}) })),
+    ...oneOffs.filter((o) => !blankOneOff(o) && oneOffOk(o)).map((o) => ({ name: cleanLine(o.name), amount: base(amountOf(o.amount)), ...(o.note ? { note: o.note } : {}) })),
+  ];
+  const anyAmount = incomes.length + expenses.length > 0;
+  const tooMany = incomes.length > CLOSING_LINES_MAX || expenses.length > CLOSING_LINES_MAX;
+  const expensesOk = expenseFieldsOk && anyAmount && !tooMany;
+  const figures = closingFigures({ incomes, expenses });
   const move = personalMove(figures.profit);
   const written = accounts.length > 0 ? chosenAccount(accounts, account) : undefined;
   const accountGap = !!move && accountMissing(accounts, account);
-  const ready = !!when && turnoverOk && linesOk && !accountGap;
-
-  // ── The personal category the day's profit (or loss) is filed under ──
-  const personalCategory = (() => {
-    if (!move) return undefined;
-    const key = move.type === "income" ? "business.profitCategory" : "business.lossCategory";
-    // Kept when the record it was saved under is still the same kind.
-    const kept = linked && linked.type === move.type ? personalCategories.find((c) => c.id === linked.categoryId) : undefined;
-    if (kept) return { category: kept, isNew: false };
-    // Else the one with its name — in either language, as the owner may have switched — or a new one.
-    const names = [t(key, { lng: "el" }), t(key, { lng: "en" })];
-    const sameSide = personalCategories.filter((c) => c.type === move.type);
-    const found = names.map((name) => matchName(name, sameSide, (c: Category) => [c.name, categoryLabel(c.name, t)])).find((m) => m?.kind === "same");
-    if (found) return { category: found.item, isNew: false };
-    return { category: { id: newCategoryDocId, name: t(key), type: move.type, icon: move.type === "income" ? "🏪" : "📉" } as Category, isNew: true };
-  })();
+  const dayOk = !!when && !!business;
+  const ready = dayOk && incomesOk && expensesOk && !accountGap;
 
   const index = STEPS.indexOf(step);
   const goTo = (target: Step) => {
     const at = STEPS.indexOf(target);
-    if (at > 0 && (!when || !turnoverOk)) {
+    if (at > 0 && !dayOk) {
       mark("day");
       return setStep("day");
     }
-    if (at > 1 && !linesOk) {
+    if (at > 1 && !incomesOk) {
+      mark("incomes");
+      return setStep("incomes");
+    }
+    if (at > 2 && !expensesOk) {
       mark("expenses");
       return setStep("expenses");
     }
-    if (at > 2 && accountGap) {
+    if (at > 3 && accountGap) {
       mark("account");
       return setStep("account");
     }
     setStep(target);
   };
 
-  const setLine = (key: number, patch: Partial<Line>) => setLines((all) => all.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  const addLine = () => setLines((all) => [...all, { key: Math.max(-1, ...all.map((l) => l.key)) + 1, categoryId: "", amount: "", note: "" }]);
-  const removeLine = (key: number) => setLines((all) => all.filter((l) => l.key !== key));
+  const setAmount = (lineId: string, text: string) => setAmounts((all) => ({ ...all, [lineId]: text }));
+  const nextKey = Math.max(-1, ...oneOffs.map((o) => o.key)) + 1;
+  const setOneOff = (key: number, patch: Partial<OneOff>) => setOneOffs((all) => all.map((o) => (o.key === key ? { ...o, ...patch } : o)));
+  const describe = (type: "income" | "expense") => t(type === "income" ? "business.recordProfit" : "business.recordLoss", { name: business?.name ?? "" });
 
   const submit = () => {
-    if (!ready || !when) return goTo("review");
-    const personal =
-      move && personalCategory
-        ? { amount: move.amount, type: move.type, categoryId: personalCategory.category.id, date: when, description: t("business.closingTitle"), accountId: written || undefined }
-        : null;
+    if (!ready || !when || !business) return goTo("review");
+    const closing = { businessId: business.id, date: when, incomes, expenses, notes: notes.trim() || undefined, accountId: move ? written || undefined : undefined };
     void saveWithoutWaiting(
       save,
       {
         editing: editing ? { id: entry.id, previousTransactionId: entry.linkedTransactionId, createdAt: firestoreToDate(entry.createdAt) } : undefined,
-        closing: { date: when, turnover: base(turnoverValue), expenses, notes: notes.trim() || undefined, accountId: move ? written || undefined : undefined },
-        personal,
-        newCategory: personal && personalCategory?.isNew ? { id: personalCategory.category.id, data: { name: personalCategory.category.name, type: personalCategory.category.type, icon: personalCategory.category.icon } } : undefined,
+        closing,
+        personal: personalRecord(closing, describe),
       },
       () => toast.error(t("business.saveFailed")),
     );
     celebrateSave({ collection: "businessEntries", id: editing ? entry.id : undefined });
-    toast.success(t("business.saved", { day: formatTable(when, lang) }));
+    toast.success(t("business.saved", { day: formatTable(when, lang), name: business.name }));
     onClose();
   };
 
@@ -175,7 +183,8 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
   const beforeMove = before ? personalMove(before.profit) : null;
   const now = {
     date: when ? formatTable(when, lang) : "—",
-    turnover: turnoverOk ? signed(base(turnoverValue), format, "+") : "—",
+    business: business?.name ?? "—",
+    turnover: signed(figures.turnover, format, "+"),
     expenses: signed(figures.expenses, format, "−"),
     profit: signed(figures.profit, format),
     money: moveText(move, placeName(written)),
@@ -184,6 +193,7 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
   const was = before
     ? {
         date: formatTable(firestoreToDate(entry!.date), lang),
+        business: businessOf(businesses, entry!.businessId)?.name ?? "—",
         turnover: signed(before.turnover, format, "+"),
         expenses: signed(before.expenses, format, "−"),
         profit: signed(before.profit, format),
@@ -191,7 +201,8 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
         notes: entry!.notes?.trim() || "—",
       }
     : undefined;
-  const linesChanged = editing && JSON.stringify(expenses) !== JSON.stringify((entry.expenses ?? []).map((l) => ({ categoryId: l.categoryId, amount: l.amount, ...(l.note ? { note: l.note } : {}) })));
+  const linesOf = (e: { incomes: BusinessIncome[]; expenses: BusinessExpense[] }) => JSON.stringify([e.incomes.map((l) => [l.lineId, l.amount]), e.expenses.map((l) => [l.lineId ?? "", l.name ?? "", l.amount])]);
+  const linesChanged = editing && linesOf({ incomes, expenses }) !== linesOf(entry);
   const nothingChanged = editing && !linesChanged && !!was && (Object.keys(now) as (keyof typeof now)[]).every((k) => was[k] === now[k]);
   const wasMark = (field: keyof typeof now) => (was && was[field] !== now[field] ? <s className={styles.was}>{was[field]} →</s> : null);
   const row = (target: Step, label: string, value: ReactNode, className = "") => (
@@ -200,12 +211,47 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
       <span className={`${wiz.wizValue} ${className}`}>{value}</span>
     </button>
   );
+  const businessCategory = VIRTUAL_CATEGORIES[BUSINESS_CATEGORY_ID];
 
-  const title = t(editing ? "business.editClosingTitle" : "business.closingTitle");
+  /** One money field per line: its name over it, empty with a placeholder, empty = 0. */
+  const moneyFields = (lines: BusinessLine[], kind: "incomes" | "expenses") => (
+    <ul className={styles.moneyRows}>
+      {lines.map((l) => {
+        const text = typedOf(l.id);
+        const fieldId = `${ids.field}-${l.id}`;
+        return (
+          <li key={l.id} className={styles.moneyRow}>
+            <Label for={fieldId} className={styles.moneyLabel}>
+              {l.name}
+              {l.removed && <span className="text-body-secondary fw-normal"> · {t("business.lineRemovedTag")}</span>}
+            </Label>
+            <Input
+              id={fieldId}
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              className={styles.moneyInput}
+              placeholder={t("business.amountPlaceholder")}
+              value={text}
+              invalid={tried(kind) && !amountOk(text)}
+              onChange={(e) => setAmount(l.id, e.target.value)}
+            />
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const stepLabel = (s: Step) => (s === "day" ? t(single ? "business.step_day" : "business.step_businessDay") : t(`business.step_${s}`));
+  const ask = step === "account" && move?.type === "expense" ? t("business.ask_accountLoss") : step === "account" && !move ? t("business.ask_accountZero") : step === "day" ? t(single ? "business.ask_day" : "business.ask_businessDay") : t(`business.ask_${step}`);
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>{title}</ModalHeader>
+      <ModalHeader toggle={onClose}>
+        {t(editing ? "business.editClosingTitle" : "business.closingTitle")}
+        {business && step !== "day" ? ` · ${business.name}` : ""}
+      </ModalHeader>
       <form
         noValidate
         onSubmit={(e) => {
@@ -215,39 +261,28 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
         }}
       >
         <ModalBody>
-          <WizardSteps steps={STEPS} current={step} onGo={goTo} open={editing} label={(s) => t(`business.step_${s}`)} />
+          <WizardSteps steps={STEPS} current={step} onGo={goTo} open={editing} label={stepLabel} />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
-            {step === "account" && move?.type === "expense" ? t("business.ask_accountLoss") : step === "account" && !move ? t("business.ask_accountZero") : t(`business.ask_${step}`)}
+            {ask}
           </div>
 
           {step === "day" && (
             <>
+              {!single && (
+                <BusinessTiles
+                  label={t("business.whichBusiness")}
+                  businesses={businesses}
+                  value={businessId}
+                  onChange={setBusinessId}
+                  invalid={tried("day") && !business}
+                />
+              )}
               <FormGroup>
                 <Label for={ids.date} className="small fw-medium mb-1">
                   {t("common.date")}
                   <RequiredMark />
                 </Label>
                 <DateField id={ids.date} value={date} onChange={setDate} invalid={tried("day") && !when} maxDate={new Date()} placeholder={t("common.date")} />
-              </FormGroup>
-              <FormGroup>
-                <Label for={ids.turnover} className="small fw-medium mb-1">
-                  {t("business.turnover")} ({displayCurrency})
-                  <RequiredMark />
-                </Label>
-                <Input
-                  id={ids.turnover}
-                  aria-required
-                  autoFocus={!editing}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  inputMode="decimal"
-                  placeholder={t("business.turnoverPlaceholder")}
-                  value={turnover}
-                  invalid={tried("day") && !turnoverOk}
-                  onChange={(e) => setTurnover(e.target.value)}
-                />
-                <FormFeedback>{t("business.turnoverNeeded")}</FormFeedback>
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label for={ids.notes} className="small fw-medium mb-1">
@@ -258,82 +293,92 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
             </>
           )}
 
+          {step === "incomes" && (
+            <>
+              <p className="small text-body-secondary mb-2">{t("business.emptyIsZero")}</p>
+              {moneyFields(incomeLines, "incomes")}
+              {tried("incomes") && !incomesOk && <div className="invalid-feedback d-block mb-2">{t("business.amountBad")}</div>}
+              <div className={`${wiz.wizNote} mt-3 d-flex justify-content-between gap-2`}>
+                <span>{t("business.turnover")}</span>
+                <span className={styles.total}>{signed(figures.turnover, format, "+")}</span>
+              </div>
+            </>
+          )}
+
           {step === "expenses" && (
             <>
-              {categories.length === 0 && <div className={`${wiz.wizNote} mb-3`}>{t("business.noCategoriesForLines")}</div>}
-              {/* What a line needs once it is started: its category and its amount; the note is its own choice. */}
-              <p className="small text-body-secondary mb-2">
-                {t("common.category")}
-                <RequiredMark /> · {t("common.amount")}
-                <RequiredMark /> · {t("business.lineNote")} {t("business.optional")}
-              </p>
-              <ul className={styles.lines}>
-                {lines.map((l, i) => {
-                  const bad = tried("expenses") && !blank(l) && !lineOk(l);
-                  return (
-                    <li key={l.key} className={styles.line} aria-label={t("business.lineN", { n: i + 1 })}>
-                      <Input
-                        type="select"
-                        aria-label={t("common.category")}
-                        aria-required={!blank(l)}
-                        value={l.categoryId}
-                        invalid={bad && !categories.some((c) => c.id === l.categoryId)}
-                        onChange={(e) => setLine(l.key, { categoryId: e.target.value })}
-                        disabled={categories.length === 0}
-                      >
-                        <option value="" disabled>
-                          {t("business.linePickCategory")}
-                        </option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </Input>
-                      <button type="button" className={styles.lineRemove} onClick={() => removeLine(l.key)} aria-label={t("business.lineRemove", { n: i + 1 })} title={t("business.lineRemove", { n: i + 1 })}>
-                        <FiX aria-hidden />
-                      </button>
-                      <div className={styles.lineBottom}>
+              <p className="small text-body-secondary mb-2">{t("business.emptyIsZero")}</p>
+              {expenseLines.length > 0 ? moneyFields(expenseLines, "expenses") : <p className="small text-body-secondary">{t("business.noExpenseLinesHere")}</p>}
+              {oneOffs.length > 0 && (
+                <ul className={styles.lines}>
+                  {oneOffs.map((o, i) => {
+                    const bad = tried("expenses") && !oneOffOk(o);
+                    return (
+                      <li key={o.key} className={styles.line} aria-label={t("business.oneOffN", { n: i + 1 })}>
                         <Input
-                          id={`${lineId}-${l.key}-amount`}
+                          aria-label={t("business.oneOffName")}
+                          aria-required
+                          placeholder={t("business.oneOffNamePlaceholder")}
+                          maxLength={ONE_OFF_NAME_MAX}
+                          value={o.name}
+                          invalid={bad && !cleanLine(o.name)}
+                          onChange={(e) => setOneOff(o.key, { name: e.target.value })}
+                        />
+                        <button type="button" className={styles.lineRemove} onClick={() => setOneOffs((all) => all.filter((x) => x.key !== o.key))} aria-label={t("business.lineRemove", { n: i + 1 })} title={t("business.lineRemove", { n: i + 1 })}>
+                          <FiX aria-hidden />
+                        </button>
+                        <Input
+                          className={styles.lineAmount}
                           type="number"
                           min={0}
                           step="0.01"
                           inputMode="decimal"
                           aria-label={`${t("common.amount")} (${displayCurrency})`}
-                          placeholder={t("business.lineAmountPlaceholder")}
-                          aria-required={!blank(l)}
-                          value={l.amount}
-                          invalid={bad && !(parse(l.amount) > 0 && parse(l.amount) <= AMOUNT_MAX)}
-                          onChange={(e) => setLine(l.key, { amount: e.target.value })}
+                          aria-required
+                          placeholder={t("business.amountPlaceholder")}
+                          value={o.amount}
+                          invalid={bad && !(amountOk(o.amount) && amountOf(o.amount) > 0)}
+                          onChange={(e) => setOneOff(o.key, { amount: e.target.value })}
                         />
-                        <Input aria-label={t("business.lineNote")} placeholder={t("business.lineNotePlaceholder")} maxLength={LINE_NOTE_MAX} value={l.note} onChange={(e) => setLine(l.key, { note: e.target.value })} />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-              {tried("expenses") && !linesOk && <div className="invalid-feedback d-block mb-2">{t("business.lineNeeded")}</div>}
-              <Button type="button" color="primary" outline size="sm" onClick={addLine} disabled={lines.length >= LINES_MAX || categories.length === 0} className="d-inline-flex align-items-center gap-1">
-                <FiPlus aria-hidden /> {t("business.addLine")}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <Button
+                type="button"
+                color="primary"
+                outline
+                size="sm"
+                onClick={() => setOneOffs((all) => [...all, { key: nextKey, name: "", amount: "" }])}
+                disabled={expenseLines.length + oneOffs.length >= CLOSING_LINES_MAX}
+                className="d-inline-flex align-items-center gap-1"
+              >
+                <FiPlus aria-hidden /> {t("business.addOneOff")}
               </Button>
+              {tried("expenses") && !expenseFieldsOk && <div className="invalid-feedback d-block mt-2">{t("business.oneOffNeeded")}</div>}
+              {tried("expenses") && expenseFieldsOk && !anyAmount && <div className="invalid-feedback d-block mt-2">{t("business.someAmountNeeded")}</div>}
               <div className={`${wiz.wizNote} mt-3 d-flex justify-content-between gap-2`}>
                 <span>{t("business.expenses")}</span>
                 <span className={styles.total}>{signed(figures.expenses, format, "−")}</span>
               </div>
-              {lines.length === 0 || filled.length === 0 ? <p className="small text-body-secondary mt-2 mb-0">{t("business.noExpensesOk")}</p> : null}
+              <div className={`${wiz.wizNote} mt-2 d-flex justify-content-between gap-2`}>
+                <span>{t(Math.round(figures.profit * 100) < 0 ? "business.loss" : "business.profit")}</span>
+                <span className={`${styles.total} ${profitTone(figures.profit, styles)}`}>{signed(figures.profit, format)}</span>
+              </div>
             </>
           )}
 
           {step === "account" && (
             <>
               <div className={`${wiz.wizNote} mb-3 d-flex justify-content-between gap-2`}>
-                <span>{t("business.profit")}</span>
+                <span>{t(Math.round(figures.profit * 100) < 0 ? "business.loss" : "business.profit")}</span>
                 <span className={`${styles.total} ${profitTone(figures.profit, styles)}`}>{signed(figures.profit, format)}</span>
               </div>
               {move ? (
                 <>
-                  <p className="small mb-2">{t(move.type === "income" ? "business.profitGoesInto" : "business.lossComesFrom", { amount: format(move.amount) })}
+                  <p className="small mb-2">
+                    {t(move.type === "income" ? "business.profitGoesInto" : "business.lossComesFrom", { amount: format(move.amount) })}
                     <RequiredMark />
                   </p>
                   <AccountPicker value={account} onChoose={setAccount} income={move.type === "income"} invalid={tried("account")} />
@@ -348,13 +393,25 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
           {step === "review" && (
             <>
               <div className={wiz.wizCard}>
+                {row("day", t("business.business"), <>{wasMark("business")}{now.business}</>)}
                 {row("day", t("common.date"), <>{wasMark("date")}{now.date}</>)}
-                {row("day", t("business.turnover"), <>{wasMark("turnover")}{now.turnover}</>)}
+              </div>
+              <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.incomeLines")}>
+                <div className={styles.sideHead}>{t("business.incomeLines")}</div>
+                {incomes.map((l) => (
+                  <Fragment key={l.lineId}>{row("incomes", lineName(business, l.lineId, t("business.lineGone")), signed(l.amount, format, "+"))}</Fragment>
+                ))}
+                {row("incomes", t("business.turnover"), <>{wasMark("turnover")}{now.turnover}</>, styles.total)}
+              </div>
+              <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.expenseLines")}>
+                <div className={styles.sideHead}>{t("business.expenseLines")}</div>
                 {expenses.map((l, i) => (
-                  <Fragment key={i}>{row("expenses", [categoryName(categories, l.categoryId, t("business.noCategory")), l.note].filter(Boolean).join(" · "), signed(l.amount, format, "−"))}</Fragment>
+                  <Fragment key={l.lineId ?? `once-${i}`}>{row("expenses", `${expenseName(business, l, t("business.lineGone"))}${l.lineId ? "" : ` · ${t("business.oneOffTag")}`}`, signed(l.amount, format, "−"))}</Fragment>
                 ))}
                 {row("expenses", t("business.expenses"), <>{wasMark("expenses")}{now.expenses}</>, styles.total)}
-                {row("expenses", t("business.profit"), <>{wasMark("profit")}{now.profit}</>, `${styles.total} ${profitTone(figures.profit, styles)}`)}
+              </div>
+              <div className={`${wiz.wizCard} mt-3`}>
+                {row("expenses", t(Math.round(figures.profit * 100) < 0 ? "business.loss" : "business.profit"), <>{wasMark("profit")}{now.profit}</>, `${styles.total} ${profitTone(figures.profit, styles)}`)}
                 {row("day", t("common.notes"), <>{wasMark("notes")}{now.notes}</>)}
               </div>
 
@@ -362,7 +419,8 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
               <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.sidePersonal")}>
                 <div className={styles.sideHead}>{t("business.sidePersonal")}</div>
                 {row("account", t(move?.type === "expense" ? "business.moneyOut" : "business.moneyIn"), <>{wasMark("money")}{now.money}</>, move ? (move.type === "income" ? styles.positive : styles.negative) : "")}
-                {move && personalCategory && row("account", t("common.category"), `${personalCategory.category.icon ?? ""} ${categoryLabel(personalCategory.category.name, t)}${personalCategory.isNew ? ` · ${t("business.newCategoryTag")}` : ""}`.trim())}
+                {move && row("account", t("common.category"), `${businessCategory.icon} ${categoryLabel(businessCategory.name, t)}`)}
+                {move && row("account", t("business.recordName"), describe(move.type))}
               </div>
               {move && written && !editing && <ReviewCard accountId={written} income={move.type === "income"} delta={move.type === "income" ? move.amount : -move.amount} />}
               <div className={`${wiz.wizNote} mt-3`}>{nothingChanged ? t("business.nothingChanged") : t("business.onlyProfitNote")}</div>
@@ -397,3 +455,53 @@ export default function ClosingWizard({ entry, onClose, onDelete }: { entry?: Bu
     </Modal>
   );
 }
+
+/**
+ * «Ποια δουλειά;» as choice tiles — the yes/no tiles' look, one per business,
+ * wrapping onto as many rows as needed. A radio group: one tab stop, the arrows
+ * move and pick, nothing picked until the reader picks (unless the page came
+ * filtered to one).
+ */
+function BusinessTiles({ label, businesses, value, onChange, invalid }: { label: string; businesses: readonly Business[]; value: string; onChange: (id: string) => void; invalid: boolean }) {
+  const { t } = useTranslation();
+  const labelId = useId();
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const at = businesses.findIndex((b) => b.id === value);
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const next = (i + step + businesses.length) % businesses.length;
+    refs.current[next]?.focus();
+    onChange(businesses[next].id);
+  };
+  return (
+    <div className="mb-3">
+      <div id={labelId} className="small fw-medium mb-2">
+        {label}
+        <RequiredMark />
+      </div>
+      <div className={`${tiles.group} ${styles.tileWrap}`} role="radiogroup" aria-labelledby={labelId} aria-required aria-invalid={invalid || undefined}>
+        {businesses.map((b, i) => (
+          <button
+            key={b.id}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={b.id === value}
+            tabIndex={(at === -1 ? i === 0 : i === at) ? 0 : -1}
+            className={`${tiles.option} ${b.id === value ? tiles.on : ""}`}
+            onClick={() => onChange(b.id)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+          >
+            {b.name}
+          </button>
+        ))}
+      </div>
+      {invalid && <div className="invalid-feedback d-block">{t("business.pickBusiness")}</div>}
+    </div>
+  );
+}
+

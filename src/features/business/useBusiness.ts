@@ -4,32 +4,40 @@ import { useAuth } from "../../shared/hooks/useAuth";
 import { useHasAccess } from "../../shared/hooks/useHasAccess";
 import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { newDocId } from "../../firebase/firestore";
-import { deleteClosing, getBusinessEntries, moveBusinessCategory, saveClosing } from "../../firebase/business";
+import { deleteBusinessRecords, deletedBeforeFailure, deleteClosing, getBusinessEntries, saveClosing } from "../../firebase/business";
 import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../lib/listCache";
 import { insertTransaction, transactionKeys } from "../transactions/hooks/useTransactions";
 import { firestoreToDate } from "../../shared/utils/dates";
-import { BUSINESS_CATEGORIES_KEY } from "./businessKeys";
-import { lineCategoryIds } from "./businessSummary";
-import type { BusinessCategory, BusinessEntry, BusinessEntryInput, Category, CreateCategoryDTO, CreateTransactionDTO, Transaction } from "../../shared/types/IndexTypes";
+import { BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
+import { BUSINESSES_KEY } from "./businessKeys";
+import { closingLineIds } from "./businessSummary";
+import { readBusinesses } from "./businessEdit";
+import type { Business, BusinessEntry, BusinessEntryInput, CreateTransactionDTO, Transaction } from "../../shared/types/IndexTypes";
 
 export const businessKeys = {
   all: (userId: string) => ["businessEntries", userId] as const,
 };
 
-const isCategory = (value: unknown): value is BusinessCategory => {
-  const c = value as BusinessCategory;
-  return !!c && typeof c.id === "string" && typeof c.name === "string";
-};
+// ─── The businesses (on the user document) ───────────────────────────────────
 
-/** The business's expense categories (on the user document — no read of their own) and their setter. */
-export function useBusinessCategories(): [BusinessCategory[], (next: BusinessCategory[] | ((previous: BusinessCategory[]) => BusinessCategory[])) => void] {
-  const [stored, setStored] = useWorkspaceSetting<BusinessCategory[]>(BUSINESS_CATEGORIES_KEY, []);
-  const categories = useMemo(() => (Array.isArray(stored) ? stored.filter(isCategory).map(({ id, name }) => ({ id, name })) : []), [stored]);
-  return [categories, setStored];
+/**
+ * The user's businesses — each with its own income and expense lines — and
+ * their setter. On the user document: no read of their own, and a rename is
+ * one write however many closings name the business or its lines.
+ */
+export function useBusinesses(): [Business[], (next: Business[] | ((previous: Business[]) => Business[])) => void] {
+  const [stored, setStored] = useWorkspaceSetting<Business[]>(BUSINESSES_KEY, []);
+  const businesses = useMemo(() => readBusinesses(stored), [stored]);
+  return [businesses, setStored];
 }
 
-/** A fresh id for a business category, made on this device. */
-export const newCategoryId = () => `bcat-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+const randomPart = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+/** A fresh id for a business, made on this device. */
+export const newBusinessId = () => `biz-${randomPart()}`;
+/** A fresh id for a line of a business, made on this device. */
+export const newLineId = () => `bl-${randomPart()}`;
+
+// ─── The closings ────────────────────────────────────────────────────────────
 
 /**
  * Every closing of the user. Read only by the «Δουλειά» page — never from the
@@ -55,8 +63,8 @@ const putEntry =
 // ─── Writing ──────────────────────────────────────────────────────────────────
 // Optimistic, as every save: the rows are on screen under the ids they will
 // keep before the write leaves (`listCache`), and a failure puts the lists back.
-// A closing edits up to three lists: the closings, the transactions (its
-// personal record) and the categories (the personal category, the first time).
+// A closing edits two lists: the closings and the transactions (its personal
+// record). It never writes a category.
 
 /** What a save is handed. */
 export interface ClosingSave {
@@ -65,13 +73,11 @@ export interface ClosingSave {
   closing: BusinessEntryInput;
   /** The day's profit or loss as a personal record; `null` at 0. */
   personal: CreateTransactionDTO | null;
-  newCategory?: { id: string; data: CreateCategoryDTO };
 }
 
 interface Snapshots {
   entries: ListSnapshot<BusinessEntry>;
   transactions: ListSnapshot<Transaction>;
-  categories?: ListSnapshot<Category>;
 }
 
 const createdIds = new WeakMap<ClosingSave, { entryId: string; transactionId: string }>();
@@ -82,20 +88,19 @@ export function useSaveClosing() {
   const userId = currentUser?.uid ?? "";
   const key = businessKeys.all(userId);
   const txKey = transactionKeys.all(userId);
-  const catKey = transactionKeys.categories(userId);
 
   const idsOf = (vars: ClosingSave) => {
     const made = idsFor(createdIds, vars, () => ({ entryId: newDocId("businessEntries"), transactionId: newDocId("transactions") }));
     return { entryId: vars.editing?.id ?? made.entryId, transactionId: vars.editing?.previousTransactionId ?? made.transactionId };
   };
 
-  /** The three lists as the write leaves them. */
+  /** The two lists as the write leaves them. */
   const edits = (vars: ClosingSave) => {
     const { entryId, transactionId } = idsOf(vars);
     const now = new Date();
     const entry = {
       ...withoutUndefined({ ...vars.closing, notes: vars.closing.notes?.trim() || undefined, accountId: vars.closing.accountId || undefined }),
-      categoryIds: lineCategoryIds(vars.closing.expenses),
+      lineIds: closingLineIds(vars.closing),
       linkedTransactionId: vars.personal ? transactionId : undefined,
       id: entryId,
       userId,
@@ -106,11 +111,19 @@ export function useSaveClosing() {
     const transactions: ListEdit<Transaction> = (rows) => {
       if (!vars.personal) return vars.editing?.previousTransactionId ? rows.filter((r) => r.id !== vars.editing!.previousTransactionId) : rows;
       const old = rows.find((r) => r.id === transactionId);
-      const row = { ...withoutUndefined(vars.personal), businessEntryId: entryId, id: transactionId, userId, createdAt: old?.createdAt ?? now, updatedAt: now } as Transaction;
+      const row = {
+        ...withoutUndefined(vars.personal),
+        categoryId: BUSINESS_CATEGORY_ID,
+        businessEntryId: entryId,
+        businessId: vars.closing.businessId,
+        id: transactionId,
+        userId,
+        createdAt: old?.createdAt ?? now,
+        updatedAt: now,
+      } as Transaction;
       return insertTransaction(row)(rows);
     };
-    const category = vars.newCategory ? ({ ...vars.newCategory.data, id: vars.newCategory.id, userId, isDefault: false, createdAt: now, updatedAt: now } as Category) : undefined;
-    return { entry: putEntry(entry), transactions, category: category ? upsertById(category) : undefined };
+    return { entry: putEntry(entry), transactions };
   };
 
   return useMutation<void, Error, ClosingSave, Snapshots>({
@@ -120,7 +133,6 @@ export function useSaveClosing() {
         entryId,
         closing: vars.closing,
         personal: vars.personal ? { id: transactionId, data: vars.personal } : null,
-        newCategory: vars.newCategory,
         editing: vars.editing ? { previousTransactionId: vars.editing.previousTransactionId } : undefined,
       });
     },
@@ -129,19 +141,16 @@ export function useSaveClosing() {
       return {
         entries: await editList(queryClient, key, e.entry),
         transactions: await editList(queryClient, txKey, e.transactions),
-        categories: e.category ? await editList(queryClient, catKey, e.category) : undefined,
       };
     },
     onError: (_e, _v, context) => {
       restoreList(queryClient, context?.entries);
       restoreList(queryClient, context?.transactions);
-      restoreList(queryClient, context?.categories);
     },
     onSuccess: (_void, vars) => {
       const e = edits(vars);
       confirmList(queryClient, key, e.entry);
       confirmList(queryClient, txKey, e.transactions);
-      if (e.category) confirmList(queryClient, catKey, e.category);
     },
   });
 }
@@ -166,17 +175,37 @@ export function useDeleteClosing() {
   });
 }
 
-/** Moves every line of one business category to another, before the first is deleted. */
-export function useMoveBusinessCategory() {
+/**
+ * Deleting a business: its closings and their personal records (as the server
+ * has them), then — only once they are gone — the business itself off the
+ * user document. A failure part-way leaves the business there, with whatever
+ * was not deleted yet: never closings of a business that no longer exists.
+ */
+export function useDeleteBusiness() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
   const key = businessKeys.all(userId);
-  return useMutation<{ id: string; expenses: BusinessEntry["expenses"]; categoryIds: string[] }[], Error, { fromId: string; toId: string }>({
-    mutationFn: ({ fromId, toId }) => moveBusinessCategory(userId, fromId, toId),
-    onSuccess: (moved) => {
-      const byId = new Map(moved.map((m) => [m.id, m]));
-      confirmList<BusinessEntry>(queryClient, key, (rows) => rows.map((row) => (byId.has(row.id) ? { ...row, ...byId.get(row.id)!, updatedAt: new Date() } : row)));
+  const txKey = transactionKeys.all(userId);
+  const [, setBusinesses] = useBusinesses();
+
+  const drop = (done: { businessEntries: string[]; transactions: string[] }, businessId?: string) => {
+    const entries = new Set(done.businessEntries);
+    const records = new Set(done.transactions);
+    confirmList(queryClient, key, removeWhere<BusinessEntry>((row) => entries.has(row.id) || (!!businessId && row.businessId === businessId)));
+    confirmList(queryClient, txKey, removeWhere<Transaction>((row) => records.has(row.id) || (!!businessId && row.businessId === businessId) || (!!row.businessEntryId && entries.has(row.businessEntryId))));
+  };
+
+  return useMutation<{ businessEntries: string[]; transactions: string[] }, Error, string>({
+    mutationFn: (businessId) => deleteBusinessRecords(userId, businessId),
+    onSuccess: (done, businessId) => {
+      drop(done, businessId);
+      setBusinesses((previous) => previous.filter((b) => b.id !== businessId));
+    },
+    // Part-way: what did go leaves the lists; the business and the rest stay, to be deleted again.
+    onError: (err) => {
+      const done = deletedBeforeFailure(err);
+      if (done) drop(done);
     },
   });
 }

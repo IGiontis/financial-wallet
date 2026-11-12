@@ -154,9 +154,12 @@ export interface Transaction {
    * coming into a card or cash (an income), or its loss covered from one (an
    * expense). The closing (`BusinessEntry`) names this record back through
    * `linkedTransactionId`; the two are written, changed and deleted together,
-   * from the «Δουλειά» page only.
+   * from the «Δουλειά» page only. Filed under no category of the user's: its
+   * `categoryId` is `BUSINESS_CATEGORY_ID`, shown as «Δουλειά».
    */
   businessEntryId?: string;
+  /** The business that closing belongs to — how deleting a business finds its records. */
+  businessId?: string;
 }
 
 export interface CreateTransactionDTO {
@@ -180,8 +183,9 @@ export interface CreateTransactionDTO {
   accountId?: string;
   /** See `Transaction.heldBy`. */
   heldBy?: string;
-  /** See `Transaction.businessEntryId`. */
+  /** See `Transaction.businessEntryId` and `businessId`. */
   businessEntryId?: string;
+  businessId?: string;
 }
 
 export interface UpdateTransactionDTO {
@@ -917,35 +921,71 @@ export interface DebtPerson {
 // BUSINESS («Δουλειά») TYPES
 // ============================================================================
 
-/** One expense of a day's closing: what it was for, how much, and a word on it («βενζίνη», «υπάλληλος»). */
+/**
+ * One line of a business: an income line («Ταμείο», «Συνταγές ΕΟΠΥΥ») or an
+ * expense line («Εμπορεύματα», «Ενοίκιο»). Closings name it by `id`, so a
+ * rename reaches every closing with no write to any of them.
+ */
+export interface BusinessLine {
+  id: string;
+  name: string;
+  /**
+   * Taken off the business while closings still name it: no longer offered
+   * in a new closing, but kept so those closings still say what it was.
+   */
+  removed?: boolean;
+}
+
+/**
+ * A business of the user's («Φαρμακείο», «Λαϊκή»), made by them from zero —
+ * no presets. Kept on the user document (workspace key `businesses`), so
+ * reading or renaming one costs nothing per closing.
+ */
+export interface Business {
+  id: string;
+  name: string;
+  incomeLines: BusinessLine[];
+  expenseLines: BusinessLine[];
+}
+
+/** One income of a day's closing: which income line, how much (> 0, base currency). */
+export interface BusinessIncome {
+  lineId: string;
+  amount: number;
+}
+
+/**
+ * One expense of a day's closing: an expense line of the business (`lineId`),
+ * or a one-off «άλλο έξοδο» with its own `name` and no line.
+ */
 export interface BusinessExpense {
-  /** A `BusinessCategory` id. Several lines may share one. */
-  categoryId: string;
+  lineId?: string;
+  name?: string;
   /** Positive, in the base currency. */
   amount: number;
   note?: string;
 }
 
 /**
- * One «κλείσιμο ημέρας» (collection `businessEntries`): the day's turnover and
- * what the business paid out of it. Profit = turnover − expenses. The day's
- * profit (or loss) goes into the owner's own money as ONE linked personal
- * transaction (`linkedTransactionId` ↔ `Transaction.businessEntryId`), written,
- * changed and deleted with the closing. Nothing else of the business reaches
- * the personal totals.
+ * One «κλείσιμο ημέρας» (collection `businessEntries`) of one business: what
+ * each income line took in and what each expense line paid out. Profit =
+ * Σ incomes − Σ expenses. The day's profit (or loss) goes into the owner's own
+ * money as ONE linked personal transaction (`linkedTransactionId` ↔
+ * `Transaction.businessEntryId`), written, changed and deleted with the
+ * closing. Nothing else of the business reaches the personal totals.
  */
 export interface BusinessEntry {
   id: string;
   userId: string;
+  /** The `Business` (on the user document) this closing belongs to. */
+  businessId: string;
   date: Date;
-  /** «Τζίρος»: ≥ 0, in the base currency. */
-  turnover: number;
+  /** Only lines with an amount (> 0); ≤ 30. */
+  incomes: BusinessIncome[];
+  /** Only lines with an amount (> 0); ≤ 30. */
   expenses: BusinessExpense[];
-  /**
-   * The distinct categories the lines name — kept beside them so a category
-   * being deleted finds its closings with one `array-contains` query.
-   */
-  categoryIds?: string[];
+  /** The distinct line ids the closing names, incomes and expenses (≤ 60). */
+  lineIds?: string[];
   notes?: string;
   /** The personal record of the day's profit or loss; absent when it came to 0. */
   linkedTransactionId?: string;
@@ -955,15 +995,5 @@ export interface BusinessEntry {
   updatedAt: Date;
 }
 
-/** What the closing form writes; the data layer adds `userId`, `categoryIds` and the timestamps. */
-export type BusinessEntryInput = Pick<BusinessEntry, "date" | "turnover" | "expenses" | "notes" | "accountId">;
-
-/**
- * A business expense category («υποκατηγορία εξόδων»), kept on the user
- * document (`useWorkspaceSetting`), so renaming one costs no read and no write
- * per closing. Lines name it by id.
- */
-export interface BusinessCategory {
-  id: string;
-  name: string;
-}
+/** What the closing form writes; the data layer adds `userId`, `lineIds` and the timestamps. */
+export type BusinessEntryInput = Pick<BusinessEntry, "businessId" | "date" | "incomes" | "expenses" | "notes" | "accountId">;

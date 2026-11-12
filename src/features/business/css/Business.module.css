@@ -1,8 +1,8 @@
 /* «Δουλειά» — the business's own money. Bootstrap covers the chrome, and the
-   tiles and the by-category card are the Goals overview's own classes
+   tiles and the by-line card are the Goals overview's own classes
    (GoalsWorkbench.module.css); what is here is a genuine gap: the month's
-   header, the list of days (the Debts list's look) and the wizard's lines.
-   Colours are roles only (tokens.css). */
+   header, the list of days (the Debts list's look), the businesses' cards and
+   the wizards' lines. Colours are roles only (tokens.css). */
 
 /* ── The month, and the way to the others ─────────────────────────────────── */
 
@@ -158,6 +158,14 @@
   overflow-wrap: anywhere;
 }
 
+/* Which business a row is, when the page shows all of them. */
+.rowBusiness {
+  color: var(--color-text-primary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .rowFigure {
   color: var(--color-text-primary);
   font-weight: 600;
@@ -211,11 +219,9 @@
   background: var(--color-surface);
 }
 
-.lineBottom {
-  display: grid;
+/* A one-off's amount, under its name and ✕. */
+.lineAmount {
   grid-column: 1 / -1;
-  grid-template-columns: minmax(6.5rem, 2fr) minmax(0, 3fr);
-  gap: 0.5rem;
 }
 
 .lineRemove {
@@ -235,4 +241,118 @@
 
 .total {
   font-weight: 700;
+}
+
+/* ── «Οι δουλειές μου»: one card per business ─────────────────────────────── */
+
+.businessCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.businessCard {
+  padding: var(--space-3) var(--space-4);
+}
+
+.businessHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.pillsLabel {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A name in a pill wraps rather than being cut. */
+.pills > li {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+/* ── The business form: a name per line ───────────────────────────────────── */
+
+.nameRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.nameRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.linkButton {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+/* ── The closing: one money field per line ────────────────────────────────── */
+
+.moneyRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* The line's name beside its field; on a phone the field keeps its room and the name wraps. */
+.moneyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, 9rem);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.moneyLabel {
+  margin: 0;
+  font-size: var(--fs-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.moneyInput {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The businesses as choice tiles: as many to a row as fit, never squeezed. */
+.tileWrap {
+  flex-wrap: wrap;
+}
+
+.tileWrap > * {
+  flex: 1 1 8rem;
 }

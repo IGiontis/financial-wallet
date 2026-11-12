@@ -66,4 +66,6 @@ only when the same brief has been written three times.
 - Several agents may share the working tree: give each disjoint files, and have them add
   locale keys without reordering the JSON files.
 - Brief an agent by pointing it at the map and the rules, not by retyping them.
+- **Real users first, the demo after**: build and verify a feature for signed-in users, then
+  its demo data. Short on budget, ship the real-user part and report the demo as pending.
 - Re-check any agent's work before building on it or reporting it.

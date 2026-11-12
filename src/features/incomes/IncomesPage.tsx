@@ -1,4 +1,4 @@
-import { SubPageTabs } from "../../shared/components/SubPageTabs";
+import { PageTabs } from "../../shared/components/PageTabs";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useMemo, useState } from "react";
 import { Button, Col, Row } from "reactstrap";
@@ -235,9 +235,9 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
       {/* The add on every view, «Σύνοψη» too. */}
       <AddHeader label={t("incomes.new")} onAdd={() => openNew()} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
 
-      <SubPageTabs
+      <PageTabs
         label={t("incomes.title")}
-        pages={[
+        links={[
           { to: "/incomes", label: t("incomes.pageOverview") },
           { to: "/incomes/record", label: t("incomes.pageRecord"), badge: waiting, badgeTone: "warning", badgeLabel: t("nav.incomesWaiting", { count: waiting }) },
           // How many there are, once they are loaded — not a «(0)» while they load.

@@ -40,7 +40,7 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/privacy` | `LegalPage doc="privacy"` | `legal` | — (footer, sign-in pages) | — |
 | `/login` | `LoginPage` (`features/auth/LoginPage.tsx`) | `login` | — (`PublicOnlyRoute`) | — |
 | `/register` | `RegisterPage` (`features/auth/RegisterPage.tsx`) | `register` | — (`PublicOnlyRoute`) | — |
-| `/` | `OverviewPage` (`features/overview/pages/OverviewPage.tsx`) | `overview` | Standing › Overview | `?quick=expense` (app-icon shortcut, read by `AddFab`), `?tour=1` (`TourGate`); tabs kept in localStorage `overview-tab`, not the address |
+| `/` | `OverviewPage` (`features/overview/pages/OverviewPage.tsx`) | `overview` | Standing › Overview | `?quick=expense` (app-icon shortcut, read by `AddFab`), `?tour=1` (`TourGate`); `?tab=all` (default) \| `today` \| `month` \| `flow` \| `position` (`usePageTab`; the last one also remembered on the device, localStorage `overview-tab`) |
 | `/transactions` | `TransactionsPage` (`features/transactions/pages/TransactionPage.tsx`) | `transactions` | Daily › Transactions › All | `?category=<id>`; old `?tab=calendar` redirects to `/transactions/calendar` |
 | `/transactions/new` | `NewTransactionPage` (`features/transactions/pages/NewTransactionPage.tsx`) | `newTransaction` | Daily › Transactions › New | — |
 | `/transactions/calendar` | `TransactionsPage view="calendar"` (same file) | `transactions` | Daily › Transactions › Calendar | — |
@@ -62,7 +62,7 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/allocation` | `<Navigate to="/planner">` (old page, merged into Planner) | — | — | — |
 | `/debts` | default export of `features/debts/DebtsPage.tsx` | `debts` | Holdings › Debts | — |
 | `/accounts` | default export of `features/accounts/AccountsPage.tsx` | `accounts` | Holdings › Accounts | — |
-| `/business` | default export of `features/business/BusinessPage.tsx` | `business` | Daily › Business (only if `useHasAccess("business")`) | `?tab=overview` \| `days` \| `calendar` \| `categories` (`useBusinessTab`) |
+| `/business` | default export of `features/business/BusinessPage.tsx` | `business` | Daily › Business (only if `useHasAccess("business")`) | `?tab=overview` \| `days` \| `calendar` \| `businesses` (`usePageTab`); `?business=<id>` (absent = all) |
 | `/settings` | `<Navigate to="profile">` | — | `settingsItem` (own item below the groups) + Topbar menu | — |
 | `/settings/:tab` | `SettingsPage` (`features/settings/pages/SettingsPage.tsx`) | `settings` | same | `:tab` = `profile` \| `preferences` \| `data` \| `account` (`features/settings/settingsTabs.ts`); unknown → profile |
 | `*` | `NotFoundPage` (`features/errors/NotFoundPage.tsx`) | eager | — | `ErrorBoundary` is the `errorElement` of `/` |
@@ -100,7 +100,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Logic `billsUtils.ts`, `monthTimeline.ts`, `yearCost.ts`, `billAlerts.ts`; tests `billsUtils.test.ts`, `useBills.test.tsx`, `billPause.test.ts`, `billInstalments.test.ts`, `BillsPage.*.test.tsx`.
 
 ### `budget` — goals AND investments logic (despite the name)
-- Page `InvestmentsPage.tsx`; shared screen `components/GoalsWorkbench.tsx` (tabs `GoalTabs`, `useGoalTab.ts`), `GoalsOverview`, `GoalCard`/`InvestmentsShared`, `GoalStacks`, `GoalWizard`, `GoalDeleteModal`.
+- Page `InvestmentsPage.tsx`; shared screen `components/GoalsWorkbench.tsx` (tabs: shared `PageTabs`, `useGoalTab.ts`), `GoalsOverview`, `GoalCard`/`InvestmentsShared`, `GoalStacks`, `GoalWizard`, `GoalDeleteModal`.
 - Forms `AddNewGoalModal.tsx`, `EditGoalModal.tsx`, `ContributionWizard.tsx`; parts `goalParts.ts`, `components/GoalPartsEditor.tsx`.
 - Hooks `useInvestments.ts`, `useCoveredLink.ts`, `useCoveredFunding.ts` (goal paid by a friend → debt).
 - Firebase `firestore.ts`; collections `investmentGoals`, `investmentContributions`, `transactions`, `debts`.
@@ -109,11 +109,11 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 ### `goals` — «Στόχοι» page only
 - `GoalsPage.tsx` is the only file; everything else imports from `../budget/`.
 
-### `business` — «Δουλειά», a shop's daily closing
-- Page `BusinessPage.tsx` (tabs via `useBusinessTab.ts`); `ClosingWizard`, `BusinessCalendar`, `BusinessCategories`, `BusinessEntryView`, `businessShared.tsx`.
-- Hook `useBusiness.ts`; switched on per account (`useHasAccess`, key in `businessKeys.ts`).
-- Firebase `business.ts`; collections `businessEntries` + linked `transactions`; business categories on the user doc.
-- Logic `businessSummary.ts`; tests `businessSummary.test.ts`, `src/firebase/business.test.ts`, `src/firebase/syncBusiness.test.ts`.
+### `business` — «Δουλειά», several businesses, a day's closing each
+- Page `BusinessPage.tsx` (tabs via `usePageTab`, business picker `?business=` via `GoalPickMenu`); `ClosingWizard` (closing), `BusinessWizard` (a business and its lines), `BusinessesTab` («Οι δουλειές μου» cards, `DeleteBusinessModal`, `FirstBusinessInvite`), `BusinessCalendar`, `BusinessEntryView` (+ `BusinessDeleteModal`), `businessShared.tsx` (`MonthNav`).
+- Hook `useBusiness.ts` (`useBusinesses`, closings, save/delete, `useDeleteBusiness`); switched on per account (`useHasAccess`, keys in `businessKeys.ts`).
+- Firebase `business.ts`; collection `businessEntries` + linked `transactions` (virtual category `BUSINESS_CATEGORY_ID`); businesses on the user doc (`businesses`).
+- Logic `businessSummary.ts` (figures, `personalRecord`), `businessEdit.ts` (a business as the form leaves it), `businessFormat.ts` (names, signs); tests `businessSummary.test.ts`, `businessEdit.test.ts`, `businessRecord.test.ts`, `src/firebase/business.test.ts`, `src/firebase/syncBusiness.test.ts`.
 
 ### `calendar` — «Ημερολόγιο», the month day by day
 - Page `CalendarPage.tsx`; `components/MonthCalendar`, `MoneyTimeline`, `CalendarTimeline`.
@@ -164,7 +164,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Logic `plannerUtils.ts`, `plannerActuals.ts`, `payCycles.ts`, `lineSpending.ts`, `planDays.ts`, `allocationMigration.ts`; tests next to each, `planReconciliation.test.ts`.
 
 ### `settings` — «Ρυθμίσεις»
-- Page `pages/SettingsPage.tsx` (tabs `settingsTabs.ts`, `components/SettingsTabs.tsx`); `components/NavStylePicker` (colourway), `MotionEffectsSetting`, `BusinessSetting`, `BillAlertSetting`, `ResetDataSection`, `StatementSection`.
+- Page `pages/SettingsPage.tsx` (tabs `settingsTabs.ts`, drawn by the shared `PageTabs`); `components/NavStylePicker` (colourway), `MotionEffectsSetting`, `BusinessSetting`, `BillAlertSetting`, `ResetDataSection`, `StatementSection`.
 - Firebase `firestore.ts` (`updateUser`, `resetUserData`), `auth.ts`, `accountDeletion.ts`.
 - Tests `pages/SettingsPage.test.tsx`, `displayName.test.ts`.
 

@@ -75,6 +75,7 @@ const CSS_ALLOWED: Record<string, string> = {
   "src/features/transactions/pages/css/TransactionPage.module.css :: .txIcon": ICON,
   "src/index.css :: .react-datepicker__close-icon::after": ICON,
   "src/shared/css/ManageList.module.css :: .icon": ICON,
+  "src/shared/css/PageTabs.module.css :: .badge": "a count pill on a page tab, sized like the sidebar's .nav-badge-word",
 };
 
 const CHART = "a chart library's own prop (Recharts tick, ECharts): drawn as an SVG/canvas attribute that can't read a CSS variable";
@@ -96,7 +97,6 @@ const TSX_ALLOWED: Record<string, { count: number; why: string }> = {
   "src/features/transactions/components/TransactionCalendar.tsx": { count: 1, why: ICON },
   "src/features/transactions/pages/TransactionPage.tsx": { count: 2, why: ICON },
   "src/features/settings/pages/SettingsPage.tsx": { count: 1, why: CIRCLE },
-  "src/shared/components/SubPageTabs.tsx": { count: 1, why: "a count pill on a tab, sized like the sidebar's .nav-badge" },
 };
 
 function files(ext: RegExp): string[] {

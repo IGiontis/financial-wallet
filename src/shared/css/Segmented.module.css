@@ -1,6 +1,8 @@
-/* Segmented control (pill-style tab switcher) — used for period pickers and
-   filters. Bootstrap has no equivalent, so this is one of the few genuine
-   module-CSS additions. Fully theme-aware and touch-friendly. */
+/* Segmented control — a one-of-many choice: period pickers, filters, a form's
+   two-way question. Not page tabs: those are PageTabs (PageTabs.module.css),
+   which draws the same boxes from the same tokens. Bootstrap has no
+   equivalent, so this is one of the few genuine module-CSS additions. Fully
+   theme-aware and touch-friendly. */
 
 .group {
   display: flex;
@@ -91,22 +93,6 @@
   min-width: 0;
   text-align: center;
   padding-inline: var(--space-2);
-}
-
-/* A section's pages: a full row still, but each as wide as its own label plus a
-   share of what is left, so a long one — «Διαχείριση (12)» — never squeezes a
-   short one, or its neighbour's count, out of the row. */
-.even.fit .item {
-  flex: 1 0 auto; /* never narrower than its label */
-  padding-inline: 6px;
-}
-
-/* A phone too narrow for all of them scrolls the row, as the other pickers do,
-   rather than cutting the last one off. */
-@media (max-width: 767.98px) {
-  .even.fit {
-    overflow-x: auto;
-  }
 }
 
 /* The fill and the border carry the colour; the label does not.

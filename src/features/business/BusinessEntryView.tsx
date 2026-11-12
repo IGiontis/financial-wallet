@@ -1,50 +1,51 @@
+import { Fragment } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiEdit2 } from "react-icons/fi";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
-import { categoryLabel } from "../../shared/utils/categories";
+import { BUSINESS_CATEGORY_ID, VIRTUAL_CATEGORIES, categoryLabel } from "../../shared/utils/categories";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { formatTable } from "../transactions/transactionDates";
-import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
+import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useAccountList } from "../accounts/useMoneyAccounts";
-import type { BusinessCategory, BusinessEntry } from "../../shared/types/IndexTypes";
+import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
 import { closingFigures, personalMove } from "./businessSummary";
-import { categoryName, profitTone, signed } from "./businessFormat";
+import { businessOf, expenseName, lineName, profitTone, signed } from "./businessFormat";
 import styles from "./css/Business.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 
-/** A closing's personal record, as it is named in a view or a question: what it did, where, under what. */
+/** A closing's personal record, as it is named in a view or a question: what it did, where, and as what. */
 function usePersonalSide(entry: BusinessEntry) {
   const { t } = useTranslation();
   const accounts = useAccountList();
-  const { data: categories = [] } = useCategories();
   const { data: transactions } = useTransactions();
   const record = transactions?.find((tx) => tx.id === entry.linkedTransactionId);
   const accountId = record?.accountId ?? entry.accountId;
-  const category = categories.find((c) => c.id === record?.categoryId);
+  const category = VIRTUAL_CATEGORIES[BUSINESS_CATEGORY_ID];
   return {
     move: personalMove(closingFigures(entry).profit),
     place: accounts.find((a) => a.id === accountId)?.name ?? t("business.mainAccount"),
-    category: category ? `${category.icon ?? ""} ${categoryLabel(category.name, t)}`.trim() : undefined,
+    category: `${category.icon} ${categoryLabel(category.name, t)}`,
+    description: record?.description,
   };
 }
 
 /**
- * A closing, to read: the turnover, every expense line, the profit, and what
- * it did to the owner's own money. Changing it is a step from here
- * («Επεξεργασία»); deleting sits on its own at the far left.
+ * A closing, to read: its business, every income and expense line, the
+ * profit, and what it did to the owner's own money. Changing it is a step from
+ * here («Επεξεργασία»); deleting sits on its own at the far left.
  */
 export function BusinessEntryView({
   entry,
-  categories,
+  businesses,
   formatCurrency,
   onClose,
   onEdit,
   onDelete,
 }: {
   entry: BusinessEntry;
-  categories: readonly BusinessCategory[];
+  businesses: readonly Business[];
   formatCurrency: (n: number) => string;
   onClose: () => void;
   onEdit: () => void;
@@ -54,7 +55,9 @@ export function BusinessEntryView({
   const lang = i18n.resolvedLanguage ?? "en";
   const deleteGuard = useOfflineGuard("delete");
   const personal = usePersonalSide(entry);
+  const business = businessOf(businesses, entry.businessId);
   const f = closingFigures(entry);
+  const gone = t("business.lineGone");
   const stat = (label: string, value: string, className = "") => (
     <div className={wiz.wizStatic}>
       <span className={wiz.wizLabel}>{label}</span>
@@ -65,19 +68,27 @@ export function BusinessEntryView({
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        {t("business.closingTitle")} · {formatTable(firestoreToDate(entry.date), lang)}
+        {business?.name ?? t("business.unknownBusiness")} · {formatTable(firestoreToDate(entry.date), lang)}
       </ModalHeader>
       <ModalBody>
-        <div className={wiz.wizCard}>
-          {stat(t("business.turnover"), signed(f.turnover, formatCurrency, "+"))}
+        <div className={wiz.wizCard} role="group" aria-label={t("business.incomeLines")}>
+          <div className={styles.sideHead}>{t("business.incomeLines")}</div>
+          {(entry.incomes ?? []).map((line, i) => (
+            <Fragment key={`${line.lineId}-${i}`}>{stat(lineName(business, line.lineId, gone), signed(line.amount, formatCurrency, "+"))}</Fragment>
+          ))}
+          {stat(t("business.turnover"), signed(f.turnover, formatCurrency, "+"), styles.total)}
+        </div>
+        <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.expenseLines")}>
+          <div className={styles.sideHead}>{t("business.expenseLines")}</div>
           {(entry.expenses ?? []).map((line, i) => (
-            <div key={i} className={wiz.wizStatic}>
-              <span className={wiz.wizLabel}>{[categoryName(categories, line.categoryId, t("business.noCategory")), line.note].filter(Boolean).join(" · ")}</span>
-              <span className={wiz.wizValue}>{signed(line.amount, formatCurrency, "−")}</span>
-            </div>
+            <Fragment key={`${line.lineId ?? line.name}-${i}`}>
+              {stat([expenseName(business, line, gone), line.lineId ? "" : t("business.oneOffTag"), line.note].filter(Boolean).join(" · "), signed(line.amount, formatCurrency, "−"))}
+            </Fragment>
           ))}
           {stat(t("business.expenses"), signed(f.expenses, formatCurrency, "−"), styles.total)}
-          {stat(t("business.profit"), signed(f.profit, formatCurrency), `${styles.total} ${profitTone(f.profit, styles)}`)}
+        </div>
+        <div className={`${wiz.wizCard} mt-3`}>
+          {stat(t(Math.round(f.profit * 100) < 0 ? "business.loss" : "business.profit"), signed(f.profit, formatCurrency), `${styles.total} ${profitTone(f.profit, styles)}`)}
           {entry.notes && stat(t("common.notes"), entry.notes)}
         </div>
         <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.sidePersonal")}>
@@ -89,7 +100,8 @@ export function BusinessEntryView({
                 `${signed(personal.move.amount, formatCurrency, personal.move.type === "income" ? "+" : "−")} · ${personal.place}`,
                 personal.move.type === "income" ? styles.positive : styles.negative,
               )}
-              {personal.category && stat(t("common.category"), personal.category)}
+              {stat(t("common.category"), personal.category)}
+              {personal.description && stat(t("business.recordName"), personal.description)}
             </>
           ) : (
             stat(t("business.moneyIn"), t("business.nothingMoves"))
@@ -111,7 +123,7 @@ export function BusinessEntryView({
  * «Διαγραφή;» for a closing — and, plainly, that its record in the owner's
  * own money goes with it: how much, which card.
  */
-export function BusinessDeleteModal({ entry, formatCurrency, busy, onConfirm, onClose }: { entry: BusinessEntry; formatCurrency: (n: number) => string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
+export function BusinessDeleteModal({ entry, businessName, formatCurrency, busy, onConfirm, onClose }: { entry: BusinessEntry; businessName: string; formatCurrency: (n: number) => string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const deleteGuard = useOfflineGuard("delete");
   const personal = usePersonalSide(entry);
@@ -121,7 +133,7 @@ export function BusinessDeleteModal({ entry, formatCurrency, busy, onConfirm, on
     <Modal isOpen toggle={onClose} centered size="sm" zIndex={1080}>
       <ModalHeader toggle={onClose}>{t("common.deleteConfirmTitle")}</ModalHeader>
       <ModalBody style={{ fontSize: "var(--fs-lead)" }}>
-        <p className={linked ? undefined : "mb-0"}>{t("business.deleteClosing", { day })}</p>
+        <p className={linked ? undefined : "mb-0"}>{t("business.deleteClosing", { day, name: businessName })}</p>
         {linked && <p className="mb-0">{t(personal.move!.type === "income" ? "business.deleteClosingIncome" : "business.deleteClosingExpense", { amount: formatCurrency(personal.move!.amount), place: personal.place })}</p>}
         <p className="small text-body-secondary mt-2 mb-0">{t("business.cannotUndo")}</p>
       </ModalBody>
