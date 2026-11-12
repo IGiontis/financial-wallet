@@ -16,6 +16,7 @@ import { YesNoChoice } from "../../../shared/components/YesNoChoice";
 import { EveryPicker } from "../../../shared/components/EveryPicker";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { cleanLine } from "../../../shared/utils/cleanText";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 export interface EntryDraft {
   id?: string;
@@ -276,6 +277,8 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
           <WizardSteps steps={steps} current={step} onGo={goTo} label={(s) => t(s === "kind" ? "planner.kind_stepShort" : `planner.cadence_stepShort${s}`)} open={edit} large />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }} aria-hidden={step === "kind" ? true : undefined}>
             {step === "kind" ? t("planner.kind_question") : t(`planner.cadence_${dated ? "oneoff" : "line"}${step}`)}
+            {/* The kind is one question, asked in the title; its tiles' group says it is required. */}
+            {step === "kind" && <RequiredMark />}
           </div>
 
           {/* Money in or money out — the planner's two kinds — as two tiles; the
@@ -283,6 +286,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
           {step === "kind" && (
             <>
               <YesNoChoice
+                required
                 question={t("planner.kind_question")}
                 hideQuestion
                 value={chosenMode === null ? undefined : chosenMode === "oneoff"}
@@ -323,6 +327,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                   <FormGroup className="mb-0">
                     <Label className={styles.fieldLabel} htmlFor="entry-month">
                       {t("planner.cadence_month")}
+                      <RequiredMark />
                     </Label>
                     <DateField id="entry-month" month name="entry-month" value={value.from ?? ""} onChange={(v) => set({ from: v })} placeholder={t("planner.cadence_month")} />
                   </FormGroup>
@@ -338,7 +343,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                       <DateField month clearable name="season-to" value={value.to ?? ""} onChange={(v) => set({ to: v })} placeholder={t("planner.seasonToLabel")} />
                     </div>
                     <p className={styles.fieldHint}>{t("planner.wizard_someMonthsHint")}</p>
-                    <YesNoChoice className="mt-2 mb-0" question={t("planner.wizard_qEveryYear")} value={seasonYearly} onChange={(yes) => set({ yearly: yes })} />
+                    <YesNoChoice className="mt-2 mb-0" required question={t("planner.wizard_qEveryYear")} value={seasonYearly} onChange={(yes) => set({ yearly: yes })} />
                     {tried && yearlyMissing && <p className={styles.fieldError}>{t("validation.answerYesNo")}</p>}
                   </>
                 )}
@@ -350,6 +355,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                       <FormGroup>
                         <EveryPicker
                           id="entry-every"
+                          required
                           label={t("planner.everyLabel")}
                           unitAria={t("planner.everyUnit")}
                           units={["monthly", "yearly"]}
@@ -367,6 +373,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                     <FormGroup className="mb-0">
                       <Label className={styles.fieldLabel} htmlFor="entry-date">
                         {cadence === "once" ? t("common.date") : t("planner.repeatFirstDate")}
+                        <RequiredMark />
                       </Label>
                       <DateField id="entry-date" name="entry-date" value={value.date ?? ""} onChange={(v) => set({ date: v })} placeholder={t("common.date")} />
                     </FormGroup>
@@ -393,9 +400,11 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
               <FormGroup>
                 <Label className={styles.fieldLabel} htmlFor="entry-name">
                   {t("planner.lineName")}
+                  <RequiredMark />
                 </Label>
                 <Input
                   id="entry-name"
+                  aria-required
                   autoFocus
                   value={value.label}
                   onChange={(e) => set({ label: e.target.value })}
@@ -407,8 +416,9 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
               <FormGroup className="mb-0">
                 <Label className={styles.fieldLabel} htmlFor="entry-amount">
                   {amountLabel}
+                  <RequiredMark />
                 </Label>
-                <Input id="entry-amount" type="number" min={0} inputMode="decimal" value={value.amount} invalid={tried && !amountOk} onChange={(e) => set({ amount: e.target.value })} placeholder="0" />
+                <Input id="entry-amount" aria-required type="number" min={0} inputMode="decimal" value={value.amount} invalid={tried && !amountOk} onChange={(e) => set({ amount: e.target.value })} placeholder="0" />
                 <FormFeedback>{t("planner.wizard_amountNeeded")}</FormFeedback>
                 {!dated && <p className={styles.fieldHint}>{t(perMonth ? "planner.perMonthHint" : "planner.amount_spreadMonth")}</p>}
               </FormGroup>
@@ -475,7 +485,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
               </Button>
             )}
             {step === "3" ? (
-              <Button type="submit" color="success" disabled={!valid}>
+              <Button type="submit" color="primary" disabled={!valid}>
                 {t("common.save")}
               </Button>
             ) : (

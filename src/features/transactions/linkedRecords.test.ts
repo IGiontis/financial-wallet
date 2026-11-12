@@ -45,11 +45,14 @@ describe("recordLock", () => {
     expect(recordLock(tx("x", { transferId: "tr" }), covered)).toEqual({ kind: "transfer", transferId: "tr" });
     expect(recordLock(tx("x", { type: "investment", isGoalTransaction: true, isInvestmentTransaction: true }), covered)).toEqual({ kind: "goal" });
     expect(recordLock(tx("plain"), covered)).toBeUndefined();
+    expect(recordLock(tx("x", { type: "income", businessEntryId: "b1" }), covered)).toEqual({ kind: "business", entryId: "b1" });
   });
 
   it("locks everything only for a goal's mirror and a loan's cash", () => {
     expect(isFullyLocked({ kind: "goal" })).toBe(true);
     expect(isFullyLocked({ kind: "debt", debtId: "d" })).toBe(true);
+    // A draw's personal income: changed and deleted from «Δουλειά», with its business half.
+    expect(isFullyLocked({ kind: "business", entryId: "b" })).toBe(true);
     expect(isFullyLocked({ kind: "covered", debtId: "d", person: "N", payeeLocked: false })).toBe(false);
     expect(isFullyLocked({ kind: "transfer", transferId: "t" })).toBe(false);
     expect(isFullyLocked(undefined)).toBe(false);

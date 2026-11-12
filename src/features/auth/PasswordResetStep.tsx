@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { AuthActions } from "./authActions";
 import { cooldownLeft, resetOutcome, startCooldown } from "./passwordReset";
 import styles from "./css/Auth.module.css";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const validationSchema = Yup.object({
   email: Yup.string().trim().email("validation.emailInvalid").required("validation.emailRequired"),
@@ -98,9 +99,11 @@ export function PasswordResetStep({ actions, initialEmail, onBack, showHeading =
         <FormGroup className="mb-4">
           <Label className="small fw-medium" for="reset-email">
             {t("auth.email")}
+            <RequiredMark />
           </Label>
           <Input
             id="reset-email"
+            aria-required
             innerRef={emailRef}
             type="email"
             name="email"

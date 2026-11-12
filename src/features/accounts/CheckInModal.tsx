@@ -12,6 +12,7 @@ const PENDING_SHOWN = 3;
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -102,7 +103,12 @@ export default function CheckInModal({
               </span>
               <div className="flex-grow-1" style={{ minWidth: 0 }}>
               <label htmlFor={`read-${account.id}`} className="d-block">
-                <span className={styles.name}>{account.name}</span>
+                {/* Every place is read: the check-in saves only with all of them filled in. */}
+                {/* The star outside the name's ellipsis, so a long name cannot hide it. */}
+                <span className="d-flex align-items-baseline">
+                  <span className={styles.name}>{account.name}</span>
+                  <RequiredMark />
+                </span>
                 {expected[account.id] !== undefined &&
                   (change === 0 ? (
                     <span className={styles.note}>{t("accounts.expectedWas", { amount: formatCurrency(expected[account.id]) })}</span>
@@ -135,6 +141,7 @@ export default function CheckInModal({
               <InputGroup className={styles.readInput}>
                 <Input
                   id={`read-${account.id}`}
+                  aria-required
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"

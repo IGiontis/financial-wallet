@@ -9,6 +9,7 @@ import { GoalPartsEditor } from "./GoalPartsEditor";
 import { PlanFromField } from "./PlanFromField";
 import type { useGoalPartsField } from "./useGoalPartsField";
 import wiz from "../../../shared/css/Wizard.module.css";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // The goal and investment forms (new and edit) as one wizard, in the shape of
 // every other add / edit form: numbered steps — what it is, its target, how it
@@ -63,9 +64,10 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
           <Col xs={6}>
             <FormGroup className="mb-0">
               <Label for="goal-target" className="small fw-medium">
-                {t("goals.targetAmount")} *
+                {t("goals.targetAmount")}
+                <RequiredMark />
               </Label>
-              <Input id="goal-target" type="number" name="targetAmount" min={1} step={1} placeholder="0" value={values.targetAmount} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "targetAmount")} />
+              <Input id="goal-target" aria-required type="number" name="targetAmount" min={1} step={1} placeholder="0" value={values.targetAmount} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "targetAmount")} />
               <FormFeedback>{msg(form.errors.targetAmount, t)}</FormFeedback>
             </FormGroup>
           </Col>
@@ -74,7 +76,8 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
           {withDeadline ? (
             <FormGroup className="mb-0">
               <Label for="goal-deadline" className="small fw-medium">
-                {t("goals.deadline")} *
+                {t("goals.deadline")}
+                <RequiredMark />
               </Label>
               <DateField
                 id="goal-deadline"
@@ -89,9 +92,10 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
           ) : (
             <FormGroup className="mb-0">
               <Label for="goal-period" className="small fw-medium">
-                {t("goals.periodLabel")} *
+                {t("goals.periodLabel")}
+                <RequiredMark />
               </Label>
-              <Input id="goal-period" type="select" name="targetPeriod" value={values.targetPeriod} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "targetPeriod")}>
+              <Input id="goal-period" aria-required type="select" name="targetPeriod" value={values.targetPeriod} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "targetPeriod")}>
                 <option value="monthly">{t("goals.periodMonthly")}</option>
                 <option value="yearly">{t("goals.periodYearly")}</option>
               </Input>

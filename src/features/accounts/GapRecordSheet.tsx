@@ -15,6 +15,7 @@ import { parseAmount, type MoneyAccount } from "./accountsUtils";
 import { GAP_KINDS, gapEffect, gapOverrun, gapRecordProblem, gapRemaining, gapWrites, type GapKind, type GapRecord } from "./gapRecords";
 import { gapNewId, useSaveGapRecords } from "./useGapRecords";
 import styles from "./css/AccountsPage.module.css";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const STEPS = ["1", "2"] as const;
 type Step = (typeof STEPS)[number];
@@ -250,9 +251,10 @@ export default function GapRecordSheet({
               <FormGroup className="mt-3">
                 <Label for="gap-amount" className="small fw-medium">
                   {t("common.amount")}
+                  <RequiredMark />
                 </Label>
                 <InputGroup>
-                  <Input id="gap-amount" type="text" inputMode="decimal" autoComplete="off" value={draft.amount} invalid={tried && problem === "accounts.gap.needAmount"} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
+                  <Input id="gap-amount" aria-required type="text" inputMode="decimal" autoComplete="off" value={draft.amount} invalid={tried && problem === "accounts.gap.needAmount"} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
                   <InputGroupText>{baseCurrency}</InputGroupText>
                 </InputGroup>
               </FormGroup>
@@ -261,8 +263,9 @@ export default function GapRecordSheet({
                 <FormGroup>
                   <Label for="gap-category" className="small fw-medium">
                     {t("common.category")}
+                    <RequiredMark />
                   </Label>
-                  <Input id="gap-category" type="select" value={draft.categoryId} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>
+                  <Input id="gap-category" aria-required type="select" value={draft.categoryId} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>
                     <option value="">{t("accounts.gap.pickCategory")}</option>
                     {options.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -278,8 +281,9 @@ export default function GapRecordSheet({
                 <FormGroup>
                   <Label for="gap-person" className="small fw-medium">
                     {t("accounts.gap.person")}
+                    <RequiredMark />
                   </Label>
-                  <Input id="gap-person" list="gap-people" autoComplete="off" value={draft.person} onChange={(e) => setDraft({ ...draft, person: e.target.value })} />
+                  <Input id="gap-person" aria-required list="gap-people" autoComplete="off" value={draft.person} onChange={(e) => setDraft({ ...draft, person: e.target.value })} />
                   <datalist id="gap-people">
                     {people.map((p) => (
                       <option key={p} value={p} />
@@ -292,8 +296,9 @@ export default function GapRecordSheet({
                 <FormGroup>
                   <Label for="gap-debt" className="small fw-medium">
                     {t("accounts.gap.whichDebt")}
+                    <RequiredMark />
                   </Label>
-                  <Input id="gap-debt" type="select" value={draft.debtId} onChange={(e) => setDraft({ ...draft, debtId: e.target.value })}>
+                  <Input id="gap-debt" aria-required type="select" value={draft.debtId} onChange={(e) => setDraft({ ...draft, debtId: e.target.value })}>
                     <option value="">{t("accounts.gap.pickDebt")}</option>
                     {openDebts.map((d) => (
                       <option key={d.id} value={d.id}>
@@ -309,8 +314,9 @@ export default function GapRecordSheet({
                 <FormGroup>
                   <Label for="gap-other" className="small fw-medium">
                     {t(draft.kind === "transferOut" ? "accounts.gap.transferTo" : "accounts.gap.transferFrom")}
+                    <RequiredMark />
                   </Label>
-                  <Input id="gap-other" type="select" value={draft.otherAccountId} onChange={(e) => setDraft({ ...draft, otherAccountId: e.target.value })}>
+                  <Input id="gap-other" aria-required type="select" value={draft.otherAccountId} onChange={(e) => setDraft({ ...draft, otherAccountId: e.target.value })}>
                     <option value="">{t("accounts.gap.pickAccount")}</option>
                     {others.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -324,6 +330,7 @@ export default function GapRecordSheet({
               <FormGroup>
                 <Label for="gap-date" className="small fw-medium">
                   {t("common.date")}
+                  <RequiredMark />
                 </Label>
                 <DateField id="gap-date" name="gap-date" value={draft.date} onChange={(v) => setDraft({ ...draft, date: v })} minDate={earliest ? (parseISODay(earliest) ?? undefined) : undefined} maxDate={parseISODay(today) ?? undefined} />
               </FormGroup>
@@ -375,7 +382,7 @@ export default function GapRecordSheet({
             {t("common.next")} ›
           </Button>
         ) : (
-          <Button color="success" onClick={submit} disabled={records.length === 0 || save.isPending}>
+          <Button color="primary" onClick={submit} disabled={records.length === 0 || save.isPending}>
             {t("accounts.gap.saveAll", { count: records.length })}
           </Button>
         )}

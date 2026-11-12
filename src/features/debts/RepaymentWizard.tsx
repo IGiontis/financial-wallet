@@ -16,6 +16,7 @@ import { useRecordRepayment } from "./useDebts";
 import styles from "./css/DebtsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
 // four steps as a transaction and an income: how much, when, through which
@@ -134,6 +135,8 @@ export default function RepaymentWizard({
           <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`debts.wizard.stepShort${s}`)} large />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {t(`debts.wizard.${borrowed ? "out" : "in"}${step}`)}
+            {/* Steps 1–3 are one asked question each — the amount, the day, the card — with the field's own label hidden. */}
+            {step !== "4" && <RequiredMark />}
           </div>
 
           {step === "1" && (
@@ -144,6 +147,7 @@ export default function RepaymentWizard({
               <InputGroup>
                 <Input
                   id="repay-amount"
+                  aria-required
                   autoFocus
                   type="number"
                   min={0}
@@ -248,7 +252,7 @@ export default function RepaymentWizard({
             </Button>
           )}
           {step === "4" ? (
-            <Button type="submit" color="success" disabled={record.isPending || !amountOk || !when}>
+            <Button type="submit" color="primary" disabled={record.isPending || !amountOk || !when}>
               {t("common.save")}
             </Button>
           ) : (

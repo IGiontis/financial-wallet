@@ -42,6 +42,8 @@ interface PayeeInputProps {
   suggested?: string[];
   /** The last few used, at the top of the phone's list before anything is typed. */
   recent?: string[];
+  /** The form needs a name here: the field says so (`aria-required`); the label carries the star. */
+  required?: boolean;
 }
 
 const PAYEE_WORDING = { field: "transactions.payee", useTyped: "transactions.useTypedPayee", empty: "transactions.noPayeeMatches" } as const;
@@ -76,7 +78,7 @@ export function MatchedName({ name, query }: { name: string; query: string }) {
  * Follows the ARIA combobox pattern — arrow keys move a virtual cursor while
  * focus stays in the input, so typing is never interrupted.
  */
-export function PayeeInput({ value, payees, invalid, placeholder, disabled, onChange, onBlur, wording = PAYEE_WORDING, suggested = [], recent = [] }: PayeeInputProps) {
+export function PayeeInput({ value, payees, invalid, placeholder, disabled, onChange, onBlur, wording = PAYEE_WORDING, suggested = [], recent = [], required = false }: PayeeInputProps) {
   const { t } = useTranslation();
   const listId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -242,6 +244,7 @@ export function PayeeInput({ value, payees, invalid, placeholder, disabled, onCh
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={activeIndex >= 0 ? `${listId}-opt-${activeIndex}` : undefined}
+        aria-required={required || undefined}
         placeholder={placeholder}
         value={value}
         invalid={invalid}

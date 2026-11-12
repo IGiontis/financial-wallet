@@ -9,6 +9,7 @@ import { NameCheck } from "../../shared/components/NameCheck";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
 const ICON_CHOICES = ["🧾", "💳", "🏦", "🚗", "🏠", "🛠️", "📚", "🎁", "🍼", "🐶", "💊", "✂️", "📦", "🎓", "⚖️", "🧳"];
@@ -90,9 +91,13 @@ export default function CategoryModal({ existing, scope: initialScope, category,
       <form onSubmit={submit} noValidate>
         <ModalBody>
           <FormGroup>
-            <Label className="small fw-medium">{t("common.name")} *</Label>
+            <Label className="small fw-medium">
+              {t("common.name")}
+              <RequiredMark />
+            </Label>
             <Input
               autoFocus
+              aria-required
               value={name}
               onChange={(e) => setName(e.target.value)}
               // Only once something was typed: the dialog takes the focus as it opens (item 97b).

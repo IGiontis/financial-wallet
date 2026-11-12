@@ -19,6 +19,7 @@ import { ACCOUNTS_KEY } from "./accountsUtils";
 import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { typedBlur } from "../../shared/utils/typedBlur";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 export interface AccountDraft {
   name: string;
@@ -159,9 +160,11 @@ export default function AccountModal({
               <FormGroup className="mb-0">
                 <Label for="account-name" className="small fw-medium">
                   {t("accounts.name")}
+                  <RequiredMark />
                 </Label>
                 <Input
                   id="account-name"
+                  aria-required
                   value={name}
                   placeholder={kind === "bank" ? t("accounts.namePlaceholderBank") : t("accounts.kindCash")}
                   invalid={touched && !nameOk}
@@ -205,9 +208,10 @@ export default function AccountModal({
                 <FormGroup>
                   <Label for="account-amount" className="small fw-medium">
                     {t("accounts.holdsNow")}
+                    <RequiredMark />
                   </Label>
                   <InputGroup>
-                    <Input id="account-amount" type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={amount} invalid={touched && !amountOk} onChange={(e) => setAmount(e.target.value)} />
+                    <Input id="account-amount" aria-required type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={amount} invalid={touched && !amountOk} onChange={(e) => setAmount(e.target.value)} />
                     <InputGroupText>{baseCurrency}</InputGroupText>
                     <FormFeedback>{t("accounts.wizard.amountNeeded")}</FormFeedback>
                   </InputGroup>
@@ -218,7 +222,7 @@ export default function AccountModal({
               {/* Asked as yes / no, not a switch. Locked on «Ναι» for the main one:
                   there is always exactly one, so it is moved by making another the
                   main, never by answering «Όχι» here. */}
-              <YesNoChoice question={t("accounts.mainQuestion")} value={main} onChange={setMain} disabled={isMain} className="mb-0" />
+              <YesNoChoice required={!isMain} question={t("accounts.mainQuestion")} value={main} onChange={setMain} disabled={isMain} className="mb-0" />
               {touched && !mainOk && <div className="invalid-feedback d-block">{t("validation.answerYesNo")}</div>}
               <div className="form-text">{t(isMain ? "accounts.mainIsHint" : "accounts.mainHint")}</div>
             </>
@@ -273,7 +277,7 @@ export default function AccountModal({
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={unchanged}>
+            <Button type="submit" color="primary" disabled={unchanged}>
               {t("common.save")}
             </Button>
           ) : (

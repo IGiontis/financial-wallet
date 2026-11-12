@@ -284,6 +284,7 @@ describe("an item with pages under it", () => {
     expect(pages.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
       ["New transaction", "/transactions/new"],
       ["All transactions", "/transactions"],
+      ["Transactions calendar", "/transactions/calendar"],
       ["Ledger", "/transactions/ledger"],
       ["Payees & categories", "/transactions/names"],
     ]);

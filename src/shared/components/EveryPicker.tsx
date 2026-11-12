@@ -1,4 +1,5 @@
 import { Input, Label } from "reactstrap";
+import { RequiredMark } from "./RequiredMark";
 
 /** The unit a repeat counts in. */
 export type EveryUnit = "weekly" | "monthly" | "yearly";
@@ -38,6 +39,7 @@ export function EveryPicker({
   unitText,
   onChange,
   invalid,
+  required = false,
 }: {
   id: string;
   label: string;
@@ -57,6 +59,8 @@ export function EveryPicker({
   unitText: (unit: EveryUnit, count: number) => string;
   onChange: (unit: EveryUnit, count: number) => void;
   invalid?: boolean;
+  /** The form checks the count: the label gets the star, both lists `aria-required`. */
+  required?: boolean;
 }) {
   const max = maxes?.[unit] ?? EVERY_MAX[unit];
   const low = min?.[unit] ?? 1;
@@ -68,9 +72,10 @@ export function EveryPicker({
     <div>
       <Label className="small fw-medium" for={id}>
         {label}
+        {required && <RequiredMark />}
       </Label>
       <div className="d-flex gap-2">
-        <Input id={id} type="select" className="w-auto flex-shrink-0" value={count} invalid={invalid} onChange={(e) => onChange(unit, Number(e.target.value))}>
+        <Input id={id} type="select" className="w-auto flex-shrink-0" aria-required={required || undefined} value={count} invalid={invalid} onChange={(e) => onChange(unit, Number(e.target.value))}>
           {counts.map((n) => (
             <option key={n} value={n}>
               {n}
@@ -83,6 +88,7 @@ export function EveryPicker({
           style={{ minWidth: 0 }}
           value={unit}
           aria-label={unitAria}
+          aria-required={required || undefined}
           onChange={(e) => {
             const next = e.target.value as EveryUnit;
             onChange(next, carryEvery(unit, count, next, min?.[next] ?? 1, maxes?.[next] ?? EVERY_MAX[next]));

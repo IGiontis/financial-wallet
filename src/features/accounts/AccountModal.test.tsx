@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import i18n from "../../i18n";
 import AccountModal from "./AccountModal";
 import type { MoneyAccount } from "./accountsUtils";
+import { markedLabels } from "../../test/requiredMarks";
 
 // The account form as a short wizard: «What» → «Details» → «Review». What it
 // saves must be the draft the one-page form saved — written out here by hand.
@@ -138,3 +139,25 @@ describe("the name check", () => {
     held.accounts = [];
   });
 });
+
+describe("the account form's required fields", () => {
+  it("a new one: its name, what it holds and «main?» — the kind and the colour always have an answer", async () => {
+    render(<AccountModal isMain={false} baseCurrency="EUR" onSave={() => {}} onClose={() => {}} />);
+    const dialog = screen.getByRole("dialog");
+    expect(markedLabels(dialog)).toEqual(["Name"]);
+    expect(screen.getByLabelText("Name")).toHaveAttribute("aria-required", "true");
+    await userEvent.type(screen.getByLabelText("Name"), "Revolut");
+    await next();
+    expect(markedLabels(dialog)).toEqual(["Holds now", "Make it the main account?"]);
+    expect(screen.getByLabelText("Holds now")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("the main one: «main?» is locked on «Yes», so it is not asked of anyone", async () => {
+    render(<AccountModal isMain baseCurrency="EUR" onSave={() => {}} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Eurobank");
+    await next();
+    expect(markedLabels(screen.getByRole("dialog"))).toEqual(["Holds now"]);
+  });
+});
+

@@ -12,6 +12,18 @@ export function LockNote({ state, onLeave }: { state: LockState | undefined; onL
   const { t } = useTranslation();
   if (state?.pending) return <p className="small text-body-secondary mt-3 mb-0">{t("transactions.lockChecking")}</p>;
   const lock = state?.lock;
+  // A «Κλείσιμο ημέρας»'s profit (or loss) record: it and its closing live on «Δουλειά».
+  if (lock?.kind === "business")
+    return (
+      <div className="small mt-3 mb-0 d-flex flex-column gap-1" role="note">
+        <Link to="/business" onClick={onLeave} className="d-inline-flex align-items-center gap-1 fw-semibold align-self-start">
+          <FiLock size={13} aria-hidden />
+          {t("transactions.lockFromBusiness")}
+          <FiArrowRight size={13} aria-hidden />
+        </Link>
+        <span className="text-body-secondary">{t("transactions.businessLocked")}</span>
+      </div>
+    );
   if (!lock || (lock.kind !== "covered" && lock.kind !== "debt")) return null;
 
   const why =

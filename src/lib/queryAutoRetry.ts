@@ -5,14 +5,16 @@ import type { Query, QueryClient } from "@tanstack/react-query";
 // merely stalled for a moment, that was an empty page until a manual reload.
 //
 // Now a failed load that something is still showing is tried again on its own
-// — after 5, 15 and 45 seconds, while the page is visible and the device
-// online — and at once when the connection returns or the app comes back to
-// the front. Three tries, then it waits for the user (the «Δοκίμασε τώρα» on
-// the page) or a reconnect: a query that fails for good, a rule that refuses
-// it, must not keep spending reads.
+// — after 5, 15 and 45 seconds, then 2, 5 and 10 minutes, while the page is
+// visible and the device online — and at once when the connection returns or
+// the app comes back to the front. All of it silently: the page keeps its
+// loading look, and the user is never asked to try again (the owner's rule —
+// the app's job, not theirs). Six tries, then it waits for a reconnect or the
+// app coming back to the front: a query that fails for good, a rule that
+// refuses it, must not keep spending reads.
 
 /** The waits before each automatic try, in milliseconds. */
-export const AUTO_RETRY_DELAYS = [5_000, 15_000, 45_000];
+export const AUTO_RETRY_DELAYS = [5_000, 15_000, 45_000, 120_000, 300_000, 600_000];
 
 type AnyQuery = Query<unknown, Error, unknown, readonly unknown[]>;
 

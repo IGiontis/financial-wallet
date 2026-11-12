@@ -234,6 +234,7 @@ function PaymentPanel({
             invalid={amount !== "" && !amountValid}
             onChange={(e) => onAmount(e.target.value)}
             aria-label={t("common.amount")}
+            aria-required
           />
         </InputGroup>
         {/* The app's own calendar, like every other date in it — not the

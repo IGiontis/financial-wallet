@@ -232,7 +232,7 @@ export function IncomeCalendar({
                   <div className="d-flex align-items-center gap-2">
                     <span className={styles.factAmount}>{markText(mark)}</span>
                     {mark.status.canArrive && mark.kind !== "expected" && mark.kind !== "arrived" && (
-                      <Button color="success" size="sm" onClick={() => onArrive(income, mark.status)}>
+                      <Button color="primary" size="sm" onClick={() => onArrive(income, mark.status)}>
                         <FiCheck className="me-1" aria-hidden />
                         {t("incomes.arrive")}
                       </Button>
@@ -267,7 +267,7 @@ export function IncomeCalendar({
                         <span className={styles.lineSub}>{t("incomes.list.wasFor", { date: f.weekdayDate.format(status.date) })}</span>
                       </span>
                     </button>
-                    <Button color="success" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, status)}>
+                    <Button color="primary" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, status)}>
                       <FiCheck className="me-1" aria-hidden />
                       {t("incomes.arrive")}
                     </Button>

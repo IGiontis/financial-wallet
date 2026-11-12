@@ -18,6 +18,7 @@ import { formatTable } from "../transactions/transactionDates";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 interface MarkPaidModalProps {
   bill: BillWithStatus;
@@ -257,7 +258,10 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
       >
         <ModalBody className="wash-expense">
           <WizardSteps steps={STEPS} current={step} onGo={(s) => void goTo(s)} label={(s) => t(`bills.pay.step_${s}`)} large />
-          <p className={wizard.prompt}>{t(`bills.pay.ask_${step}`)}</p>
+          <p className={wizard.prompt}>
+            {t(`bills.pay.ask_${step}`)}
+            {step === "card" && <RequiredMark />}
+          </p>
 
           {step === "amount" && (
             <>
@@ -280,10 +284,12 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
 
               <FormGroup className="mb-0">
                 <Label for="pay-amount" className="small fw-medium">
-                  {t("common.amount")} ({displayCurrency}) *
+                  {t("common.amount")} ({displayCurrency})
+                  <RequiredMark />
                 </Label>
                 <Input
                   id="pay-amount"
+                  aria-required
                   type="number"
                   name="amount"
                   min={0.01}
@@ -303,7 +309,10 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           {step === "when" && (
             <>
               <FormGroup>
-                <Label className="small fw-medium">{t("common.date")} *</Label>
+                <Label className="small fw-medium">
+                  {t("common.date")}
+                  <RequiredMark />
+                </Label>
                 <DateField
                   name="date"
                   value={formik.values.date}
@@ -322,8 +331,11 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                 </div>
               ) : (
                 <FormGroup className="mb-0">
-                  <Label className="small fw-medium">{t("bills.paymentPeriod")}</Label>
-                  <Input type="select" name="periodKey" value={formik.values.periodKey} onChange={formik.handleChange} onBlur={formik.handleBlur}>
+                  <Label className="small fw-medium">
+                    {t("bills.paymentPeriod")}
+                    <RequiredMark />
+                  </Label>
+                  <Input type="select" name="periodKey" aria-required value={formik.values.periodKey} onChange={formik.handleChange} onBlur={formik.handleBlur}>
                     {periods.map((option) => (
                       <option key={option.key} value={option.key} disabled={option.isPaid}>
                         {periodLabel(option)}
@@ -414,7 +426,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={isSaving}>
+            <Button type="submit" color="primary" disabled={isSaving}>
               {isSaving ? t("common.saving") : t("bills.confirmPaid")}
             </Button>
           ) : (

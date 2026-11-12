@@ -370,8 +370,8 @@ export function PlannerPage() {
     setEditor(null);
   };
 
-  // Failed, the page keeps its skeleton while it is tried again; the bar over
-  // every page says so (`LoadErrorBar`).
+  // Failed, the page keeps its skeleton while it is tried again on its own
+  // (`installQueryAutoRetry`): no message, nothing for the user to do.
   if (txLoading || goalLoading || billLoading || openingLoading || incomesLoading || isError) {
     return (
       <PageShell>

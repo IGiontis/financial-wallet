@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { createElement, lazy } from "react";
 import { pageChunks } from "./pageChunks";
 
 // Route-level code splitting. Kept in its own module so router.tsx exports only
@@ -9,6 +9,8 @@ import { pageChunks } from "./pageChunks";
 
 export const OverviewPage = lazy(() => pageChunks.overview().then((m) => ({ default: m.OverviewPage })));
 export const TransactionsPage = lazy(() => pageChunks.transactions().then((m) => ({ default: m.TransactionsPage })));
+/** The same chunk as the list: one page in two views (see `TransactionsPage`). */
+export const TransactionsCalendarPage = lazy(() => pageChunks.transactions().then((m) => ({ default: () => createElement<{ view?: "list" | "calendar" }>(m.TransactionsPage, { view: "calendar" }) })));
 export const LegalPage = lazy(pageChunks.legal);
 export const NewTransactionPage = lazy(() => pageChunks.newTransaction().then((m) => ({ default: m.NewTransactionPage })));
 export const LedgerPage = lazy(() => pageChunks.ledger().then((m) => ({ default: m.LedgerPage })));
@@ -23,5 +25,6 @@ export const CalendarPage = lazy(pageChunks.calendar);
 export const PlannerPage = lazy(() => pageChunks.planner().then((m) => ({ default: m.PlannerPage })));
 export const DebtsPage = lazy(pageChunks.debts);
 export const AccountsPage = lazy(pageChunks.accounts);
+export const BusinessPage = lazy(pageChunks.business);
 export const LoginPage = lazy(pageChunks.login);
 export const RegisterPage = lazy(pageChunks.register);

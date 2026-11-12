@@ -15,6 +15,7 @@ import type { IncomeFormats } from "../incomeText";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../css/IncomesPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // «Ήρθε»: four fields and one button.
 //
@@ -179,9 +180,11 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           <FormGroup>
             <Label for="arrived-amount" className="small fw-medium">
               {t("incomes.arrived.amount")} ({displayCurrency})
+              <RequiredMark />
             </Label>
             <Input
               id="arrived-amount"
+              aria-required
               type="number"
               inputMode="decimal"
               min={0.01}
@@ -207,6 +210,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           <FormGroup>
             <Label for="arrived-date" className="small fw-medium">
               {t("incomes.arrived.when")}
+              <RequiredMark />
             </Label>
             <DateField id="arrived-date" value={date} onChange={setDate} maxDate={readingDay} invalid={touched && !!dateError} />
             {touched && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
@@ -214,8 +218,11 @@ export default function ArrivedSheet({ income, status, options, expected, readin
 
           {accounts.length > 0 && (
             <FormGroup>
-              <Label className="small fw-medium d-block">{t("incomes.arrived.where")}</Label>
-              <div className={segmented.group} role="radiogroup" aria-label={t("incomes.arrived.where")}>
+              <Label className="small fw-medium d-block">
+                {t("incomes.arrived.where")}
+                <RequiredMark />
+              </Label>
+              <div className={segmented.group} role="radiogroup" aria-label={t("incomes.arrived.where")} aria-required>
                 {accounts.map((account) => (
                   <button
                     key={account.id}
@@ -281,7 +288,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             </Button>
           )}
           {reviewing ? (
-            <Button type="submit" color="success">
+            <Button type="submit" color="primary">
               <FiCheck className="me-1" aria-hidden />
               {display ? t("incomes.arrived.submit", { amount: display }) : t("incomes.arrived.submitPlain")}
             </Button>

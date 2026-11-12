@@ -11,6 +11,7 @@ import type { PendingSignUp } from "./pendingSignUp";
 import { isInAppBrowser } from "./inAppBrowser";
 import { PasswordResetStep } from "./PasswordResetStep";
 import styles from "./css/Auth.module.css";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 // Messages are i18n keys; FormFeedback translates them at render time.
@@ -141,9 +142,11 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
         <FormGroup>
           <Label className="small fw-medium" for="login-email">
             {t("auth.email")}
+            <RequiredMark />
           </Label>
           <Input
             id="login-email"
+            aria-required
             type="email"
             name="email"
             autoComplete="email"
@@ -160,6 +163,7 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
           <div className="d-flex flex-wrap justify-content-between align-items-baseline column-gap-3">
             <Label className="small fw-medium" for="login-password">
               {t("auth.password")}
+              <RequiredMark />
             </Label>
             <span className="small">
               <button
@@ -178,6 +182,7 @@ export function LoginForm({ actions = appAuthActions, onSignedIn, onSwitch, show
           </div>
           <Input
             id="login-password"
+            aria-required
             innerRef={passwordRef}
             type="password"
             name="password"

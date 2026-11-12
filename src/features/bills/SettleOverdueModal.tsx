@@ -92,7 +92,7 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
         <Button color="secondary" outline onClick={onClose}>
           {t("common.cancel")}
         </Button>
-        <Button color="success" disabled={chosen.length === 0 || guard.locked} onClick={() => onConfirm(chosen)}>
+        <Button color="primary" disabled={chosen.length === 0 || guard.locked} onClick={() => onConfirm(chosen)}>
           {t("bills.settleOverdueConfirm", { count: chosen.length })}
         </Button>
       </ModalFooter>

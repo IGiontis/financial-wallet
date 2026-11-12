@@ -19,12 +19,13 @@ type CoveredDebt = Parameters<typeof coveredExpenses>[0][number];
 // are linked to, are not payees: a transfer's two halves, a loan's cash, a
 // goal's or an investment's money, a bill's payment (named after the bill), an
 // income's arrival (named after the income), and the expense a friend's
-// covered debt paid for. They are left out of the list, the counts and every
+// covered debt paid for, and the profit or loss of a «Κλείσιμο ημέρας» (named
+// by the «Δουλειά» page). They are left out of the list, the counts and every
 // rename — so a bill or an income keeps matching its own records, and the
 // covered-debt refund, which finds an old debt's expense by its description
 // (`coveredExpenses`), still finds it.
 
-type PayeeRecord = Pick<Transaction, "id" | "description" | "date" | "debtId" | "debtPart" | "transferId" | "isGoalTransaction" | "isInvestmentTransaction" | "billId" | "incomeId">;
+type PayeeRecord = Pick<Transaction, "id" | "description" | "date" | "debtId" | "debtPart" | "transferId" | "isGoalTransaction" | "isInvestmentTransaction" | "billId" | "incomeId" | "businessEntryId">;
 
 /**
  * Records tied to another one only from the other side: a bill payment's
@@ -48,7 +49,7 @@ const NONE: ReadonlySet<string> = new Set();
 
 /** True for a record whose description is a payee the user typed. `linked`: see `linkedRecordIds`. */
 export const carriesPayee = (tx: PayeeRecord, linked: ReadonlySet<string> = NONE): boolean =>
-  !!tx.description?.trim() && !tx.debtId && !tx.billId && !tx.incomeId && !linked.has(tx.id) && !isMoneyMove(tx) && !isTransfer(tx as Transaction);
+  !!tx.description?.trim() && !tx.debtId && !tx.billId && !tx.incomeId && !tx.businessEntryId && !linked.has(tx.id) && !isMoneyMove(tx) && !isTransfer(tx as Transaction);
 
 export interface PayeeRow {
   /** As shown: the saved spelling, else the most recent one typed. */

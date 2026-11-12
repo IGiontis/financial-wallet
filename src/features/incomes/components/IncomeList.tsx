@@ -262,7 +262,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
         {canArrive && focus && (
           <span className={styles.lineAside}>
             <span className={styles.lineAmount}>{amount}</span>
-            <Button color="success" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, focus)} aria-label={t("incomes.list.arriveFor", { name: income.name })}>
+            <Button color="primary" size="sm" className={styles.arriveButton} onClick={() => onArrive(income, focus)} aria-label={t("incomes.list.arriveFor", { name: income.name })}>
               <FiCheck aria-hidden className="me-1" />
               {t("incomes.arrive")}
             </Button>

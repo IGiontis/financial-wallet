@@ -25,6 +25,7 @@ import { matchNameIn } from "../../../shared/utils/nameMatch";
 import { NameCheck } from "../../../shared/components/NameCheck";
 import { INCOMES_KEY, cleanIncomes, type Income as StoredIncome } from "../incomesUtils";
 import { typedBlur } from "../../../shared/utils/typedBlur";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // One sheet for a new income and for changing one, a topic a step, in the
 // order of the Bills wizard — what it is → how much, and its category → how
@@ -238,16 +239,20 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
           {view === "what" && (
             <>
               <FormGroup>
-                <Label className="small fw-medium d-block">{t("common.category")} *</Label>
+                <Label className="small fw-medium d-block">
+                  {t("common.category")}
+                  <RequiredMark />
+                </Label>
                 <CategoryPicker categories={categories} type="income" value={draft.categoryId} manage="link" invalid={!!errors.categoryId} onChange={(id) => set("categoryId", id)} />
                 {errors.categoryId && <div className="invalid-feedback d-block">{t(errors.categoryId)}</div>}
               </FormGroup>
 
               <FormGroup>
                 <Label for="income-name" className="small fw-medium">
-                  {t("common.name")} *
+                  {t("common.name")}
+                  <RequiredMark />
                 </Label>
-                <Input id="income-name" value={draft.name} placeholder={t("incomes.form.namePlaceholderExample")} onChange={(e) => set("name", e.target.value)} onBlur={typedBlur(() => setNameTouched(true))} invalid={!!errors.name || (nameTouched && nameMatch?.kind === "same")} />
+                <Input id="income-name" aria-required value={draft.name} placeholder={t("incomes.form.namePlaceholderExample")} onChange={(e) => set("name", e.target.value)} onBlur={typedBlur(() => setNameTouched(true))} invalid={!!errors.name || (nameTouched && nameMatch?.kind === "same")} />
                 <FormFeedback>{error("name")}</FormFeedback>
                 <NameCheck match={nameMatch?.kind === "same" && !nameTouched ? null : nameMatch} />
               </FormGroup>
@@ -259,14 +264,15 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               <div className="row g-2 mb-3">
                 <div className="col-12 col-sm-6">
                   <Label for="income-amount" className="small fw-medium">
-                    {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
+                    {draft.variable ? t("incomes.form.estimatedAmount") : t("common.amount")} ({displayCurrency})
+                    <RequiredMark />
                   </Label>
-                  <Input id="income-amount" type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
+                  <Input id="income-amount" aria-required type="number" inputMode="decimal" min={0.01} step={0.01} value={draft.amount} onChange={(e) => set("amount", e.target.value)} invalid={!!errors.amount} />
                   <FormFeedback>{error("amount")}</FormFeedback>
                 </div>
               </div>
               {/* «Ναι» needs nothing more: the amount above becomes the estimate. */}
-              <YesNoChoice className="mb-0" question={<Question text={t("incomes.form.qVariable")} hint={t("incomes.form.variableHint")} />} value={draft.variable} onChange={(yes) => set("variable", yes)} />
+              <YesNoChoice className="mb-0" required question={t("incomes.form.qVariable")} questionHint={t("incomes.form.variableHint")} value={draft.variable} onChange={(yes) => set("variable", yes)} />
               {errors.variable && <div className="invalid-feedback d-block">{error("variable")}</div>}
 
             </>
@@ -277,6 +283,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               <FormGroup>
                 <EveryPicker
                   id="income-every"
+                  required
                   label={t("incomes.form.every")}
                   unitAria={t("incomes.form.everyUnit")}
                   unit={draft.frequency}
@@ -302,8 +309,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                 <FormGroup>
                   <Label for="income-weekday" className="small fw-medium">
                     {t("incomes.form.weekday")}
+                    <RequiredMark />
                   </Label>
-                  <Input id="income-weekday" type="select" value={draft.day} onChange={(e) => set("day", e.target.value)} invalid={!!errors.day}>
+                  <Input id="income-weekday" aria-required type="select" value={draft.day} onChange={(e) => set("day", e.target.value)} invalid={!!errors.day}>
                     <option value="">—</option>
                     {[1, 2, 3, 4, 5, 6, 0].map((d) => (
                       <option key={d} value={d}>
@@ -319,8 +327,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                     <FormGroup style={{ flex: 1.4 }}>
                       <Label for="income-month" className="small fw-medium">
                         {t("incomes.form.month")}
+                        <RequiredMark />
                       </Label>
-                      <Input id="income-month" type="select" value={draft.month} onChange={(e) => set("month", e.target.value)} invalid={!!errors.month}>
+                      <Input id="income-month" aria-required type="select" value={draft.month} onChange={(e) => set("month", e.target.value)} invalid={!!errors.month}>
                         {months.map((m, i) => (
                           <option key={m} value={i}>
                             {m}
@@ -332,6 +341,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
                   <FormGroup style={{ flex: 1 }}>
                     <Label id="income-day-label" className="small fw-medium">
                       {t("incomes.form.dayOfMonth")}
+                      <RequiredMark />
                     </Label>
                     <DayPicker id="income-day" aria-labelledby="income-day-label income-day" value={draft.day} onChange={(v) => set("day", v)} invalid={!!errors.day} />
                     {errors.day && <div className="invalid-feedback d-block">{error("day")}</div>}
@@ -347,6 +357,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               <FormGroup className="mb-2">
                 <Label for="income-start" className="small fw-medium">
                   {t("incomes.form.start")}
+                  <RequiredMark />
                 </Label>
                 <DateField id="income-start" month={draft.frequency !== "weekly"} value={draft.start} onChange={(v) => set("start", v)} invalid={!!errors.start} />
                 {errors.start && <div className="invalid-feedback d-block">{error("start")}</div>}
@@ -383,18 +394,20 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
               )}
 
               {/* «Ναι» shows the months of the break, in this step. */}
-              <YesNoChoice question={t("incomes.form.qPause")} value={draft.hasPause} onChange={(yes) => set("hasPause", yes)}>
+              <YesNoChoice required question={t("incomes.form.qPause")} value={draft.hasPause} onChange={(yes) => set("hasPause", yes)}>
                 <div className="ps-2">
                   <div className="d-flex gap-2">
                     <FormGroup className="mb-2" style={{ flex: 1 }}>
                       <Label for="income-pause-from" className="small">
                         {t("incomes.form.pauseFrom")}
+                        <RequiredMark />
                       </Label>
                       <DateField id="income-pause-from" month value={draft.pauseFrom} onChange={(v) => set("pauseFrom", v)} invalid={!!errors.pauseFrom} />
                     </FormGroup>
                     <FormGroup className="mb-2" style={{ flex: 1 }}>
                       <Label for="income-pause-to" className="small">
                         {t("incomes.form.pauseTo")}
+                        {draft.pauseYearly && <RequiredMark />}
                       </Label>
                       <DateField id="income-pause-to" month clearable value={draft.pauseTo} onChange={(v) => set("pauseTo", v)} invalid={!!errors.pauseTo} placeholder={t("incomes.form.pauseForever")} />
                     </FormGroup>
@@ -434,7 +447,9 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
               <YesNoChoice
                 className="mb-0"
-                question={<Question text={t("incomes.form.qSalary")} hint={draft.isSalary && salaryName ? t("incomes.form.isSalaryMoves", { name: salaryName }) : t("incomes.form.isSalaryHint")} />}
+                required
+                question={t("incomes.form.qSalary")}
+                questionHint={draft.isSalary && salaryName ? t("incomes.form.isSalaryMoves", { name: salaryName }) : t("incomes.form.isSalaryHint")}
                 value={draft.isSalary}
                 onChange={(yes) => set("isSalary", yes)}
               />
@@ -458,7 +473,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
             )}
           </div>
           {view === "review" ? (
-            <Button type="submit" color="success">
+            <Button type="submit" color="primary">
               {t("common.save")}
             </Button>
           ) : (
@@ -469,17 +484,5 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
         </ModalFooter>
       </form>
     </Modal>
-  );
-}
-
-/** A yes / no question with the words that explain it under it. */
-function Question({ text, hint }: { text: string; hint: string }) {
-  return (
-    <>
-      <span className="d-block">{text}</span>
-      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
-        {hint}
-      </span>
-    </>
   );
 }

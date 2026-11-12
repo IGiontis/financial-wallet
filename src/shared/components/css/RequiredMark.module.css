@@ -1,0 +1,11 @@
+/* The star is drawn, not written: it stays out of the label's text, so it is
+   never read aloud, copied or matched as part of the field's name — the field
+   itself says «required» (`aria-required`). In the owner's one red, the role
+   held to AA on every ground by contrast.test.ts — set here rather than with
+   Bootstrap's `.text-danger`, which the forms' tests (and readers) take for an
+   error already showing (`src/test/noEarlyErrors.ts`). The gap before it is
+   Bootstrap's `ms-1` on the element. */
+.mark::after {
+  content: "*";
+  color: var(--expense-text);
+}

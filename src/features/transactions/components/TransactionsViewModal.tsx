@@ -80,10 +80,10 @@ export default function TransactionViewModal({
       ? new Intl.DateTimeFormat(lang, sameDay ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(created)
       : undefined;
   const isGoal = !!tx.isGoalTransaction;
-  const lockState: LockState = lock ?? { lock: tx.debtId ? { kind: "debt", debtId: tx.debtId } : undefined, pending: false };
+  const lockState: LockState = lock ?? { lock: tx.debtId ? { kind: "debt", debtId: tx.debtId } : tx.businessEntryId ? { kind: "business", entryId: tx.businessEntryId } : undefined, pending: false };
   // A covered expense keeps its payee and notes editable; it is deleted only with its debt.
   const covered = lockState.lock?.kind === "covered";
-  const noEdit = isGoal || !!tx.isInvestmentTransaction || !!tx.debtId || lockState.pending;
+  const noEdit = isGoal || !!tx.isInvestmentTransaction || !!tx.debtId || !!tx.businessEntryId || lockState.pending;
   const noDelete = noEdit || covered;
   /**
    * The card, said the way the money moved. A goal's money kept in your own

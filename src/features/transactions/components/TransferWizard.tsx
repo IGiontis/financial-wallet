@@ -21,6 +21,7 @@ import { newDocId } from "../../../firebase/firestore";
 import { formatTable } from "../transactionDates";
 import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 /** A transfer as it stands, to correct it. */
 export interface TransferDraft {
@@ -269,7 +270,10 @@ export default function TransferWizard({
       {body(
         <>
           <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`transactions.transfer.step${s[0].toUpperCase()}${s.slice(1)}`)} open={edit} />
-          <p className={styles.prompt}>{t(`transactions.transfer.ask${step[0].toUpperCase()}${step.slice(1)}`)}</p>
+          <p className={styles.prompt}>
+            {t(`transactions.transfer.ask${step[0].toUpperCase()}${step.slice(1)}`)}
+            {(step === "from" || step === "to") && <RequiredMark />}
+          </p>
 
           {step === "from" &&
             chooser(from, (id) => {
@@ -293,9 +297,10 @@ export default function TransferWizard({
               <FormGroup>
                 <Label for="transfer-amount" className="small fw-medium">
                   {t("common.amount")}
+                  <RequiredMark />
                 </Label>
                 <InputGroup>
-                  <Input id="transfer-amount" type="number" inputMode="decimal" min={0} step="0.01" autoFocus value={amount} invalid={tried && problem === "amount"} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+                  <Input id="transfer-amount" aria-required type="number" inputMode="decimal" min={0} step="0.01" autoFocus value={amount} invalid={tried && problem === "amount"} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
                   <InputGroupText>{baseCurrency}</InputGroupText>
                   <FormFeedback>{t("transactions.transfer.amountNeeded")}</FormFeedback>
                 </InputGroup>
@@ -304,6 +309,7 @@ export default function TransferWizard({
               <FormGroup>
                 <Label for="transfer-date" className="small fw-medium">
                   {t("common.date")}
+                  <RequiredMark />
                 </Label>
                 <DateField id="transfer-date" value={date} onChange={setDate} />
               </FormGroup>

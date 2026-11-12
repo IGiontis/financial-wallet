@@ -31,6 +31,7 @@ import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -362,7 +363,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         {/* ── 1. Money in or money out ── */}
         {!saved && step === "type" && (
           <>
-            <p className={styles.prompt}>{t("transactions.wizard.pickType")}</p>
+            <p className={styles.prompt}>
+              {t("transactions.wizard.pickType")}
+              <RequiredMark />
+            </p>
             <div className={styles.typeGrid}>
               {(["expense", "income"] as const).map((kind) => (
                 <button
@@ -398,7 +402,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             {/* Step 1 settled the type and step 1 is where it gets changed, so
                 from here on the badge carries it rather than a control. */}
             <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
-              {t("transactions.wizard.pickCategory")}
+              <span>
+                {t("transactions.wizard.pickCategory")}
+                <RequiredMark />
+              </span>
               <TypeBadge type={formik.values.type} />
             </p>
             <CategoryPicker
@@ -422,7 +429,10 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         {step === "account" && (
           <>
             <p className={`${styles.prompt} d-flex align-items-center gap-2`}>
-              {t(formik.values.type === "income" ? "transactions.wizard.pickAccountIn" : "transactions.wizard.pickAccount")}
+              <span>
+                {t(formik.values.type === "income" ? "transactions.wizard.pickAccountIn" : "transactions.wizard.pickAccount")}
+                <RequiredMark />
+              </span>
               <TypeBadge type={formik.values.type} />
             </p>
             <AccountPicker
@@ -449,9 +459,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             <Row className="g-3">
               <Col xs={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.amount")} ({displayCurrency}) *</Label>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.amount")} ({displayCurrency})
+                    <RequiredMark />
+                  </Label>
                   <Input
-                    type="number" name="amount" min={0.01} step={0.01} placeholder="0.00"
+                    type="number" name="amount" min={0.01} step={0.01} placeholder="0.00" aria-required
                     value={formik.values.amount} onChange={formik.handleChange} onBlur={formik.handleBlur}
                     readOnly={formik.values.showFuelDetails}
                     style={formik.values.showFuelDetails ? { background: "var(--color-background-secondary)", cursor: "not-allowed" } : {}}
@@ -462,7 +474,9 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
               </Col>
               <Col xs={6}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.date")} *</Label>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("common.date")}
+                    <RequiredMark />
+                  </Label>
                   <DateField
                     name="date"
                     value={formik.values.date}
@@ -479,12 +493,15 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
             <Row className="g-3 mt-1">
               <Col xs={12}>
                 <FormGroup className="mb-0">
-                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.payee")} *</Label>
+                  <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.payee")}
+                    <RequiredMark />
+                  </Label>
                   <PayeeInput
                     value={formik.values.description}
                     payees={payees}
                     suggested={suggestedPayees}
                     recent={recentPayeeNames}
+                    required
                     placeholder={t("transactions.payeePlaceholder")}
                     invalid={!!(formik.touched.description && formik.errors.description)}
                     onChange={(v) => formik.setFieldValue("description", v)}

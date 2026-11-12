@@ -17,12 +17,15 @@ import type { Debt, InvestmentGoal, Transaction } from "../../shared/types/Index
  *   `coveredExpenses`). Its amount, date, card and type follow the debt; the
  *   payee and notes are its own, unless the debt finds it only by its figures
  *   — then the payee is one of them and stays too.
+ * - `business`: the profit (or loss) of a «Κλείσιμο ημέρας» on the «Δουλειά»
+ *   page — changed and deleted from there, with its business half.
  */
 export type RecordLock =
   | { kind: "goal" }
   | { kind: "transfer"; transferId: string }
   | { kind: "debt"; debtId: string; person?: string }
-  | { kind: "covered"; debtId: string; person: string; payeeLocked: boolean };
+  | { kind: "covered"; debtId: string; person: string; payeeLocked: boolean }
+  | { kind: "business"; entryId: string };
 
 export interface CoveredExpense {
   debtId: string;
@@ -50,16 +53,17 @@ export function coveredExpenseIndex(debts: DebtLike[], transactions: Transaction
  * Could this record be a covered expense? Only a plain expense can — so for
  * every other one the lock is known without the debts.
  */
-export const mayBeCovered = (tx: Transaction) => tx.type === "expense" && !tx.transferId && !tx.debtId && !tx.goalId && !tx.isGoalTransaction && !tx.isInvestmentTransaction;
+export const mayBeCovered = (tx: Transaction) => tx.type === "expense" && !tx.transferId && !tx.debtId && !tx.goalId && !tx.isGoalTransaction && !tx.isInvestmentTransaction && !tx.businessEntryId;
 
 export function recordLock(tx: Transaction, covered: Map<string, CoveredExpense>, debts: Pick<Debt, "id" | "person">[] = []): RecordLock | undefined {
   if (tx.isGoalTransaction || tx.isInvestmentTransaction) return { kind: "goal" };
   if (tx.transferId) return { kind: "transfer", transferId: tx.transferId };
   if (tx.debtId) return { kind: "debt", debtId: tx.debtId, person: debts.find((d) => d.id === tx.debtId)?.person };
+  if (tx.businessEntryId) return { kind: "business", entryId: tx.businessEntryId };
   const c = covered.get(tx.id);
   if (c) return { kind: "covered", debtId: c.debtId, person: c.person, payeeLocked: !c.named };
   return undefined;
 }
 
 /** Nothing about it can be changed here: edit and delete both live elsewhere. */
-export const isFullyLocked = (lock: RecordLock | undefined) => lock?.kind === "goal" || lock?.kind === "debt";
+export const isFullyLocked = (lock: RecordLock | undefined) => lock?.kind === "goal" || lock?.kind === "debt" || lock?.kind === "business";

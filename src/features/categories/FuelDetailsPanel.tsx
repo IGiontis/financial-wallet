@@ -5,6 +5,7 @@ import { intlLocale } from "../../i18n";
 import { localeUpperCase } from "../../shared/utils/upperCase";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { FUEL_TYPES, getUnitLabel } from "./fuelTypes";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 interface FuelDetailsPanelProps {
   fuelType: FuelType | "";
@@ -52,9 +53,12 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
       <Row className="g-3">
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.fuelType")} *</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.fuelType")}
+              <RequiredMark />
+            </Label>
             <Input
               type="select"
+              aria-required
               value={fuelType}
               onChange={(e) => setFieldValue("fuelType", e.target.value)}
               onBlur={() => setFieldTouched("fuelType", true)}
@@ -91,10 +95,12 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         <Col xs={6}>
           <FormGroup className="mb-0">
             <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
-              {t("transactions.pricePerUnitLabel", { unit })} ({displayCurrency}) *
+              {t("transactions.pricePerUnitLabel", { unit })} ({displayCurrency})
+              <RequiredMark />
             </Label>
             <Input
               type="number"
+              aria-required
               min={0.001}
               step={0.001}
               placeholder="0.000"
@@ -108,9 +114,12 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
         </Col>
         <Col xs={6}>
           <FormGroup className="mb-0">
-            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.quantityFilled", { unit })} *</Label>
+            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("transactions.quantityFilled", { unit })}
+              <RequiredMark />
+            </Label>
             <Input
               type="number"
+              aria-required
               min={0.01}
               step={0.01}
               placeholder="0.00"

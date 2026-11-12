@@ -6,6 +6,7 @@ import { useAuth } from "../../../shared/hooks/useAuth";
 import { resetUserData, type ResetScope } from "../../../firebase/firestore";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 /** Order shown in the dialog; every switch names exactly what it clears. */
 const SCOPE_ITEMS: { key: keyof ResetScope; labelKey: string; hintKey: string }[] = [
@@ -121,8 +122,11 @@ export default function ResetDataSection() {
                 {t("settings.resetKeeps")}
               </Alert>
 
-              <Label className="small fw-medium">{t("settings.resetTypeToConfirm", { word: CONFIRM_WORD })}</Label>
-              <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={CONFIRM_WORD} autoComplete="off" />
+              <Label className="small fw-medium">
+                {t("settings.resetTypeToConfirm", { word: CONFIRM_WORD })}
+                <RequiredMark />
+              </Label>
+              <Input aria-required value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={CONFIRM_WORD} autoComplete="off" />
 
               {!anySelected && (
                 <Alert color="warning" className="py-2 mt-2 mb-0" style={{ fontSize: "var(--fs-small)" }}>

@@ -19,7 +19,11 @@ import { isSpending } from "../shared/utils/moneyModel";
 import { PLANNER_KEYS } from "../features/plannerPage/plannerInputs";
 import { ALLOCATION_KEYS } from "../features/plannerPage/allocationMigration";
 import { TOUR_SEEN_KEY } from "../features/tour/tourState";
-import { firestoreToDate } from "../shared/utils/dates";
+import { firestoreToDate, toISODay } from "../shared/utils/dates";
+import { closingFigures, monthByCategory, monthSummary, personalMove } from "../features/business/businessSummary";
+import { BUSINESS_CATEGORIES_KEY, BUSINESS_ON_KEY } from "../features/business/businessKeys";
+import { carriesPayee } from "../features/names/payeeNames";
+import type { BusinessCategory } from "../shared/types/IndexTypes";
 
 // The demo's account has to look like a real one on whatever day it is opened:
 // every reference pointing at something that exists, nothing dated in the
@@ -76,6 +80,31 @@ function problems(data: DemoData, now: Date): string[] {
     if (p.date.getTime() > now.getTime()) fail(`debt payment ${p.id} is in the future`);
   }
   for (const income of incomesOf(data)) if (income.categoryId && !categoryIds.has(income.categoryId)) fail(`income ${income.id} has unknown category`);
+
+  // ── The business: every closing and its personal record name each other and agree ──
+  const businessCategories = workspaceOf(data)[BUSINESS_CATEGORIES_KEY] as BusinessCategory[];
+  for (const e of data.businessEntries) {
+    if (e.date.getTime() > now.getTime() || e.createdAt.getTime() > now.getTime()) fail(`closing ${e.id} is in the future`);
+    if (!(e.turnover >= 0)) fail(`closing ${e.id} has turnover ${e.turnover}`);
+    if (e.userId !== DEMO_UID) fail(`closing ${e.id} belongs to ${e.userId}`);
+    if (e.expenses.length > 30) fail(`closing ${e.id} has ${e.expenses.length} lines`);
+    for (const l of e.expenses) {
+      if (!(l.amount > 0)) fail(`closing ${e.id} has a line of ${l.amount}`);
+      if (!businessCategories.some((c) => c.id === l.categoryId)) fail(`closing ${e.id} names unknown category ${l.categoryId}`);
+    }
+    if (JSON.stringify(e.categoryIds) !== JSON.stringify([...new Set(e.expenses.map((l) => l.categoryId))])) fail(`closing ${e.id} has categoryIds out of step`);
+    const move = personalMove(closingFigures(e).profit);
+    const record = data.transactions.find((t) => t.id === e.linkedTransactionId);
+    if (!move) {
+      if (e.linkedTransactionId) fail(`closing ${e.id} at zero names a record`);
+    } else if (!record) fail(`closing ${e.id} has no personal record`);
+    else if (record.businessEntryId !== e.id || record.type !== move.type || record.amount !== move.amount || record.date.getTime() !== e.date.getTime() || record.accountId !== e.accountId) fail(`closing ${e.id} disagrees with its record`);
+    else if (!categoryIds.has(record.categoryId) || data.categories.find((c) => c.id === record.categoryId)?.type !== record.type) fail(`closing ${e.id}'s record is filed under ${record.categoryId}`);
+  }
+  for (const tx of data.transactions.filter((t) => t.businessEntryId)) {
+    if (!data.businessEntries.some((e) => e.id === tx.businessEntryId && e.linkedTransactionId === tx.id)) fail(`record ${tx.id} names a missing closing`);
+    if (carriesPayee(tx)) fail(`closing record ${tx.id} is counted as a payee`);
+  }
 
   // ── Bills: the internet late by days, not months; the phone soon; nothing else asking ──
   const statuses = data.bills.map((b) => computeBillStatus(b, data.billPayments, now));
@@ -166,7 +195,8 @@ function problems(data: DemoData, now: Date): string[] {
   for (let k = 1; k <= 11; k++) {
     const month = subMonths(startOfMonth(now), k);
     const next = startOfMonth(addDays(month, 32));
-    const count = data.transactions.filter((t) => t.date >= month && t.date < next && !t.transferPart && !t.isInvestmentTransaction).length;
+    // The shop's daily closings are counted on their own page, not as the person's own records.
+    const count = data.transactions.filter((t) => t.date >= month && t.date < next && !t.transferPart && !t.isInvestmentTransaction && !t.businessEntryId).length;
     // A busy month — a summer one with a four-monthly bill and the holidays — runs to the high thirties.
     if (count < 15 || count > 40) fail(`${toDay(month)} has ${count} records`);
   }
@@ -177,6 +207,48 @@ const toDay = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()
 
 describe("demoData", () => {
   const now = new Date(2026, 9, 28, 17, 40);
+
+  it("runs a small shop on «Δουλειά» whose figures reconcile a second way, and whose profit reaches the owner's money", () => {
+    const data = demoData("el", now);
+    const workspace = workspaceOf(data);
+    expect(workspace[BUSINESS_ON_KEY]).toBe(true);
+    expect((workspace[BUSINESS_CATEGORIES_KEY] as BusinessCategory[]).map((c) => c.name)).toEqual(["Μεταφορικά", "Λειτουργικά έξοδα", "Εμπορεύματα", "Εφορία + ΕΦΚΑ"]);
+    const months = [new Date(2026, 7, 1), new Date(2026, 8, 1), new Date(2026, 9, 1)];
+    // Three months, every day but Sunday up to now: nothing before them, nothing after now.
+    expect(data.businessEntries.every((e) => e.date >= months[0] && e.date <= now && e.date.getDay() !== 0)).toBe(true);
+    let losses = 0;
+    for (const month of months) {
+      const m = monthSummary(data.businessEntries, month);
+      // The second way: the month by its "YYYY-MM"; the profit as one signed walk over every amount, in cents.
+      const key = toISODay(month).slice(0, 7);
+      const mine = data.businessEntries.filter((e) => toISODay(e.date).slice(0, 7) === key);
+      const turnover = mine.reduce((s, e) => s + Math.round(e.turnover * 100), 0);
+      const out = mine.reduce((s, e) => s + e.expenses.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
+      const walk = mine.reduce((s, e) => s + Math.round(e.turnover * 100) - e.expenses.reduce((t, l) => t + Math.round(l.amount * 100), 0), 0);
+      expect(m.days).toBe(mine.length);
+      expect(Math.round(m.turnover * 100)).toBe(turnover);
+      expect(Math.round(m.expenses * 100)).toBe(out);
+      expect(Math.round(m.profit * 100)).toBe(walk);
+      // The bars add up to the tile.
+      expect(monthByCategory(data.businessEntries, month).reduce((s, b) => s + Math.round(b.total * 100), 0)).toBe(out);
+      // A third way, from the owner's own money: the month's closing records, incomes in and expenses out, are the month's profit.
+      const personal = data.transactions.filter((t) => t.businessEntryId && toISODay(t.date).slice(0, 7) === key);
+      expect(personal.reduce((s, t) => s + (t.type === "income" ? 1 : -1) * Math.round(t.amount * 100), 0)).toBe(walk);
+      expect(personal.every((t) => t.accountId === DEMO_IDS.accounts.main && (t.type === "income" || t.type === "expense"))).toBe(true);
+      losses += personal.filter((t) => t.type === "expense").length;
+      // A month the shop has had whole: some 26 days open, and a profit.
+      if (month < startOfMonth(now)) {
+        expect(m.days).toBeGreaterThanOrEqual(24);
+        expect(m.profit).toBeGreaterThan(0);
+      }
+    }
+    // Some days close at a loss, and come out of the owner's money.
+    expect(losses).toBeGreaterThan(0);
+    // Nothing of the business's own money reaches the personal records but the closings' own.
+    const businessIds = new Set(data.businessEntries.map((e) => e.id));
+    expect(data.transactions.filter((t) => t.businessEntryId && !businessIds.has(t.businessEntryId))).toEqual([]);
+    expect(Object.keys(demoCollections(data).businessEntries)).toHaveLength(data.businessEntries.length);
+  });
 
   it.each<DemoLanguage>(["el", "en"])("builds a whole account in %s that holds together", (lang) => {
     expect(problems(demoData(lang, now), now)).toEqual([]);

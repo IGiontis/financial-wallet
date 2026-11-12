@@ -28,11 +28,13 @@ import { NavStylePicker } from "../components/NavStylePicker";
 import { useSignOut } from "../../layout/useProfile";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { MotionEffectsSetting } from "../components/MotionEffectsSetting";
+import { BusinessSetting } from "../components/BusinessSetting";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, SETTINGS_PANEL_ID, settingsTabId, settingsTabPath } from "../settingsTabs";
 import { FiLogOut } from "react-icons/fi";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDemo } from "../../../demo/demoMode";
 import { DemoAccountNote } from "../../../demo/DemoChrome";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -385,8 +387,12 @@ export function SettingsPage() {
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.firstName")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                          {t("auth.firstName")}
+                          <RequiredMark />
+                        </Label>
                         <Input
+                          aria-required
                           type="text"
                           name="firstName"
                           value={profileForm.values.firstName}
@@ -399,8 +405,12 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.lastName")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                          {t("auth.lastName")}
+                          <RequiredMark />
+                        </Label>
                         <Input
+                          aria-required
                           type="text"
                           name="lastName"
                           value={profileForm.values.lastName}
@@ -413,8 +423,12 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("auth.username")} *</Label>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                          {t("auth.username")}
+                          <RequiredMark />
+                        </Label>
                         <Input
+                          aria-required
                           type="text"
                           name="username"
                           value={profileForm.values.username}
@@ -512,8 +526,11 @@ export function SettingsPage() {
                   <Row className="g-3">
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currency")}</Label>
-                        <Input type="select" name="currency" value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                          {t("settings.currency")}
+                          <RequiredMark />
+                        </Label>
+                        <Input type="select" name="currency" aria-required value={prefsForm.values.currency} onChange={prefsForm.handleChange}>
                           {CURRENCIES.map((c) => (
                             <option key={c.value} value={c.value}>
                               {c.label}
@@ -524,8 +541,11 @@ export function SettingsPage() {
                     </Col>
                     <Col xs={12} md={6}>
                       <FormGroup className="mb-0">
-                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.language")}</Label>
-                        <Input type="select" name="locale" value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
+                        <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                          {t("settings.language")}
+                          <RequiredMark />
+                        </Label>
+                        <Input type="select" name="locale" aria-required value={prefsForm.values.locale} onChange={prefsForm.handleChange}>
                           {LOCALES.map((l) => (
                             <option key={l.value} value={l.value}>
                               {l.label}
@@ -565,6 +585,13 @@ export function SettingsPage() {
                   for ever (the goal tanks' water, the loading shimmer). */}
               <Section title={t("settings.motion")} subtitle={t("settings.motionSubtitle")} fill>
                 <MotionEffectsSetting />
+              </Section>
+            </Col>
+            <Col xs={12} lg={6}>
+              {/* ── The «Δουλειά» page ────────────────────────────────────────── */}
+              {/* With the account: on, the page joins the menu; off, it goes and its records stay. */}
+              <Section title={t("settings.business")} subtitle={t("settings.businessSubtitle")} fill>
+                <BusinessSetting />
               </Section>
             </Col>
             <Col xs={12}>
@@ -641,8 +668,12 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.newEmail")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                              {t("settings.newEmail")}
+                              <RequiredMark />
+                            </Label>
                             <Input
+                              aria-required
                               type="email"
                               name="newEmail"
                               value={emailForm.values.newEmail}
@@ -655,8 +686,12 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                              {t("settings.currentPassword")}
+                              <RequiredMark />
+                            </Label>
                             <Input
+                              aria-required
                               type="password"
                               name="currentPassword"
                               placeholder={t("settings.requiredToConfirm")}
@@ -684,8 +719,12 @@ export function SettingsPage() {
                       <Row className="g-3">
                         <Col xs={12}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.currentPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                              {t("settings.currentPassword")}
+                              <RequiredMark />
+                            </Label>
                             <Input
+                              aria-required
                               type="password"
                               name="currentPassword"
                               value={passwordForm.values.currentPassword}
@@ -698,8 +737,12 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.newPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                              {t("settings.newPassword")}
+                              <RequiredMark />
+                            </Label>
                             <Input
+                              aria-required
                               type="password"
                               name="newPassword"
                               value={passwordForm.values.newPassword}
@@ -712,8 +755,12 @@ export function SettingsPage() {
                         </Col>
                         <Col xs={12} md={6}>
                           <FormGroup className="mb-0">
-                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.confirmNewPassword")} *</Label>
+                            <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                              {t("settings.confirmNewPassword")}
+                              <RequiredMark />
+                            </Label>
                             <Input
+                              aria-required
                               type="password"
                               name="confirmPassword"
                               value={passwordForm.values.confirmPassword}
@@ -787,8 +834,11 @@ export function SettingsPage() {
           {googleUser && <p className="small text-body-secondary mb-0">{t("settings.deleteGoogleConfirm")}</p>}
           {!googleUser && (
             <FormGroup className="mb-0">
-              <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>{t("settings.enterPasswordConfirm")}</Label>
-              <Input type="password" placeholder={t("settings.yourCurrentPassword")} value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
+              <Label style={{ fontSize: "var(--fs-text)", fontWeight: 500 }}>
+                {t("settings.enterPasswordConfirm")}
+                <RequiredMark />
+              </Label>
+              <Input type="password" aria-required placeholder={t("settings.yourCurrentPassword")} value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
             </FormGroup>
           )}
           {deleteError && (

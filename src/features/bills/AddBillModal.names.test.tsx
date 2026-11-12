@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "../../i18n";
 import AddBillModal from "./AddBillModal";
 import { billKeys } from "./billCache";
-import { currentStep, next, tile } from "./billWizardTest";
+import { currentStep, fillNew, next, tile } from "./billWizardTest";
+import { markedLabels } from "../../test/requiredMarks";
 import type { Bill, Category } from "../../shared/types/IndexTypes";
 
 // The bill's name against the bills the page already holds (`matchName`): the
@@ -66,5 +67,36 @@ describe("a bill's name", () => {
     await next();
     expect(screen.queryByTestId("name-exists")).toBeNull();
     expect(currentStep()).toMatch(/^2/);
+  });
+});
+
+describe("the bill wizard's required fields", () => {
+  it("carry the star, step by step — what its schema requires and nothing else", async () => {
+    open();
+    const dialog = await screen.findByRole("dialog");
+    // Step 1: the name and «is it active?».
+    expect(markedLabels(dialog)).toEqual(["Name", "Is it active?"]);
+    expect(screen.getByLabelText(/^name/i)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByRole("radiogroup", { name: /is it active/i })).toHaveAttribute("aria-required", "true");
+
+    await fillNew("Water", "20", "c1");
+    // Step 2: amount, category and «does it change?».
+    const [amount, ...rest] = markedLabels(dialog);
+    expect(amount).toMatch(/^Amount \(\w+\)$/);
+    expect(rest).toEqual(["Category", "Does the amount change each time?"]);
+    expect(screen.getByLabelText(/^amount \(/i)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^category/i)).toHaveAttribute("aria-required", "true");
+
+    await next();
+    // Step 3: only «how often»; the start month, «starts on» and the due day are optional.
+    expect(markedLabels(dialog)).toEqual(["How often"]);
+
+    await next();
+    // Step 4: the two questions; a «yes» reveals what it then needs, marked too. Notes stay optional.
+    expect(markedLabels(dialog)).toEqual(["Can it be paid late?", "Does it stop for a while?"]);
+    await userEvent.click(await tile(/paid late/i, true));
+    await userEvent.click(await tile(/stop for a while/i, true));
+    expect(markedLabels(dialog)).toEqual(["Can it be paid late?", "Payment window", "Does it stop for a while?", "From", "Until"]);
+    expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-required", "true");
   });
 });

@@ -8,7 +8,6 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import "./css/MainLayout.css";
 import { AppFooter } from "./AppFooter";
-import { LoadErrorBar } from "../../shared/components/LoadErrorBar";
 import { BillAlertPopup } from "../bills/BillAlertPopup";
 import { AddFab } from "./AddFab";
 import { PageAddProvider } from "../../shared/components/PageAddProvider";
@@ -131,7 +130,6 @@ export function MainLayout() {
                 ref={outletRef}
                 style={{ flex: 1, position: "relative" }}
               >
-                <LoadErrorBar />
                 <Outlet />
               </div>
               <AppFooter />

@@ -281,7 +281,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                         aria-label={t("common.amount")}
                       />
                     </InputGroup>
-                    <Button color="success" size="sm" onClick={() => saveEdit(p)} aria-label={t("common.save")} title={t("common.save")}>
+                    <Button color="primary" size="sm" onClick={() => saveEdit(p)} aria-label={t("common.save")} title={t("common.save")}>
                       <FiCheck size={14} />
                     </Button>
                     <Button color="secondary" outline size="sm" onClick={() => setEditing(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
@@ -367,7 +367,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             </Button>
             {/* Settled for now, but the next one can still be cleared early —
                 without this the modal offers no way back to the payment form. */}
-            <Button color="success" outline onClick={() => onMarkPaid(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
+            <Button color="primary" outline onClick={() => onMarkPaid(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
               <FiFastForward size={15} className="me-1" />
               {t("bills.payAhead")}
             </Button>
@@ -377,7 +377,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
           // form lets you change it, a variable bill only has an estimate, and
           // an instalment plan owes a fraction of it. The amount is already
           // among the facts above; the button only has to say where it goes.
-          <Button color="success" onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
+          <Button color="primary" onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
             <FiCheck size={16} className="me-1" />
             {t("bills.payNow")}
           </Button>

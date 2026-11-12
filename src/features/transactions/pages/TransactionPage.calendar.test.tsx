@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "../../../i18n";
 import { TransactionsPage } from "./TransactionPage";
@@ -79,7 +79,10 @@ const renderPage = (entry = "/transactions") => {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[entry]}>
-        <TransactionsPage />
+        <Routes>
+          <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/transactions/calendar" element={<TransactionsPage view="calendar" />} />
+        </Routes>
         <Where />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -90,15 +93,16 @@ const dayTitle = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric"
 const dayButton = (day: number) => screen.getByRole("button", { name: new RegExp(`^${dayTitle.format(at(day))}( ·|$)`) });
 const tile = (label: string) => screen.getByText(label, { selector: "span" }).parentElement!;
 
-describe("Transactions — the calendar tab", () => {
+describe("Transactions — the calendar page", () => {
   it("shows the same month totals as the list, worked out by hand, with the transfer and the goal deposit left out", async () => {
-    const user = userEvent.setup();
     renderPage();
     // The list's own summary (desktop and phone both render here).
     expect(screen.getAllByText("€65.50").length).toBeGreaterThan(0);
     expect(screen.getAllByText("€1250.00").length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("tab", { name: i18n.t("transactions.tabCalendar") }));
+    // The same records on their own page, «Ημερολόγιο συναλλαγών».
+    cleanup();
+    renderPage("/transactions/calendar");
     expect(within(tile(i18n.t("calendar.in"))).getByText("€1250.00")).toBeInTheDocument();
     expect(within(tile(i18n.t("calendar.out"))).getByText("€65.50")).toBeInTheDocument();
     // Nothing the 300 transfer or the 100 deposit would have made.
@@ -109,7 +113,7 @@ describe("Transactions — the calendar tab", () => {
 
   it("draws a transfer-only day with no figure, and lists the transfer once when tapped", async () => {
     const user = userEvent.setup();
-    renderPage("/transactions?tab=calendar");
+    renderPage("/transactions/calendar");
     const fifth = dayButton(5);
     expect(fifth.textContent).toBe("5");
     await user.click(fifth);
@@ -119,7 +123,7 @@ describe("Transactions — the calendar tab", () => {
 
   it("a tap on a day lists exactly that day's records, and a record opens read-only", async () => {
     const user = userEvent.setup();
-    renderPage("/transactions?tab=calendar");
+    renderPage("/transactions/calendar");
     // The 3rd nets +1.154,50: its chip says so.
     expect(dayButton(3).textContent).toContain("+");
     await user.click(dayButton(3));
@@ -138,17 +142,11 @@ describe("Transactions — the calendar tab", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("keeps the open tab in the address", async () => {
-    const user = userEvent.setup();
+  it("is its own page, and an old «?tab=calendar» link lands on it", () => {
     renderPage("/transactions?tab=calendar&category=all");
-    expect(screen.getByRole("tab", { name: i18n.t("transactions.tabCalendar") })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "transactions-tab-calendar");
-
-    await user.click(screen.getByRole("tab", { name: i18n.t("transactions.tabList") }));
-    expect(screen.getByTestId("where").textContent).toBe("/transactions?category=all");
-    expect(screen.getByRole("tab", { name: i18n.t("transactions.tabList") })).toHaveAttribute("aria-selected", "true");
-
-    await user.click(screen.getByRole("tab", { name: i18n.t("transactions.tabCalendar") }));
-    expect(screen.getByTestId("where").textContent).toBe("/transactions?category=all&tab=calendar");
+    expect(screen.getByTestId("where").textContent).toBe("/transactions/calendar");
+    expect(dayButton(3)).toBeInTheDocument();
+    // No tabs left on either page: the menu is the way between them.
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 });

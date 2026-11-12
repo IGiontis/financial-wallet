@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FiPlus, FiX } from "react-icons/fi";
 import { draftProblem, newPartDraft, partsFromDrafts, partsTotals, type GoalPartDraft } from "../goalParts";
 import styles from "./css/GoalParts.module.css";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 /**
  * A goal written as its parts — «Σπίτι 150–200», «Lift 50–90» — each with what
@@ -17,9 +18,16 @@ export function GoalPartsEditor({ drafts, onChange, formatCurrency, showErrors }
   return (
     <div className={styles.editor}>
       <div className={`${styles.row} ${styles.head}`} aria-hidden>
-        <span>{t("goals.partFor")}</span>
+        {/* What each part is for and how far it goes are asked; «από» may stay empty. */}
+        <span>
+          {t("goals.partFor")}
+          <RequiredMark />
+        </span>
         <span>{t("goals.partFrom")}</span>
-        <span>{t("goals.partTo")}</span>
+        <span>
+          {t("goals.partTo")}
+          <RequiredMark />
+        </span>
         <span />
       </div>
       {drafts.map((d, i) => {
@@ -29,9 +37,9 @@ export function GoalPartsEditor({ drafts, onChange, formatCurrency, showErrors }
         return (
           <div key={d.id}>
             <div className={styles.row}>
-              <Input bsSize="sm" value={d.label} onChange={(e) => set(d.id, { label: e.target.value })} placeholder={t("goals.partPlaceholder")} aria-label={t("goals.partForN", { n: i + 1 })} invalid={nameBad} />
+              <Input bsSize="sm" value={d.label} onChange={(e) => set(d.id, { label: e.target.value })} placeholder={t("goals.partPlaceholder")} aria-label={t("goals.partForN", { n: i + 1 })} aria-required invalid={nameBad} />
               <Input bsSize="sm" type="number" min={0} step="1" inputMode="decimal" value={d.min} onChange={(e) => set(d.id, { min: e.target.value })} placeholder="0" aria-label={t("goals.partFromN", { n: i + 1 })} invalid={problem === "minAboveMax"} />
-              <Input bsSize="sm" type="number" min={0} step="1" inputMode="decimal" value={d.max} onChange={(e) => set(d.id, { max: e.target.value })} placeholder="0" aria-label={t("goals.partToN", { n: i + 1 })} invalid={toBad} />
+              <Input bsSize="sm" type="number" min={0} step="1" inputMode="decimal" value={d.max} onChange={(e) => set(d.id, { max: e.target.value })} placeholder="0" aria-label={t("goals.partToN", { n: i + 1 })} aria-required invalid={toBad} />
               <button type="button" className={styles.remove} onClick={() => onChange(drafts.length > 1 ? drafts.filter((x) => x.id !== d.id) : [newPartDraft()])} aria-label={t("goals.partRemove", { n: i + 1 })}>
                 <FiX aria-hidden />
               </button>

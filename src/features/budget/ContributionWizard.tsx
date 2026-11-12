@@ -25,6 +25,7 @@ import wizard from "../transactions/components/css/TransactionWizard.module.css"
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
@@ -395,13 +396,17 @@ export default function ContributionWizard({
       >
         <ModalBody>
           <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => (s === "card" && isCovered ? t("goalWizard.step_who") : t(`goalWizard.step_${s}${s === "use" && deposit ? "_in" : ""}`))} />
-          <p className={wizard.prompt}>{ask(step)}</p>
+          <p className={wizard.prompt}>
+            {ask(step)}
+            {/* The use, and the card when one has to be chosen, are asked; the steps with fields mark their fields. */}
+            {(step === "use" || (step === "card" && cardMustBeChosen)) && <RequiredMark />}
+          </p>
 
           {moneyLoading && <SkeletonRows count={3} icon={false} />}
 
           {!moneyLoading && step === "use" && (
             <>
-              <div className="d-flex flex-column gap-2 mb-2" role="radiogroup" aria-label={ask("use")}>
+              <div className="d-flex flex-column gap-2 mb-2" role="radiogroup" aria-label={ask("use")} aria-required>
                 {choices.map((c) => (
                   <button
                     key={c.key}
@@ -441,11 +446,13 @@ export default function ContributionWizard({
               )}
               <FormGroup className="mb-2">
                 <Label for="contribution-amount" className="small fw-medium">
-                  {t("investments.amountLabel", { currency: displayCurrency })} *
+                  {t("investments.amountLabel", { currency: displayCurrency })}
+                  <RequiredMark />
                 </Label>
                 <InputGroup>
                   <Input
                     id="contribution-amount"
+                    aria-required
                     autoFocus
                     type="number"
                     min={0}
@@ -492,7 +499,10 @@ export default function ContributionWizard({
           {step === "when" && (
             <>
               <FormGroup>
-                <Label className="small fw-medium">{t("common.date")} *</Label>
+                <Label className="small fw-medium">
+                  {t("common.date")}
+                  <RequiredMark />
+                </Label>
                 <DateField value={date} onChange={setDate} placeholder={t("common.date")} />
               </FormGroup>
               <FormGroup className="mb-0">
@@ -542,8 +552,11 @@ export default function ContributionWizard({
               {/* To whom: the payee field the transactions use, offering the names already written. */}
               {needsPerson && (
                 <div className="mt-3">
-                  <p className={wizard.prompt}>{t(mode === "given" ? "goalWizard.askGivenTo" : mode === "covered" ? "goalWizard.askWhoPaid" : "goalWizard.askWho")}</p>
-                  <PayeeInput value={person} payees={payees} onChange={setPerson} invalid={tried && !person.trim()} placeholder={t(mode === "covered" ? "goalWizard.paidByPlaceholder" : "goalWizard.spentOnPlaceholder")} />
+                  <p className={wizard.prompt}>
+                    {t(mode === "given" ? "goalWizard.askGivenTo" : mode === "covered" ? "goalWizard.askWhoPaid" : "goalWizard.askWho")}
+                    <RequiredMark />
+                  </p>
+                  <PayeeInput required value={person} payees={payees} onChange={setPerson} invalid={tried && !person.trim()} placeholder={t(mode === "covered" ? "goalWizard.paidByPlaceholder" : "goalWizard.spentOnPlaceholder")} />
                 </div>
               )}
               {(writesExpense || isCovered) && categoryChooser}
@@ -642,7 +655,7 @@ export default function ContributionWizard({
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={saving || !!amountError}>
+            <Button type="submit" color="primary" disabled={saving || !!amountError}>
               {saving ? t("common.saving") : t(deposit ? "investments.addDeposit" : "investments.confirmWithdrawal")}
             </Button>
           ) : (

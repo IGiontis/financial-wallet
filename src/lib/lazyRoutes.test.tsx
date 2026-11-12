@@ -23,6 +23,8 @@ const routes = await import("./lazyRoutes");
 const expected: Record<string, string> = {
   OverviewPage: "overview",
   TransactionsPage: "transactions",
+  // The same records as a calendar: the list's own chunk, in its other view.
+  TransactionsCalendarPage: "transactions",
   NewTransactionPage: "newTransaction",
   LedgerPage: "ledger",
   NamesPage: "names",
@@ -36,6 +38,7 @@ const expected: Record<string, string> = {
   PlannerPage: "planner",
   DebtsPage: "debts",
   AccountsPage: "accounts",
+  BusinessPage: "business",
   LegalPage: "legal",
   LoginPage: "login",
   RegisterPage: "register",

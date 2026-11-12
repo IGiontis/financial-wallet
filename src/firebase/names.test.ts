@@ -194,6 +194,7 @@ describe("records named after what they are linked to", () => {
       tx("old-bill", "ΔΕΗ"), // a payment older than billId: linked from the payment
       tx("income", "ΔΕΗ", { type: "income", incomeId: "i1" }),
       tx("interest", "ΔΕΗ", { debtId: "d1", debtPart: "interest" }),
+      tx("closing", "ΔΕΗ", { type: "income", businessEntryId: "be1" }), // a day's closing: its profit in the owner's money
       tx("covered", "ΔΕΗ"), // coveredExpenseId points here
       tx("legacy", "Σκι", { amount: 550 }), // an older covered debt's expense, found as the refund finds it
     ];

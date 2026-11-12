@@ -100,6 +100,35 @@ Kept in the Firebase console by the owner, not in this repo. What they allow:
 - Money that moves between records (a transfer, a goal paid by a friend, a debt and its
   cash) is written in one batch, and the linked records are edited and deleted together.
 
+## Every page looks like the others — MUST, not taste
+
+The owner judges a new page by putting it next to the existing ones. Before writing a
+page, open Goals (`GoalsWorkbench`) and Debts/Bills in the demo and copy their anatomy;
+before calling it done, screenshot it beside them (320px and 1366px, light and dark,
+Greek) and fix every difference you can see.
+
+1. `PageShell` → the header: **`AddHeader`** (or GoalsWorkbench's header) — the square
+   «+» (`AddButton`, icon only) pinned LEFT, then the `h1.h5` title and the one-line
+   subtitle. Never a text button («+ Κάτι») above or below the title.
+2. **Page tabs come straight under the header** (`UnderlineTabs`, the Goals/Investments
+   look) — never below tiles or a month bar. Overview first. Anything that belongs to one
+   tab (tiles, month ‹ ›, charts) lives inside that tab's panel. The open tab is kept in
+   the address (`?tab=`). A sub-page of a menu entry is a child route in the sidebar, not
+   an inner tab of another page.
+3. Tiles, cards, rows, chips: reuse an existing page's components/classes (`tone-tile`,
+   `GoalsOverview` tiles, `.stat-head`, `RowMenu`, `InfoLegend`) — no new look for the
+   same thing.
+4. Buttons: every save / submit / confirm and «Ήρθε» / «Πληρώθηκε» is `color="primary"`
+   (the brand), never green; cancel/back `secondary outline`; delete far left, danger.
+5. Required fields show the shared required mark (`RequiredMark`); optional ones don't.
+6. **Never show a "didn't load / try again" message.** Failed loads retry silently
+   (`installQueryAutoRetry`) while the page keeps its skeleton; never an empty state that
+   isn't true. The user should never have to retry anything.
+7. Empty state = an invitation with the page's add, not an apology.
+
+`uiConventions.test.ts` enforces what a test can see (green buttons, retry messages); the
+rest is checked by the side-by-side screenshots above.
+
 ## The public demo
 
 Unknown devices see an invented account (src/demo/: an in-memory Firestore facade and

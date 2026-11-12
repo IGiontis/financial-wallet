@@ -78,7 +78,7 @@ export function UnconfirmedQuestion({
       </span>
       {amount}
       <span className="d-inline-flex gap-1 flex-shrink-0">
-        <Button size="sm" color="success" outline aria-label={`${label} · ${date}: ${arrived}`} onClick={() => onAnswer(true)}>
+        <Button size="sm" color="primary" outline aria-label={`${label} · ${date}: ${arrived}`} onClick={() => onAnswer(true)}>
           {arrived}
         </Button>
         <Button size="sm" color="secondary" outline aria-label={`${label} · ${date}: ${notYet}`} onClick={() => onAnswer(false)}>

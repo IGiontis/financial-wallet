@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import AccountPicker from "../accounts/AccountPicker";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 /**
  * Did money actually change hands — and if so, through which card?
@@ -54,6 +55,7 @@ export function MoneyMovedPicker({
 
   const choice = (
     <YesNoChoice
+      required
       question={t(`debts.moneyMoved${side}`)}
       hideQuestion={hideQuestion}
       className=""
@@ -69,6 +71,7 @@ export function MoneyMovedPicker({
       {hasPlaces && (
         <p className="fw-semibold mb-2" style={{ fontSize: "var(--fs-text)" }}>
           {t(income ? "accounts.askIn" : "accounts.askOut")}
+          <RequiredMark />
         </p>
       )}
       <AccountPicker value={value ?? ""} onChoose={onChange} income={income} invalid={invalid && moved} />

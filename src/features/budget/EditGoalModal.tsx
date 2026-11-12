@@ -22,6 +22,7 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { investmentKeys } from "./useInvestments";
 import type { InvestmentGoal } from "../../shared/types/IndexTypes";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 interface EditGoalFormValues {
   name: string;
@@ -214,9 +215,10 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
           {step === "what" && (
             <FormGroup className="mb-0">
               <Label for="goal-name" className="small fw-medium">
-                {t("goals.goalNameLabel")} *
+                {t("goals.goalNameLabel")}
+                <RequiredMark />
               </Label>
-              <Input id="goal-name" type="text" name="name" value={formik.values.name} onChange={formik.handleChange} onBlur={formik.handleBlur} invalid={!!(formik.touched.name && formik.errors.name)} />
+              <Input id="goal-name" aria-required type="text" name="name" value={formik.values.name} onChange={formik.handleChange} onBlur={formik.handleBlur} invalid={!!(formik.touched.name && formik.errors.name)} />
               <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
               <NameCheck match={nameMatch?.kind === "same" && !formik.touched.name ? null : nameMatch} />
               {/* The kind is what it was saved as. */}
@@ -250,7 +252,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
           {step === "review" ? (
             // Nothing changed, nothing written: an unchanged save would still bump
             // `updatedAt` and spread to every device by the delta sync.
-            <Button type="submit" color="success" disabled={formik.isSubmitting || !changed}>
+            <Button type="submit" color="primary" disabled={formik.isSubmitting || !changed}>
               {formik.isSubmitting ? t("common.saving") : t("goals.confirmAndSave")}
             </Button>
           ) : (

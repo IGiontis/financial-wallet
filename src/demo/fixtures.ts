@@ -1,5 +1,5 @@
 import { addDays, addMonths, endOfMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
-import type { Bill, BillPayment, Category, Debt, DebtPayment, InvestmentContribution, InvestmentGoal, Transaction, TransactionType, User } from "../shared/types/IndexTypes";
+import type { Bill, BillPayment, BusinessEntry, BusinessExpense, Category, Debt, DebtPayment, InvestmentContribution, InvestmentGoal, Transaction, TransactionType, User } from "../shared/types/IndexTypes";
 import { DEFAULT_CATEGORIES } from "../firebase/defaultCategories";
 import { ACCOUNTS_KEY, CHECK_INS_KEY, accountOf, mainAccount, realDelta, type BalanceCheckIn, type MoneyAccount } from "../features/accounts/accountsUtils";
 import { isAfterReading } from "../shared/utils/balance";
@@ -14,6 +14,8 @@ import { PLANNER_KEYS } from "../features/plannerPage/plannerInputs";
 import type { BudgetLine, OneOff } from "../features/plannerPage/plannerUtils";
 import { TOUR_SEEN_KEY } from "../features/tour/tourState";
 import { toISODay } from "../shared/utils/dates";
+import { BUSINESS_CATEGORIES_KEY, BUSINESS_ON_KEY, DEFAULT_BUSINESS_CATEGORIES } from "../features/business/businessKeys";
+import { closingFigures, lineCategoryIds, personalMove } from "../features/business/businessSummary";
 import { DEMO_EMAIL, DEMO_UID } from "./demoUser";
 
 // ─── The demo's account ──────────────────────────────────────────────────────
@@ -46,6 +48,11 @@ import { DEMO_EMAIL, DEMO_UID } from "./demoUser";
 //   its amount, fuel with its litres, eating out, transfers between accounts.
 // - Planner: four monthly lines, three of them limits on categories, and a tax
 //   refund expected next month.
+// - Δουλειά: switched on, a small shop's last three months closed day by day
+//   (Monday to Saturday): the turnover, and expense lines in the four starting
+//   categories — stock, the employee, fuel, the shop's rent, VAT and EFKA.
+//   Each day's profit lands in the main bank as an income, and the few days
+//   that close at a loss take it out as an expense.
 //
 // The figures are fixed per calendar day, not drawn afresh: the same day always
 // shows the same coffee and the same supermarket bill.
@@ -63,6 +70,7 @@ export interface DemoData {
   investmentContributions: InvestmentContribution[];
   debts: Debt[];
   debtPayments: DebtPayment[];
+  businessEntries: BusinessEntry[];
 }
 
 /** The ids the rest of the account — and its tests — refer to. */
@@ -76,6 +84,9 @@ export const DEMO_IDS = {
   goals: { trip: "goal-sifnos", home: "goal-emergency", etf: "goal-etf" },
   debts: { car: "debt-car", friend: "debt-stelios", covered: "debt-despina" },
   checkIns: { first: "checkin-1", latest: "checkin-2" },
+  business: { transport: "bcat-transport", operating: "bcat-operating", goods: "bcat-goods", taxes: "bcat-taxes" },
+  businessProfit: "cat-business-profit",
+  businessLoss: "cat-business-loss",
 } as const;
 
 /** The Planner's mark that the old Allocation page's buckets have been moved into it — see `allocationMigration`. */
@@ -124,6 +135,7 @@ const WORDS = {
     atm: "Ανάληψη ΑΤΜ",
     lines: { groceries: "Σούπερ μάρκετ", out: "Καφές & έξοδοι", fuel: "Βενζίνη", other: "Διάφορα" },
     taxRefund: "Επιστροφή φόρου",
+    business: { closing: "Κλείσιμο ημέρας", profit: "Κέρδος δουλειάς", loss: "Ζημιά δουλειάς", staff: "υπάλληλος", fuel: "βενζίνη", stock: "χονδρέμπορος", rent: "ενοίκιο μαγαζιού", vat: "ΦΠΑ", efka: "ΕΦΚΑ" },
   },
   en: {
     firstName: "Katerina",
@@ -160,6 +172,7 @@ const WORDS = {
     atm: "ATM withdrawal",
     lines: { groceries: "Groceries", out: "Coffee & going out", fuel: "Fuel", other: "Everything else" },
     taxRefund: "Tax refund",
+    business: { closing: "Day's closing", profit: "Business profit", loss: "Business loss", staff: "staff", fuel: "fuel", stock: "wholesaler", rent: "shop rent", vat: "VAT", efka: "EFKA" },
   },
 } as const;
 
@@ -203,6 +216,8 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
   }));
   const custom = (id: string, name: string, type: TransactionType, icon: string, color: string): Category => ({ id, name, type, icon, color, isDefault: false, userId, createdAt: subMonths(start, 6), updatedAt: subMonths(start, 6) });
   categories.push(custom("cat-market", w.market, "expense", "🥬", "#65A30D"), custom("cat-presents", w.presents, "expense", "🎁", "#DB2777"), custom("cat-rental", w.rental, "income", "🏠", "#0EA5E9"), custom("cat-kafes", w.kafes, "expense", "☕", "#92400E"));
+  // Where the shop's days land in the owner's own money — made by the first closing, as the app makes them.
+  categories.push(custom(DEMO_IDS.businessProfit, w.business.profit, "income", "🏪", "#0EA5E9"), custom(DEMO_IDS.businessLoss, w.business.loss, "expense", "📉", "#DC2626"));
   const cat = (name: string, type: TransactionType = "expense") => defaultCategoryId(name, type);
 
   // ── Banks & cash ──
@@ -486,6 +501,50 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
     for (const { id, createdAt, ...cash } of debtCashRecords(computeDebtStatus(debt, debtPayments, now), now).records) record({ ...cash, id, createdAt });
   }
 
+  // ── The business («Δουλειά») ──
+  // A small shop's last three months, this one so far, closed every day but
+  // Sunday at nine in the evening. Each closing writes the day's profit (or
+  // loss) into the main bank as the app does — one record, each naming the
+  // other — before the readings, so the banks count it.
+  const businessCategories = DEFAULT_BUSINESS_CATEGORIES[lang].map((c) => ({ ...c }));
+  const biz = ids.business;
+  const businessEntries: BusinessEntry[] = [];
+  for (const month of months.slice(-3)) {
+    let working = 0;
+    let vatPaid = false;
+    let efkaPaid = false;
+    for (let d = 1; d <= endOfMonth(month).getDate(); d++) {
+      const day = dayOf(month, d);
+      if (day.getDay() === 0) continue;
+      working += 1;
+      const closedAt = at(day, 21);
+      if (!happened(closedAt)) continue;
+      const lines: BusinessExpense[] = [
+        { categoryId: biz.goods, amount: amountOn(day, 73, 140, 200), note: w.business.stock },
+        { categoryId: biz.operating, amount: 70, note: w.business.staff },
+      ];
+      if (day.getDay() === 2 || day.getDay() === 5) lines.push({ categoryId: biz.transport, amount: amountOn(day, 75, 20, 35), note: w.business.fuel });
+      if (working === 1) lines.push({ categoryId: biz.operating, amount: 450, note: w.business.rent });
+      if (d >= 10 && !vatPaid) {
+        vatPaid = true;
+        lines.push({ categoryId: biz.taxes, amount: 140, note: w.business.vat });
+      }
+      if (d >= 20 && !efkaPaid) {
+        efkaPaid = true;
+        lines.push({ categoryId: biz.taxes, amount: 260, note: w.business.efka });
+      }
+      const id = `demo-closing-${toISODay(day)}`;
+      const written = new Date(Math.min(closedAt.getTime() + 10 * 60_000, now.getTime()));
+      const entry: BusinessEntry = { id, userId, date: closedAt, turnover: amountOn(day, 71, 260, 340), expenses: lines, categoryIds: lineCategoryIds(lines), accountId: ids.accounts.main, createdAt: written, updatedAt: written };
+      const move = personalMove(closingFigures(entry).profit);
+      if (move) {
+        const tx = record({ id: `demo-closing-tx-${toISODay(day)}`, amount: move.amount, type: move.type, categoryId: move.type === "income" ? ids.businessProfit : ids.businessLoss, date: closedAt, description: w.business.closing, accountId: ids.accounts.main, businessEntryId: id, createdAt: written });
+        entry.linkedTransactionId = tx.id;
+      }
+      businessEntries.push(entry);
+    }
+  }
+
   // ── Readings of the banks ──
   // What each account held when the records begin. The savings account holds
   // the goals' money and a little of its own; the rest is spendable.
@@ -564,13 +623,16 @@ export function demoData(lang: DemoLanguage, now: Date = new Date()): DemoData {
       [ALLOCATION_MOVED_KEY]: true,
       // The welcome carousel is for a new account, not for a look around.
       [TOUR_SEEN_KEY]: true,
+      // «Δουλειά» switched on, with the shop's own categories.
+      [BUSINESS_ON_KEY]: true,
+      [BUSINESS_CATEGORIES_KEY]: businessCategories,
     },
     createdAt: subMonths(start, 30),
     updatedAt: today,
   };
 
   transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
-  return { user, categories, transactions, bills, billPayments, investmentGoals, investmentContributions, debts, debtPayments };
+  return { user, categories, transactions, bills, billPayments, investmentGoals, investmentContributions, debts, debtPayments, businessEntries };
 }
 
 /**
@@ -592,5 +654,6 @@ export function demoCollections(data: DemoData): Record<string, Record<string, R
     investmentContributions: byId(data.investmentContributions),
     debts: byId(data.debts),
     debtPayments: byId(data.debtPayments),
+    businessEntries: byId(data.businessEntries),
   };
 }

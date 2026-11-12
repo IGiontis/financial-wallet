@@ -5,6 +5,7 @@ import i18n from "../../i18n";
 import AddDebtModal from "./AddDebtModal";
 import { toISODay } from "../../shared/utils/dates";
 import type { Debt } from "../../shared/types/IndexTypes";
+import { markedLabels } from "../../test/requiredMarks";
 
 // «Καταχώριση δανείου» as numbered steps with a review: the steps must keep the
 // form's rules (nothing past step 1 without a person and an amount), the yes /
@@ -458,3 +459,35 @@ describe("the money question on a new debt", () => {
     });
   });
 });
+
+describe("the loan wizard's required fields", () => {
+  it("carry the star, step by step — what its checks require and nothing else", async () => {
+    open();
+    const dialog = screen.getByRole("dialog");
+    // Who with and how much; «what for» is optional. The direction always has an answer.
+    expect(markedLabels(dialog)).toEqual(["Who with", "Amount"]);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^Amount/)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/^What for/)).not.toHaveAttribute("aria-required");
+    await fillWho("Keki", "100");
+    await next();
+
+    // One question, asked in the title; the tiles' group says it is required.
+    expect(markedLabels(dialog)).toEqual(["Is it a loan with interest?"]);
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-required", "true");
+    // «Yes» opens the loan's figures: none of them is required.
+    await userEvent.click(yes());
+    expect(markedLabels(dialog)).toEqual(["Is it a loan with interest?"]);
+    await next();
+
+    // The day it was given; «back by» is optional.
+    expect(markedLabels(dialog)).toEqual(["When"]);
+    await next();
+
+    // Borrowed: did it reach a card? «Yes» then asks which — required too.
+    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?"]);
+    await moneyYes();
+    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?", "Where did the money go?"]);
+  });
+});
+

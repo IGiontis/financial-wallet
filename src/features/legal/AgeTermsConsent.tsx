@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Trans } from "react-i18next";
 import { FormFeedback, FormGroup, Input, Label } from "reactstrap";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const linkStyle = { textUnderlineOffset: 2 } as const;
 const links = {
@@ -18,9 +19,10 @@ const links = {
 export function AgeTermsConsent({ checked, onChange, invalid }: { checked: boolean; onChange: (checked: boolean) => void; invalid: boolean }) {
   return (
     <FormGroup check className="mb-3">
-      <Input id="age-terms" type="checkbox" checked={checked} invalid={invalid} onChange={(e) => onChange(e.target.checked)} />
+      <Input id="age-terms" type="checkbox" aria-required checked={checked} invalid={invalid} onChange={(e) => onChange(e.target.checked)} />
       <Label for="age-terms" check className="small">
         <Trans i18nKey="legal.consent" components={links} />
+        <RequiredMark />
       </Label>
       <FormFeedback>
         <Trans i18nKey="legal.consentNeeded" />

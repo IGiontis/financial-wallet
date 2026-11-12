@@ -11,6 +11,7 @@ import { appAuthActions, type AuthActions } from "./authActions";
 import type { PendingSignUp } from "./pendingSignUp";
 import { isInAppBrowser } from "./inAppBrowser";
 import styles from "./css/Auth.module.css";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -126,10 +127,12 @@ export function RegisterForm({ actions = appAuthActions, onSignedIn, onSwitch, s
   const field = (name: keyof typeof formik.values, label: string, type: InputProps["type"], autoComplete: string, placeholder: string, className?: string) => (
     <FormGroup className={className}>
       <Label className="small fw-medium" for={`register-${name}`}>
-        {label} *
+        {label}
+        <RequiredMark />
       </Label>
       <Input
         id={`register-${name}`}
+        aria-required
         type={type}
         name={name}
         autoComplete={autoComplete}

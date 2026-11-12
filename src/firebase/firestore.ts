@@ -721,7 +721,7 @@ export const unmarkBillPaid = async (userId: string, payment: { id: string; tran
  * read, for the rare write that names a record another one points at. Unsure
  * (offline, no cached copy) counts as there: the write is then what it was.
  */
-const stillThere = async (collectionName: string, id: string) => {
+export const stillThere = async (collectionName: string, id: string) => {
   try {
     const snap = await getDoc(doc(db, collectionName, id));
     meterRead(collectionName, 1, !!snap.metadata?.fromCache);

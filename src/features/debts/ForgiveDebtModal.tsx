@@ -8,6 +8,7 @@ import { forgiveness } from "./debtsUtils";
 import { useUpdateDebt } from "./useDebts";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const NOTE_MAX = 200;
 
@@ -49,6 +50,7 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
         <FormGroup>
           <Label className="small fw-medium" for="forgive-date">
             {t("debts.forgiveDate")}
+            <RequiredMark />
           </Label>
           <DateField id="forgive-date" name="forgive-date" value={date} onChange={setDate} />
         </FormGroup>

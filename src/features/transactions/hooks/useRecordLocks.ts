@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { getDebtPayments, getDebts } from "../../../firebase/firestore";
 import { computeDebtStatus } from "../../debts/debtsUtils";
@@ -40,10 +40,19 @@ export function useRecordLocks(fetch: boolean) {
       return list.map((debt) => computeDebtStatus(debt, payments));
     },
   });
-  const goals = useQuery<InvestmentGoal[]>({ queryKey: investmentKeys.goals(userId), enabled: false });
+  // Read from the cache without becoming one of the query's observers: an
+  // observer with no way to fetch turned every refetch of the goals into a
+  // "No queryFn" error, and an errored query on screen raised the app's
+  // «δεν φόρτωσαν» bar for nothing.
+  const client = useQueryClient();
+  const goalsKey = investmentKeys.goals(userId);
+  const goalsData = useSyncExternalStore(
+    useCallback((onChange: () => void) => client.getQueryCache().subscribe(onChange), [client]),
+    () => client.getQueryData<InvestmentGoal[]>(goalsKey),
+  );
   const { data: transactions } = useTransactions();
 
-  const covered = useMemo(() => coveredExpenseIndex(debts.data ?? [], transactions ?? [], goals.data ?? []), [debts.data, transactions, goals.data]);
+  const covered = useMemo(() => coveredExpenseIndex(debts.data ?? [], transactions ?? [], goalsData ?? []), [debts.data, transactions, goalsData]);
   const known = !!debts.data || debts.isError;
 
   return useCallback(

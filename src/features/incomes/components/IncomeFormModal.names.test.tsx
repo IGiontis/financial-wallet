@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import IncomeFormModal from "./IncomeFormModal";
 import { draftToIncome, emptyDraft } from "../incomeForm";
 import { makeFormats } from "../incomeText";
+import { markedLabels } from "../../../test/requiredMarks";
 
 // An income's name against the incomes the page already holds on the user
 // document (`matchName`, nothing read): the same name blocks Next, a similar
@@ -59,3 +60,36 @@ describe("an income's name", () => {
     expect(current()).toMatch(/^2/);
   });
 });
+
+describe("the income wizard's required fields", () => {
+  it("carry the star, step by step — what its checks require and nothing else", async () => {
+    open();
+    const dialog = screen.getByRole("dialog");
+    expect(markedLabels(dialog)).toEqual(["Category", "Name"]);
+    expect(screen.getByLabelText(/^Name/)).toHaveAttribute("aria-required", "true");
+    await userEvent.type(screen.getByLabelText(/^Name/), "Tutoring");
+    await next();
+
+    expect(markedLabels(dialog)).toEqual(["Amount (EUR)", "Does the amount change every time?"]);
+    expect(screen.getByLabelText(/^Amount/)).toHaveAttribute("aria-required", "true");
+    await userEvent.type(screen.getByLabelText(/^Amount/), "150");
+    await userEvent.click(screen.getByRole("radio", { name: /^No/ }));
+    await next();
+
+    // Monthly by default: how often, the day and the first time; no weekday, no month.
+    expect(markedLabels(dialog)).toEqual(["Every", "Day of the month", "First time"]);
+    await userEvent.click(screen.getByRole("button", { name: /day of the month/i }));
+    await userEvent.click(screen.getByRole("option", { name: "Day 1 of the month" }));
+    await next();
+
+    // The account is optional («no account» is an answer); the end is a choice that always has one.
+    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "Is it your salary?"]);
+    const [pause] = screen.getAllByRole("radiogroup").filter((g) => g.getAttribute("aria-required") === "true");
+    await userEvent.click(within(pause).getByRole("radio", { name: /^Yes/ }));
+    // A break needs its first month; its last only when it comes back every year.
+    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "From", "Is it your salary?"]);
+    await userEvent.click(screen.getByLabelText(/every year/i));
+    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "From", "Until", "Is it your salary?"]);
+  });
+});
+

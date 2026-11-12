@@ -9,6 +9,7 @@ import { matchName, similarName } from "../../shared/utils/nameMatch";
 import { MAX_PAYEE_LENGTH } from "../transactions/payeeStore";
 import { payeeRenameIds, savedAfterRename, type PayeeRow } from "./payeeNames";
 import type { Transaction } from "../../shared/types/IndexTypes";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const STEPS = ["name", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -115,9 +116,11 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
                 <FormGroup className="mb-0">
                   <Label className="small fw-medium" for="payee-merge-into">
                     {t("names.mergeIntoLabel", { name: row?.name ?? "" })}
+                    <RequiredMark />
                   </Label>
                   <Input
                     id="payee-merge-into"
+                    aria-required
                     type="select"
                     value={mergeInto?.key ?? ""}
                     invalid={touched && !mergeInto}
@@ -140,10 +143,12 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
               ) : (
                 <FormGroup className="mb-0">
                   <Label className="small fw-medium" for="payee-name">
-                    {t("transactions.payee")} *
+                    {t("transactions.payee")}
+                    <RequiredMark />
                   </Label>
                   <Input
                     id="payee-name"
+                    aria-required
                     autoFocus
                     value={text}
                     maxLength={MAX_PAYEE_LENGTH + 1}
@@ -192,7 +197,7 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={saving || (mode !== "add" && !!locked)} title={mode !== "add" ? lockReason : undefined}>
+            <Button type="submit" color="primary" disabled={saving || (mode !== "add" && !!locked)} title={mode !== "add" ? lockReason : undefined}>
               {saving ? t("common.saving") : merging ? t("names.mergeAction") : t("common.save")}
             </Button>
           ) : (

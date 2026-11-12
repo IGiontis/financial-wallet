@@ -23,6 +23,7 @@ import { useCachedList } from "../../shared/hooks/useCachedList";
 import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { billKeys } from "./billCache";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -411,10 +412,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             <>
               <FormGroup>
                 <Label className="small fw-medium" for="bill-name">
-                  {t("common.name")} *
+                  {t("common.name")}
+                  <RequiredMark />
                 </Label>
                 <Input
                   id="bill-name"
+                  aria-required
                   name="name"
                   placeholder={t("bills.namePlaceholder")}
                   value={formik.values.name}
@@ -425,7 +428,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 <FormFeedback>{validationMessage(formik.errors.name, t)}</FormFeedback>
                 <NameCheck match={nameMatch?.kind === "same" && !formik.touched.name ? null : nameMatch} />
               </FormGroup>
-              <YesNoChoice className="mb-0" question={<Question text={t("bills.qActive")} hint={t("bills.activeSwitchHint")} />} value={formik.values.isActive} onChange={(yes) => formik.setFieldValue("isActive", yes)} />
+              <YesNoChoice className="mb-0" required question={t("bills.qActive")} questionHint={t("bills.activeSwitchHint")} value={formik.values.isActive} onChange={(yes) => formik.setFieldValue("isActive", yes)} />
               {yesNoError("isActive")}
             </>
           )}
@@ -437,10 +440,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 <Col xs={5}>
                   <FormGroup className="mb-0">
                     <Label className="small fw-medium" for="bill-amount">
-                      {formik.values.isVariableAmount ? t("bills.estimatedAmount") : t("common.amount")} ({displayCurrency}) *
+                      {formik.values.isVariableAmount ? t("bills.estimatedAmount") : t("common.amount")} ({displayCurrency})
+                      <RequiredMark />
                     </Label>
                     <Input
                       id="bill-amount"
+                      aria-required
                       type="number"
                       name="amount"
                       min={0.01}
@@ -458,10 +463,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 <Col xs={7}>
                   <FormGroup className="mb-0">
                     <Label className="small fw-medium" for="bill-category">
-                      {t("common.category")} *
+                      {t("common.category")}
+                      <RequiredMark />
                     </Label>
                     <Input
                       id="bill-category"
+                      aria-required
                       type="select"
                       name="categoryId"
                       value={formik.values.categoryId}
@@ -486,7 +493,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   nothing more: the amount above becomes the estimate. */}
               <YesNoChoice
                 className="mb-0"
-                question={<Question text={t("bills.qVariable")} hint={t("bills.variableAmountHint")} />}
+                required
+                question={t("bills.qVariable")}
+                questionHint={t("bills.variableAmountHint")}
                 value={formik.values.isVariableAmount}
                 onChange={(yes) => formik.setFieldValue("isVariableAmount", yes)}
               />
@@ -501,6 +510,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               <FormGroup className="mb-0">
                 <EveryPicker
                   id="bill-every"
+                  required
                   label={t("bills.wizard.everyLabel")}
                   unitAria={t("bills.wizard.everyUnit")}
                   unit={frequency}
@@ -547,11 +557,15 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 <Row className="g-3 mt-0">
                   <Col xs={12} sm={installmentCount > 1 && spacingOptions.length > 1 ? 6 : 12}>
                     <FormGroup className="mb-0">
-                      <Label className="small fw-medium">{t("bills.installments")}</Label>
+                      <Label className="small fw-medium">
+                        {t("bills.installments")}
+                        <RequiredMark />
+                      </Label>
                       <div className="input-group">
                         <Input
                           type="number"
                           name="installmentCount"
+                          aria-required
                           min={1}
                           max={12}
                           step={1}
@@ -658,7 +672,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   can tell those two apart. */}
               <YesNoChoice
                 className="mb-0"
-                question={<Question text={t("bills.qGrace")} hint={t("bills.hasGraceHint")} />}
+                required
+                question={t("bills.qGrace")}
+                questionHint={t("bills.hasGraceHint")}
                 value={formik.values.hasGrace}
                 onChange={(yes) => {
                   formik.setFieldValue("hasGrace", yes);
@@ -666,11 +682,15 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                 }}
               >
                 <FormGroup className="mb-0">
-                  <Label className="small fw-medium">{t("bills.graceDays")}</Label>
+                  <Label className="small fw-medium">
+                    {t("bills.graceDays")}
+                    <RequiredMark />
+                  </Label>
                   <div className="input-group">
                     <Input
                       type="number"
                       name="graceDays"
+                      aria-required
                       min={1}
                       max={120}
                       step={1}
@@ -691,7 +711,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
               {/* A stop — the holiday house over the winter, the flat that was
                   left. Same yes-and-reveal as the payment window above, so the
                   form keeps one way of saying "this bill has an exception". */}
-              <YesNoChoice className="mt-3 mb-0" question={<Question text={t("bills.qPause")} hint={t("bills.hasPauseHint")} />} value={formik.values.hasPause} onChange={(yes) => formik.setFieldValue("hasPause", yes)}>
+              <YesNoChoice className="mt-3 mb-0" required question={t("bills.qPause")} questionHint={t("bills.hasPauseHint")} value={formik.values.hasPause} onChange={(yes) => formik.setFieldValue("hasPause", yes)}>
                 <div>
                   {/* Chosen before the dates, because it decides which dates there are. */}
                   <FormGroup check className="mb-1">
@@ -710,7 +730,10 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                   <Row className="g-2">
                     <Col xs={formik.values.pauseKind === "stretch" ? 6 : 12}>
                       <FormGroup className="mb-0">
-                        <Label className="small fw-medium">{t("bills.pauseFrom")}</Label>
+                        <Label className="small fw-medium">
+                          {t("bills.pauseFrom")}
+                          <RequiredMark />
+                        </Label>
                         <DateField
                           month
                           small
@@ -725,7 +748,10 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
                     {formik.values.pauseKind === "stretch" && (
                       <Col xs={6}>
                         <FormGroup className="mb-0">
-                          <Label className="small fw-medium">{t("bills.pauseTo")}</Label>
+                          <Label className="small fw-medium">
+                            {t("bills.pauseTo")}
+                            <RequiredMark />
+                          </Label>
                           <DateField
                             month
                             small
@@ -796,7 +822,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={formik.isSubmitting || !formik.dirty}>
+            <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty}>
               {formik.isSubmitting ? t("common.saving") : isEdit ? t("bills.saveChanges") : t("bills.addBill")}
             </Button>
           ) : (
@@ -807,17 +833,5 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
         </ModalFooter>
       </form>
     </Modal>
-  );
-}
-
-/** A yes / no question with the words that explain it under it. */
-function Question({ text, hint }: { text: string; hint: string }) {
-  return (
-    <>
-      <span className="d-block">{text}</span>
-      <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-caption)" }}>
-        {hint}
-      </span>
-    </>
   );
 }

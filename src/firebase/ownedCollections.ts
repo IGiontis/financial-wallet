@@ -14,7 +14,7 @@
 // Categories: only the user's own (`userId` set). The seeded defaults carry no
 // `userId`, are shared by everyone, and are never touched.
 
-export const OWNED_COLLECTIONS = ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments", "debts", "debtPayments"] as const;
+export const OWNED_COLLECTIONS = ["transactions", "investmentGoals", "investmentContributions", "budgets", "categories", "bills", "billPayments", "debts", "debtPayments", "businessEntries"] as const;
 
 export type OwnedCollection = (typeof OWNED_COLLECTIONS)[number];
 

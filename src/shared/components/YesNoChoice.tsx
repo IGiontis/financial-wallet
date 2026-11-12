@@ -1,5 +1,6 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { RequiredMark } from "./RequiredMark";
 import styles from "./css/YesNoChoice.module.css";
 
 /**
@@ -18,6 +19,7 @@ import styles from "./css/YesNoChoice.module.css";
  */
 export function YesNoChoice({
   question,
+  questionHint,
   hideQuestion = false,
   value,
   onChange,
@@ -28,10 +30,13 @@ export function YesNoChoice({
   children,
   whenNo,
   disabled = false,
+  required = false,
   className = "mb-3",
 }: {
   /** The question; it labels the group even when hidden. */
   question: ReactNode;
+  /** A line of explanation under the question, in small grey — the star stays with the question, not after it. */
+  questionHint?: ReactNode;
   /** The step already asks it as its title: keep it for screen readers only. */
   hideQuestion?: boolean;
   /** true = «Ναι», false = «Όχι», undefined = not answered yet. */
@@ -46,10 +51,20 @@ export function YesNoChoice({
   /** Shown under the tiles only while «Όχι» is picked. */
   whenNo?: ReactNode;
   disabled?: boolean;
+  /**
+   * The form will not go on without an answer: the question gets the shared
+   * star (`RequiredMark`) and the group `aria-required`. With `hideQuestion`
+   * the star belongs on the step's title, where the question is seen. Leave it off for a
+   * pair that already has an answer the reader may keep (a setting shown
+   * chosen), or one the form does not check.
+   */
+  required?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
   const questionId = useId();
+  // A hidden question is asked by the step's title, which carries the star itself.
+  const mark = required && !hideQuestion ? <RequiredMark /> : null;
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const pick = (yes: boolean) => {
@@ -107,9 +122,24 @@ export function YesNoChoice({
   return (
     <div className={className}>
       <div id={questionId} className={hideQuestion ? "visually-hidden" : "small fw-medium mb-2"}>
-        {question}
+        {questionHint ? (
+          <>
+            <span className="d-block">
+              {question}
+              {mark}
+            </span>
+            <span className="d-block fw-normal text-body-secondary" style={{ fontSize: "var(--fs-caption)" }}>
+              {questionHint}
+            </span>
+          </>
+        ) : (
+          <>
+            {question}
+            {mark}
+          </>
+        )}
       </div>
-      <div className={styles.group} role="radiogroup" aria-labelledby={questionId}>
+      <div className={styles.group} role="radiogroup" aria-labelledby={questionId} aria-required={required || undefined}>
         {tile(true)}
         {tile(false)}
       </div>

@@ -1,0 +1,238 @@
+/* «Δουλειά» — the business's own money. Bootstrap covers the chrome, and the
+   tiles and the by-category card are the Goals overview's own classes
+   (GoalsWorkbench.module.css); what is here is a genuine gap: the month's
+   header, the list of days (the Debts list's look) and the wizard's lines.
+   Colours are roles only (tokens.css). */
+
+/* ── The month, and the way to the others ─────────────────────────────────── */
+
+.monthHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 0.75rem;
+}
+
+.monthTitle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.monthTitle h2 {
+  text-transform: capitalize;
+}
+
+.monthButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: var(--border-radius-md);
+  background: none;
+  color: var(--color-text-primary);
+}
+
+.monthButton:hover {
+  background: var(--color-background-secondary);
+}
+
+.todayLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.monthNav {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--fs-title);
+}
+
+.monthNav:disabled {
+  opacity: 0.35;
+}
+
+/* ── A figure's sign colour ───────────────────────────────────────────────── */
+
+.negative {
+  color: var(--color-expense-text);
+}
+
+.positive {
+  color: var(--color-income-text);
+}
+
+/* ── The tabs' panels ─────────────────────────────────────────────────────── */
+
+/* As the Goals tabs' panels: no gap of their own (the tabs keep theirs); a ring when focused. */
+.panel:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* The list's card, as the Debts page's: its edge and ground (the padding is Bootstrap's `p-3 p-lg-4`, as there). */
+.card {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+/* ── The month's records ──────────────────────────────────────────────────── */
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.rowMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0.625rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.rowMain:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.rowDay {
+  flex: 0 0 2.25rem;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  text-align: center;
+  line-height: 1.1;
+}
+
+.rowDay strong {
+  display: block;
+  color: var(--color-text-primary);
+  font-size: var(--fs-lead);
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rowMeta {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  overflow-wrap: anywhere;
+}
+
+.rowFigure {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowAmount {
+  flex-shrink: 0;
+  font-size: var(--fs-text);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The wizards ──────────────────────────────────────────────────────────── */
+
+.sideHead {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.was {
+  margin-right: 0.25rem;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* ── The closing's expense lines ──────────────────────────────────────────── */
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* One line: what it was for and the ✕ on top, how much and a word under it. */
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+}
+
+.lineBottom {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(6.5rem, 2fr) minmax(0, 3fr);
+  gap: 0.5rem;
+}
+
+.lineRemove {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.lineRemove:hover {
+  color: var(--color-expense-text);
+  border-color: var(--color-expense);
+}
+
+.total {
+  font-weight: 700;
+}

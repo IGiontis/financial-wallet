@@ -3,10 +3,10 @@ import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import i18n from "../i18n";
 import { AUTO_RETRY_DELAYS, installQueryAutoRetry } from "./queryAutoRetry";
-import { LoadErrorBar } from "../shared/components/LoadErrorBar";
 
-// A failed load is tried again on its own: 5, 15 and 45 seconds on, then it
-// waits — and the bar says so meanwhile, and goes once the data is in.
+// A failed load is tried again on its own — 5, 15 and 45 seconds on, then 2, 5
+// and 10 minutes — then it waits for a reconnect. Silently: the user is never
+// shown a "didn't load" message or asked to try again.
 
 let client: QueryClient;
 let uninstall: () => void;
@@ -28,7 +28,6 @@ function Page() {
 const mount = () =>
   render(
     <QueryClientProvider client={client}>
-      <LoadErrorBar />
       <Page />
     </QueryClientProvider>,
   );
@@ -59,7 +58,7 @@ afterEach(() => {
 });
 
 describe("a load that failed", () => {
-  it("is tried again after 5, 15 and 45 seconds, then waits", async () => {
+  it("is tried again after 5, 15 and 45 seconds, then 2, 5 and 10 minutes, then waits", async () => {
     mount();
     await wait(0);
     expect(calls).toBe(1);
@@ -68,37 +67,46 @@ describe("a load that failed", () => {
     expect(calls).toBe(1);
     await wait(1);
     expect(calls).toBe(2);
-    await wait(AUTO_RETRY_DELAYS[1]);
-    expect(calls).toBe(3);
-    await wait(AUTO_RETRY_DELAYS[2]);
-    expect(calls).toBe(4);
-    // Three tries and no more: a load refused for good must not keep spending reads.
-    await wait(10 * 60_000);
-    expect(calls).toBe(4);
+    for (const [index, delay] of AUTO_RETRY_DELAYS.slice(1).entries()) {
+      await wait(delay);
+      expect(calls).toBe(index + 3);
+    }
+    expect(AUTO_RETRY_DELAYS).toEqual([5_000, 15_000, 45_000, 120_000, 300_000, 600_000]);
+    // Six tries and no more: a load refused for good must not keep spending reads.
+    await wait(60 * 60_000);
+    expect(calls).toBe(1 + AUTO_RETRY_DELAYS.length);
   });
 
-  it("shows the bar while it has failed, and drops it once the data is in", async () => {
+  it("never shows a message, and the page fills in once a try brings the data", async () => {
     mount();
     await wait(0);
-    expect(screen.getByRole("alert")).toHaveTextContent("Some data didn't load");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("nothing")).toBeInTheDocument();
+    await wait(AUTO_RETRY_DELAYS[0] + AUTO_RETRY_DELAYS[1]);
+    expect(calls).toBe(3);
+    expect(screen.queryByRole("alert")).toBeNull();
 
     failing = false;
-    await wait(AUTO_RETRY_DELAYS[0]);
+    await wait(AUTO_RETRY_DELAYS[2]);
     // React Query tells its observers a tick later.
     await wait(10);
     expect(screen.getByText("loaded")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("tries at once from «Try now»", async () => {
+  it("after every try has failed, still says nothing — and tries again when the app comes back to the front", async () => {
     mount();
-    await wait(0);
+    await wait(AUTO_RETRY_DELAYS.reduce((a, b) => a + b, 0) + 10);
+    expect(calls).toBe(1 + AUTO_RETRY_DELAYS.length);
+    expect(screen.queryByRole("alert")).toBeNull();
+
     failing = false;
     await act(async () => {
-      screen.getByRole("button", { name: /Try now/ }).click();
+      document.dispatchEvent(new Event("visibilitychange"));
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(calls).toBe(2);
+    await wait(10);
+    expect(calls).toBe(2 + AUTO_RETRY_DELAYS.length);
     expect(screen.getByText("loaded")).toBeInTheDocument();
   });
 

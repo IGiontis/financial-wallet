@@ -16,6 +16,7 @@ import wizard from "../../transactions/components/css/TransactionWizard.module.c
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { useDebts } from "../../debts/useDebts";
 import { coveredRefunds, type RefundItem } from "../coveredRefund";
+import { RequiredMark } from "../../../shared/components/RequiredMark";
 
 /** What deleting a goal means for its money. */
 export interface GoalEnding {
@@ -151,8 +152,9 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
               <div key={r.person} className="mb-3">
                 <p className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
                   {t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}
+                  <RequiredMark />
                 </p>
-                <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })}>
+                <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.askCovered", { who: r.person, amount: format(r.amount) })} aria-required>
                   {([false, true] as const).map((value) => (
                     <button
                       key={String(value)}
@@ -184,8 +186,9 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
             <>
             <p className="fw-semibold mb-2" style={{ fontSize: "var(--fs-lead)" }}>
               {t("goalDelete.ask", { amount: format(own) })}
+              <RequiredMark />
             </p>
-            <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.ask", { amount: format(own) })}>
+            <div className="d-flex flex-column gap-2" role="radiogroup" aria-label={t("goalDelete.ask", { amount: format(own) })} aria-required>
               {(["dropped", "spent"] as const).map((value) => (
                 <button
                   key={value}
@@ -214,7 +217,10 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
               <div className="mt-3">
                 {inBanks && (
                   <>
-                    <Label className="small fw-medium">{t("goalDelete.bankLeftFrom", { amount: format(holding.inBanks) })}</Label>
+                    <Label className="small fw-medium">
+                      {t("goalDelete.bankLeftFrom", { amount: format(holding.inBanks) })}
+                      <RequiredMark />
+                    </Label>
                     <AccountPicker
                       value={account}
                       onChoose={setAccount}

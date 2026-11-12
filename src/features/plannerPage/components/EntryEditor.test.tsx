@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../../i18n";
 import EntryEditor, { type EntryDraft } from "./EntryEditor";
+import { markedLabels } from "../../../test/requiredMarks";
 
 // The figure wizard: how often, then what and how much, then the check, with
 // Save only on the check. What matters is that the stored figure is exactly
@@ -366,3 +367,37 @@ describe("«every year?» on a new cost of some months", () => {
     expect(onSave.mock.calls[0][0].yearly).toBeUndefined();
   });
 });
+
+describe("the figure wizard's required fields", () => {
+  it("money in or out: one question, asked in the title", () => {
+    render(<EntryEditor draft={{ label: "", amount: "" }} formatCurrency={fmt} onSave={onSave} onClose={() => {}} now={NOW} />);
+    expect(markedLabels(review())).toEqual(["Money in or money out?"]);
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("an expense line: what each cadence needs, then its name and amount", async () => {
+    setup("line", { label: "Food", amount: "300" });
+    // How often always has an answer; every month needs nothing more.
+    expect(markedLabels(review())).toEqual([]);
+    await userEvent.click(cadence(/^Once/));
+    expect(markedLabels(review())).toEqual(["Which month?"]);
+    await userEvent.click(cadence(/^Every year/));
+    expect(markedLabels(review())).toEqual(["Which month?"]);
+    // Some months: its «every year?» is asked; the ends are given as «from» and «to», one of them at least. «Until» is optional.
+    await userEvent.click(cadence(/^Only some months/));
+    expect(markedLabels(review())).toEqual(["Does it come back every year?"]);
+    await userEvent.click(cadence(/^Every month/));
+    await next();
+    expect(markedLabels(review())).toEqual(["Name", "Amount each month"]);
+    expect(screen.getByLabelText("Name")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText("Amount each month")).toHaveAttribute("aria-required", "true");
+  });
+
+  it("money coming in: its day, and how often when it repeats every few months", async () => {
+    setup("oneoff", { label: "Bonus", amount: "500" });
+    expect(markedLabels(review())).toEqual(["Date"]);
+    await userEvent.click(cadence(/^Every few months/));
+    expect(markedLabels(review())).toEqual(["Every", "First one"]);
+  });
+});
+

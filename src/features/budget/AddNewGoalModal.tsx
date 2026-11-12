@@ -41,6 +41,7 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { investmentKeys } from "./useInvestments";
 import type { InvestmentGoal } from "../../shared/types/IndexTypes";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -258,10 +259,12 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
             <>
               <FormGroup className={isGoalsPage ? "mb-0" : undefined}>
                 <Label for="goal-name" className="small fw-medium">
-                  {isGoalsPage ? t("goals.goalNameLabel") : t("investments.nameLabel")} *
+                  {isGoalsPage ? t("goals.goalNameLabel") : t("investments.nameLabel")}
+                  <RequiredMark />
                 </Label>
                 <Input
                   id="goal-name"
+                  aria-required
                   type="text"
                   name="name"
                   autoFocus
@@ -279,9 +282,10 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
               {!isGoalsPage && (
                 <FormGroup className="mb-0">
                   <div id="goal-kind" className="small fw-medium mb-2">
-                    {t("goals.typeLabel")} *
+                    {t("goals.typeLabel")}
+                    <RequiredMark />
                   </div>
-                  <div className={`${segmented.group} ${segmented.even}`} role="radiogroup" aria-labelledby="goal-kind">
+                  <div className={`${segmented.group} ${segmented.even}`} role="radiogroup" aria-labelledby="goal-kind" aria-required>
                     {kinds.map(({ value, title }) => (
                       <button
                         key={value}
@@ -307,6 +311,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
             <GoalLookStep form={formik} notesPlaceholder={t("goals.notesPlaceholder")}>
               {/* Asked, not a checkbox: does it start running, or paused? */}
               <YesNoChoice
+                required
                 question={t("goals.wizard.startActive")}
                 value={formik.values.isActive}
                 onChange={(yes) => formik.setFieldValue("isActive", yes)}
@@ -341,7 +346,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={formik.isSubmitting}>
+            <Button type="submit" color="primary" disabled={formik.isSubmitting}>
               {formik.isSubmitting ? t("goals.creating") : t("goals.confirmAndCreate")}
             </Button>
           ) : (

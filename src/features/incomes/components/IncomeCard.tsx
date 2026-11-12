@@ -268,7 +268,7 @@ export default function IncomeCard({ income, statuses, expected, arrivals, accou
                 </Button>
               )}
               {open && (
-                <Button color="success" onClick={() => onArrive(income, open)}>
+                <Button color="primary" onClick={() => onArrive(income, open)}>
                   <FiCheck className="me-1" aria-hidden />
                   {t("incomes.arrive")}
                 </Button>

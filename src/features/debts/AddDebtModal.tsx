@@ -32,6 +32,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -382,6 +383,8 @@ export default function AddDebtModal({
           {/* The interest step asks its question in the tiles' own label. */}
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }} aria-hidden={step === "interest" || step === "money" ? true : undefined}>
             {title}
+            {/* These two steps are one question each, asked in the title; the tiles' group says it is required. */}
+            {(step === "interest" || (step === "money" && !linked)) && <RequiredMark />}
           </div>
 
           {step === "who" && (
@@ -411,12 +414,16 @@ export default function AddDebtModal({
               {linked && <p className="small text-body-secondary">{t("debts.coveredEditHint", { goal: covered.goalName || debt?.label || "" })}</p>}
 
               <FormGroup>
-                <Label className="small fw-medium">{t("debts.person")} *</Label>
+                <Label className="small fw-medium">
+                  {t("debts.person")}
+                  <RequiredMark />
+                </Label>
                 {/* The same picker the payee field uses. It was a native
                     `datalist`, which most phone keyboards ignore outright — so
                     there were no suggestions at all, and a name spelled a shade
                     differently started a second person with the debts split. */}
                 <PayeeInput
+                  required
                   value={person}
                   payees={knownPeople}
                   onChange={setPerson}
@@ -429,11 +436,12 @@ export default function AddDebtModal({
 
               <FormGroup>
                 <Label className="small fw-medium" for="debt-amount">
-                  {t("common.amount")} *
+                  {t("common.amount")}
+                  <RequiredMark />
                 </Label>
                 <InputGroup>
                   <InputGroupText>{baseCurrency}</InputGroupText>
-                  <Input id="debt-amount" type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
+                  <Input id="debt-amount" aria-required type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
                   <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
                 </InputGroup>
               </FormGroup>
@@ -452,6 +460,7 @@ export default function AddDebtModal({
               saved — which is the moment it is worth knowing. */}
           {step === "interest" && (
             <YesNoChoice
+              required
               question={t("debts.addWizard.titleInterest")}
               hideQuestion
               value={withInterest}
@@ -555,6 +564,7 @@ export default function AddDebtModal({
               <FormGroup>
                 <Label className="small fw-medium" for="debt-date">
                   {t("debts.when")}
+                  <RequiredMark />
                 </Label>
                 <DateField id="debt-date" name="debt-date" value={date} onChange={setDate} placeholder={t("common.date")} />
                 {!when && <div className="invalid-feedback d-block">{t("debts.addWizard.dateNeeded")}</div>}
@@ -685,7 +695,7 @@ export default function AddDebtModal({
           </div>
           <div className="d-flex gap-2">
             {step === "review" ? (
-              <Button type="submit" color="success" disabled={saving || savingCovered || !covered.ready || unchanged}>
+              <Button type="submit" color="primary" disabled={saving || savingCovered || !covered.ready || unchanged}>
                 {saving || savingCovered ? t("common.saving") : t("common.save")}
               </Button>
             ) : (

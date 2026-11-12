@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Row, Col, Card, CardBody, Table, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { FiEdit2, FiGitCommit, FiList, FiUsers } from "react-icons/fi";
 import { ViewSwitch } from "../../../shared/components/ViewSwitch";
@@ -35,8 +35,6 @@ import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDebtTransfer } from "../../../shared/utils/moneyModel";
 import { computeFilterTotals } from "../filterTotals";
-import { UnderlineTabs } from "../../../shared/components/UnderlineTabs";
-import { underlineTabIds } from "../../../shared/utils/underlineTabIds";
 import { TransactionsCalendarTab } from "../components/TransactionsCalendarTab";
 import { findCategory } from "../../../shared/utils/categories";
 import { useRecordLocks, type LockState } from "../hooks/useRecordLocks";
@@ -411,27 +409,19 @@ function Pagination({
 
 type TransactionsTab = "list" | "calendar";
 
-export function TransactionsPage() {
+/**
+ * The Transactions pages: the list (`/transactions`) or the same records as a
+ * month's calendar (`/transactions/calendar`) — each its own page under
+ * «Συναλλαγές» in the menu, sharing the records, the read-only view and the
+ * editor.
+ */
+export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } = {}) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   // Seeded from the URL so a category clicked on the Analytics screen arrives
   // here already applied, rather than dumping the reader into an unfiltered list.
-  const [searchParams, setSearchParams] = useSearchParams();
-  // The list, or the same records as a month's calendar — the open one kept in
-  // the address (`?tab=calendar`), so a reload or a link lands on it.
-  const tab: TransactionsTab = searchParams.get("tab") === "calendar" ? "calendar" : "list";
-  const chooseTab = (next: TransactionsTab) =>
-    setSearchParams(
-      (prev) => {
-        const p = new URLSearchParams(prev);
-        if (next === "list") p.delete("tab");
-        else p.set("tab", next);
-        return p;
-      },
-      // «back» leaves the page rather than stepping through each tab looked at.
-      { replace: true },
-    );
-  const tabIds = underlineTabIds("transactions", tab);
+  const [searchParams] = useSearchParams();
+  const tab = view;
   const [selectedCategory, setSelectedCategory] = useState<string>(() => searchParams.get("category") ?? "all");
   const [fromDate, setFromDate] = useState<Date | null>(new Date(new Date().getFullYear(), 0, 1));
   const [toDate, setToDate] = useState<Date | null>(new Date());
@@ -675,23 +665,14 @@ export function TransactionsPage() {
     setToDate(range.to);
   }, []);
 
+  // The calendar used to be a tab of this page, kept in the address as
+  // `?tab=calendar`; an old link or bookmark lands on its own page now.
+  if (view === "list" && searchParams.get("tab") === "calendar") return <Navigate to="/transactions/calendar" replace />;
+
   return (
     <PageShell>
-      <div className="mb-3">
-        <UnderlineTabs
-          base="transactions"
-          label={t("transactions.tabsLabel")}
-          tabs={[
-            { id: "list", label: t("transactions.tabList") },
-            { id: "calendar", label: t("transactions.tabCalendar") },
-          ]}
-          value={tab}
-          onChange={chooseTab}
-        />
-      </div>
-
       {tab === "calendar" ? (
-        <div role="tabpanel" id={tabIds.panel} aria-labelledby={tabIds.tab}>
+        <div>
           {isLoading ? (
             <Skeleton height={460} />
           ) : (
@@ -718,7 +699,7 @@ export function TransactionsPage() {
           )}
         </div>
       ) : (
-      <div role="tabpanel" id={tabIds.panel} aria-labelledby={tabIds.tab}>
+      <div>
       {/* ── Desktop ── */}
       <div className="d-none d-lg-block">
         <Row className="g-4">
@@ -936,7 +917,7 @@ export function TransactionsPage() {
                                       const orphan = !!tx.transferId && isOrphanTransfer(tx);
                                       const noEdit = isFullyLocked(lock) || orphan;
                                       const noDelete = noEdit || lock?.kind === "covered";
-                                      const why = lock?.kind === "covered" ? t("transactions.lockFromDebts") : lock?.kind === "debt" ? t("transactions.debtLocked") : undefined;
+                                      const why = lock?.kind === "covered" ? t("transactions.lockFromDebts") : lock?.kind === "debt" ? t("transactions.debtLocked") : lock?.kind === "business" ? t("transactions.businessLocked") : undefined;
                                       return (
                                         <>
                                           <Button

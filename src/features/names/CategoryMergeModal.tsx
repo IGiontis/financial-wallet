@@ -7,6 +7,7 @@ import { categoryLabel } from "../../shared/utils/categories";
 import { similarName } from "../../shared/utils/nameMatch";
 import type { CategoryGroup } from "../../shared/utils/categoryNames";
 import { groupKey, mergeTargets, movedCount, planCategoryMerge, type CategoryMergePlan, type MergeSources } from "./categoryMerge";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 const STEPS = ["into", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -103,8 +104,9 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
               <FormGroup className="mb-0">
                 <Label className="small fw-medium" for="category-merge-into">
                   {t("names.mergeIntoLabel", { name: dropLabel })}
+                  <RequiredMark />
                 </Label>
-                <Input id="category-merge-into" type="select" value={keepKey} invalid={touched && !keep} onChange={(e) => setKeepKey(e.target.value)}>
+                <Input id="category-merge-into" aria-required type="select" value={keepKey} invalid={touched && !keep} onChange={(e) => setKeepKey(e.target.value)}>
                   <option value="">{t("names.pickOne")}</option>
                   {choices.map((g) => (
                     <option key={groupKey(g)} value={groupKey(g)}>
@@ -150,7 +152,7 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="success" disabled={saving || !!locked} title={lockReason}>
+            <Button type="submit" color="primary" disabled={saving || !!locked} title={lockReason}>
               {saving ? t("common.saving") : t("names.mergeAction")}
             </Button>
           ) : (

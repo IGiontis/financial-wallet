@@ -8,7 +8,8 @@ import "./css/Sidebar.css";
 import { linkMatches, useShownPathname } from "./usePendingNav";
 import { prefetchPath } from "../../lib/prefetchPages";
 
-import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid, FiTag } from "react-icons/fi";
+import { FiEye, FiCheckSquare, FiEdit2, FiLayers, FiHome, FiCreditCard, FiDollarSign, FiSettings, FiBriefcase, FiChevronsLeft, FiChevronsRight, FiChevronDown, FiTarget, FiCalendar, FiRepeat, FiPieChart, FiUsers, FiX, FiTrendingUp, FiPlusCircle, FiList, FiBookOpen, FiGrid, FiTag, FiShoppingBag } from "react-icons/fi";
+import { useHasAccess } from "../../shared/hooks/useHasAccess";
 
 import type { IconType } from "react-icons";
 
@@ -293,6 +294,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
   const { t } = useTranslation();
   const billsDue = useBillsNeedingAttention();
   const incomesWaiting = useIncomesNeedingAttention();
+  const hasBusiness = useHasAccess("business");
   const closeRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -353,6 +355,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           children: [
             { path: "/transactions/new", label: t("nav.newTransaction"), icon: FiPlusCircle },
             { path: "/transactions", label: t("nav.allTransactions"), icon: FiList },
+            // The same records as a month's calendar, a day's net in each square.
+            { path: "/transactions/calendar", label: t("nav.transactionsCalendar"), icon: FiCalendar },
             // To read only: dense, by day, the month as it happened.
             { path: "/transactions/ledger", label: t("nav.ledger"), icon: FiBookOpen },
             // The names records are filed by: who was paid, and under what.
@@ -389,6 +393,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
             { path: "/bills/all", label: t("bills.pageAll"), icon: FiLayers },
           ],
         },
+        // The business's own money — only for an account that switched it on in Settings.
+        ...(hasBusiness ? [{ path: "/business", label: t("nav.business"), icon: FiShoppingBag }] : []),
       ],
     },
     {

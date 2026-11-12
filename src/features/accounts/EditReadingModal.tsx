@@ -5,6 +5,7 @@ import { parseAmount, type MoneyAccount } from "./accountsUtils";
 import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { RequiredMark } from "../../shared/components/RequiredMark";
 
 /**
  * Correcting a reading typed wrong — the figures as they were entered that day,
@@ -74,12 +75,17 @@ export default function EditReadingModal({
                 {ACCOUNT_ICON[account.kind]}
               </span>
               <label htmlFor={`fix-${account.id}`} className="flex-grow-1" style={{ minWidth: 0 }}>
-                <span className={styles.name}>{account.name}</span>
+                {/* The star outside the name's ellipsis, so a long name cannot hide it. */}
+                <span className="d-flex align-items-baseline">
+                  <span className={styles.name}>{account.name}</span>
+                  <RequiredMark />
+                </span>
                 <span className={styles.note}>{moved === 0 ? t("accounts.fixWas", { amount: formatCurrency(amounts[account.id]) }) : t("accounts.changeFrom", { change: signed(moved), amount: formatCurrency(amounts[account.id]) })}</span>
               </label>
               <InputGroup className={styles.readInput}>
                 <Input
                   id={`fix-${account.id}`}
+                  aria-required
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"
