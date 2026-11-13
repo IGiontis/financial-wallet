@@ -51,6 +51,8 @@ lives: `docs/PROJECT_MAP.md`. Shared UI pieces: `docs/COMPONENTS.md`. Data: `doc
 
 ## PWA and updates
 
+- The shell (`.main-layout`, `features/layout/css/MainLayout.css`) is `position: fixed; inset: 0` and the sidebar is held by `top/bottom: 0` — never `100vh`/`100dvh`: in the iPhone's installed app those units count the status bar, the shell came out taller than the screen and iOS pushed the app up (top bar under the clock, white band at the bottom; fixed 2026-11-13). The top bar grows by `env(safe-area-inset-top)` and paints it; `body` has `overscroll-behavior: none`.
+
 - `vite.config.ts` → `VitePWA({ registerType: "prompt" })`, Workbox `skipWaiting: false`, `clientsClaim: true`, `cleanupOutdatedCaches: true`, `navigateFallback: "index.html"`; manifest with a «Νέα συναλλαγή» shortcut to `/?quick=expense`.
 - `src/shared/components/UpdatePrompt.tsx` — always mounted (it registers the worker); blocks with «Refresh» but waits while another modal (a form) is open.
 - `src/shared/hooks/useAppUpdate.ts` — `useRegisterSW`; checks via `src/lib/updateChecks.ts` (hourly, on return to foreground, on reconnect; never hidden/offline).

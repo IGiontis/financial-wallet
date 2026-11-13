@@ -15,10 +15,11 @@
      whatever the nav needed — 802px inside a 560px window — and because it is
      fixed, everything past the fold was simply unreachable: no scroll anywhere
      could bring the last items or the footer into view.
-     `dvh` first where it is supported, so the collapsing browser chrome on a
-     phone does not leave the foot of the menu cut off either. */
-  height: 100vh;
-  height: 100dvh;
+     Held by its top and bottom edges rather than `100vh`/`100dvh`: in the
+     iPhone's installed app those units count the status bar too, and the foot
+     of the menu fell below the screen. */
+  top: 0;
+  bottom: 0;
   background-color: var(--shell-mid);
   background-image: var(--shell-gradient-tall);
   color: var(--shell-text);

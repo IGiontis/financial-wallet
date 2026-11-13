@@ -14,8 +14,10 @@
   /* Not a flex item that gives way: in the shell's fixed-height column a tall
      page would otherwise squeeze the bar below its height. */
   flex: none;
-  height: var(--topbar-height);
-  padding: 0;
+  /* Under the iPhone's status bar too (the installed app draws to the top edge):
+     the bar's own colour fills it, its contents start below it. */
+  height: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 0 0;
   background-color: var(--shell-mid);
   background-image: var(--shell-gradient);
 }
