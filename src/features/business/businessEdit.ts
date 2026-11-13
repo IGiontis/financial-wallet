@@ -36,6 +36,23 @@ export function clashingRows(drafts: readonly LineDraft[]): Set<number> {
   return clash;
 }
 
+/**
+ * A business always keeps at least one income line (DECISIONS, 2026-11-12):
+ * a day can bring in 0 €, but there is always a line to say so. Expense lines
+ * may be none at all.
+ */
+export const INCOME_LINES_MIN = 1;
+
+/**
+ * Whether one list of line names can be saved: at least `least` named rows, at
+ * most `max`, no name twice, none longer than `nameMax`. Empty rows don't count
+ * — they are dropped at save.
+ */
+export function linesReady(drafts: readonly LineDraft[], least: number, max: number, nameMax: number): boolean {
+  const filled = filledLines(drafts);
+  return filled.length >= least && filled.length <= max && clashingRows(drafts).size === 0 && filled.every((r) => r.name.length <= nameMax);
+}
+
 /** The stored lines this form takes off the business, with how many closings name each. */
 export function removedLines(stored: readonly BusinessLine[], drafts: readonly LineDraft[], uses: ReadonlyMap<string, number>): { line: BusinessLine; uses: number }[] {
   const kept = new Set(drafts.filter((d) => d.id && cleanLine(d.name)).map((d) => d.id));

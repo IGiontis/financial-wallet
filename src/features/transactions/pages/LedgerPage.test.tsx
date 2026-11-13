@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../../../i18n";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { LedgerPage } from "./LedgerPage";
+import { BUSINESS_CATEGORY_ID } from "../../../shared/utils/categories";
 
 // «Βιβλίο κινήσεων», opened: the page itself, not only the sums behind it —
 // the category filter once threw before the page could draw at all.
@@ -29,6 +30,13 @@ vi.mock("../hooks/useTransactions", () => ({
 vi.mock("../../accounts/useMoneyAccounts", () => ({ useAccountList: () => [] }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
 vi.mock("../components/TransactionsViewModal", () => ({ default: () => null }));
+// The search's names, in both languages, without the user document: one business, «Pharmacy».
+vi.mock("../hooks/useSearchNames", async () => {
+  const { buildSearchNames } = await import("../transactionFilter");
+  const { default: i18next } = await import("../../../i18n");
+  const names = buildSearchNames([i18next.getFixedT("el"), i18next.getFixedT("en")], [{ id: "b1", name: "Pharmacy" }]);
+  return { useSearchNames: () => names };
+});
 
 beforeAll(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -92,6 +100,43 @@ describe("the ledger page", () => {
     );
     expect(screen.getByRole("button", { name: /Where it went/ })).toHaveAttribute("aria-expanded", "false");
     localStorage.removeItem("ledger-where-out-open");
+  });
+
+  it("offers «Business» once a closing wrote a record, keeps exactly those, and finds them by the business's name", async () => {
+    // A profit of 260 and a loss of 40, as the business page writes them.
+    const business = [
+      { ...tx("Profit · Pharmacy", "income", BUSINESS_CATEGORY_ID, 260, 9), businessId: "b1" },
+      { ...tx("Loss · Pharmacy", "expense", BUSINESS_CATEGORY_ID, 40, 10), businessId: "b1" },
+    ];
+    RECORDS.push(...business);
+    try {
+      render(
+        <MemoryRouter>
+          <LedgerPage />
+        </MemoryRouter>,
+      );
+      const sum = (label: string) => screen.getByText(label, { selector: "span" }).nextElementSibling!.textContent;
+      await userEvent.selectOptions(screen.getByLabelText("Category"), BUSINESS_CATEGORY_ID);
+      expect(screen.getByRole("option", { name: /Business/, selected: true })).toBeInTheDocument();
+      expect(screen.getByText("Profit · Pharmacy")).toBeInTheDocument();
+      expect(screen.getByText("Loss · Pharmacy")).toBeInTheDocument();
+      expect(screen.queryByText("Groceries")).toBeNull();
+      expect(screen.queryByText("Odd job")).toBeNull();
+      // By hand: in 260, out 40, net +220 — the two closings' profit and loss.
+      expect([sum("In"), sum("Out"), sum("Net")]).toEqual(["€260.00", "€40.00", "+€220.00"]);
+
+      await userEvent.selectOptions(screen.getByLabelText("Category"), "");
+      await userEvent.type(screen.getByPlaceholderText(/search/i), "pharmacy");
+      expect(screen.getByText("Profit · Pharmacy")).toBeInTheDocument();
+      expect(screen.queryByText("Groceries")).toBeNull();
+      await userEvent.clear(screen.getByPlaceholderText(/search/i));
+      // «Δουλειά» finds them on an English screen too.
+      await userEvent.type(screen.getByPlaceholderText(/search/i), "δουλεια");
+      expect(screen.getByText("Loss · Pharmacy")).toBeInTheDocument();
+      expect(screen.queryByText("Gift")).toBeNull();
+    } finally {
+      RECORDS.splice(RECORDS.length - business.length, business.length);
+    }
   });
 
   it("combines kinds: a first tap picks one, a second adds another, and the sums follow", async () => {

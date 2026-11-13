@@ -36,6 +36,8 @@ import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDebtTransfer } from "../../../shared/utils/moneyModel";
 import { computeFilterTotals } from "../filterTotals";
+import { categoryChoices, matchesSearch, type CategoryChoice } from "../transactionFilter";
+import { useSearchNames } from "../hooks/useSearchNames";
 import { TransactionsCalendarTab } from "../components/TransactionsCalendarTab";
 import { findCategory } from "../../../shared/utils/categories";
 import { useRecordLocks, type LockState } from "../hooks/useRecordLocks";
@@ -144,7 +146,7 @@ function resolveCategory(tx: Transaction, categories: Category[]): Category | un
 }
 
 
-function CategorySelect({ value, onChange, categories, size }: { value: string; onChange: (v: string) => void; categories: Category[]; size?: string }) {
+function CategorySelect({ value, onChange, categories, size }: { value: string; onChange: (v: string) => void; categories: CategoryChoice[]; size?: string }) {
   const { t } = useTranslation();
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -172,7 +174,7 @@ function CategorySelect({ value, onChange, categories, size }: { value: string; 
         <option value="expense">💸 {t("transactions.expense")}</option>
         <optgroup label={t("transactions.categories")}>
           {categories.map((c) => (
-            <option key={c.id} value={c.name}>
+            <option key={c.value} value={c.value}>
               {c.icon} {categoryLabel(c.name, t)}
             </option>
           ))}
@@ -557,16 +559,9 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
     [fromDate],
   );
 
-  const uniqueCategoriesByName = useMemo(() => {
-    const seen = new Set<string>();
-    return [...categories]
-      .filter((c) => {
-        if (seen.has(c.name)) return false;
-        seen.add(c.name);
-        return true;
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [categories]);
+  // The user's categories one per name, and «Δουλειά», «Μεταφορά», «Δάνεια» when some record carries them.
+  const categoryChoiceList = useMemo(() => categoryChoices(categories, transactions, { label: (name) => categoryLabel(name, t) }), [categories, transactions, t]);
+  const searchNames = useSearchNames();
 
   // A transfer is listed once, by the half that left: its pair is one move, not money both spent and earned.
   const transactionsWithDates = useMemo(() => oneRowPerTransfer(transactions).map((tx) => ({ tx, date: firestoreToDate(tx.date), createdAt: firestoreToDate(tx.createdAt) })), [transactions]);
@@ -574,15 +569,18 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   const filteredTransactions = useMemo(() => {
     const fromMid = fromDate ? midnight(fromDate) : null;
     const toMid = toDate ? midnight(toDate) : null;
-    const query = debouncedSearch.toLowerCase();
+    const chosen = categoryChoiceList.find((c) => c.value === selectedCategory);
+    // Investment records are shown under «Investments» (`resolveCategory`); the choice holding it keeps them.
+    const keepsInvestments = !!chosen && categories.some((c) => c.name === "Investments" && chosen.ids.includes(c.id));
     return transactionsWithDates
       .filter(({ tx, date }) => {
-        const matchSearch = tx.description.toLowerCase().includes(query);
+        // What the row shows is what it is found by: its category's name, a business's name, «Κέρδος».
+        const matchSearch = matchesSearch(tx, debouncedSearch, resolveCategory(tx, categories), searchNames);
         const matchCat =
           selectedCategory === "all" ||
           (selectedCategory === "income" && tx.type === "income" && !tx.transferId) ||
           (selectedCategory === "expense" && tx.type === "expense" && !tx.transferId) ||
-          (tx.isInvestmentTransaction ? selectedCategory === "Investments" : categories.filter((c) => c.name === selectedCategory).some((c) => c.id === tx.categoryId));
+          (tx.isInvestmentTransaction ? keepsInvestments : !!chosen?.ids.includes(tx.categoryId));
         const txMid = midnight(date);
         let matchDate = true;
         if (fromMid !== null && toMid !== null) matchDate = txMid >= fromMid && txMid <= toMid;
@@ -601,7 +599,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
         return (b.createdAt.getTime() || 0) - (a.createdAt.getTime() || 0);
       })
       .map(({ tx }) => tx);
-  }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories]);
+  }, [transactionsWithDates, debouncedSearch, selectedCategory, fromDate, toDate, categories, categoryChoiceList, searchNames]);
 
   // Whenever the active filter changes, jump back to page 1. Adjusting state
   // during render (rather than in an effect) avoids the extra render pass React
@@ -740,7 +738,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                     <CategorySelect
                       value={selectedCategory}
                       onChange={setSelectedCategory}
-                      categories={uniqueCategoriesByName}
+                      categories={categoryChoiceList}
                       size="sm"
                     />
                   </div>
@@ -997,7 +995,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
         </div>
         <div className="d-flex gap-2 align-items-center mb-3">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <CategorySelect value={selectedCategory} onChange={setSelectedCategory} categories={uniqueCategoriesByName} />
+            <CategorySelect value={selectedCategory} onChange={setSelectedCategory} categories={categoryChoiceList} />
           </div>
           <Link to="/transactions/names?tab=payees" className="btn btn-outline-secondary flex-shrink-0" aria-label={t("transactions.managePayees")} title={t("transactions.managePayees")}>
             <FiUsers size={15} />

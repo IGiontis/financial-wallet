@@ -99,12 +99,15 @@ export interface ExpenseLineTotal {
  * One-off expenses («άλλο έξοδο») are grouped by their name within their
  * business. Every expense is in exactly one row, so the rows add up to the tile.
  */
+/** Which row of «Πού πήγαν τα έξοδα» an expense of a closing falls in — see `ExpenseLineTotal.key`. */
+const expenseKey = (businessId: string, line: BusinessExpense) => (line.lineId ? `line:${line.lineId}` : `once:${businessId}:${nameKey(line.name ?? "")}`);
+
 export function monthByExpenseLine(entries: readonly (Closing & Pick<BusinessEntry, "businessId">)[], month: Date): ExpenseLineTotal[] {
   const totals = new Map<string, ExpenseLineTotal & { cents: number }>();
   for (const entry of entries) {
     if (!inMonth(entry, month)) continue;
     for (const line of expensesOf(entry)) {
-      const key = line.lineId ? `line:${line.lineId}` : `once:${entry.businessId}:${nameKey(line.name ?? "")}`;
+      const key = expenseKey(entry.businessId, line);
       const row = totals.get(key) ?? { key, businessId: entry.businessId, ...(line.lineId ? { lineId: line.lineId } : { name: line.name?.trim() ?? "" }), total: 0, count: 0, cents: 0 };
       row.cents += cents(line.amount);
       row.count += 1;
@@ -113,6 +116,29 @@ export function monthByExpenseLine(entries: readonly (Closing & Pick<BusinessEnt
   }
   return [...totals.values()].map(({ cents: c, ...row }) => ({ ...row, total: c / 100 })).sort((a, b) => b.total - a.total || a.key.localeCompare(b.key));
 }
+
+export interface LineClosing<T> {
+  entry: T;
+  /** What the closing paid on the line (a one-off name written twice in one closing is added up). */
+  amount: number;
+}
+
+/**
+ * One row of «Πού πήγαν τα έξοδα» opened out: the month's closings that paid
+ * on it (`key` as `monthByExpenseLine` gives it), newest first, with what each
+ * paid. Built by the same rule as the row, so they add up to its total.
+ */
+export function expenseLineClosings<T extends Closing & Pick<BusinessEntry, "businessId"> & Partial<Pick<BusinessEntry, "createdAt">>>(entries: readonly T[], month: Date, key: string): LineClosing<T>[] {
+  const out: LineClosing<T>[] = [];
+  for (const entry of monthEntries(entries, month)) {
+    const paid = expensesOf(entry).filter((line) => expenseKey(entry.businessId, line) === key);
+    if (paid.length > 0) out.push({ entry, amount: sumCents(paid) / 100 });
+  }
+  return out;
+}
+
+/** The days of a month that closed at a loss: their profit under 0, to the cent. */
+export const lossDays = (entries: readonly Pick<BusinessEntry, "incomes" | "expenses">[]) => entries.filter((e) => cents(closingFigures(e).profit) < 0).length;
 
 /**
  * What a day's profit does to the owner's own money: an income of the profit,

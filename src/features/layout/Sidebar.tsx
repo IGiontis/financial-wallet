@@ -394,7 +394,20 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           ],
         },
         // The business's own money — only for an account that switched it on in Settings.
-        ...(hasBusiness ? [{ path: "/business", label: t("nav.business"), icon: FiShoppingBag }] : []),
+        // Two pages, as Πάγια has its own: the days and their figures, and the businesses themselves.
+        ...(hasBusiness
+          ? [
+              {
+                path: "/business",
+                label: t("nav.business"),
+                icon: FiShoppingBag,
+                children: [
+                  { path: "/business", label: t("business.pageOverview"), icon: FiEye },
+                  { path: "/business/manage", label: t("business.tabBusinesses"), icon: FiEdit2 },
+                ],
+              },
+            ]
+          : []),
       ],
     },
     {

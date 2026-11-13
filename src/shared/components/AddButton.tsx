@@ -30,10 +30,10 @@ export function AddButton({ label, onClick, className = "", disabled, small }: {
  * A page header with its add: the «+» pinned left, the title and subtitle next
  * to it taking the rest of the row and wrapping when it is tight.
  */
-export function AddHeader({ label, onAdd, title, subtitle, className = "mb-3" }: { label: string; onAdd: () => void; title: ReactNode; subtitle?: ReactNode; className?: string }) {
+export function AddHeader({ label, onAdd, title, subtitle, className = "mb-3", disabled }: { label: string; onAdd: () => void; title: ReactNode; subtitle?: ReactNode; className?: string; /** The «+» greyed out — offline, or nothing more can be added. */ disabled?: boolean }) {
   return (
     <div className={`d-flex align-items-center gap-2 ${className}`}>
-      <AddButton label={label} onClick={onAdd} />
+      <AddButton label={label} onClick={onAdd} disabled={disabled} />
       <div className="flex-grow-1" style={{ minWidth: 0 }}>
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{title}</h1>
         {subtitle && <p className="small text-body-secondary mb-0">{subtitle}</p>}

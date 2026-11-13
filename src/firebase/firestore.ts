@@ -36,7 +36,6 @@ import type {
   UpdateBillDTO,
   BillPayment,
   CreateBillPaymentDTO,
-  DebtForgiveness,
 } from "../shared/types/IndexTypes";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 import { transferIds, type TransferRecord } from "../features/transactions/transfers";
@@ -378,6 +377,105 @@ export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmen
 };
 
 /**
+ * A loan someone took on to pay part of a goal, taken back with the goal as if
+ * it never happened — the owner's «Δεν του χρωστάω τίποτα — σβήσ' τα»: the debt,
+ * the expense written beside it (`expenseId`: the one the debt names, or for a
+ * debt older than that link, the one the device matched by its figures) and the
+ * debt's own cash records. Its deposit goes with the goal's other contributions.
+ */
+export interface CoveredErase {
+  debtId: string;
+  expenseId?: string;
+}
+
+/**
+ * A loan to take back that has repayments on the server: deleting them would
+ * move a card's balance, so the whole delete is refused and nothing is written
+ * — the dialog offers the answer only for a loan with none.
+ */
+export class CoveredRepaidError extends Error {
+  readonly debtId: string;
+  constructor(debtId: string) {
+    super(`Debt ${debtId} has repayments; it cannot be taken back with its goal.`);
+    this.debtId = debtId;
+    this.name = "CoveredRepaidError";
+  }
+}
+
+/**
+ * What taking these loans back deletes, read from the server so that only
+ * documents that are there are named — production refuses a delete of a missing
+ * one and fails the whole batch with it. Per loan: the debt (read by id), its
+ * repayments and its cash records (`debt_<id>` …, everything carrying its
+ * `debtId` — equality on `userId` + `debtId`, automatic indexes), and the
+ * expense (read by id). Four reads a loan, and only for loans taken back.
+ *
+ * A loan already gone (deleted from «Χρέη» meanwhile) is not named, nor is its
+ * expense unless that is still there. A loan of another goal, or one that turns
+ * out to have repayments, stops everything before anything is written.
+ *
+ * One group per loan, so a loan's records always go in the same batch.
+ */
+const coveredErasure = async (userId: string, goalId: string, erase: CoveredErase[]) => {
+  const groups: ReturnType<typeof doc>[][] = [];
+  const debtIds: string[] = [];
+  const transactionIds: string[] = [];
+  const read = async (name: string, id: string) => {
+    const snap = await getDoc(doc(db, name, id));
+    meterRead(name, 1, !!snap.metadata?.fromCache);
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : undefined;
+  };
+  const ofDebt = (name: string, debtId: string) => readAll(name, query(collection(db, name), where("userId", "==", userId), where("debtId", "==", debtId)));
+  const found = await Promise.all(
+    erase.map(async ({ debtId, expenseId }) => {
+      const [debt, payments, cash, expense] = await Promise.all([read("debts", debtId), ofDebt("debtPayments", debtId), ofDebt("transactions", debtId), expenseId ? read("transactions", expenseId) : undefined]);
+      return { debtId, expenseId, debt, payments, cash, expense };
+    }),
+  );
+  for (const { debtId, expenseId, debt, payments, cash, expense } of found) {
+    if (debt && (debt.forGoalId !== goalId || debt.direction !== "owed_by_me")) throw new Error(`Debt ${debtId} is not a loan of goal ${goalId}.`);
+    if (debt && payments.size > 0) throw new CoveredRepaidError(debtId);
+    const group: ReturnType<typeof doc>[] = [];
+    // Only the expense of what was bought: never a goal's mirror or a debt's own record.
+    if (expenseId && expense && expense.type === "expense" && !expense.goalId && !expense.debtId) {
+      group.push(doc(db, "transactions", expenseId));
+      transactionIds.push(expenseId);
+    }
+    for (const d of cash.docs) {
+      group.push(d.ref);
+      transactionIds.push(d.id);
+    }
+    if (debt) {
+      group.push(doc(db, "debts", debtId));
+      debtIds.push(debtId);
+    }
+    if (group.length > 0) groups.push(group);
+  }
+  return { groups, debtIds, transactionIds };
+};
+
+/**
+ * As `commitDeletes`, for records that must go together: each group whole in
+ * one batch, never split across two. A group joins the current batch while it
+ * fits under the chunk size, and opens the next one otherwise.
+ */
+const commitDeleteGroups = async (groups: ReturnType<typeof doc>[][]) => {
+  let pending: ReturnType<typeof doc>[] = [];
+  const send = async () => {
+    if (pending.length === 0) return;
+    const batch = writeBatch(db);
+    pending.forEach((ref) => batch.delete(ref));
+    await batch.commit();
+    pending = [];
+  };
+  for (const group of groups) {
+    if (pending.length + group.length > DELETE_CHUNK) await send();
+    pending.push(...group);
+  }
+  await send();
+};
+
+/**
  * Deletes a goal with everything recorded against it: its contributions, and
  * the transaction each one mirrored onto the Transactions screen.
  *
@@ -394,19 +492,21 @@ export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmen
  *
  * Returns what went, so the caller can take the same rows out of its cache.
  */
-export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
+export const deleteInvestmentGoal = async (userId: string, goalId: string, erase: CoveredErase[] = []) => {
   // Not queued: see `offlinePolicy`. A deletion decided against an offline
   // copy of the account is the one write with nothing to undo it.
   requireConnection("delete");
   const ofGoal = (name: string) => query(collection(db, name), where("userId", "==", userId), where("goalId", "==", goalId));
-  const [contributions, mirrors] = await Promise.all([getDocs(ofGoal("investmentContributions")), getDocs(ofGoal("transactions"))]);
+  const [contributions, mirrors, loans] = await Promise.all([getDocs(ofGoal("investmentContributions")), getDocs(ofGoal("transactions")), coveredErasure(userId, goalId, erase)]);
 
   // The goal last: see `commitDeletes`. A goal with up to ~220 contributions
-  // goes in one batch, all or nothing.
-  await commitDeletes([...mirrors.docs.map((d) => d.ref), ...contributions.docs.map((d) => d.ref), doc(db, "investmentGoals", goalId)]);
-  await noteDeletions(userId, { transactions: mirrors.docs.map((d) => d.id), investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId] });
+  // goes in one batch, all or nothing; each loan taken back goes whole, in one
+  // batch with the rest of its records (`commitDeleteGroups`).
+  await commitDeleteGroups([...loans.groups, ...mirrors.docs.map((d) => [d.ref]), ...contributions.docs.map((d) => [d.ref]), [doc(db, "investmentGoals", goalId)]]);
+  const transactionIds = [...mirrors.docs.map((d) => d.id), ...loans.transactionIds];
+  await noteDeletions(userId, { transactions: transactionIds, investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId], debts: loans.debtIds });
 
-  return { contributionIds: contributions.docs.map((d) => d.id), transactionIds: mirrors.docs.map((d) => d.id) };
+  return { contributionIds: contributions.docs.map((d) => d.id), transactionIds, debtIds: loans.debtIds };
 };
 
 /**
@@ -417,18 +517,22 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string) => {
  * One batch: the closing records never land without the goal going, nor the
  * goal go without them.
  */
-export const closeInvestmentGoal = async (userId: string, goalId: string, records: { id: string; data: CreateTransactionDTO }[]) => {
+export const closeInvestmentGoal = async (userId: string, goalId: string, records: { id: string; data: CreateTransactionDTO }[], erase: CoveredErase[] = []) => {
   requireConnection("delete");
-  const contributions = await getDocs(query(collection(db, "investmentContributions"), where("userId", "==", userId), where("goalId", "==", goalId)));
+  const [contributions, loans] = await Promise.all([
+    getDocs(query(collection(db, "investmentContributions"), where("userId", "==", userId), where("goalId", "==", goalId))),
+    coveredErasure(userId, goalId, erase),
+  ]);
   const batch = writeBatch(db);
   for (const { id, data } of records) {
     batch.set(doc(db, "transactions", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
+  for (const ref of loans.groups.flat()) batch.delete(ref);
   for (const d of contributions.docs) batch.delete(d.ref);
   batch.delete(doc(db, "investmentGoals", goalId));
   await batch.commit();
-  await noteDeletions(userId, { investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId] });
-  return { contributionIds: contributions.docs.map((d) => d.id) };
+  await noteDeletions(userId, { investmentContributions: contributions.docs.map((d) => d.id), investmentGoals: [goalId], transactions: loans.transactionIds, debts: loans.debtIds });
+  return { contributionIds: contributions.docs.map((d) => d.id), transactionIds: loans.transactionIds, debtIds: loans.debtIds };
 };
 
 // ─── INVESTMENT CONTRIBUTIONS ─────────────────────────────────────────────────
@@ -742,6 +846,26 @@ export const getDebts = (userId: string) => syncedList<Debt>("debts", userId);
 /** As `getDebts`. Repayments written before they carried `updatedAt` came with the first whole read. */
 export const getDebtPayments = (userId: string) => syncedList<DebtPayment>("debtPayments", userId);
 
+/**
+ * These debts and their repayments, read from the server by id — for a goal's
+ * loans this device's list does not hold yet (a goal deleted the moment after
+ * someone's payment was recorded, before the debts list caught up). Per debt:
+ * one read, plus one query of its repayments (`userId` + `debtId`, automatic
+ * indexes). A debt that is not there is simply not returned.
+ */
+export const getDebtsByIds = async (userId: string, debtIds: string[]): Promise<{ debts: Debt[]; payments: DebtPayment[] }> => {
+  const found = await Promise.all(
+    debtIds.map(async (id) => {
+      const snap = await getDoc(doc(db, "debts", id));
+      meterRead("debts", 1, !!snap.metadata?.fromCache);
+      if (!snap.exists()) return { debt: undefined, payments: [] as DebtPayment[] };
+      const payments = await readAll("debtPayments", query(collection(db, "debtPayments"), where("userId", "==", userId), where("debtId", "==", id)));
+      return { debt: { ...(snap.data() as Omit<Debt, "id">), id }, payments: payments.docs.map((d) => ({ ...(d.data() as Omit<DebtPayment, "id">), id: d.id })) };
+    }),
+  );
+  return { debts: found.flatMap((f) => (f.debt ? [f.debt] : [])), payments: found.flatMap((f) => f.payments) };
+};
+
 export const createDebt = async (userId: string, data: CreateDebtDTO) => {
   const ref = await addDoc(collection(db, "debts"), {
     ...clean({ ...data, userId }),
@@ -772,23 +896,6 @@ export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
     ...Object.fromEntries(clear.map((field) => [field, deleteField()])),
     updatedAt: serverTimestamp(),
   });
-};
-
-/**
- * A debt someone took on to pay part of a goal, called off: what it paid for
- * was cancelled and refunded to them, so nothing is owed and nothing was spent.
- * The debt is settled as a refund and moves no money any more (its loan record
- * goes with the sync that follows), and the expense written beside it goes —
- * together, so the balance never sees one without the other. `expenseId` only
- * when that expense is known to exist: deleting a missing document fails the
- * whole batch under the rules.
- */
-export const cancelCoveredDebt = async (userId: string, debtId: string, expenseId: string | undefined, refund: DebtForgiveness) => {
-  const batch = writeBatch(db);
-  batch.update(doc(db, "debts", debtId), { accountId: deleteField(), forgiven: clean({ ...refund }), updatedAt: serverTimestamp() });
-  if (expenseId) batch.delete(doc(db, "transactions", expenseId));
-  await batch.commit();
-  if (expenseId) await noteDeleted(userId, "transactions", [expenseId]);
 };
 
 /** Deleting a loan takes its repayments with it — they mean nothing alone. */

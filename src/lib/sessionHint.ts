@@ -31,15 +31,25 @@ export function hadSession(): boolean {
   }
 }
 
-// Whether anyone has ever signed in on this device.
+// Whether someone signed in on this device and has not signed out since.
 //
 // The other half of the same question, kept for a different reader: the demo
 // (see `demo/demoMode`). A first visit opens the app filled with made-up data;
-// someone who has an account and signed out should land on the sign-in form
-// instead, not in a stranger's wallet. So unlike the hint above this is set the
-// first time a session appears and is never taken away — signing out leaves it.
+// a device someone uses opens on their account — or, when the session ended
+// without them asking (it expired, the password changed elsewhere), on the
+// sign-in form, not in a stranger's wallet. So unlike the hint above this
+// outlives a session that merely ended.
+//
+// Signing out on purpose («Αποσύνδεση») is different (owner, 2026-11-12): it
+// lands on the public demo, what anyone who has never signed in sees — and so
+// does every visit after it, until someone signs in again. `rememberSignedOut`
+// takes the mark away and leaves `SIGNED_OUT_KEY`, which also outweighs the
+// older evidence below.
 
 export const KNOWN_DEVICE_KEY = "auth:known-device";
+
+/** Set by a deliberate sign-out, gone with the next sign-in. Kept with the device's own keys. */
+export const SIGNED_OUT_KEY = "auth:signed-out";
 
 /**
  * Set by `seedDefaultCategories` for anyone signed in, since long before the
@@ -48,25 +58,81 @@ export const KNOWN_DEVICE_KEY = "auth:known-device";
  */
 const SIGNED_IN_BEFORE = "categories-seeded-version";
 
-/** Set by the auth listener whenever someone is signed in. */
+/** Set by the auth listener whenever someone is signed in. A sign-in undoes a sign-out's mark. */
 export function rememberKnownDevice() {
   try {
     localStorage.setItem(KNOWN_DEVICE_KEY, "1");
+    localStorage.removeItem(SIGNED_OUT_KEY);
   } catch {
     // Storage blocked: the device stays unknown, and opens on the demo.
   }
 }
 
 /**
- * Someone has signed in here before. A device signed in before this hint
- * existed still carries the session hint, or — signed out since — the seeded
- * categories' flag, and counts as known by either.
+ * «Αποσύνδεση», on purpose: from now until the next sign-in this device opens
+ * like one nobody has signed in on — on the public demo. The session hint and
+ * who it was go too (as `rememberSession(false)` does), here rather than
+ * waiting for the auth listener, since the page is about to load again.
+ */
+export function rememberSignedOut() {
+  rememberSession(false);
+  try {
+    localStorage.removeItem(KNOWN_DEVICE_KEY);
+    localStorage.setItem(SIGNED_OUT_KEY, "1");
+  } catch {
+    // Storage blocked: nothing was remembered in it either — an unknown device.
+  }
+}
+
+/**
+ * Someone has signed in here and not signed out on purpose since. A device
+ * signed in before this hint existed still carries the session hint, or —
+ * signed out since — the seeded categories' flag, and counts as known by
+ * either; the flag only while no deliberate sign-out has come after it.
  */
 export function isKnownDevice(): boolean {
   try {
-    return localStorage.getItem(KNOWN_DEVICE_KEY) === "1" || hadSession() || localStorage.getItem(SIGNED_IN_BEFORE) !== null;
+    if (localStorage.getItem(KNOWN_DEVICE_KEY) === "1" || hadSession()) return true;
+    return localStorage.getItem(SIGNED_IN_BEFORE) !== null && localStorage.getItem(SIGNED_OUT_KEY) !== "1";
   } catch {
     return false;
+  }
+}
+
+/**
+ * The device's own preferences, kept for whoever uses it next: language,
+ * theme, the nav style, the motion setting, the analytics answer, whether
+ * someone signed in here (and whether they signed out on purpose), the
+ * category seed's flag (shared defaults, not the account's), the exchange
+ * rates, and that the demo's tour hint was shown. Every other key belonged to
+ * the account — its plan, its banks, its view choices and picks (a category, a
+ * person's name), the welcome name — and goes.
+ */
+export const DEVICE_KEEPS: ReadonlySet<string> = new Set([
+  "app-language",
+  "theme-preference",
+  "nav-style",
+  "sidebar-collapsed",
+  "motion-effects",
+  "analytics-consent",
+  KNOWN_DEVICE_KEY,
+  SIGNED_OUT_KEY,
+  SIGNED_IN_BEFORE,
+  "myfiwallet:exchange-rates",
+  "demo:tour-hinted",
+]);
+
+/** Nothing of the account left in this browser's storage: every key but the device's own, and the tab's session storage. */
+export function forgetAccountStorage() {
+  try {
+    for (const key of Object.keys(localStorage)) if (!DEVICE_KEEPS.has(key)) localStorage.removeItem(key);
+  } catch {
+    // Storage blocked: nothing was kept in it either.
+  }
+  try {
+    sessionStorage.clear();
+  } catch {
+    // As above.
   }
 }
 

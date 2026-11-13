@@ -27,7 +27,7 @@ vi.mock("../firebase/firestore", () => ({
   getUser: vi.fn(async () => ({ username: "ilias", firstName: "Ilias", lastName: "Giontis", locale: "en" })),
   updateUser: vi.fn(async () => undefined),
 }));
-vi.mock("../firebase/auth", () => ({ logout: vi.fn(async () => undefined) }));
+vi.mock("../firebase/auth", () => ({ logout: vi.fn(async () => undefined), signOutToDemo: vi.fn(async () => undefined) }));
 
 const renderTopbar = () =>
   render(

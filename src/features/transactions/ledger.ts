@@ -103,6 +103,12 @@ export interface LedgerOptions {
    */
   categories?: readonly string[];
   query?: string;
+  /**
+   * Whether a record is found by `query` — the shared search (`matchesSearch`:
+   * its category's name, a business's name, «Κέρδος»…). Absent, the
+   * description alone, as typed.
+   */
+  matches?: (tx: Transaction, query: string) => boolean;
 }
 
 function signOf(tx: Transaction): 1 | -1 {
@@ -142,7 +148,7 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
     if (date < start || date > end) continue;
     if (account !== undefined && options.accountOf?.(tx) !== account) continue;
     if (only !== undefined && !only.includes(tx.categoryId)) continue;
-    if (needle && !tx.description.toLowerCase().includes(needle)) continue;
+    if (needle && !(options.matches ? options.matches(tx, query) : tx.description.toLowerCase().includes(needle))) continue;
     const counted = isEarning(tx) || isSpending(tx);
     const sign = signOf(tx);
     if (on && !((on.has("in") && counted && sign > 0) || (on.has("out") && counted && sign < 0) || (on.has("moves") && isMove(tx)))) continue;

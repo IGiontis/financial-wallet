@@ -20,7 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // and again every time the user logs in or out
     const unsubscribe = onAuthStateChange((user) => {
       rememberSession(!!user);
-      // Kept through signing out: the next visit opens on the sign-in form, not the demo.
+      // Kept through a session that ends by itself (the next visit opens on the
+      // sign-in form, not the demo); only «Αποσύνδεση» takes it away (`rememberSignedOut`).
       if (user) rememberKnownDevice();
       setCurrentUser(user);
       setLoading(false);

@@ -74,14 +74,15 @@ Reads are counted in dev by `src/lib/readMeter.ts`. Details: `docs/DATABASE.md`,
 
 - Firebase Auth, email/password and Google: `src/firebase/auth.ts` (`registerWithEmail`, `loginWithEmail`, `loginWithGoogle`, reauth, email/password change, `deleteAccount`).
 - Session state: `AuthProvider` (`src/context/AuthContext.tsx`) → `useAuth()` (`src/shared/hooks/useAuth.ts`); remembers "known device" and "had session" in `src/lib/sessionHint.ts`.
+- Sign-out («Αποσύνδεση», Topbar menu and Settings → `useSignOut` in `features/layout/useProfile.ts`) → `signOutToDemo` (`src/firebase/auth.ts`): `logout` (Firebase sign-out + the `sync:` lists), `forgetAccountStorage` (every localStorage key but `DEVICE_KEEPS`, and sessionStorage), `rememberSignedOut` (drops `auth:known-device`, sets `auth:signed-out`), then a full page load to `/` — the public demo. In the demo it leaves for `/login` instead. Tests `src/firebase/signOutToDemo.test.ts`.
 - User doc: `createUser` (`src/firebase/firestore.ts`) via `completeSignUp` (`features/auth/pendingSignUp.ts`) from Login/Register pages, or `ensureGoogleProfile` (`features/auth/googleProfile.ts`); an unfinished one is retried by `SessionGate`.
 - Default categories: `seedDefaultCategories` once per device (`src/firebase/seedCategories.ts`, list in `defaultCategories.ts`).
 - App Check: on only with `VITE_APPCHECK_SITE_KEY`, never in the demo or emulators (`src/firebase/config.ts`).
-- Account deletion: `src/firebase/accountDeletion.ts` + `deleteAllUserData` over `OWNED_COLLECTIONS` (`src/firebase/ownedCollections.ts`); writes blocked meanwhile by `src/firebase/deletionGate.ts`.
+- Account deletion: `src/firebase/accountDeletion.ts` + `deleteAllUserData` over `OWNED_COLLECTIONS` (`src/firebase/ownedCollections.ts`); writes blocked meanwhile by `src/firebase/deletionGate.ts`. Ends on `/login` (full load), the device still known — unlike a sign-out.
 
 ## The public demo
 
-- Decided once per page load in `src/demo/demoMode.ts` (`startsInDemo`): demo unless this device signed in before (`auth:known-device`, `src/lib/sessionHint.ts`) or the path is `/login`, `/register`, `/terms`, `/privacy`. Off in tests (`MODE === "test"`).
+- Decided once per page load in `src/demo/demoMode.ts` (`startsInDemo`): demo unless this device is known (`isKnownDevice`, `src/lib/sessionHint.ts`: signed in, or a session that ended by itself — `auth:known-device`; a deliberate sign-out clears it and sets `auth:signed-out`, so the demo opens) or the path is `/login`, `/register`, `/terms`, `/privacy`. Off in tests (`MODE === "test"`).
 - In the demo `src/firebase/config.ts` never creates Auth or Firestore (`notInDemo` throws on use); `firestoreApi.ts` routes every call to `src/demo/memoryFirestore.ts`; `AuthProvider` uses `src/demo/demoUser.ts`.
 - Data: `src/demo/fixtures.ts`, seeded per language by `src/demo/demoSession.ts`; `fixtures.test.ts` keeps figures consistent.
 - Chrome: `src/demo/DemoChrome.tsx` (badge, account actions), `DemoAuthDialog.tsx`; sign-in from the demo uses `authForDemoSignIn()` + `src/demo/demoSignIn.ts`, then `leaveDemo()` does a full page load.

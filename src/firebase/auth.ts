@@ -15,7 +15,8 @@ import {
 } from "firebase/auth";
 import { auth } from "./config";
 import { forgetAllLocal } from "./syncList";
-import { isDemo, leaveDemo } from "../demo/demoMode";
+import { isDemo, leaveDemo, showDemo } from "../demo/demoMode";
+import { forgetAccountStorage, rememberSignedOut } from "../lib/sessionHint";
 import { sendResetLink } from "../features/auth/passwordReset";
 
 // ─── In the demo ──────────────────────────────────────────────────────────────
@@ -79,6 +80,27 @@ export const logout = async () => {
   await signOut(auth);
   // The lists kept on this device for the delta sync go with the session.
   await forgetAllLocal();
+};
+
+/**
+ * «Αποσύνδεση» — from the top bar's menu and from Settings. Signed out, and
+ * nothing of the account left on this device: the lists kept for the sync
+ * (`logout`), its keys in storage (its plan, its view choices, its picks), the
+ * welcome name; the device no longer counts as known (`rememberSignedOut`).
+ * Then a full page load onto the public demo — what anyone who has never
+ * signed in sees (owner, 2026-11-12) — whose rule (`startsInDemo`) now opens
+ * it: the query cache and every screen of the account go with the old page,
+ * and the demo makes no Firebase call and reads none of the account's storage.
+ * Signing in again from there (or from /login) makes the device known again.
+ *
+ * In the demo itself, `logout` leaves for the sign-in page and never returns.
+ * Account deletion keeps its own way out (the sign-in form, `accountDeletion`).
+ */
+export const signOutToDemo = async (leave: (path: string) => void = showDemo) => {
+  await logout();
+  forgetAccountStorage();
+  rememberSignedOut();
+  leave("/");
 };
 
 // ─── Re-authenticate ──────────────────────────────────────────────────────────

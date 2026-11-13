@@ -12,13 +12,15 @@ import { MainLayout } from "./MainLayout";
 // it must not change: the same links in the same groups and order, the same
 // badge, the same drawer behaviour, whichever one is chosen.
 
-const state = vi.hoisted(() => ({ billsDue: 0, incomesWaiting: 0, narrow: false }));
+const state = vi.hoisted(() => ({ billsDue: 0, incomesWaiting: 0, narrow: false, business: false }));
 
 vi.mock("../bills/useBills", () => ({ useBillsNeedingAttention: () => state.billsDue }));
 vi.mock("../bills/BillAlertPopup", () => ({ BillAlertPopup: () => null }));
 vi.mock("./AddFab", () => ({ AddFab: () => null }));
 vi.mock("../tour/TourGate", () => ({ TourGate: () => null }));
 vi.mock("../incomes/useIncomes", () => ({ useIncomesNeedingAttention: () => state.incomesWaiting }));
+// «Δουλειά» is in the menu only for an account that switched it on in Settings.
+vi.mock("../../shared/hooks/useHasAccess", () => ({ useHasAccess: () => state.business }));
 vi.mock("../../shared/hooks/useAuth", () => ({
   useAuth: () => ({ currentUser: { uid: "u1", email: "ilias@example.com", displayName: null, providerData: [{ providerId: "password" }] }, loading: false }),
 }));
@@ -26,7 +28,7 @@ vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ exchangeRateKeys: { 
 vi.mock("../../firebase/firestore", () => ({
   getUser: vi.fn(async () => ({ username: "ilias", firstName: "Ilias", lastName: "Giontis", locale: "en" })),
 }));
-vi.mock("../../firebase/auth", () => ({ logout: vi.fn(async () => undefined) }));
+vi.mock("../../firebase/auth", () => ({ logout: vi.fn(async () => undefined), signOutToDemo: vi.fn(async () => undefined) }));
 
 function Where() {
   return <output data-testid="path">{useLocation().pathname}</output>;
@@ -88,6 +90,7 @@ beforeEach(() => {
   state.billsDue = 0;
   state.incomesWaiting = 0;
   state.narrow = false;
+  state.business = false;
   localStorage.removeItem("sidebar-collapsed");
   localStorage.removeItem("nav-style");
   document.documentElement.removeAttribute("data-nav-style");
@@ -192,6 +195,47 @@ describe.each(["blue", "gold"] as const)("colourway %s", (style) => {
     expect(bills).toHaveAttribute("aria-expanded", "false");
     expect(bills).toHaveClass("nav-link-current");
     expect(within(sidebar()).getByRole("button", { name: "Income" })).not.toHaveClass("nav-link-current");
+  });
+});
+
+describe("«Δουλειά», switched on", () => {
+  beforeEach(() => {
+    state.business = true;
+  });
+
+  it("is a section in Day to day, after Bills, opening into its two pages — never a plain link", () => {
+    renderAt("/");
+    const daily = within(within(sidebar()).getByRole("list", { name: "Day to day" }));
+    expect(daily.queryAllByRole("link")).toEqual([]);
+    expect(daily.getAllByRole("button").map((b) => b.textContent)).toEqual(["Transactions", "Income", "Bills", "Business"]);
+    fireEvent.click(daily.getByRole("button", { name: "Business" }));
+    const business = within(daily.getByRole("button", { name: "Business" }).closest("li")!);
+    expect(business.getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["Summary", "/business"],
+      ["My businesses", "/business/manage"],
+    ]);
+  });
+
+  it("opens by itself on either page, and lights only the page on screen", () => {
+    for (const [path, lit] of [
+      ["/business", "Summary"],
+      ["/business/manage", "My businesses"],
+    ] as const) {
+      const { unmount } = renderAt(path);
+      const section = within(sidebar()).getByRole("button", { name: "Business" });
+      expect(section).toHaveAttribute("aria-expanded", "true");
+      const current = within(section.closest("li")!)
+        .getAllByRole("link")
+        .filter((a) => a.getAttribute("aria-current") === "page");
+      expect(current.map((a) => a.textContent)).toEqual([lit]);
+      unmount();
+    }
+  });
+
+  it("is not in the menu at all while it is off", () => {
+    state.business = false;
+    renderAt("/");
+    expect(within(sidebar()).queryByRole("button", { name: "Business" })).toBeNull();
   });
 });
 

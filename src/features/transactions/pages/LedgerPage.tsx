@@ -15,6 +15,8 @@ import { useLoadMore } from "../../../shared/hooks/useLoadMore";
 import { useLocalStorage } from "../../../shared/hooks/useLocalStorage";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import LedgerCategoryModal from "../components/LedgerCategoryModal";
+import { categoryChoices, matchesSearch } from "../transactionFilter";
+import { useSearchNames } from "../hooks/useSearchNames";
 import { buildLedger, LEDGER_SIDES, toggleSide, type LedgerCategory, type LedgerRow, type LedgerSide } from "../ledger";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Ledger.module.css";
@@ -46,18 +48,9 @@ export function LedgerPage() {
   // One entry per name, over every category something was written in: «Άλλο»
   // as an income and «Άλλο» as an expense are one choice, both shown, and the
   // «Είδος» filter beside it is what splits money in from money out.
-  const categoryNames = useMemo(() => {
-    const used = new Set(transactions.map((tx) => tx.categoryId));
-    const byName = new Map<string, { icon?: string; ids: string[] }>();
-    for (const c of categories) {
-      if (!used.has(c.id)) continue;
-      const name = categoryLabel(c.name, t);
-      const entry = byName.get(name) ?? { icon: c.icon, ids: [] };
-      entry.ids.push(c.id);
-      byName.set(name, entry);
-    }
-    return [...byName.entries()].map(([name, e]) => ({ name, ...e })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [transactions, categories, t]);
+  // «Δουλειά», «Μεταφορά» and the other categories with no document are offered too, when used.
+  const categoryNames = useMemo(() => categoryChoices(categories, transactions, { label: (name) => categoryLabel(name, t), onlyUsed: true }), [transactions, categories, t]);
+  const searchNames = useSearchNames();
   const accounts = useAccountList();
   const main = mainAccount(accounts);
 
@@ -72,7 +65,7 @@ export function LedgerPage() {
   const [account, setAccount] = useState("");
   const [category, setCategory] = useState("");
   // The ids behind the name picked — one name can be an income and an expense category.
-  const categoryIds = categoryNames.find((c) => c.name === category)?.ids;
+  const categoryIds = categoryNames.find((c) => c.value === category)?.ids;
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<Transaction | null>(null);
   // A line of «Πού πήγαν» / «Από πού ήρθαν» opened out, with the colour of its side.
@@ -85,8 +78,8 @@ export function LedgerPage() {
   }, [span, offset, now]);
 
   const ledger = useMemo(
-    () => buildLedger(transactions, { from, to, now, kinds, query, account: account || undefined, categories: categoryIds, accountOf: (tx) => accountOf(tx, accounts, main) }),
-    [transactions, from, to, now, kinds, query, account, categoryIds, accounts, main],
+    () => buildLedger(transactions, { from, to, now, kinds, query, account: account || undefined, categories: categoryIds, accountOf: (tx) => accountOf(tx, accounts, main), matches: (tx, q) => matchesSearch(tx, q, tx.isGoalTransaction ? { id: "__goal__", name: "Goal" } : findCategory(categories, tx.categoryId), searchNames) }),
+    [transactions, from, to, now, kinds, query, account, categoryIds, accounts, main, categories, searchNames],
   );
 
   // Every change of what is shown is a new list, read from its top.
@@ -262,8 +255,8 @@ export function LedgerPage() {
         <Input type="select" bsSize="sm" value={category} onChange={(e) => setCategory(e.target.value)} aria-label={t("ledger.category")} className={styles.cardSelect}>
           <option value="">{t("ledger.allCategories")}</option>
           {categoryNames.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.icon} {c.name}
+            <option key={c.value} value={c.value}>
+              {c.icon} {categoryLabel(c.name, t)}
             </option>
           ))}
         </Input>

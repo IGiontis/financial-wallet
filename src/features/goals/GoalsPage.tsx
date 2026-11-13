@@ -33,7 +33,10 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { isSavingsGoal } from "../budget/goalKinds";
-import { useCancelCoveredDebts } from "../debts/useDebts";
+import { debtKeys } from "../debts/useDebts";
+import { CoveredRepaidError } from "../budget/useInvestments";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../../shared/hooks/useAuth";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { AddButton } from "../../shared/components/AddButton";
 
@@ -90,36 +93,42 @@ export default function GoalsPage() {
 
   // Given up on: the goal and every record of it go, so money handed to
   // someone comes back to the card it left. Done: it is closed instead — the
-  // closing records and the deletion in one batch, its history kept.
-  const cancelCovered = useCancelCoveredDebts();
+  // closing records and the deletion in one batch, its history kept. Either
+  // way, loans someone took on for it that are owed no more go in the same
+  // write (`ending.erase`, see `CoveredErase`); the rest stay in «Χρέη».
+  const queryClient = useQueryClient();
+  const { currentUser } = useAuth();
 
-  // Waits for every answer (`mutateAsync`) and reports each honestly: the
-  // dialog stays up and locked until then (`GoalDeleteModal`), closes on
-  // success with the toast, and on a failure stays with nothing removed.
-  // A second press is never a second delete — `useOnceMutation`.
+  // Waits for the answer (`mutateAsync`) and reports it honestly: the dialog
+  // stays up and locked until then (`GoalDeleteModal`), closes on success with
+  // the toast, and on a failure stays with nothing removed. A second press is
+  // never a second delete — `useOnceMutation`.
   const handleDeleteGoal = async (ending: GoalEnding) => {
     if (!deleteGoal) return;
     const goal = deleteGoal;
-    // Called off with the goal: the debts to whoever paid it and their expenses,
-    // before it goes. A failure there is said by `useCancelCoveredDebts` itself.
-    if (ending.refunded?.length) {
-      try {
-        await cancelCovered.mutateAsync(ending.refunded);
-      } catch {
-        return;
-      }
-    }
+    const erase = ending.erase ?? [];
     try {
+      let done: string;
       if (ending.close) {
-        await closeGoalMutation.mutateAsync({ goalId: goal.id, records: ending.close });
-        setDeleteGoal(null);
-        toast.success(t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name }));
+        await closeGoalMutation.mutateAsync({ goalId: goal.id, records: ending.close, erase });
+        done = t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name });
+      } else {
+        await deleteGoalMutation.mutateAsync(erase.length > 0 ? { goalId: goal.id, erase } : goal.id);
+        done = ownSaved(goal) > 0 ? t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }) : t("toasts.goalDeleted", { name: goal.name });
+      }
+      setDeleteGoal(null);
+      // What became of each loan, said in the same toast.
+      const said = [done];
+      if (ending.erasedNames?.length) said.push(t("goalDelete.doneErased", { who: ending.erasedNames.join(", ") }));
+      if (ending.keptNames?.length) said.push(t("goalDelete.doneKept", { who: ending.keptNames.join(", ") }));
+      toast.success(said.join(" · "));
+    } catch (error) {
+      if (error instanceof CoveredRepaidError) {
+        // Repaid on another device since the dialog read it: read the debts again, so it asks afresh.
+        void queryClient.invalidateQueries({ queryKey: debtKeys.all(currentUser?.uid ?? "") });
+        toast.error(t("goalDelete.repaidMeanwhile"));
         return;
       }
-      await deleteGoalMutation.mutateAsync(goal.id);
-      setDeleteGoal(null);
-      toast.success(ownSaved(goal) > 0 ? t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }) : t("toasts.goalDeleted", { name: goal.name }));
-    } catch {
       toast.error(t("goals.deleteFailed"));
     }
   };
@@ -251,7 +260,7 @@ export default function GoalsPage() {
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} onDelete={() => { setDeleteGoal(editGoal); setEditGoal(null); }} />}
-      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending || cancelCovered.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
+      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
         defaultGoalType="targeted":
           - Hides the goal type selector (always targeted)

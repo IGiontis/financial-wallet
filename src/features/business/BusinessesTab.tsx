@@ -1,8 +1,8 @@
 import { useMemo, type CSSProperties } from "react";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
-import { AddButton } from "../../shared/components/AddButton";
 import { RowMenu } from "../../shared/components/RowMenu";
 import { useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -14,10 +14,11 @@ import { activeLines } from "./businessFormat";
 import { businessReach } from "./businessSummary";
 import styles from "./css/Business.module.css";
 
-// «Οι δουλειές μου»: one card per business — its name, its income lines in
-// green, its expense lines in red, and the ⋮ with «Επεξεργασία» and
-// «Διαγραφή». All of it the user's own, made here from nothing. On the user
-// document: no read of its own.
+// «Οι δουλειές μου» (its own page, /business/manage): one card per business —
+// its name, its income lines in green, its expense lines in red, and the ⋮
+// with «Επεξεργασία» and «Διαγραφή». All of it the user's own, made here from
+// nothing; the page's «+» (its `AddHeader`) adds one. On the user document: no
+// read of its own.
 
 export function BusinessesTab({ businesses, entries, onAdd, onEdit, onDelete }: { businesses: readonly Business[]; entries: readonly BusinessEntry[]; onAdd: () => void; onEdit: (business: Business) => void; onDelete: (business: Business) => void }) {
   const { t } = useTranslation();
@@ -45,13 +46,8 @@ export function BusinessesTab({ businesses, entries, onAdd, onEdit, onDelete }: 
 
   return (
     <>
-      {/* The app's one «+» (`AddButton`), pinned left, as on the Names page's lists. */}
-      <div className="d-flex align-items-center gap-2 mb-3">
-        <AddButton small label={t("business.newBusiness")} onClick={onAdd} disabled={settingsGuard.locked || full} />
-        <span className="text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>
-          {full ? t("business.businessesFull", { count: BUSINESSES_MAX }) : t("business.newBusiness")}
-        </span>
-      </div>
+      {/* The page's «+» is greyed out once there are as many as there can be: why, said here. */}
+      {full && <p className="small text-body-secondary mb-3">{t("business.businessesFull", { count: BUSINESSES_MAX })}</p>}
       <ul className={styles.businessCards}>
         {businesses.map((business) => {
           const incomes = activeLines(business.incomeLines).map((l) => l.name);
@@ -84,7 +80,7 @@ export function BusinessesTab({ businesses, entries, onAdd, onEdit, onDelete }: 
 }
 
 /** What the page says before there is any business: an invitation, with the way to make one. */
-export function FirstBusinessInvite({ onAdd }: { onAdd: () => void }) {
+export function FirstBusinessInvite({ onAdd, manageLink }: { onAdd: () => void; /** On the main page: a link to «Οι δουλειές μου», where businesses are kept. */ manageLink?: boolean }) {
   const { t } = useTranslation();
   const guard = useOfflineGuard("settings");
   return (
@@ -97,6 +93,11 @@ export function FirstBusinessInvite({ onAdd }: { onAdd: () => void }) {
       <Button color="primary" onClick={onAdd} disabled={guard.locked} title={guard.reason}>
         + {t("business.firstBusinessAdd")}
       </Button>
+      {manageLink && (
+        <p className="small mt-3 mb-0">
+          <Link to="/business/manage">{t("business.goManage")}</Link>
+        </p>
+      )}
     </div>
   );
 }

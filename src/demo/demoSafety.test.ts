@@ -212,6 +212,11 @@ describe("the demo never reaches Firebase", () => {
     try {
       void auth.logout();
       expect(replace).toHaveBeenCalledWith("/login");
+      // The menu's «Αποσύνδεση» (which lands a real account on the demo) does the same here.
+      replace.mockClear();
+      void auth.signOutToDemo();
+      expect(replace).toHaveBeenCalledWith("/login");
+      expect(replace).toHaveBeenCalledTimes(1);
     } finally {
       Object.defineProperty(window, "location", { configurable: true, value: original });
     }

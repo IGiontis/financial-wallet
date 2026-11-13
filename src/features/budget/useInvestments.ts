@@ -12,10 +12,16 @@ import {
   createContributionWithTransaction,
   deleteContribution,
   newDocId,
+  type CoveredErase,
 } from "../../firebase/firestore";
 import { computeGoalStats } from "./investmentsUtils";
+import { debtKeys } from "../debts/useDebts";
+
+/** Thrown when a loan to take back with its goal turned out to have repayments — see `coveredErasure`. */
+export { CoveredRepaidError } from "../../firebase/firestore";
 import type {
   CreateInvestmentGoalDTO,
+  DebtWithStatus,
   UpdateInvestmentGoalDTO,
   CreateInvestmentContributionDTO,
   InvestmentGoal,
@@ -166,7 +172,12 @@ export function useUpdateGoal() {
 // ─── useDeleteGoal ────────────────────────────────────────────────────────────
 // Takes the goal's contributions and their mirrored transactions with it — see
 // `deleteInvestmentGoal`. Deletes wait for a connection and the dialog waits
-// for the answer, so the three lists are edited once the server has agreed.
+// for the answer, so the lists are edited once the server has agreed. A goal
+// someone paid part of may take loans back with it (`erase`, see `CoveredErase`).
+
+/** A goal's id, or its id with the loans taken back with it. */
+export type GoalDeleteVars = string | { goalId: string; erase?: CoveredErase[] };
+const goalOf = (vars: GoalDeleteVars) => (typeof vars === "string" ? { goalId: vars, erase: [] } : { goalId: vars.goalId, erase: vars.erase ?? [] });
 
 export function useDeleteGoal() {
   const { currentUser } = useAuth();
@@ -174,15 +185,29 @@ export function useDeleteGoal() {
   const userId = currentUser?.uid ?? "";
 
   return useOnceMutation({
-    onceBy: (goalId: string) => goalId,
-    mutationFn: (goalId: string) => deleteInvestmentGoal(userId, goalId),
-    onSuccess: (_deleted, goalId) => {
+    onceBy: (vars: GoalDeleteVars) => goalOf(vars).goalId,
+    mutationFn: (vars: GoalDeleteVars) => {
+      const { goalId, erase } = goalOf(vars);
+      return erase.length > 0 ? deleteInvestmentGoal(userId, goalId, erase) : deleteInvestmentGoal(userId, goalId);
+    },
+    onSuccess: (deleted, vars) => {
+      const { goalId } = goalOf(vars);
       confirmList(queryClient, investmentKeys.goals(userId), removeWhere<InvestmentGoal>((g) => g.id === goalId));
       confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.goalId === goalId));
-      // The same rule the delete used: only a contribution's mirror carries a goalId.
-      confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.goalId === goalId));
+      // The same rule the delete used: only a contribution's mirror carries a goalId —
+      // and by id, what went with the loans taken back (their expenses and cash records).
+      const gone = new Set(deleted?.transactionIds ?? []);
+      confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.goalId === goalId || gone.has(t.id)));
+      forgetDebts(queryClient, userId, deleted?.debtIds);
     },
   });
+}
+
+/** Loans taken back with a goal leave the debts list too. */
+function forgetDebts(queryClient: ReturnType<typeof useQueryClient>, userId: string, debtIds: string[] | undefined) {
+  if (!debtIds?.length) return;
+  const gone = new Set(debtIds);
+  confirmList(queryClient, debtKeys.all(userId), removeWhere<DebtWithStatus>((d) => gone.has(d.id)));
 }
 
 // ─── useCloseGoal ─────────────────────────────────────────────────────────────
@@ -195,17 +220,19 @@ export function useCloseGoal() {
 
   return useOnceMutation({
     onceBy: (vars: { goalId: string }) => vars.goalId,
-    mutationFn: ({ goalId, records }: { goalId: string; records: CreateTransactionDTO[] }) =>
+    mutationFn: ({ goalId, records, erase = [] }: { goalId: string; records: CreateTransactionDTO[]; erase?: CoveredErase[] }) =>
       closeInvestmentGoal(
         userId,
         goalId,
         records.map((data) => ({ id: newDocId("transactions"), data })),
-      ).then(() => records),
-    onSuccess: (_written, { goalId }) => {
+        erase,
+      ),
+    onSuccess: (closed, { goalId }) => {
       confirmList(queryClient, investmentKeys.goals(userId), removeWhere<InvestmentGoal>((g) => g.id === goalId));
       confirmList(queryClient, investmentKeys.contributions(userId), removeWhere<InvestmentContribution>((c) => c.goalId === goalId));
       // The closing records are new: the list reads just them on its next sync.
       void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) });
+      forgetDebts(queryClient, userId, closed?.debtIds);
     },
   });
 }

@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { enterDemo, exitDemo, isDemo, leaveDemo, startsInDemo, watchForSignIn } from "./demoMode";
-import { hadSession, isKnownDevice, KNOWN_DEVICE_KEY, rememberKnownDevice, rememberSession } from "../lib/sessionHint";
+import { hadSession, isKnownDevice, KNOWN_DEVICE_KEY, rememberKnownDevice, rememberSession, rememberSignedOut } from "../lib/sessionHint";
 
-// When a page opens as the demo: a device nobody has signed in on, anywhere
-// but the sign-in, sign-up and legal pages. Someone who has an account and
-// signed out must land on the sign-in form — so the hint that says so outlives
-// signing out, where the session hint does not.
+// When a page opens as the demo: a device nobody has signed in on — or whose
+// last user signed out on purpose (see `firebase/signOutToDemo.test.ts`) —
+// anywhere but the sign-in, sign-up and legal pages. A session that merely
+// ended (expired, say) lands on the sign-in form — so the hint that says so
+// outlives the session, where the session hint does not.
 
 beforeEach(() => localStorage.clear());
 afterEach(() => exitDemo());
@@ -34,7 +35,7 @@ describe("startsInDemo", () => {
 });
 
 describe("the known-device hint", () => {
-  it("is set by a session and survives signing out, unlike the session hint", () => {
+  it("is set by a session and survives the session ending, unlike the session hint", () => {
     expect(isKnownDevice()).toBe(false);
     rememberSession(true);
     rememberKnownDevice();
@@ -51,6 +52,23 @@ describe("the known-device hint", () => {
 
   it("counts a device signed out before both hints existed, by the flag every signed-in start leaves", () => {
     localStorage.setItem("categories-seeded-version", "34");
+    expect(isKnownDevice()).toBe(true);
+  });
+
+  it("is taken away by signing out on purpose — even the old flag no longer counts — and given back by the next sign-in", () => {
+    localStorage.setItem("categories-seeded-version", "34");
+    rememberSession(true);
+    rememberKnownDevice();
+    rememberSignedOut();
+    expect(hadSession()).toBe(false);
+    expect(isKnownDevice()).toBe(false);
+    expect(startsInDemo("/", isKnownDevice())).toBe(true);
+    rememberSession(true);
+    rememberKnownDevice();
+    expect(isKnownDevice()).toBe(true);
+    // Signed in, the session hint alone keeps it out of the demo whatever else storage says.
+    rememberSignedOut();
+    rememberSession(true);
     expect(isKnownDevice()).toBe(true);
   });
 

@@ -79,6 +79,16 @@ export function leaveDemo(path: string = "/login") {
 }
 
 /**
+ * Onto the demo, as a full page load — after a deliberate sign-out, which
+ * leaves the device unknown, so the rule above opens the demo at `path`.
+ * Replaces the signed-in page in the history: Back must not bring the
+ * account's page back out of the browser's cache.
+ */
+export function showDemo(path: string = "/") {
+  window.location.replace(path);
+}
+
+/**
  * While the page is the demo: someone has signed in since it loaded — the page
  * came back out of the back-forward cache, or another tab signed in — so it
  * loads again, and the rule then opens the real app instead. Returns the

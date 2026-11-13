@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBusiness, clashingRows, readBusinesses, removedLines } from "./businessEdit";
+import { buildBusiness, clashingRows, INCOME_LINES_MIN, linesReady, readBusinesses, removedLines } from "./businessEdit";
 import type { Business } from "../../shared/types/IndexTypes";
 
 // A business as the form leaves it: kept lines keep their ids (so closings
@@ -88,5 +88,38 @@ describe("readBusinesses", () => {
     expect(readBusinesses(undefined)).toEqual([]);
     expect(readBusinesses("nope")).toEqual([]);
     expect(readBusinesses([pharmacy, { id: 3 }, null, { id: "b", name: "B", incomeLines: [{ id: "x" }, { id: "i", name: "I", extra: 1 }], expenseLines: "bad" }])).toEqual([pharmacy, { id: "b", name: "B", incomeLines: [{ id: "i", name: "I" }], expenseLines: [] }]);
+  });
+});
+
+describe("linesReady — at least one income line, expense lines optional", () => {
+  const ready = (names: string[], least: number) => linesReady(names.map((name) => ({ name })), least, 30, 80);
+
+  it("asks a business for one income line, never none", () => {
+    expect(INCOME_LINES_MIN).toBe(1);
+    expect(ready([], INCOME_LINES_MIN)).toBe(false);
+    // Rows left empty, or only spaces, are dropped at save: they are not a line.
+    expect(ready(["", "   "], INCOME_LINES_MIN)).toBe(false);
+    expect(ready(["Ταμείο"], INCOME_LINES_MIN)).toBe(true);
+    // The named one need not be the first row: the empty first is dropped at save.
+    expect(ready(["", "Ταμείο"], INCOME_LINES_MIN)).toBe(true);
+  });
+
+  it("lets expense lines be none at all", () => {
+    expect(ready([], 0)).toBe(true);
+    expect(ready([""], 0)).toBe(true);
+  });
+
+  it("refuses the same name twice (case, accents, spaces ignored), too many, or too long", () => {
+    expect(ready(["Ταμείο", " ταμειο "], 1)).toBe(false);
+    expect(linesReady(Array.from({ length: 31 }, (_, i) => ({ name: `L${i}` })), 1, 30, 80)).toBe(false);
+    expect(linesReady(Array.from({ length: 30 }, (_, i) => ({ name: `L${i}` })), 1, 30, 80)).toBe(true);
+    expect(ready(["x".repeat(81)], 1)).toBe(false);
+    expect(ready(["x".repeat(80)], 1)).toBe(true);
+  });
+
+  it("builds the one line a business made with a single name keeps — with an id, so a 0 € day still has somewhere to go", () => {
+    const b = buildBusiness(undefined, { id: "biz-0", name: "Περίπτερο", incomes: [{ name: "Ταμείο" }], expenses: [] }, new Map(), true, () => "line-1");
+    expect(b.incomeLines).toEqual([{ id: "line-1", name: "Ταμείο" }]);
+    expect(b.expenseLines).toEqual([]);
   });
 });

@@ -81,12 +81,14 @@ reasons are in `docs/DECISIONS.md`.
 - Writers: `firestore.ts` (`createTransaction`, `updateTransaction`, `deleteTransaction`,
   `markBillPaid`, `createContributionWithTransaction`, `createCoveredFunding`,
   `closeInvestmentGoal`, `syncDebtCash`, `saveTransfer`, `deleteTransfer`, `saveGapRecords`,
-  `editCoveredDebt`, `cancelCoveredDebt`), `business.ts` (`saveClosing`, `deleteClosing`,
+  `editCoveredDebt`, `deleteInvestmentGoal` / `closeInvestmentGoal` with `erase` (a covered
+  loan's expense and cash records)), `business.ts` (`saveClosing`, `deleteClosing`,
   `deleteBusinessRecords`),
   `names.ts` (payee rename, category merge).
 - Read: `getTransactions` → `syncedList("transactions")`; hook `useTransactions`
   (`src/features/transactions/hooks/useTransactions.ts`), key `["transactions", uid]`.
 - Other queries: `userId == + goalId ==` (goal delete, contribution delete), `userId == +
+  debtId ==` (a covered loan's cash records, erased with its goal), `userId == +
   categoryId ==` count, `userId == + businessId ==` (business delete). Equality-only → automatic
   single-field indexes.
 - Rules: `type` must be income/expense/investment; `|amount| ≤ 1e9`.
@@ -169,9 +171,11 @@ reasons are in `docs/DECISIONS.md`.
   `label?`, `interestRate?` (makes it a loan), `termMonths?`, `interestFreeMonths?`,
   `rateType?`, `baseRate?`, `margin?`, `rateReviewedAt?`, `notes?`, `accountId?` (present =
   the debt moves money; `""` = main account), `forGoalId?` + `coveredExpenseId?` (goal paid by
-  a friend), `forgiven?` `{date, amount, note?, refund?}`, `inReading?`.
+  a friend), `forgiven?` `{date, amount, note?, refund?}` (`refund` is no longer written since
+  2026-11-13 — older ones still read «Ακυρώθηκε»), `inReading?`.
 - Writers: `createDebt` (addDoc), `updateDebt`, `editDebt`, `editCoveredDebt`,
-  `cancelCoveredDebt`, `deleteDebt`, `deleteCoveredDebt`, `createCoveredFunding`,
+  `deleteDebt`, `deleteCoveredDebt`, `createCoveredFunding`, `deleteInvestmentGoal` /
+  `closeInvestmentGoal` (`erase`), `getDebtsByIds` (read by id),
   `saveGapRecords` (`firestore.ts:745–1161`).
 - Read: `syncedList("debts")` + `syncedList("debtPayments")` together, `useDebts`
   (`src/features/debts/useDebts.ts`), key `["debts", uid]`.
@@ -184,6 +188,8 @@ reasons are in `docs/DECISIONS.md`.
   `inReading?`.
 - Writers: `createDebtPayment`, `updateDebtPayment`, `deleteDebtPayment`, `deleteDebt`,
   `deleteCoveredDebt`, `saveGapRecords`.
+- Query: `userId == + debtId ==` from the server (a goal's loan read by id, `getDebtsByIds`;
+  a loan erased with its goal refuses if any exist). Equality-only → automatic indexes.
 
 ### businessEntries
 - One «Κλείσιμο ημέρας» (a day's closing) of ONE business, on the «Δουλειά» page. Never in
@@ -320,7 +326,9 @@ themselves are on `users/{uid}` (already allowed). The page is off by default
   (`firestore.ts:724`): one `getDoc`, "unsure (offline)" counts as there. Used by
   `billPaymentIdsFor`, `updateBillPayment`, `unmarkBillPaid`, `editCoveredDebt`,
   `deleteCoveredDebt`, `saveClosing`, `deleteClosing`. Cascades read their children from the
-  server by query instead (`deleteBill`, `deleteInvestmentGoal`, `closeInvestmentGoal`).
+  server by query instead (`deleteBill`, `deleteInvestmentGoal`, `closeInvestmentGoal`); a
+  covered loan erased with its goal is read by id + query first (`coveredErasure`), and a read
+  error stops the delete rather than counting as there.
   `syncDebtCash` deletes only the ids passed as `existed` (`firestore.ts:843`).
 - **The local emulator runs without rules** and hides this; so does the demo's in-memory store
   (`src/demo/memoryFirestore.ts:28`). Tests simulate it with `rules.strictDeletes`

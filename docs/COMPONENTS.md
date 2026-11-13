@@ -13,7 +13,7 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `narrow` for a form or reading column. Every page, loading state included (`PageShell.test.ts` checks the router).
   Styles: `src/shared/css/PageShell.module.css`.
 - `src/shared/components/AddButton.tsx` — `AddButton` (the square icon-only «+», `label` = aria/title,
-  `small` in a row of small buttons) and `AddHeader` (`label`, `onAdd`, `title`, `subtitle`): «+» pinned
+  `small` in a row of small buttons) and `AddHeader` (`label`, `onAdd`, `title`, `subtitle`, `disabled`): «+» pinned
   left, `h1.h5` title + one-line subtitle. Reference: `DebtsPage`, `BillsPage`. Never a text «+ Κάτι» button.
 - `src/features/budget/components/GoalsWorkbench.tsx` — the Goals/Investments page frame (header with
   `action={<AddButton/>}`, `PageTabs`, overview/cards/list, `empty`). Use for another goal-like screen.
@@ -191,6 +191,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/features/budget/components/GoalsOverview.tsx` — overview tab: `OverviewTile[]` (`label`, `value`,
   `sub`, `tone` edge, `icon`) + "nearest" list + `MonthBars`. Tiles for any page's overview; Business
   reuses its classes (`GoalsWorkbench.module.css .overviewTile*`, `.nearList` for «Πού πήγαν τα έξοδα»).
+  A tile or a line that opens a list is a `<button>` with the same classes + `Business.module.css`
+  `.tileButton` / `.lineButton` and a «›» (`.opens`); what it opens is a read-only sheet of the records
+  behind the figure, adding up to it — `LedgerCategoryModal` (ledger), `BusinessListSheet` (business).
 - `src/shared/utils/moneyModel.ts` — what counts as in/out: `isSpending`, `isEarning`, `isTransfer`,
   `isMoneyMove`… Every total. `src/shared/utils/balance.ts` — current balance from a reading
   (`currentBalance`, `affectsBalance`); `src/shared/hooks/useOpeningBalance.ts` supplies the opening figure.
@@ -207,6 +210,10 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `CategoryScope`. `src/shared/utils/categories.ts` — `categoryLabel(name, t)` (translated defaults),
   `findCategory`, virtual ids (`DEBT_CATEGORY_ID`, `TRANSFER_CATEGORY_ID`, `BUSINESS_CATEGORY_ID` = «🏪 Δουλειά»):
   a record under one of them shows its name and icon everywhere `findCategory` is used.
+- `src/features/transactions/transactionFilter.ts` — `categoryChoices` (a category FILTER: the user's
+  categories one per shown name + the virtual ones some record uses) and `matchesSearch` /
+  `buildSearchNames` (search by description, category name in el+en, business name, «Κέρδος»/«Ζημιά»);
+  names via `hooks/useSearchNames()` (user doc, no read). Any screen that filters or searches records.
 
 ## Calendars & charts
 

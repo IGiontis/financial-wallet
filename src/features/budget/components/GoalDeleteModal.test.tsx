@@ -10,9 +10,9 @@ import { expectNoErrors } from "../../../test/noEarlyErrors";
 // card by card — then delete. The owner's case: 500 of the trip handed to
 // Athanasia from Eurobank, 200 kept in his own bank (Revolut).
 
-// What someone paid of a goal is read from the debts; none of these goals has any open.
-const debtList = vi.hoisted(() => ({ data: [] as unknown[] }));
-vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: debtList.data }) }));
+// What someone paid of a goal is read from its loans (`useGoalLoans`); none of these goals has any open.
+const debtList = vi.hoisted(() => ({ data: [] as unknown[], loading: false }));
+vi.mock("../useGoalLoans", () => ({ useGoalLoans: () => ({ debts: debtList.data, loading: debtList.loading }) }));
 vi.mock("../../../shared/hooks/useOfflineGuard", () => ({ useOfflineGuard: () => ({ locked: false, reason: "" }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}` }) }));
 // The picker stands in as one card; its own error (item 97a) shows when the form says the step was tried.
@@ -53,6 +53,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   debtList.data = [];
+  debtList.loading = false;
   store.transactions = [mirror("m1", 500, "eurobank", "Athanasia"), mirror("m2", 200, "revolut")];
 });
 
@@ -174,27 +175,138 @@ describe("deleting a goal someone else paid for", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 
-  it("cancelled and refunded: the debt is called off and its expense goes, said before it is done", async () => {
+  it("owed no more: the debt and its expense are erased, said before it is done", async () => {
     const onConfirm = vi.fn();
     render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
-    await userEvent.click(screen.getByRole("radio", { name: /Cancelled — they got it back/ }));
+    // Nothing picked for him: this answer moves money off the books.
+    expect(screen.getAllByRole("radio").map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
+    await userEvent.click(screen.getByRole("radio", { name: /I owe nothing — erase it/ }));
     await next();
-    expect(check()).toHaveTextContent("Debt · Kekicloses as cancelled");
-    expect(check()).toHaveTextContent("Expense €180.00goes");
+    expect(check()).toHaveTextContent("Debt · Keki · €180.00erased");
+    expect(check()).toHaveTextContent("Expense €180.00erased");
     // No money of his own: nothing was asked of it, and spendable does not move.
     expect(check()).not.toHaveTextContent("Spendable");
     expect(screen.queryByText("Choice")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(onConfirm).toHaveBeenCalledWith({ refunded: [{ debtId: "d1", expenseId: "e1", amount: 180 }] });
+    expect(onConfirm).toHaveBeenCalledWith({ erase: [{ debtId: "d1", expenseId: "e1" }], erasedNames: ["Keki"] });
   });
 
-  it("still owed: the debt and the expense stay, and nothing is called off", async () => {
+  it("still owed: the debt and the expense stay, and nothing is erased", async () => {
     const onConfirm = vi.fn();
     render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
     await userEvent.click(screen.getByRole("radio", { name: /I still owe it/ }));
     await next();
+    expect(check()).toHaveTextContent("Debt · Keki · €180.00stays — you still owe it");
+    expect(check()).toHaveTextContent("Expense €180.00stays");
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(onConfirm).toHaveBeenCalledWith({});
+    expect(onConfirm).toHaveBeenCalledWith({ keptNames: ["Keki"] });
+  });
+
+  it("asks nothing and deletes nothing until its loans are known (the owner's report, 2026-11-12)", async () => {
+    debtList.data = [];
+    debtList.loading = true;
+    const onConfirm = vi.fn();
+    render(<GoalDeleteModal goal={covered} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    // Still reading: no question, no way past it.
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.getByRole("button", { name: /Next/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+});
+
+// He asked for 2+ loans on one goal (2026-11-12). The trip, 1.000 €: 200 of his
+// own in Revolut; Nikos paid 300 (1 Nov) and again 100 (5 Nov, typed twice by
+// mistake); Maria paid 250 (refunded by the hotel); Giorgos paid 150 and has had
+// 50 back already. 200 + 300 + 100 + 250 + 150 = 1.000.
+describe("deleting a goal with several loans", () => {
+  const on = (d: number) => new Date(2026, 10, d, 10);
+  const loan = (id: string, person: string, amount: number, d: number, paid = 0) => ({
+    id,
+    person,
+    direction: "owed_by_me",
+    label: "Trip",
+    amount,
+    date: on(d),
+    payments: paid ? [{ id: `p-${id}`, debtId: id, amount: paid, date: on(d + 2) }] : [],
+    paid,
+    remaining: amount - paid,
+    isSettled: false,
+    forGoalId: "trip",
+    coveredExpenseId: `e-${id}`,
+  });
+  const spent = (id: string, amount: number, d: number) => ({ id, userId: "u", type: "expense", amount, categoryId: "other", description: "Trip", date: on(d), createdAt: on(d), updatedAt: on(d) }) as Transaction;
+  const trip = {
+    ...goal(1000),
+    totalCovered: 800,
+    covered: [
+      { person: "Nikos", amount: 400, debtIds: ["n1", "n2"] },
+      { person: "Maria", amount: 250, debtIds: ["m1"] },
+      { person: "Giorgos", amount: 150, debtIds: ["g1"] },
+    ],
+  } as unknown as InvestmentGoalWithStats;
+
+  beforeEach(() => {
+    debtList.data = [loan("n1", "Nikos", 300, 1), loan("n2", "Nikos", 100, 5), loan("m1", "Maria", 250, 3), loan("g1", "Giorgos", 150, 4, 50)];
+    // Each loan's record on the main account (+) beside its expense (−), and Giorgos' 50 back from Revolut — as `debtCashRecords` writes them.
+    const cash = (id: string, debtId: string, type: "income" | "expense", amount: number, d: number, debtPart: string, accountId?: string) =>
+      ({ id, userId: "u", type, amount, categoryId: "debt", description: "Trip", date: on(d), createdAt: on(d), updatedAt: on(d), debtId, debtPart, accountId }) as Transaction;
+    store.transactions = [
+      mirror("m2", 200, "revolut"),
+      ...[["n1", 300, 1], ["n2", 100, 5], ["m1", 250, 3], ["g1", 150, 4]].flatMap(([id, amount, d]) => [spent(`e-${id}`, amount as number, d as number), cash(`debt_${id}`, id as string, "income", amount as number, d as number, "loan")]),
+      cash("debtpay_p-g1", "g1", "expense", 50, 6, "principal", "revolut"),
+    ];
+  });
+
+  it("asks per loan — Nikos twice, each with its day — and says Giorgos' stays, with what was paid back", () => {
+    render(<GoalDeleteModal goal={trip} isDeleting={false} onConfirm={vi.fn()} onClose={() => {}} />);
+    expect(screen.getByText("What became of the €300.00 Nikos paid on 1 Nov?")).toBeInTheDocument();
+    expect(screen.getByText("What became of the €100.00 Nikos paid on 5 Nov?")).toBeInTheDocument();
+    expect(screen.getByText("What became of the €250.00 Maria paid?")).toBeInTheDocument();
+    // Giorgos: 150 − 50 = 100 left; not asked — erasing it would erase a repayment that moved a card.
+    expect(screen.queryByText(/Giorgos paid\?/)).toBeNull();
+    expect(screen.getByText(/Giorgos paid €150.00 and you've already paid back €50.00: the debt \(€100.00 left\)/)).toBeInTheDocument();
+    // Three loans × two answers + his own money's two.
+    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    expect(screen.getAllByRole("radio").every((r) => r.getAttribute("aria-checked") === "false")).toBe(true);
+  });
+
+  it("one kept, two erased, one repaid: the review lists each with its amount, and only the two erased are sent", async () => {
+    const onConfirm = vi.fn();
+    render(<GoalDeleteModal goal={trip} isDeleting={false} onConfirm={onConfirm} onClose={() => {}} />);
+    const answer = (question: string, choice: RegExp) => userEvent.click(within(screen.getByRole("radiogroup", { name: question })).getByRole("radio", { name: choice }));
+    await answer("What became of the €300.00 Nikos paid on 1 Nov?", /I still owe it/);
+    await answer("What became of the €100.00 Nikos paid on 5 Nov?", /I owe nothing/);
+    // Not all answered yet: no way on.
+    await next();
+    expect(screen.getAllByText("Choose what became of the money").length).toBeGreaterThan(0);
+    await answer("What became of the €250.00 Maria paid?", /I owe nothing/);
+    await userEvent.click(screen.getByRole("radio", { name: /not doing it/ }));
+    await next();
+
+    const review = check();
+    expect(review).toHaveTextContent("Debt · Nikos · €300.00stays — you still owe it");
+    expect(review).toHaveTextContent("Debt · Nikos · €100.00erased");
+    expect(review).toHaveTextContent("Debt · Maria · €250.00erased");
+    expect(review).toHaveTextContent("Debt · Giorgos · €100.00stays — you owe the rest");
+    // By hand: Eurobank 2.000 + 800 (loan records) − 800 (expenses) = 2.000; Revolut 900 − 50 (Giorgos) = 850;
+    // 2.850 in the banks, 200 of it set aside → spendable 2.650; giving the goal up frees his 200 → 2.850.
+    // The loans add nothing: each expense and its loan record cancel on the main account, erased or kept.
+    expect(review).toHaveTextContent("€2650.00 → €2850.00");
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith({
+      erase: [
+        { debtId: "m1", expenseId: "e-m1" },
+        { debtId: "n2", expenseId: "e-n2" },
+      ],
+      erasedNames: ["Maria", "Nikos"],
+      keptNames: ["Nikos", "Giorgos"],
+    });
+    // A second way: what is erased plus what stays is every loan, each once — 100 + 250 + 300 + 150 = 800 covered.
+    const { erase } = onConfirm.mock.calls[0][0];
+    expect(erase.map((e: { debtId: string }) => e.debtId).sort()).toEqual(["m1", "n2"]);
+    expect([100, 250, 300, 150].reduce((a, b) => a + b, 0)).toBe(trip.totalCovered);
   });
 });
 

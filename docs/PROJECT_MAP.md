@@ -62,14 +62,15 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/allocation` | `<Navigate to="/planner">` (old page, merged into Planner) | — | — | — |
 | `/debts` | default export of `features/debts/DebtsPage.tsx` | `debts` | Holdings › Debts | — |
 | `/accounts` | default export of `features/accounts/AccountsPage.tsx` | `accounts` | Holdings › Accounts | — |
-| `/business` | default export of `features/business/BusinessPage.tsx` | `business` | Daily › Business (only if `useHasAccess("business")`) | `?tab=overview` \| `days` \| `calendar` \| `businesses` (`usePageTab`); `?business=<id>` (absent = all) |
+| `/business` | default export of `features/business/BusinessPage.tsx` (`view="main"`) | `business` | Daily › Business › Summary (only if `useHasAccess("business")`) | `?tab=overview` \| `days` \| `calendar` (`usePageTab`); `?business=<id>` (absent = all); old `?tab=businesses` redirects to `/business/manage` |
+| `/business/manage` | `BusinessPage view="manage"` (same file) — «Οι δουλειές μου» | `business` | Daily › Business › My businesses | — |
 | `/settings` | `<Navigate to="profile">` | — | `settingsItem` (own item below the groups) + Topbar menu | — |
 | `/settings/:tab` | `SettingsPage` (`features/settings/pages/SettingsPage.tsx`) | `settings` | same | `:tab` = `profile` \| `preferences` \| `data` \| `account` (`features/settings/settingsTabs.ts`); unknown → profile |
 | `*` | `NotFoundPage` (`features/errors/NotFoundPage.tsx`) | eager | — | `ErrorBoundary` is the `errorElement` of `/` |
 
 Guard nesting: `/terms`, `/privacy` open to all → `PublicOnlyRoute` (`/login`, `/register`)
-→ `SessionGate` → `MainLayout` → `ProtectedRoute` (every app page). `/business` renders
-`NotFoundPage` itself when the feature is off.
+→ `SessionGate` → `MainLayout` → `ProtectedRoute` (every app page). `/business` and
+`/business/manage` render `NotFoundPage` themselves when the feature is off.
 
 ## Feature folders (`src/features/*`)
 
@@ -110,10 +111,10 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - `GoalsPage.tsx` is the only file; everything else imports from `../budget/`.
 
 ### `business` — «Δουλειά», several businesses, a day's closing each
-- Page `BusinessPage.tsx` (tabs via `usePageTab`, business picker `?business=` via `GoalPickMenu`); `ClosingWizard` (closing), `BusinessWizard` (a business and its lines), `BusinessesTab` («Οι δουλειές μου» cards, `DeleteBusinessModal`, `FirstBusinessInvite`), `BusinessCalendar`, `BusinessEntryView` (+ `BusinessDeleteModal`), `businessShared.tsx` (`MonthNav`).
+- Page `BusinessPage.tsx` — two routes = two views: `main` (`/business`, tabs via `usePageTab`, business picker `?business=` via `GoalPickMenu`, «+» = new closing) and `manage` (`/business/manage`, «Οι δουλειές μου», «+» = new business); `BusinessDialogs` (a business's wizard and delete, shared by both). `ClosingWizard` (closing), `BusinessWizard` (a business and its lines; the first income line has no ✕), `BusinessesTab` (the «Οι δουλειές μου» cards, `DeleteBusinessModal`, `FirstBusinessInvite`), `BusinessCalendar`, `BusinessEntryView` (+ `BusinessDeleteModal`), `BusinessListSheet` (the overview's «Μέρες» tile and each «Πού πήγαν τα έξοδα» line opened into their closings, read-only, each row → `BusinessEntryView`), `businessShared.tsx` (`MonthNav`).
 - Hook `useBusiness.ts` (`useBusinesses`, closings, save/delete, `useDeleteBusiness`); switched on per account (`useHasAccess`, keys in `businessKeys.ts`).
 - Firebase `business.ts`; collection `businessEntries` + linked `transactions` (virtual category `BUSINESS_CATEGORY_ID`); businesses on the user doc (`businesses`).
-- Logic `businessSummary.ts` (figures, `personalRecord`), `businessEdit.ts` (a business as the form leaves it), `businessFormat.ts` (names, signs); tests `businessSummary.test.ts`, `businessEdit.test.ts`, `businessRecord.test.ts`, `src/firebase/business.test.ts`, `src/firebase/syncBusiness.test.ts`.
+- Logic `businessSummary.ts` (figures, `personalRecord`, `expenseLineClosings`, `lossDays`), `businessEdit.ts` (a business as the form leaves it, `linesReady`, `INCOME_LINES_MIN`), `businessFormat.ts` (names, signs); tests `businessSummary.test.ts`, `businessEdit.test.ts`, `BusinessWizard.test.tsx`, `businessRecord.test.ts`, `src/firebase/business.test.ts`, `src/firebase/syncBusiness.test.ts`.
 
 ### `calendar` — «Ημερολόγιο», the month day by day
 - Page `CalendarPage.tsx`; `components/MonthCalendar`, `MoneyTimeline`, `CalendarTimeline`.
@@ -180,7 +181,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Forms `components/AddTransactionModal.tsx` (reference wizard), `EditTransactionModal`, `TransferWizard`, `WizardSteps`, `PayeeInput`, `TransactionsViewModal`.
 - Hooks in `hooks/`: `useTransactions.ts` (also categories), `useTransfers.ts`, `usePayees.ts` (user doc), `useRecordLocks.ts`.
 - Firebase `firestore.ts`; collections `transactions`, `categories`, user doc.
-- Logic `transfers.ts`, `linkedRecords.ts`, `ledger.ts`, `transactionInsights.ts`, `payeeStore.ts`; tests next to each, `hooks/useTransactions.test.tsx`.
+- Logic `transfers.ts`, `linkedRecords.ts`, `ledger.ts`, `transactionInsights.ts`, `payeeStore.ts`, `transactionFilter.ts` (the category filter's choices — the user's categories one per name plus the used virtual ones: «Δουλειά», «Μεταφορά», «Δάνεια», «Τόκοι» — and the search: description, category name in both languages, a business's name, «Κέρδος»/«Ζημιά»; used by the list and the ledger; names from `hooks/useSearchNames.ts`); tests next to each, `hooks/useTransactions.test.tsx`.
 
 ## Locales
 

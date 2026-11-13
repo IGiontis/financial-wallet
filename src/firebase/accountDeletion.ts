@@ -7,6 +7,7 @@ import { queryClient } from "../lib/queryClient";
 import { localDeletePrefix } from "../lib/localStore";
 import { isDemo } from "../demo/demoMode";
 import { requireConnection } from "../shared/utils/offlinePolicy";
+import { forgetAccountStorage } from "../lib/sessionHint";
 
 // ─── Deleting an account, start to end ───────────────────────────────────────
 //
@@ -48,29 +49,6 @@ export class AccountDeletionError extends Error {
 }
 
 /**
- * The device's own preferences, kept for whoever uses it next: language,
- * theme, the nav style, the analytics answer, that someone has signed in here
- * (so it opens on the sign-in form rather than the demo), the category seed's
- * flag (shared defaults, not the account's) and the exchange rates. Every
- * other key belonged to the account — its plan, its banks, its view choices,
- * the welcome name — and goes.
- */
-const DEVICE_KEEPS = new Set(["app-language", "theme-preference", "nav-style", "sidebar-collapsed", "analytics-consent", "auth:known-device", "categories-seeded-version", "myfiwallet:exchange-rates"]);
-
-function forgetInStorage() {
-  try {
-    for (const key of Object.keys(localStorage)) if (!DEVICE_KEEPS.has(key)) localStorage.removeItem(key);
-  } catch {
-    // Storage blocked: nothing was kept in it either.
-  }
-  try {
-    sessionStorage.clear();
-  } catch {
-    // As above.
-  }
-}
-
-/**
  * Signed out, and nothing of the account kept on this device: the screens'
  * cache, the lists kept for the sync (`sync:` — the shared defaults under
  * `ref:` are nobody's and stay), its keys in storage. Firestore itself keeps
@@ -80,7 +58,7 @@ async function signOutAndForget() {
   await logout().catch(() => {});
   queryClient.clear();
   await localDeletePrefix("sync:");
-  forgetInStorage();
+  forgetAccountStorage();
 }
 
 /** Step 5. Each part on its own: one that fails does not keep the others from running. */

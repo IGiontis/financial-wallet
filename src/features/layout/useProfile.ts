@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { getUser } from "../../firebase/firestore";
-import { logout } from "../../firebase/auth";
+import { signOutToDemo } from "../../firebase/auth";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { exchangeRateKeys } from "../../shared/hooks/useCurrencyConverter";
 import { cleanDisplayName, resolveDisplayName } from "../settings/displayName";
@@ -70,13 +69,14 @@ export function useProfile() {
   };
 }
 
-/** Signs out and lands on the login page — from the menu, the sidebar and Settings alike. */
+/**
+ * Signs out and lands on the public demo, as a full page load (`signOutToDemo`)
+ * — from the menu and Settings alike. In the demo, it leaves for the sign-in page.
+ */
 export function useSignOut() {
-  const navigate = useNavigate();
   return async () => {
     try {
-      await logout();
-      navigate("/login", { replace: true });
+      await signOutToDemo();
     } catch (err) {
       console.error("Logout error:", err);
     }

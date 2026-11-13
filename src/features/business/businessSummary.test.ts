@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessReach, closingFigures, closingLineIds, forBusiness, inMonth, lineUses, monthByExpenseLine, monthCalendar, monthEntries, monthSummary, personalMove, personalRecord } from "./businessSummary";
+import { businessReach, closingFigures, closingLineIds, expenseLineClosings, forBusiness, lossDays, inMonth, lineUses, monthByExpenseLine, monthCalendar, monthEntries, monthSummary, personalMove, personalRecord } from "./businessSummary";
 import { toISODay } from "../../shared/utils/dates";
 import { nameKey } from "../../shared/utils/nameMatch";
 import { BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
@@ -225,6 +225,68 @@ describe("monthByExpenseLine", () => {
     ]);
     // 450 + 100 + 40 + 42 + 5 = 637 = the month's expenses tile.
     expect(monthSummary(rows, nov).expenses).toBe(637);
+  });
+});
+
+describe("expenseLineClosings — a row of «Πού πήγαν τα έξοδα», opened", () => {
+  // «Βενζίνη» of the pharmacy (line "fuel") on four November days and two
+  // outside it; the market has a «Βενζίνη» line of its own ("mfuel").
+  const rows = [
+    closing(PH, new Date(2026, 10, 3), [inc("till", 500)], [out("fuel", 40.1), out("stock", 200)]),
+    closing(PH, new Date(2026, 10, 7), [inc("till", 300)], [out("fuel", 0.2)]),
+    // The same line twice in one closing (an old closing can hold it): one row, 15,30 + 4,70 = 20.
+    closing(PH, new Date(2026, 10, 15), [inc("till", 20)], [out("fuel", 15.3), out("fuel", 4.7), once("Λάδια", 18)]),
+    closing(PH, new Date(2026, 10, 30, 23, 59), [inc("till", 100)], [out("fuel", 9.99)]),
+    closing(MK, new Date(2026, 10, 7), [inc("sales", 80)], [out("mfuel", 25)]),
+    closing(MK, new Date(2026, 10, 8), [inc("sales", 80)], [once("λαδια", 7)]),
+    // Outside: the last moment of October and the first of December.
+    closing(PH, new Date(2026, 9, 31, 23, 59), [inc("till", 100)], [out("fuel", 1000)]),
+    closing(PH, new Date(2026, 11, 1), [inc("till", 100)], [out("fuel", 2000)]),
+  ];
+
+  it("lists the month's closings that paid on the line, newest first, with what each paid", () => {
+    const fuel = expenseLineClosings(rows, nov, "line:fuel");
+    expect(fuel.map((r) => [r.entry.date.getDate(), r.amount])).toEqual([
+      [30, 9.99],
+      [15, 20],
+      [7, 0.2],
+      [3, 40.1],
+    ]);
+    // By hand: 9,99 + 20 + 0,20 + 40,10 = 70,29 — what the bar says.
+    const total = fuel.reduce((s, r) => s + Math.round(r.amount * 100), 0) / 100;
+    expect(total).toBe(70.29);
+    expect(monthByExpenseLine(rows, nov).find((r) => r.key === "line:fuel")!.total).toBe(70.29);
+    // The market's own «Βενζίνη» is its own row, and only the market's closing.
+    expect(expenseLineClosings(rows, nov, "line:mfuel").map((r) => [r.entry.businessId, r.amount])).toEqual([[MK, 25]]);
+    // A one-off by its name, within its business only.
+    expect(expenseLineClosings(rows, nov, `once:${PH}:${nameKey("Λάδια")}`).map((r) => r.amount)).toEqual([18]);
+  });
+
+  it("every row of the month adds up to its bar, and the bars to the expenses tile — counted a second way", () => {
+    const bars = monthByExpenseLine(rows, nov);
+    for (const bar of bars) {
+      const sum = expenseLineClosings(rows, nov, bar.key).reduce((s, r) => s + Math.round(r.amount * 100), 0);
+      expect(sum / 100).toBe(bar.total);
+    }
+    // Second way, by hand from the raw lines: 40,10 + 200 + 0,20 + 15,30 + 4,70 + 18 + 9,99 + 25 + 7 = 320,29.
+    expect(byHand(rows, nov).expenses).toBe(320.29);
+    expect(bars.reduce((s, b) => s + Math.round(b.total * 100), 0) / 100).toBe(320.29);
+  });
+
+  it("finds nothing for a key that is not there", () => {
+    expect(expenseLineClosings(rows, nov, "line:nope")).toEqual([]);
+  });
+});
+
+describe("lossDays", () => {
+  it("counts the closings under 0 to the cent — not the ones at 0, not a cent's float dust", () => {
+    const rows = [
+      closing(PH, new Date(2026, 10, 1), [inc("till", 100)], [out("x", 150.75)]), // −50,75
+      closing(PH, new Date(2026, 10, 2), [inc("till", 0.3)], [out("x", 0.1), out("y", 0.2)]), // 0
+      closing(PH, new Date(2026, 10, 3), [inc("till", 100)], [out("x", 100.01)]), // −0,01
+      closing(PH, new Date(2026, 10, 4), [inc("till", 100)], [out("x", 20)]), // +80
+    ];
+    expect(lossDays(rows)).toBe(2);
   });
 });
 

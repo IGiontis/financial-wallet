@@ -135,8 +135,9 @@ export function DemoAccountNote() {
 /**
  * «← Πίσω στο demo» under the sign-in and sign-up pages, for someone who came
  * to them from a link: a device no one has signed in on yet opens on the demo,
- * so that is where "/" takes them. A device someone has signed in on never
- * sees the demo, and never sees this. A full page load: the demo is decided as
+ * so that is where "/" takes them — as does one whose last user signed out on
+ * purpose. A device still known (someone signed in, or a session that ended
+ * by itself) never sees the demo, and never sees this. A full page load: the demo is decided as
  * a page opens (see `demoMode`).
  */
 export function BackToDemoLink() {

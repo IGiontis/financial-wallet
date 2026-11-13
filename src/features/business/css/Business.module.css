@@ -234,6 +234,11 @@
   color: var(--color-text-secondary);
 }
 
+/* Where the ✕ would be on the first income line, which cannot go. */
+.lineFixed {
+  width: 2.5rem;
+}
+
 .lineRemove:hover {
   color: var(--color-expense-text);
   border-color: var(--color-expense);
@@ -355,4 +360,74 @@
 
 .tileWrap > * {
   flex: 1 1 8rem;
+}
+
+/* ── The overview's figures that open a list ──────────────────────────────── */
+
+/* The «Μέρες» tile and each «Πού πήγαν τα έξοδα» line are buttons: the tile's
+   (or the line's) own look, nothing a button adds, and a way to tell they open. */
+.tileButton,
+.lineButton {
+  width: 100%;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tileButton {
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+
+.tileButton:hover {
+  border-color: var(--color-border-primary);
+  background: var(--color-background-secondary);
+}
+
+.lineButton {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  margin-inline: calc(-1 * var(--space-2));
+  width: calc(100% + 2 * var(--space-2));
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+}
+
+.lineButton:hover {
+  background: var(--color-background-secondary);
+}
+
+.tileButton:focus-visible,
+.lineButton:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* The «›» that says a figure opens. */
+.opens {
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+  color: var(--color-text-secondary);
+  vertical-align: -0.125em;
+}
+
+/* ── A list of closings in a sheet ────────────────────────────────────────── */
+
+.sheetSub {
+  margin-bottom: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+}
+
+/* A day that closed at a loss says so in words, beside its red figure. */
+.lossTag {
+  margin-right: 0.375rem;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  vertical-align: 0.0625em;
 }

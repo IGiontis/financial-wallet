@@ -10,6 +10,13 @@ import { ACCOUNT_DELETING, endAccountDeletion } from "./deletionGate";
 import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
 import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteBill, deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
+import { allDebtCashIds, debtCashRecords } from "../features/debts/debtCash";
+import { closeInvestmentGoal, CoveredRepaidError, createCoveredFunding, deleteCoveredDebt, getDebtsByIds, type CoveredErase } from "./firestore";
+import { computeDebtStatus, debtsByPerson } from "../features/debts/debtsUtils";
+import { coveredFundingVars } from "../features/budget/coveredFunding";
+import { goalLoans } from "../features/budget/goalLoans";
+import { closingRecords } from "../features/budget/goalHolding";
+import type { Debt, DebtPayment } from "../shared/types/IndexTypes";
 import { createElement, type ReactNode } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -982,5 +989,308 @@ describe("deleting what is left of a transfer", () => {
     put("transactions", "xfer_t2_in", { userId: "u1", amount: 50, type: "income", transferId: "t2", transferPart: "in" });
     await deleteTransfer("u1", "t2");
     expect(ids("transactions").filter((id) => id.startsWith("xfer_t2"))).toEqual([]);
+  });
+});
+
+// ─── A goal someone paid for, deleted with its loans ─────────────────────────
+// The owner's report (2026-11-12): a goal deleted right after someone's payment
+// was recorded sometimes left the debt in «Χρέη & δάνεια». Now each loan is
+// answered: still owed (stays) or owed no more (erased with the goal, as if it
+// never happened). He asked for 2+ loans on one goal to be tested per
+// combination. Every case runs under the live rules' strict deletes: a batch
+// that names a missing document fails whole.
+//
+// The trip (June 2026). Eurobank (main) 1.000 and Revolut 500, read on the 1st
+// at noon. His own 200 set aside in Revolut on the 2nd. Then, as the app writes
+// them (`createCoveredFunding` + the debt's cash, `debtCashRecords`):
+//   n1  Nikos    300  on the 3rd   — answered «still owed»
+//   m1  Maria    250  on the 4th   — refunded by the hotel: «owed no more»
+//   n2  Nikos    100  on the 5th   — typed twice by mistake: «owed no more»
+//   g1  Giorgos  150  on the 6th   — 50 paid back from Revolut on the 8th: stays, not asked
+//   l1  Eleni     80  on the 7th   — deleted from «Χρέη» before the goal; the dialog's
+//                                    stale list still names it «owed no more»
+// and a 3 € coffee on Eurobank on the 9th.
+
+describe("a goal someone paid for, deleted with its loans (2+ loans)", () => {
+  const ACCOUNTS: MoneyAccount[] = [
+    { id: "eb", name: "Eurobank", kind: "bank", main: true },
+    { id: "rev", name: "Revolut", kind: "bank" },
+  ];
+  const CHECK_IN: BalanceCheckIn = { id: "ci", at: new Date(2026, 5, 1, 12).toISOString(), amounts: { eb: 1000, rev: 500 } };
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  const debtsNow = () => {
+    const payments = rows<DebtPayment>("debtPayments");
+    return rows<Debt>("debts").map((d) => computeDebtStatus(d, payments));
+  };
+  /** The debt's money, written as `useDebtRefresh().sync` writes it. */
+  const writeCash = async (debtId: string) => {
+    const debt = debtsNow().find((d) => d.id === debtId)!;
+    const { records, remove } = debtCashRecords(debt);
+    await syncDebtCash("u1", records, remove, remove.filter((id) => fs.table("transactions").has(id)));
+  };
+  const fund = async (debtId: string, who: string, amount: number, d: number, cash = true) => {
+    const vars = coveredFundingVars({ goal: { id: "trip", name: "Trip" }, who, amount, date: day(d), categoryId: "travel", notes: "", expenseNotes: "" });
+    await createCoveredFunding("u1", { contributionId: `c-${debtId}`, debtId, expenseId: `e-${debtId}` }, vars);
+    if (cash) await writeCash(debtId);
+  };
+
+  async function seedTrip() {
+    put("investmentGoals", "trip", { userId: "u1", name: "Trip", goalType: "targeted", isActive: true, isCompleted: false, createdAt: day(1) });
+    contribute("trip", "own", 200, "deposit", day(2), true);
+    fs.table("transactions").get("t-own")!.accountId = "rev";
+    await fund("n1", "Nikos", 300, 3);
+    await fund("m1", "Maria", 250, 4);
+    await fund("n2", "Nikos", 100, 5);
+    await fund("g1", "Giorgos", 150, 6);
+    await fund("l1", "Eleni", 80, 7);
+    put("debtPayments", "p-g1", { userId: "u1", debtId: "g1", amount: 50, date: day(8), accountId: "rev" });
+    await writeCash("g1");
+    put("transactions", "t-coffee", { userId: "u1", amount: 3, type: "expense", categoryId: "food", date: day(9), description: "Coffee", accountId: "eb" });
+    // Eleni's, deleted from «Χρέη» as that page does: debt + deposit + expense, then its cash.
+    await deleteCoveredDebt("u1", "l1", [], { contributionId: "c-l1", expenseId: "e-l1" });
+    await syncDebtCash("u1", [], allDebtCashIds("l1", []), ["debt_l1"]);
+    fs.batches.length = 0;
+    noted.deleted.length = 0;
+    fs.rules.strictDeletes = true;
+  }
+
+  /** Every figure the screens show, from the app's own functions. */
+  function figures() {
+    const txs = rows<Transaction>("transactions").filter((t) => t.userId === "u1");
+    const latest = readCheckIns([CHECK_IN], ACCOUNTS, txs).at(-1)!;
+    const byAccount = expectedByAccount(ACCOUNTS, latest, txs);
+    const held = goalHeldTotal(txs);
+    const goal = rows<InvestmentGoal>("investmentGoals").find((g) => g.id === "trip");
+    const stats = goal ? computeGoalStats(goal, rows<InvestmentContribution>("investmentContributions").filter((c) => c.goalId === "trip")) : undefined;
+    return {
+      byAccount,
+      spendable: round2(byAccount.eb + byAccount.rev - held),
+      held,
+      // «Χρωστάς» on «Χρέη & δάνεια»: what is still owed, person by person.
+      owe: round2(debtsByPerson(debtsNow()).reduce((sum, p) => sum + p.owedByMe, 0)),
+      covered: stats?.totalCovered ?? 0,
+      saved: stats?.totalSaved ?? 0,
+      spending: calculateMetrics(txs).totalExpenses,
+    };
+  }
+
+  /** Nothing left pointing at nothing. */
+  function orphans() {
+    const debts = new Set(ids("debts"));
+    const goals = new Set(ids("investmentGoals"));
+    const txs = new Set(ids("transactions"));
+    return [
+      ...rows<InvestmentContribution>("investmentContributions").filter((c) => !goals.has(c.goalId)).map((c) => `contribution ${c.id} without its goal`),
+      ...rows<Transaction>("transactions").filter((t) => t.debtId && !debts.has(t.debtId)).map((t) => `cash ${t.id} without its debt`),
+      ...rows<DebtPayment>("debtPayments").filter((p) => !debts.has(p.debtId)).map((p) => `repayment ${p.id} without its debt`),
+      ...rows<Debt>("debts").filter((d) => d.coveredExpenseId && !txs.has(d.coveredExpenseId)).map((d) => `debt ${d.id} without its expense`),
+    ];
+  }
+
+  /** Spending of the trip's own deposit alone, as the Overview counts it (deposits gross). */
+  const depositSpending = () => calculateMetrics(rows<Transaction>("transactions").filter((t) => t.id === "t-own")).totalExpenses;
+
+  const ERASE: CoveredErase[] = [
+    { debtId: "m1", expenseId: "e-m1" },
+    { debtId: "n2", expenseId: "e-n2" },
+    { debtId: "l1", expenseId: "e-l1" },
+  ];
+
+  it("before: the figures by hand", async () => {
+    await seedTrip();
+    const f = figures();
+    // Eurobank: 1.000 + the four loans' records (300 + 250 + 100 + 150 = 800) − their four expenses (800) − coffee 3 = 997.
+    // Revolut: 500 − 50 back to Giorgos = 450. The 200 set aside stays in Revolut (goal money stays in the banks).
+    expect(f.byAccount).toEqual({ eb: 997, rev: 450 });
+    expect(f.held).toBe(200);
+    expect(f.spendable).toBe(997 + 450 - 200);
+    // Owed: Nikos 300 + 100, Maria 250, Giorgos 150 − 50 = 750.
+    expect(f.owe).toBe(750);
+    // The goal: 200 his + 800 paid by others; Eleni's 80 went with her debt.
+    expect(f.covered).toBe(800);
+    expect(f.saved).toBe(1000);
+    expect(orphans()).toEqual([]);
+  });
+
+  it("dropped — n1 kept, m1 and n2 erased, g1 repaid, l1 already gone: one batch of only what exists, every figure right", async () => {
+    await seedTrip();
+    const before = figures();
+    const deposit = depositSpending();
+
+    const gone = await deleteInvestmentGoal("u1", "trip", ERASE);
+
+    // One batch, and nothing of Eleni's named in it — her debt, expense and cash were already gone.
+    expect(fs.batches).toHaveLength(1);
+    expect(fs.batches[0].map(([, r]) => `${r.col}/${r.id}`).sort()).toEqual(
+      [
+        "debts/m1",
+        "debts/n2",
+        "transactions/e-m1",
+        "transactions/e-n2",
+        "transactions/debt_m1",
+        "transactions/debt_n2",
+        "transactions/t-own",
+        "investmentContributions/c-own",
+        "investmentContributions/c-n1",
+        "investmentContributions/c-m1",
+        "investmentContributions/c-n2",
+        "investmentContributions/c-g1",
+        "investmentGoals/trip",
+      ].sort(),
+    );
+    expect(gone.debtIds.sort()).toEqual(["m1", "n2"]);
+
+    // What stays: Nikos' first loan and Giorgos', each whole — debt, expense, loan record (and Giorgos' repayment).
+    expect(ids("debts")).toEqual(["g1", "n1"]);
+    expect(ids("debtPayments")).toEqual(["p-g1"]);
+    expect(ids("transactions")).toEqual(["debt_g1", "debt_n1", "debtpay_p-g1", "e-g1", "e-n1", "t-coffee"]);
+    expect(ids("investmentContributions")).toEqual([]);
+    expect(orphans()).toEqual([]);
+
+    const after = figures();
+    // No card moves: each erased expense went with the loan record beside it (−250 +250, −100 +100).
+    expect(after.byAccount).toEqual(before.byAccount);
+    // His own 200 is free again: 1.247 → 1.447.
+    expect(after.held).toBe(0);
+    expect(after.spendable).toBe(round2(before.spendable + 200));
+    // Owed: 750 − Maria 250 − Nikos' second 100 = 400 (Nikos 300 + Giorgos 100).
+    expect(after.owe).toBe(400);
+    expect(debtsByPerson(debtsNow()).map((p) => [p.person, p.owedByMe])).toEqual(
+      expect.arrayContaining([
+        ["Nikos", 300],
+        ["Giorgos", 100],
+      ]),
+    );
+    // Spending: the two erased expenses (350) and the deposit's own share are gone — nothing else.
+    expect(after.spending).toBe(round2(before.spending - 350 - deposit));
+    expect(after.covered).toBe(0);
+
+    // Every deleted id is logged for the other devices, Eleni's not among them.
+    const logged = Object.fromEntries(noted.deleted.map(([, name, list]) => [name, [...list].sort()]));
+    expect(logged.debts).toEqual(["m1", "n2"]);
+    expect(logged.transactions).toEqual(["debt_m1", "debt_n2", "e-m1", "e-n2", "t-own"]);
+    expect(logged.investmentGoals).toEqual(["trip"]);
+  });
+
+  it("all still owed: nothing of the loans is touched — as before this change", async () => {
+    await seedTrip();
+    const before = figures();
+    await deleteInvestmentGoal("u1", "trip");
+    expect(ids("debts")).toEqual(["g1", "m1", "n1", "n2"]);
+    const after = figures();
+    expect(after.owe).toBe(before.owe);
+    expect(after.byAccount).toEqual(before.byAccount);
+    // Only the goal's own deposit and its mirror went.
+    expect(after.spendable).toBe(round2(before.spendable + 200));
+    expect(orphans()).toEqual([]);
+  });
+
+  it("done (spent) — the same answers: the closing records, the erased loans and the goal in one batch", async () => {
+    await seedTrip();
+    const before = figures();
+    const txs = rows<Transaction>("transactions").filter((t) => t.userId === "u1");
+    const goal = computeGoalStats(rows<InvestmentGoal>("investmentGoals")[0], rows<InvestmentContribution>("investmentContributions"));
+    const records = closingRecords(goal, txs, { bankAccountId: "rev", categoryId: "travel", date: day(10), note: "" }).map((data, i) => ({ id: `close-${i}`, data }));
+
+    await closeInvestmentGoal("u1", "trip", records, ERASE);
+
+    expect(fs.batches).toHaveLength(1);
+    const deleted = fs.batches[0].filter(([kind]) => kind === "delete").map(([, r]) => `${r.col}/${r.id}`);
+    expect(deleted.filter((p) => p.includes("l1"))).toEqual([]);
+    expect(ids("debts")).toEqual(["g1", "n1"]);
+    expect(orphans()).toEqual([]);
+
+    const after = figures();
+    // Only his own 200 leaves Revolut (450 → 250); Eurobank unchanged; spendable stays 1.247 — what was set aside was spent.
+    expect(after.byAccount).toEqual({ eb: before.byAccount.eb, rev: round2(before.byAccount.rev - 200) });
+    expect(after.held).toBe(0);
+    expect(after.spendable).toBe(before.spendable);
+    expect(after.owe).toBe(400);
+  });
+
+  it("a loan erased the moment after it was written — before its money was: names no record that is not there", async () => {
+    put("investmentGoals", "trip", { userId: "u1", name: "Trip", goalType: "targeted", isActive: true, isCompleted: false, createdAt: day(1) });
+    await fund("n1", "Nikos", 300, 3, false);
+    fs.rules.strictDeletes = true;
+    expect(fs.table("transactions").has("debt_n1")).toBe(false);
+
+    await deleteInvestmentGoal("u1", "trip", [{ debtId: "n1", expenseId: "e-n1" }]);
+
+    expect(ids("debts")).toEqual([]);
+    expect(ids("transactions")).toEqual([]);
+    expect(ids("investmentContributions")).toEqual([]);
+  });
+
+  it("the device's list never had the debt: read by id from the server, with its repayments", async () => {
+    await seedTrip();
+    const { debts, payments } = await getDebtsByIds("u1", ["n1", "g1", "l1"]);
+    expect(debts.map((d) => d.id).sort()).toEqual(["g1", "n1"]);
+    expect(payments.map((p) => p.id)).toEqual(["p-g1"]);
+    // A second way: the loans the dialog builds from them — Nikos open at 300, Giorgos repaid with 100 left.
+    const loans = goalLoans({ id: "trip", name: "Trip", covered: [{ person: "Nikos", amount: 300, debtIds: ["n1"] }, { person: "Giorgos", amount: 150, debtIds: ["g1"] }] }, debts.map((d) => computeDebtStatus(d, payments)), rows<Transaction>("transactions"));
+    expect(loans.map((l) => [l.debtId, l.state, l.remaining, l.expenseId])).toEqual([
+      ["n1", "open", 300, "e-n1"],
+      ["g1", "repaid", 100, "e-g1"],
+    ]);
+  });
+
+  it("refuses to erase a loan repaid since the dialog read it — nothing written, a card's money never undone", async () => {
+    await seedTrip();
+    put("debtPayments", "p-m1", { userId: "u1", debtId: "m1", amount: 20, date: day(9), accountId: "eb" });
+    await writeCash("m1");
+    fs.batches.length = 0;
+    const before = figures();
+
+    await expect(deleteInvestmentGoal("u1", "trip", ERASE)).rejects.toBeInstanceOf(CoveredRepaidError);
+
+    expect(fs.batches).toHaveLength(0);
+    expect(ids("investmentGoals")).toEqual(["trip"]);
+    expect(figures()).toEqual(before);
+  });
+
+  it("refuses a debt of another goal named by mistake — nothing written", async () => {
+    await seedTrip();
+    put("debts", "x1", { userId: "u1", person: "Kostas", direction: "owed_by_me", amount: 40, date: day(3), forGoalId: "other", accountId: "" });
+    await expect(deleteInvestmentGoal("u1", "trip", [{ debtId: "x1" }])).rejects.toThrow(/not a loan of goal/);
+    expect(fs.batches).toHaveLength(0);
+    expect(ids("debts")).toContain("x1");
+  });
+
+  it("past 450 writes: each loan's records stay in one batch, the goal last", async () => {
+    await seedTrip();
+    for (let i = 0; i < 448; i++) contribute("trip", `x${i}`, 1, "deposit", day(2), true);
+    fs.batches.length = 0;
+
+    await deleteInvestmentGoal("u1", "trip", ERASE);
+
+    expect(fs.batches.length).toBeGreaterThan(1);
+    for (const batch of fs.batches) expect(batch.length).toBeLessThanOrEqual(450);
+    const batchOf = (id: string) => fs.batches.findIndex((b) => b.some(([, r]) => r.id === id));
+    expect(batchOf("e-m1")).toBe(batchOf("debt_m1"));
+    expect(batchOf("debt_m1")).toBe(batchOf("m1"));
+    expect(batchOf("e-n2")).toBe(batchOf("n2"));
+    expect(fs.batches.at(-1)!.at(-1)![1]).toEqual({ kind: "doc", col: "investmentGoals", id: "trip" });
+    expect(ids("debts")).toEqual(["g1", "n1"]);
+    expect(orphans()).toEqual([]);
+  });
+
+  it("from the screen (useDeleteGoal): the lists on the device lose exactly what went", async () => {
+    await seedTrip();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    client.setQueryData(investmentKeys.goals("u1"), rows<InvestmentGoal>("investmentGoals"));
+    client.setQueryData(["transactions", "u1"], rows<Transaction>("transactions"));
+    client.setQueryData(["debts", "u1"], debtsNow());
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+    const { result } = renderHook(() => useDeleteGoal(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ goalId: "trip", erase: ERASE });
+    });
+
+    const listed = <T extends { id: string }>(key: readonly unknown[]) => (client.getQueryData<T[]>(key) ?? []).map((r) => r.id).sort();
+    expect(listed(["debts", "u1"])).toEqual(ids("debts"));
+    expect(listed(["transactions", "u1"])).toEqual(ids("transactions"));
+    expect(listed(investmentKeys.goals("u1"))).toEqual([]);
   });
 });

@@ -241,6 +241,17 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                // «Οι δουλειές μου»: the businesses themselves, a page of their own
+                // under «Δουλειά» (the same chunk). Old `/business?tab=businesses`
+                // links are sent here by the main page.
+                path: "business/manage",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <BusinessPage view="manage" />
+                  </Suspense>
+                ),
+              },
+              {
                 // One address per tab, so a link can open Settings exactly where it
                 // is needed — /settings/data for the statement, say. The page itself
                 // turns an unknown tab back into Profile. Being one route with a

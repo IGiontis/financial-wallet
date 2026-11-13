@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Button, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FiBriefcase, FiEdit2, FiEye, FiTrash2 } from "react-icons/fi";
+import { FiBriefcase, FiChevronRight, FiEdit2, FiEye, FiTrash2 } from "react-icons/fi";
 import { PageShell } from "../../shared/components/PageShell";
 import { AddHeader } from "../../shared/components/AddButton";
 import { PageTabs } from "../../shared/components/PageTabs";
@@ -22,7 +22,7 @@ import { firestoreToDate } from "../../shared/utils/dates";
 import { NotFoundPage } from "../errors/NotFoundPage";
 import { GoalPickMenu } from "../budget/components/GoalPickMenu";
 import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
-import { closingFigures, forBusiness, monthByExpenseLine, monthEntries, monthStart, monthSummary, type BusinessMonth } from "./businessSummary";
+import { closingFigures, expenseLineClosings, forBusiness, lossDays, monthByExpenseLine, monthEntries, monthStart, monthSummary, type BusinessMonth, type ExpenseLineTotal } from "./businessSummary";
 import { businessOf, lineName, profitTone, signed } from "./businessFormat";
 import { MonthNav } from "./businessShared";
 import { useBusinessEntries, useBusinesses, useDeleteBusiness, useDeleteClosing } from "./useBusiness";
@@ -30,7 +30,9 @@ import ClosingWizard from "./ClosingWizard";
 import BusinessWizard from "./BusinessWizard";
 import { BusinessDeleteModal, BusinessEntryView } from "./BusinessEntryView";
 import { BusinessesTab, DeleteBusinessModal, FirstBusinessInvite } from "./BusinessesTab";
+import { BUSINESSES_MAX } from "./businessKeys";
 import { BusinessCalendar } from "./BusinessCalendar";
+import { BusinessListSheet } from "./BusinessListSheet";
 import styles from "./css/Business.module.css";
 import calendarStyles from "../calendar/css/CalendarPage.module.css";
 // The Goals overview's tiles and cards, so the same thing has the same look.
@@ -46,11 +48,18 @@ import goalStyles from "../budget/components/css/GoalsWorkbench.module.css";
 // closing (`ClosingWizard`). Nothing else of the business reaches the personal
 // totals.
 //
-// The anatomy of every page (CLAUDE.md): the «+» header (`AddHeader`), the one
-// business picker under its title («Όλες οι δουλειές ▾», the owner's mockup A,
-// kept in the address as `?business=`), the tabs straight under them with the
-// open one in the address (`?tab=`), and whatever belongs to one tab — the
-// month ‹ ›, the tiles — inside that tab. One month is shared by the tabs.
+// Two pages under «Δουλειά» in the menu, as Πάγια has its own (DECISIONS,
+// 2026-11-12): the main page, /business, and «Οι δουλειές μου»,
+// /business/manage — the businesses themselves, their own page rather than a
+// tab. The menu leads to each; neither page draws link tabs to the other, so
+// the main page keeps its ONE tab row (a page never shows two).
+//
+// The anatomy of every page (CLAUDE.md): the «+» header (`AddHeader`) — a new
+// closing here, a new business on «Οι δουλειές μου» — the one business picker
+// under its title («Όλες οι δουλειές ▾», the owner's mockup A, kept in the
+// address as `?business=`), the tabs straight under them with the open one in
+// the address (`?tab=`), and whatever belongs to one tab — the month ‹ ›, the
+// tiles — inside that tab. One month is shared by the tabs.
 //
 // Switched on per account in Settings (`useHasAccess("business")`); off, the
 // page is not there and reads nothing. Its closings are read only when it is
@@ -58,23 +67,30 @@ import goalStyles from "../budget/components/css/GoalsWorkbench.module.css";
 // businesses are on the user document (no read of their own).
 
 const TABS_BASE = "business";
-const TABS = ["overview", "days", "calendar", "businesses"] as const;
+const TABS = ["overview", "days", "calendar"] as const;
 type BusinessTab = (typeof TABS)[number];
 const PAGE = 31;
 const ALL = "all";
 
-type Open =
-  | { kind: "closing"; entry?: BusinessEntry }
-  | { kind: "view" | "delete"; entry: BusinessEntry }
-  | { kind: "business"; business?: Business }
-  | { kind: "deleteBusiness"; business: Business }
-  | null;
+/** A business being made or changed, or about to be deleted — on either page. */
+type BusinessOpen = { kind: "business"; business?: Business } | { kind: "deleteBusiness"; business: Business };
 
-export default function BusinessPage() {
+type Open = { kind: "closing"; entry?: BusinessEntry } | { kind: "view" | "delete"; entry: BusinessEntry } | BusinessOpen | null;
+
+/** A figure of the overview opened into its closings: the month's days, or one expense line's. Under any closing opened from it. */
+type Sheet = { kind: "days" } | { kind: "line"; key: string; name: string } | null;
+
+/** Which of the two pages: the main one (`/business`) or «Οι δουλειές μου» (`/business/manage`). */
+export type BusinessPageView = "main" | "manage";
+
+export default function BusinessPage({ view = "main" }: { view?: BusinessPageView }) {
+  const [params] = useSearchParams();
   const access = useAccessState("business");
+  // «Οι δουλειές μου» was a tab of this page: an old link to it lands on its own page.
+  if (view === "main" && params.get("tab") === "businesses") return <Navigate to="/business/manage" replace />;
   if (access === "off") return <NotFoundPage />;
   if (access === "unknown") return <BusinessSkeleton />;
-  return <BusinessScreen />;
+  return view === "manage" ? <ManageScreen /> : <BusinessScreen />;
 }
 
 function BusinessSkeleton() {
@@ -117,12 +133,12 @@ function BusinessScreen() {
   const [businesses] = useBusinesses();
   const [filter, setFilter] = useBusinessFilter(businesses);
   const remove = useDeleteClosing();
-  const removeBusiness = useDeleteBusiness();
   const deleteGuard = useOfflineGuard("delete");
   const [now] = useState(() => new Date());
   const [month, setMonth] = useState(() => monthStart(now));
   const [tab, setTab] = usePageTab(TABS, "overview", "business:tab");
   const [open, setOpen] = useState<Open>(null);
+  const [sheet, setSheet] = useState<Sheet>(null);
   const hasBusiness = businesses.length > 0;
   const addClosing = () => setOpen({ kind: "closing" });
   const addBusiness = () => setOpen({ kind: "business" });
@@ -159,33 +175,20 @@ function BusinessScreen() {
     toast.success(t("business.deleted"));
     close();
   };
-  const confirmDeleteBusiness = async (business: Business) => {
-    let done: { businessEntries: string[] };
-    try {
-      done = await removeBusiness.mutateAsync(business.id);
-    } catch {
-      toast.error(t("business.deleteFailed"));
-      return;
-    }
-    toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
-    if (filter === business.id) setFilter(undefined);
-    close();
-  };
 
   const tabs: { id: BusinessTab; label: string }[] = [
     { id: "overview", label: t("business.tabOverview") },
     { id: "days", label: t("business.tabDays") },
     { id: "calendar", label: t("business.tabCalendar") },
-    { id: "businesses", label: t("business.tabBusinesses") },
   ];
   // Never a "didn't load" message: the query retries on its own, and the skeleton stays until it is in.
   const loading = isLoading || (isError && !data);
   const empty = !loading && shown.length === 0;
   const chosen = businessOf(businesses, filter);
 
-  /** An invitation, with the page's add — what a page with nothing yet shows. */
+  /** An invitation, with the page's add — what a page with nothing yet shows. No business yet: make one here, or go to where they are kept. */
   const invite = !hasBusiness ? (
-    <FirstBusinessInvite onAdd={addBusiness} />
+    <FirstBusinessInvite onAdd={addBusiness} manageLink />
   ) : (
     <div className="text-center py-5 text-body-secondary">
       <p className="fs-1 mb-2" aria-hidden>
@@ -243,8 +246,8 @@ function BusinessScreen() {
                   <p className="mb-0">{t("business.legendMoney")}</p>
                 </InfoLegend>
               </div>
-              <MonthTiles summary={summary} lossDays={rows.filter((e) => Math.round(closingFigures(e).profit * 100) < 0).length} formatCurrency={formatCurrency} />
-              <ExpensesByLine entries={shown} month={month} businesses={businesses} many={many} formatCurrency={formatCurrency} hasAny={summary.days > 0} />
+              <MonthTiles summary={summary} lossDays={lossDays(rows)} formatCurrency={formatCurrency} onOpenDays={() => setSheet({ kind: "days" })} />
+              <ExpensesByLine entries={shown} month={month} businesses={businesses} many={many} formatCurrency={formatCurrency} hasAny={summary.days > 0} onOpenLine={(key, name) => setSheet({ kind: "line", key, name })} />
             </>
           ),
         )}
@@ -326,47 +329,138 @@ function BusinessScreen() {
           ),
         )}
 
-      {tab === "businesses" &&
-        panel(
-          "businesses",
-          loading ? (
-            <SkeletonRows count={3} />
-          ) : (
-            <BusinessesTab businesses={businesses} entries={entries} onAdd={addBusiness} onEdit={(business) => setOpen({ kind: "business", business })} onDelete={(business) => setOpen({ kind: "deleteBusiness", business })} />
-          ),
-        )}
-
+      {sheet && (
+        <OverviewSheet
+          sheet={sheet}
+          rows={rows}
+          shown={shown}
+          month={month}
+          profit={summary.profit}
+          businessName={many ? nameOf : undefined}
+          formatCurrency={formatCurrency}
+          onOpen={(entry) => setOpen({ kind: "view", entry })}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {open?.kind === "closing" && <ClosingWizard entry={open.entry} businesses={businesses} preset={filter} onClose={close} onDelete={open.entry ? () => askDelete(open.entry!) : undefined} />}
       {open?.kind === "view" && <BusinessEntryView entry={open.entry} businesses={businesses} formatCurrency={formatCurrency} onClose={close} onEdit={() => edit(open.entry)} onDelete={() => askDelete(open.entry)} />}
       {open?.kind === "delete" && <BusinessDeleteModal entry={open.entry} businessName={nameOf(open.entry)} formatCurrency={formatCurrency} busy={remove.isPending} onConfirm={() => confirmDelete(open.entry)} onClose={close} />}
-      {open?.kind === "business" && (
-        <BusinessWizard business={open.business} entries={entries} entriesLoaded={!!data} onClose={close} onDelete={open.business ? () => setOpen({ kind: "deleteBusiness", business: open.business! }) : undefined} />
-      )}
-      {open?.kind === "deleteBusiness" && (
-        <DeleteBusinessModal business={open.business} entries={entries} busy={removeBusiness.isPending} formatCurrency={formatCurrency} onConfirm={() => confirmDeleteBusiness(open.business)} onClose={close} />
-      )}
+      <BusinessDialogs
+        open={open?.kind === "business" || open?.kind === "deleteBusiness" ? open : null}
+        onChange={setOpen}
+        entries={entries}
+        entriesLoaded={!!data}
+        onDeleted={(id) => {
+          if (filter === id) setFilter(undefined);
+        }}
+      />
     </PageShell>
   );
 }
 
+/**
+ * «Οι δουλειές μου», /business/manage: the businesses' cards, and the page's
+ * «+» for a new one. With none yet, the invitation to make the first.
+ * The closings are read only for the counts on the cards and what a delete
+ * takes with it — the same synced list the main page reads, no read of its own.
+ */
+function ManageScreen() {
+  const { t } = useTranslation();
+  const { data, isLoading, isError } = useBusinessEntries();
+  const entries = useMemo(() => data ?? [], [data]);
+  const [businesses] = useBusinesses();
+  const settingsGuard = useOfflineGuard("settings");
+  const [open, setOpen] = useState<BusinessOpen | null>(null);
+  const full = businesses.length >= BUSINESSES_MAX;
+  const label = t("business.newBusiness");
+  const add = () => {
+    if (!full) setOpen({ kind: "business" });
+  };
+
+  // The floating «+» does what the header's does.
+  usePageAdd(label, add);
+
+  const loading = isLoading || (isError && !data);
+  return (
+    <PageShell>
+      <AddHeader label={label} onAdd={add} disabled={full || settingsGuard.locked} title={t("business.tabBusinesses")} subtitle={t("business.manageSubtitle")} />
+      {loading ? (
+        <SkeletonRows count={3} />
+      ) : (
+        <BusinessesTab businesses={businesses} entries={entries} onAdd={add} onEdit={(business) => setOpen({ kind: "business", business })} onDelete={(business) => setOpen({ kind: "deleteBusiness", business })} />
+      )}
+      <BusinessDialogs open={open} onChange={setOpen} entries={entries} entriesLoaded={!!data} />
+    </PageShell>
+  );
+}
+
+/**
+ * A business's form and its delete, the same on both pages. The delete waits
+ * for the server's answer (`mutateAsync`, run once — `useDeleteBusiness`); the
+ * dialog stays up, locked, until then, and says how it went in a toast.
+ */
+function BusinessDialogs({
+  open,
+  onChange,
+  entries,
+  entriesLoaded,
+  onDeleted,
+}: {
+  open: BusinessOpen | null;
+  onChange: (next: BusinessOpen | null) => void;
+  entries: readonly BusinessEntry[];
+  entriesLoaded: boolean;
+  /** After a business is gone — the main page lets go of it in its picker. */
+  onDeleted?: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { format: formatCurrency } = useCurrencyConverter();
+  const removeBusiness = useDeleteBusiness();
+  const close = () => onChange(null);
+  const confirmDelete = async (business: Business) => {
+    let done: { businessEntries: string[] };
+    try {
+      done = await removeBusiness.mutateAsync(business.id);
+    } catch {
+      toast.error(t("business.deleteFailed"));
+      return;
+    }
+    toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
+    onDeleted?.(business.id);
+    close();
+  };
+
+  if (open?.kind === "business")
+    return <BusinessWizard business={open.business} entries={entries} entriesLoaded={entriesLoaded} onClose={close} onDelete={open.business ? () => onChange({ kind: "deleteBusiness", business: open.business! }) : undefined} />;
+  if (open?.kind === "deleteBusiness")
+    return <DeleteBusinessModal business={open.business} entries={entries} busy={removeBusiness.isPending} formatCurrency={formatCurrency} onConfirm={() => confirmDelete(open.business)} onClose={close} />;
+  return null;
+}
+
 const EDGE = { income: "var(--color-income)", expense: "var(--color-expense)" } as const;
 
-/** The month's figures — turnover, expenses, profit, and how many days — as the Goals overview draws its tiles: label and sign, figure, a line under it, a tone edge. */
-function MonthTiles({ summary, lossDays, formatCurrency }: { summary: BusinessMonth; lossDays: number; formatCurrency: (n: number) => string }) {
+/** The month's figures — turnover, expenses, profit, and how many days — as the Goals overview draws its tiles: label and sign, figure, a line under it, a tone edge. «Μέρες» opens into the month's days. */
+function MonthTiles({ summary, lossDays, formatCurrency, onOpenDays }: { summary: BusinessMonth; lossDays: number; formatCurrency: (n: number) => string; onOpenDays: () => void }) {
   const { t } = useTranslation();
   const loss = Math.round(summary.profit * 100) < 0;
   const share = summary.turnover > 0 ? Math.round((summary.expenses / summary.turnover) * 100) : null;
   const perDay = summary.days > 0 ? Math.round((summary.turnover / summary.days) * 100) / 100 : null;
+  const body = (label: ReactNode, icon: ReactNode, figure: string, sub: ReactNode, figureClass = "") => (
+    <>
+      <span className={goalStyles.overviewTileHead}>
+        <span className={goalStyles.overviewTileLabel}>{label}</span>
+        {icon}
+      </span>
+      <span className={`${goalStyles.overviewFigure} ${figureClass}`}>{figure}</span>
+      <span className={goalStyles.overviewTileSub}>{sub}</span>
+    </>
+  );
   const tile = (label: ReactNode, icon: ReactNode, figure: string, sub: string, edge: string, figureClass = "") => (
     <div className={goalStyles.overviewTile} style={{ "--edge": edge } as CSSProperties}>
-      <div className={goalStyles.overviewTileHead}>
-        <p className={goalStyles.overviewTileLabel}>{label}</p>
-        {icon}
-      </div>
-      <p className={`${goalStyles.overviewFigure} ${figureClass}`}>{figure}</p>
-      <p className={goalStyles.overviewTileSub}>{sub}</p>
+      {body(label, icon, figure, sub, figureClass)}
     </div>
   );
+  const hasDays = summary.days > 0;
   return (
     <div className={goalStyles.overviewTiles}>
       {tile(t("business.turnover"), <span aria-hidden>💶</span>, formatCurrency(summary.turnover), perDay === null ? "—" : t("business.turnoverPerDay", { amount: formatCurrency(perDay) }), EDGE.income)}
@@ -379,12 +473,33 @@ function MonthTiles({ summary, lossDays, formatCurrency }: { summary: BusinessMo
         loss ? EDGE.expense : EDGE.income,
         profitTone(summary.profit, styles),
       )}
-      {tile(t("business.tabDays"), <span aria-hidden>📅</span>, String(summary.days), t("business.lossDays", { count: lossDays }), "var(--bs-primary)")}
+      {/* The days open into their list: a button with the tile's own look. A month with none has nothing to open. */}
+      {hasDays ? (
+        <button
+          type="button"
+          className={`${goalStyles.overviewTile} ${styles.tileButton}`}
+          style={{ "--edge": "var(--bs-primary)" } as CSSProperties}
+          onClick={onOpenDays}
+          aria-label={`${t("business.tabDays")}: ${summary.days}, ${t("business.lossDays", { count: lossDays })}. ${t("business.daysOpen")}`}
+        >
+          {body(
+            t("business.tabDays"),
+            <span aria-hidden>📅</span>,
+            String(summary.days),
+            <>
+              {t("business.lossDays", { count: lossDays })}
+              <FiChevronRight size={14} className={styles.opens} aria-hidden />
+            </>,
+          )}
+        </button>
+      ) : (
+        tile(t("business.tabDays"), <span aria-hidden>📅</span>, String(summary.days), t("business.lossDays", { count: lossDays }), "var(--bs-primary)")
+      )}
     </div>
   );
 }
 
-/** «Πού πήγαν τα έξοδα»: the month's expenses by expense line, as the Goals overview draws «Κοντά στον στόχο». */
+/** «Πού πήγαν τα έξοδα»: the month's expenses by expense line, as the Goals overview draws «Κοντά στον στόχο». Each line opens into the closings its amount comes from. */
 function ExpensesByLine({
   entries,
   month,
@@ -392,6 +507,7 @@ function ExpensesByLine({
   many,
   formatCurrency,
   hasAny,
+  onOpenLine,
 }: {
   entries: readonly BusinessEntry[];
   month: Date;
@@ -400,6 +516,7 @@ function ExpensesByLine({
   many: boolean;
   formatCurrency: (n: number) => string;
   hasAny: boolean;
+  onOpenLine: (key: ExpenseLineTotal["key"], name: string) => void;
 }) {
   const { t } = useTranslation();
   const rows = useMemo(() => monthByExpenseLine(entries, month), [entries, month]);
@@ -422,16 +539,24 @@ function ExpensesByLine({
               const name = many ? `${own} · ${business?.name ?? t("business.unknownBusiness")}` : own;
               return (
                 <li key={row.key}>
-                  <div className={goalStyles.nearHead}>
-                    <span className={goalStyles.nearName}>{name}</span>
-                    <span className={goalStyles.nearPct}>{Math.round(pct)}%</span>
-                  </div>
-                  <div className={goalStyles.nearTrack} role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
-                    <span className={goalStyles.nearFill} style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className={goalStyles.nearMoney}>
-                    {formatCurrency(row.total)} · {t("business.timesCount", { count: row.count })}
-                  </p>
+                  <button
+                    type="button"
+                    className={styles.lineButton}
+                    onClick={() => onOpenLine(row.key, name)}
+                    aria-label={`${t("business.lineOpen", { name, amount: formatCurrency(row.total) })} (${Math.round(pct)}%, ${t("business.timesCount", { count: row.count })})`}
+                  >
+                    <span className={goalStyles.nearHead} aria-hidden>
+                      <span className={goalStyles.nearName}>{name}</span>
+                      <span className={goalStyles.nearPct}>{Math.round(pct)}%</span>
+                    </span>
+                    <span className={`${goalStyles.nearTrack} d-block`} aria-hidden>
+                      <span className={goalStyles.nearFill} style={{ width: `${pct}%` }} />
+                    </span>
+                    <span className={`${goalStyles.nearMoney} d-block`} aria-hidden>
+                      {formatCurrency(row.total)} · {t("business.timesCount", { count: row.count })}
+                      <FiChevronRight size={13} className={styles.opens} />
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -439,5 +564,99 @@ function ExpensesByLine({
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * A figure of the overview opened: «Μέρες» lists the month's closings with
+ * their profit or loss, adding up to the profit tile; a line of «Πού πήγαν τα
+ * έξοδα» lists the closings that paid on it, adding up to the bar. Both from
+ * the closings on the device — no read. A row opens the closing's own view.
+ */
+function OverviewSheet({
+  sheet,
+  rows,
+  shown,
+  month,
+  profit,
+  businessName,
+  formatCurrency,
+  onOpen,
+  onClose,
+}: {
+  sheet: NonNullable<Sheet>;
+  /** The month's closings on show, newest first. */
+  rows: readonly BusinessEntry[];
+  /** Every closing on show (one business, or all), for a line's. */
+  shown: readonly BusinessEntry[];
+  month: Date;
+  /** The month's profit: the «Μέρες» list's sum. */
+  profit: number;
+  businessName?: (entry: BusinessEntry) => string;
+  formatCurrency: (n: number) => string;
+  onOpen: (entry: BusinessEntry) => void;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const period = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }).format(month);
+  const lines = useMemo(() => (sheet.kind === "line" ? expenseLineClosings(shown, month, sheet.key) : []), [sheet, shown, month]);
+
+  if (sheet.kind === "days") {
+    const lost = lossDays(rows);
+    return (
+      <BusinessListSheet
+        title={t("business.daysSheetTitle")}
+        icon="📅"
+        sub={`${t("business.closingsCount", { count: rows.length })} · ${period}${lost > 0 ? ` · ${t("business.lossDays", { count: lost })}` : ""}`}
+        rows={rows.map((entry) => {
+          const f = closingFigures(entry);
+          return {
+            entry,
+            amount: f.profit,
+            loss: Math.round(f.profit * 100) < 0,
+            meta: (
+              <>
+                <span className={styles.rowMeta}>
+                  {t("business.turnover")} <span className={styles.rowFigure}>{formatCurrency(f.turnover)}</span>
+                </span>
+                <span className={styles.rowMeta}>
+                  {t("business.expenses")} <span className={styles.rowFigure}>{formatCurrency(f.expenses)}</span>
+                </span>
+              </>
+            ),
+          };
+        })}
+        total={profit}
+        totalLabel={t(Math.round(profit * 100) < 0 ? "business.loss" : "business.profit")}
+        signedFigures
+        businessName={businessName}
+        formatCurrency={formatCurrency}
+        onOpen={onOpen}
+        onClose={onClose}
+      />
+    );
+  }
+  // Added in cents from the very closings listed: the bar's figure (`expenseLineClosings`).
+  const total = lines.reduce((sum, l) => sum + Math.round(l.amount * 100), 0) / 100;
+  return (
+    <BusinessListSheet
+      title={sheet.name}
+      icon="🧾"
+      sub={
+        <>
+          {t("business.closingsCount", { count: lines.length })} · {period}
+          <br />
+          {t("business.lineSheetSub")}
+        </>
+      }
+      rows={lines}
+      total={total}
+      totalLabel={t("common.total")}
+      signedFigures={false}
+      businessName={businessName}
+      formatCurrency={formatCurrency}
+      onOpen={onOpen}
+      onClose={onClose}
+    />
   );
 }

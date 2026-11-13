@@ -15,14 +15,16 @@ import { WizardSteps } from "../transactions/components/WizardSteps";
 import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
 import { LINES_MAX } from "./businessKeys";
 import { activeLines } from "./businessFormat";
-import { buildBusiness, clashingRows, filledLines, removedLines, type LineDraft } from "./businessEdit";
+import { buildBusiness, clashingRows, filledLines, INCOME_LINES_MIN, linesReady, removedLines, type LineDraft } from "./businessEdit";
 import { lineUses } from "./businessSummary";
 import { newBusinessId, newLineId, useBusinesses } from "./useBusiness";
 import styles from "./css/Business.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 
-// «Νέα δουλειά» / its correction: the name, its income lines (at least one),
-// its expense lines (none is fine), and the check — Save only there. All of it
+// «Νέα δουλειά» / its correction: the name, its income lines (at least one —
+// the first row has no ✕, so a business always keeps a line to write a day's
+// takings in, 0 € included), its expense lines (none is fine), and the check —
+// Save only there. All of it
 // typed by the user, nothing offered ready-made. A rename of the business or of
 // a line reaches every closing without touching one (they name lines by id).
 // A line that closings use, taken off, says how many and what happens to them
@@ -38,6 +40,8 @@ interface Row extends LineDraft {
 
 const rowsOf = (lines: { id: string; name: string }[]): Row[] => lines.map((l, i) => ({ key: i, id: l.id, name: l.name }));
 const nextKey = (rows: readonly Row[]) => Math.max(-1, ...rows.map((r) => r.key)) + 1;
+/** The rows a list starts with: the stored lines, or one empty row to type in. */
+const startRows = (lines: { id: string; name: string }[]): Row[] => (lines.length > 0 ? rowsOf(lines) : [{ key: 0, name: "" }]);
 
 export default function BusinessWizard({ business, entries, entriesLoaded, onClose, onDelete }: { business?: Business; entries: readonly BusinessEntry[]; entriesLoaded: boolean; onClose: () => void; onDelete?: () => void }) {
   const { t } = useTranslation();
@@ -51,7 +55,7 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
   const [step, setStep] = useState<Step>(editing ? "review" : "name");
   const [tried, setTried] = useState<Set<Step>>(new Set());
   const [name, setName] = useState(business?.name ?? "");
-  const [incomes, setIncomes] = useState<Row[]>(() => (business ? rowsOf(activeLines(business.incomeLines)) : [{ key: 0, name: "" }]));
+  const [incomes, setIncomes] = useState<Row[]>(() => startRows(business ? activeLines(business.incomeLines) : []));
   const [expenses, setExpenses] = useState<Row[]>(() => (business ? rowsOf(activeLines(business.expenseLines)) : [{ key: 0, name: "" }]));
   const [id] = useState(() => business?.id ?? newBusinessId());
 
@@ -59,12 +63,8 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
   const typed = cleanLine(name);
   const nameMatch = matchName(typed, businesses, (b) => [b.name], businesses.find((b) => b.id === business?.id));
   const nameOk = !!typed && typed.length <= NAME_MAX && nameMatch?.kind !== "same";
-  const listOk = (rows: Row[], least: number) => {
-    const filled = filledLines(rows);
-    return filled.length >= least && filled.length <= LINES_MAX && clashingRows(rows).size === 0 && filled.every((r) => r.name.length <= NAME_MAX);
-  };
-  const incomesOk = listOk(incomes, 1);
-  const expensesOk = listOk(expenses, 0);
+  const incomesOk = linesReady(incomes, INCOME_LINES_MIN, LINES_MAX, NAME_MAX);
+  const expensesOk = linesReady(expenses, 0, LINES_MAX, NAME_MAX);
   const goneIncomes = business ? removedLines(business.incomeLines, incomes, uses) : [];
   const goneExpenses = business ? removedLines(business.expenseLines, expenses, uses) : [];
 
@@ -111,6 +111,8 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
           {rows.map((row, i) => {
             const others = rows.filter((r) => r.key !== row.key).map((r) => cleanLine(r.name));
             const match = matchNameIn(cleanLine(row.name), others);
+            // The first income line stays: a business always has one (it can be 0 € on a day).
+            const fixed = kind === "incomes" && i === 0;
             return (
               <li key={row.key}>
                 <div className={styles.nameRow}>
@@ -123,11 +125,16 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
                     autoFocus={!editing && i === rows.length - 1 && rows.length > 1}
                     onChange={(e) => setRows(rows.map((r) => (r.key === row.key ? { ...r, name: e.target.value } : r)))}
                   />
-                  <button type="button" className={styles.lineRemove} onClick={() => setRows(rows.filter((r) => r.key !== row.key))} aria-label={t("business.lineRemove", { n: i + 1 })} title={t("business.lineRemove", { n: i + 1 })}>
-                    <FiX aria-hidden />
-                  </button>
+                  {fixed ? (
+                    // The ✕'s room, kept empty so every field lines up.
+                    <span className={styles.lineFixed} aria-hidden />
+                  ) : (
+                    <button type="button" className={styles.lineRemove} onClick={() => setRows(rows.filter((r) => r.key !== row.key))} aria-label={t("business.lineRemove", { n: i + 1 })} title={t("business.lineRemove", { n: i + 1 })}>
+                      <FiX aria-hidden />
+                    </button>
+                  )}
                 </div>
-                {cleanLine(row.name) && <NameCheck match={match} onUse={match?.kind === "similar" ? () => setRows(rows.filter((r) => r.key !== row.key)) : undefined} />}
+                {cleanLine(row.name) && <NameCheck match={match} onUse={match?.kind === "similar" && !fixed ? () => setRows(rows.filter((r) => r.key !== row.key)) : undefined} />}
               </li>
             );
           })}

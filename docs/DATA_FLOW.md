@@ -44,7 +44,9 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
   silently after 5 s, 15 s, 45 s, 2, 5, 10 min (only while online and visible), and at once on
   `online` / tab visible. **Pages keep their skeleton; never a "didn't load / try again"
   message** (`uiConventions.test.ts` checks).
-- Sign-out: `forgetAllLocal()` clears every `sync:` key (`src/firebase/auth.ts:81`).
+- Sign-out: `forgetAllLocal()` clears every `sync:` key (`logout`, `src/firebase/auth.ts`); the menu's
+  sign-out (`signOutToDemo`) also clears the account's localStorage keys (`forgetAccountStorage`) and
+  lands on the public demo with a full page load.
 
 ## Every write runs once, and says how it went
 
@@ -166,7 +168,8 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
   (`deleteContribution`, `firestore.ts:511`); exactly one match is deleted.
 - Delete one: `deleteContribution` — query mirrors, batch-delete contribution + mirror.
 - Delete goal: `deleteInvestmentGoal` — queries contributions and mirrors from the server,
-  deletes them, goal LAST (`firestore.ts:397`), one log write.
+  deletes them, goal LAST (`firestore.ts:397`), one log write. Loans someone paid that are
+  owed no more go in the same write (`erase`, see «Goal paid by a friend» below).
 - Close goal (money spent): `closeInvestmentGoal` — one batch writes the closing transactions
   (`closingRecords`, `features/budget/goalHolding.ts:100`), deletes contributions + goal;
   mirrors are KEPT as history (`firestore.ts:420`).
@@ -179,21 +182,52 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
   (`coveredBy`, `debtId`, no mirror), `debts` (`direction "owed_by_me"`, `forGoalId`,
   `coveredExpenseId`, `accountId: ""`), `transactions` expense (what was bought). Built by
   `coveredFundingVars` (`features/budget/coveredFunding.ts:17`), from the goal wizard or the
-  debt form. Ids fixed up front (`useCoveredFunding`).
+  debt form. Ids fixed up front (`useCoveredFunding`); the contribution, the expense AND the
+  debt are put in their lists on screen at once (the debt too since 2026-11-13), under the
+  mutation key `coveredFundingKey`.
 - Then a SECOND write: `sync(debtId)` writes the debt's loan record `debt_<debtId>` on the
   main account, which cancels the expense there — no card moves. A failure is healed by
   `useHealDebtCash` on the next Debts visit.
 - Edit: `editCoveredDebt` — debt + contribution + expense in one batch, each read first with
   `stillThere` (`firestore.ts:1106`); the plan from `coveredEdit` (`coveredLink.ts:142`).
-- Call off (refund): `cancelCoveredDebt` — debt gets `forgiven {refund: true}`, loses
-  `accountId`, expense deleted in the same batch (`firestore.ts:786`); `useCancelCoveredDebts`
-  then syncs the cash away.
+- Deleting the goal — two answers per LOAN (owner, 2026-11-13; `GoalDeleteModal`, choice tiles,
+  nothing pre-picked):
+  - «Του τα χρωστάω ακόμα» — debt, expense and loan record stay; the deposit goes with the goal
+    (the debt keeps `forGoalId` to a goal that is gone).
+  - «Δεν του χρωστάω τίποτα — σβήσ' τα» (cancelled & refunded, or typed by mistake) — as if it
+    never happened: the debt, its expense, its deposit and its cash records (`debt_<id>` …)
+    deleted IN THE SAME BATCH as the goal (`deleteInvestmentGoal` / `closeInvestmentGoal` with
+    `erase: CoveredErase[]`, read by `coveredErasure`, `firestore.ts`). Spendable and every card
+    are unchanged by it (the expense and its loan record cancelled on the main account);
+    «Χρωστάς» drops by the debt; the month's spending drops by the expense.
+  - A loan already partly repaid is not asked: it stays, and the dialog says how much was paid
+    back and what is left (erasing it would delete repayments that moved a card — delete them
+    on «Χρέη» first if they were a mistake). Settled / let-go loans: a note, nothing asked.
+  - Which loans: by their stored links (`goalLoans`, `features/budget/goalLoans.ts`) — the
+    `debtId`s the goal's deposits carry + debts with `forGoalId` = the goal — never by what
+    the device holds. `useGoalLoans` waits for the debts list and for any covered-funding save
+    in flight, then reads from the server by id only the linked debts the list lacks
+    (`getDebtsByIds`: 1 read + 1 repayment query each). Asked per loan, so the same person's
+    two loans can end differently; the question names the day when a person has two.
+  - The erase reads from the server, per loan: the debt (1), its repayments (`userId + debtId`,
+    ≥1), its cash records (`transactions` `userId + debtId`, ≥1), its expense (1) — ~4 reads a
+    loan. Only documents that are there are named (production refuses a missing delete). A loan
+    deleted from «Χρέη» meanwhile is skipped; one with repayments on the server throws
+    `CoveredRepaidError` (nothing written; the page re-reads the debts and says so); a debt of
+    another goal throws. Each loan's records go whole in one batch (`commitDeleteGroups`,
+    ≤ 450), the goal last. One `noteDeletions` for everything (`debts`, `transactions`,
+    `investmentContributions`, `investmentGoals`). Cost per erased loan: ~4 reads, 3 deletes.
+  - Old «Ακυρώθηκε» debts (`forgiven.refund`) written before 2026-11-13 stay as they are and
+    still show «Ακυρώθηκε» on «Χρέη»; nothing writes `refund: true` any more
+    (`cancelCoveredDebt` / `useCancelCoveredDebts` removed — the goal delete was their only caller).
 - Delete: `deleteCoveredDebt` — repayments + contribution + expense + debt, the two links only
   if `stillThere` (`firestore.ts:1141`).
 - Locked: the expense (`covered`; payee locked when the debt does not name it — older debts
   found it by figures, `coveredExpenses` in `coveredLink.ts:46`).
-- Tests: `coveredRefund.test.ts`, `coveredLink.test.ts`, `useCoveredLink.test.tsx`,
-  `coveredDebt.demo.test.ts`, `features/debts/AddDebtModal.goal.test.tsx`.
+- Tests: `goalLoans.test.ts`, `useGoalLoans.test.tsx`, `components/GoalDeleteModal.test.tsx`
+  (several loans), `firebase/firestore.test.ts` («a goal someone paid for, deleted with its
+  loans (2+ loans)» — strict deletes, figures by hand), `coveredLink.test.ts`,
+  `useCoveredLink.test.tsx`, `coveredDebt.demo.test.ts`, `features/debts/AddDebtModal.goal.test.tsx`.
 
 ### Debts and repayments → their cash
 - Docs: `debts`, `debtPayments`, and DERIVED `transactions` with fixed ids
@@ -279,7 +313,8 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
 ## Demo mode — zero Firebase calls
 
 - Unknown devices start in the demo (`startsInDemo`, `src/demo/demoMode.ts`; never on
-  `/login`, `/register`, `/terms`, `/privacy`). Decided once per page load.
+  `/login`, `/register`, `/terms`, `/privacy`). Decided once per page load. A deliberate sign-out
+  makes the device unknown again (`rememberSignedOut`) until the next sign-in.
 - Every Firestore function comes from `src/firebase/firestoreApi.ts`, which routes to
   `src/demo/memoryFirestore.ts` in the demo — so `firestore.ts` runs unchanged on an in-memory
   map. `config.ts` hands out throwing stand-ins for Auth/Firestore in the demo.

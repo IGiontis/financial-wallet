@@ -51,6 +51,16 @@ this file disagree, ask him — one of them is a bug.
   card moving; a debt to the friend (no money moved); the goal reads complete with a debt mark.
   Repaying is a debt payment (card moves, expense not doubled). Strings «Χρέος · Νίκος»
   (Greek names don't decline).
+- **Deleting a goal someone paid for — two answers per person** (2026-11-12, he decided):
+  «Του τα χρωστάω ακόμα» (debt + expense stay) · «Δεν του χρωστάω τίποτα — σβήσ' τα»
+  (refunded OR entered by mistake: debt, expense, deposit and the debt's cash records are
+  deleted — he does NOT want a closed «ακυρώθηκε» debt left in Debts). Nothing pre-picked.
+  The goal's loans are found by their stored links, so a goal deleted right after it was
+  created can't leave a loan behind; goals with 2+ loans are tested per combination.
+  Asked per LOAN (the same person twice = two questions, with the day). A loan already partly
+  repaid can't be erased from the goal delete (it would change a card for money that really
+  left it): the dialog says so — delete the repayments in Debts first (confirmed by him
+  2026-11-13).
 - **Goal parts with ranges** (2026-10-27): target = Σ «έως»; a deposit fills each «από» in
   order, then up to each «έως»; 👁 on the card. Single-amount goals are not migrated.
 - **Bills with custom intervals** (2026-08-03): `frequency` × `intervalCount` from `anchorDate`;
@@ -69,6 +79,16 @@ this file disagree, ask him — one of them is a bug.
   «Κέρδος · Φαρμακείο» / «Ζημιά · Λαϊκή» with a shop icon and counts as «Δουλειά» in the
   analytics (option A; the alternative — each business pointing at one of his own categories —
   was not chosen).
+- **A business record is found like any other** (2026-11-13, his «SOS»: he could not find one in
+  Συναλλαγές). The category filters (list and «Βιβλίο κινήσεων») offer «🏪 Δουλειά» — and the other
+  categories with no document, «Μεταφορά», «Δάνεια», «Τόκοι δανείου» — once some record carries
+  them; the search also matches the category's name in Greek and English, the business's current
+  name and «Κέρδος»/«Ζημιά», accents aside. Never offered when writing a NEW record: only the
+  business page writes them. *Don't:* add «Δουλειά» to the category pickers of the forms.
+- **The business overview opens up** (2026-11-13, his description): the «Μέρες» tile lists the
+  month's closing days (date, business in «Όλες», profit or loss, a loss marked in words); each
+  «Πού πήγαν τα έξοδα» line lists the closings it came from, adding up to the bar. Read-only
+  sheets; each row opens the closing's view.
 
 ## How it looks
 
@@ -96,7 +116,15 @@ this file disagree, ask him — one of them is a bug.
   had gone through), honest success/failure.
 - **Business: «Οι δουλειές μου» is its own sub-page** in the menu (like Πάγια's pages), the
   other tabs on the main page; a business keeps at least one income line (it can be 0 €), the
-  first line can't be removed (2026-11-12).
+  first line can't be removed (2026-11-12). Built: «Δουλειά» opens into «Σύνοψη» (`/business`,
+  tabs Επισκόπηση · Μέρες · Ημερολόγιο) and «Οι δουλειές μου» (`/business/manage`). Unlike
+  Πάγια, no link tabs at the top of either page: the main page already has its own tab row,
+  and a page never shows two — the menu is the way between them.
+- **Signing out lands on the public demo** (2026-11-12): «Αποσύνδεση» clears the account's keys
+  from the device, makes it unknown again and loads the demo, as a visitor sees it; the next
+  sign-in makes it known again. A session that ends by itself still opens on the sign-in form,
+  and account deletion still ends on the sign-in form (a full wallet of made-up money right
+  after deleting yours would read as "it didn't work"). *Don't:* send sign-out back to /login.
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles

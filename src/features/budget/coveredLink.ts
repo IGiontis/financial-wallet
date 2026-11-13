@@ -72,7 +72,7 @@ export interface CoveredLink {
   goalId: string;
   /** The goal's deposit the person paid. Gone with the goal once it is deleted or closed. */
   contribution?: InvestmentContribution;
-  /** The expense of what they paid. Gone once the goal was called off with a refund. */
+  /** The expense of what they paid. Gone once the loan was erased with its goal (or, before 2026-11-13, called off with a refund). */
   expense?: Transaction;
   /** Found by its figures rather than named by the debt: worth naming from now on. */
   expenseUnnamed: boolean;

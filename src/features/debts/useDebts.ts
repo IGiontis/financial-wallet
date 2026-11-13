@@ -17,7 +17,6 @@ import {
   syncDebtCash,
   updateDebt,
   updateDebtPayment,
-  cancelCoveredDebt,
 } from "../../firebase/firestore";
 import { setTransactionFields, transactionKeys } from "../transactions/hooks/useTransactions";
 import { investmentKeys } from "../budget/useInvestments";
@@ -167,26 +166,6 @@ export function useEditDebt() {
       if (wrote.expense && covered.expense) confirmList(queryClient, transactionKeys.all(userId), setTransactionFields(covered.expense.id, covered.expense.set));
     },
     onSuccess: (_, { debtId }) => sync(debtId),
-    onError: failed("debts.saveFailed"),
-  });
-}
-
-/**
- * Covered debts called off with their goal — see `cancelCoveredDebt`. Each is
- * synced after, so the loan record the debt wrote on the main account goes too.
- */
-export function useCancelCoveredDebts() {
-  const queryClient = useQueryClient();
-  const { userId, sync } = useDebtRefresh();
-  return useOnceMutation({
-    onceBy: (items: { debtId: string }[]) => items.map((i) => i.debtId).join("|"),
-    mutationFn: async (items: { debtId: string; expenseId?: string; amount: number }[]) => {
-      for (const item of items) {
-        await cancelCoveredDebt(userId, item.debtId, item.expenseId, { date: new Date(), amount: item.amount, refund: true });
-        await sync(item.debtId);
-      }
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: transactionKeys.all(userId) }),
     onError: failed("debts.saveFailed"),
   });
 }
