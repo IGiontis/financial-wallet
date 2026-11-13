@@ -37,6 +37,8 @@ import styles from "./css/Business.module.css";
 import calendarStyles from "../calendar/css/CalendarPage.module.css";
 // The Goals overview's tiles and cards, so the same thing has the same look.
 import goalStyles from "../budget/components/css/GoalsWorkbench.module.css";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
+import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 // «Δουλειά» (item #71): a user's businesses, one «κλείσιμο ημέρας» at a time.
 //
@@ -163,18 +165,18 @@ function BusinessScreen() {
   const close = () => setOpen(null);
   const askDelete = (entry: BusinessEntry) => setOpen({ kind: "delete", entry });
   const edit = (entry: BusinessEntry) => setOpen({ kind: "closing", entry });
-  // Both wait for the server's answer (`mutateAsync`); the dialog stays up,
-  // locked, until then — and a second press is never a second batch.
-  const confirmDelete = async (entry: BusinessEntry) => {
-    try {
-      await remove.mutateAsync(entry);
-    } catch {
-      toast.error(t("business.deleteFailed"));
-      return;
-    }
-    toast.success(t("business.deleted"));
-    close();
-  };
+  // Both wait for the server's answer, 7 s at most (`answerOrLetGo`); the
+  // dialog stays up, locked, until then — past 7 s it lets go, the closing
+  // stays disabled and the toast comes with the answer. A second press is
+  // never a second batch.
+  const pending = usePendingRecords();
+  const confirmDelete = (entry: BusinessEntry) =>
+    answerOrLetGo(() => remove.mutateAsync(entry), {
+      records: [["businessEntries", entry.id]],
+      close,
+      succeeded: () => toast.success(t("business.deleted")),
+      failed: () => toast.error(t("business.deleteFailed")),
+    });
 
   const tabs: { id: BusinessTab; label: string }[] = [
     { id: "overview", label: t("business.tabOverview") },
@@ -344,7 +346,7 @@ function BusinessScreen() {
       )}
       {open?.kind === "closing" && <ClosingWizard entry={open.entry} businesses={businesses} preset={filter} onClose={close} onDelete={open.entry ? () => askDelete(open.entry!) : undefined} />}
       {open?.kind === "view" && <BusinessEntryView entry={open.entry} businesses={businesses} formatCurrency={formatCurrency} onClose={close} onEdit={() => edit(open.entry)} onDelete={() => askDelete(open.entry)} />}
-      {open?.kind === "delete" && <BusinessDeleteModal entry={open.entry} businessName={nameOf(open.entry)} formatCurrency={formatCurrency} busy={remove.isPending} onConfirm={() => confirmDelete(open.entry)} onClose={close} />}
+      {open?.kind === "delete" && <BusinessDeleteModal entry={open.entry} businessName={nameOf(open.entry)} formatCurrency={formatCurrency} busy={pending.busy("businessEntries", open.entry.id)} onConfirm={() => confirmDelete(open.entry)} onClose={close} />}
       <BusinessDialogs
         open={open?.kind === "business" || open?.kind === "deleteBusiness" ? open : null}
         onChange={setOpen}
@@ -396,8 +398,9 @@ function ManageScreen() {
 
 /**
  * A business's form and its delete, the same on both pages. The delete waits
- * for the server's answer (`mutateAsync`, run once — `useDeleteBusiness`); the
- * dialog stays up, locked, until then, and says how it went in a toast.
+ * for the server's answer, 7 s at most (`answerOrLetGo`, run once —
+ * `useDeleteBusiness`); the dialog stays up, locked, until then, and says how
+ * it went in a toast.
  */
 function BusinessDialogs({
   open,
@@ -416,24 +419,23 @@ function BusinessDialogs({
   const { t } = useTranslation();
   const { format: formatCurrency } = useCurrencyConverter();
   const removeBusiness = useDeleteBusiness();
+  const pending = usePendingRecords();
   const close = () => onChange(null);
-  const confirmDelete = async (business: Business) => {
-    let done: { businessEntries: string[] };
-    try {
-      done = await removeBusiness.mutateAsync(business.id);
-    } catch {
-      toast.error(t("business.deleteFailed"));
-      return;
-    }
-    toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
-    onDeleted?.(business.id);
-    close();
-  };
+  const confirmDelete = (business: Business) =>
+    answerOrLetGo(() => removeBusiness.mutateAsync(business.id), {
+      records: [["businesses", business.id], ...entries.filter((e) => e.businessId === business.id).map((e) => ["businessEntries", e.id] as const)],
+      close,
+      succeeded: (done) => {
+        toast.success(t("business.businessDeleted", { name: business.name, count: done.businessEntries.length }));
+        onDeleted?.(business.id);
+      },
+      failed: () => toast.error(t("business.deleteFailed")),
+    });
 
   if (open?.kind === "business")
     return <BusinessWizard business={open.business} entries={entries} entriesLoaded={entriesLoaded} onClose={close} onDelete={open.business ? () => onChange({ kind: "deleteBusiness", business: open.business! }) : undefined} />;
   if (open?.kind === "deleteBusiness")
-    return <DeleteBusinessModal business={open.business} entries={entries} busy={removeBusiness.isPending} formatCurrency={formatCurrency} onConfirm={() => confirmDelete(open.business)} onClose={close} />;
+    return <DeleteBusinessModal business={open.business} entries={entries} busy={pending.busy("businesses", open.business.id)} formatCurrency={formatCurrency} onConfirm={() => confirmDelete(open.business)} onClose={close} />;
   return null;
 }
 

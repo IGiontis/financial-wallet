@@ -114,6 +114,8 @@ this file disagree, ask him — one of them is a bug.
   a card); every new/edit/delete shows a toast; an action waits for its answer — buttons
   locked while it runs (he could press «delete goal» twice and saw an error for an action that
   had gone through), honest success/failure.
+- **The screen never hangs (2026-11-13, SOS):** a save hung 15 s on his iPhone with no toast though it had gone through. New/edit never wait for the server (instant close + toast, failure reported later); online-only actions wait 7 s at most, then let go with «Συνεχίζει — θα σου πούμε», the record shown as pending (its clickable items disabled, Overview too), the real result as a toast.
+- **No change, no Save (2026-11-13, MUST, «SOS»):** edit forms let him save without changing anything — every edit form's Save stays disabled until something really changed; new-record forms until the required answers are there.
 - **Business: «Οι δουλειές μου» is its own sub-page** in the menu (like Πάγια's pages), the
   other tabs on the main page; a business keeps at least one income line (it can be 0 €), the
   first line can't be removed (2026-11-12). Built: «Δουλειά» opens into «Σύνοψη» (`/business`,

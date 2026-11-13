@@ -82,8 +82,10 @@ import RunwaySheet from "./RunwaySheet";
 import { dayTone, type DayToneInput } from "../calendar/dayTone";
 import styles from "./css/BillsPage.module.css";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { PageShell } from "../../shared/components/PageShell";
+import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 // ─── Cash runway — how much, by when ─────────────────────────────────────────
 
@@ -1221,7 +1223,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // says so, which beats holding the whole page hostage to the network.
   const handleConfirmPaid = (amountInBase: number, paidDate: Date, periodKey: string, installmentIndex?: number, accountId?: string) => {
     if (!payingBill) return;
-    markPaid.mutate({ bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex, accountId }, { onError: () => toast.error(t("bills.markPaidFailed")) });
+    void saveWithoutWaiting(markPaid, { bill: payingBill, paidDate, paidAmount: amountInBase, periodKey, installmentIndex, accountId }, () => toast.error(t("bills.markPaidFailed")), [["bills", payingBill.id]]);
     celebrateSave({ collection: "bills", id: payingBill.id });
     setPayingBill(null);
   };
@@ -1287,20 +1289,23 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
     setShowModal(true);
   };
 
-  // Waits for the server (deletes are online only); runs once, the dialog
-  // locked until the answer — then the toast says what happened.
+  // Waits for the server (deletes are online only), 7 s at most; runs once,
+  // the dialog locked meanwhile — then the toast says what happened. Past 7 s
+  // the dialog lets go and the bill stays disabled until the answer
+  // (`answerOrLetGo`).
   const [runDelete, deleting] = useRunOnce();
+  // Records with an online-only action on its way (`answerOrLetGo`).
+  const pending = usePendingRecords();
   const confirmDelete = () =>
-    runDelete(async () => {
+    runDelete(() => {
       if (!deleteTarget) return;
       const bill = deleteTarget;
-      try {
-        await deleteBill.mutateAsync(bill.id);
-        setDeleteTarget(null);
-        toast.success(t("toasts.billDeleted", { name: bill.name }));
-      } catch {
-        toast.error(t("toasts.billDeleteFailed"));
-      }
+      return answerOrLetGo(() => deleteBill.mutateAsync(bill.id), {
+        records: [["bills", bill.id]],
+        close: () => setDeleteTarget((open) => (open?.id === bill.id ? null : open)),
+        succeeded: () => toast.success(t("toasts.billDeleted", { name: bill.name })),
+        failed: () => toast.error(t("toasts.billDeleteFailed")),
+      });
     });
   const closeDelete = () => {
     if (!deleting) setDeleteTarget(null);
@@ -1671,7 +1676,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           bill={liveDetailBill}
           categoryLabel={`${categoryFor(liveDetailBill.categoryId)?.icon ?? ""} ${categoryLabel(categoryFor(liveDetailBill.categoryId)?.name, t) || "—"}`.trim()}
           formatCurrency={formatCurrency}
-          isBusy={deleteBill.isPending}
+          isBusy={pending.busy("bills", liveDetailBill.id)}
           onClose={() => setDetailBill(null)}
           onMarkPaid={(b) => {
             // Hand off to the confirmation step — never stack the two modals.
@@ -1710,7 +1715,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           formatCurrency={formatCurrency}
           onClose={() => setSettlingBill(null)}
           onConfirm={(items) => {
-            void saveWithoutWaiting(settleOverdue, { bill: settlingBill, items }, () => toast.error(t("bills.settleOverdueFailed")));
+            void saveWithoutWaiting(settleOverdue, { bill: settlingBill, items }, () => toast.error(t("bills.settleOverdueFailed")), [["bills", settlingBill.id]]);
             celebrateSave({ collection: "bills", id: settlingBill.id });
             toast.success(t("toasts.periodsSettled", { count: items.length, name: settlingBill.name }));
             setSettlingBill(null);

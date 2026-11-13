@@ -275,12 +275,13 @@ export const createCategory = async (userId: string, data: CreateCategoryDTO) =>
  * would leave an "income and expense" category that only works one way, with
  * nothing on screen to explain why.
  */
-export const createCategories = async (userId: string, data: Omit<CreateCategoryDTO, "type">, types: TransactionType[]): Promise<Record<string, string>> => {
+export const createCategories = async (userId: string, data: Omit<CreateCategoryDTO, "type">, types: TransactionType[], ids: Partial<Record<TransactionType, string>> = {}): Promise<Record<string, string>> => {
   const batch = writeBatch(db);
   const created: Record<string, string> = {};
 
   for (const type of types) {
-    const ref = doc(collection(db, "categories"));
+    // Under the id the screen already shows it with, when it has one (`newDocId`).
+    const ref = ids[type] ? doc(db, "categories", ids[type]) : doc(collection(db, "categories"));
     batch.set(ref, {
       ...clean({ ...data, type, userId, isDefault: false }),
       createdAt: serverTimestamp(),
@@ -866,13 +867,14 @@ export const getDebtsByIds = async (userId: string, debtIds: string[]): Promise<
   return { debts: found.flatMap((f) => (f.debt ? [f.debt] : [])), payments: found.flatMap((f) => f.payments) };
 };
 
-export const createDebt = async (userId: string, data: CreateDebtDTO) => {
-  const ref = await addDoc(collection(db, "debts"), {
+/** `id` comes from `newDocId` when the caller has already shown the debt under it. */
+export const createDebt = async (userId: string, data: CreateDebtDTO, id: string = newDocId("debts")) => {
+  await setDoc(doc(db, "debts", id), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  return ref.id;
+  return id;
 };
 
 export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
@@ -910,13 +912,14 @@ export const deleteDebt = async (userId: string, debtId: string, paymentIds: str
   await noteDeletions(userId, { debtPayments: paymentIds, debts: [debtId] });
 };
 
-export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO) => {
-  const ref = await addDoc(collection(db, "debtPayments"), {
+/** `id` comes from `newDocId` when the caller has already shown the repayment under it. */
+export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO, id: string = newDocId("debtPayments")) => {
+  await setDoc(doc(db, "debtPayments", id), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  return ref.id;
+  return id;
 };
 
 /** Correcting a repayment typed wrong: the amount, the day, or both. */

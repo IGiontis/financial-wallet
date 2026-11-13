@@ -3636,6 +3636,7 @@
   },
   "toasts": {
     "saved": "Saved",
+    "stillRunning": "Still going — we'll tell you as soon as it's done",
     "settingNotSaved": "The change stayed on this device only — it wasn't saved to your account. Try again.",
     "goalDeleted": "Goal “{{name}}” deleted",
     "goalPaused": "Goal “{{name}}” paused",

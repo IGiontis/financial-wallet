@@ -24,6 +24,7 @@ import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useRunOnce } from "../../../shared/hooks/useRunOnce";
+import { usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 import i18n from "../../../i18n";
 import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
@@ -242,6 +243,8 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   // Read once per render: the pace and the projection are measured against it,
   // and two different "now"s inside one card would report two different days.
   const now = new Date();
+  // A delete or a closing still on its way: faded, nothing on it pressable.
+  const { busy, pendingClass } = usePendingRecords();
 
   const isTargetedGoal = goal.goalType === "targeted";
   const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";
@@ -467,7 +470,8 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   return (
     <Card
       data-tour="goal-card"
-      className={`mb-3 h-100 ${flashed?.(goal.id) ? CARD_FLASH : ""}`}
+      className={`mb-3 h-100 ${flashed?.(goal.id) ? CARD_FLASH : ""} ${pendingClass("investmentGoals", goal.id)}`}
+      aria-busy={busy("investmentGoals", goal.id) || undefined}
       style={{
         border: "1px solid var(--color-border-tertiary)",
         borderRadius: "var(--border-radius-lg)",

@@ -34,7 +34,7 @@ interface Props {
   locked?: boolean;
   lockReason?: string;
   onClose: () => void;
-  onMerge: (plan: CategoryMergePlan) => Promise<void>;
+  onMerge: (plan: CategoryMergePlan) => Promise<unknown>;
 }
 
 /**

@@ -38,7 +38,7 @@ interface Props {
   lockReason?: string;
   onClose: () => void;
   onAdd: (name: string) => Promise<void>;
-  onRename: (vars: PayeeRenameVars) => Promise<void>;
+  onRename: (vars: PayeeRenameVars) => Promise<unknown>;
   /** «Χρήση αυτού» on adding: the one already there is shown instead. */
   onShow: (name: string) => void;
 }

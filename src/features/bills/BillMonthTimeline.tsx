@@ -4,6 +4,7 @@ import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { standaloneMonthName } from "../../shared/utils/dates";
 import type { MonthTimeline } from "./monthTimeline";
 import styles from "./css/BillsPage.module.css";
+import { ROW_PENDING, usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 /**
  * The month in the order it happens.
@@ -32,6 +33,7 @@ export default function BillMonthTimeline({
   onOpenBill: (bill: BillWithStatus) => void;
 }) {
   const { t } = useTranslation();
+  const { writing } = usePendingRecords();
   // The day alone: the month is named once at the top, and repeating it down
   // the column crowded the dates into the line.
   const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric" }), [locale]);
@@ -71,8 +73,9 @@ export default function BillMonthTimeline({
               {timeline.todayAt === index && marker}
               <button
                 type="button"
-                className={`${styles.timelineRow} ${event.done ? styles.timelineRowDone : ""} ${event.kind === "bill" && event.done ? styles.timelineRowPaid : ""}`}
-                disabled={!event.bill}
+                className={`${styles.timelineRow} ${event.done ? styles.timelineRowDone : ""} ${event.kind === "bill" && event.done ? styles.timelineRowPaid : ""} ${event.bill && writing("bills", event.bill.id) ? ROW_PENDING : ""}`}
+                // A bill with a write on its way (a payment not yet acknowledged, a delete) opens nothing until it lands.
+                disabled={!event.bill || writing("bills", event.bill.id)}
                 onClick={() => event.bill && onOpenBill(event.bill)}
               >
               <span className={styles.timelineDay} title={fullFmt.format(event.date)}>

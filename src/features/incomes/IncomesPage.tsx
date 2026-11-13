@@ -198,8 +198,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   };
 
   // Handed to `ConfirmSheet`, which waits for it, locked: an undo deletes
-  // records and so waits for the server; the sheet goes only once it went.
-  const confirm = async () => {
+  // records and so waits for the server, 7 s at most (`answerOrLetGo`).
+  const confirm = () => {
     if (!confirming) return;
     if (confirming.kind === "delete") {
       removeIncome(confirming.income.id);
@@ -207,7 +207,7 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
       toast.success(t("toasts.incomeDeleted", { name: confirming.income.name }));
       return;
     }
-    if (await undoArrival(confirming.arrival)) closeConfirm(false);
+    return undoArrival(confirming.arrival, () => closeConfirm(false));
   };
 
   /** A word about one time («όχι ακόμα», «δεν θα έρθει»…), said back. */

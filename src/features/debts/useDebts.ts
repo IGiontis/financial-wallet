@@ -14,6 +14,7 @@ import {
   editDebt,
   getDebtPayments,
   getDebts,
+  newDocId,
   syncDebtCash,
   updateDebt,
   updateDebtPayment,
@@ -22,9 +23,9 @@ import { setTransactionFields, transactionKeys } from "../transactions/hooks/use
 import { investmentKeys } from "../budget/useInvestments";
 import { isEmptyEdit, type CoveredEdit } from "../budget/coveredLink";
 import { allDebtCashIds, debtCashDrift, debtCashIds, debtCashRecords, type DebtCashRecord } from "./debtCash";
-import { confirmList, removeWhere } from "../../lib/listCache";
-import { computeDebtStatus } from "./debtsUtils";
-import type { CreateDebtDTO, CreateDebtPaymentDTO, DebtWithStatus, InvestmentContribution, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
+import { confirmList, editList, idsFor, removeWhere, restoreList, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
+import { computeDebtStatus, debtEdit, debtFields } from "./debtsUtils";
+import type { CreateDebtDTO, CreateDebtPaymentDTO, Debt, DebtPayment, DebtWithStatus, InvestmentContribution, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
 
 export const debtKeys = {
   all: (userId: string) => ["debts", userId] as const,
@@ -95,8 +96,31 @@ export function useDebtRefresh() {
       await syncDebtCash(userId, records, removing, existing(removing));
       patchTransactions(records, removing);
     };
+    /**
+     * The save on screen before the server has it (`saveWithoutWaiting`): the
+     * debts list edited, and the money the debt moves (`debtCashRecords`) put
+     * in the transaction list as the sync after the save will write it — so
+     * the card, the totals and the Overview move at once. Both lists come back
+     * for `undo` if the write is refused.
+     */
+    const preview = async (edit: (debts: DebtWithStatus[]) => DebtWithStatus[], debtId: string): Promise<DebtPreview> => {
+      const debts = await editList<DebtWithStatus>(queryClient, debtKeys.all(userId), edit);
+      const debt = queryClient.getQueryData<DebtWithStatus[]>(debtKeys.all(userId))?.find((d) => d.id === debtId);
+      if (!debt) return { debts };
+      const { records, remove } = debtCashRecords(debt);
+      const gone = new Set(remove);
+      const written = new Map(records.map((record) => [record.id, { ...record, userId, updatedAt: new Date() } as unknown as Transaction]));
+      const transactions = await editList<Transaction>(queryClient, key, (rows) => [...rows.filter((row) => !gone.has(row.id) && !written.has(row.id)), ...written.values()]);
+      return { debts, transactions };
+    };
+    const undo = (shown: DebtPreview | undefined) => {
+      restoreList(queryClient, shown?.transactions);
+      restoreList(queryClient, shown?.debts);
+    };
     return {
       userId,
+      preview,
+      undo,
       refresh: () => void queryClient.invalidateQueries({ queryKey: debtKeys.all(userId) }),
       /** Re-reads the debts, then writes this one's money again, clearing `alsoRemove` with it. */
       sync: async (debtId: string, alsoRemove: string[] = []) => {
@@ -129,17 +153,66 @@ export function useDebtRefresh() {
   }, [queryClient, userId]);
 }
 
+/** The lists as they were before a save was put on screen — see `preview`. */
+export interface DebtPreview {
+  debts: ListSnapshot<DebtWithStatus>;
+  transactions?: ListSnapshot<Transaction>;
+}
+
 /** Said whenever the debt's own write fails: nothing was saved, so trying again is right. */
 const failed = (key: string) => () => toast.error(i18n.t(key));
 
+/** One debt worked out again from new fields and/or payments; the others as they are. */
+const reworked = (debtId: string, change: (debt: Debt, payments: DebtPayment[]) => { debt: Debt; payments: DebtPayment[] }) => (rows: DebtWithStatus[]) =>
+  rows.map((row) => {
+    if (row.id !== debtId) return row;
+    const next = change(debtFields(row), row.payments);
+    return computeDebtStatus(next.debt, next.payments);
+  });
+/** `UpdateDebtDTO` laid over a debt as `updateDebt` writes it: `forgiven: null` takes it off. */
+const updated = (debt: Debt, data: UpdateDebtDTO): Debt => {
+  const { forgiven, ...rest } = data;
+  const next = { ...debt, ...withoutUndefined(rest), updatedAt: new Date() } as Debt & { forgiven?: unknown };
+  if (forgiven === null) delete next.forgiven;
+  else if (forgiven) next.forgiven = forgiven;
+  return next as Debt;
+};
+
+/** One id per new debt / repayment, shared by the row on screen and the write — see `idsFor`. */
+const debtIds = new WeakMap<CreateDebtDTO, string>();
+const paymentIds = new WeakMap<CreateDebtPaymentDTO, string>();
+
 export function useCreateDebt() {
-  const { userId, sync } = useDebtRefresh();
-  return useOnceMutation({ onceBy: sameCall, mutationFn: (data: CreateDebtDTO) => createDebt(userId, data), onSuccess: (id) => sync(id), onError: failed("debts.saveFailed") });
+  const { userId, sync, preview, undo } = useDebtRefresh();
+  const idOf = (data: CreateDebtDTO) => idsFor(debtIds, data, () => newDocId("debts"));
+  return useOnceMutation<string, Error, CreateDebtDTO, DebtPreview>({
+    onceBy: sameCall,
+    mutationFn: (data) => createDebt(userId, data, idOf(data)),
+    onMutate: (data) => {
+      const now = new Date();
+      const debt = { ...withoutUndefined(data), id: idOf(data), userId, createdAt: now, updatedAt: now } as Debt;
+      return preview((rows) => [...rows.filter((row) => row.id !== debt.id), computeDebtStatus(debt, [])], debt.id);
+    },
+    onSuccess: (id) => sync(id),
+    onError: (_error, _data, shown) => {
+      undo(shown);
+      failed("debts.saveFailed")();
+    },
+  });
 }
 
 export function useUpdateDebt() {
-  const { sync } = useDebtRefresh();
-  return useOnceMutation({ onceBy: sameCall, mutationFn: ({ debtId, data }: { debtId: string; data: UpdateDebtDTO }) => updateDebt(debtId, data), onSuccess: (_, { debtId }) => sync(debtId), onError: failed("debts.saveFailed") });
+  const { sync, preview, undo } = useDebtRefresh();
+  return useOnceMutation<void, Error, { debtId: string; data: UpdateDebtDTO }, DebtPreview>({
+    onceBy: sameCall,
+    mutationFn: ({ debtId, data }) => updateDebt(debtId, data),
+    onMutate: ({ debtId, data }) => preview(reworked(debtId, (debt, payments) => ({ debt: updated(debt, data), payments })), debtId),
+    onSuccess: (_, { debtId }) => sync(debtId),
+    onError: (_error, _vars, shown) => {
+      undo(shown);
+      failed("debts.saveFailed")();
+    },
+  });
 }
 
 /**
@@ -149,10 +222,32 @@ export function useUpdateDebt() {
  */
 export function useEditDebt() {
   const queryClient = useQueryClient();
-  const { userId, sync } = useDebtRefresh();
-  return useOnceMutation({
+  const { userId, sync, preview, undo } = useDebtRefresh();
+  return useOnceMutation<void, Error, { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }, DebtPreview & { contributions?: ListSnapshot<InvestmentContribution>; expense?: ListSnapshot<Transaction> }>({
     onceBy: sameCall,
-    mutationFn: async ({ debtId, data, covered }: { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }) => {
+    // On screen at once, as `editDebt` will write it: the form's fields set,
+    // the ones it now leaves empty taken off (`debtEdit`); a goal's deposit
+    // and expense corrected with it. All put back if the write is refused.
+    onMutate: async ({ debtId, data, covered }) => {
+      const { set, clear } = debtEdit(data);
+      const shown = await preview(
+        reworked(debtId, (debt, payments) => {
+          const next = { ...debt, ...set, updatedAt: new Date() } as Record<string, unknown>;
+          for (const field of clear) delete next[field];
+          return { debt: next as unknown as Debt, payments };
+        }),
+        debtId,
+      );
+      if (!covered || isEmptyEdit(covered)) return shown;
+      const now = new Date();
+      const contribution = covered.contribution;
+      const contributions = contribution
+        ? await editList<InvestmentContribution>(queryClient, investmentKeys.contributions(userId), (rows) => rows.map((row) => (row.id === contribution.id ? { ...row, ...withoutUndefined(contribution.set), updatedAt: now } : row)))
+        : undefined;
+      const expense = covered.expense ? await editList(queryClient, transactionKeys.all(userId), setTransactionFields(covered.expense.id, covered.expense.set)) : undefined;
+      return { ...shown, contributions, expense };
+    },
+    mutationFn: async ({ debtId, data, covered }) => {
       if (!covered || isEmptyEdit(covered)) {
         await editDebt(debtId, data);
         return;
@@ -166,7 +261,12 @@ export function useEditDebt() {
       if (wrote.expense && covered.expense) confirmList(queryClient, transactionKeys.all(userId), setTransactionFields(covered.expense.id, covered.expense.set));
     },
     onSuccess: (_, { debtId }) => sync(debtId),
-    onError: failed("debts.saveFailed"),
+    onError: (_error, _vars, shown) => {
+      restoreList(queryClient, shown?.expense);
+      restoreList(queryClient, shown?.contributions);
+      undo(shown);
+      failed("debts.saveFailed")();
+    },
   });
 }
 
@@ -194,8 +294,23 @@ export function useDeleteDebt() {
 }
 
 export function useRecordRepayment() {
-  const { userId, sync } = useDebtRefresh();
-  return useOnceMutation({ onceBy: sameCall, mutationFn: (data: CreateDebtPaymentDTO) => createDebtPayment(userId, data), onSuccess: (_, data) => sync(data.debtId), onError: failed("debts.saveFailed") });
+  const { userId, sync, preview, undo } = useDebtRefresh();
+  const idOf = (data: CreateDebtPaymentDTO) => idsFor(paymentIds, data, () => newDocId("debtPayments"));
+  return useOnceMutation<string, Error, CreateDebtPaymentDTO, DebtPreview>({
+    onceBy: sameCall,
+    mutationFn: (data) => createDebtPayment(userId, data, idOf(data)),
+    // The debt on screen with the repayment in, and the money it moves.
+    onMutate: (data) => {
+      const now = new Date();
+      const payment = { ...withoutUndefined(data), id: idOf(data), userId, createdAt: now, updatedAt: now } as DebtPayment;
+      return preview(reworked(data.debtId, (debt, payments) => ({ debt, payments: [...payments.filter((p) => p.id !== payment.id), payment] })), data.debtId);
+    },
+    onSuccess: (_, data) => sync(data.debtId),
+    onError: (_error, _data, shown) => {
+      undo(shown);
+      failed("debts.saveFailed")();
+    },
+  });
 }
 
 /** Deleting a repayment: its own records go, and the loan's later interest is worked out again. */
@@ -210,13 +325,34 @@ export function useDeleteRepayment() {
 }
 
 export function useUpdateRepayment() {
-  const { sync } = useDebtRefresh();
-  return useOnceMutation({
+  const { sync, preview, undo } = useDebtRefresh();
+  return useOnceMutation<void, Error, { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }, DebtPreview>({
     onceBy: sameCall,
-    mutationFn: ({ paymentId, amount, date, accountId, notes }: { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }) =>
-      updateDebtPayment(paymentId, { amount, date, accountId, notes }),
+    mutationFn: ({ paymentId, amount, date, accountId, notes }) => updateDebtPayment(paymentId, { amount, date, accountId, notes }),
+    // As `updateDebtPayment` writes it: `accountId: null` and an empty note take them off.
+    onMutate: ({ paymentId, debtId, amount, date, accountId, notes }) =>
+      preview(
+        reworked(debtId, (debt, payments) => ({
+          debt,
+          payments: payments.map((p) => {
+            if (p.id !== paymentId) return p;
+            const next = { ...p, amount, date, updatedAt: new Date() } as DebtPayment & { accountId?: string; notes?: string };
+            if (accountId === null) delete next.accountId;
+            else if (accountId !== undefined) next.accountId = accountId;
+            if (notes !== undefined) {
+              if (notes && notes.trim()) next.notes = notes.trim();
+              else delete next.notes;
+            }
+            return next;
+          }),
+        })),
+        debtId,
+      ),
     onSuccess: (_, { debtId }) => sync(debtId),
-    onError: failed("debts.saveFailed"),
+    onError: (_error, _vars, shown) => {
+      undo(shown);
+      failed("debts.saveFailed")();
+    },
   });
 }
 

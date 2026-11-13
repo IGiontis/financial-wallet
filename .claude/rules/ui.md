@@ -61,12 +61,22 @@ side-by-side screenshots.
 - **Viewing a record** opens a read-only view first; editing is a step from there.
 - **Every new / edit / delete shows a toast** when it is done — MUST, no exceptions (a delete
   says what went, e.g. «Ο στόχος διαγράφηκε»). Toasts per `src/lib/toastDefaults.ts`.
-- **An action waits for its answer** — MUST: while a save/delete/confirm runs, its button
-  shows it is working and every control that could start a second action is disabled (no
-  double delete, no closing the dialog mid-way); the result is reported honestly — success
-  toast only when it really succeeded, a failure says what did not happen and leaves things as
-  they were; never an error toast for something that actually went through. Use the mutation's
-  own pending/success/error state (TanStack `isPending`, `mutateAsync` + try/catch), not timers.
+- **No change, no Save** — MUST: an edit form's Save stays disabled (with a short «Δεν άλλαξε
+  τίποτα» hint) until a value really differs from what is stored — compared after trimming
+  and normalising (numbers as numbers, dates as days), and going back to the original value
+  disables it again. A new-record form can't be saved until its required answers are given.
+  Nothing reaches Firestore for a save that changes nothing.
+- **An action runs once, and the screen never hangs** — MUST (refined 2026-11-13 after a save
+  hung 15 s on his iPhone with no toast):
+  - **New / edit = never wait for the server.** The record goes on screen at once (optimistic
+    cache patch), the dialog closes, the success toast shows; the write lands in the
+    background. A later refusal → error toast + the screen put back (`saveWithoutWaiting`).
+  - **Online-only actions (deletes, bulk)** lock their controls while they run, but **7 s at
+    most**: then the dialog lets go with «Συνεχίζει — θα σου πούμε μόλις γίνει», the record
+    stays marked as pending (its row/actions disabled, everywhere it shows, Overview included),
+    and the real result arrives as a toast later.
+  - Nothing runs twice (`useOnceMutation`/`useRunOnce`); success only when it really happened;
+    never an error toast for something that went through.
 - **Every successful submit answers** through `src/shared/feedback/saveFeedback.ts` (reference:
   `AddTransactionModal`): `celebrateSave({ collection, id, milestone })` in the form after the
   save; `useSavedFlash(collection, ids)` + `className={flashClass(row.id)}` on the list.

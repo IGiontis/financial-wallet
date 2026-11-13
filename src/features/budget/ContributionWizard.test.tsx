@@ -13,7 +13,7 @@ import { expectNoErrors } from "../../test/noEarlyErrors";
 
 const spies = vi.hoisted(() => ({ expense: vi.fn(), covered: vi.fn() }));
 // Someone else paid: the three writes are the hook's, checked on their own.
-vi.mock("./useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: spies.covered, mutateAsync: spies.covered }) }));
+vi.mock("./useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: spies.covered, mutateAsync: (vars: unknown) => (spies.covered(vars), new Promise(() => {})) }) }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
   useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, convert: (n: number) => n, convertToBase: (n: number) => n, baseCurrency: "EUR", displayCurrency: "EUR" }),
@@ -35,7 +35,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
       { id: "other", name: "Other Expense", type: "expense", icon: "🧾", isDefault: true, userId: null },
     ],
   }),
-  useCreateTransaction: () => ({ mutate: spies.expense }),
+  // `saveWithoutWaiting` starts the save with `mutateAsync`; never answered here — the dialog must not wait for it.
+  useCreateTransaction: () => ({ mutateAsync: (vars: unknown) => (spies.expense(vars), new Promise(() => {})) }),
   useCreateCategoryScope: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
 // The payee field is the transactions' own; a plain input stands in for it.
@@ -191,7 +192,7 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
     expect(check(dialog)).toHaveTextContent("unchanged (it had already left)");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, contributionType: "withdrawal", accountId: "eurobank", heldBy: "Athanasia" }));
-    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, type: "expense", categoryId: "other", accountId: "eurobank" }), expect.anything());
+    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, type: "expense", categoryId: "other", accountId: "eurobank" }));
   });
 
   it("will not take from her more than she holds", async () => {
@@ -221,7 +222,7 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
     expect(check(dialog)).toHaveTextContent("€900.00 → €700.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, heldBy: undefined, accountId: "revolut" }));
-    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, categoryId: "travel", description: "Maria", accountId: "revolut" }), expect.anything());
+    expect(spies.expense).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, categoryId: "travel", description: "Maria", accountId: "revolut" }));
   });
 });
 

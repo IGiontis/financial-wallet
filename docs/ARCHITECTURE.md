@@ -80,6 +80,13 @@ Reads are counted in dev by `src/lib/readMeter.ts`. Details: `docs/DATABASE.md`,
 - User doc: `createUser` (`src/firebase/firestore.ts`) via `completeSignUp` (`features/auth/pendingSignUp.ts`) from Login/Register pages, or `ensureGoogleProfile` (`features/auth/googleProfile.ts`); an unfinished one is retried by `SessionGate`.
 - Default categories: `seedDefaultCategories` once per device (`src/firebase/seedCategories.ts`, list in `defaultCategories.ts`).
 - App Check: on only with `VITE_APPCHECK_SITE_KEY`, never in the demo or emulators (`src/firebase/config.ts`).
+  Every Firestore stream (writes too) starts only once BOTH the Auth token and the App Check token are in hand
+  (`Promise.all` in the SDK's persistent stream). An expired App Check token — the usual state of an iOS PWA
+  just back from the background, where the refresh timer did not run — means a reCAPTCHA Enterprise `execute`
+  first, which has no timeout in the SDK; a failed one sends a dummy token (counted «invalid» in Monitoring,
+  ~31% on 2026-11-13). So a write's acknowledgement can take many seconds: no dialog waits for it (DATA_FLOW
+  «The screen never hangs»). **Do not switch App Check to Enforced** while «invalid» is that high — those
+  requests would be refused.
 - Account deletion: `src/firebase/accountDeletion.ts` + `deleteAllUserData` over `OWNED_COLLECTIONS` (`src/firebase/ownedCollections.ts`); writes blocked meanwhile by `src/firebase/deletionGate.ts`. Ends on `/login` (full load), the device still known — unlike a sign-out.
 
 ## The public demo

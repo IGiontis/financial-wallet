@@ -159,9 +159,23 @@ export function useUpdateGoal() {
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
 
-  return useOnceMutation({
+  // On screen at once, as every edit is (`saveWithoutWaiting`): the dialog
+  // closes without waiting for the server, so the goal must already read as
+  // saved — and is put back if the write is refused. `null` takes a field off,
+  // as the write does (`updateInvestmentGoal`).
+  const merge = (goalId: string, data: UpdateInvestmentGoalDTO) => (rows: InvestmentGoal[]) =>
+    rows.map((row) => {
+      if (row.id !== goalId) return row;
+      const next = { ...row, ...withoutUndefined(data), updatedAt: new Date() } as Record<string, unknown>;
+      for (const [field, value] of Object.entries(data)) if (value === null) delete next[field];
+      return next as unknown as InvestmentGoal;
+    });
+
+  return useOnceMutation<void, Error, { goalId: string; data: UpdateInvestmentGoalDTO }, { goals: ListSnapshot<InvestmentGoal> }>({
     onceBy: sameCall,
-    mutationFn: ({ goalId, data }: { goalId: string; data: UpdateInvestmentGoalDTO }) => updateInvestmentGoal(goalId, data),
+    mutationFn: ({ goalId, data }) => updateInvestmentGoal(goalId, data),
+    onMutate: async ({ goalId, data }) => ({ goals: await editList(queryClient, investmentKeys.goals(userId), merge(goalId, data)) }),
+    onError: (_error, _vars, context) => restoreList(queryClient, context?.goals),
     onSuccess: () => {
       // Goals only: nothing here writes a contribution.
       void queryClient.invalidateQueries({ queryKey: investmentKeys.goals(userId) });

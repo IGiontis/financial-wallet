@@ -18,7 +18,7 @@ import {
   newDocId,
   type BillPaymentLink,
 } from "../../../firebase/firestore";
-import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO, BillWithStatus } from "../../../shared/types/IndexTypes";
+import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO, BillWithStatus, TransactionType } from "../../../shared/types/IndexTypes";
 import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
 import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
 import { billKeys, editPayments, paymentIdFor } from "../../bills/billCache";
@@ -287,33 +287,73 @@ export function useCategoryUsage() {
 
   return useOnceMutation({ onceBy: (categoryId: string) => categoryId, mutationFn: (categoryId: string) => countCategoryUsage(userId, categoryId) });
 }
+/** The ids a new category will be saved under, one per type — made on the device, so the form can pick it at once. */
+export type NewCategoryIds = Partial<Record<TransactionType, string>>;
+export const newCategoryIds = (scope: CategoryScope): NewCategoryIds => Object.fromEntries(scopeTypes(scope).map((type) => [type, newDocId("categories")]));
+
+export interface CreateCategoryScopeVars {
+  name: string;
+  icon?: string;
+  scope: CategoryScope;
+  /** From `newCategoryIds`, when the caller needs the new id before the server has answered. */
+  ids?: NewCategoryIds;
+}
+
+/** One set of ids per save, shared by the rows put on screen and the write — see `idsFor`. */
+const categoryIds = new WeakMap<CreateCategoryScopeVars, NewCategoryIds>();
+
 /**
  * Creates a category under one type or both at once, returning the new ids
  * keyed by type so an inline caller can select the half its form is recording.
+ * On the list at once (optimistic), as every new record is — the dialog never
+ * waits for the server (`saveWithoutWaiting`); put back if the write is refused.
  */
 export function useCreateCategoryScope() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const key = transactionKeys.categories(userId);
+  const idsOf = (vars: CreateCategoryScopeVars) => vars.ids ?? idsFor(categoryIds, vars, () => newCategoryIds(vars.scope));
+  const rowsOf = (vars: CreateCategoryScopeVars): Category[] => {
+    const now = new Date();
+    const ids = idsOf(vars);
+    return scopeTypes(vars.scope).flatMap((type) =>
+      ids[type] ? [{ ...withoutUndefined({ name: vars.name, icon: vars.icon }), type, id: ids[type], userId, isDefault: false, createdAt: now, updatedAt: now } as unknown as Category] : [],
+    );
+  };
+  const putRows = (rows: Category[]): ListEdit<Category> => (list) => rows.reduce((acc, row) => upsertById(row)(acc), list);
 
-  return useOnceMutation({
+  return useOnceMutation<Record<string, string>, Error, CreateCategoryScopeVars, { rows: Category[]; categories: ListSnapshot<Category> }>({
     onceBy: sameCall,
-    mutationFn: ({ name, icon, scope }: { name: string; icon?: string; scope: CategoryScope }) =>
-      createCategories(userId, { name, icon }, scopeTypes(scope)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+    mutationFn: (vars) => createCategories(userId, { name: vars.name, icon: vars.icon }, scopeTypes(vars.scope), idsOf(vars)),
+    onMutate: async (vars) => {
+      const rows = rowsOf(vars);
+      return { rows, categories: await editList(queryClient, key, putRows(rows)) };
+    },
+    onError: (_error, _vars, context) => restoreList(queryClient, context?.categories),
+    onSuccess: (_ids, _vars, context) => {
+      if (context) confirmList(queryClient, key, putRows(context.rows));
+    },
   });
 }
 
-/** Renames or restyles every document behind one listed category. */
+/** Renames or restyles every document behind one listed category — on screen at once, put back if refused. */
 export function useUpdateCategoryGroup() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const userId = currentUser?.uid ?? "";
+  const key = transactionKeys.categories(userId);
+  const merge =
+    (categoryIds: string[], data: UpdateCategoryDTO): ListEdit<Category> =>
+    (rows) =>
+      rows.map((row) => (categoryIds.includes(row.id) ? ({ ...row, ...withoutUndefined(data), updatedAt: new Date() } as Category) : row));
 
-  return useOnceMutation({
+  return useOnceMutation<void, Error, { categoryIds: string[]; data: UpdateCategoryDTO }, { categories: ListSnapshot<Category> }>({
     onceBy: sameCall,
-    mutationFn: ({ categoryIds, data }: { categoryIds: string[]; data: UpdateCategoryDTO }) => updateCategories(categoryIds, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: transactionKeys.categories(userId) }),
+    mutationFn: ({ categoryIds, data }) => updateCategories(categoryIds, data),
+    onMutate: async ({ categoryIds, data }) => ({ categories: await editList(queryClient, key, merge(categoryIds, data)) }),
+    onError: (_error, _vars, context) => restoreList(queryClient, context?.categories),
+    onSuccess: (_void, { categoryIds, data }) => confirmList(queryClient, key, merge(categoryIds, data)),
   });
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ROW_FLASH, useRowFlash } from "../hooks/useRowFlash";
 import { MODAL_MS } from "../components/modalMotion";
+import { usePendingRecords } from "../hooks/usePendingRecords";
 
 /** A card's flash (theme.css): a ring round it, a colour, nothing that moves. */
 export const CARD_FLASH = "card-flash";
@@ -174,10 +175,16 @@ export function grewBy(before: ReadonlySet<string>, ids: readonly string[]): str
  * The list side: lights the row that was just saved in `collection`. Pass the
  * ids on screen; when the save named no id, the first id that appears after it
  * (the new record arriving in the list) is the one lit. Returns the class for
- * a row, as `useRowFlash`'s `flashClass` does.
+ * a row, as `useRowFlash`'s `flashClass` does — plus `.row-pending` while an
+ * online-only action runs on that record (`usePendingRecords`), unless
+ * `withPending: false`.
  */
-export function useSavedFlash(collection: string, ids: readonly string[], kind: "row" | "card" = "row") {
+export function useSavedFlash(collection: string, ids: readonly string[], kind: "row" | "card" = "row", { withPending = true }: { withPending?: boolean } = {}) {
   const { flash: flashNow, flashClass: rowClass } = useRowFlash<string>();
+  // A record with an online-only action on its way (a delete, a merge) wears
+  // `.row-pending` as well: faded, nothing on it pressable, until the answer —
+  // on every list that lights its saves, with nothing more to wire.
+  const { pendingClass } = usePendingRecords();
   // Lit once the dialog that saved it has gone (see `afterDialogs`).
   const cancel = useRef<() => void>(() => {});
   useEffect(() => () => cancel.current(), []);
@@ -187,7 +194,14 @@ export function useSavedFlash(collection: string, ids: readonly string[], kind: 
   }, [flashNow]);
   // A card (a goal, a bank card) answers with a ring round it rather than a
   // row's wash: its own background is a picture or a surface of its own.
-  const flashClass = useCallback((id: string) => (rowClass(id) ? (kind === "card" ? CARD_FLASH : ROW_FLASH) : ""), [rowClass, kind]);
+  const flashClass = useCallback(
+    (id: string) => {
+      const lit = rowClass(id) ? (kind === "card" ? CARD_FLASH : ROW_FLASH) : "";
+      const pending = withPending ? pendingClass(collection, id) : "";
+      return lit && pending ? `${lit} ${pending}` : lit || pending;
+    },
+    [rowClass, kind, withPending, pendingClass, collection],
+  );
   const known = useRef<Set<string>>(new Set(ids));
   // The id that arrived as a GROWTH of the list (see `grewBy` below), with when —
   // an optimistic save can draw its row a moment BEFORE the form says it saved.

@@ -10,6 +10,7 @@ import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 
 const NOTE_MAX = 200;
@@ -32,20 +33,18 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
   const when = parseISODay(date);
   const values = { amount: formatCurrency(debt.remaining), who: debt.person };
 
-  // Runs once, waits for the server; a failure is said by `useUpdateDebt`.
+  // Runs once and never waits for the server (`saveWithoutWaiting`): the debt
+  // reads as forgiven at once, the dialog closes with the toast; a refusal
+  // puts it back and `useUpdateDebt` says so.
   const [run, running] = useRunOnce();
-  const working = running || update.isPending;
+  const working = running;
   const close = () => {
     if (!working) onClose();
   };
   const save = () =>
-    run(async () => {
+    run(() => {
       if (!when) return;
-      try {
-        await update.mutateAsync({ debtId: debt.id, data: { forgiven: forgiveness(debt, when, note) } });
-      } catch {
-        return;
-      }
+      void saveWithoutWaiting(update, { debtId: debt.id, data: { forgiven: forgiveness(debt, when, note) } }, undefined, [["debts", debt.id]]);
       toast.success(t("toasts.debtForgiven", { who: debt.person }));
       onClose();
     });

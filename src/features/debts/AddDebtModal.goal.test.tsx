@@ -23,7 +23,7 @@ vi.mock("../budget/useInvestments", () => ({
   }),
 }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [{ id: "other", name: "Other Expense", type: "expense" }, { id: "travel", name: "Travel", type: "expense" }] }) }));
-vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: spies.covered }) }));
+vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutateAsync: (vars: unknown) => (spies.covered(vars), new Promise(() => {})) }) }));
 // A new debt has nothing tied to it yet; a saved covered one is given its link below.
 const linked = vi.hoisted(() => ({ value: { link: undefined as unknown, goalName: undefined as string | undefined, ready: true, failed: false, retry: () => {} } }));
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => linked.value }));

@@ -95,7 +95,7 @@ export default function AddDebtModal({
   // Runs once: from the press until the server answers (debts wait for it),
   // Save says «Αποθήκευση…» and nothing can save again or close the dialog.
   const [runSave, savingNow] = useRunOnce();
-  const saving = create.isPending || edit.isPending || savingNow;
+  const saving = savingNow;
   const [savingCovered, setSavingCovered] = useState(false);
   const accounts = useAccountList();
 
@@ -290,24 +290,18 @@ export default function AddDebtModal({
         toast.error(t("debts.coveredLocked"));
         return;
       }
-      // A failure is said by the hook (`debts.saveFailed`); the form stays as it was.
-      try {
-        await edit.mutateAsync({ debtId: debt.id, data, covered: plan.edit });
-      } catch {
-        return;
-      }
+      // Never waits for the server (`saveWithoutWaiting`): the debt and its
+      // money are on screen at once, the dialog closes with the toast; a
+      // refusal puts them back and the hook says so (`debts.saveFailed`).
+      void saveWithoutWaiting(edit, { debtId: debt.id, data, covered: plan.edit }, undefined, [["debts", debt.id]]);
       celebrateSave({ collection: "debts", id: debt.id });
       toast.success(t("toasts.debtUpdated", { name: data.person }));
       onClose();
       return;
     }
-    let id: string;
-    try {
-      id = await create.mutateAsync(data);
-    } catch {
-      return;
-    }
-    celebrateSave({ collection: "debts", id });
+    // A new debt's id is made by the hook: the row that appears is the one lit.
+    void saveWithoutWaiting(create, data);
+    celebrateSave({ collection: "debts" });
     toast.success(t("toasts.debtCreated", { name: data.person }));
     onClose();
   };

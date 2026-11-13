@@ -37,6 +37,16 @@ export function computeDebtStatus(debt: Debt, allPayments: DebtPayment[], now: D
   return { ...debt, payments, paid, remaining, isSettled: remaining <= 0 };
 }
 
+/** A debt's own fields, without what `computeDebtStatus` adds — so it can be worked out again (a save shown before the server has it). */
+export function debtFields(debt: DebtWithStatus): Debt {
+  const own: Partial<DebtWithStatus> = { ...debt };
+  delete own.payments;
+  delete own.paid;
+  delete own.remaining;
+  delete own.isSettled;
+  return own as Debt;
+}
+
 /** How a debt settled without being paid is named: called off for a refund, or forgiven. */
 export const forgivenTag = (debt: Pick<DebtWithStatus, "forgiven">) => (debt.forgiven?.refund ? "debts.cancelledTag" : "debts.forgivenTag");
 

@@ -28,6 +28,8 @@ import { ForgiveDebtModal } from "./ForgiveDebtModal";
 import { LoanCards, MiniRing } from "./LoanCards";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { toast } from "react-toastify";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
@@ -102,19 +104,17 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
   // then the figure on file is certainly not the one the bank is charging.
   const stale = reviewed ? differenceInCalendarMonths(new Date(), reviewed) >= 6 : false;
 
-  // Runs once, waits for the server; a failure is said by `useUpdateDebt`.
+  // Runs once and never waits for the server (`saveWithoutWaiting`): the new
+  // rate is on screen at once with the toast; a refusal puts it back and
+  // `useUpdateDebt` says so.
   const [runIndex, savingIndex] = useRunOnce();
   const saveIndex = () =>
-    runIndex(async () => {
+    runIndex(() => {
       if (!changed) return;
       // The stored rate stays the sum of the parts. Writing one without the other
       // would leave the payment and the rate beside it disagreeing.
       const allIn = Math.round((typed + (debt.margin ?? 0)) * 100) / 100;
-      try {
-        await update.mutateAsync({ debtId: debt.id, data: { baseRate: typed, interestRate: allIn, rateReviewedAt: new Date() } });
-      } catch {
-        return;
-      }
+      void saveWithoutWaiting(update, { debtId: debt.id, data: { baseRate: typed, interestRate: allIn, rateReviewedAt: new Date() } }, undefined, [["debts", debt.id]]);
       toast.success(t("toasts.rateUpdated"));
     });
 
@@ -165,7 +165,7 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
           <Input type="number" min={0} step="0.01" inputMode="decimal" value={index} onChange={(e) => setIndex(e.target.value)} aria-label={t("debts.baseRate")} />
           <InputGroupText>%</InputGroupText>
         </InputGroup>
-        <Button color="secondary" outline size="sm" disabled={!changed || update.isPending || savingIndex} onClick={() => void saveIndex()} aria-busy={savingIndex || undefined}>
+        <Button color="secondary" outline size="sm" disabled={!changed || savingIndex} onClick={() => void saveIndex()} aria-busy={savingIndex || undefined}>
           {savingIndex ? t("common.saving") : t("debts.updateIndex")}
         </Button>
       </div>
@@ -511,7 +511,7 @@ export default function PersonDebtsModal({
   const splits = loan ? loanSplits(debt) : undefined;
   const cleared = clearedPercent(debt, loan);
   const canWhatIf = !!loan && !debt.isSettled;
-  const saving = updateRepayment.isPending || panelBusy;
+  const saving = panelBusy;
 
   // What the button says and what it fills in. On a loan that is the month's
   // payment — the thing actually being paid — or what is left, if that is less.
@@ -654,30 +654,30 @@ export default function PersonDebtsModal({
     const written = panelAccount === undefined || accounts.length === 0 ? panelAccount : chosenAccount(accounts, panelAccount);
 
     // `null` when switched off, so the card it had is taken off rather than kept.
-    // A failure is said by `useUpdateRepayment`; the panel stays as it was.
+    // Never waits for the server (`saveWithoutWaiting`): corrected on screen at
+    // once, the panel closes with the toast; a refusal puts it back and
+    // `useUpdateRepayment` says so.
     const vars = { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null };
-    void runPanel(async () => {
-      try {
-        await updateRepayment.mutateAsync(vars);
-      } catch {
-        return;
-      }
+    void runPanel(() => {
+      void saveWithoutWaiting(updateRepayment, vars, undefined, [["debts", debt.id]]);
       setPanel(null);
       toast.success(t("toasts.repaymentUpdated"));
     });
   };
 
-  // Returned to `DeleteButton`, which keeps its question up, locked, until the answer.
+  // Online only: returned to `DeleteButton`, which keeps its question up,
+  // locked, until the answer — 7 s at most (`answerOrLetGo`); then it lets go,
+  // the loan stays disabled and the toast comes with the answer. A failure is
+  // said by `useDeleteRepayment`.
   const deletePanelPayment = () =>
-    runPanel(async () => {
+    runPanel(() => {
       if (!panel) return;
-      try {
-        await removeRepayment.mutateAsync({ paymentId: panel.payment.id, debtId: debt.id });
-      } catch {
-        return;
-      }
-      setPanel(null);
-      toast.success(t("toasts.repaymentDeleted"));
+      const paymentId = panel.payment.id;
+      return answerOrLetGo(() => removeRepayment.mutateAsync({ paymentId, debtId: debt.id }), {
+        records: [["debts", debt.id]],
+        close: () => setPanel((open) => (open?.payment.id === paymentId ? null : open)),
+        succeeded: () => toast.success(t("toasts.repaymentDeleted")),
+      });
     });
 
   const rateText = !loan
@@ -905,12 +905,9 @@ export default function PersonDebtsModal({
                 disabled={unforgive.isPending || unforgiving}
                 aria-busy={unforgiving || undefined}
                 onClick={() =>
-                  void runUnforgive(async () => {
-                    try {
-                      await unforgive.mutateAsync({ debtId: debt.id, data: { forgiven: null } });
-                    } catch {
-                      return;
-                    }
+                  // An edit: on screen at once, never waiting for the server (`saveWithoutWaiting`).
+                  void runUnforgive(() => {
+                    void saveWithoutWaiting(unforgive, { debtId: debt.id, data: { forgiven: null } }, undefined, [["debts", debt.id]]);
                     toast.success(t("toasts.debtUnforgiven", { who: debt.person }));
                   })
                 }
@@ -960,32 +957,36 @@ export default function PersonDebtsModal({
             )}
           </ModalBody>
           <ModalFooter>
-            <Button color="secondary" outline onClick={() => setDeleting(null)} disabled={removeDebt.isPending || removing}>
+            <Button color="secondary" outline onClick={() => setDeleting(null)} disabled={removing}>
               {t("common.cancel")}
             </Button>
             <Button
               color="danger"
-              disabled={removeDebt.isPending || removing || deleteGuard.locked || !deletingLink.ready}
+              disabled={removing || deleteGuard.locked || !deletingLink.ready}
               aria-busy={removing || undefined}
               title={deleteGuard.reason}
               onClick={() =>
-                void runRemove(async () => {
-                  // A failure is said by `useDeleteDebt`; the loan stays on screen.
-                  try {
-                    await removeDebt.mutateAsync({
-                      debtId: deleting.id,
-                      paymentIds: deleting.payments.map((p) => p.id),
-                      covered: { contributionId: deletingLink.link?.contribution?.id, expenseId: deletingLink.link?.expense?.id },
-                    });
-                  } catch {
-                    return;
-                  }
-                  setDeleting(null);
-                  toast.success(t("toasts.debtDeleted", { who: deleting.person }));
+                // Online only: waits for the answer, 7 s at most (`answerOrLetGo`). A
+                // failure is said by `useDeleteDebt`; the loan stays on screen.
+                void runRemove(() => {
+                  const target = deleting;
+                  return answerOrLetGo(
+                    () =>
+                      removeDebt.mutateAsync({
+                        debtId: target.id,
+                        paymentIds: target.payments.map((p) => p.id),
+                        covered: { contributionId: deletingLink.link?.contribution?.id, expenseId: deletingLink.link?.expense?.id },
+                      }),
+                    {
+                      records: [["debts", target.id]],
+                      close: () => setDeleting((open) => (open?.id === target.id ? null : open)),
+                      succeeded: () => toast.success(t("toasts.debtDeleted", { who: target.person })),
+                    },
+                  );
                 })
               }
             >
-              {removeDebt.isPending || removing ? t("common.deleting") : t("common.delete")}
+              {removing ? t("common.deleting") : t("common.delete")}
             </Button>
           </ModalFooter>
         </Modal>

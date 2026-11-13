@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { sameName } from "../../shared/utils/nameMatch";
 import { FiPlus } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
-import { useCreateCategoryScope } from "../transactions/hooks/useTransactions";
+import { newCategoryIds, useCreateCategoryScope } from "../transactions/hooks/useTransactions";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import CategoryModal from "./CategoryModal";
 
 interface NewCategoryButtonProps {
@@ -60,19 +61,17 @@ export default function NewCategoryButton({ categories, type, onCreated, size }:
             if (pick) onCreated(pick.id);
           }}
           onSubmit={(values) =>
-            void run(async () => {
-              let created: Awaited<ReturnType<typeof createCategory.mutateAsync>>;
-              try {
-                created = await createCategory.mutateAsync(values);
-              } catch {
-                toast.error(t("toasts.categorySaveFailed"));
-                return;
-              }
+            void run(() => {
+              // Never waits for the server: the ids are made here, the
+              // category is on the list at once and picked in the form; a
+              // refusal later takes it off and says so (`saveWithoutWaiting`).
+              const ids = newCategoryIds(values.scope);
+              void saveWithoutWaiting(createCategory, { ...values, ids }, () => toast.error(t("toasts.categorySaveFailed")));
               setOpen(false);
               toast.success(t("toasts.categoryCreated", { name: values.name }));
               // A "both" choice writes two documents; select the half this
-              // form is actually recording, not whichever came back first.
-              const id = created[type];
+              // form is actually recording.
+              const id = ids[type];
               if (id) onCreated(id);
             })
           }

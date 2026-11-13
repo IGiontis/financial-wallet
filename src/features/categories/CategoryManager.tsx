@@ -9,7 +9,9 @@ import { FiEdit2, FiGitMerge, FiTrash2 } from "react-icons/fi";
 import { categoryAliases, groupCategories, type CategoryGroup, type CategoryScope } from "../../shared/utils/categoryNames";
 import { categoryLabel } from "../../shared/utils/categories";
 import { similarPairs } from "../../shared/utils/nameMatch";
-import { useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useTransactions } from "../transactions/hooks/useTransactions";
+import { newCategoryIds, useCategories, useCreateCategoryScope, useUpdateCategoryGroup, useDeleteCategoryGroup, useTransactions } from "../transactions/hooks/useTransactions";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { payeeMatch } from "../transactions/payeeStore";
 import { useBills } from "../bills/useBills";
 import { useIncomeList } from "../incomes/useIncomes";
@@ -129,49 +131,47 @@ export default function CategoryManager() {
   const usage = useMemo(() => (deleteTarget && usageReady ? categoryUsage(deleteTarget.members.map((m) => m.id), sources) : null), [deleteTarget, usageReady, sources]);
   const inUse = usage !== null && totalUsage(usage) > 0;
 
-  // Each runs once and waits for the server; its dialog is locked meanwhile
-  // and the toast says how it went (`.claude/rules/ui.md`).
+  // The online-only ones (delete, merge) run once and wait for the server,
+  // 7 s at most (`answerOrLetGo`): the dialog is locked meanwhile, then lets
+  // go and the category stays disabled until the answer, which the toast says
+  // (`.claude/rules/ui.md`).
   const [runDelete, deleting] = useRunOnce();
   const confirmDelete = () =>
-    runDelete(async () => {
+    runDelete(() => {
       if (!deleteTarget || usage === null || inUse) return;
       const group = deleteTarget;
-      try {
-        await deleteCategory.mutateAsync(group.members.map((m) => m.id));
-      } catch {
-        toast.error(t("toasts.categoryDeleteFailed"));
-        return;
-      }
-      setDeleteTarget(null);
-      toast.success(t("toasts.categoryDeleted", { name: label(group) }));
+      const ids = group.members.map((m) => m.id);
+      return answerOrLetGo(() => deleteCategory.mutateAsync(ids), {
+        records: ids.map((id) => ["categories", id] as const),
+        close: () => setDeleteTarget((open) => (open && groupKey(open) === groupKey(group) ? null : open)),
+        succeeded: () => toast.success(t("toasts.categoryDeleted", { name: label(group) })),
+        failed: () => toast.error(t("toasts.categoryDeleteFailed")),
+      });
     });
   const closeDelete = () => {
     if (!deleting) setDeleteTarget(null);
   };
 
-  const merge = async (plan: CategoryMergePlan) => {
-    try {
-      await mergeCategories.mutateAsync(plan);
-    } catch (error) {
-      toast.error(t("names.saveFailed"));
-      throw error;
-    }
-    celebrateSave({ collection: "categories", id: Object.values(plan.pairs)[0] });
-    toast.success(t("toasts.categoriesMerged"));
-    setMerging(null);
-  };
+  const merge = (plan: CategoryMergePlan) =>
+    answerOrLetGo(() => mergeCategories.mutateAsync(plan), {
+      records: [...plan.deleteIds, ...Object.values(plan.pairs)].map((id) => ["categories", id] as const),
+      close: () => setMerging(null),
+      succeeded: () => {
+        celebrateSave({ collection: "categories", id: Object.values(plan.pairs)[0] });
+        toast.success(t("toasts.categoriesMerged"));
+      },
+      failed: () => toast.error(t("names.saveFailed")),
+    });
 
+  // A new category never waits for the server: it is on the list at once, the
+  // dialog closes with the toast, and a refusal later takes it off and says so
+  // (`saveWithoutWaiting`).
   const [runCreate, creatingNow] = useRunOnce();
   const create = (values: { name: string; icon: string; scope: CategoryScope }) =>
-    runCreate(async () => {
-      try {
-        await createCategory.mutateAsync(values);
-      } catch {
-        toast.error(t("toasts.categorySaveFailed"));
-        return;
-      }
-      // Its id is the server's: the row that appears is the one lit.
-      celebrateSave({ collection: "categories" });
+    runCreate(() => {
+      const ids = newCategoryIds(values.scope);
+      void saveWithoutWaiting(createCategory, { ...values, ids }, () => toast.error(t("toasts.categorySaveFailed")));
+      celebrateSave({ collection: "categories", id: Object.values(ids)[0] });
       toast.success(t("toasts.categoryCreated", { name: values.name }));
       setCreating(false);
     });
@@ -190,19 +190,17 @@ export default function CategoryManager() {
    * failure in between leaves a one-sided category with its new name rather
    * than two halves that no longer match and list as two categories.
    */
+  // Never waits for the server either: both writes are queued in that order
+  // (Firestore sends a device's writes in the order made) and on screen at
+  // once; a refusal puts the list back and says so.
   const [runEdit, savingEdit] = useRunOnce();
   const saveEdit = (group: CategoryGroup, values: { name: string; icon: string; scope: CategoryScope }) =>
-    runEdit(async () => {
+    runEdit(() => {
       const fields = { name: values.name, icon: values.icon };
       const missing = typesToAdd(group.scope, values.scope);
-      try {
-        await updateCategory.mutateAsync({ categoryIds: group.members.map((m) => m.id), data: fields });
-        for (const type of missing) await createCategory.mutateAsync({ name: fields.name, icon: fields.icon, scope: type });
-      } catch {
-        // Left open, as it was, to try again.
-        toast.error(t("toasts.categorySaveFailed"));
-        return;
-      }
+      const failed = () => toast.error(t("toasts.categorySaveFailed"));
+      void saveWithoutWaiting(updateCategory, { categoryIds: group.members.map((m) => m.id), data: fields }, failed);
+      for (const type of missing) void saveWithoutWaiting(createCategory, { name: fields.name, icon: fields.icon, scope: type }, failed);
       celebrateSave({ collection: "categories", id: group.members[0]?.id });
       toast.success(t("toasts.categoryUpdated", { name: values.name }));
       setEditing(null);

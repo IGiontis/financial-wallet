@@ -39,7 +39,8 @@ vi.mock("../transactions/hooks/useTransactions", () => ({
   useTransactions: () => ({ data: data.transactions, isLoading: false, isError: false, isSuccess: true }),
   useCategories: () => ({ data: data.categories }),
   // «Ήρθε» from an income's card writes through this.
-  useCreateTransaction: () => ({ mutate: (dto: unknown) => data.created.push(dto) }),
+  // `saveWithoutWaiting` starts the save with `mutateAsync`; never answered here.
+  useCreateTransaction: () => ({ mutateAsync: (dto: unknown) => (data.created.push(dto), new Promise(() => {})) }),
   // The card's «Αναίρεση» deletes through this.
   useDeleteTransaction: () => ({ mutate: vi.fn() }),
 }));

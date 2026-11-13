@@ -1401,6 +1401,16 @@ html:root {
   animation: card-flash var(--motion-flash) var(--ease-standard);
 }
 
+/* A record with an online-only action still on its way (a delete, a merge —
+   `usePendingRecords`, shared/utils/pendingRecords.ts): its row or card
+   fades and takes no presses until the answer comes. A colour, nothing that
+   moves. */
+.row-pending {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: progress;
+}
+
 /* The dialog that just saved (`celebrateSave`, shared/feedback/saveFeedback.ts):
    a ring of the money-in green breathes out round the card while it gives a
    tiny swell. Under reduced motion the ring alone — a colour, nothing moves. */

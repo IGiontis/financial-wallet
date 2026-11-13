@@ -142,16 +142,31 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 - `src/shared/feedback/saveFeedback.ts` — after a save resolves: `celebrateSave({ collection, id?,
   milestone? })` (milestone only: goal reached, debt paid off). On the list: `const flashClass =
-  useSavedFlash(collection, ids)` → `className={flashClass(row.id)}` (`kind: "card"` for cards). Reference:
-  `AddTransactionModal` + `TransactionPage`. Also `afterDialogs`, `announceSaved`/`onSaved` (internals).
+  useSavedFlash(collection, ids)` → `className={flashClass(row.id)}` (`kind: "card"` for cards; the class also
+  carries `.row-pending` while an online-only action runs on that record — `{ withPending: false }` for the
+  flash alone). Reference: `AddTransactionModal` + `TransactionPage`. Also `afterDialogs`, `announceSaved`/`onSaved` (internals).
 - `src/shared/hooks/useRowFlash.ts` — the low-level row light under `useSavedFlash`; use it directly only for a
   flash not tied to a save. `src/features/budget/components/useGoalFlash.ts` — goal cards' version.
-- `src/shared/utils/saveWithoutWaiting.ts` — `saveWithoutWaiting(mutation, vars, onFailure?)`: optimistic
-  save; the dialog closes at once, a lost write lands in `onFailure` (toast). Never `await` a Firestore write.
+- `src/shared/utils/saveWithoutWaiting.ts` — `saveWithoutWaiting(mutation, vars, onFailure?, records?)`: THE way
+  every new record / edit saves. Optimistic (the mutation needs an `onMutate` cache patch + rollback); the dialog
+  closes at once with its toast, a lost write lands in `onFailure` (toast) — off the write's own promise, so it
+  is said after the dialog has gone. `records` (`[["bills", id]]`) are marked `"save"` pending until the server
+  has them. Never `await` a Firestore write (`actionsRunOnce.test.ts`).
+- `src/shared/utils/pendingRecords.ts` — `answerOrLetGo(work, { records, succeeded, failed, close, letGo? })`: THE
+  way an online-only action (delete, bulk, reset, merge, rename everywhere) runs. Return it to `DeleteButton` /
+  `ConfirmSheet` / `GoalDeleteModal` / `useRunOnce`: locked while it runs, `LET_GO_MS` (7 s) at most — then
+  `close` (or `letGo`), the info toast `toasts.stillRunning`, and `succeeded` / `failed` (with their toasts) when
+  it settles. Report the result there, never after the await. Never rejects. Also the store: `markPending`,
+  `pendingKindOf` (`"action"` / `"save"`).
+- `src/shared/hooks/usePendingRecords.ts` — `const { busy, writing, pendingClass } = usePendingRecords()`: `busy`
+  (an online-only action runs on the record) → disable its row and actions, `pendingClass` → `.row-pending`
+  (theme.css: faded, no presses); `writing` (any write, a save not yet acknowledged too) → what the Overview's
+  clickable items check. `useSavedFlash` already adds `.row-pending`, so a list that lights its saves needs
+  nothing more; goal cards/rows add it themselves (`useGoalFlash` is the flash alone).
 - `src/shared/components/DeleteButton.tsx` — every delete: asks first (`what` names it in the question);
   `opensConfirm` when the page opens its own fuller confirm (cascades); `iconOnly`, `wordFromSm`. Far left.
-  **Runs once**: return the delete's promise from `onClick` (`mutateAsync` in a try/catch that toasts) and the
-  question stays up, «Διαγραφή…», every button and its close/Esc locked, until the answer; `busy` draws it
+  **Runs once**: return `answerOrLetGo(() => remove.mutateAsync(id), {…})` from `onClick` and the question stays
+  up, «Διαγραφή…», every button and its close/Esc locked, until the answer — 7 s at most; `busy` draws it
   working when the delete runs elsewhere. Never `mutate(…, { onSuccess })` for a delete.
 - `src/features/incomes/components/ConfirmSheet.tsx` — the best existing "are you sure" sheet for a cascading
   or irreversible action (`title`, `body`, `hint`, `confirmLabel`, `lockedReason`, `busyLabel`). Reuse rather
@@ -161,8 +176,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/shared/hooks/useRunOnce.ts` — `const [run, running] = useRunOnce()`: a button's lock while its action runs.
   `run(action)` refuses a second call at once (a ref — a double-click lands before React draws `disabled`);
   `running` for `disabled` / «Αποθήκευση…» / the dialog's `keyboard={!running}` + `backdrop="static"` + no ✕.
-  The action toasts its own result; `run` never rejects. Every save/delete/confirm that waits for the server
-  and is not already a `DeleteButton` / `ConfirmSheet` (reference: `ForgiveDebtModal`, `BillsPage` delete).
+  The action toasts its own result; `run` never rejects. Every save/delete/confirm that is not already a
+  `DeleteButton` / `ConfirmSheet`: a save inside it calls `saveWithoutWaiting` and closes (reference:
+  `ForgiveDebtModal`); an online-only action returns `answerOrLetGo(…)` (reference: `BillsPage` delete).
 - `src/shared/hooks/useOnceMutation.ts` — THE way to declare a write (never TanStack's `useMutation`;
   `actionsRunOnce.test.ts` checks): `useMutation` + `onceBy` (required) — a second call that is the same action
   while the first is in flight starts nothing (`mutate` drops it, `mutateAsync` returns the first promise).

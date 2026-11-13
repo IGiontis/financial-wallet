@@ -46,6 +46,7 @@ import { netWorthSeries } from "../../analytics/netWorthUtils";
 import { monthTimeline } from "../../bills/monthTimeline";
 import { monthForecast, overdueBills } from "../../bills/billsUtils";
 import BillMonthTimeline from "../../bills/BillMonthTimeline";
+import { ROW_PENDING, usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 import { attentionItems, goalsProgress, spendingByCategory } from "../overviewTabs";
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../../shared/utils/categories";
@@ -113,6 +114,8 @@ export const OverviewPage = () => {
   const [isPending, startTransition] = useTransition();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<InvestmentGoalWithStats | null>(null);
+  // Records with a write still on its way: their clickable items here wait for it (`pendingRecords`).
+  const { writing } = usePendingRecords();
   const [appliedRange, setAppliedRange] = useState<CustomRange>({
     fromMonth: now.getMonth(),
     fromYear: now.getFullYear(),
@@ -280,12 +283,14 @@ export const OverviewPage = () => {
                     return (
                       <div
                         key={goal.id}
-                        className={`p-3 ${styles.goalCard}`}
+                        // A goal with any write on its way (a deposit not yet acknowledged, a delete) opens nothing until it lands.
+                        className={`p-3 ${styles.goalCard} ${writing("investmentGoals", goal.id) ? ROW_PENDING : ""}`}
                         role="button"
-                        tabIndex={0}
-                        onClick={() => setSelectedGoal(goal)}
+                        tabIndex={writing("investmentGoals", goal.id) ? -1 : 0}
+                        aria-disabled={writing("investmentGoals", goal.id) || undefined}
+                        onClick={() => !writing("investmentGoals", goal.id) && setSelectedGoal(goal)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
+                          if ((e.key === "Enter" || e.key === " ") && !writing("investmentGoals", goal.id)) {
                             e.preventDefault();
                             setSelectedGoal(goal);
                           }

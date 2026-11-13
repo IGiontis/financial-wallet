@@ -48,10 +48,8 @@ export default function IncomeQuickView({ incomeId, onClose, onEdit }: { incomeI
         })}
         confirmLabel={t("incomes.card.undoRecord")}
         lockedReason={deleteGuard.locked && undoing.transactionIds.length > 0 ? deleteGuard.reason : undefined}
-        onConfirm={async () => {
-          // The sheet waits, locked, for the deletes; it goes once they went.
-          if (await undoArrival(undoing)) setUndoing(null);
-        }}
+        // The sheet waits, locked, for the deletes (7 s at most); it goes once they went.
+        onConfirm={() => undoArrival(undoing, () => setUndoing(null))}
         onClose={() => setUndoing(null)}
       />
     );

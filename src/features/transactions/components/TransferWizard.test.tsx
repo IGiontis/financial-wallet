@@ -12,7 +12,8 @@ import TransferWizard from "./TransferWizard";
 
 const saved = vi.hoisted(() => ({ calls: [] as unknown[] }));
 vi.mock("../hooks/useTransfers", () => ({
-  useSaveTransfer: () => ({ mutate: (vars: unknown) => saved.calls.push(vars) }),
+  // `saveWithoutWaiting` starts the save with `mutateAsync`; never answered here — the dialog must not wait for it.
+  useSaveTransfer: () => ({ mutateAsync: (vars: unknown) => (saved.calls.push(vars), new Promise(() => {})) }),
 }));
 vi.mock("../../../firebase/firestore", () => ({ newDocId: () => "T1" }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, baseCurrency: "EUR" }) }));

@@ -30,6 +30,7 @@ import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
 import { useAllContributions, useInvestmentGoals, useCreateGoal, useAddContribution, useCloseGoal, useDeleteGoal, useUpdateGoal } from "../budget/useInvestments";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
 import { isSavingsGoal } from "../budget/goalKinds";
@@ -39,6 +40,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../shared/hooks/useAuth";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { AddButton } from "../../shared/components/AddButton";
+import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 
 // ─── Scope ────────────────────────────────────────────────────────────────────
 // A goal "belongs" to GoalsPage if it is targeted AND not recurring.
@@ -74,22 +76,24 @@ export default function GoalsPage() {
   const addContribution = useAddContribution();
   const deleteGoalMutation = useDeleteGoal();
   const closeGoalMutation = useCloseGoal();
+  // Records with an online-only action on its way (`answerOrLetGo`).
+  const pending = usePendingRecords();
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   // Each dialog closes on its optimistic row rather than on the server's
   // answer — see `saveWithoutWaiting`. A rejection arrives as a toast instead.
   const handleDeposit = (data: CreateInvestmentContributionDTO): Promise<void> =>
-    saveWithoutWaiting(addContribution, { data, goalName: depositGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.depositFailed")));
+    saveWithoutWaiting(addContribution, { data, goalName: depositGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.depositFailed")), [["investmentGoals", data.goalId]]);
 
   const handleWithdraw = (data: CreateInvestmentContributionDTO): Promise<void> =>
-    saveWithoutWaiting(addContribution, { data, goalName: withdrawGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.withdrawFailed")));
+    saveWithoutWaiting(addContribution, { data, goalName: withdrawGoal?.name ?? "", isGoalTransaction: true }, () => toast.error(t("goals.withdrawFailed")), [["investmentGoals", data.goalId]]);
 
   const handleCreateGoal = (data: CreateInvestmentGoalDTO, isActive: boolean): Promise<void> =>
     saveWithoutWaiting(createGoalMutation, { data, isActive }, () => toast.error(t("goals.createFailed")));
 
   const handleEditGoal = (goalId: string, data: UpdateInvestmentGoalDTO): Promise<void> =>
-    saveWithoutWaiting(updateGoalMutation, { goalId, data }, () => toast.error(t("goals.updateFailed")));
+    saveWithoutWaiting(updateGoalMutation, { goalId, data }, () => toast.error(t("goals.updateFailed")), [["investmentGoals", goalId]]);
 
   // Given up on: the goal and every record of it go, so money handed to
   // someone comes back to the card it left. Done: it is closed instead — the
@@ -99,49 +103,60 @@ export default function GoalsPage() {
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
 
-  // Waits for the answer (`mutateAsync`) and reports it honestly: the dialog
-  // stays up and locked until then (`GoalDeleteModal`), closes on success with
-  // the toast, and on a failure stays with nothing removed. A second press is
-  // never a second delete — `useOnceMutation`.
-  const handleDeleteGoal = async (ending: GoalEnding) => {
+  // Online only: waits for the answer and reports it honestly — 7 s at most
+  // (`answerOrLetGo`). The dialog stays up and locked meanwhile
+  // (`GoalDeleteModal`), closes on success with the toast, and on a failure
+  // stays with nothing removed. Past 7 s it lets go, the goal stays disabled
+  // wherever it shows, and the toast comes when the answer does. A second
+  // press is never a second delete — `useOnceMutation`.
+  const handleDeleteGoal = (ending: GoalEnding) => {
     if (!deleteGoal) return;
     const goal = deleteGoal;
     const erase = ending.erase ?? [];
-    try {
-      let done: string;
-      if (ending.close) {
-        await closeGoalMutation.mutateAsync({ goalId: goal.id, records: ending.close, erase });
-        done = t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name });
-      } else {
-        await deleteGoalMutation.mutateAsync(erase.length > 0 ? { goalId: goal.id, erase } : goal.id);
-        done = ownSaved(goal) > 0 ? t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) }) : t("toasts.goalDeleted", { name: goal.name });
-      }
-      setDeleteGoal(null);
-      // What became of each loan, said in the same toast.
-      const said = [done];
-      if (ending.erasedNames?.length) said.push(t("goalDelete.doneErased", { who: ending.erasedNames.join(", ") }));
-      if (ending.keptNames?.length) said.push(t("goalDelete.doneKept", { who: ending.keptNames.join(", ") }));
-      toast.success(said.join(" · "));
-    } catch (error) {
-      if (error instanceof CoveredRepaidError) {
-        // Repaid on another device since the dialog read it: read the debts again, so it asks afresh.
-        void queryClient.invalidateQueries({ queryKey: debtKeys.all(currentUser?.uid ?? "") });
-        toast.error(t("goalDelete.repaidMeanwhile"));
-        return;
-      }
-      toast.error(t("goals.deleteFailed"));
-    }
+    const closing = !!ending.close;
+    return answerOrLetGo(
+      () =>
+        ending.close
+          ? closeGoalMutation.mutateAsync({ goalId: goal.id, records: ending.close, erase })
+          : deleteGoalMutation.mutateAsync(erase.length > 0 ? { goalId: goal.id, erase } : goal.id),
+      {
+        records: [["investmentGoals", goal.id]],
+        close: () => setDeleteGoal((open) => (open?.id === goal.id ? null : open)),
+        succeeded: () => {
+          const done = closing
+            ? t("goalDelete.doneSpent", { amount: formatCurrency(ownSaved(goal)), name: goal.name })
+            : ownSaved(goal) > 0
+              ? t("goalDelete.doneDropped", { amount: formatCurrency(ownSaved(goal)) })
+              : t("toasts.goalDeleted", { name: goal.name });
+          // What became of each loan, said in the same toast.
+          const said = [done];
+          if (ending.erasedNames?.length) said.push(t("goalDelete.doneErased", { who: ending.erasedNames.join(", ") }));
+          if (ending.keptNames?.length) said.push(t("goalDelete.doneKept", { who: ending.keptNames.join(", ") }));
+          toast.success(said.join(" · "));
+        },
+        failed: (error) => {
+          if (error instanceof CoveredRepaidError) {
+            // Repaid on another device since the dialog read it: read the debts again, so it asks afresh.
+            void queryClient.invalidateQueries({ queryKey: debtKeys.all(currentUser?.uid ?? "") });
+            toast.error(t("goalDelete.repaidMeanwhile"));
+            return;
+          }
+          toast.error(t("goals.deleteFailed"));
+        },
+      },
+    );
   };
 
   // Stable, because it is handed to every row on the screen: a new function each
   // render is a new prop for every card, and nothing downstream can be memoised
   // past it.
+  // An edit: on screen and said at once, never waiting for the server; a
+  // refusal puts it back and says so (`saveWithoutWaiting`).
   const handleTogglePause = useCallback(
-    (goal: InvestmentGoalWithStats) =>
-      updateGoalMutation
-        .mutateAsync({ goalId: goal.id, data: { isActive: !goal.isActive } })
-        .then(() => toast.success(t(goal.isActive ? "toasts.goalPaused" : "toasts.goalResumed", { name: goal.name })))
-        .catch(() => toast.error(t("goals.updateFailed"))),
+    (goal: InvestmentGoalWithStats) => {
+      toast.success(t(goal.isActive ? "toasts.goalPaused" : "toasts.goalResumed", { name: goal.name }));
+      return saveWithoutWaiting(updateGoalMutation, { goalId: goal.id, data: { isActive: !goal.isActive } }, () => toast.error(t("goals.updateFailed")), [["investmentGoals", goal.id]]);
+    },
     [updateGoalMutation, t],
   );
 
@@ -260,7 +275,7 @@ export default function GoalsPage() {
       {depositGoal && <ContributionWizard goal={depositGoal} kind="deposit" isGoal={true} onClose={() => setDepositGoal(null)} onSubmit={handleDeposit} />}
       {withdrawGoal && <ContributionWizard goal={withdrawGoal} kind="withdrawal" isGoal={true} onClose={() => setWithdrawGoal(null)} onSubmit={handleWithdraw} />}
       {editGoal && <EditGoalModal goal={editGoal} isOpen onClose={() => setEditGoal(null)} onSubmit={handleEditGoal} onDelete={() => { setDeleteGoal(editGoal); setEditGoal(null); }} />}
-      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={deleteGoalMutation.isPending || closeGoalMutation.isPending} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
+      {deleteGoal && <GoalDeleteModal goal={deleteGoal} isDeleting={pending.busy("investmentGoals", deleteGoal.id)} onConfirm={handleDeleteGoal} onClose={() => setDeleteGoal(null)} />}
       {/*
         defaultGoalType="targeted":
           - Hides the goal type selector (always targeted)

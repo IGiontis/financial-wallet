@@ -65,10 +65,31 @@ doc and fail the whole batch → an error toast for a goal that was gone (reprod
   double-click is refused before React draws `disabled`). While it runs: «Διαγραφή…» / «Αποθήκευση…», every
   other button disabled, no ✕, no Esc, static backdrop. A closing dialog takes no presses
   (`theme.css`, `.modal.fade:not(.show) .modal-content`).
-- **Honest answer**: handlers use `mutateAsync` in try/catch — success toast only after it went, an error toast
-  saying what did not happen and the dialog left as it was (deletes are not applied to the lists until the
-  server agrees, except the two below that put the row back on error). Never `mutate(…, { onSuccess })` for
-  a delete: TanStack drops those callbacks when the component unmounts or a second `mutate` is made.
+- **The screen never hangs** (the owner, 2026-11-13: a Save sat locked 15 s on his iPhone, no toast, over a
+  record that had been saved — handlers awaited `mutateAsync`, and a Firestore write promise settles only on
+  the SERVER's acknowledgement). Two kinds of write, two rules:
+  - **New / edit** never wait: `saveWithoutWaiting` — optimistic cache patch (rows everywhere at once), the
+    dialog closes, success toast + `celebrateSave` at once; a later refusal → the hook's `onError` puts the
+    cache back + the `onFailure` toast (hung off the write's own promise, so it is said after the dialog has
+    gone). Batched linked writes (bill payment, goal deposit/withdrawal, covered funding, repayment, gap
+    records, business closing, transfer, «Ήρθε») included.
+  - **Online-only** (deletes, bulk, reset, merges, rename everywhere, business delete, closing a goal, «Ήρθε»
+    undone): `answerOrLetGo(work, { records, succeeded, failed, close })` (`shared/utils/pendingRecords.ts`) —
+    the dialog stays locked while it runs, **7 s at most** (`LET_GO_MS`): then it closes with the info toast
+    `toasts.stillRunning` («Συνεχίζει — θα σου πούμε μόλις γίνει»), the records stay marked pending (rows
+    `.row-pending`, actions disabled — `usePendingRecords`, built into `useSavedFlash`), and the real outcome
+    comes as a success/error toast when it settles (the mark clears then). On time: success → toast + close;
+    failure → error toast, the dialog as it was.
+  - **Pending marks** (`pendingRecords.ts`): `"action"` for an online-only action, `"save"` for a save not yet
+    acknowledged (`saveWithoutWaiting(…, records)`). Lists disable a record on `"action"`; the Overview's
+    clickable items (attention rows for bills/debts, goal cards, the bill timeline) on either (the owner's
+    ask). Costs nothing in Firestore.
+  - `actionsRunOnce.test.ts` checks: no `await x.mutateAsync` / `.then` in screens; every `mutateAsync` left is a
+    delete/remove/merge/rename/close inside `answerOrLetGo`; no `mutate(…, { onSuccess/onError })`.
+- **Honest answer**: success toast only after it went, an error toast saying what did not happen. Deletes are
+  not applied to the lists until the server agrees (except `useDeleteTransaction` / `useDeleteTransfer`, which
+  put the row back on error). Never `mutate(…, { onSuccess })`: TanStack drops those callbacks when the
+  component unmounts or a second `mutate` is made.
 - **A toast after every new / edit / delete** (`.claude/rules/ui.md`). Plain wording under `toasts.*` in the
   locales; durations from `lib/toastDefaults.ts`. `celebrateSave` does not toast — a form that celebrates still
   toasts once. Debt hooks toast their own failures (`debts.saveFailed` / `debts.deleteFailed`), the screens
@@ -81,9 +102,11 @@ doc and fail the whole batch → an error toast for a goal that was gone (reprod
       → onSuccess: confirmList (patch again, list stays fresh)
       → onError: restoreList (put back + refetch) + toast from onFailure
 
-- `saveWithoutWaiting` (`src/shared/utils/saveWithoutWaiting.ts`): calls `mutate` and returns
-  at once — a Firestore write promise only settles when the server answers, so awaiting it
-  froze dialogs offline. Cleans user text first.
+- `saveWithoutWaiting(mutation, vars, onFailure?, records?)` (`src/shared/utils/saveWithoutWaiting.ts`):
+  starts `mutateAsync` and returns at once — a Firestore write promise only settles when the server
+  answers, so awaiting it froze dialogs offline and held one 15 s on an iPhone. Cleans user text first;
+  `onFailure` hangs off the write's promise (survives the dialog unmounting); `records` are marked `"save"`
+  pending until acknowledged (the Overview waits on them).
 - Ids: `newDocId(collection)` made on the device, held per vars object by `idsFor`
   (`listCache.ts:225`) so a retry rewrites the same doc instead of a duplicate.
 - Cache edits (`src/lib/listCache.ts`): `editList` (skips a never-loaded list), `confirmList`
@@ -101,8 +124,14 @@ doc and fail the whole batch → an error toast for a goal that was gone (reprod
 - The success toast of an optimistic save fires when the local write is applied (the dialog closes then); a
   lost write still restores the lists and toasts through `onFailure`. A double Save cannot fire twice: formik's
   `isSubmitting` / a `saving` state set in the click disables it, and the dialog is gone or inert at once.
-- Saves that wait for the server (debts, repayments, categories, gap records, «Χαρίστηκε», rate update):
-  `useRunOnce` + `mutateAsync`; the dialog stays locked until the answer.
+- No save waits for the server any more (2026-11-13). The ones that used to — debts (create/edit, with
+  their covered goal deposit/expense), repayments (record/correct), «Χαρίστηκε» and its undo, the rate update,
+  categories (create, edit, widen to «both»), gap records, goal pause/edit, profile/preferences — now patch
+  the cache first: `useDebtRefresh().preview` puts the debt and the money it moves (`debtCashRecords`) on
+  screen as the post-save `sync` will write it; `createDebt` / `createDebtPayment` / `createCategories` take
+  a device-made id (`newDocId`, `newCategoryIds`) so the row on screen is the one stored; `useSaveGapRecords`
+  puts its transactions and debts in; `useUpdateGoal` / `useUpdateCategoryGroup` merge the fields. All roll
+  back on a refusal.
 - After a resolved save: `celebrateSave({ collection, id?, milestone? })` and
   `useSavedFlash` on the list (`src/shared/feedback/saveFeedback.ts`; reference:
   `AddTransactionModal`). Costs nothing in Firestore.
@@ -119,10 +148,12 @@ doc and fail the whole batch → an error toast for a goal that was gone (reprod
   names).
 - Deletes are not optimistic in most hooks: rows go in `onSuccess` (`confirmList`).
   Exceptions: `useDeleteTransaction`, `useDeleteTransfer` remove first and restore on error.
-- Every delete runs once (see «Every write runs once» above): the confirm waits for `mutateAsync`, locked,
-  then closes with the success toast — or stays, with the error toast and nothing removed.
-- «Ήρθε» undone (`useUndoArrival`): waits for every delete, then takes the word back; a failure leaves the
-  time «ήρθε» and says so.
+- Every delete runs once (see «Every write runs once» above): the confirm waits for the answer through
+  `answerOrLetGo`, locked, 7 s at most — on time it closes with the success toast, or stays with the error
+  toast and nothing removed; past 7 s it lets go with «Συνεχίζει…», the record stays pending (disabled
+  everywhere), and the toast comes with the answer.
+- «Ήρθε» undone (`useUndoArrival(arrival, close)`): waits for every delete (same 7 s rule), then takes the
+  word back; a failure leaves the time «ήρθε» and says so.
 - After the batch: `noteDeleted(uid, name, ids)` or, for several lists, `noteDeletions(uid,
   {name: ids})` — ONE write to `users/{uid}.syncDeletes.<name>__<id>` and the rows leave this
   device's copy (`syncList.ts:133–154`). Every delete path must call it, or other devices keep

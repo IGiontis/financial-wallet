@@ -8,7 +8,8 @@ import { useSavedFlash } from "../../../shared/feedback/saveFeedback";
  * goal's id is not known to its form — the card that appears is the one lit.
  */
 export function useGoalFlash(ids: readonly string[]): (id: string) => boolean {
-  const goal = useSavedFlash("investmentGoals", ids);
-  const money = useSavedFlash("investmentContributions", ids);
+  // The flash alone: a goal's pending mark is the card's own (`usePendingRecords`).
+  const goal = useSavedFlash("investmentGoals", ids, "row", { withPending: false });
+  const money = useSavedFlash("investmentContributions", ids, "row", { withPending: false });
   return useCallback((id: string) => !!(goal(id) || money(id)), [goal, money]);
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useRunOnce } from "../../../shared/hooks/useRunOnce";
+import { answerOrLetGo } from "../../../shared/utils/pendingRecords";
 import { Alert, Button, Modal, ModalHeader, ModalBody, ModalFooter, Input, Label } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,22 +60,34 @@ export default function ResetDataSection() {
     setDeleted(null);
   };
 
+  // Online only: waits for the answer, 7 s at most (`answerOrLetGo`). On time,
+  // the dialog shows what went; past 7 s it lets go with «Συνεχίζει…» and the
+  // answer comes as a toast.
   const run = () =>
-    runOnce(async () => {
+    runOnce(() => {
       if (!currentUser || !anySelected || !confirmed) return;
       setError("");
-      try {
-        const count = await resetUserData(currentUser.uid, scope);
-        // Everything on screen was built from what just went — drop the whole
-        // cache rather than trying to name each affected key.
-        await queryClient.invalidateQueries();
-        setDeleted(count);
-        setConfirmText("");
-        toast.success(t("settings.resetDone", { count }));
-      } catch {
-        setError(t("errors.generic"));
-        toast.error(t("toasts.resetFailed"));
-      }
+      return answerOrLetGo(() => resetUserData(currentUser.uid, scope), {
+        succeeded: (count) => {
+          // Everything on screen was built from what just went — drop the whole
+          // cache rather than trying to name each affected key. Not waited for:
+          // the reads behind it are the server's to answer.
+          void queryClient.invalidateQueries();
+          setDeleted(count);
+          setConfirmText("");
+          toast.success(t("settings.resetDone", { count }));
+        },
+        failed: () => {
+          setError(t("errors.generic"));
+          toast.error(t("toasts.resetFailed"));
+        },
+        letGo: () => {
+          setOpen(false);
+          setConfirmText("");
+          setError("");
+          setDeleted(null);
+        },
+      });
     });
 
   return (

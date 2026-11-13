@@ -24,6 +24,7 @@ import {
   type IncomeStatus,
 } from "./incomesUtils";
 import { useIncomesMigration } from "./useIncomesMigration";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 
 /**
  * The list itself, checked — what the Planner, the Bills page and the
@@ -183,18 +184,19 @@ export function useRecordArrival() {
 export function useUndoArrival(overrides: Record<string, OccurrenceOverride>, setOverride: (key: string, value: OccurrenceOverride | undefined) => void) {
   const { t } = useTranslation();
   const deleteTransaction = useDeleteTransaction();
-  // Waits for every delete (online only), then takes the word back: a failure
-  // leaves the time as it was — still «ήρθε» — and says so. Returns whether it
-  // went through, for the sheet that asked (it stays, locked, until then).
-  return async (arrival: ArrivalUndo): Promise<boolean> => {
-    try {
-      await Promise.all(arrival.transactionIds.map((id) => deleteTransaction.mutateAsync({ id })));
-    } catch {
-      toast.error(t("incomes.card.undoFailed"));
-      return false;
-    }
-    if (arrival.key && overrides[arrival.key]?.state === "received") setOverride(arrival.key, undefined);
-    toast.success(t("toasts.arrivalUndone"));
-    return true;
-  };
+  // Waits for every delete (online only) — 7 s at most (`answerOrLetGo`) —
+  // then takes the word back: a failure leaves the time as it was — still
+  // «ήρθε» — and says so. `close` lets the sheet that asked go: once it went,
+  // or at 7 s, with the answer as a toast when it comes. Returned to the
+  // sheet, which stays locked until then.
+  return (arrival: ArrivalUndo, close: () => void) =>
+    answerOrLetGo(() => Promise.all(arrival.transactionIds.map((id) => deleteTransaction.mutateAsync({ id }))), {
+      records: arrival.transactionIds.map((id) => ["transactions", id] as const),
+      close,
+      succeeded: () => {
+        if (arrival.key && overrides[arrival.key]?.state === "received") setOverride(arrival.key, undefined);
+        toast.success(t("toasts.arrivalUndone"));
+      },
+      failed: () => toast.error(t("incomes.card.undoFailed")),
+    });
 }

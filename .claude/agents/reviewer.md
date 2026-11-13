@@ -20,6 +20,8 @@ Check, and report each finding with path:line, what is wrong, and the fix:
 3. **Rules**: tokens only, `--fs-*` only, primary saves, wizard with review, confirmation for
    every write, no load-failed messages, strings in el+en, reduced motion; card before amount;
    yes/no starting on «Ναι»; a toast after EVERY new/edit/delete.
+4a. **No change, no Save**: open every edit form touched and press nothing but Save — it must
+   be disabled; change a value and change it back — disabled again.
 4b. **Actions under pressure**: in the demo, double-click every save/delete/confirm and click
    other controls while it runs — nothing may run twice, the dialog may not close mid-way, and
    no error may appear for something that went through. Check the code uses the mutation's

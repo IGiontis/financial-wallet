@@ -16,6 +16,7 @@ import { isPlainExpense } from "../overviewUtils";
 import styles from "../pages/css/OverviewPage.module.css";
 import { findCategory } from "../../../shared/utils/categories";
 import { oneRowPerTransfer } from "../../transactions/transfers";
+import { ROW_PENDING, usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 
 type Money = (n: number) => string;
 
@@ -69,6 +70,10 @@ export function AttentionList({
 }) {
   const { t, i18n } = useTranslation();
   const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+  // A bill or debt with any write still on its way — a payment not yet
+  // acknowledged, a delete running — is not a way anywhere until it has landed
+  // (the owner, 2026-11-13): faded, and nothing to press.
+  const { writing } = usePendingRecords();
 
   if (items.length === 0 && incomes.length === 0 && late.length === 0 && unconfirmed.length === 0) {
     return (
@@ -95,8 +100,8 @@ export function AttentionList({
 
   // A small box each: the name over the amount, the tag beside it. A full-width
   // row for "Water · 2 days late · 60 €" left a wide screen mostly empty.
-  const row = (key: string, to: string, name: ReactNode, tag: ReactNode, amount: number) => (
-    <Link key={key} to={to} className={styles.attentionRow}>
+  const row = (key: string, to: string, name: ReactNode, tag: ReactNode, amount: number, pending = false) => (
+    <Link key={key} to={to} className={`${styles.attentionRow} ${pending ? ROW_PENDING : ""}`} aria-disabled={pending || undefined} tabIndex={pending ? -1 : undefined} onClick={pending ? (event) => event.preventDefault() : undefined}>
       <span className={styles.attentionTop}>
         <span className={styles.attentionName}>{name}</span>
         <FiChevronRight size={15} className="text-body-secondary flex-shrink-0" aria-hidden />
@@ -137,7 +142,7 @@ export function AttentionList({
           ),
         )}
         {late.map((occurrence) => row(occurrence.key, "/planner", occurrence.label, badge(Math.max(1, daysLate(occurrence, now)), 0), Math.abs(occurrence.amount)))}
-        {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills/pay" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount))}
+        {items.map((item) => row(`${item.kind}-${item.id}`, item.kind === "bill" ? "/bills/pay" : "/debts", item.name, badge(item.late ? Math.abs(item.days) : undefined, item.days), item.amount, writing(item.kind === "bill" ? "bills" : "debts", item.id)))}
       </div>
     </Panel>
   );

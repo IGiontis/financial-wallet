@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
@@ -164,15 +165,16 @@ export default function GapRecordSheet({
     return [t(`accounts.gap.kind_${r.kind}`), what, r.description].filter(Boolean).join(" · ");
   };
 
-  // Runs once and waits for the server: the button says «Αποθήκευση…» and
-  // nothing saves again or closes the sheet until the answer.
+  // Runs once and never waits for the server (`saveWithoutWaiting`): the
+  // records are on screen at once and the sheet closes with the toast; a
+  // refusal later puts them back and says so.
   const [run, running] = useRunOnce();
-  const working = running || save.isPending;
+  const working = running;
   const close = () => {
     if (!working) onClose();
   };
   const submit = () => void run(saveAll);
-  const saveAll = async () => {
+  const saveAll = () => {
     if (records.length === 0) return;
     setFailed(false);
     try {
@@ -186,7 +188,7 @@ export default function GapRecordSheet({
         categoryName,
         newId: gapNewId,
       });
-      await save.mutateAsync(writes);
+      void saveWithoutWaiting(save, writes, () => toast.error(t("accounts.gap.failed")), [["accounts", accountId]]);
       // The records land on this account: its card rings once the sheet has gone.
       celebrateSave({ collection: "accounts", id: accountId });
       toast.success(t("toasts.gapRecordsSaved", { count: records.length }));

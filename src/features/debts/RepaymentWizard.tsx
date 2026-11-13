@@ -18,6 +18,7 @@ import wiz from "../../shared/css/Wizard.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
@@ -95,24 +96,21 @@ export default function RepaymentWizard({
     return main ? t("debts.wizard.mainCard", { name: main.name }) : t("accounts.noCard");
   })();
 
-  // Runs once and waits for the server (debts do): Save says «Αποθήκευση…» and
-  // nothing can save again or close the dialog. A failure is said by the hook.
+  // Runs once and never waits for the server (`saveWithoutWaiting`): the
+  // repayment and its money are on screen at once, the dialog closes with the
+  // toast; a refusal puts them back and the hook says so.
   const [run, running] = useRunOnce();
-  const working = running || record.isPending;
+  const working = running;
   const close = () => {
     if (!working) onClose();
   };
   const save = () =>
-    void run(async () => {
+    void run(() => {
       if (!amountOk || !when) return;
       if (moneyMissing) return goTo("4");
       // Paid off by this one: the debt's milestone (confetti).
       const paidOff = !debt.isSettled && !!preview?.settles;
-      try {
-        await record.mutateAsync({ debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined });
-      } catch {
-        return;
-      }
+      void saveWithoutWaiting(record, { debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined }, undefined, [["debts", debt.id]]);
       celebrateSave({ collection: "debts", id: debt.id, milestone: paidOff });
       toast.success(t(paidOff ? "toasts.repaymentSettled" : "toasts.repaymentSaved", { amount: formatCurrency(value), who: debt.person }));
       onClose();

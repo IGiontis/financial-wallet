@@ -30,6 +30,7 @@ import EditTransactionModal from "../components/EditTransactionModal";
 import TransactionViewModal from "../components/TransactionsViewModal";
 import styles from "./css/TransactionPage.module.css";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
+import { answerOrLetGo } from "../../../shared/utils/pendingRecords";
 import { PageShell } from "../../../shared/components/PageShell";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useRunOnce } from "../../../shared/hooks/useRunOnce";
@@ -45,6 +46,7 @@ import { isFullyLocked } from "../linkedRecords";
 import { LockNote } from "../components/LockNote";
 import { useSavedFlash } from "../../../shared/feedback/saveFeedback";
 import { AddButton } from "../../../shared/components/AddButton";
+import { usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 
 const PAGE_SIZE = 15;
 
@@ -468,6 +470,8 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
   const deleteTransferMutation = useDeleteTransfer();
+  // Records with an online-only action on its way (`answerOrLetGo`).
+  const pending = usePendingRecords();
 
   // The dialog closes on the optimistic row, not on the server's answer — see
   // `saveWithoutWaiting`. A rejection arrives as a toast instead. The menu's
@@ -500,31 +504,31 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
     const pair = transferOf(transactions, tx.transferId!);
     return !(pair.out && pair.in);
   };
-  // Deletes wait for the server's answer (`mutateAsync`) and say it honestly;
-  // a second press of the same delete is never a second batch (`useOnceMutation`).
-  const deleteTransfer = async (tx: Transaction) => {
+  // Deletes are online only: they wait for the server's answer and say it
+  // honestly — 7 s at most (`answerOrLetGo`), then the dialog lets go, the row
+  // stays disabled and the toast comes with the answer. A second press of the
+  // same delete is never a second batch (`useOnceMutation`).
+  const deleteTransfer = (tx: Transaction, close: () => void) => {
     const pair = transferOf(transactions, tx.transferId!);
-    try {
-      if (pair.out && pair.in) await deleteTransferMutation.mutateAsync(tx.transferId!);
-      else await deleteMutation.mutateAsync(pair.out ?? pair.in ?? tx);
-      toast.success(t("transactions.deleteSuccess"));
-      return true;
-    } catch {
-      toast.error(t("transactions.deleteFailed"));
-      return false;
-    }
+    const halves = [pair.out, pair.in, tx].filter((row): row is Transaction => !!row);
+    return answerOrLetGo(() => (pair.out && pair.in ? deleteTransferMutation.mutateAsync(tx.transferId!) : deleteMutation.mutateAsync(pair.out ?? pair.in ?? tx)), {
+      records: halves.map((row) => ["transactions", row.id] as const),
+      close,
+      succeeded: () => toast.success(t("transactions.deleteSuccess")),
+      failed: () => toast.error(t("transactions.deleteFailed")),
+    });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteTransaction) return;
+    const target = deleteTransaction;
     // The whole row, not just its id: a bill's expense takes its payment with it.
-    try {
-      await deleteMutation.mutateAsync(deleteTransaction);
-      setDeleteTransaction(null);
-      toast.success(t("transactions.deleteSuccess"));
-    } catch {
-      toast.error(t("transactions.deleteFailed"));
-    }
+    return answerOrLetGo(() => deleteMutation.mutateAsync(target), {
+      records: [["transactions", target.id]],
+      close: () => setDeleteTransaction((open) => (open?.id === target.id ? null : open)),
+      succeeded: () => toast.success(t("transactions.deleteSuccess")),
+      failed: () => toast.error(t("transactions.deleteFailed")),
+    });
   };
 
   // These only move the filter — resetting to page 1 is handled centrally below.
@@ -946,7 +950,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                                           </Button>
                                           {tx.transferId ? (
                                             // Asks first, as the transfer's own sheet does, and takes both halves.
-                                            <DeleteButton iconOnly size="sm" what={tx.description} title={t("transactions.lockTransferRow")} onClick={() => deleteTransfer(tx)} />
+                                            <DeleteButton iconOnly size="sm" what={tx.description} title={t("transactions.lockTransferRow")} onClick={() => deleteTransfer(tx, () => undefined)} />
                                           ) : (
                                             <DeleteButton opensConfirm iconOnly size="sm" disabled={noDelete} title={why} onClick={() => setDeleteTransaction(tx)} />
                                           )}
@@ -1042,7 +1046,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
       )}
       {editTransaction && <EditTransactionModal transaction={editTransaction} isOpen onClose={() => setEditTransaction(null)} categories={categories} onSubmit={handleUpdate} lock={lockOf(editTransaction)} />}
       {deleteTransaction && (
-        <DeleteConfirmModal transaction={deleteTransaction} isDeleting={deleteMutation.isPending} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} lock={lockOf(deleteTransaction)} />
+        <DeleteConfirmModal transaction={deleteTransaction} isDeleting={pending.busy("transactions", deleteTransaction.id)} onConfirm={handleDelete} onClose={() => setDeleteTransaction(null)} lock={lockOf(deleteTransaction)} />
       )}
       {viewTransaction?.transferId && (
         <TransferSheet
@@ -1056,9 +1060,10 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
             setTransferEdit(transferDraft(viewTransaction));
             setViewTransaction(null);
           }}
-          onDelete={async () => {
-            // The sheet stays, locked, until the answer — then closes on success.
-            if (await deleteTransfer(viewTransaction)) setViewTransaction(null);
+          onDelete={() => {
+            // The sheet stays, locked, until the answer (7 s at most) — then closes.
+            const shown = viewTransaction;
+            return deleteTransfer(shown, () => setViewTransaction((open) => (open?.id === shown.id ? null : open)));
           }}
         />
       )}

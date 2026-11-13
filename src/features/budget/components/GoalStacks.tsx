@@ -7,6 +7,7 @@ import styles from "./css/GoalStacks.module.css";
 import type { GoalGroup } from "./goalGrouping";
 import type { GoalCardProps } from "./InvestmentsShared";
 import { ROW_FLASH } from "../../../shared/hooks/useRowFlash";
+import { usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 import { GoalDetailsModal } from "./GoalDetailsModal";
 import { CoveredMark } from "./CoveredMark";
 import type { InvestmentGoalStatus, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
@@ -41,6 +42,8 @@ const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoal
   // a row that measured a monthly goal against its lifetime total would read
   // 1,200% beside a card reading 62%.
   const { saved, target, pct } = goalHeadline(goal);
+  // A delete or a closing still on its way: faded, nothing on it pressable.
+  const { busy, pendingClass } = usePendingRecords();
 
   const deadline = toDate(goal.deadline);
   // Midnight today, built rather than set: `setHours` would move `now` itself,
@@ -54,7 +57,8 @@ const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoal
   return (
     <>
     <div
-      className={`${styles.row} ${props.flashed?.(goal.id) ? ROW_FLASH : ""}`}
+      className={`${styles.row} ${props.flashed?.(goal.id) ? ROW_FLASH : ""} ${pendingClass("investmentGoals", goal.id)}`}
+      aria-busy={busy("investmentGoals", goal.id) || undefined}
       role="button"
       tabIndex={0}
       aria-label={t("goals.openDetails", { name: goal.name })}

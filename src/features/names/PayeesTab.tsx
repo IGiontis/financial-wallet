@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -70,44 +71,46 @@ export function PayeesTab() {
 
   const ready = isReady && transactions.isSuccess && bills.isSuccess && debts.isSuccess;
 
-  const onAdd = async (name: string) => {
-    try {
-      await add(name);
-    } catch (error) {
-      toast.error(t("names.saveFailed"));
-      throw error;
-    }
+  // A new name never waits for the server: on the list at once (`usePayees`
+  // shows it before the write), the dialog closes with the toast; a refusal
+  // later takes it off and says so.
+  const onAdd = (name: string) => {
+    add(name).catch(() => toast.error(t("names.saveFailed")));
     celebrateSave({ collection: "payees", id: nameKey(name) });
     toast.success(t("toasts.payeeAdded", { name }));
     setDialog(null);
+    return Promise.resolve();
   };
 
-  const onRename = async (vars: PayeeRenameVars) => {
-    try {
-      await rename.mutateAsync(vars);
-    } catch (error) {
-      toast.error(t("names.saveFailed"));
-      throw error;
-    }
-    celebrateSave({ collection: "payees", id: nameKey(vars.to) });
-    toast.success(t(dialog?.mode === "merge" ? "toasts.payeesMerged" : "toasts.payeeRenamed", { name: vars.to }));
-    setDialog(null);
+  // Renaming on every record is online only: it waits for the answer, 7 s at
+  // most (`answerOrLetGo`) — then the dialog lets go, the name and its records
+  // stay disabled, and the toast comes with the answer.
+  const onRename = (vars: PayeeRenameVars) => {
+    const merging = dialog?.mode === "merge";
+    const from = dialog && "row" in dialog ? dialog.row : undefined;
+    return answerOrLetGo(() => rename.mutateAsync(vars), {
+      records: [...(from ? [["payees", from.key] as const] : []), ...vars.ids.map((id) => ["transactions", id] as const)],
+      close: () => setDialog(null),
+      succeeded: () => {
+        celebrateSave({ collection: "payees", id: nameKey(vars.to) });
+        toast.success(t(merging ? "toasts.payeesMerged" : "toasts.payeeRenamed", { name: vars.to }));
+      },
+      failed: () => toast.error(t("names.saveFailed")),
+    });
   };
 
-  // Runs once; the dialog is locked until it answers.
+  // Runs once; the dialog is locked until it answers — 7 s at most (`answerOrLetGo`).
   const [runDelete, busy] = useRunOnce();
   const confirmDelete = () =>
-    runDelete(async () => {
+    runDelete(() => {
       if (!deleting) return;
       const row = deleting;
-      try {
-        await remove(row.name);
-      } catch {
-        toast.error(t("names.saveFailed"));
-        return;
-      }
-      setDeleting(null);
-      toast.success(t("toasts.payeeDeleted", { name: row.name }));
+      return answerOrLetGo(() => remove(row.name), {
+        records: [["payees", row.key]],
+        close: () => setDeleting(null),
+        succeeded: () => toast.success(t("toasts.payeeDeleted", { name: row.name })),
+        failed: () => toast.error(t("names.saveFailed")),
+      });
     });
 
   const entries = (row: PayeeRow): RowMenuEntry[] => [

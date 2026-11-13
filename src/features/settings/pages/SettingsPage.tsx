@@ -179,12 +179,17 @@ export function SettingsPage() {
           city: values.city || undefined,
           country: values.country || undefined,
         };
-        await updateUser(currentUser!.uid, data);
-
         // Write straight into the cache so the Topbar updates without a refresh.
         // No invalidate afterwards — that would discard this and re-read the
-        // document we just wrote.
-        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: User | null) => ({ ...(old ?? {}), ...data }) as User);
+        // document we just wrote. An edit never waits for the server
+        // (`.claude/rules/ui.md`): said at once; a refusal puts it back and says so.
+        const key = exchangeRateKeys.user(currentUser!.uid);
+        const before = queryClient.getQueryData<User | null>(key);
+        queryClient.setQueryData(key, (old: User | null) => ({ ...(old ?? {}), ...data }) as User);
+        updateUser(currentUser!.uid, data).catch(() => {
+          queryClient.setQueryData(key, before);
+          toast.error(t("settings.profileUpdateFailed"));
+        });
 
         toast.success(t("settings.profileUpdated"));
       } catch {
@@ -209,13 +214,19 @@ export function SettingsPage() {
     }),
     onSubmit: async (values) => {
       try {
-        await updateUser(currentUser!.uid, {
+        // Never waits for the server: on screen at once, put back and said if refused.
+        const key = exchangeRateKeys.user(currentUser!.uid);
+        const before = queryClient.getQueryData<User | null>(key);
+        updateUser(currentUser!.uid, {
           currency: values.currency as "USD" | "EUR" | "GBP",
           locale: values.locale,
+        }).catch(() => {
+          queryClient.setQueryData(key, before);
+          toast.error(t("settings.preferencesFailed"));
         });
         // Apply the language immediately — i18next persists it to localStorage
         await i18n.changeLanguage(values.locale);
-        queryClient.setQueryData(exchangeRateKeys.user(currentUser!.uid), (old: User | null) => ({ ...(old ?? {}), currency: values.currency, locale: values.locale }) as User);
+        queryClient.setQueryData(key, (old: User | null) => ({ ...(old ?? {}), currency: values.currency, locale: values.locale }) as User);
         toast.success(t("settings.preferencesSaved"));
       } catch {
         toast.error(t("settings.preferencesFailed"));
