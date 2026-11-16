@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { DateField } from "../../shared/components/DateField";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
+import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import type { CreateInvestmentContributionDTO, CreateTransactionDTO, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
@@ -16,7 +16,6 @@ import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { chosenAccount, expectedByAccount, freeByAccount, mainAccount } from "../accounts/accountsUtils";
 import { WizardSteps } from "../transactions/components/WizardSteps";
-import { formatTable } from "../transactions/transactionDates";
 import { goalHolding } from "./goalHolding";
 import { useCoveredFunding } from "./useCoveredFunding";
 import { coveredFundingVars } from "./coveredFunding";
@@ -29,7 +28,8 @@ import { RequiredMark } from "../../shared/components/RequiredMark";
 
 // "use" first on a goal: where the money goes, or what became of it, decides
 // everything after — which card moves, who holds it, whether an expense is written.
-const ALL_STEPS = ["use", "amount", "when", "card", "review"] as const;
+// Then WHERE before HOW MUCH (owner, 2026-11-12): the card, then the amount.
+const ALL_STEPS = ["use", "card", "amount", "when", "review"] as const;
 type Step = (typeof ALL_STEPS)[number];
 
 /**
@@ -189,9 +189,10 @@ export default function ContributionWizard({
   /** Whether a step is filled in enough to go past it. */
   const done = (s: Step) => {
     if (s === "use") return mode !== null && (mode !== "returned" && mode !== "theySpent" ? true : !!holder);
-    if (s === "amount") return !amountError;
+    // The card's free money is checked where the amount is typed: the card comes first.
+    if (s === "amount") return !amountError && !overFree;
     if (s === "when") return !!when && !dateError && !notesTooLong;
-    if (s === "card") return (!cardMustBeChosen || !!pickedAccount) && !overFree && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
+    if (s === "card") return (!cardMustBeChosen || !!pickedAccount) && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
     return true;
   };
   // Forward only as far as what is filled in allows; back is always free.
@@ -315,8 +316,6 @@ export default function ContributionWizard({
 
   const rows: { step: Step; label: string; value: string }[] = [
     ...(isGoal && mode ? [{ step: "use" as Step, label: t("goalWizard.rowWhat"), value: choices.find((c) => c.key === chosenKey)?.title ?? "" }] : []),
-    { step: "amount", label: t("common.amount"), value: format(totalInBase) },
-    { step: "when", label: t("common.date"), value: when ? formatTable(when, lang) : "—" },
     ...(mode === "given" ? [{ step: "card" as Step, label: t("goalWizard.rowGivenTo"), value: person.trim() }] : []),
     ...(mode === "spent" ? [{ step: "card" as Step, label: t("goalWizard.rowSpentOn"), value: `${person.trim()} · ${categoryName}` }] : []),
     ...(mode === "theySpent" ? [{ step: "card" as Step, label: t("common.category"), value: categoryName }] : []),
@@ -326,6 +325,9 @@ export default function ContributionWizard({
           { step: "card" as Step, label: t("common.category"), value: categoryName },
         ]
       : [{ step: "card" as Step, label: t(cardRowKey()), value: cardName }]),
+    // The card (or who) before the amount, as the steps ask them.
+    { step: "amount", label: t("common.amount"), value: format(totalInBase) },
+    { step: "when", label: t("common.date"), value: when ? formatRecordDay(when, lang) : "—" },
     ...(notes.trim() ? [{ step: "when" as Step, label: t("common.notes"), value: notes.trim() }] : []),
   ];
 
@@ -463,15 +465,30 @@ export default function ContributionWizard({
                     inputMode="decimal"
                     value={amount}
                     disabled={full}
-                    invalid={tried && !!amountError}
+                    invalid={tried && (!!amountError || overFree)}
                     onChange={(e) => setAmount(e.target.value)}
                   />
                   {!deposit && <InputGroupText>{t("goalWizard.of", { amount: format(available) })}</InputGroupText>}
                   <FormFeedback>{amountError}</FormFeedback>
                 </InputGroup>
+                {/* More than the chosen card has free: said as it is typed. */}
+                {overFree && cardFree && (
+                  <div className="invalid-feedback d-block" role="alert">
+                    {t(cardFree.held > 0.005 ? "goalWizard.tooLittleFreeHeld" : "goalWizard.tooLittleFree", {
+                      name: accounts.find((a) => a.id === pickedAccount)?.name ?? "",
+                      free: format(Math.max(cardFree.free, 0)),
+                      held: format(cardFree.held),
+                    })}
+                  </div>
+                )}
                 {capped && !full && <FormText style={{ fontSize: "var(--fs-caption)" }}>{t("investments.maxDepositHint", { amount: format(remaining) })}</FormText>}
-                {/* What each card can give, before the amount is typed: the card itself is chosen two steps on. */}
-                {checksFree && Object.keys(freeMoney).length > 0 && (
+                {/* What the chosen card can give (chosen on the step before); without one, what each can. */}
+                {checksFree && !overFree && pickedAccount && cardFree && (
+                  <FormText className="d-block" style={{ fontSize: "var(--fs-caption)" }}>
+                    {freeMessage(pickedAccount)}
+                  </FormText>
+                )}
+                {checksFree && !pickedAccount && Object.keys(freeMoney).length > 0 && (
                   <FormText className="d-block" style={{ fontSize: "var(--fs-caption)" }}>
                     {t("goalWizard.freeNow", {
                       list: accounts

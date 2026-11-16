@@ -8,6 +8,7 @@ import { InfoLegend } from "../../shared/components/InfoLegend";
 import { dayTone, type DayToneInput } from "../calendar/dayTone";
 import { dayKey } from "../calendar/components/dayKey";
 import styles from "./css/BillsPage.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 interface BillYearGridProps {
   bill: BillWithStatus;
@@ -69,8 +70,8 @@ export function BillYearGrid({ bill, now, formatCurrency, onPay, onOpenPayment }
   const years = useMemo(() => billCoverageYears(bill, now), [bill, now]);
   const cells = useMemo(() => billCoverage(bill, years, now), [bill, years, now]);
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
+  const monthFmt = dateFormat("monthShort", lang);
+  const dateFmt = dateFormat("day", lang);
 
   if (!supportsMonthStrip(bill)) return null;
 

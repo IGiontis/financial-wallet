@@ -332,6 +332,10 @@ describe("parseAmount", () => {
     expect(parseAmount("25")).toBe(25);
     expect(parseAmount("-120,5")).toBe(-120.5);
     expect(parseAmount(" 214,50 € ")).toBe(214.5);
+    // Any of the three currencies, as a sign or a code, before or after.
+    expect(parseAmount("$1,842.30")).toBe(1842.3);
+    expect(parseAmount("£25")).toBe(25);
+    expect(parseAmount("120,40 USD")).toBe(120.4);
   });
 
   it("refuses what is not a number", () => {

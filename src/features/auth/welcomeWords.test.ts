@@ -36,7 +36,7 @@ describe("lastOpenWords", () => {
   it("says today, then days ago, then the date", () => {
     expect(lastOpenWords(new Date(2026, 10, 3, 0, 1), now, "en")).toBe("today");
     expect(lastOpenWords(new Date(2026, 9, 31), now, "en")).toBe("3 days ago");
-    expect(lastOpenWords(new Date(2026, 9, 20), now, "en")).toBe("October 20");
-    expect(lastOpenWords(new Date(2025, 9, 20), now, "en")).toBe("October 20, 2025");
+    expect(lastOpenWords(new Date(2026, 9, 20), now, "en")).toBe("20 October");
+    expect(lastOpenWords(new Date(2025, 9, 20), now, "en")).toBe("20 October 2025");
   });
 });

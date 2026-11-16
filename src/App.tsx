@@ -19,6 +19,7 @@ import { UpdatePrompt } from "./shared/components/UpdatePrompt";
 import { installModalMotion } from "./shared/components/modalMotion";
 import { installMotionEffects } from "./shared/hooks/useMotionEffects";
 import { installToastDefaults, TOAST_CONTAINER } from "./lib/toastDefaults";
+import { dateFormat } from "./shared/utils/dates";
 
 // Before the first dialog or toast: every dialog fades and rises the same way,
 // and errors and warnings stay longer than the rest (see each for why).
@@ -49,7 +50,7 @@ function OfflineBanner() {
     : ratesMissing
       ? t("common.offlineNoRates")
       : ratesAsOf
-        ? t("common.offlineRates", { date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(ratesAsOf) })
+        ? t("common.offlineRates", { date: dateFormat("dayShort", i18n.resolvedLanguage ?? "en").format(ratesAsOf) })
         : undefined;
 
   return (

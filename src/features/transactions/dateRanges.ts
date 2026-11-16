@@ -1,3 +1,4 @@
+import { startOfDay, sameDay } from "../../shared/utils/dates";
 // The quick ranges the phone's date filter offers, and the month it steps
 // through. Pure, so the filter's buttons and their tests share one meaning of
 // "this month" or "three months".
@@ -9,7 +10,6 @@ export interface DateRange {
   to: Date | null;
 }
 
-const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const lastOfMonth = (year: number, month: number) => new Date(year, month + 1, 0);
 
 /**
@@ -19,11 +19,11 @@ const lastOfMonth = (year: number, month: number) => new Date(year, month + 1, 0
 export function monthRange(year: number, month: number, now: Date): DateRange {
   const from = new Date(year, month, 1);
   const end = lastOfMonth(from.getFullYear(), from.getMonth());
-  return { from, to: end > day(now) && from <= day(now) ? day(now) : end };
+  return { from, to: end > startOfDay(now) && from <= startOfDay(now) ? startOfDay(now) : end };
 }
 
 export function presetRange(preset: RangePreset, now: Date): DateRange {
-  const today = day(now);
+  const today = startOfDay(now);
   switch (preset) {
     case "thisMonth":
       return monthRange(now.getFullYear(), now.getMonth(), now);
@@ -39,7 +39,7 @@ export function presetRange(preset: RangePreset, now: Date): DateRange {
   }
 }
 
-const same = (a: Date | null, b: Date | null) => (a && b ? day(a).getTime() === day(b).getTime() : a === b);
+const same = (a: Date | null, b: Date | null) => (a && b ? sameDay(a, b) : a === b);
 
 /** Which preset a range is, if it is one — so its chip shows as chosen. */
 export function matchPreset(range: DateRange, now: Date): RangePreset | undefined {

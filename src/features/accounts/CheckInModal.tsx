@@ -5,7 +5,7 @@ import { FiPlus } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
 import GapRecordSheet from "./GapRecordSheet";
 import { parseAmount, type MoneyAccount, type PendingRecord } from "./accountsUtils";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../shared/utils/dates";
 
 /** How many records a row lists before it says how many more. */
 const PENDING_SHOWN = 3;
@@ -77,7 +77,7 @@ export default function CheckInModal({
   const total = round2(parsed.reduce((sum, p) => sum + (p.value ?? 0), 0));
   const difference = round2(total - expectedTotal);
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short" }), [i18n.resolvedLanguage]);
+  const dayFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
   const toneOf = (n: number) => (n < 0 ? "var(--color-expense-text)" : n > 0 ? "var(--color-income-text)" : undefined);
 
   const save = () => {

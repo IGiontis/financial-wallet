@@ -22,6 +22,7 @@ import { useSearchNames } from "../hooks/useSearchNames";
 import { buildLedger, LEDGER_SIDES, toggleSide, type LedgerCategory, type LedgerRow, type LedgerSide } from "../ledger";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Ledger.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 type Span = "month" | "year";
 
@@ -92,13 +93,13 @@ export function LedgerPage() {
   const { limit, hasMore, more, sentinel } = useLoadMore(ledger.count, PAGE, `${span}|${offset}|${kinds.join(",")}|${account}|${category}|${query}`);
 
   const periodLabel = useMemo(
-    () => (span === "year" ? String(from.getFullYear()) : new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(from)),
+    () => (span === "year" ? String(from.getFullYear()) : dateFormat("monthYear", lang).format(from)),
     [span, from, lang],
   );
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short" }), [lang]);
+  const dayFmt = dateFormat("weekdayDay", lang);
   // A category's records on one line each: the day without its weekday.
-  const shortDayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
-  const timeFmt = useMemo(() => new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }), [lang]);
+  const shortDayFmt = dateFormat("dayShort", lang);
+  const timeFmt = dateFormat("time", lang);
 
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${format(Math.abs(n))}`;
   const tone = (n: number) => (n > 0 ? "var(--color-income-text)" : n < 0 ? "var(--color-expense-text)" : undefined);

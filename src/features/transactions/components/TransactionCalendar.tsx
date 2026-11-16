@@ -3,9 +3,8 @@ import { Card, CardBody, Modal, ModalHeader, ModalBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../../shared/components/DateField";
 import type { Transaction } from "../../../shared/types/IndexTypes";
-import { firestoreToDate, parseISODay, standaloneMonthName, toISODay } from "../../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, dateFormat, sameDay, startOfDay, formatDay, formatMonthName, formatMonthYear } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
-import { isSameDay, midnight, toDateKey, formatDisplay } from "../transactionDates";
 import { FiCalendar, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { matchPreset, presetRange, rangeMonth, stepMonth, type DateRange, type RangePreset } from "../dateRanges";
 import styles from "./css/MobileDateFilter.module.css";
@@ -72,13 +71,13 @@ function CalendarGrid({
   // Locale-aware month/weekday names — built from Intl instead of a hardcoded
   // English array, so the calendar actually follows the app language. The
   // header names the month itself, so Greek needs "Μάρτιος", not "Μαρτίου".
-  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(lang, new Date(2020, m, 1))), [lang]);
+  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, m) => formatMonthName(new Date(2020, m, 1), lang)), [lang]);
   const monthShort = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(lang, { month: "short" });
+    const fmt = dateFormat("monthShort", lang);
     return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
   }, [lang]);
   const dayNamesShort = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(lang, { weekday: "short" });
+    const fmt = dateFormat("weekdayShort", lang);
     // Sunday-first, matching the grid's day-of-week numbering below.
     return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2023, 0, 1 + i)));
   }, [lang]);
@@ -86,7 +85,7 @@ function CalendarGrid({
   const txMap = useMemo(() => {
     const map: Record<string, Transaction[]> = {};
     allTransactions.forEach((tx) => {
-      const k = toDateKey(firestoreToDate(tx.date));
+      const k = toISODay(firestoreToDate(tx.date));
       if (!map[k]) map[k] = [];
       map[k].push(tx);
     });
@@ -219,16 +218,16 @@ function CalendarGrid({
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
             {cells.map((date, i) => {
               if (!date) return <div key={i} style={{ height: 38 }} />;
-              const k = toDateKey(date);
+              const k = toISODay(date);
               const dayTx = txMap[k] ?? [];
               // A transfer is neither: it would light both dots for money that only changed card.
               const hasInc = dayTx.some((t) => (t.type === "income" && !t.transferId) || (t.isInvestmentTransaction && t.contributionType === "withdrawal"));
               const hasExp = dayTx.some((t) => (t.type === "expense" && !t.transferId) || (t.isInvestmentTransaction && t.contributionType === "deposit"));
-              const isFrom = isSameDay(date, fromDate);
-              const isTo = isSameDay(date, toDate);
+              const isFrom = sameDay(date, fromDate);
+              const isTo = sameDay(date, toDate);
               const isEdge = isFrom || isTo;
-              const inRange = !!(fromDate && toDate && midnight(date) >= midnight(fromDate) && midnight(date) <= midnight(toDate) && !isEdge);
-              const isToday = isSameDay(date, today);
+              const inRange = !!(fromDate && toDate && startOfDay(date).getTime() >= startOfDay(fromDate).getTime() && startOfDay(date).getTime() <= startOfDay(toDate).getTime() && !isEdge);
+              const isToday = sameDay(date, today);
               let bg = "transparent",
                 color = "var(--color-text-primary)",
                 border = "none",
@@ -355,9 +354,9 @@ export function MobileCalendar(props: CalendarProps & { onRangeChange: (range: D
 
   // What the filter shows, said once: a month by its name, any other span by its ends.
   const summary = month
-    ? `${standaloneMonthName(lang, new Date(month.year, month.month, 1))} ${month.year}`
+    ? formatMonthYear(new Date(month.year, month.month, 1), lang)
     : range.from || range.to
-      ? `${range.from ? formatDisplay(range.from, lang) : "…"} – ${range.to ? formatDisplay(range.to, lang) : "…"}`
+      ? `${range.from ? formatDay(range.from, lang) : "…"} – ${range.to ? formatDay(range.to, lang) : "…"}`
       : t("transactions.rangeAllDates");
 
   const presets: { id: RangePreset; label: string }[] = [

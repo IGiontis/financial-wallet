@@ -5,12 +5,12 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, I
 import type { Bill, BillFrequency, BillPause, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useTranslation } from "react-i18next";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat, formatMonthName } from "../../shared/utils/dates";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { categoryLabel } from "../../shared/utils/categories";
 import { chargedShare, installmentIntervalOptions, monthlyEquivalent } from "./billsUtils";
 import { DateField } from "../../shared/components/DateField";
-import { parseISOMonth, standaloneMonthName } from "../../shared/utils/dates";
+import { parseISOMonth } from "../../shared/utils/dates";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
 import { DeleteButton } from "../../shared/components/DeleteButton";
@@ -40,9 +40,9 @@ type Step = (typeof BILL_STEPS)[number];
 
 /** Weekday and month names in the active locale. */
 function useDateNames(locale: string) {
-  const weekdays = Array.from({ length: 7 }, (_, d) => new Intl.DateTimeFormat(locale, { weekday: "long" }).format(new Date(2024, 0, 7 + d)));
+  const weekdays = Array.from({ length: 7 }, (_, d) => dateFormat("weekday", locale).format(new Date(2024, 0, 7 + d)));
   // A list of months names them; it does not date anything with them.
-  const months = Array.from({ length: 12 }, (_, m) => standaloneMonthName(locale, new Date(2020, m, 1)));
+  const months = Array.from({ length: 12 }, (_, m) => formatMonthName(new Date(2020, m, 1), locale));
   return { weekdays, months };
 }
 
@@ -51,8 +51,8 @@ interface BillFormValues {
   amount: number | "";
   /**
    * The four yes / no questions (variable amount, payment window, pause,
-   * active): undefined until answered — a new bill starts with neither tile
-   * chosen (no prefill, tiles included); an edit shows what is stored.
+   * active): undefined until answered — a new bill starts on «Ναι» for all four
+   * (owner, 2026-11-12: a yes / no starts on «Ναι»); an edit shows what is stored.
    */
   isVariableAmount: boolean | undefined;
   categoryId: string;
@@ -199,7 +199,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       name: bill?.name ?? "",
       // Show the stored (base-currency) amount in the user's display currency for editing.
       amount: bill ? Number(convert(bill.amount).toFixed(2)) : "",
-      isVariableAmount: bill ? !!bill.isVariableAmount : undefined,
+      // A new bill's yes / no answers start on «Ναι» (owner, 2026-11-12); an edit shows what is stored.
+      isVariableAmount: bill ? !!bill.isVariableAmount : true,
       categoryId: bill?.categoryId ?? "",
       frequency: bill?.frequency ?? "monthly",
       intervalCount: bill?.intervalCount ?? 1,
@@ -209,9 +210,9 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       startsOn: bill?.startsOn ?? "",
       dueDay: bill?.dueDay ?? "",
       dueMonth: bill?.dueMonth ?? "",
-      hasGrace: bill ? (bill.graceDays ?? 0) > 0 : undefined,
+      hasGrace: bill ? (bill.graceDays ?? 0) > 0 : true,
       graceDays: bill?.graceDays ?? "",
-      hasPause: bill ? !!bill.pause : undefined,
+      hasPause: bill ? !!bill.pause : true,
       pauseKind: bill?.pause && !bill.pause.to ? "forever" : "stretch",
       // Next month by default: a pause is almost always decided ahead of the
       // month it starts in.
@@ -219,7 +220,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       pauseTo: bill?.pause?.to ?? "",
       pauseYearly: bill?.pause?.yearly ?? false,
       notes: bill?.notes ?? "",
-      isActive: bill ? bill.isActive !== false : undefined,
+      isActive: bill ? bill.isActive !== false : true,
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
@@ -373,7 +374,7 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
 
   // ── The check: every answer, each row a way back to its step ──────────────
   const lang = i18n.resolvedLanguage ?? "en";
-  const monthFmt = new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" });
+  const monthFmt = dateFormat("monthYearShort", lang);
   const monthText = (value: string) => {
     const month = parseISOMonth(value);
     return month ? monthFmt.format(month) : "—";

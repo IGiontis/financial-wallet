@@ -29,10 +29,9 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
-import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
-import { dayToDate, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../../shared/utils/dates";
+import { dayToDate, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay } from "../../../shared/utils/dates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -74,7 +73,7 @@ const validationSchema = Yup.object({
   // Something that happened: today or earlier (owner, 2026-11-14). Checked
   // against the clock at the moment of checking, so a form left open past
   // midnight still accepts the new day.
-  date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isAfterToday(v)),
+  date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isFutureDay(v)),
   description: Yup.string().required("validation.payeeRequired").max(30, "validation.maxChars|30"),
   notes: Yup.string().max(300, "validation.maxChars|300"),
   showFuelDetails: Yup.boolean(),
@@ -99,7 +98,7 @@ const validationSchema = Yup.object({
 
 // ─── Review ───────────────────────────────────────────────────────────────────
 
-function ReviewStep({ values, categories, formatAmount, currency, subtitle }: { values: TransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string; subtitle?: string }) {
+function ReviewStep({ values, categories, formatAmount, currency, subtitle, lead }: { values: TransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string; subtitle?: string; lead?: ReactNode }) {
   const { t, i18n } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
@@ -127,9 +126,10 @@ function ReviewStep({ values, categories, formatAmount, currency, subtitle }: { 
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={formatTable(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
+      dateFormatted={formatRecordDay(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
+      lead={lead}
     />
   );
 }
@@ -185,11 +185,11 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   // it closes, and the toast says it went in.
   const [saved, setSaved] = useState<TransactionFormValues | null>(null);
   const [isFuelCategory, setIsFuelCategory] = useState(false);
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { payees } = usePayees();
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
-  const { convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  const { format, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
   // The card step is there only when there are cards on the Banks & cash page.
   const accounts = useAccountList();
   const steps: readonly Step[] = useMemo(() => (accounts.length > 0 ? STEPS : STEPS.filter((s) => s !== "account")), [accounts.length]);
@@ -335,8 +335,8 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
     }
   };
 
-  const formatAmount = (n: number) =>
-    new Intl.NumberFormat(intlLocale(i18n.resolvedLanguage), { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+  // The amount as typed, already in the display currency: shown, not converted again.
+  const formatAmount = (n: number) => format(n, displayCurrency);
 
   // The few payees this category is usually paid to, so most entries are one tap.
   const suggestedPayees = useMemo(() => frequentPayees(history, formik.values.categoryId || undefined), [history, formik.values.categoryId]);
@@ -578,15 +578,23 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
         )}
 
         {/* ── 4. Read it back before it is written ── */}
-        {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} currency={displayCurrency} />}
+        {/* The card first, then the amount — as the steps asked them. */}
         {step === "review" && (
-          <ReviewCard
-            accountId={formik.values.accountId}
-            income={formik.values.type === "income"}
-            delta={
-              formik.values.amount === ""
-                ? undefined
-                : (formik.values.type === "income" ? 1 : -1) * (baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)))
+          <ReviewStep
+            values={formik.values}
+            categories={categories}
+            formatAmount={formatAmount}
+            currency={displayCurrency}
+            lead={
+              <ReviewCard
+                accountId={formik.values.accountId}
+                income={formik.values.type === "income"}
+                delta={
+                  formik.values.amount === ""
+                    ? undefined
+                    : (formik.values.type === "income" ? 1 : -1) * (baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)))
+                }
+              />
             }
           />
         )}

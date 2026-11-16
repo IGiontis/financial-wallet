@@ -2,7 +2,7 @@ import { amountDueNext, billOverdue, billUrgency, daysUntilDeadline } from "../b
 import type { PlannerPlan } from "../plannerPage/plannerUtils";
 import type { NetWorthPoint } from "../analytics/netWorthUtils";
 import { isPay } from "../plannerPage/payCycles";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, startOfDay } from "../../shared/utils/dates";
 import { isPlainExpense } from "./overviewUtils";
 import type { BillWithStatus, DebtWithStatus, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
 
@@ -23,7 +23,6 @@ export interface AttentionItem {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /**
  * What wants doing — late, or due within the week — most urgent first.

@@ -5,6 +5,7 @@ import type { PlannerPlan } from "../plannerUtils";
 import { planDays } from "../planDays";
 import { BalanceScrub } from "./BalanceScrub";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /**
  * The eye on the balance line: the same line, and under it every day that
@@ -17,7 +18,7 @@ import styles from "../css/PlannerPage.module.css";
 export function BalanceSheet({ plan, onClose, formatCurrency, locale }: { plan: PlannerPlan; onClose: () => void; formatCurrency: (n: number) => string; locale: string }) {
   const { t } = useTranslation();
   const days = useMemo(() => planDays(plan), [plan]);
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }), [locale]);
+  const dayFmt = useMemo(() => dateFormat("weekdayDay", locale), [locale]);
   const signed = (n: number) => `${n > 0 ? "+" : "−"}${formatCurrency(Math.abs(n))}`;
   const tone = (n: number) => (n > 0 ? "var(--figure-income)" : "var(--figure-expense)");
   const red = (n: number) => (n < 0 ? "var(--color-expense-text)" : undefined);

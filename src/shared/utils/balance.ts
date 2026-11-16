@@ -1,5 +1,5 @@
 import type { Transaction } from "../types/IndexTypes";
-import { firestoreToDate } from "./dates";
+import { firestoreToDate, startOfDay } from "./dates";
 
 // ─── Current balance ─────────────────────────────────────────────────────────
 // Everything else in the app measures a PERIOD — what came in and went out
@@ -33,7 +33,6 @@ export interface OpeningBalance {
   at?: Date;
 }
 
-const startOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /**
  * True when a record is newer than a reading of the real balances taken at

@@ -5,7 +5,7 @@ import type { CreateTransactionDTO, InvestmentGoalWithStats } from "../../../sha
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { parseISODay, toISODay } from "../../../shared/utils/dates";
+import { parseISODay, toISODay, dateFormat } from "../../../shared/utils/dates";
 import AccountPicker from "../../accounts/AccountPicker";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, expectedByAccount, goalHeldTotal, mainAccount } from "../../accounts/accountsUtils";
@@ -117,7 +117,7 @@ export function GoalDeleteModal({ goal, isDeleting, onConfirm, onClose }: { goal
   // A card is asked for only where money leaves one now: what sat in your bank.
   const ready = loansChosen && (ending === "dropped" || (ending === "spent" && (!inBanks || !accountMissing(accounts, account)) && !!category));
 
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.language === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "short" }), [i18n.language]);
+  const dayFmt = useMemo(() => dateFormat("dayShort", i18n.language === "el" ? "el-GR" : "en-GB"), [i18n.language]);
   // A person with two loans on the goal: each question names its day, so the two can be told apart.
   const twice = (l: GoalLoan) => loans.filter((o) => o.person === l.person).length > 1;
   const askOf = (l: GoalLoan) => t(twice(l) ? "goalDelete.askCoveredOn" : "goalDelete.askCovered", { who: l.person, amount: format(l.amount), date: dayFmt.format(l.date) });

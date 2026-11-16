@@ -5,6 +5,7 @@ import { addMonths } from "date-fns";
 import { MonthPicker } from "../../shared/components/DateField";
 import { monthStart } from "./businessSummary";
 import styles from "./css/Business.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * The month on show, and the way to the others: ‹ the month (a tap opens the
@@ -14,7 +15,7 @@ import styles from "./css/Business.module.css";
 export function MonthNav({ month, onChange, first, now }: { month: Date; onChange: (month: Date) => void; first: Date; now: Date }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
-  const title = useMemo(() => new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(month), [lang, month]);
+  const title = useMemo(() => dateFormat("monthYear", lang).format(month), [lang, month]);
   const current = monthStart(now);
   const atStart = month.getTime() <= monthStart(first).getTime();
   const atEnd = month.getTime() >= current.getTime();

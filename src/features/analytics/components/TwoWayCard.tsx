@@ -13,6 +13,7 @@ import { signedWith } from "./chartTheme";
 import TwoWayChart, { type TwoWayPoint } from "./TwoWayChart";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Analytics.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 type Format = (n: number) => string;
 
@@ -104,8 +105,8 @@ export function TwoWayCard({
   const byWeek = range === "1m";
   const data = useMemo(() => (selected ? twoWay(transactions, categories, selected, { from, now, byWeek, linkNames }) : undefined), [transactions, categories, selected, from, now, byWeek, linkNames]);
 
-  const labelFmt = useMemo(() => new Intl.DateTimeFormat(lang, byWeek ? { day: "numeric", month: "short" } : { month: "short", year: "2-digit" }), [lang, byWeek]);
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }), [lang]);
+  const labelFmt = dateFormat(byWeek ? "dayShort" : "monthYearCompact", lang);
+  const dateFmt = dateFormat("day", lang);
   const points: TwoWayPoint[] = useMemo(() => (data ? data.buckets.map((b) => ({ ...b, label: labelFmt.format(b.start) })) : []), [data, labelFmt]);
 
   const category = findCategory(categories, selected) as (Category & { icon?: string }) | undefined;

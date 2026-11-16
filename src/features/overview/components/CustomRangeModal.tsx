@@ -3,11 +3,12 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { CustomRange } from "../overviewUtils";
 import styles from "./css/MonthPicker.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** Short month names in the active locale, e.g. Jan / Ιαν. */
 function useMonthNames(): string[] {
   const { i18n } = useTranslation();
-  const fmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" });
+  const fmt = dateFormat("monthShort", i18n.resolvedLanguage ?? "en");
   return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2020, m, 1)));
 }
 

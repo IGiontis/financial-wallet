@@ -1,5 +1,6 @@
-import { useMemo, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import styles from "../css/MonthBars.module.css";
+import { dateFormat } from "../utils/dates";
 
 /** One month of a run, as a bar: what lands in it, and of that what is already behind you. */
 export interface MonthBar {
@@ -48,7 +49,7 @@ export function MonthBars({
   /** Said beside a striped swatch, when any month has a part already done. */
   paidLegend?: string;
 }) {
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short" }), [locale]);
+  const monthFmt = dateFormat("monthShort", locale);
   const peak = months.reduce((most, month) => Math.max(most, month.total), 0);
   const anyPaid = months.some((month) => (month.paid ?? 0) > 0);
   // By the month, not the object: a caller may hand in copies with a title added.

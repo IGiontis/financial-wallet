@@ -112,7 +112,11 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
       deadline: toDateInputValue(goal.deadline),
       planFrom: goal.planFrom ?? "",
     },
-    validationSchema,
+    // An older goal saved with text for an icon still opens and saves as it is:
+    // only an icon that is CHANGED must be one emoji.
+    validationSchema: validationSchema.shape({
+      icon: Yup.string().test("one-icon", "validation.iconOnlyOne", (v) => (v ?? "") === (goal.icon ?? "") || !iconProblem(v ?? "")),
+    }),
     onSubmit: async (values, { resetForm }) => {
       try {
         const data: UpdateInvestmentGoalDTO = {
@@ -238,7 +242,7 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
 
           {step === "target" && <GoalTargetStep form={formik} partsField={partsField} withDeadline={isGoalsPageGoal} formatCurrency={formatCurrency} />}
 
-          {step === "look" && <GoalLookStep form={formik} notesPlaceholder={t("goals.notesPlaceholderEdit")} />}
+          {step === "look" && <GoalLookStep form={formik} notesPlaceholder={t("goals.notesPlaceholderEdit")} storedIcon={goal.icon} />}
 
           {step === "review" && <GoalReview values={formik.values} kindLabel={kindLabel} rows={rows} onGo={(s) => void goTo(s)} />}
         </ModalBody>

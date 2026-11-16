@@ -9,7 +9,10 @@ import styles from "./css/YesNoChoice.module.css";
  * already applied, not a question to answer).
  *
  * Nothing is pre-picked unless the caller passes a value: `undefined` means
- * "not answered yet". Picking «Ναι» shows `children` right under the tiles,
+ * "not answered yet". A new record's question starts on «Ναι» (owner,
+ * 2026-11-12) — the caller passes `true` — except one whose «Ναι» takes money
+ * from a card or erases records (`MoneyMovedPicker`, the goal-delete answers):
+ * that one starts unanswered. The inventory is in `docs/DECISIONS.md`. Picking «Ναι» shows `children` right under the tiles,
  * in the same step; picking «Όχι» shows `whenNo` (usually nothing) and the
  * wizard simply moves on.
  *

@@ -9,6 +9,7 @@ import { isActiveIncome, isSettled, type Income, type IncomeRow, type IncomeStat
 import { useIncomeIcon } from "./incomeIconContext";
 import { incomeEndText, incomeStartText, shortSchedule, statusTag, type IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
+import { startOfDay } from "../../../shared/utils/dates";
 
 // Option 1, «Λίστα σαν τα Πάγια»: the Bills page the other way round.
 // «Περιμένεις» first — what is late sits at the top with its button — then
@@ -213,7 +214,7 @@ function IncomeLine(props: ListProps & { row: IncomeRow }) {
     // Asked about one not due yet — next month's rent inside its ten days — is
     // "for" its day, not "was for" it.
     if (focus.state === "late" || focus.state === "ask") {
-      tags.push({ icon: FiCalendar, text: t(focus.date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.dayMonth.format(focus.date) }), kind: "when" });
+      tags.push({ icon: FiCalendar, text: t(focus.date < startOfDay(now) ? "incomes.list.wasFor" : "incomes.list.dueOn", { date: f.dayMonth.format(focus.date) }), kind: "when" });
     } else {
       tags.push({ icon: FiRepeat, text: shortSchedule(income, t, f), kind: "schedule" });
     }

@@ -110,7 +110,7 @@ describe("water three periods behind, October not yet due", () => {
     // The deadline shown is July's, the oldest still owed — not October's.
     const card = chip()!.closest("[role=button]")!;
     expect(card).toHaveTextContent("Pay by");
-    expect(card).toHaveTextContent("Jul 10");
+    expect(card).toHaveTextContent("10 Jul");
   });
 
   it("lists it in the late list at the tile's figure, from July", async () => {
@@ -125,7 +125,7 @@ describe("water three periods behind, October not yet due", () => {
     expect(row).toHaveTextContent("€180.00");
     // Late since 10 July: 21 + 31 + 30 + 5 days.
     expect(row).toHaveTextContent(`${21 + 31 + 30 + 5} days late`);
-    expect(row).toHaveTextContent("3 unpaid since Jul 10");
+    expect(row).toHaveTextContent("3 unpaid since 10 Jul");
     expect(within(dialog).getByText("€180.00 owed")).toBeInTheDocument();
   });
 
@@ -135,9 +135,9 @@ describe("water three periods behind, October not yet due", () => {
 
     const line = document.querySelector("[class*=_billLine_]")!;
     expect(line.querySelector("[class*=_lineTags_]")!.children[0]).toHaveTextContent("overdue");
-    // Was "€60.00 · Oct 10".
+    // Was "€60.00 · 10 Oct".
     expect(line.querySelector("[class*=_lineAmount_]")).toHaveTextContent("€180.00");
-    expect(line.querySelector("[class*=_lineAmount_]")).toHaveTextContent("Jul 10");
+    expect(line.querySelector("[class*=_lineAmount_]")).toHaveTextContent("10 Jul");
   });
 
   it("lists the same three in next month's breakdown, under the late tile's own name", async () => {
@@ -229,8 +229,10 @@ describe("paying the water from the bill's own dialog", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") }));
     const form = await screen.findByRole("dialog");
+    // The card comes first (none here, so Next passes it); the amount second.
+    await userEvent.click(within(form).getByRole("button", { name: /Next/ }));
     expect((within(form).getByRole("spinbutton") as HTMLInputElement).value).toBe("60");
-    // The period is the second step. Was October: the current period, which is not even late yet.
+    // The period is the third step. Was October: the current period, which is not even late yet.
     await userEvent.click(within(form).getByRole("button", { name: /Next/ }));
     expect((within(form).getByRole("combobox") as HTMLSelectElement).value).toBe("2026-07");
   });
@@ -247,7 +249,7 @@ describe("paying the water from the bill's own dialog", () => {
     // July, August, September — all ticked, at €60 each. By hand: 3 × 60.
     expect(boxes).toHaveLength(3);
     expect(boxes.every((b) => (b as HTMLInputElement).checked)).toBe(true);
-    expect(confirm).toHaveTextContent("Jul 10, 2026");
+    expect(confirm).toHaveTextContent("10 Jul 2026");
     expect(confirm).toHaveTextContent("Marking €180.00");
 
     // August left as it was.

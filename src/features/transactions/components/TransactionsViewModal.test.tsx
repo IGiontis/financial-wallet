@@ -51,7 +51,7 @@ describe("the record's sheet", () => {
     expect(screen.getByText("Recorded").nextSibling).toHaveTextContent("16:33");
     unmount();
     render(<TransactionViewModal transaction={row({ date: new Date(2026, 9, 10), createdAt: at })} categories={[]} formatCurrency={format} onClose={() => {}} />);
-    expect(screen.getByText("Recorded").nextSibling).toHaveTextContent(/Oct 13/);
+    expect(screen.getByText("Recorded").nextSibling).toHaveTextContent(/13 Oct/);
   });
 
   it("locks both for a goal's mirror", () => {

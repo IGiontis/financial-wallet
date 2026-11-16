@@ -2,6 +2,7 @@ import { monthForecast, periodTotals } from "../bills/billsUtils";
 import { isActiveIncome, monthSummary, resolveIncomes, type Income } from "../incomes/incomesUtils";
 import type { OccurrenceOverride } from "../plannerPage/plannerActuals";
 import type { BillWithStatus, Transaction } from "../../shared/types/IndexTypes";
+import { monthKey } from "../../shared/utils/dates";
 
 // «Έσοδα και πάγια, μήνα με μήνα»: a year of what the Incomes page brings in
 // against what the Bills page asks to be paid, twelve months at once.
@@ -14,7 +15,6 @@ import type { BillWithStatus, Transaction } from "../../shared/types/IndexTypes"
 // hand (the user document and the bills query every screen holds): no read.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /**
  * Which figure a month shows.

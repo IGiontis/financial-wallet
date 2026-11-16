@@ -1,5 +1,5 @@
 import type { DebtWithStatus, Transaction } from "../../shared/types/IndexTypes";
-import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, startOfDay, daysBetween } from "../../shared/utils/dates";
 import { isMoneyMove } from "../../shared/utils/moneyModel";
 
 // What the plan expected, held up against what actually happened.
@@ -51,10 +51,7 @@ export const LOOKBACK_DAYS = 25;
 /** The stretch in which records of the same kind prove that it is recorded at all. */
 export const EVIDENCE_DAYS = 75;
 
-const DAY = 24 * 60 * 60 * 1000;
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY);
 
 /** "income": one time of an income from «Έσοδα» — resolved by `planIncomes`, not here. */
 export type OccurrenceSource = "income" | "oneoff" | "loan";

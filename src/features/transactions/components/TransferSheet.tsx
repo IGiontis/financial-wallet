@@ -2,10 +2,9 @@ import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, formatRecordDay } from "../../../shared/utils/dates";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
-import { formatTable } from "../transactionDates";
 import styles from "./css/TransactionWizard.module.css";
 
 /**
@@ -57,7 +56,7 @@ export default function TransferSheet({
           </div>
           <div>
             <span>{t("common.date")}</span>
-            <strong>{formatTable(firestoreToDate(out.date), i18n.resolvedLanguage ?? "en")}</strong>
+            <strong>{formatRecordDay(firestoreToDate(out.date), i18n.resolvedLanguage ?? "en")}</strong>
           </div>
           {out.notes && (
             <div>

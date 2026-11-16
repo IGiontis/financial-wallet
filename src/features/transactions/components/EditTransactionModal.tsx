@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { dayToDate, happenedDayError, NOT_IN_FUTURE, toISODay } from "../../../shared/utils/dates";
+import { dayToDate, happenedDayError, NOT_IN_FUTURE, toISODay, formatRecordDay } from "../../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
@@ -29,7 +29,6 @@ import { TransactionReviewBody, type FuelCell } from "./TransactionReviewBody";
 import { EXPENSE_COLORS, INCOME_COLORS } from "./reviewPalettes";
 import { TypeBadge, WizardSteps } from "./WizardSteps";
 import styles from "./css/TransactionWizard.module.css";
-import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { LockNote } from "./LockNote";
 import type { LockState } from "../hooks/useRecordLocks";
@@ -108,7 +107,7 @@ const validationSchemaFor = (storedDate: string) => Yup.object({
 
 // ─── Review ───────────────────────────────────────────────────────────────────
 
-function ReviewStep({ values, categories, formatAmount, currency }: { values: EditTransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string }) {
+function ReviewStep({ values, categories, formatAmount, currency, lead }: { values: EditTransactionFormValues; categories: Category[]; formatAmount: (n: number) => string; currency: string; lead?: ReactNode }) {
   const { t, i18n } = useTranslation();
   const category = categories.find((c) => c.id === values.categoryId);
   const isIncome = values.type === "income";
@@ -136,9 +135,10 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Ed
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={formatTable(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
+      dateFormatted={formatRecordDay(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
+      lead={lead}
     />
   );
 }
@@ -163,11 +163,11 @@ interface EditTransactionModalProps {
 
 export default function EditTransactionModal({ transaction, isOpen, onClose, categories, onSubmit, lock }: EditTransactionModalProps) {
   const [step, setStep] = useState<Step>("category");
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { payees } = usePayees();
   // Already in the cache from the page behind the form — no extra read.
   const { data: history = [] } = useTransactions();
-  const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
   // An edit is read as a correction of the money too: 100 made 80 gives the
   // card 20 back, even past a bank reading — see `adjustCheckInsForEdit`.
   const { accounts: moneyAccounts, checkIns, setCheckIns } = useMoneyAccounts();
@@ -337,8 +337,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   };
 
 
-  const formatAmount = (n: number) =>
-    new Intl.NumberFormat(intlLocale(i18n.resolvedLanguage), { style: "currency", currency: displayCurrency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+  // The amount as typed, already in the display currency: shown, not converted again.
+  const formatAmount = (n: number) => format(n, displayCurrency);
 
   // The few payees this category is usually paid to, so most entries are one tap.
   const suggestedPayees = useMemo(() => frequentPayees(history, formik.values.categoryId || undefined), [history, formik.values.categoryId]);
@@ -533,25 +533,35 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         )}
 
         {/* ── 3. Read it back before it is written ── */}
-        {step === "review" && <ReviewStep values={formik.values} categories={categories} formatAmount={formatAmount} currency={displayCurrency} />}
-        {step === "review" && !covered && (
-          <ReviewCard
-            accountId={formik.values.accountId}
-            income={formik.values.type === "income"}
-            adjust={{ on: adjustReading, onChange: setAdjustReading }}
-            // The record as it will be: what the card holds after the change.
-            editing={
-              formik.values.amount === ""
-                ? undefined
-                : {
-                    original: transaction,
-                    changed: {
-                      ...transaction,
-                      amount: baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)),
-                      date: dayToDate(formik.values.date),
-                      accountId: chosenAccount(accounts, formik.values.accountId) || undefined,
-                    },
+        {/* The card first, then the amount — as the steps asked them. */}
+        {step === "review" && (
+          <ReviewStep
+            values={formik.values}
+            categories={categories}
+            formatAmount={formatAmount}
+            currency={displayCurrency}
+            lead={
+              !covered && (
+                <ReviewCard
+                  accountId={formik.values.accountId}
+                  income={formik.values.type === "income"}
+                  adjust={{ on: adjustReading, onChange: setAdjustReading }}
+                  // The record as it will be: what the card holds after the change.
+                  editing={
+                    formik.values.amount === ""
+                      ? undefined
+                      : {
+                          original: transaction,
+                          changed: {
+                            ...transaction,
+                            amount: baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)),
+                            date: dayToDate(formik.values.date),
+                            accountId: chosenAccount(accounts, formik.values.accountId) || undefined,
+                          },
+                        }
                   }
+                />
+              )
             }
           />
         )}

@@ -8,6 +8,7 @@ import styles from "../css/PlannerPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** The pills a phone shows; the rest of `PLANNER_HORIZONS` sits behind "⋯" there. */
 const PHONE_HORIZONS: readonly number[] = [THIS_MONTH, 1, 3, 6, 12];
@@ -40,7 +41,7 @@ export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: H
   const { t, i18n } = useTranslation();
   // "Οκτ" for only this month — first, before "1μ", which runs into the next.
   // Whole years read as years; everything else reads as months.
-  const monthName = new Intl.DateTimeFormat(locale ?? i18n.resolvedLanguage ?? "en", { month: "short" }).format(now);
+  const monthName = dateFormat("monthShort", locale ?? i18n.resolvedLanguage ?? "en").format(now);
   const label = (months: number) => (months === THIS_MONTH ? monthName : months >= 12 && months % 12 === 0 ? t("planner.horizonYears", { count: months / 12 }) : t("planner.horizonMonths", { count: months }));
   const [asking, setAsking] = useState(false);
   const [typed, setTyped] = useState("");

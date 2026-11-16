@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import i18n from "../../../i18n";
 import { TransactionsPage } from "./TransactionPage";
 import type { Transaction } from "../../../shared/types/IndexTypes";
+import { dateFormat } from "../../../shared/utils/dates";
 
 // The Transactions page's «Ημερολόγιο» tab: the month's two tiles are the
 // list's own totals for the same records, transfers and goal deposits left
@@ -89,7 +90,7 @@ const renderPage = (entry = "/transactions") => {
   );
 };
 
-const dayTitle = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long" });
+const dayTitle = dateFormat("dayMonthWeekday", "en");
 const dayButton = (day: number) => screen.getByRole("button", { name: new RegExp(`^${dayTitle.format(at(day))}( ·|$)`) });
 const tile = (label: string) => screen.getByText(label, { selector: "span" }).parentElement!;
 

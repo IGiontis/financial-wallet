@@ -9,6 +9,7 @@ import { ChartCard } from "./ChartCard";
 import { ChartDetails, DetailsTable, type DetailsColumn } from "./DetailsTable";
 import { signedWith } from "./chartTheme";
 import { Legend } from "./Legend";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** The height the Overview's chart draws itself at; the card holds exactly that, so nothing scrolls inside it. */
 const CHART_HEIGHT = 280;
@@ -29,7 +30,7 @@ export function CashFlowCard({ transactions, from, now, single, formatCurrency, 
 
   const data = useMemo(() => {
     if (single && from) return groupByWeek(transactions, { start: from, end: now }, (n) => `${t("common.week", { defaultValue: "Week" })} ${n}`);
-    const fmt = new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" });
+    const fmt = dateFormat("monthYearCompact", lang);
     return groupByMonth(transactions, (d) => fmt.format(d));
   }, [transactions, single, from, now, t, lang]);
 

@@ -392,17 +392,27 @@ describe("a new figure from the page's «+»", () => {
 });
 
 describe("«every year?» on a new cost of some months", () => {
-  it("starts with neither tile chosen, asks for an answer on Next, and saves «No» as no repeat", async () => {
+  it("starts on «Yes» (owner, 2026-11-12) and saves it as a yearly repeat", async () => {
     setup("line", { label: "Ski", amount: "200" });
     await userEvent.click(cadence(/^Only some months/));
     const group = screen.getByRole("radiogroup", { name: "Does it come back every year?" });
-    expect(within(group).getByRole("radio", { name: /^Yes/ })).not.toBeChecked();
+    expect(within(group).getByRole("radio", { name: /^Yes/ })).toBeChecked();
     expect(within(group).getByRole("radio", { name: /^No/ })).not.toBeChecked();
     expect(screen.queryByText("Pick Yes or No")).toBeNull();
     await userEvent.type(screen.getAllByRole("textbox")[0], "2026-12");
+    await userEvent.type(screen.getAllByRole("textbox")[1], "2027-02");
     await next();
-    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/^Amount/)).toBeNull();
+    await next();
+    await save();
+    // What is shown is what is saved: the «Yes» on screen is on the draft, not only drawn.
+    expect(onSave.mock.calls[0][0].yearly).toBe(true);
+  });
+
+  it("saves «No» as no repeat", async () => {
+    setup("line", { label: "Ski", amount: "200" });
+    await userEvent.click(cadence(/^Only some months/));
+    const group = screen.getByRole("radiogroup", { name: "Does it come back every year?" });
+    await userEvent.type(screen.getAllByRole("textbox")[0], "2026-12");
     await userEvent.click(within(group).getByRole("radio", { name: /^No/ }));
     await next();
     await next();

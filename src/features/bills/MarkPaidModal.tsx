@@ -7,14 +7,13 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { dayToDate, parseISODay, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../shared/utils/dates";
+import { dayToDate, parseISODay, toISODay, isFutureDay, NOT_IN_FUTURE, formatRecordDay, dateFormat } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, expectedByAccount, mainAccount } from "../accounts/accountsUtils";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import wiz from "../../shared/css/Wizard.module.css";
-import { formatTable } from "../transactions/transactionDates";
 import wizard from "../transactions/components/css/TransactionWizard.module.css";
 import { billOverdue, getInstallmentCount, getPeriodOptions, installmentAmount, MAX_ARREARS_LOOKBACK, paidInstallments, type PeriodOption } from "./billsUtils";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -52,7 +51,8 @@ const PERIOD_CHOICES = 4;
  */
 const PERIOD_LOOKBACK = MAX_ARREARS_LOOKBACK;
 
-const STEPS = ["amount", "when", "card", "review"] as const;
+// WHERE before HOW MUCH (owner, 2026-11-12): the card it was paid from first.
+const STEPS = ["card", "amount", "when", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 /**
@@ -69,12 +69,12 @@ function usePeriodLabel(bill: BillWithStatus) {
       return years;
     }
 
-    const short = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
+    const short = dateFormat("dayShort", lang);
     if (bill.frequency === "weekly") return t("bills.weekOf", { date: short.format(option.start) });
 
-    const month = new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" });
+    const month = dateFormat("monthYear", lang);
     const sameMonth = option.start.getMonth() === option.end.getMonth() && option.start.getFullYear() === option.end.getFullYear();
-    return sameMonth ? month.format(option.start) : `${new Intl.DateTimeFormat(lang, { month: "short" }).format(option.start)} – ${month.format(option.end)}`;
+    return sameMonth ? month.format(option.start) : `${dateFormat("monthShort", lang).format(option.start)} – ${month.format(option.end)}`;
   };
 }
 
@@ -154,13 +154,13 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           .max(1_000_000, "validation.amountTooLarge"),
         // The day the money left: today or earlier (owner, 2026-11-14). Paying
         // AHEAD is a later period, not a later day.
-        date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isAfterToday(v)),
+        date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isFutureDay(v)),
         periodKey: Yup.string().required("validation.periodRequired"),
       }),
     [],
   );
 
-  const [step, setStep] = useState<Step>("amount");
+  const [step, setStep] = useState<Step>(STEPS[0]);
   // The card or cash it was paid from — required (item 97a): nothing starts
   // chosen, except the one place when there is only one (`chosenAccount`).
   const [account, setAccount] = useState("");
@@ -218,30 +218,33 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
   /** Forward only as far as what is filled in allows; back is always free. */
   const goTo = async (target: Step) => {
     const to = STEPS.indexOf(target);
-    if (to > index || to > 0) {
+    if (to > 0) {
       const errors = await formik.validateForm();
-      if (errors.amount) {
-        formik.setFieldTouched("amount", true);
-        return setStep("amount");
-      }
-      if (to > 1 && (errors.date || errors.periodKey)) {
-        formik.setFieldTouched("date", true);
-        formik.setFieldTouched("periodKey", true);
-        return setStep("when");
-      }
-      if (to > 2 && cardMissing) {
-        markTried("card");
-        return setStep("card");
+      // Each step before the target, in the order they are asked.
+      for (const before of STEPS.slice(0, to)) {
+        if (before === "card" && cardMissing) {
+          markTried("card");
+          return setStep("card");
+        }
+        if (before === "amount" && errors.amount) {
+          formik.setFieldTouched("amount", true);
+          return setStep("amount");
+        }
+        if (before === "when" && (errors.date || errors.periodKey)) {
+          formik.setFieldTouched("date", true);
+          formik.setFieldTouched("periodKey", true);
+          return setStep("when");
+        }
       }
     }
     setStep(target);
   };
 
   const rows: { step: Step; label: string; value: string }[] = [
-    { step: "amount", label: t("bills.pay.rowAmount"), value: format(typedAmount) + (installmentTotal > 1 ? ` · ${t("bills.pay.partOf", { index: installmentIndex + 1, count: installmentTotal })}` : "") },
-    { step: "when", label: t("common.date"), value: chosenDate ? formatTable(chosenDate, lang) : "—" },
-    { step: "when", label: t("bills.pay.rowPeriod"), value: chosenPeriodLabel },
     { step: "card", label: t("bills.pay.rowCard"), value: cardName },
+    { step: "amount", label: t("bills.pay.rowAmount"), value: format(typedAmount) + (installmentTotal > 1 ? ` · ${t("bills.pay.partOf", { index: installmentIndex + 1, count: installmentTotal })}` : "") },
+    { step: "when", label: t("common.date"), value: chosenDate ? formatRecordDay(chosenDate, lang) : "—" },
+    { step: "when", label: t("bills.pay.rowPeriod"), value: chosenPeriodLabel },
   ];
 
   return (
@@ -419,7 +422,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
         </ModalBody>
 
         <ModalFooter className="justify-content-between">
-          {step === "amount" ? (
+          {index === 0 ? (
             <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
               {t("common.cancel")}
             </Button>

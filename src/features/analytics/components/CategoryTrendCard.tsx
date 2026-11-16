@@ -14,6 +14,7 @@ import { seriesColor } from "./chartTheme";
 import CategoryTrendChart, { type TrendPoint } from "./CategoryTrendChart";
 import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "./css/Analytics.module.css";
+import { dateFormat, formatMonthYearCompact } from "../../../shared/utils/dates";
 
 type Mode = "months" | "years";
 
@@ -55,10 +56,10 @@ export function CategoryTrendCard({ transactions, categories, now, nameFor, form
     [mode, transactions, picked, years, end, safeSpan],
   );
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
-  const longFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }), [lang]);
+  const monthFmt = dateFormat("monthYearCompact", lang);
+  const longFmt = dateFormat("monthYearShort", lang);
   const labelOf = (b: TrendBucket) => (mode === "years" ? b.key : monthFmt.format(b.start));
-  const points: TrendPoint[] = useMemo(() => buckets.map((b) => ({ key: b.key, label: mode === "years" ? b.key : monthFmt.format(b.start), total: b.total, ...b.values })), [buckets, mode, monthFmt]);
+  const points: TrendPoint[] = useMemo(() => buckets.map((b) => ({ key: b.key, label: mode === "years" ? b.key : formatMonthYearCompact(b.start, lang), total: b.total, ...b.values })), [buckets, mode, lang]);
 
   const series = picked.map((id) => ({ id, name: `${findCategory(categories, id)?.icon ?? ""} ${nameFor(id)}`.trim() }));
   const total = Math.round(buckets.reduce((sum, b) => sum + b.total, 0) * 100) / 100;

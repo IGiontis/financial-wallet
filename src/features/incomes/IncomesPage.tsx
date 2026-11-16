@@ -159,8 +159,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     const salaryCategory = preset.kind === "salary" ? suggestIncomeCategory("salary", categories)?.id : undefined;
     setCardId(null);
     setForm({
-      // «Is it your salary?» is asked, not answered for you (no prefill, tiles included) —
-      // except when it is the salary found in the records, which says so.
+      // The yes / no answers are filled in by the form (on «Ναι»; «Is it your salary?»
+      // asked while another income is the salary) — the salary found in the records says so.
       draft: emptyDraft(now, { ...(salaryCategory ? { categoryId: salaryCategory } : {}), ...preset }),
       isEdit: false,
       key: Date.now(),

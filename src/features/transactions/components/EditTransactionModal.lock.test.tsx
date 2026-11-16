@@ -17,7 +17,7 @@ vi.mock("../hooks/useTransactions", () => ({ useTransactions: () => ({ data: [] 
 // A display currency other than the base: the ordinary path converts the
 // amount there and back, which can move a cent. The covered path must not.
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
-  useCurrencyConverter: () => ({ baseCurrency: "EUR", displayCurrency: "USD", convert: (n: number) => n * 1.0837, convertToBase: (n: number) => n / 1.0837 }),
+  useCurrencyConverter: () => ({ format: (n: number, c?: string) => new Intl.NumberFormat("en", { style: "currency", currency: c ?? "EUR" }).format(n), baseCurrency: "EUR", displayCurrency: "USD", convert: (n: number) => n * 1.0837, convertToBase: (n: number) => n / 1.0837 }),
 }));
 const setCheckIns = vi.fn();
 vi.mock("../../accounts/useMoneyAccounts", () => ({

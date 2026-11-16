@@ -8,10 +8,10 @@ import type { PaydayOutlook } from "../overviewTabs";
 import { OUTGOING_COLOURS } from "./paydayParts";
 import { PaydayPath } from "./PaydayPath";
 import styles from "../pages/css/OverviewPage.module.css";
+import { dateFormat, startOfDay } from "../../../shared/utils/dates";
 
 type Money = (n: number) => string;
 
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /**
  * The line beside "what is left": which evening it is, and why that one.
@@ -22,7 +22,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
  * what is left, the pay having landed.
  */
 function whenLeft(t: TFunction, outlook: PaydayOutlook, now: Date, locale: string): string {
-  const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
+  const dayDate = dateFormat("weekdayDay", locale);
   const prefix = outlook.left >= 0 ? "left" : "short";
   if (!outlook.known) return t(`overview.${prefix}MonthEnd`, { day: dayDate.format(outlook.date) });
   // Pay held on today — late, or due today — has no evening before it: what
@@ -42,7 +42,7 @@ function whenLeft(t: TFunction, outlook: PaydayOutlook, now: Date, locale: strin
  */
 export function PaydayAnswer({ outlook, now, formatCurrency, locale }: { outlook: PaydayOutlook; now: Date; formatCurrency: Money; locale: string }) {
   const { t } = useTranslation();
-  const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
+  const dayDate = dateFormat("weekdayDay", locale);
 
   const makesIt = outlook.lowest >= 0;
   const out = outlook.bills + outlook.commitments + outlook.lines;

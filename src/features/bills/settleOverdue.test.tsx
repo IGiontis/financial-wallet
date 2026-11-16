@@ -109,14 +109,18 @@ afterAll(() => vi.useRealTimers());
 // ─── The payment form ────────────────────────────────────────────────────────
 
 describe("the payment wizard, on a bill with something overdue", () => {
-  const openFor = (bill: BillWithStatus) => render(<MarkPaidModal bill={bill} isSaving={false} onClose={() => {}} onConfirm={() => {}} />);
-  // The amount is the first step; the period is on the second.
+  // The card is the first step (WHERE before HOW MUCH) — with no cards here,
+  // Next passes it; the amount is the second step, the period the third.
+  const openFor = async (bill: BillWithStatus) => {
+    render(<MarkPaidModal bill={bill} isSaving={false} onClose={() => {}} onConfirm={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: /Next/ }));
+  };
   const amount = () => Number((screen.getByRole("spinbutton") as HTMLInputElement).value);
   const toWhen = () => userEvent.click(screen.getByRole("button", { name: /Next/ }));
   const period = () => (screen.getByRole("combobox") as HTMLSelectElement).value;
 
   it("starts with July, the oldest overdue, at €60 — not October", async () => {
-    openFor(water());
+    await openFor(water());
 
     expect(amount()).toBe(60);
     await toWhen();
@@ -136,7 +140,7 @@ describe("the payment wizard, on a bill with something overdue", () => {
     // By hand: four at €60, less the one paid.
     expect(4 * 60 - 60).toBe(180);
     // And the form moves on to August next time.
-    openFor(afterJuly);
+    await openFor(afterJuly);
     await toWhen();
     expect(period()).toBe("2026-08");
   });
@@ -145,7 +149,7 @@ describe("the payment wizard, on a bill with something overdue", () => {
     // Paid to September, on 5 October: October is unpaid but not late.
     const upToDate = computeBillStatus(WATER, paidMonths([...KEPT_KEYS, "2026-07", "2026-08", "2026-09"]), new Date(2026, 9, 5));
     vi.setSystemTime(new Date(2026, 9, 5, 10, 0));
-    openFor(upToDate);
+    await openFor(upToDate);
     await toWhen();
 
     expect(period()).toBe("2026-10");
@@ -158,7 +162,7 @@ describe("the payment wizard, on a bill with something overdue", () => {
     const bill = water(paidMonths(keys));
     expect(billOverdue(bill, NOW).items.map((i) => i.periodKey)).toEqual(["2025-12"]);
 
-    openFor(bill);
+    await openFor(bill);
     await toWhen();
     // At six periods back the form stopped at April 2026: December was owed and
     // could not be chosen.
@@ -177,7 +181,7 @@ describe("the payment wizard, on a bill with something overdue", () => {
 
     // One part of three paid is not "paid": the period stays choosable.
     expect(getPeriodOptions(gym, gym.payments, new Date(2026, 10, 15)).find((o) => o.key === "2026")?.isPaid).toBe(false);
-    openFor(gym);
+    await openFor(gym);
     expect(amount()).toBe(120);
     expect(screen.getByText(/2 of 3/)).toBeInTheDocument();
     await toWhen();
@@ -194,13 +198,15 @@ describe("paying a bill, step by step", () => {
 
   beforeEach(() => onConfirm.mockClear());
 
-  it("has no Save until the check, the fourth step, and asks about the card before it", async () => {
+  it("has no Save until the check, the fourth step, and asks about the card first — before the amount", async () => {
     open();
     expect(screen.queryByRole("button", { name: /Mark as paid|Confirm/i })).toBeNull();
-    await next();
-    await next();
-    // The card step: the app's own picker, asking where the money came from.
+    // The card step opens the wizard: the app's own picker, asking where the money came from.
     expect(screen.getByText(/Where did the money come from/)).toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).toBeNull();
+    await next();
+    expect(screen.getByRole("spinbutton")).toBeInTheDocument();
+    await next();
     await next();
     expect(screen.getByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
     expect(onConfirm).not.toHaveBeenCalled();

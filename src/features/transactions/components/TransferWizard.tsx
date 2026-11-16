@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { SavedCheck } from "./SavedCheck";
 import { DateField } from "../../../shared/components/DateField";
-import { parseISODay, toISODay, happenedDayError } from "../../../shared/utils/dates";
+import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
@@ -18,7 +18,6 @@ import { WizardSteps } from "./WizardSteps";
 import { useSaveTransfer } from "../hooks/useTransfers";
 import { transferProblem, transferRecords } from "../transfers";
 import { newDocId } from "../../../firebase/firestore";
-import { formatTable } from "../transactionDates";
 import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
@@ -186,7 +185,7 @@ export default function TransferWizard({
     { step: "from", label: t("transactions.transfer.stepFrom"), value: fromAccount ? <>{fromAccount.name}{moveText(from, -1) && <small className="d-block text-body-secondary fw-normal">{moveText(from, -1)}</small>}</> : "—" },
     { step: "to", label: t("transactions.transfer.stepTo"), value: toAccount ? <>{toAccount.name}{moveText(to, 1) && <small className="d-block text-body-secondary fw-normal">{moveText(to, 1)}</small>}</> : "—" },
     { step: "amount", label: t("common.amount"), value: Number.isFinite(value) ? formatCurrency(round2(value)) : "—" },
-    { step: "amount", label: t("common.date"), value: day ? formatTable(day, lang) : "—" },
+    { step: "amount", label: t("common.date"), value: day ? formatRecordDay(day, lang) : "—" },
     ...(note.trim() ? [{ step: "amount" as Step, label: t("transactions.transfer.note"), value: note.trim() }] : []),
   ];
 
@@ -247,7 +246,7 @@ export default function TransferWizard({
                 </div>
                 <div>
                   <span>{t("common.date")}</span>
-                  <strong>{formatTable(saved.date, lang)}</strong>
+                  <strong>{formatRecordDay(saved.date, lang)}</strong>
                 </div>
               </div>
             </div>

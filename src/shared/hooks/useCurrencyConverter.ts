@@ -5,6 +5,7 @@ import { useAuth } from "./useAuth";
 import { getUser } from "../../firebase/firestore";
 import { fetchExchangeRates, convertAmount, readStoredRates } from "../../firebase/exchangeRate";
 import type { Currency } from "../../shared/types/IndexTypes";
+import { currencySymbol } from "../utils/currency";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -95,6 +96,8 @@ export function useCurrencyConverter() {
     convertToBase,
     baseCurrency,
     displayCurrency,
+    /** The display currency's sign («€», «$», «£») — an amount input's suffix. */
+    symbol: currencySymbol(displayCurrency),
     isLoading,
     /** Set when the amounts are being converted with rates from an earlier session. */
     ratesAsOf: !fetchedRates && storedRates ? new Date(storedRates.fetchedAt) : undefined,

@@ -56,17 +56,30 @@ const no = () => screen.getByRole("radio", { name: /^No, a plain debt/ });
 const moneyYes = () => userEvent.click(screen.getByRole("radio", { name: /^Yes, (into|from) a card or cash/ }));
 const open = () => render(<AddDebtModal knownPeople={["Keki"]} onClose={() => {}} />);
 
-async function fillWho(person: string, amount: string) {
+// WHERE before HOW MUCH (owner, 2026-11-12): who → money (did it move, which
+// card, and how much) → interest → when → review.
+
+/** Step 1 (who), then the money step: «Yes» unless told otherwise, and the amount. Ends on the money step. */
+async function fillWho(person: string, amount: string, { what, money = "yes" }: { what?: string; money?: "yes" | "unanswered" } = {}) {
   await userEvent.type(screen.getByPlaceholderText("e.g. my brother"), person);
+  if (what) await userEvent.type(screen.getByLabelText("What for"), what);
+  await next();
+  if (money === "yes") await moneyYes();
   await userEvent.type(screen.getByLabelText(/^Amount/), amount);
 }
 
 describe("the loan wizard's steps", () => {
-  it("walks who → interest → when → money → review, with Save only on the review", async () => {
+  it("walks who → money → interest → when → review, with Save only on the review", async () => {
     open();
     expect(current()).toMatch(/Who/);
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    await fillWho("Keki", "100");
+    // No amount on the first step: it comes after the card.
+    expect(screen.queryByLabelText(/^Amount/)).toBeNull();
+    await userEvent.type(screen.getByPlaceholderText("e.g. my brother"), "Keki");
+    await next();
+    expect(current()).toMatch(/Money/);
+    await moneyYes();
+    await userEvent.type(screen.getByLabelText(/^Amount/), "100");
     await next();
     expect(current()).toMatch(/Interest/);
     await userEvent.click(no());
@@ -74,44 +87,46 @@ describe("the loan wizard's steps", () => {
     expect(current()).toMatch(/When/);
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     await next();
-    expect(current()).toMatch(/Money/);
-    await moneyYes();
-    await next();
     expect(current()).toMatch(/Review/);
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Next/ })).toBeNull();
   });
 
-  it("does not leave step 1 without a person and an amount above 0", async () => {
+  it("does not leave step 1 without a person, nor the money step without an amount above 0", async () => {
     open();
     await next();
     expect(current()).toMatch(/Who/);
     expect(screen.getByText("Enter who with")).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText("e.g. my brother"), "Keki");
+    await next();
+    expect(current()).toMatch(/Money/);
+    await moneyYes();
     await userEvent.type(screen.getByLabelText(/^Amount/), "0");
     await next();
-    expect(current()).toMatch(/Who/);
+    expect(current()).toMatch(/Money/);
     await userEvent.clear(screen.getByLabelText(/^Amount/));
     await userEvent.type(screen.getByLabelText(/^Amount/), "5");
     await next();
     expect(current()).toMatch(/Interest/);
   });
 
-  it("asks the interest question with nothing picked, and waits for an answer", async () => {
+  it("starts the interest question on «Yes» (owner, 2026-11-12), the loan's figures shown, and goes on with it", async () => {
     open();
     await fillWho("Keki", "100");
     await next();
-    expect(yes()).toHaveAttribute("aria-checked", "false");
+    expect(yes()).toHaveAttribute("aria-checked", "true");
     expect(no()).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByLabelText("Yearly interest")).toBeInTheDocument();
+    expect(screen.queryByText("Pick Yes or No")).toBeNull();
     await next();
-    expect(current()).toMatch(/Interest/);
-    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
+    expect(current()).toMatch(/When/);
   });
 
   it("«Yes» reveals the rate type, rate and term in the same step; «No» hides them and moves on", async () => {
     open();
     await fillWho("Keki", "100");
     await next();
+    await userEvent.click(no());
     expect(screen.queryByLabelText("Yearly interest")).toBeNull();
     await userEvent.click(yes());
     expect(current()).toMatch(/Interest/);
@@ -136,8 +151,6 @@ describe("the loan wizard's steps", () => {
     await userEvent.click(no());
     await next();
     await next();
-    await moneyYes();
-    await next();
     await userEvent.click(screen.getByRole("button", { name: /^Who with/ }));
     expect(current()).toMatch(/Who/);
   });
@@ -148,13 +161,10 @@ describe("what the wizard saves", () => {
 
   it("a plain debt: the same fields the one-page form wrote", async () => {
     open();
-    await fillWho("Keki", "250.5");
-    await userEvent.type(screen.getByLabelText("What for"), "  Dinner ");
+    await fillWho("Keki", "250.5", { what: "  Dinner " });
     await next();
     await userEvent.click(no());
     await next();
-    await next();
-    await moneyYes();
     await next();
     // Plain: the receipt is the amount alone, no interest.
     const receipt = screen.getByRole("group", { name: "What you pay back" });
@@ -192,8 +202,6 @@ describe("what the wizard saves", () => {
     await userEvent.type(screen.getByLabelText("Yearly interest"), "6");
     await userEvent.type(screen.getByLabelText("Paid over"), "60");
     await next();
-    await next();
-    await moneyYes();
     await next();
 
     // Worked out by hand, the annuity formula: P·r / (1 − (1 + r)^−n).
@@ -234,8 +242,6 @@ describe("what the wizard saves", () => {
     await userEvent.type(screen.getByLabelText("Interest-free"), "3");
     await next();
     await next();
-    await moneyYes();
-    await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [data] = spies.create.mock.calls[0];
     expect(data.interestRate).toBeCloseTo(3.6, 10);
@@ -252,8 +258,6 @@ describe("what the wizard saves", () => {
     expect(screen.getByText(/With no term in months it is saved as a plain debt/)).toBeInTheDocument();
     await next();
     await next();
-    await moneyYes();
-    await next();
     expect(screen.getByText(/With no term in months it is saved as a plain debt/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [data] = spies.create.mock.calls[0];
@@ -264,12 +268,11 @@ describe("what the wizard saves", () => {
   it("lent with no money moving: direction and no card, as before", async () => {
     open();
     await userEvent.click(screen.getByRole("button", { name: /^I lent/ }));
-    await fillWho("Keki", "40");
+    await fillWho("Keki", "40", { money: "unanswered" });
+    await userEvent.click(screen.getByRole("radio", { name: /^No — you paid for them/ }));
     await next();
     await userEvent.click(no());
     await next();
-    await next();
-    await userEvent.click(screen.getByRole("radio", { name: /^No — you paid for them/ }));
     await next();
     expect(screen.getByRole("group", { name: "What you get back" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Where the money came out of\s*No money moved/ })).toBeInTheDocument();
@@ -316,21 +319,23 @@ describe("correcting a saved loan", () => {
 
   it("No change, no Save: 120000 typed as 120000.00 and a stray space are no change; a real one is; back again is none", async () => {
     render(<AddDebtModal debt={saved} knownPeople={["Bank"]} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("What for"), " ");
+    // The amount is on the money step, after the card.
+    await userEvent.click(screen.getByRole("button", { name: /^2\s*Money/ }));
     const amount = screen.getByLabelText(/^Amount/);
     await userEvent.clear(amount);
     await userEvent.type(amount, "120000.00");
-    await userEvent.type(screen.getByLabelText("What for"), " ");
     await userEvent.click(screen.getByRole("button", { name: /Review/ }));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /^1\s*Who/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^2\s*Money/ }));
     await userEvent.clear(screen.getByLabelText(/^Amount/));
     await userEvent.type(screen.getByLabelText(/^Amount/), "119000");
     await userEvent.click(screen.getByRole("button", { name: /Review/ }));
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
 
-    await userEvent.click(screen.getByRole("button", { name: /^1\s*Who/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^2\s*Money/ }));
     await userEvent.clear(screen.getByLabelText(/^Amount/));
     await userEvent.type(screen.getByLabelText(/^Amount/), "120000");
     await userEvent.click(screen.getByRole("button", { name: /Review/ }));
@@ -381,11 +386,7 @@ describe("where the money went is asked, never assumed", () => {
   it("a new debt: «Yes» with no card will not move on, says so only after Next, and saves the card chosen", async () => {
     places.list = TWO_PLACES;
     open();
-    await fillWho("Keki", "80");
-    await next();
-    await userEvent.click(no());
-    await next();
-    await next();
+    await fillWho("Keki", "80", { money: "unanswered" });
     expect(current()).toMatch(/Money/);
     expect(screen.queryByText("card required")).toBeNull();
     await moneyYes();
@@ -395,6 +396,9 @@ describe("where the money went is asked, never assumed", () => {
     expect(current()).toMatch(/Money/);
     expect(screen.getByText("card required")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "pick Revolut" }));
+    await next();
+    await userEvent.click(no());
+    await next();
     await next();
     expect(current()).toMatch(/Review/);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -422,12 +426,15 @@ describe("where the money went is asked, never assumed", () => {
 describe("the money question on a new debt", () => {
   const toMoney = async () => {
     open();
-    await fillWho("Keki", "60");
+    await fillWho("Keki", "60", { money: "unanswered" });
+    expect(current()).toMatch(/Money/);
+  };
+  /** From an answered money step: no interest, the day as it is, on to the review. */
+  const toReview = async () => {
     await next();
     await userEvent.click(no());
     await next();
     await next();
-    expect(current()).toMatch(/Money/);
   };
   const moneyYesTile = () => screen.getByRole("radio", { name: /^Yes, into a card or cash/ });
   const moneyNoTile = () => screen.getByRole("radio", { name: /^No — they paid for you/ });
@@ -453,7 +460,7 @@ describe("the money question on a new debt", () => {
   it("«No» saves without a card, exactly as before", async () => {
     await toMoney();
     await userEvent.click(moneyNoTile());
-    await next();
+    await toReview();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [data] = spies.create.mock.calls[0];
     expect(data.amount).toBe(60);
@@ -470,7 +477,7 @@ describe("the money question on a new debt", () => {
     expect(current()).toMatch(/Money/);
     expect(screen.getByText("card required")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "pick Revolut" }));
-    await next();
+    await toReview();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.create.mock.calls[0][0]).toMatchObject({ amount: 60, accountId: "rev" });
   });
@@ -489,12 +496,19 @@ describe("the loan wizard's required fields", () => {
   it("carry the star, step by step — what its checks require and nothing else", async () => {
     open();
     const dialog = screen.getByRole("dialog");
-    // Who with and how much; «what for» is optional. The direction always has an answer.
-    expect(markedLabels(dialog)).toEqual(["Who with", "Amount"]);
+    // Who with; «what for» is optional. The direction always has an answer.
+    expect(markedLabels(dialog)).toEqual(["Who with"]);
     expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
-    expect(screen.getByLabelText(/^Amount/)).toHaveAttribute("aria-required", "true");
     expect(screen.getByLabelText(/^What for/)).not.toHaveAttribute("aria-required");
-    await fillWho("Keki", "100");
+    await userEvent.type(screen.getByPlaceholderText("e.g. my brother"), "Keki");
+    await next();
+
+    // Borrowed: did it reach a card? «Yes» then asks which — required too; then how much.
+    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?", "Amount"]);
+    expect(screen.getByLabelText(/^Amount/)).toHaveAttribute("aria-required", "true");
+    await moneyYes();
+    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?", "Where did the money go?", "Amount"]);
+    await userEvent.type(screen.getByLabelText(/^Amount/), "100");
     await next();
 
     // One question, asked in the title; the tiles' group says it is required.
@@ -507,12 +521,6 @@ describe("the loan wizard's required fields", () => {
 
     // The day it was given; «back by» is optional.
     expect(markedLabels(dialog)).toEqual(["When"]);
-    await next();
-
-    // Borrowed: did it reach a card? «Yes» then asks which — required too.
-    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?"]);
-    await moneyYes();
-    expect(markedLabels(dialog)).toEqual(["Did the money go in somewhere?", "Where did the money go?"]);
   });
 });
 

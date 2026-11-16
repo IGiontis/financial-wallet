@@ -4,7 +4,6 @@ import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Lab
 import { useTranslation } from "react-i18next";
 import { PayeeInput } from "../transactions/components/PayeeInput";
 import { WizardSteps } from "../transactions/components/WizardSteps";
-import { formatTable } from "../transactions/transactionDates";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCreateDebt, useEditDebt } from "./useDebts";
 import { monthlyInstalment } from "./debtsUtils";
@@ -15,7 +14,7 @@ import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
-import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -44,7 +43,9 @@ const today = () => toISODay(new Date());
 const asInput = (n: number | undefined) => (n === undefined || n === null ? "" : String(n));
 const cents = (n: number) => Math.round(n * 100) / 100;
 
-const DEBT_STEPS = ["who", "interest", "dates", "money", "review"] as const;
+// WHERE before HOW MUCH (owner, 2026-11-12): whether money moved, and through
+// which card, is asked before the amount — so the amount sits on the money step.
+const DEBT_STEPS = ["who", "money", "interest", "dates", "review"] as const;
 type Step = (typeof DEBT_STEPS)[number];
 const STEP_LABEL: Record<Step, string> = {
   who: "debts.addWizard.stepWho",
@@ -55,8 +56,8 @@ const STEP_LABEL: Record<Step, string> = {
 };
 
 /**
- * Recording a loan, as numbered steps: who and how much, whether it is a loan
- * with interest, when, whether money moved — then a review listing every
+ * Recording a loan, as numbered steps: who, whether money moved (and through
+ * which card) and how much, whether it is a loan with interest, when — then a review listing every
  * answer and the receipt of what gets paid back. Save is only on the review.
  *
  * Direction is a pair of buttons rather than a sign on the amount: "which way
@@ -110,8 +111,10 @@ export default function AddDebtModal({
   const [date, setDate] = useState(() => (debt ? toISODay(debt.date) : today()));
   const [dueDate, setDueDate] = useState(() => (debt?.dueDate ? toISODay(debt.dueDate) : ""));
   // A term is what made it a loan when it was saved (see below), so it is what
-  // answers the question for a saved debt. A new one starts unanswered.
-  const [withInterest, setWithInterest] = useState<boolean | undefined>(debt ? (debt.termMonths ?? 0) > 0 : undefined);
+  // answers the question for a saved debt.
+  // «Με τόκο;» starts on «Ναι» on a new debt (owner, 2026-11-12) — it moves no money:
+  // with no term typed it is still saved as a plain debt, and the step says so.
+  const [withInterest, setWithInterest] = useState<boolean | undefined>(debt ? (debt.termMonths ?? 0) > 0 : true);
   const [rateType, setRateType] = useState<DebtRateType>(debt?.rateType ?? "fixed");
   const [rate, setRate] = useState(debt?.rateType === "floating" ? "" : asInput(debt?.interestRate));
   const [base, setBase] = useState(asInput(debt?.baseRate));
@@ -199,25 +202,22 @@ export default function AddDebtModal({
   const index = DEBT_STEPS.indexOf(step);
   // Forward only as far as what is filled in allows; back is always free.
   const goTo = (target: Step) => {
-    const to = DEBT_STEPS.indexOf(target);
-    if (to > 0 && (!personOk || !amountOk)) {
-      setTouched(true);
-      setStep("who");
-      return;
-    }
-    if (to > 1 && withInterest === undefined) {
-      setAskedInterest(true);
-      setStep("interest");
-      return;
-    }
-    if (to > 2 && (!when || dateError)) {
-      setStep("dates");
-      return;
-    }
-    if (to > 3 && moneyMissing) {
-      setMoneyTried(true);
-      setStep("money");
-      return;
+    // Each step before the target, in the order they are asked.
+    for (const before of DEBT_STEPS.slice(0, DEBT_STEPS.indexOf(target))) {
+      if (before === "who" && !personOk) {
+        setTouched(true);
+        return setStep("who");
+      }
+      if (before === "money" && (moneyMissing || !amountOk)) {
+        if (moneyMissing) setMoneyTried(true);
+        if (!amountOk) setTouched(true);
+        return setStep("money");
+      }
+      if (before === "interest" && withInterest === undefined) {
+        setAskedInterest(true);
+        return setStep("interest");
+      }
+      if (before === "dates" && (!when || dateError)) return setStep("dates");
     }
     setStep(target);
   };
@@ -356,8 +356,16 @@ export default function AddDebtModal({
   const rows: { step: Step; label: string; value: string }[] = [
     { step: "who", label: t("debts.direction"), value: t(borrowed ? "debts.iBorrowed" : "debts.iLent") },
     { step: "who", label: t("debts.person"), value: person.trim() || "—" },
-    { step: "who", label: t("common.amount"), value: formatCurrency(amountOk ? value : 0) },
     { step: "who", label: t("debts.what"), value: label.trim() || forGoal?.name || "—" },
+    // The card before the amount, as the money step asks them.
+    ...(linked ? [] : [{ step: "money" as Step, label: t(borrowed ? "debts.loanInto" : "debts.loanFrom"), value: cardName }]),
+    ...(forGoal
+      ? [
+          { step: "money" as Step, label: t("debts.toGoal"), value: `${forGoal.icon ?? "🎯"} ${forGoal.name}` },
+          { step: "money" as Step, label: t("debts.toGoalCategory"), value: goalCategoryName },
+        ]
+      : []),
+    { step: "money", label: t("common.amount"), value: formatCurrency(amountOk ? value : 0) },
     { step: "interest", label: t("debts.addWizard.stepInterest"), value: isLoanEntry ? t("debts.addWizard.interestYes") : t("debts.addWizard.plain") },
     ...(isLoanEntry
       ? [
@@ -371,15 +379,8 @@ export default function AddDebtModal({
           { step: "interest" as Step, label: t("debts.interestFree"), value: freeValue > 0 ? t("debts.addWizard.months", { count: freeValue }) : "—" },
         ]
       : []),
-    { step: "dates", label: t("debts.when"), value: when ? formatTable(when, lang) : "—" },
-    { step: "dates", label: t("debts.dueDate"), value: due ? formatTable(due, lang) : "—" },
-    ...(linked ? [] : [{ step: "money" as Step, label: t(borrowed ? "debts.loanInto" : "debts.loanFrom"), value: cardName }]),
-    ...(forGoal
-      ? [
-          { step: "money" as Step, label: t("debts.toGoal"), value: `${forGoal.icon ?? "🎯"} ${forGoal.name}` },
-          { step: "money" as Step, label: t("debts.toGoalCategory"), value: goalCategoryName },
-        ]
-      : []),
+    { step: "dates", label: t("debts.when"), value: when ? formatRecordDay(when, lang) : "—" },
+    { step: "dates", label: t("debts.dueDate"), value: due ? formatRecordDay(due, lang) : "—" },
   ];
   // The receipt adds up to the cent: the total is the instalments, rounded once,
   // and the interest is what is left of it after the loan itself.
@@ -462,18 +463,6 @@ export default function AddDebtModal({
                   wording={{ field: "debts.person", useTyped: "debts.useTypedPerson", empty: "debts.noPersonMatches" }}
                 />
                 {touched && !personOk && <div className="invalid-feedback d-block">{t("debts.addWizard.personNeeded")}</div>}
-              </FormGroup>
-
-              <FormGroup>
-                <Label className="small fw-medium" for="debt-amount">
-                  {t("common.amount")}
-                  <RequiredMark />
-                </Label>
-                <InputGroup>
-                  <InputGroupText>{baseCurrency}</InputGroupText>
-                  <Input id="debt-amount" aria-required type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
-                  <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
-                </InputGroup>
               </FormGroup>
 
               <FormGroup className="mb-0">
@@ -665,6 +654,19 @@ export default function AddDebtModal({
                   }
                 />
               </div>
+              {/* How much, once where it went or came from is answered. */}
+              <FormGroup className="mt-3 mb-0">
+                <Label className="small fw-medium" for="debt-amount">
+                  {t("common.amount")}
+                  <RequiredMark />
+                </Label>
+                <InputGroup>
+                  <InputGroupText>{baseCurrency}</InputGroupText>
+                  <Input id="debt-amount" aria-required type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={touched && !amountOk} placeholder="0" />
+                  <FormFeedback>{t("debts.wizard.amountNeeded")}</FormFeedback>
+                </InputGroup>
+              </FormGroup>
+
             </>
           )}
 

@@ -4,6 +4,7 @@ import { FiChevronRight, FiLock } from "react-icons/fi";
 import { isHardDeadline, type CashCheckpoint } from "./billsUtils";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import styles from "./css/BillsPage.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 interface RunwaySheetProps {
   /** The checkpoints the figure adds up — from the first through the one tapped. Empty closes it. */
@@ -33,11 +34,7 @@ export default function RunwaySheet({
   onOpenBill,
 }: RunwaySheetProps) {
   const { t, i18n } = useTranslation();
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const dateFmt = dateFormat("dayMonthWeekday", i18n.resolvedLanguage ?? "en");
   const last = checkpoints[checkpoints.length - 1];
   const count = new Set(checkpoints.flatMap((c) => c.bills)).size;
   const late = checkpoints.some((c) => c.overdue);

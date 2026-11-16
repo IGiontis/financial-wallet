@@ -9,7 +9,7 @@ import { PageWaiting } from "../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { categoryLabel } from "../../shared/utils/categories";
-import { standaloneMonthName } from "../../shared/utils/dates";
+import { formatMonthName, dateFormat } from "../../shared/utils/dates";
 import { buildStatement, monthRange, yearRange, yearsWithRecords, type StatementLine } from "./statementUtils";
 import styles from "./css/Statement.module.css";
 import { findCategory } from "../../shared/utils/categories";
@@ -113,10 +113,10 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
 
   // Named on their own in the picker and before the year in the title, so the
   // stand-alone form: "Μάρτιος 2026", never "Μαρτίου 2026".
-  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, i) => standaloneMonthName(lang, new Date(2026, i, 1))), [lang]);
+  const monthNames = useMemo(() => Array.from({ length: 12 }, (_, i) => formatMonthName(new Date(2026, i, 1), lang)), [lang]);
 
-  const shortMonth = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
-  const generatedAt = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "long" }).format(now), [lang, now]);
+  const shortMonth = dateFormat("monthShort", lang);
+  const generatedAt = useMemo(() => dateFormat("dayLongYear", lang).format(now), [lang, now]);
   const periodLabel = month === WHOLE_YEAR ? String(year) : `${monthNames[Number(month)]} ${year}`;
 
   const percent = useMemo(() => new Intl.NumberFormat(lang, { style: "percent", maximumFractionDigits: 0 }), [lang]);

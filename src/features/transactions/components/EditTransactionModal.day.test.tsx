@@ -5,8 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { format } from "date-fns";
 import i18n from "../../../i18n";
 import EditTransactionModal from "./EditTransactionModal";
-import { firestoreToDate, toISODay } from "../../../shared/utils/dates";
-import { formatTable } from "../transactionDates";
+import { firestoreToDate, toISODay, formatRecordDay } from "../../../shared/utils/dates";
 import type { Transaction, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 
 // The edit form opens on the day the list shows (2026-11-16 bug: it read the
@@ -18,7 +17,7 @@ import type { Transaction, UpdateTransactionDTO } from "../../../shared/types/In
 vi.mock("../hooks/usePayees", () => ({ usePayees: () => ({ payees: [] }) }));
 vi.mock("../hooks/useTransactions", () => ({ useTransactions: () => ({ data: [] }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
-  useCurrencyConverter: () => ({ baseCurrency: "EUR", displayCurrency: "EUR", convert: (n: number) => n, convertToBase: (n: number) => n }),
+  useCurrencyConverter: () => ({ format: (n: number, c?: string) => new Intl.NumberFormat("en", { style: "currency", currency: c ?? "EUR" }).format(n), baseCurrency: "EUR", displayCurrency: "EUR", convert: (n: number) => n, convertToBase: (n: number) => n }),
 }));
 vi.mock("../../accounts/useMoneyAccounts", () => ({
   useMoneyAccounts: () => ({ accounts: [], checkIns: [], setCheckIns: vi.fn() }),
@@ -78,7 +77,7 @@ describe("the edit form shows the stored day the list shows (Greek time)", () =>
     ["UTC midnight 25 Oct (= 03:00 summer time, before the change)", new Date(Date.UTC(2026, 9, 25)), [2026, 9, 25]],
   ] as [string, Date, [number, number, number]][])("%s", async (_, stored, [y, m, d]) => {
     const transaction = tx(stored);
-    // The list row: formatTable(firestoreToDate(date)).
+    // The list row: formatRecordDay(firestoreToDate(date)).
     const listDay = toISODay(firestoreToDate(transaction.date));
     expect(listDay).toBe(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
 
@@ -90,7 +89,7 @@ describe("the edit form shows the stored day the list shows (Greek time)", () =>
     // A change elsewhere saves, and the untouched day is not sent again.
     await user.type(notes(), "weekly shop");
     await user.click(reviewButton());
-    expect(screen.getByText(formatTable(firestoreToDate(transaction.date), "en"))).toBeInTheDocument();
+    expect(screen.getByText(formatRecordDay(firestoreToDate(transaction.date), "en"))).toBeInTheDocument();
     await user.click(saveButton());
     expect(onSubmit).toHaveBeenCalledOnce();
     expect(onSubmit.mock.calls[0][1].date).toBeUndefined();

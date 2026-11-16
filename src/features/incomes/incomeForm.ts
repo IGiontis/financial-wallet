@@ -13,9 +13,10 @@ export interface IncomeDraft {
   kind: IncomeKind;
   name: string;
   /**
-   * The three yes / no questions: `undefined` until answered — a new income
-   * starts with neither tile chosen (no prefill, tiles included), and the step
-   * will not go on until it is answered. An edit shows what is stored.
+   * The three yes / no questions: `undefined` until answered — the form starts a
+   * new income on «Ναι» (owner, 2026-11-12; «Είναι ο μισθός;» stays unanswered while
+   * another income is the salary), and a step will not go on with one unanswered.
+   * An edit shows what is stored.
    */
   variable: boolean | undefined;
   /** In the display currency, as typed. */

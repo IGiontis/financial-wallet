@@ -5,7 +5,7 @@ import { addMonths, isSameMonth, startOfMonth } from "date-fns";
 import { FiChevronDown, FiChevronLeft, FiChevronRight, FiEdit2 } from "react-icons/fi";
 import { categoryLabel } from "../../../shared/utils/categories";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../../shared/utils/dates";
 import { lineMonthRecords, lineMonthSpend } from "../lineSpending";
 import type { BudgetLine } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
@@ -57,7 +57,7 @@ export function LineSpendSheet({
   const latest = initialMonth && initialMonth > now ? startOfMonth(initialMonth) : startOfMonth(now);
   const toCome = month > startOfMonth(now);
   const oldest = addMonths(startOfMonth(now), -MONTHS_BACK);
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }), [locale]);
+  const monthFmt = useMemo(() => dateFormat("monthYear", locale), [locale]);
 
   const spend = useMemo(() => lineMonthSpend(line, transactions, month), [line, transactions, month]);
   const limit = line.amount;
@@ -76,7 +76,7 @@ export function LineSpendSheet({
     else next[categoryId] = n;
     setOpen({ month: month.getTime(), shown: next });
   };
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
+  const dayFmt = useMemo(() => dateFormat("dayShort", locale), [locale]);
 
   return (
     <Modal isOpen toggle={onClose} centered scrollable>

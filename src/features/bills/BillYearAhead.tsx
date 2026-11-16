@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { MonthAhead } from "./billsUtils";
 import { monthExtremes } from "../../shared/utils/monthExtremes";
-import { standaloneMonthName } from "../../shared/utils/dates";
+import { formatMonthName } from "../../shared/utils/dates";
 import { MonthBars } from "../../shared/components/MonthBars";
 import styles from "./css/BillsPage.module.css";
 
@@ -37,7 +37,7 @@ export default function BillYearAhead({
   const { t } = useTranslation();
 
   // Named the way a sentence names a month, not the way a date does.
-  const longName = useMemo(() => (date: Date) => standaloneMonthName(locale, date), [locale]);
+  const longName = useMemo(() => (date: Date) => formatMonthName(date, locale), [locale]);
 
   const total = months.reduce((sum, month) => sum + month.total, 0);
   // The dear months and the easy ones — every tied month at each end, as on

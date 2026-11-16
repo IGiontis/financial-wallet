@@ -1,3 +1,4 @@
+import { dateFormat } from "../../../shared/utils/dates";
 // Shared chart styling. Deliberately free of recharts imports so the card
 // shells and legends can render while the chart bundle is still loading.
 
@@ -40,7 +41,7 @@ export const CURSOR_FILL = { fill: "color-mix(in srgb, var(--color-text-secondar
  * from today, which would rotate the labels daily.
  */
 export function weekdayNames(locale: string): string[] {
-  const fmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
+  const fmt = dateFormat("weekdayShort", locale);
   return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2026, 0, 5 + i)).replace(".", ""));
 }
 

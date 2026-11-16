@@ -481,22 +481,24 @@ describe("the form", () => {
     // «Ιδιαίτερα μαθήματα» is already in the list: a second one is refused (item 86).
     await userEvent.type(name, "  Ιδιαίτερα   μαθήματα πιάνου ");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
+    // «Αλλάζει το ποσό;» starts on «Ναι» (owner, 2026-11-12), so the field is the estimate;
+    // «Όχι» makes it the amount. (The account it lands in is asked on this step too, above the amount.)
+    const variable = within(form).getByRole("radiogroup", { name: new RegExp(i18n.t("incomes.form.qVariable").replace(/[?;]/g, "")) });
+    expect(within(variable).getByRole("radio", { name: /^Ναι/ })).toHaveAttribute("aria-checked", "true");
+    expect(within(form).getByLabelText(/^Εκτιμώμενο/)).toBeInTheDocument();
+    await userEvent.click(within(variable).getByRole("radio", { name: /^Όχι/ }));
     await userEvent.type(within(form).getByLabelText(/^Ποσό/), "300");
-    // «Αλλάζει το ποσό;» starts unanswered (no prefill, tiles included): Next asks for it.
-    expect(within(form).queryAllByRole("radio", { checked: true })).toHaveLength(0);
-    await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
-    expect(within(form).getByText("Διάλεξε Ναι ή Όχι")).toBeInTheDocument();
-    await userEvent.click(within(form).getByRole("radio", { name: /^Όχι/ }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     await userEvent.click(form.querySelector<HTMLButtonElement>("#income-day")!);
     await userEvent.click(within(form).getByRole("option", { name: "5 του μήνα" }));
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
-    // A break? Your salary? Both asked, neither answered for you.
-    const yesNo = [...within(form).getAllByRole("radio", { name: /^Ναι/ }), ...within(form).getAllByRole("radio", { name: /^Όχι/ })].filter((r) => !r.closest(`[aria-label="${i18n.t("incomes.form.ends")}"]`));
-    expect(yesNo).toHaveLength(4);
-    for (const tile of yesNo) expect(tile).toHaveAttribute("aria-checked", "false");
+    // A break? starts on «Ναι» (owner, 2026-11-12). Your salary? «Μισθός» already is — «Ναι» would
+    // take that from it — so it is asked, neither answer chosen; Next says so.
+    const [pauseYes, salaryYes] = within(form).getAllByRole("radio", { name: /^Ναι/ }).filter((r) => !r.closest(`[aria-label="${i18n.t("incomes.form.ends")}"]`));
+    expect(pauseYes).toHaveAttribute("aria-checked", "true");
+    expect(salaryYes).toHaveAttribute("aria-checked", "false");
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
-    expect(within(form).getAllByText("Διάλεξε Ναι ή Όχι")).toHaveLength(2);
+    expect(within(form).getAllByText("Διάλεξε Ναι ή Όχι")).toHaveLength(1);
     for (const no of within(form).getAllByRole("radio", { name: /^Όχι/ }).filter((r) => !r.closest(`[aria-label="${i18n.t("incomes.form.ends")}"]`))) await userEvent.click(no);
     await userEvent.click(within(form).getByRole("button", { name: /Επόμενο/ }));
     const answer = (label: string) => within(form.querySelector<HTMLElement>("[class*=wizCard]")!).getByText(label).nextElementSibling;
@@ -559,7 +561,8 @@ describe("an empty page", () => {
     await userEvent.type(within(sheet).getByLabelText(/Όνομα/), "Μισθός");
     // The amount is the next step's, already filled in.
     await userEvent.click(within(sheet).getByRole("button", { name: /Επόμενο/ }));
-    expect(within(sheet).getByLabelText(/^Ποσό/)).toHaveValue(1450);
+    // («Αλλάζει το ποσό;» starts on «Ναι», so the field reads «Εκτιμώμενο ποσό».)
+    expect(within(sheet).getByRole("spinbutton")).toHaveValue(1450);
     expect(api.saveWorkspaceValue).not.toHaveBeenCalledWith("u1", "incomes", expect.anything());
   });
 

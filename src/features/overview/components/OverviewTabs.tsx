@@ -11,7 +11,7 @@ import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActu
 import type { IncomeStatus } from "../../incomes/incomesUtils";
 import type { Category, Transaction } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat, formatMonthOf, sameDay } from "../../../shared/utils/dates";
 import { isPlainExpense } from "../overviewUtils";
 import styles from "../pages/css/OverviewPage.module.css";
 import { findCategory } from "../../../shared/utils/categories";
@@ -69,7 +69,7 @@ export function AttentionList({
   formatCurrency: Money;
 }) {
   const { t, i18n } = useTranslation();
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
   // A bill or debt with any write still on its way — a payment not yet
   // acknowledged, a delete running — is not a way anywhere until it has landed
   // (the owner, 2026-11-13): faded, and nothing to press.
@@ -150,7 +150,6 @@ export function AttentionList({
 
 // ─── What was written down today ────────────────────────────────────────────
 
-const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const newestFirst = (a: Transaction, b: Transaction) => firestoreToDate(b.createdAt ?? b.date).getTime() - firestoreToDate(a.createdAt ?? a.date).getTime();
 
 /**
@@ -310,7 +309,7 @@ export function PositionPanel({ series, parts, formatCurrency, locale }: { serie
 
   const before = series.length > 1 ? series[series.length - 2] : undefined;
   const change = before ? Math.round((now.net - before.net) * 100) / 100 : undefined;
-  const monthName = before ? new Intl.DateTimeFormat(locale, { month: "long" }).format(before.start) : "";
+  const monthName = before ? formatMonthOf(before.start, locale) : "";
 
   const rows: { label: string; value: number; color: string }[] = [
     // The money itself — the Banks page's «Τράπεζες & μετρητά» and the goals'

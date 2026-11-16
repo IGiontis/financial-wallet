@@ -4,7 +4,7 @@ import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { useTranslation } from "react-i18next";
 import type { Transaction, Category } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, formatRecordDay, sameDay, formatTime, formatDayShortTime } from "../../../shared/utils/dates";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { intlLocale } from "../../../i18n";
 import {
@@ -19,7 +19,6 @@ import {
   GOAL_COLORS,
   INVESTMENT_COLORS,
 } from "./reviewPalettes";
-import { formatTable } from "../transactionDates";
 import { findCategory } from "../../../shared/utils/categories";
 import { useAccountList } from "../../accounts/useMoneyAccounts";
 import { mainAccount } from "../../accounts/accountsUtils";
@@ -74,10 +73,10 @@ export default function TransactionViewModal({
   // The time it was written down. The date of a record is a day, not a
   // moment, so the clock comes from when it was entered — and says so.
   const created = tx.createdAt ? firestoreToDate(tx.createdAt) : undefined;
-  const sameDay = created && created.toDateString() === firestoreToDate(tx.date).toDateString();
+  const writtenThatDay = sameDay(created, firestoreToDate(tx.date));
   const recordedAt =
     created && !Number.isNaN(created.getTime())
-      ? new Intl.DateTimeFormat(lang, sameDay ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(created)
+      ? (writtenThatDay ? formatTime(created, lang) : formatDayShortTime(created, lang))
       : undefined;
   const isGoal = !!tx.isGoalTransaction;
   const lockState: LockState = lock ?? { lock: tx.debtId ? { kind: "debt", debtId: tx.debtId } : tx.businessEntryId ? { kind: "business", entryId: tx.businessEntryId } : undefined, pending: false };
@@ -207,7 +206,7 @@ export default function TransactionViewModal({
           colors={colors}
           amount={tx.amount}
           formatAmount={formatCurrency}
-          dateFormatted={formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
+          dateFormatted={formatRecordDay(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
           notes={tx.notes}
           fuelCells={fuelCells}
           hideCategoryLabel={isGoal || isInvestment}

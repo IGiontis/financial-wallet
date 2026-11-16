@@ -10,6 +10,7 @@ import HorizonPicker from "./HorizonPicker";
 import { BalanceScrub } from "./BalanceScrub";
 import PlanMonthRows from "./PlanMonthRows";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 const VERDICT = {
   ok: { className: styles.verdictOk, Icon: FiCheckCircle, key: "planner.verdictOk" },
@@ -50,8 +51,8 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
   const { t } = useTranslation();
   const [zoomed, setZoomed] = useState(false);
   const periods = useMemo(() => planPeriods(plan), [plan]);
-  const shortDate = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
-  const dayDate = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }), [locale]);
+  const shortDate = useMemo(() => dateFormat("dayShort", locale), [locale]);
+  const dayDate = useMemo(() => dateFormat("weekdayDay", locale), [locale]);
 
   const verdict = VERDICT[plan.verdict];
   const line = heroSubline(plan);
@@ -73,7 +74,7 @@ export function PeriodCard({ plan, horizon, onHorizon, scenario, formatCurrency,
     [t("planner.groupMine"), plan.budgetTotal],
   ].filter(([, amount]) => (amount as number) > 0) as [string, number][];
 
-  const monthFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
+  const monthFmt = dateFormat("monthYearCompact", locale);
 
   return (
     <section className={inSheet ? undefined : "card mb-3"} aria-label={t("planner.wholePeriod")}>

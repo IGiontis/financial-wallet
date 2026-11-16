@@ -8,7 +8,7 @@ import { join, relative } from "node:path";
 //   HAPPENED — a transaction, transfer, deposit, payment, repayment, «Ήρθε», a
 //   reading's record, a closing: today or earlier. The field carries
 //   `happened` (the calendar greys out the days after today) and the form
-//   checks the value with `happenedDayError` / `isAfterToday` from
+//   checks the value with `happenedDayError` / `isFutureDay` from
 //   `shared/utils/dates.ts`.
 //   PLANNED — a due day, a schedule, a deadline, a planner line, a pause, a
 //   filter: may be in the future, no `happened`.
@@ -74,7 +74,7 @@ describe("every date field is sorted into happened / planned", () => {
 
   it("a form with a «happened» field also checks the value, not only the calendar", () => {
     for (const f of found.filter((x) => x.happened > 0 && !OWN_CHECK.has(x.path))) {
-      expect(/\b(happenedDayError|isAfterToday)\b/.test(f.text), `${f.path} checks a future day in its validation`).toBe(true);
+      expect(/\b(happenedDayError|isFutureDay)\b/.test(f.text), `${f.path} checks a future day in its validation`).toBe(true);
     }
   });
 });

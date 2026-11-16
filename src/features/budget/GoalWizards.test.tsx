@@ -339,22 +339,102 @@ describe("the goal dialogs open without errors", () => {
 });
 
 describe("«Start it active?» on a new goal", () => {
-  it("starts with neither tile chosen and no error; Next asks for an answer; «Paused» is saved as paused", async () => {
+  it("starts on «Active» (owner, 2026-11-12) with no error; «Paused» picked is saved as paused", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={onSubmit} defaultGoalType="recurring" />);
     await userEvent.type(nameInput(), "ETF");
     await userEvent.click(screen.getByRole("radio", { name: /Tracking/ }));
     await next();
     expect(current()).toMatch(/Look/);
-    expect(screen.getByRole("radio", { name: /^Active/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /^Active/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("radio", { name: /^Paused/ })).toHaveAttribute("aria-checked", "false");
     expectNoErrors(screen.getByRole("dialog"));
-    await next();
-    expect(current()).toMatch(/Look/);
-    expect(screen.getByText("Pick Yes or No")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: /^Paused/ }));
     await next();
     await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
     expect(onSubmit.mock.calls[0][1]).toBe(false);
+  });
+});
+
+// ── The icon takes one emoji, as a category's does ───────────────────────────
+describe("a goal's icon", () => {
+  const iconField = () => document.querySelector<HTMLInputElement>("#goal-icon")!;
+  const ONE_EMOJI = "Just one icon (an emoji) — not letters or words. Pick one above or paste one.";
+
+  const toLook = async () => {
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="recurring" />);
+    await userEvent.type(nameInput(), "ETF");
+    await userEvent.click(screen.getByRole("radio", { name: /Tracking/ }));
+    await next();
+    expect(current()).toMatch(/Look/);
+  };
+
+  it("refuses text: a word is cut to its first letter, which is refused at once, and Next stays", async () => {
+    await toLook();
+    await userEvent.type(iconField(), "Trip");
+    expect(iconField()).toHaveValue("T");
+    expect(screen.getByText(ONE_EMOJI)).toBeInTheDocument();
+    await next();
+    expect(current()).toMatch(/Look/);
+  });
+
+  it("takes one emoji, typed or picked, and goes on", async () => {
+    await toLook();
+    await userEvent.type(iconField(), "🚗");
+    expect(iconField()).toHaveValue("🚗");
+    expect(screen.queryByText(ONE_EMOJI)).toBeNull();
+    await next();
+    expect(current()).toMatch(/Review/);
+  });
+
+  it("a goal on the Goals page: the same field, the same check (the ones above are an investment's)", async () => {
+    render(<AddNewGoalModal isOpen onClose={() => {}} onSubmit={vi.fn()} defaultGoalType="targeted" />);
+    await userEvent.type(nameInput(), "Trip");
+    await next();
+    await userEvent.type(screen.getByLabelText(/Target amount/), "700");
+    await next();
+    expect(current()).toMatch(/Look/);
+    await userEvent.type(iconField(), "ab");
+    expect(screen.getByText(ONE_EMOJI)).toBeInTheDocument();
+  });
+
+  describe("an older goal saved with text for an icon", () => {
+    const day = new Date(2026, 0, 1);
+    const old = {
+      id: "g9",
+      userId: "u",
+      name: "Trip",
+      icon: "Ταξίδι",
+      goalType: "open_ended",
+      isActive: true,
+      isCompleted: false,
+      totalSaved: 0,
+      createdAt: day,
+      updatedAt: day,
+    } as unknown as InvestmentGoalWithStats;
+
+    it("opens, shows it, and saves another change with the icon as it is", async () => {
+      const onSubmit = vi.fn().mockResolvedValue(undefined);
+      render(<EditGoalModal goal={old} isOpen onClose={() => {}} onSubmit={onSubmit} />);
+      await userEvent.type(screen.getByLabelText(/^Goal name/), " 2027");
+      await userEvent.click(screen.getByRole("button", { name: /Look/ }));
+      expect(iconField()).toHaveValue("Ταξίδι");
+      expect(screen.queryByText(ONE_EMOJI)).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+      await userEvent.click(screen.getByRole("button", { name: /Confirm/ }));
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      // Not changed: sent as it is, or not sent at all — never taken off.
+      expect([undefined, "Ταξίδι"]).toContain(onSubmit.mock.calls[0][0].icon);
+    });
+
+    it("touched, asks for an emoji in its place; changed to text, refuses it", async () => {
+      render(<EditGoalModal goal={old} isOpen onClose={() => {}} onSubmit={vi.fn()} />);
+      await userEvent.click(screen.getByRole("button", { name: /Look/ }));
+      await userEvent.click(iconField());
+      await userEvent.tab();
+      expect(screen.getByText("This icon is text — put one emoji in its place.")).toBeInTheDocument();
+      await userEvent.type(iconField(), "x");
+      expect(screen.getByText(ONE_EMOJI)).toBeInTheDocument();
+    });
   });
 });

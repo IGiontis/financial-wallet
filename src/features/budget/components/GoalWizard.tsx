@@ -11,6 +11,8 @@ import type { useGoalPartsField } from "./useGoalPartsField";
 import wiz from "../../../shared/css/Wizard.module.css";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
 import { parseISODay } from "../../../shared/utils/dates";
+import { firstGrapheme } from "../../../shared/utils/categoryNames";
+import { iconProblem } from "../../../shared/utils/iconText";
 
 // The goal and investment forms (new and edit) as one wizard, in the shape of
 // every other add / edit form: numbered steps — what it is, its target, how it
@@ -26,7 +28,7 @@ export interface GoalFormApi {
   handleChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleBlur: (e: FocusEvent<HTMLInputElement>) => void;
   setFieldValue: (field: string, value: unknown) => unknown;
-  setFieldTouched: (field: string, touched?: boolean) => unknown;
+  setFieldTouched: (field: string, touched?: boolean, shouldValidate?: boolean) => unknown;
 }
 
 type PartsField = ReturnType<typeof useGoalPartsField>;
@@ -122,10 +124,17 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
   );
 }
 
-/** Step «Εμφάνιση»: icon, colour and notes — plus whatever the modal adds (a new one's «active?»). */
-export function GoalLookStep({ form, notesPlaceholder, children }: { form: GoalFormApi; notesPlaceholder: string; children?: ReactNode }) {
+/**
+ * Step «Εμφάνιση»: icon, colour and notes — plus whatever the modal adds (a new one's «active?»).
+ *
+ * The icon takes ONE emoji, as a category's does (`CategoryModal`): what is typed is cut to its
+ * first character (`firstGrapheme`) and a letter is refused (`iconProblem`). An older goal saved
+ * with text for an icon (`storedIcon`) opens and saves as it is; touched, it is asked to be replaced.
+ */
+export function GoalLookStep({ form, notesPlaceholder, storedIcon, children }: { form: GoalFormApi; notesPlaceholder: string; storedIcon?: string; children?: ReactNode }) {
   const { t } = useTranslation();
   const { values } = form;
+  const oldTextIcon = !!storedIcon && !!iconProblem(storedIcon) && values.icon === storedIcon;
   const optional = <span className="fw-normal text-body-secondary">({t("common.optional")})</span>;
   return (
     <>
@@ -154,8 +163,24 @@ export function GoalLookStep({ form, notesPlaceholder, children }: { form: GoalF
             </button>
           ))}
         </div>
-        <Input id="goal-icon" type="text" name="icon" placeholder={t("goals.iconPlaceholder")} value={values.icon} onChange={form.handleChange} onBlur={form.handleBlur} invalid={invalid(form, "icon")} style={{ maxWidth: 260 }} />
+        <Input
+          id="goal-icon"
+          type="text"
+          name="icon"
+          placeholder={t("goals.iconPlaceholder")}
+          value={values.icon}
+          onChange={(e) => {
+            // Said as it is typed, as on a category: a letter is not an icon. Touched
+            // first without checking, then the value — whose own check is the one that counts.
+            form.setFieldTouched("icon", true, false);
+            form.setFieldValue("icon", firstGrapheme(e.target.value));
+          }}
+          onBlur={form.handleBlur}
+          invalid={invalid(form, "icon")}
+          style={{ maxWidth: 260 }}
+        />
         <FormFeedback>{msg(form.errors.icon, t)}</FormFeedback>
+        {oldTextIcon && !!form.touched.icon && <FormText className="d-block">{t("goals.iconReplaceText")}</FormText>}
       </FormGroup>
 
       <FormGroup>

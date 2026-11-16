@@ -1,6 +1,6 @@
-import { startOfMonth, subMonths, startOfYear, endOfYear, endOfMonth, format, isWithinInterval, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { startOfMonth, subMonths, startOfYear, endOfYear, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import type { Transaction } from "../../shared/types/IndexTypes";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, formatMonthYearCompact, monthKey } from "../../shared/utils/dates";
 import { isMoneyMove } from "../../shared/utils/moneyModel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -121,12 +121,12 @@ export const groupByWeek = (transactions: Transaction[], range: DateRange, weekL
     .filter((w) => w.income > 0 || w.expenses > 0 || w.investments > 0 || w.goals > 0);
 };
 
-export const groupByMonth = (transactions: Transaction[], monthLabel: (d: Date) => string = (d) => format(d, "MMM yy")): ChartDataPoint[] => {
+export const groupByMonth = (transactions: Transaction[], monthLabel: (d: Date) => string = (d) => formatMonthYearCompact(d, "en")): ChartDataPoint[] => {
   const map = new Map<string, Omit<ChartDataPoint, "label"> & { firstDay: Date }>();
 
   transactions.forEach((tx) => {
     const firstDay = startOfMonth(firestoreToDate(tx.date));
-    const key = format(firstDay, "yyyy-MM");
+    const key = monthKey(firstDay);
     if (!map.has(key)) map.set(key, { income: 0, expenses: 0, investments: 0, goals: 0, investmentsNet: 0, goalsNet: 0, firstDay });
     const d = map.get(key)!;
 

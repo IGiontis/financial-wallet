@@ -23,6 +23,7 @@ import { DetailsTable } from "../../analytics/components/DetailsTable";
 import { signedPercent } from "../../analytics/components/chartTheme";
 import styles from "./css/TransactionInsights.module.css";
 import { findCategory } from "../../../shared/utils/categories";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** Slice colours reuse the semantic accents so the panel matches the app. */
 const SLICE_COLORS = ["var(--bs-primary)", "var(--color-expense)", "var(--color-income)", "var(--color-invest)", "var(--color-goal)", "var(--color-text-secondary)"];
@@ -53,8 +54,8 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   const bucket = pickBucket(span);
 
   const bucketLabel = useMemo(() => {
-    const dayFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
-    const monthFmt = new Intl.DateTimeFormat(lang, { month: "short" });
+    const dayFmt = dateFormat("dayShort", lang);
+    const monthFmt = dateFormat("monthShort", lang);
     return (start: Date, b: Bucket) => (b === "month" ? monthFmt.format(start) : dayFmt.format(start));
   }, [lang]);
 
@@ -97,7 +98,7 @@ export function TransactionInsights({ transactions, allTransactions, categories,
   const sliceRows = useMemo(() => (pickedSlice ? sliceTransactions(transactions, mode, slices, pickedSlice) : []), [pickedSlice, transactions, mode, slices]);
   const sliceTotal = useMemo(() => sliceRows.reduce((sum, tx) => sum + Math.abs(tx.amount), 0), [sliceRows]);
   const pickedBucket = buckets.find((b) => b.key === picked);
-  const dateFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
+  const dateFmt = dateFormat("dayShort", lang);
 
   const splitTitle = t("transactions.whereItWent");
   const timeHint = t(bucket === "day" ? "transactions.byDay" : bucket === "week" ? "transactions.byWeek" : "transactions.byMonth");

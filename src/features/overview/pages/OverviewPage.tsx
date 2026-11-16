@@ -10,7 +10,7 @@ import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../../shared/utils/dates";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 import {
   calculateMetrics,
@@ -183,13 +183,15 @@ export const OverviewPage = () => {
   const { data: categories = [] } = useCategories();
   const spending = useMemo(() => {
     const { total, parts } = spendingByCategory(monthTransactions);
-    return {
-      total,
-      parts: parts.map((part) => {
-        const category = findCategory(categories, part.categoryId);
-        return { label: part.categoryId ? `${category?.icon ?? ""} ${categoryLabel(category?.name, t) || t("analytics.unknownCategory")}`.trim() : t("overview.everythingElse"), amount: part.amount };
-      }),
-    };
+    // Two records whose categories no longer exist both read «Χωρίς κατηγορία»:
+    // one line for them, with their amounts added — never the same label twice.
+    const merged = new Map<string, number>();
+    for (const part of parts) {
+      const category = findCategory(categories, part.categoryId);
+      const label = part.categoryId ? `${category?.icon ?? ""} ${categoryLabel(category?.name, t) || t("analytics.unknownCategory")}`.trim() : t("overview.everythingElse");
+      merged.set(label, Math.round(((merged.get(label) ?? 0) + part.amount) * 100) / 100);
+    }
+    return { total, parts: [...merged].map(([label, amount]) => ({ label, amount })) };
   }, [monthTransactions, categories, t]);
 
   // ── The month ──
@@ -228,7 +230,7 @@ export const OverviewPage = () => {
     () =>
       isSingleMonth
         ? groupByWeek(filtered, dateRange, (n) => `${t("common.week", { defaultValue: "Week" })} ${n}`)
-        : groupByMonth(filtered, (d) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "2-digit" }).format(d)),
+        : groupByMonth(filtered, (d) => dateFormat("monthYearCompact", i18n.resolvedLanguage ?? "en").format(d)),
     [filtered, isSingleMonth, dateRange, t, i18n.resolvedLanguage],
   );
 
@@ -260,7 +262,7 @@ export const OverviewPage = () => {
 
   const customLabel = useMemo(() => {
     if (selectedPeriod !== "custom") return t("overview.periods.custom");
-    const fmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
+    const fmt = dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en");
     const from = fmt.format(new Date(appliedRange.fromYear, appliedRange.fromMonth, 1));
     const to = fmt.format(new Date(appliedRange.toYear, appliedRange.toMonth, 1));
     return from === to ? from : `${from} – ${to}`;
@@ -405,7 +407,7 @@ export const OverviewPage = () => {
       <PageShell>
         <div className="mb-3">
           <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
-          <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
+          <p className="small text-body-secondary mb-0">{dateFormat("dayMonthWeekday", locale).format(now)}</p>
         </div>
         <PageWaiting />
       </PageShell>
@@ -452,7 +454,7 @@ export const OverviewPage = () => {
       <div className="mb-3">
         <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
         <p className="small text-body-secondary mb-0">
-          {new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+          {dateFormat("dayMonthWeekday", locale).format(now)}
           {" · "}
           {/* Ticks on its own: the page is not re-rendered each second. */}
           <LiveClock locale={locale} />
@@ -511,7 +513,7 @@ export const OverviewPage = () => {
             expenses={thisMonth.totalExpenses}
             unlogged={monthUnlogged}
             formatCurrency={formatCurrency}
-            sub={outlook.known ? t("overview.paydayOn", { date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(outlook.date) }) : undefined}
+            sub={outlook.known ? t("overview.paydayOn", { date: dateFormat("dayShort", locale).format(outlook.date) }) : undefined}
           />
           <SpendingPanel parts={spending.parts} total={spending.total} formatCurrency={formatCurrency} />
 

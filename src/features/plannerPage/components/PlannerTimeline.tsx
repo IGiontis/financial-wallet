@@ -9,6 +9,7 @@ import type { PlannerEvent } from "../plannerUtils";
 import type { PlanSlice } from "../payCycles";
 import type { BillWithStatus } from "../../../shared/types/IndexTypes";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** Months listed before the rest wait behind a button — only past a year and a quarter, as in the chart. */
 const FIRST_MONTHS = 13;
@@ -52,9 +53,9 @@ function PlannerTimelineBase({ months, bills, breakingEvent, formatCurrency, dat
 
   const formats = useMemo(
     () => ({
-      month: new Intl.DateTimeFormat(locale, { month: "short" }),
-      monthLong: new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }),
-      day: new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }),
+      month: dateFormat("monthShort", locale),
+      monthLong: dateFormat("monthYear", locale),
+      day: dateFormat("weekdayDay", locale),
     }),
     [locale],
   );

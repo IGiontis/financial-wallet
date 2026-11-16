@@ -8,7 +8,7 @@ import { useContributions } from "../../budget/useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
 import { PageWaiting } from "../../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../../shared/utils/dates";
 import { projectedFinish } from "../../budget/components/goalDisplay";
 import styles from "./css/GoalDetailModal.module.css";
 
@@ -46,10 +46,10 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
   const { data: contributions = [] } = contributionsQuery;
   const load = usePageLoad(noAnswerYet(contributionsQuery));
 
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
+  const dateFmt = dateFormat("day", i18n.resolvedLanguage ?? "en");
   // The projection is a month, not a day. With the year, Greek gives the
   // month in the nominative ("Νοέμβριος 2026") rather than the genitive.
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
+  const monthFmt = dateFormat("monthYear", i18n.resolvedLanguage ?? "en");
 
   const recurring = isRecurringGoal(goal);
   const oneTime = goal.goalType === "targeted" && !recurring;

@@ -1,7 +1,7 @@
 import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronRight, FiPlus } from "react-icons/fi";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat, sameDay } from "../../shared/utils/dates";
 import { forgivenTag, loanState } from "./debtsUtils";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
 import styles from "./css/DebtsPage.module.css";
@@ -53,10 +53,10 @@ export function LoanCards({
   onRecord: (debt: DebtWithStatus) => void;
 }) {
   const { t } = useTranslation();
-  const dayFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
-  const timeFmt = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const dayFmt = dateFormat("day", locale);
+  const timeFmt = dateFormat("time", locale);
   // This year goes without saying, and with it the line fits beside the button.
-  const thisYearFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  const thisYearFmt = dateFormat("dayShort", locale);
 
   /** The last payment's day, and the time it was written down when that was the same day. */
   const lastPaid = (debt: DebtWithStatus) => {
@@ -64,9 +64,9 @@ export function LoanCards({
     if (!last) return undefined;
     const day = firestoreToDate(last.date);
     const created = last.createdAt ? firestoreToDate(last.createdAt) : undefined;
-    const sameDay = created && !Number.isNaN(created.getTime()) && created.toDateString() === day.toDateString();
+    const writtenThatDay = created && !Number.isNaN(created.getTime()) && sameDay(created, day);
     const date = (day.getFullYear() === new Date().getFullYear() ? thisYearFmt : dayFmt).format(day);
-    return sameDay ? `${date} · ${timeFmt.format(created)}` : date;
+    return writtenThatDay ? `${date} · ${timeFmt.format(created)}` : date;
   };
 
   return (

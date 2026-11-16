@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, InputGroup, Row, Col } from "reactstrap";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
 import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
-import { dateFnsLocale, firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError, dateFormat, formatDay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
 import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, getIntervalCount, monthlyEquivalent, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { billStartText } from "./billStartText";
@@ -69,7 +68,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
   const tone = behind ? "--color-expense" : paid ? "--color-income" : "--color-goal";
   const fund = sinkingFund(bill);
 
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" });
+  const dateFmt = dateFormat("day", i18n.resolvedLanguage ?? "en");
 
   // Every payment, not a capped preview: this list is now where a mistyped
   // amount or a wrong date gets corrected, so the one you need has to be in it.
@@ -168,7 +167,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                 (not the year's average with its months off in it, which contradicted
                 the amount above). */}
             {bill.frequency === "monthly" && getIntervalCount(bill) === 1 ? (
-              <Fact label={t("bills.labelNextDue")} value={bill.nextDueDate ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(bill.nextDueDate) : "—"} />
+              <Fact label={t("bills.labelNextDue")} value={bill.nextDueDate ? dateFormat("day", i18n.resolvedLanguage ?? "en").format(bill.nextDueDate) : "—"} />
             ) : (
               <Fact label={t("bills.monthlyShareLabel")} value={formatCurrency(monthlyEquivalent(bill, expectedAmount(bill)))} />
             )}
@@ -335,7 +334,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
 
               return (
                 <div key={p.id} id={`payment-${p.id}`} className={`${styles.paymentRow} ${focusedPayment === p.id ? styles.paymentRowFocused : ""}`}>
-                  <span className={styles.paymentDate}>{format(firestoreToDate(p.paidDate), "dd MMM yyyy", { locale: dateFnsLocale(i18n.resolvedLanguage) })}</span>
+                  <span className={styles.paymentDate}>{formatDay(firestoreToDate(p.paidDate), i18n.resolvedLanguage)}</span>
                   {/* Marked paid with no transaction — "I've paid these" — so the
                       history says why no expense matches it. */}
                   {!p.transactionId && (

@@ -43,14 +43,11 @@ import { RequiredMark } from "../../../shared/components/RequiredMark";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { sameValues } from "../../../shared/utils/sameValues";
+import { currencyLabel } from "../../../shared/utils/currency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CURRENCIES = [
-  { value: "USD", label: "USD — US Dollar ($)" },
-  { value: "EUR", label: "EUR — Euro (€)" },
-  { value: "GBP", label: "GBP — British Pound (£)" },
-];
+const CURRENCIES = (["USD", "EUR", "GBP"] as const).map((value) => ({ value, label: currencyLabel(value) }));
 
 // Languages the app actually ships translations for — see src/i18n
 const LOCALES = SUPPORTED_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }));

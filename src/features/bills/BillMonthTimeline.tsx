@@ -1,7 +1,7 @@
-import { Fragment, useMemo } from "react";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
-import { standaloneMonthName } from "../../shared/utils/dates";
+import { dateFormat, formatMonthName } from "../../shared/utils/dates";
 import type { MonthTimeline } from "./monthTimeline";
 import styles from "./css/BillsPage.module.css";
 import { ROW_PENDING, usePendingRecords } from "../../shared/hooks/usePendingRecords";
@@ -36,8 +36,8 @@ export default function BillMonthTimeline({
   const { writing } = usePendingRecords();
   // The day alone: the month is named once at the top, and repeating it down
   // the column crowded the dates into the line.
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric" }), [locale]);
-  const fullFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }), [locale]);
+  const dayFmt = dateFormat("dayNumber", locale);
+  const fullFmt = dateFormat("dayLong", locale);
 
   const bills = timeline.events.filter((event) => event.kind === "bill");
 
@@ -55,7 +55,7 @@ export default function BillMonthTimeline({
   return (
     <div className={styles.yearAhead}>
       <div className="stat-head d-flex justify-content-between align-items-baseline gap-2">
-        <span>{standaloneMonthName(locale, timeline.monthStart)}</span>
+        <span>{formatMonthName(timeline.monthStart, locale)}</span>
         <span className={styles.yearAheadTotal} style={{ color: "var(--expense-text)" }}>
           −{formatCurrency(timeline.out)}
         </span>

@@ -13,6 +13,7 @@ import { ChartDetails, DetailsTable, type DetailsColumn } from "./DetailsTable";
 import { signedWith } from "./chartTheme";
 import IncomesBillsChart, { type IncomesBillsPoint } from "./IncomesBillsChart";
 import styles from "./css/Analytics.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /**
  * «Έσοδα και πάγια»: a year of the Incomes page against the Bills page, month
@@ -35,7 +36,7 @@ export function IncomesBillsCard({ transactions, now, formatCurrency }: { transa
   const at = years.indexOf(year);
 
   const result = useMemo(() => incomesVsBills(year, { incomes, overrides, transactions, bills, now }), [year, incomes, overrides, transactions, bills, now]);
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+  const monthFmt = dateFormat("monthShort", lang);
   const points: IncomesBillsPoint[] = useMemo(() => result.months.map((m) => ({ ...m, label: monthFmt.format(m.start).replace(".", "") })), [result, monthFmt]);
 
   const signed = signedWith(formatCurrency);

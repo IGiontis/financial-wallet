@@ -70,10 +70,12 @@ describe("the income wizard's required fields", () => {
     await userEvent.type(screen.getByLabelText(/^Name/), "Tutoring");
     await next();
 
-    expect(markedLabels(dialog)).toEqual(["Amount (EUR)", "Does the amount change every time?"]);
-    expect(screen.getByLabelText(/^Amount/)).toHaveAttribute("aria-required", "true");
-    await userEvent.type(screen.getByLabelText(/^Amount/), "150");
+    // «Does it change?» starts on «Ναι» (owner, 2026-11-12): the field is the estimate until «No».
+    expect(markedLabels(dialog)).toEqual(["Estimated amount (EUR)", "Does the amount change every time?"]);
+    expect(screen.getByLabelText(/^Estimated amount/)).toHaveAttribute("aria-required", "true");
     await userEvent.click(screen.getByRole("radio", { name: /^No/ }));
+    expect(markedLabels(dialog)).toEqual(["Amount (EUR)", "Does the amount change every time?"]);
+    await userEvent.type(screen.getByLabelText(/^Amount/), "150");
     await next();
 
     // Monthly by default: how often, the day and the first time; no weekday, no month.
@@ -82,14 +84,18 @@ describe("the income wizard's required fields", () => {
     await userEvent.click(screen.getByRole("option", { name: "Day 1 of the month" }));
     await next();
 
-    // The account is optional («no account» is an answer); the end is a choice that always has one.
-    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "Is it your salary?"]);
+    // The end is a choice that always has one. «A break?» starts on «Ναι» (owner, 2026-11-12):
+    // a break needs its first month; its last only when it comes back every year.
+    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "From", "Is it your salary?"]);
     const [pause] = screen.getAllByRole("radiogroup").filter((g) => g.getAttribute("aria-required") === "true");
+    await userEvent.click(within(pause).getByRole("radio", { name: /^No/ }));
+    expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "Is it your salary?"]);
     await userEvent.click(within(pause).getByRole("radio", { name: /^Yes/ }));
-    // A break needs its first month; its last only when it comes back every year.
     expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "From", "Is it your salary?"]);
     await userEvent.click(screen.getByLabelText(/every year/i));
     expect(markedLabels(dialog)).toEqual(["Does it take a break some months?", "From", "Until", "Is it your salary?"]);
+    // No other income is the salary here, so «Is it your salary?» starts on «Ναι» too.
+    expect(within(screen.getByRole("radiogroup", { name: /your salary/i })).getByRole("radio", { name: /^Yes/ })).toHaveAttribute("aria-checked", "true");
   });
 });
 

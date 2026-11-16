@@ -92,7 +92,11 @@ describe("the bill wizard's required fields", () => {
     expect(markedLabels(dialog)).toEqual(["How often"]);
 
     await next();
-    // Step 4: the two questions; a «yes» reveals what it then needs, marked too. Notes stay optional.
+    // Step 4: the two questions, on «Ναι» from the start (owner, 2026-11-12), so what each
+    // then needs shows and is marked too; «Όχι» takes it away. Notes stay optional.
+    expect(markedLabels(dialog)).toEqual(["Can it be paid late?", "Payment window", "Does it stop for a while?", "From", "Until"]);
+    await userEvent.click(await tile(/paid late/i, false));
+    await userEvent.click(await tile(/stop for a while/i, false));
     expect(markedLabels(dialog)).toEqual(["Can it be paid late?", "Does it stop for a while?"]);
     await userEvent.click(await tile(/paid late/i, true));
     await userEvent.click(await tile(/stop for a while/i, true));

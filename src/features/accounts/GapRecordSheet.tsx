@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2, FiX } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
 import { categoryLabel } from "../../shared/utils/categories";
-import { parseISODay, toISODay } from "../../shared/utils/dates";
+import { parseISODay, toISODay, dateFormat } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { WizardSteps } from "../transactions/components/WizardSteps";
@@ -108,7 +108,7 @@ export default function GapRecordSheet({
   const [failed, setFailed] = useState(false);
 
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
+  const dayFmt = dateFormat("dayShort", lang);
   const categoryName = (id: string) => categoryLabel(categories.find((c) => c.id === id)?.name, t);
   const accountNameOf = (id: string) => accounts.find((a) => a.id === id)?.name ?? "";
   const options = categories
@@ -262,6 +262,24 @@ export default function GapRecordSheet({
                 ))}
               </div>
 
+              {/* WHERE before HOW MUCH (owner, 2026-11-12): the other account of a move, then the amount. */}
+              {(draft.kind === "transferOut" || draft.kind === "transferIn") && (
+                <FormGroup className="mt-3">
+                  <Label for="gap-other" className="small fw-medium">
+                    {t(draft.kind === "transferOut" ? "accounts.gap.transferTo" : "accounts.gap.transferFrom")}
+                    <RequiredMark />
+                  </Label>
+                  <Input id="gap-other" aria-required type="select" value={draft.otherAccountId} onChange={(e) => setDraft({ ...draft, otherAccountId: e.target.value })}>
+                    <option value="">{t("accounts.gap.pickAccount")}</option>
+                    {others.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </Input>
+                </FormGroup>
+              )}
+
               <FormGroup className="mt-3">
                 <Label for="gap-amount" className="small fw-medium">
                   {t("common.amount")}
@@ -318,23 +336,6 @@ export default function GapRecordSheet({
                       <option key={d.id} value={d.id}>
                         {t(d.direction === "owed_to_me" ? "accounts.gap.debtOwedToMe" : "accounts.gap.debtOwedByMe", { who: d.person, amount: formatCurrency(d.remaining) })}
                         {d.label ? ` · ${d.label}` : ""}
-                      </option>
-                    ))}
-                  </Input>
-                </FormGroup>
-              )}
-
-              {(draft.kind === "transferOut" || draft.kind === "transferIn") && (
-                <FormGroup>
-                  <Label for="gap-other" className="small fw-medium">
-                    {t(draft.kind === "transferOut" ? "accounts.gap.transferTo" : "accounts.gap.transferFrom")}
-                    <RequiredMark />
-                  </Label>
-                  <Input id="gap-other" aria-required type="select" value={draft.otherAccountId} onChange={(e) => setDraft({ ...draft, otherAccountId: e.target.value })}>
-                    <option value="">{t("accounts.gap.pickAccount")}</option>
-                    {others.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
                       </option>
                     ))}
                   </Input>

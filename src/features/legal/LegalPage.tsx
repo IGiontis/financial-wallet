@@ -5,6 +5,7 @@ import { FiArrowLeft, FiBriefcase } from "react-icons/fi";
 import { LEGAL_CONTACT_URL, LEGAL_UPDATED, legalText, type LegalDoc } from "./legalContent";
 import { LegalLinks } from "./LegalLinks";
 import styles from "./css/Legal.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * The terms or the privacy policy, readable signed in or not.
@@ -17,7 +18,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const text = legalText(doc, i18n.resolvedLanguage);
-  const updated = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "long", year: "numeric" }).format(LEGAL_UPDATED);
+  const updated = dateFormat("dayLongYear", i18n.resolvedLanguage ?? "en").format(LEGAL_UPDATED);
 
   useEffect(() => {
     document.title = `${text.title} · MyFiWallet`;

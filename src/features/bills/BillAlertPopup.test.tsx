@@ -48,8 +48,8 @@ describe("the bills popup", () => {
     renderPopup();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("region", { name: "To pay now" })).toHaveTextContent("ΔΕΗoverdue 18 days€85.00");
-    expect(within(dialog).getByRole("region", { name: "Within 5 days" })).toHaveTextContent("Νερόin 2 days · Oct 30€60.00");
-    expect(within(dialog).getByText("You need by Oct 30")).toBeInTheDocument();
+    expect(within(dialog).getByRole("region", { name: "Within 5 days" })).toHaveTextContent("Νερόin 2 days · 30 Oct€60.00");
+    expect(within(dialog).getByText("You need by 30 Oct")).toBeInTheDocument();
     // A second way: the total is the two together.
     expect(within(dialog).getByText("€145.00")).toBeInTheDocument();
     expect(85 + 60).toBe(145);

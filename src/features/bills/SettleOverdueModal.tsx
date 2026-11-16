@@ -5,6 +5,7 @@ import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { billOverdue, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
 import { FORM_MODAL } from "../../shared/components/formModal";
+import { dateFormat } from "../../shared/utils/dates";
 
 interface SettleOverdueModalProps {
   bill: BillWithStatus;
@@ -37,7 +38,7 @@ export default function SettleOverdueModal({ bill, formatCurrency, onClose, onCo
   const items = useMemo(() => billOverdue(bill).items, [bill]);
   const [unticked, setUnticked] = useState<Set<string>>(() => new Set());
 
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" });
+  const dateFmt = dateFormat("day", i18n.resolvedLanguage ?? "en");
   const split = getInstallmentCount(bill) > 1;
   const chosen = items.filter((item) => !unticked.has(itemKey(item)));
   const total = Math.round(chosen.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;

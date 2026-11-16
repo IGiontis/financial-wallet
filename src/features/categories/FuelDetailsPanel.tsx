@@ -1,11 +1,11 @@
 import { FormGroup, Label, Input, FormFeedback, Row, Col } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import type { FuelType } from "../../shared/types/IndexTypes";
-import { intlLocale } from "../../i18n";
 import { localeUpperCase } from "../../shared/utils/upperCase";
 import { validationMessage } from "../../shared/utils/validationMessage";
 import { FUEL_TYPES, getUnitLabel } from "./fuelTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 
 interface FuelDetailsPanelProps {
   fuelType: FuelType | "";
@@ -34,6 +34,8 @@ interface FuelDetailsPanelProps {
 
 export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, place, errors, touched, setFieldValue, setFieldTouched, displayCurrency }: FuelDetailsPanelProps) {
   const { t, i18n } = useTranslation();
+  // The total is worked out in the display currency, so it is shown as it is.
+  const money = useCurrencyConverter();
   const unit = getUnitLabel(fuelType);
   const totalCost = pricePerUnit !== "" && quantity !== "" ? Number(pricePerUnit) * Number(quantity) : null;
 
@@ -164,7 +166,7 @@ export function FuelDetailsPanel({ fuelType, pricePerUnit, quantity, odometer, p
             >
               <p style={{ fontSize: "var(--fs-caption)", color: "var(--bs-primary)", margin: 0, fontWeight: 500 }}>{t("transactions.fuelTotalAuto")}</p>
               <p style={{ fontSize: "var(--fs-lead)", fontWeight: 700, color: "var(--bs-primary)", margin: 0 }}>
-                {new Intl.NumberFormat(intlLocale(i18n.resolvedLanguage), { style: "currency", currency: displayCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalCost)}
+                {money.format(totalCost, money.displayCurrency)}
               </p>
             </div>
           </Col>

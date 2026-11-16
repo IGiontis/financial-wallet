@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { standaloneMonthName } from "../../shared/utils/dates";
+import { formatMonthName, dateFormat } from "../../shared/utils/dates";
 import { differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
 import { EARLY_LABEL_DAYS, everyOf, incomeEndsOn, incomeStartsLater, type Income, type IncomeStatus } from "./incomesUtils";
 
@@ -37,13 +37,13 @@ export function makeFormats(language: string): IncomeFormats {
   const lang = dayFirstLocale(language);
   return {
     lang,
-    weekdayDate: new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
-    dayMonth: new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }),
-    dayMonthShort: new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }),
-    monthShort: new Intl.DateTimeFormat(lang, { month: "short" }),
-    weekdayLong: new Intl.DateTimeFormat(lang, { weekday: "long" }),
-    monthName: (date: Date) => standaloneMonthName(lang, date),
-    monthYearShort: new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }),
+    weekdayDate: dateFormat("weekdayDayYear", lang),
+    dayMonth: dateFormat("day", lang),
+    dayMonthShort: dateFormat("dayShort", lang),
+    monthShort: dateFormat("monthShort", lang),
+    weekdayLong: dateFormat("weekday", lang),
+    monthName: (date: Date) => formatMonthName(date, lang),
+    monthYearShort: dateFormat("monthYearShort", lang),
   };
 }
 

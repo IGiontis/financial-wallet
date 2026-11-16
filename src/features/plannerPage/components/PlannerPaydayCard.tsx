@@ -13,6 +13,7 @@ import type { SliceStep } from "../payCycles";
 import UnconfirmedQuestion from "./UnconfirmedQuestion";
 import CycleSteps from "./CycleSteps";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** The list behind the figure: what there was, each payment, and what is left. */
 export interface PaydaySteps {
@@ -90,7 +91,7 @@ export function PlannerPaydayCard({
 }: PlannerPaydayCardProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(!!inSheet);
-  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  const dateFmt = dateFormat("dayShort", locale);
   const fromLabel = t(source === "readings" ? "planner.openingFromBanks" : "planner.openingFromRecords");
 
   const sourceMenu = (

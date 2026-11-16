@@ -1,4 +1,4 @@
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, startOfDay } from "../../shared/utils/dates";
 import type { Transaction } from "../../shared/types/IndexTypes";
 import { isMoneyMove } from "../../shared/utils/moneyModel";
 
@@ -123,12 +123,12 @@ export function pickBucket(spanDays: number): Bucket {
 const startOfBucket = (d: Date, bucket: Bucket): Date => {
   if (bucket === "month") return new Date(d.getFullYear(), d.getMonth(), 1);
   if (bucket === "week") {
-    const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const r = startOfDay(d);
     // Monday-started weeks, matching the rest of the app.
     r.setDate(r.getDate() - ((r.getDay() + 6) % 7));
     return r;
   }
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return startOfDay(d);
 };
 
 export function bucketOverTime(transactions: Transaction[], mode: InsightMode, bucket: Bucket, labelFor: (start: Date, bucket: Bucket) => string): TimeBucket[] {

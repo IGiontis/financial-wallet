@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ManageList, type ManageGroup } from "../../shared/components/ManageList";
 import { currentPause, getFrequencyLabel, isStoppedNow, startsLater } from "./billsUtils";
 import type { BillWithStatus, Category } from "../../shared/types/IndexTypes";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * «Πάγια › Διαχείριση»: every bill, the running ones and then the switched-off
@@ -35,9 +36,9 @@ export function BillManage({
   const locale = i18n.resolvedLanguage ?? "en";
 
   const groups = useMemo<ManageGroup[]>(() => {
-    const monthFmt = new Intl.DateTimeFormat(locale, { month: "short" });
-    const startFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
-    const weekdayFmt = new Intl.DateTimeFormat(locale, { weekday: "long" });
+    const monthFmt = dateFormat("monthShort", locale);
+    const startFmt = dateFormat("monthYearShort", locale);
+    const weekdayFmt = dateFormat("weekday", locale);
 
     const day = (bill: BillWithStatus) => {
       if (bill.dueDay === undefined || bill.dueDay === null) return t("manage.noDay");

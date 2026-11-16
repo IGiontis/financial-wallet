@@ -1,3 +1,4 @@
+import { daysBetween, formatRelativeDays, formatDayLong, formatDayLongYear } from "../../shared/utils/dates";
 // ─── The words of the welcome ────────────────────────────────────────────────
 //
 // «Καλώς ήρθες πίσω, Ηλία» — in Greek a name said to someone takes the
@@ -57,8 +58,7 @@ export function greekVocative(name: string): string {
  * Counted in calendar days, so last night at 23:50 is «χθες» at 00:10.
  */
 export function lastOpenWords(previous: Date, now: Date, lang: string): string {
-  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  const days = Math.round((day(now) - day(previous)) / 86_400_000);
-  if (days < 7) return new Intl.RelativeTimeFormat(lang, { numeric: "auto" }).format(-Math.max(days, 0), "day");
-  return new Intl.DateTimeFormat(lang, { day: "numeric", month: "long", ...(previous.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) }).format(previous);
+  const days = daysBetween(previous, now);
+  if (days < 7) return formatRelativeDays(-Math.max(days, 0), lang);
+  return previous.getFullYear() !== now.getFullYear() ? formatDayLongYear(previous, lang) : formatDayLong(previous, lang);
 }

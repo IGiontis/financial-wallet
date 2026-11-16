@@ -1,6 +1,6 @@
 import { addMonths, addWeeks, addYears, differenceInCalendarMonths, differenceInCalendarWeeks, getISOWeek, getISOWeekYear, startOfWeek } from "date-fns";
 import type { Bill, BillFrequency, BillPause, BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
-import { firestoreToDate, parseISOMonth } from "../../shared/utils/dates";
+import { firestoreToDate, parseISOMonth, startOfDay, daysBetween, toISODay } from "../../shared/utils/dates";
 
 // ─── Interval helpers ────────────────────────────────────────────────────────
 // A bill repeats every `intervalCount` periods of `frequency` — e.g. water every
@@ -207,12 +207,6 @@ export function getNextDueDate(bill: Bill, now: Date = new Date(), skipCurrentPe
   }
 }
 
-function startOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
 // ─── Deadline ───────────────────────────────────────────────────────────────
 // The due date is when a bill *lands*; the deadline is the last day the money
 // has to be there. For most utilities those are weeks apart — electricity is
@@ -240,8 +234,7 @@ function weekdayWithin(weekStart: Date, weekday: number): Date {
   const mondayBased = (weekday + 6) % 7; // Monday-started weeks
   const r = new Date(weekStart);
   r.setDate(weekStart.getDate() + mondayBased);
-  r.setHours(0, 0, 0, 0);
-  return r;
+  return startOfDay(r);
 }
 
 // Handles months that don't have the requested day (e.g. day 31 in February).
@@ -713,10 +706,7 @@ export type BillGroup = "overdue" | "upcoming" | "paid";
 /** Whole days until the next due date. Negative = that many days late. */
 export function daysUntilDue(bill: BillWithStatus, now: Date = new Date()): number | undefined {
   if (!bill.nextDueDate) return undefined;
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const due = bill.nextDueDate;
-  const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
-  return Math.round((startOfDue - startOfToday) / 86_400_000);
+  return daysBetween(now, bill.nextDueDate);
 }
 
 /**
@@ -734,9 +724,7 @@ export function getBillGroup(bill: BillWithStatus, now: Date = new Date()): Bill
 
 /** Whole calendar days from today to `date`. Negative once it has gone. */
 function wholeDaysUntil(date: Date, now: Date): number {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  return Math.round((end - today) / 86_400_000);
+  return daysBetween(now, date);
 }
 
 /**
@@ -1004,19 +992,17 @@ export interface CashCheckpoint {
   items: { bill: BillWithStatus; amount: number; overdue: boolean }[];
 }
 
-const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-
 export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limit = 3): CashCheckpoint[] {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = startOfDay(now);
 
   const byDate = new Map<string, CashCheckpoint>();
   const add = (date: Date, bill: BillWithStatus, amount: number, overdue: boolean) => {
-    const entry = byDate.get(dayKey(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false, items: [] };
+    const entry = byDate.get(toISODay(date)) ?? { date, bills: [], amount: 0, cumulative: 0, cumulativeCount: 0, strictCount: 0, overdue: false, items: [] };
     if (!entry.bills.includes(bill)) entry.bills.push(bill);
     entry.items.push({ bill, amount, overdue });
     entry.amount = round2(entry.amount + amount);
     if (overdue) entry.overdue = true;
-    byDate.set(dayKey(date), entry);
+    byDate.set(toISODay(date), entry);
   };
 
   for (const bill of bills) {
@@ -1035,7 +1021,7 @@ export function cashRunway(bills: BillWithStatus[], now: Date = new Date(), limi
     // overdue above, and adding it here would ask for it twice.
     const deadline = bill.deadline;
     if (!bill.isPaidThisPeriod && deadline && deadline >= today) {
-      add(new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate()), bill, amountDueNext(bill, now), false);
+      add(startOfDay(deadline), bill, amountDueNext(bill, now), false);
     }
   }
 

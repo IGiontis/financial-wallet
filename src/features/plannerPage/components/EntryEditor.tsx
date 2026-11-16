@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { DateField } from "../../../shared/components/DateField";
 import { DeleteButton } from "../../../shared/components/DeleteButton";
-import { formatTable } from "../../transactions/transactionDates";
 import { WizardSteps } from "../../transactions/components/WizardSteps";
 import { MAX_REPEAT_MONTHS, monthStart, oneOffDate, repeatLabel } from "../plannerUtils";
 import { CADENCES, cadenceOf, cadenceProblem, draftFor, EVERY_N_CHOICES, monthsOfYear, nextTimes, seasonMonths, type Cadence } from "../cadence";
@@ -20,6 +19,7 @@ import { RequiredMark } from "../../../shared/components/RequiredMark";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { asNumber, asSet } from "../../../shared/utils/sameValues";
+import { formatRecordDay, monthKey, dateFormat } from "../../../shared/utils/dates";
 
 export interface EntryDraft {
   id?: string;
@@ -73,10 +73,9 @@ const WITH_KIND: readonly Step[] = ["kind", ...STEPS];
 /** "2026-12" as "Dec 2026", or undefined for anything else. */
 function monthText(key: string | undefined, lang: string): string | undefined {
   const start = monthStart(key);
-  return start ? new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }).format(start) : undefined;
+  return start ? dateFormat("monthYearShort", lang).format(start) : undefined;
 }
 
-const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /**
  * One dialog for writing every figure the user owns, in three steps: how often
@@ -136,9 +135,9 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
   // What would be stored, worked out once: the check, the sentence and Save all read it.
   const stored = useMemo(() => draftFor(mode, cadence, value), [mode, cadence, value]);
   const problem = cadenceProblem(mode, cadence, value);
-  // «Every year?» on «some months» is asked, not answered for you (no prefill,
-  // tiles included): unanswered until a tile is picked — except a stored
-  // season being edited, which shows what it is (absent = «Όχι»).
+  // «Every year?» on «some months» starts on «Ναι» when «Only some months» is
+  // picked (owner, 2026-11-12; set on the draft, so it is what is saved) — a stored
+  // season being edited shows what it is (absent = «Όχι»).
   const seasonYearly = value.yearly ?? (edit && givenMode && cadenceOf(givenMode, draft) === "season" ? false : undefined);
   const yearlyMissing = !dated && cadence === "season" && seasonYearly === undefined;
   const whenOk = !problem && !yearlyMissing;
@@ -182,7 +181,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
     onSave(clean, chosenMode);
   };
 
-  const shortMonth = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+  const shortMonth = useMemo(() => dateFormat("monthShort", lang), [lang]);
   const monthName = (month: number) => shortMonth.format(new Date(2000, month, 1));
   const money = formatCurrency(amountOk ? amount : 0);
   const times = (n: number) => formatCurrency(amountOk ? amount * n : 0);
@@ -192,11 +191,11 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
     const v = stored;
     if (dated) {
       const first = oneOffDate(v.date ?? "");
-      const day = first ? formatTable(first, lang) : "—";
+      const day = first ? formatRecordDay(first, lang) : "—";
       if (!v.every) return day;
       const label = repeatLabel(v.every);
       const stop = oneOffDate(v.until ?? "");
-      return `${t(label.key, { count: label.count })} · ${t("planner.repeatFirstDate")} ${day}${stop ? ` · ${t("planner.seasonToOnly", { month: formatTable(stop, lang) })}` : ""}`;
+      return `${t(label.key, { count: label.count })} · ${t("planner.repeatFirstDate")} ${day}${stop ? ` · ${t("planner.seasonToOnly", { month: formatRecordDay(stop, lang) })}` : ""}`;
     }
     if (cadence === "monthly") return t("planner.cadence_monthly");
     const from = monthText(v.from, lang);
@@ -217,7 +216,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
     if (dated) {
       const first = oneOffDate(v.date ?? "");
       if (!first) return undefined;
-      if (cadence === "once") return t("planner.preview_onceDate", { date: formatTable(first, lang), amount: money });
+      if (cadence === "once") return t("planner.preview_onceDate", { date: formatRecordDay(first, lang), amount: money });
       if (cadence === "monthly") return t("planner.preview_monthlyDay", { day: first.getDate(), amount: money, year: times(12) });
       const months = monthsOfYear(v);
       if (months) return t("planner.preview_timesYear", { count: months.length, months: months.map(monthName).join(", "), amount: money });
@@ -243,7 +242,7 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
   })();
 
   const next = whenOk ? nextTimes(mode, stored, today) : [];
-  const nextText = next.length > 0 ? t("planner.preview_next", { dates: next.map((d) => (dated ? formatTable(d, lang) : monthText(monthKey(d), lang))).join(", ") }) : undefined;
+  const nextText = next.length > 0 ? t("planner.preview_next", { dates: next.map((d) => (dated ? formatRecordDay(d, lang) : monthText(monthKey(d), lang))).join(", ") }) : undefined;
 
   const amountLabel = t(cadence === "once" ? "planner.lineAmount" : cadence === "yearly" ? "planner.amount_yearly" : dated ? "planner.amount_each" : "planner.amount_monthly");
   const perMonth = !dated && (cadence === "monthly" || cadence === "season");
@@ -322,7 +321,11 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
                     role="radio"
                     aria-checked={cadence === c}
                     className={`btn text-start ${cadence === c ? "btn-primary" : "btn-outline-secondary"}`}
-                    onClick={() => setCadence(c)}
+                    onClick={() => {
+                      setCadence(c);
+                      // «Every year?» starts on «Ναι» (owner, 2026-11-12) — not on a stored season, which shows its own answer.
+                      if (c === "season" && value.yearly === undefined && !(edit && givenMode && cadenceOf(givenMode, draft) === "season")) set({ yearly: true });
+                    }}
                   >
                     <span className="d-block fw-semibold">{t(`planner.cadence_${c}`)}</span>
                     <span className="d-block small">{t(`planner.cadence_${c}Hint_${mode}`)}</span>

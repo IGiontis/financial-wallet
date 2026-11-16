@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { PlanPeriod } from "../plannerUtils";
 import { monthRows } from "../monthRows";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /**
  * «Από πού βγαίνει το υπόλοιπο», one month to a row.
@@ -17,8 +18,8 @@ import styles from "../css/PlannerPage.module.css";
  */
 export function PlanMonthRows({ periods, opening, formatCurrency, locale }: { periods: PlanPeriod[]; opening: number; formatCurrency: (n: number) => string; locale: string }) {
   const { t } = useTranslation();
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }), [locale]);
-  const shortFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short" }), [locale]);
+  const monthFmt = useMemo(() => dateFormat("monthYear", locale), [locale]);
+  const shortFmt = useMemo(() => dateFormat("monthShort", locale), [locale]);
 
   const rows = useMemo(
     () =>

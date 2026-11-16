@@ -59,7 +59,7 @@ import {
 } from "./billsUtils";
 import { billStartText } from "./billStartText";
 import { categoryLabel } from "../../shared/utils/categories";
-import { firestoreToDate, standaloneMonthName } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat, formatMonthName, daysBetween } from "../../shared/utils/dates";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
@@ -103,7 +103,7 @@ import { useToday } from "../../shared/hooks/useToday";
 function CashRunway({ checkpoints, formatCurrency, onOpen }: { checkpoints: CashCheckpoint[]; formatCurrency: (n: number) => string; onOpen: (index: number) => void }) {
   const { t, i18n } = useTranslation();
 
-  const dateFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" });
+  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
 
   if (checkpoints.length === 0) return null;
 
@@ -113,7 +113,7 @@ function CashRunway({ checkpoints, formatCurrency, onOpen }: { checkpoints: Cash
         // Colour tracks time pressure, not strictness — nearly every list has a
         // strict bill somewhere in it, so keying off that would paint all three
         // amber and say nothing. The lock icon carries strictness instead.
-        const daysAway = Math.round((checkpoint.date.getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+        const daysAway = daysBetween(new Date(), checkpoint.date);
         const color = checkpoint.overdue ? "var(--expense-text)" : daysAway <= URGENT_DAYS ? "var(--goal-text)" : "var(--color-text-primary)";
 
         return (
@@ -145,7 +145,7 @@ function PeriodSummary({ breakdown, formatCurrency, onOpenBreakdown }: { breakdo
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }, []);
-  const endLabel = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(periodEnd);
+  const endLabel = dateFormat("dayShort", i18n.resolvedLanguage ?? "en").format(periodEnd);
 
   const settled = totals.due <= 0 && totals.totalCount > 0;
   const paidLine = t("bills.nOfMPaidLeft", { paid: totals.totalCount - totals.unpaidCount, total: totals.totalCount, left: formatCurrency(totals.due) });
@@ -229,7 +229,7 @@ function NextMonthCard({ forecast, formatCurrency, onOpenBreakdown }: { forecast
   const { t, i18n } = useTranslation();
 
   // The month named on its own — "Μάρτιος", not the genitive "Μαρτίου".
-  const monthLabel = standaloneMonthName(i18n.resolvedLanguage ?? "en", forecast.monthStart);
+  const monthLabel = formatMonthName(forecast.monthStart, i18n.resolvedLanguage ?? "en");
 
   return (
     <div
@@ -312,7 +312,7 @@ function WhatBillsLeave({ bills, formatCurrency }: { bills: BillWithStatus[]; fo
   const approximate = month.variableCount > 0;
   // Short month with the year: Greek renders a lone long month in the genitive
   // ("Σεπτεμβρίου"), which reads as a fragment of a sentence rather than a label.
-  const monthName = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(month.monthStart);
+  const monthName = dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en").format(month.monthStart);
 
   const share = salaryShare(salary, monthlyBills);
 
@@ -402,7 +402,7 @@ function QuickStats({
   const nextDays = nextBill ? daysUntilDeadline(nextBill) : undefined;
   const nextDeadline = nextBill ? earliestDeadline(nextBill) : undefined;
 
-  const nextValue = nextDeadline ? new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }).format(nextDeadline) : "—";
+  const nextValue = nextDeadline ? dateFormat("dayShort", i18n.resolvedLanguage ?? "en").format(nextDeadline) : "—";
   const nextSub = nextBill ? nextBill.name : t("bills.allSettled");
   const nextColor = nextDays === undefined ? "var(--color-text-secondary)" : nextDays < 0 ? "var(--expense-text)" : nextDays <= 5 ? "var(--goal-text)" : "var(--color-text-primary)";
 
@@ -509,7 +509,7 @@ function StatusChip({ bill, formatCurrency, now }: { bill: BillWithStatus; forma
   // says nothing. What the reader needs is that it is off, and until when.
   const pause = currentPause(bill);
   if (!bill.isPaidThisPeriod && (pause?.state === "paused" || pause?.state === "ended")) {
-    const month = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
+    const month = dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en");
     return pause.state === "paused" ? (
       <span className={styles.statusChip} style={toneChip("goal")}>
         {t("bills.chipPausedUntil", { month: month.format(pause.to!) })}
@@ -572,7 +572,7 @@ function deadlineFact(bill: BillWithStatus, t: TFunction, dateFmt: Intl.DateTime
   if (overdue.count > 0 && overdue.oldestDeadline) return { label: t("bills.labelPayBy"), value: dateFmt.format(overdue.oldestDeadline), color: "var(--expense-text)" };
 
   // With its year: a first payment months away, read as "30 Jun", looks like the June just gone.
-  if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? new Intl.DateTimeFormat(dateFmt.resolvedOptions().locale, { day: "numeric", month: "short", year: "numeric" }).format(bill.nextDueDate) : "—" };
+  if (!bill.isPaidThisPeriod && startsLater(bill, now)) return { label: t("bills.labelNextDue"), value: bill.nextDueDate ? dateFormat("day", dateFmt.resolvedOptions().locale).format(bill.nextDueDate) : "—" };
   const pause = currentPause(bill);
   if (!bill.isPaidThisPeriod && pause?.state === "ended") return { label: t("bills.labelStopped"), value: dateFmt.format(pause.from) };
   if (!bill.isPaidThisPeriod && pause?.state === "paused") return { label: t("bills.labelResumes"), value: bill.nextDueDate ? dateFmt.format(bill.nextDueDate) : "—" };
@@ -663,7 +663,7 @@ const chipLook = (status: MonthChip["status"]): DayToneInput =>
 
 function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   const { t, i18n } = useTranslation();
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
+  const monthFmt = dateFormat("monthShort", i18n.resolvedLanguage ?? "en");
   const chips = useMemo(() => billMonthStrip(bill, now), [bill, now]);
 
   const labelFor = (status: MonthChip["status"]) =>
@@ -749,8 +749,8 @@ function BillLine({
   flash?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short" }), [i18n.resolvedLanguage]);
+  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
+  const monthFmt = dateFormat("monthShort", i18n.resolvedLanguage ?? "en");
 
   // Overdue comes first, whatever else is true: a bill paid for October or off
   // for the winter is still behind if July was never paid.
@@ -763,7 +763,7 @@ function BillLine({
   // Not started yet: nothing owed, and the pill says when it starts instead of "unpaid".
   const starts = !bill.isPaidThisPeriod && !late ? startsLater(bill, now) : undefined;
   const stopped = !bill.isPaidThisPeriod && !late && (!!starts || pause?.state === "paused" || pause?.state === "ended");
-  const startFmt = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" });
+  const startFmt = dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en");
 
   // A variable bill carries an estimate until the charge arrives, so its figure
   // is marked as one rather than printed like a fact.
@@ -894,7 +894,7 @@ function BillCard({
   const urgency = billUrgency(bill, now);
   const strict = isHardDeadline(bill);
 
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
   const lastPaidAmount = bill.payments[0]?.amount;
   const deadline = deadlineFact(bill, t, dateFmt, now);
   // Recedes like a settled card: nothing to do about it until it comes back —
@@ -1165,7 +1165,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // a second guess here would be a second answer to "when do I get paid".
   const { thisMonth: pay } = useSalaryIncome(now);
   const timeline = useMemo(() => monthTimeline(bills, now, pay ? { ...pay, label: t("bills.timelineIncome") } : undefined), [bills, now, pay, t]);
-  const monthTitleFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }), [i18n.resolvedLanguage]);
+  const monthTitleFmt = dateFormat("monthYear", i18n.resolvedLanguage ?? "en");
 
   const sections = useMemo(() => {
     // Each bill's days worked out once — they walk its arrears — and counted
@@ -1213,14 +1213,14 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // Keep an open detail modal in sync after a payment lands or is undone.
   const liveDetailBill = detailBill ? (bills.find((b) => b.id === detailBill.id) ?? null) : null;
   const runway = useMemo(() => cashRunway(bills), [bills]);
-  const runwayDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const runwayDateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
   // The dearest first, and the ones resting this period (paused, stopped, not begun) after all the rest.
   const activeBills = useMemo(
     () => bills.filter((b) => b.isActive).sort((a, b) => Number(isStoppedNow(a, now)) - Number(isStoppedNow(b, now)) || b.monthlyEquivalent - a.monthlyEquivalent),
     [bills, now],
   );
   const late = useMemo(() => overdueBills(bills), [bills]);
-  const shortDateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const shortDateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
   const categoryBills = useMemo(
     () => (openCategory ? bills.filter((b) => b.isActive && b.categoryId === openCategory.id).sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent) : []),
     [bills, openCategory],
@@ -1774,7 +1774,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                 {t("bills.undoConfirmBody", {
                   name: undoTarget.bill.name,
                   amount: formatCurrency(undoTarget.payment.amount),
-                  date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(firestoreToDate(undoTarget.payment.paidDate)),
+                  date: dateFormat("day", i18n.resolvedLanguage ?? "en").format(firestoreToDate(undoTarget.payment.paidDate)),
                 })}
               </p>
               <p className="mb-0 text-body-secondary" style={{ fontSize: "var(--fs-text)" }}>

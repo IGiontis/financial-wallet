@@ -1,8 +1,9 @@
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isSameDay } from "date-fns";
 import { FiArrowDownLeft, FiArrowUpRight } from "react-icons/fi";
 import styles from "../css/MoneyTree.module.css";
+import { dateFormat } from "../utils/dates";
 
 /** One thing on a day: a leaf of the tree. */
 export interface TreeLeaf {
@@ -68,8 +69,8 @@ export function MoneyTree({
   onOpen?: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
-  const weekdayFmt = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short" }), [locale]);
+  const dayFmt = dateFormat("dayShort", locale);
+  const weekdayFmt = dateFormat("weekdayShort", locale);
 
   let index = 0;
   const leaf = (item: TreeLeaf) => {

@@ -44,6 +44,8 @@ describe("several records for one difference", () => {
     expect(screen.getByText("−€55.00")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("radio", { name: "Moved to another of my cards" }));
+    // WHERE before HOW MUCH: the other account is asked above the amount.
+    expect(screen.getByLabelText("To which account").compareDocumentPosition(screen.getByLabelText("Amount")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.clear(screen.getByLabelText("Amount"));
     await userEvent.type(screen.getByLabelText("Amount"), "50");
     await userEvent.selectOptions(screen.getByLabelText("To which account"), "cash");

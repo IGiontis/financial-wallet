@@ -11,6 +11,7 @@ import { usePendingRecords } from "../../../shared/hooks/usePendingRecords";
 import { GoalDetailsModal } from "./GoalDetailsModal";
 import { CoveredMark } from "./CoveredMark";
 import type { InvestmentGoalStatus, InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
+import { startOfDay } from "../../../shared/utils/dates";
 
 // One line per goal, stacked under the horizon it belongs to.
 //
@@ -48,7 +49,7 @@ const GoalRow = memo(function GoalRow(props: RowActions & { goal: InvestmentGoal
   const deadline = toDate(goal.deadline);
   // Midnight today, built rather than set: `setHours` would move `now` itself,
   // and everything read after it would be measured from a different moment.
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfToday = startOfDay(now);
   const overdue = !!deadline && !goal.isCompleted && deadline.getTime() < startOfToday.getTime();
   const status = goal.status ? getStatusConfig(goal.status) : null;
   const isRecurring = goal.targetPeriod === "monthly" || goal.targetPeriod === "yearly";

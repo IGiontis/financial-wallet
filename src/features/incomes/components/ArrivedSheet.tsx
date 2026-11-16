@@ -126,7 +126,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
 
   const range = expected.recent.length > 1 ? { min: Math.min(...expected.recent), max: Math.max(...expected.recent) } : undefined;
   // What was typed, in the display currency as typed — not converted again.
-  const display = Number.isFinite(typed) && typed > 0 ? new Intl.NumberFormat(f.lang, { style: "currency", currency: displayCurrency }).format(typed) : "";
+  const display = Number.isFinite(typed) && typed > 0 ? format(typed, displayCurrency) : "";
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered>
@@ -152,9 +152,9 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             </div>
             <div className={styles.readCard}>
               {[
+                ...(accounts.length > 0 ? [{ label: t("incomes.arrived.where"), value: accounts.find((a) => a.id === place)?.name ?? t("incomes.card.noAccount") }] : []),
                 { label: t("incomes.arrived.amount"), value: display },
                 { label: t("incomes.arrived.when"), value: f.weekdayDate.format(day) },
-                ...(accounts.length > 0 ? [{ label: t("incomes.arrived.where"), value: accounts.find((a) => a.id === place)?.name ?? t("incomes.card.noAccount") }] : []),
                 {
                   label: income.frequency === "monthly" ? t("incomes.arrived.forMonth") : t("incomes.arrived.forTime"),
                   value: income.frequency === "monthly" ? `${f.monthName(chosen.date)} ${chosen.date.getFullYear()}` : f.dayMonth.format(chosen.date),
@@ -179,6 +179,32 @@ export default function ArrivedSheet({ income, status, options, expected, readin
           </ModalBody>
         ) : (
         <ModalBody>
+          {/* WHERE before HOW MUCH (owner, 2026-11-12): the account it came into, then the amount. */}
+          {accounts.length > 0 && (
+            <FormGroup>
+              <Label className="small fw-medium d-block">
+                {t("incomes.arrived.where")}
+                <RequiredMark />
+              </Label>
+              <div className={segmented.group} role="radiogroup" aria-label={t("incomes.arrived.where")} aria-required>
+                {accounts.map((account) => (
+                  <button
+                    key={account.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={place === account.id}
+                    className={`${segmented.item} ${place === account.id ? segmented.active : ""}`}
+                    onClick={() => setAccountId(account.id)}
+                  >
+                    {account.kind === "cash" ? "💵 " : ""}
+                    {account.name}
+                  </button>
+                ))}
+              </div>
+              {touched && placeMissing && <div className="invalid-feedback d-block">{t("accounts.pickRequiredIn")}</div>}
+            </FormGroup>
+          )}
+
           <FormGroup>
             <Label for="arrived-amount" className="small fw-medium">
               {t("incomes.arrived.amount")} ({displayCurrency})
@@ -217,31 +243,6 @@ export default function ArrivedSheet({ income, status, options, expected, readin
             <DateField id="arrived-date" happened value={date} onChange={setDate} maxDate={readingDay} invalid={touched && !!dateError} />
             {touched && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
           </FormGroup>
-
-          {accounts.length > 0 && (
-            <FormGroup>
-              <Label className="small fw-medium d-block">
-                {t("incomes.arrived.where")}
-                <RequiredMark />
-              </Label>
-              <div className={segmented.group} role="radiogroup" aria-label={t("incomes.arrived.where")} aria-required>
-                {accounts.map((account) => (
-                  <button
-                    key={account.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={place === account.id}
-                    className={`${segmented.item} ${place === account.id ? segmented.active : ""}`}
-                    onClick={() => setAccountId(account.id)}
-                  >
-                    {account.kind === "cash" ? "💵 " : ""}
-                    {account.name}
-                  </button>
-                ))}
-              </div>
-              {touched && placeMissing && <div className="invalid-feedback d-block">{t("accounts.pickRequiredIn")}</div>}
-            </FormGroup>
-          )}
 
           {choices.length > 1 && (
             <FormGroup className="mb-0">

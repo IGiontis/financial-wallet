@@ -1,6 +1,7 @@
-import { addMonths, differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { addMonths, differenceInCalendarDays, startOfDay } from "date-fns";
 import { amountDueNext, amountOwedNow, billUrgency, earliestDeadline, getDeadline } from "./billsUtils";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
+import { toISODay } from "../../shared/utils/dates";
 
 /**
  * How far ahead the popup looks, picked in the settings: days, or calendar
@@ -77,7 +78,7 @@ export function billAlerts(bills: BillWithStatus[], now: Date = new Date(), ahea
       return [
         {
           bill,
-          key: `${bill.id}|${format(deadline, "yyyy-MM-dd")}|${late ? "late" : "due"}`,
+          key: `${bill.id}|${toISODay(deadline)}|${late ? "late" : "due"}`,
           late,
           now: late || days <= 0,
           deadline,

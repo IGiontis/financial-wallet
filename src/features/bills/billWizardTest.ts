@@ -65,9 +65,11 @@ export const tile = async (question: RegExp, yes: boolean) => within(await scree
  */
 export async function fillNew(name: string, amount: string, categoryId: string) {
   await userEvent.type(await screen.findByLabelText(/^name/i), name);
+  // «Is it active?» starts on «Ναι» (owner, 2026-11-12): clicking it again keeps it.
   await userEvent.click(await tile(/is it active/i, true));
   await next();
+  // «Does it change?» starts on «Ναι» too, which names the field «Estimated amount»: «Όχι» first.
+  await userEvent.click(await tile(/amount change/i, false));
   await userEvent.type(screen.getByLabelText(/^amount \(/i), amount);
   await userEvent.selectOptions(screen.getByLabelText(/^category/i), categoryId);
-  await userEvent.click(await tile(/amount change/i, false));
 }

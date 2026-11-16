@@ -39,7 +39,7 @@ import AccountSheet from "./AccountSheet";
 import cardStyles from "./css/BankCard.module.css";
 import CheckInModal from "./CheckInModal";
 import { useCategories } from "../transactions/hooks/useTransactions";
-import { toISODay } from "../../shared/utils/dates";
+import { toISODay, dateFormat } from "../../shared/utils/dates";
 import AccountModal, { type AccountDraft } from "./AccountModal";
 import { CushionCard } from "./CushionCard";
 import styles from "./css/AccountsPage.module.css";
@@ -93,7 +93,7 @@ export function AccountsPage() {
   // A reading being corrected — see `EditReadingModal`.
   const [fixing, setFixing] = useState<CheckInReading | null>(null);
 
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short" }), [lang]);
+  const dayFmt = dateFormat("weekdayDay", lang);
   const expected = useMemo(() => expectedByAccount(accounts, latest, transactions), [accounts, latest, transactions]);
   // What each of those figures is made of, listed under the account while reading the banks.
   const pending = useMemo(() => pendingByAccount(accounts, latest, transactions), [accounts, latest, transactions]);

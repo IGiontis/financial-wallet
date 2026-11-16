@@ -6,6 +6,7 @@ import { daysLate } from "../plannerActuals";
 import type { PlannerEvent } from "../plannerUtils";
 import type { SliceStep } from "../payCycles";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** The key colour of a step: the Overview's three outgoings, green for what arrives. */
 function keyColour(step: SliceStep): string | undefined {
@@ -53,7 +54,7 @@ export function CycleSteps({
   locale: string;
 }) {
   const { t } = useTranslation();
-  const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
+  const dayDate = dateFormat("weekdayDay", locale);
   const isToday = (date?: Date) => !!date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
   const when = (date?: Date) => (!date ? "" : isToday(date) ? t("planner.today") : dayDate.format(date));
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;

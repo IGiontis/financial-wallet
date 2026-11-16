@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { FiCheck } from "react-icons/fi";
 import { CARD_FINISH, type CardColor } from "./accountTones";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
+import { currencySymbol } from "../../shared/utils/currency";
 import styles from "./css/BankCard.module.css";
 
 /**
@@ -42,6 +44,8 @@ export function BankCard({
   className?: string;
 }) {
   const Tag = onClick ? "button" : "div";
+  // The note's sign is the user's own money: «$» for dollars, «£» for pounds.
+  const sign = currencySymbol(useCurrencyConverter().displayCurrency);
   const top = (
     <span className={styles.top}>
       <span className={styles.name}>{name}</span>
@@ -61,11 +65,11 @@ export function BankCard({
       style={kind === "cash" ? undefined : { ["--card" as string]: CARD_FINISH[finish].background }}
     >
       {kind === "cash" ? (
-        // A wallet: the note (drawn by the stylesheet) out of its top, the € on
-        // the note, and the name and balance on the pocket.
+        // A wallet: the note (drawn by the stylesheet) out of its top, the
+        // currency's sign on the note, and the name and balance on the pocket.
         <>
           <span className={styles.seal} aria-hidden>
-            €
+            {sign}
           </span>
           <span className={styles.pocket}>
             {top}

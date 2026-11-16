@@ -166,8 +166,8 @@ describe("the payments tab", () => {
     renderSheet([rent]);
 
     const rows = payRows();
-    expect(rows[0]).toMatch(/May 2.*€80\.00/);
-    expect(rows[1]).toMatch(/Apr 10.*€120\.00/);
+    expect(rows[0]).toMatch(/2 May.*€80\.00/);
+    expect(rows[1]).toMatch(/10 Apr.*€120\.00/);
     expect(rows[2]).toMatch(/You took.*€500\.00/);
   });
 
@@ -194,6 +194,11 @@ describe("recording a payment", () => {
   const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
   // «Did money move?» starts unanswered (no prefill): answered «Yes» here.
   const moneyMoved = () => userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
+  // WHERE before HOW MUCH: the card is the first step; «Yes» there, then on to the amount.
+  const toAmount = async () => {
+    await moneyMoved();
+    await next();
+  };
 
   it("offers the month's payment on a loan, and fills it in", async () => {
     renderSheet([car]);
@@ -201,10 +206,9 @@ describe("recording a payment", () => {
     expect(instalment).toBe(185.26);
 
     await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
+    await toAmount();
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(185.26);
     await next();
-    await next();
-    await moneyMoved();
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
@@ -215,10 +219,9 @@ describe("recording a payment", () => {
     renderSheet([rent]);
 
     await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await toAmount();
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(300);
     await next();
-    await next();
-    await moneyMoved();
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
 
@@ -233,10 +236,11 @@ describe("recording a payment", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Payment" }));
     expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    await next();
+    // The card first: no amount field yet.
+    expect(within(wizard()).queryByLabelText("Amount")).not.toBeInTheDocument();
+    await toAmount();
     await next();
     expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    await moneyMoved();
     await next();
     expect(within(wizard()).getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(spies.record).not.toHaveBeenCalled();
@@ -246,6 +250,7 @@ describe("recording a payment", () => {
     renderSheet([rent]);
 
     await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await toAmount();
     await userEvent.clear(within(wizard()).getByLabelText("Amount"));
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "0");
     await next();
@@ -258,11 +263,10 @@ describe("recording a payment", () => {
     renderSheet([rent]);
 
     await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await toAmount();
     await userEvent.clear(within(wizard()).getByLabelText("Amount"));
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "100");
     await next();
-    await next();
-    await moneyMoved();
     await next();
 
     // 300 was left of the 500 after the two payments; 100 more leaves 200.
@@ -277,8 +281,6 @@ describe("recording a payment", () => {
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "300");
     await next();
     await next();
-    await moneyMoved();
-    await next();
     expect(within(wizard()).getByRole("group", { name: "What changes" })).toHaveTextContent("Owed afterPaid off");
   });
 
@@ -286,9 +288,8 @@ describe("recording a payment", () => {
     renderSheet([car]);
 
     await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
+    await toAmount();
     await next();
-    await next();
-    await moneyMoved();
     await next();
 
     const effect = within(wizard()).getByRole("group", { name: "What changes" });
@@ -309,7 +310,7 @@ describe("correcting a payment", () => {
   it("opens with the payment's own figure and day", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /2 May.*€80\.00/ }));
 
     expect(screen.getByLabelText("Amount")).toHaveValue(80);
     // The app's calendar field, showing the payment's own day.
@@ -318,7 +319,7 @@ describe("correcting a payment", () => {
 
   it("saves the figure and the day that were typed", async () => {
     renderSheet([rent]);
-    await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /2 May.*€80\.00/ }));
 
     const amount = screen.getByLabelText("Amount");
     await userEvent.clear(amount);
@@ -334,7 +335,7 @@ describe("correcting a payment", () => {
 
   it("No change, no Save: opened as it is, Save is off with the hint; 80 as 80.00 is no change; 85 is; back to 80 is none", async () => {
     renderSheet([rent]);
-    await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /2 May.*€80\.00/ }));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
 
@@ -354,7 +355,7 @@ describe("correcting a payment", () => {
 
   it("refuses a zero", async () => {
     renderSheet([rent]);
-    await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /2 May.*€80\.00/ }));
 
     const amount = screen.getByLabelText("Amount");
     await userEvent.clear(amount);
@@ -367,7 +368,7 @@ describe("correcting a payment", () => {
     renderSheet([rent]);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Apr 10.*€120\.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /10 Apr.*€120\.00/ }));
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     // Not on one tap: it asks first, and only the red button in the question deletes.
     expect(spies.remove).not.toHaveBeenCalled();
@@ -399,6 +400,8 @@ describe("the rest of the loan, on the one page", () => {
 
     await screen.findAllByText("Edit loan");
     const form = screen.getAllByRole("dialog").find((d) => within(d).queryByDisplayValue("March rent"))!;
+    // The amount is on the money step, after the card.
+    await userEvent.click(within(form).getByRole("button", { name: /^2\s*Money/ }));
     expect(within(form).getByPlaceholderText("0")).toHaveValue(500);
   });
 
@@ -530,7 +533,9 @@ describe("all together", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Payment — Car" }));
     const wizard = screen.getAllByRole("dialog").at(-1)!;
-    // The month's payment, as the loan's own button fills in.
+    // The card first, then the month's payment, as the loan's own button fills in.
+    await userEvent.click(within(wizard).getByRole("radio", { name: /^Yes,/ }));
+    await userEvent.click(within(wizard).getByRole("button", { name: /Next/ }));
     expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
   });
 });
@@ -561,9 +566,9 @@ describe("every loan as a card", () => {
 
     const rentCard = card("March rent");
     expect(rentCard).toHaveTextContent("You took €500.00");
-    expect(rentCard).toHaveTextContent("Mar 3, 2026");
+    expect(rentCard).toHaveTextContent("3 Mar 2026");
     // The newest payment, not the first one stored.
-    expect(rentCard).toHaveTextContent(/Last paid May 2(?!\d)/);
+    expect(rentCard).toHaveTextContent(/Last paid 2 May(?!\d)/);
     // 500 − 120 − 80 = 300 left, and 200 of 500 is 40% gone.
     expect(rentCard).toHaveTextContent("€300.00");
     expect(rentCard).toHaveTextContent("40%");
@@ -588,6 +593,8 @@ describe("every loan as a card", () => {
 
     await userEvent.click(within(card("Car")).getByRole("button", { name: "Payment" }));
     const wizard = screen.getAllByRole("dialog").at(-1)!;
+    await userEvent.click(within(wizard).getByRole("radio", { name: /^Yes,/ }));
+    await userEvent.click(within(wizard).getByRole("button", { name: /Next/ }));
     expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
   });
 
@@ -626,10 +633,10 @@ describe("how each payment went", () => {
       { ...pay("p1", "lent", 120, new Date(2026, 3, 1)), accountId: "", notes: "paid me at the wedding" },
     ]);
     const rows = payRows();
-    expect(rows[0]).toMatch(/Jun 1.*No money moved.*«birthday present».*€50.00/);
-    expect(rows[1]).toMatch(/May 1.*Cash.*€100.00/);
+    expect(rows[0]).toMatch(/1 Jun.*No money moved.*«birthday present».*€50.00/);
+    expect(rows[1]).toMatch(/1 May.*Cash.*€100.00/);
     // "" is the main account, named as itself.
-    expect(rows[2]).toMatch(/Apr 1.*Piraeus.*«paid me at the wedding».*€120.00/);
+    expect(rows[2]).toMatch(/1 Apr.*Piraeus.*«paid me at the wedding».*€120.00/);
     expect(rows[1]).not.toContain("«");
   });
 
@@ -637,7 +644,7 @@ describe("how each payment went", () => {
     accounts.list = [PIRAEUS];
     sheetWith([pay("p2", "lent", 200, new Date(2026, 4, 12)), { ...pay("p3", "lent", 100, new Date(2026, 8, 12)), accountId: "piraeus" }].sort((a, b) => b.date.getTime() - a.date.getTime()));
     expect(screen.getByText("Settled")).toBeInTheDocument();
-    expect(screen.getByText("Sep 12, 2026 · Piraeus")).toBeInTheDocument();
+    expect(screen.getByText("12 Sept 2026 · Piraeus")).toBeInTheDocument();
   });
 
   it("writes the note typed at «Where», shows it at the check, and saves it trimmed", async () => {
@@ -645,10 +652,11 @@ describe("how each payment went", () => {
     const wizard = () => screen.getAllByRole("dialog").at(-1)!;
     const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
     await userEvent.click(screen.getByRole("button", { name: "Money back" }));
-    await next();
-    await next();
+    // «Where» is the first step: the card, and the note with it.
     await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
     await userEvent.type(within(wizard()).getByLabelText(/^Note/), "  handed over in cash  ");
+    await next();
+    await next();
     await next();
     expect(wizard()).toHaveTextContent("«handed over in cash»");
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
@@ -660,9 +668,9 @@ describe("how each payment went", () => {
     const wizard = () => screen.getAllByRole("dialog").at(-1)!;
     const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
     await userEvent.click(screen.getByRole("button", { name: "Money back" }));
-    await next();
-    await next();
     await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
+    await next();
+    await next();
     await next();
     await userEvent.click(within(wizard()).getByRole("button", { name: "Save" }));
     expect(spies.record.mock.calls[0][0].notes).toBeUndefined();
@@ -670,7 +678,7 @@ describe("how each payment went", () => {
 
   it("opens a correction with its note, and takes the note off when it is emptied", async () => {
     sheetWith([{ ...pay("p1", "lent", 120, new Date(2026, 3, 1)), notes: "at the wedding" }]);
-    await userEvent.click(screen.getByRole("button", { name: /Apr 1.*€120.00/ }));
+    await userEvent.click(screen.getByRole("button", { name: /1 Apr.*€120.00/ }));
     const note = screen.getByLabelText(/^Note/);
     expect(note).toHaveValue("at the wedding");
     await userEvent.clear(note);

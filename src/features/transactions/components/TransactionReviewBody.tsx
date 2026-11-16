@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../../shared/utils/tone";
 import type { ReviewColors } from "./reviewPalettes";
@@ -52,6 +53,8 @@ export interface TransactionReviewBodyProps {
   account?: { label: string; name: string };
   /** When it was written down: «16:33», or with its day when that was another one. */
   recordedAt?: string;
+  /** Shown under the subtitle, before the amount: the card (`ReviewCard`) — WHERE before HOW MUCH. */
+  lead?: ReactNode;
 }
 
 export function TransactionReviewBody({
@@ -73,6 +76,7 @@ export function TransactionReviewBody({
   gradientTo,
   account,
   recordedAt,
+  lead,
 }: TransactionReviewBodyProps) {
   const { t } = useTranslation();
   const hasGradient = !!(gradientFrom && gradientTo);
@@ -92,6 +96,7 @@ export function TransactionReviewBody({
   return (
     <>
       <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{subtitle}</p>
+      {lead && <div className="mb-3">{lead}</div>}
 
       <div
         style={{

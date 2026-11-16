@@ -1,6 +1,7 @@
 import type { Transaction } from "../../shared/types/IndexTypes";
+import { MONEY_MARKS } from "../../shared/utils/currency";
 import { balanceDelta, isAfterReading, readingTimeKey, recordReadingKey, type OpeningBalance } from "../../shared/utils/balance";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, startOfDay } from "../../shared/utils/dates";
 
 // Banks and cash: the money that is really there, read off the banks now and
 // then, against the money the app has worked out from what was written down.
@@ -264,7 +265,7 @@ export function anchorAt(anchors: OpeningBalance[], when: Date): OpeningBalance 
   for (const anchor of anchors) {
     const day = firestoreToDate(anchor.date);
     // A copy: the Settings date is the caller's own object.
-    const from = anchor.at ?? new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const from = anchor.at ?? startOfDay(day);
     if (from.getTime() < when.getTime()) found = anchor;
   }
   return found;
@@ -488,7 +489,7 @@ export const newId = () => `${Date.now().toString(36)}${Math.random().toString(3
  * of money has three decimals, and a Greek keyboard writes a thousand that way.
  */
 export function parseAmount(raw: string): number | undefined {
-  const trimmed = raw.trim().replace(/\s|€/g, "");
+  const trimmed = raw.trim().replace(MONEY_MARKS, "");
   if (trimmed === "") return undefined;
   let normalised = trimmed;
   if (/^-?\d{1,3}(\.\d{3})+$/.test(trimmed)) {

@@ -62,6 +62,7 @@ import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { AddHeader } from "../../shared/components/AddButton";
 import styles from "./css/PlannerPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
+import { dateFormat, startOfDay } from "../../shared/utils/dates";
 
 const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -273,7 +274,7 @@ export function PlannerPage() {
   }, [cardElement]);
   const backToCard = useCallback(() => cardElement?.scrollIntoView({ behavior: "smooth", block: "start" }), [cardElement]);
 
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" }), [lang]);
+  const dateFmt = useMemo(() => dateFormat("dayShort", lang), [lang]);
 
   // Two decimals would read as noise; one says "not quite a whole month". The
   // plural is chosen from the same rounded figure that is printed, so 1.03
@@ -303,7 +304,7 @@ export function PlannerPage() {
   const owedBackRows = rowsOf((r) => r.source === "debt" && r.kind === "income");
   const oneOffRows = rowsOf((r) => r.source === "oneoff");
   // Soonest first, so the next thing to happen is the first thing read.
-  const startOfToday = useMemo(() => new Date(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
+  const startOfToday = useMemo(() => startOfDay(now), [now]);
   // Ordered by the day each one next lands on rather than by the day it was
   // first entered: a coupon that started paying two years ago belongs beside
   // the other pay still to come, not above everything as the oldest date.
@@ -311,10 +312,10 @@ export function PlannerPage() {
     () => [...oneOffs].sort((a, b) => ((nextOneOffDate(a, startOfToday) ?? oneOffDate(a.date))?.getTime() ?? 0) - ((nextOneOffDate(b, startOfToday) ?? oneOffDate(b.date))?.getTime() ?? 0)),
     [oneOffs, startOfToday],
   );
-  const seasonFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+  const seasonFmt = useMemo(() => dateFormat("monthShort", lang), [lang]);
   // The month a repeat stops in carries its year: "every year until Apr" says
   // nothing on its own.
-  const seasonYearFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }), [lang]);
+  const seasonYearFmt = useMemo(() => dateFormat("monthYearShort", lang), [lang]);
 
   // Written from the sanitised copies rather than through a functional update,
   // so a malformed stored value is replaced by a clean one instead of being
@@ -400,7 +401,7 @@ export function PlannerPage() {
           onAdd={addEntry}
           disabled={plannerMissing}
           title={t("planner.title")}
-          subtitle={new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+          subtitle={dateFormat("dayMonthWeekday", lang).format(now)}
         />
         <PageWaiting />
         {editor && (
@@ -560,7 +561,7 @@ export function PlannerPage() {
     if (row.enabled && row.total !== 0 && shownMonths >= 2) facts.push([t("planner.factAverage"), formatCurrency(Math.abs(row.total) / shownMonths)]);
     // A goal meant to start later says from when: the reason nothing is asked before it.
     const planStart = goal ? goalPlanStart(goal, startOfToday) : undefined;
-    if (planStart) facts.push([t("goals.planFromShort"), new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" }).format(planStart)]);
+    if (planStart) facts.push([t("goals.planFromShort"), dateFormat("day", lang).format(planStart)]);
     const season = row.source === "line" ? seasonLabel(lines.find((l) => l.id === row.id)) : undefined;
     if (season) facts.push([t("planner.factSeason"), season]);
     // A zero row says why it is zero. "×0" would be true and useless.
@@ -617,7 +618,7 @@ export function PlannerPage() {
         label={t("planner.addAmount")}
         onAdd={addEntry}
         title={t("planner.title")}
-        subtitle={new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+        subtitle={dateFormat("dayMonthWeekday", lang).format(now)}
       />
 
       <Row className="g-3">
@@ -792,7 +793,7 @@ export function PlannerPage() {
           share={rowShare(sheetRow)}
           dates={rowDates(sheetRow)}
           formatCurrency={formatCurrency}
-          dateFmt={new Intl.DateTimeFormat(lang, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+          dateFmt={dateFormat("weekdayDayYear", lang)}
           onToggle={() => toggleRow(sheetRow.id)}
           onClose={() => setRowSheet(null)}
         />

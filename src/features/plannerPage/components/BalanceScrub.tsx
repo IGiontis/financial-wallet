@@ -5,6 +5,7 @@ import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { BalanceLine } from "../BalanceLine";
 import type { PlannerPlan } from "../plannerUtils";
 import styles from "../css/BalanceScrub.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /**
  * The running balance as a line you scrub with a finger, and above it the day
@@ -31,8 +32,8 @@ export function BalanceScrub({ plan, formatCurrency, locale }: { plan: PlannerPl
   const [allEvents, setAllEvents] = useState(false);
   const select = useCallback((index: number) => setSelected(index), []);
 
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
-  const periodFmt = useMemo(() => new Intl.DateTimeFormat(locale, plan.pointStep === "month" ? { month: "long", year: "numeric" } : { day: "numeric", month: "short" }), [locale, plan.pointStep]);
+  const dateFmt = useMemo(() => dateFormat("dayShort", locale), [locale]);
+  const periodFmt = useMemo(() => dateFormat(plan.pointStep === "month" ? "monthYear" : "dayShort", locale), [locale, plan.pointStep]);
 
   // A window that changes shape (a new horizon) leaves an old index behind.
   const point = selected >= 0 && selected < plan.points.length ? plan.points[selected] : undefined;

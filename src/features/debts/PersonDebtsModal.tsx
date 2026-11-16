@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { FiArrowDownLeft, FiArrowUpRight, FiChevronDown, FiChevronRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
-import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError, dateFormat } from "../../shared/utils/dates";
 import { forgivenTag, currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
@@ -98,7 +98,7 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
   // other. The signed one is for the moves, which only read as a pair with it.
   const move = new Intl.NumberFormat(locale, { signDisplay: "always", maximumFractionDigits: 2 });
   const pct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
-  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const dateFmt = dateFormat("day", locale);
 
   const typed = parseFloat(index);
   // «No change, no Save»: the index as stored, by value (0,5 = 0.50 = 0.5).
@@ -259,11 +259,16 @@ function PaymentPanel({
 
   return (
     <div className={styles.paymentPanel}>
+      {/* WHERE before HOW MUCH (owner, 2026-11-12). Which card it left or
+          reached, as on any transaction — it moves that card. Or none: settled
+          without money changing hands. The picker asks that as its own question. */}
+      <div className={styles.paymentAccount}>
+        <MoneyMovedPicker value={account} onChange={onAccount} income={income} invalid={tried} />
+      </div>
       {/* Two fields to a row: at 375px a third squeezes the amount out of sight. */}
       <div className={styles.paymentFields}>
         <InputGroup size="sm">
           <Input
-            autoFocus
             type="number"
             min={0}
             step="0.01"
@@ -285,12 +290,6 @@ function PaymentPanel({
           <DateField id={dateId} small happened value={date} onChange={onDate} placeholder={t("debts.when")} invalid={!!dateError} />
           {dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
         </div>
-      </div>
-      {/* Which card it left or reached, as on any transaction — it moves that
-          card. Or none: settled without money changing hands. The picker asks
-          that as its own question. */}
-      <div className={styles.paymentAccount}>
-        <MoneyMovedPicker value={account} onChange={onAccount} income={income} invalid={tried} />
       </div>
       <PaymentNote value={notes} onChange={onNotes} className="mb-2" small />
       <div className={styles.paymentButtons}>
@@ -488,9 +487,9 @@ export default function PersonDebtsModal({
     { amount: asNumber(panelAmount), date: panelDate, account: cardAnswer(panelAccount), notes: panelNotes },
   );
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
-  const shortFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
-  const monthFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
+  const dateFmt = dateFormat("day", locale);
+  const shortFmt = dateFormat("dayShort", locale);
+  const monthFmt = dateFormat("monthYearShort", locale);
   const pct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
 
   const headline =

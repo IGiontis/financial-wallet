@@ -3,6 +3,7 @@ import { FiCheckCircle, FiChevronUp, FiXCircle } from "react-icons/fi";
 
 import type { PaydayOutlook } from "../../overview/overviewTabs";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat, startOfDay } from "../../../shared/utils/dates";
 
 interface AnswerStripProps {
   outlook: PaydayOutlook;
@@ -32,11 +33,11 @@ interface AnswerStripProps {
  */
 export function AnswerStrip({ outlook, endingBalance, end, scenario, onOpen, now, formatCurrency, locale }: AnswerStripProps) {
   const { t } = useTranslation();
-  const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
+  const dayDate = dateFormat("weekdayDay", locale);
   const makesIt = outlook.lowest >= 0;
   // The evening the figure is for: the day before pay, or the month's last —
   // or today, when the pay itself is due today and nothing comes between.
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = startOfDay(now);
   const dayBefore = new Date(outlook.date.getFullYear(), outlook.date.getMonth(), outlook.date.getDate() - 1);
   const eve = !outlook.known ? outlook.date : dayBefore < today ? today : dayBefore;
   const heading = makesIt ? t(outlook.known ? "planner.stripToPay" : "planner.stripToMonthEnd") : t(outlook.known ? "overview.verdictShort" : "overview.verdictShortMonth");

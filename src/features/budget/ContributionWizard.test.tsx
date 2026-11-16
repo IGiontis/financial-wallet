@@ -86,9 +86,16 @@ beforeEach(() => {
 const next = (dialog: HTMLElement) => userEvent.click(within(dialog).getByRole("button", { name: /Next/ }));
 const check = (dialog: HTMLElement) => within(dialog).getByRole("group", { name: "What will happen" });
 
-/** Through amount and date, from the first step's answer. */
-async function answerThenAmount(dialog: HTMLElement, choice: RegExp, amount: string) {
+// WHERE before HOW MUCH (owner, 2026-11-12): use → card → amount → when → check.
+
+/** The first step's answer, then on to the card step. */
+async function answer(dialog: HTMLElement, choice: RegExp) {
   await userEvent.click(within(dialog).getByRole("radio", { name: choice }));
+  await next(dialog);
+}
+
+/** From the card step: the amount, the date as it is, and on to the check. */
+async function amountThenCheck(dialog: HTMLElement, amount: string) {
   await next(dialog);
   await userEvent.type(within(dialog).getByLabelText(/Amount/), amount);
   await next(dialog);
@@ -108,9 +115,9 @@ describe("putting money into a goal", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /stays on my card/, "300");
+    await answer(dialog, /stays on my card/);
     await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
-    await next(dialog);
+    await amountThenCheck(dialog, "300");
     expect(check(dialog)).toHaveTextContent("€0.00 → €300.00");
     expect(check(dialog)).toHaveTextContent("unchanged");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add deposit" }));
@@ -121,8 +128,9 @@ describe("putting money into a goal", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /gave it to someone/, "500");
-    // Neither assumed.
+    await answer(dialog, /gave it to someone/);
+    // The card step comes before the amount: no amount field yet, and neither card assumed.
+    expect(within(dialog).queryByLabelText(/Amount/)).toBeNull();
     expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
     await next(dialog);
     expect(within(dialog).getByText("Choose where the money came from: a card or cash.")).toBeInTheDocument();
@@ -130,7 +138,7 @@ describe("putting money into a goal", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
     await userEvent.type(within(dialog).getByLabelText("Person"), "Athanasia");
-    await next(dialog);
+    await amountThenCheck(dialog, "500");
     expect(check(dialog)).toHaveTextContent("€2000.00 → €1500.00");
     expect(check(dialog)).toHaveTextContent("Athanasia holds€500.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add deposit" }));
@@ -141,7 +149,8 @@ describe("putting money into a goal", () => {
   it("will not take more than a deadline goal still needs", async () => {
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /stays on my card/ }));
+    await answer(dialog, /stays on my card/);
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
     await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "2500");
     await next(dialog);
@@ -169,11 +178,11 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /gave it back/, "200");
+    await answer(dialog, /gave it back/);
     await next(dialog);
     expect(within(dialog).getByText("Choose where the money went: a card or cash.")).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
-    await next(dialog);
+    await amountThenCheck(dialog, "200");
     expect(check(dialog)).toHaveTextContent("€900.00 → €1100.00");
     expect(check(dialog)).toHaveTextContent("Athanasia holds€300.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
@@ -185,10 +194,10 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /spent it on the goal/, "500");
+    await answer(dialog, /spent it on the goal/);
     // No card to choose: it left Eurobank when it was handed over.
     expect(within(dialog).queryByRole("button", { name: /^Revolut/ })).toBeNull();
-    await next(dialog);
+    await amountThenCheck(dialog, "500");
     expect(check(dialog)).toHaveTextContent("unchanged (it had already left)");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, contributionType: "withdrawal", accountId: "eurobank", heldBy: "Athanasia" }));
@@ -198,7 +207,8 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
   it("will not take from her more than she holds", async () => {
     render(<ContributionWizard goal={TRIP_FUNDED} kind="withdrawal" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /gave it back/ }));
+    await answer(dialog, /gave it back/);
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
     await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "600");
     await next(dialog);
@@ -213,12 +223,12 @@ describe("taking money out of a goal Athanasia holds 500 of", () => {
       </MemoryRouter>,
     );
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /I gave it to someone/, "200");
+    await answer(dialog, /I gave it to someone/);
     await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
     await userEvent.type(within(dialog).getByLabelText("Person"), "Maria");
     await userEvent.click(within(dialog).getByRole("button", { name: "Change category" }));
     await userEvent.click(within(dialog).getByRole("option", { name: /Travel/ }));
-    await next(dialog);
+    await amountThenCheck(dialog, "200");
     expect(check(dialog)).toHaveTextContent("€900.00 → €700.00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Confirm withdrawal" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, heldBy: undefined, accountId: "revolut" }));
@@ -233,13 +243,13 @@ describe("someone else paid part of the goal", () => {
     const onSubmit = vi.fn();
     render(<ContributionWizard goal={TRIP_700} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /Someone paid it for me/, "550");
+    await answer(dialog, /Someone paid it for me/);
 
     // The card step is "Who": no card to choose, said so.
     expect(within(dialog).queryByRole("button", { name: /^Revolut/ })).toBeNull();
     expect(within(dialog).getByText(/No card moves/)).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText("Person"), "Nikos");
-    await next(dialog);
+    await amountThenCheck(dialog, "550");
 
     expect(check(dialog)).toHaveTextContent("€150.00 → €700.00");
     expect(check(dialog)).toHaveTextContent("Debt to Nikos");
@@ -266,7 +276,12 @@ describe("someone else paid part of the goal", () => {
   it("will not go on without a name, and will not take more than the goal still needs", async () => {
     render(<ContributionWizard goal={TRIP_700} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("radio", { name: /Someone paid it for me/ }));
+    await answer(dialog, /Someone paid it for me/);
+    // Who paid comes first, and is required.
+    await next(dialog);
+    expect(within(dialog).getByLabelText("Person")).toBeInvalid();
+    expect(within(dialog).queryByLabelText(/Amount/)).toBeNull();
+    await userEvent.type(within(dialog).getByLabelText("Person"), "Nikos");
     await next(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "600");
     await next(dialog);
@@ -282,7 +297,7 @@ describe("the card or cash is always asked (item 97a)", () => {
   it("kept on a card: nothing chosen at first, and Next without a card says so — only then", async () => {
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /stays on my card/, "100");
+    await answer(dialog, /stays on my card/);
     expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
     expect(within(dialog).queryByRole("alert")).toBeNull();
     // No «no particular card» to pick any more.
@@ -296,9 +311,8 @@ describe("the card or cash is always asked (item 97a)", () => {
     const INVEST = { ...TRIP, id: "etf", name: "ETF", goalType: "open", targetPeriod: undefined } as unknown as InvestmentGoalWithStats;
     render(<ContributionWizard goal={INVEST} kind="deposit" isGoal={false} onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/Amount/), "100");
-    await next(dialog);
-    await next(dialog);
+    // The card is the investment's first step, before the amount.
+    expect(within(dialog).queryByLabelText(/Amount/)).toBeNull();
     await next(dialog);
     expect(within(dialog).getByText("Choose where the money came from: a card or cash.")).toBeInTheDocument();
   });
@@ -309,9 +323,9 @@ describe("the card or cash is always asked (item 97a)", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={onSubmit} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /stays on my card/, "100");
+    await answer(dialog, /stays on my card/);
     expect(within(dialog).getByRole("button", { name: /^Cash/, pressed: true })).toBeInTheDocument();
-    await next(dialog);
+    await amountThenCheck(dialog, "100");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add deposit" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, accountId: "cash" }));
   });
@@ -334,27 +348,34 @@ describe("a deposit takes no more than the card's free money (item 97d)", () => 
       heldBy: undefined,
     }) as Transaction;
 
+  // The amount step also carries the deadline goal's own info alert: only the free-money one counts here.
+  const freeAlert = (dialog: HTMLElement) => within(dialog).queryAllByRole("alert").find((a) => /free/.test(a.textContent ?? ""));
+
+  /** Kept on `card`, then `amount` typed on the next step — where the free money is checked. */
   const keepOn = async (amount: string, card: RegExp) => {
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /stays on my card/, amount);
+    await answer(dialog, /stays on my card/);
     await userEvent.click(within(dialog).getByRole("button", { name: card }));
+    await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), amount);
     return dialog;
   };
 
   it("Eurobank holds 250: setting aside 500 there is refused, and said why", async () => {
     holdings.latest = reading({ eurobank: 250, revolut: 900 });
     const dialog = await keepOn("500", /^Eurobank/);
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("Eurobank has €250.00 free. If it holds more, update its balance in Banks first.");
+    expect(freeAlert(dialog)).toHaveTextContent("Eurobank has €250.00 free. If it holds more, update its balance in Banks first.");
     await next(dialog);
     expect(within(dialog).queryByRole("group", { name: "What will happen" })).toBeNull();
-    expect(within(dialog).getByRole("alert")).toBeInTheDocument();
+    expect(freeAlert(dialog)).toBeDefined();
   });
 
   it("exactly the free amount goes through", async () => {
     holdings.latest = reading({ eurobank: 250, revolut: 900 });
     const dialog = await keepOn("250", /^Eurobank/);
-    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect(freeAlert(dialog)).toBeUndefined();
+    await next(dialog);
     await next(dialog);
     expect(check(dialog)).toHaveTextContent("€0.00 → €250.00");
   });
@@ -367,15 +388,14 @@ describe("a deposit takes no more than the card's free money (item 97d)", () => 
     expect(free).toBe(130);
 
     const dialog = await keepOn(String(free + 1), /^Eurobank/);
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(`Eurobank has €${free.toFixed(2)} free (€120.00 is already in goals).`);
-    await userEvent.click(within(dialog).getByRole("button", { name: /Back/ }));
-    await userEvent.click(within(dialog).getByRole("button", { name: /Back/ }));
+    expect(freeAlert(dialog)).toHaveTextContent(`Eurobank has €${free.toFixed(2)} free (€120.00 is already in goals).`);
+    // Held on the amount step; the free amount itself goes through.
+    await next(dialog);
     const amount = within(dialog).getByLabelText(/Amount/);
     await userEvent.clear(amount);
     await userEvent.type(amount, String(free));
+    expect(freeAlert(dialog)).toBeUndefined();
     await next(dialog);
-    await next(dialog);
-    expect(within(dialog).queryByRole("alert")).toBeNull();
     await next(dialog);
     expect(check(dialog)).toHaveTextContent(`€0.00 → €${free.toFixed(2)}`);
   });
@@ -384,15 +404,21 @@ describe("a deposit takes no more than the card's free money (item 97d)", () => 
     holdings.latest = reading({ eurobank: 250, revolut: 900 });
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /gave it to someone/, "300");
+    await answer(dialog, /gave it to someone/);
     await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("Eurobank has €250.00 free.");
+    await userEvent.type(within(dialog).getByLabelText("Person"), "Athanasia");
+    await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), "300");
+    expect(freeAlert(dialog)).toHaveTextContent("Eurobank has €250.00 free.");
+    await next(dialog);
+    expect(within(dialog).queryByRole("group", { name: "What will happen" })).toBeNull();
   });
 
   it("with no bank reading yet the balance is unknown, and nothing is refused", async () => {
     holdings.latest = undefined;
     const dialog = await keepOn("1500", /^Eurobank/);
-    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect(freeAlert(dialog)).toBeUndefined();
+    await next(dialog);
     await next(dialog);
     expect(check(dialog)).toHaveTextContent("€0.00 → €1500.00");
   });
@@ -404,14 +430,20 @@ describe("a deposit takes no more than the card's free money (item 97d)", () => 
     holdings.transactions = [otherGoal(200)];
     render(<ContributionWizard goal={TRIP} kind="deposit" isGoal onClose={() => {}} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
-    await answerThenAmount(dialog, /stays on my card/, "100");
-    const picker = within(dialog).getByRole("group", { name: "Paid from" });
-    const names = within(picker)
-      .getAllByRole("button")
-      .map((b) => b.getAttribute("aria-label"));
-    // Revolut 900 free; Eurobank 250 − 200 = 50 free, not enough for 100; then the unknown two as listed.
-    expect(names).toEqual(["Revolut, €900.00 free", "Eurobank, €50.00 not enough", "Piggy", "Alpha"]);
+    await answer(dialog, /stays on my card/);
+    const names = () =>
+      within(within(dialog).getByRole("group", { name: "Paid from" }))
+        .getAllByRole("button")
+        .map((b) => b.getAttribute("aria-label"));
+    // Asked before the amount: Revolut 900 free; Eurobank 250 − 200 = 50 free; then the unknown two as listed.
+    expect(names()).toEqual(["Revolut, €900.00 free", "Eurobank, €50.00 free", "Piggy", "Alpha"]);
     expect(within(dialog).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    // Back from an amount of 100: Eurobank's 50 is not enough for it.
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Revolut/ }));
+    await next(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Amount/), "100");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Back/ }));
+    expect(names()).toEqual(["Revolut, €900.00 free", "Eurobank, €50.00 not enough", "Piggy", "Alpha"]);
   });
 });
 
@@ -423,12 +455,14 @@ describe("the deposit and withdrawal dialogs open without errors", () => {
     expectNoErrors(dialog);
     await userEvent.click(within(dialog).getByRole("radio", { name: /gave it to someone/ }));
     await next(dialog);
+    // The card and the person: asked, not yet wrong.
+    expectNoErrors(dialog);
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Eurobank/ }));
+    await userEvent.type(within(dialog).getByLabelText("Person"), "Athanasia");
+    await next(dialog);
     expectNoErrors(dialog);
     await userEvent.type(within(dialog).getByLabelText(/Amount/), "100");
     await next(dialog);
-    expectNoErrors(dialog);
-    await next(dialog);
-    // The card and the person: asked, not yet wrong.
     expectNoErrors(dialog);
   });
 

@@ -18,9 +18,8 @@ import { categoryLabel } from "../../../shared/utils/categories";
 import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonRows, SkeletonTable } from "../../../shared/components/Skeletons";
 import { PageWaiting } from "../../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat, startOfDay, formatRecordDay } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
-import { midnight, formatTable } from "../transactionDates";
 import { TransactionCalendar, MobileCalendar } from "../components/TransactionCalendar";
 import { tapDay } from "../dateRanges";
 import AddTransactionModal from "../components/AddTransactionModal";
@@ -333,8 +332,8 @@ function MobileSummary({ transactions, formatCurrency }: { transactions: Transac
 function DayGroups({ transactions, categories, formatCurrency, onView, flashClass }: { transactions: Transaction[]; categories: Category[]; formatCurrency: (n: number) => string; onView: (tx: Transaction) => void; flashClass: (id: string) => string }) {
   const { i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
-  const weekdayFmt = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short" }), [lang]);
-  const dayLabel = (date: Date) => `${weekdayFmt.format(date)} ${formatTable(date, lang)}`;
+  const weekdayFmt = dateFormat("weekdayShort", lang);
+  const dayLabel = (date: Date) => `${weekdayFmt.format(date)} ${formatRecordDay(date, lang)}`;
   const days = useMemo(() => {
     const groups: { key: string; date: Date; rows: Transaction[] }[] = [];
     for (const tx of transactions) {
@@ -355,7 +354,7 @@ function DayGroups({ transactions, categories, formatCurrency, onView, flashClas
           <section key={day.key} className={styles.dayGroup} aria-label={dayLabel(day.date)}>
             <div className={styles.dayHead}>
               <span className={styles.dayName}>
-                <span className={styles.dayWeekday}>{weekdayFmt.format(day.date)}</span> {formatTable(day.date, lang)}
+                <span className={styles.dayWeekday}>{weekdayFmt.format(day.date)}</span> {formatRecordDay(day.date, lang)}
               </span>
               <span style={{ color: net > 0 ? "var(--color-income-text)" : net < 0 ? "var(--color-expense-text)" : undefined }}>
                 {net > 0 ? "+" : net < 0 ? "−" : ""}
@@ -555,14 +554,14 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
     (d: Date | null) => {
       setDayAnchor(null);
       setFromDate(d);
-      if (d && toDate && midnight(d) > midnight(toDate)) setToDate(null);
+      if (d && toDate && startOfDay(d).getTime() > startOfDay(toDate).getTime()) setToDate(null);
     },
     [toDate],
   );
 
   const handleToChange = useCallback(
     (d: Date | null) => {
-      if (d && fromDate && midnight(d) < midnight(fromDate)) return;
+      if (d && fromDate && startOfDay(d).getTime() < startOfDay(fromDate).getTime()) return;
       setDayAnchor(null);
       setToDate(d);
     },
@@ -577,8 +576,8 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   const transactionsWithDates = useMemo(() => oneRowPerTransfer(transactions).map((tx) => ({ tx, date: firestoreToDate(tx.date), createdAt: firestoreToDate(tx.createdAt) })), [transactions]);
 
   const filteredTransactions = useMemo(() => {
-    const fromMid = fromDate ? midnight(fromDate) : null;
-    const toMid = toDate ? midnight(toDate) : null;
+    const fromMid = fromDate ? startOfDay(fromDate).getTime() : null;
+    const toMid = toDate ? startOfDay(toDate).getTime() : null;
     const chosen = categoryChoiceList.find((c) => c.value === selectedCategory);
     // Investment records are shown under «Investments» (`resolveCategory`); the choice holding it keeps them.
     const keepsInvestments = !!chosen && categories.some((c) => c.name === "Investments" && chosen.ids.includes(c.id));
@@ -591,7 +590,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
           (selectedCategory === "income" && tx.type === "income" && !tx.transferId) ||
           (selectedCategory === "expense" && tx.type === "expense" && !tx.transferId) ||
           (tx.isInvestmentTransaction ? keepsInvestments : !!chosen?.ids.includes(tx.categoryId));
-        const txMid = midnight(date);
+        const txMid = startOfDay(date).getTime();
         let matchDate = true;
         if (fromMid !== null && toMid !== null) matchDate = txMid >= fromMid && txMid <= toMid;
         else if (fromMid !== null) matchDate = txMid >= fromMid;
@@ -604,7 +603,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
       // here), an import's evening — which used to decide the order within the
       // day and left it looking random.
       .sort((a, b) => {
-        const d = midnight(b.date) - midnight(a.date);
+        const d = startOfDay(b.date).getTime() - startOfDay(a.date).getTime();
         if (d !== 0) return d;
         return (b.createdAt.getTime() || 0) - (a.createdAt.getTime() || 0);
       })
@@ -656,7 +655,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   const treeDays = useMemo<TreeDay[]>(() => {
     const byDay = new Map<number, TreeLeaf[]>();
     for (const tx of pagedTransactions) {
-      const day = midnight(firestoreToDate(tx.date));
+      const day = startOfDay(firestoreToDate(tx.date)).getTime();
       const cat = resolveCategory(tx, categories);
       const leaf: TreeLeaf = {
         id: tx.id,
@@ -825,7 +824,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                     <MoneyTree
                       days={treeDays}
                       twoSided
-                      today={new Date(midnight(new Date()))}
+                      today={startOfDay(new Date())}
                       formatCurrency={formatCurrency}
                       locale={i18n.resolvedLanguage ?? "en"}
                       label={t("transactions.viewTree")}
@@ -870,7 +869,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                             return (
                               <tr key={tx.id} className={flashClass(tx.id)} style={{ cursor: "pointer" }} onClick={() => setViewTransaction(tx)}>
                                 <td className="ps-3" style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)" }}>
-                                  {formatTable(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
+                                  {formatRecordDay(firestoreToDate(tx.date), i18n.resolvedLanguage ?? "en")}
                                 </td>
                                 {/* On a laptop the category sits under the payee: five columns did not fit beside the dates, and the amounts were cut off. */}
                                 <td style={{ fontWeight: 500 }}>

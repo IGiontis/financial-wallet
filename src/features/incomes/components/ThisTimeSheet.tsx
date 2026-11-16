@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Modal, ModalBody, ModalHeader } from "reactstrap";
+import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCalendar, FiCheck, FiRotateCcw, FiSlash } from "react-icons/fi";
 import { DateField } from "../../../shared/components/DateField";
@@ -13,6 +13,7 @@ import { FORM_MODAL } from "../../../shared/components/formModal";
 import { useFormChanged } from "../../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 import { asNumber } from "../../../shared/utils/sameValues";
+import { currencySymbol } from "../../../shared/utils/currency";
 
 // «Αυτή τη φορά…», from a row's ⋮: what can be said about one time only — it
 // comes on another day, with another amount, or not at all — as on the
@@ -41,6 +42,7 @@ export default function ThisTimeSheet({
 }) {
   const { t } = useTranslation();
   const { convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
+  const sign = currencySymbol(displayCurrency);
   const [mode, setMode] = useState<Mode>("menu");
   const [dateValue, setDateValue] = useState(() => toISODay(status.expectedDate));
   const [amountValue, setAmountValue] = useState(() => String(Number(convert(status.expected).toFixed(2))));
@@ -79,7 +81,10 @@ export default function ThisTimeSheet({
 
         {mode === "amount" && (
           <div className="d-flex gap-2 align-items-start">
-            <Input bsSize="sm" type="number" min={0.01} step={0.01} inputMode="decimal" value={amountValue} onChange={(e) => setAmountValue(e.target.value)} aria-label={t("incomes.card.otherAmount")} />
+            <InputGroup size="sm">
+              <Input type="number" min={0.01} step={0.01} inputMode="decimal" value={amountValue} onChange={(e) => setAmountValue(e.target.value)} aria-label={t("incomes.card.otherAmount")} />
+              <InputGroupText>{sign}</InputGroupText>
+            </InputGroup>
             <Button color="primary" size="sm" disabled={!(typed > 0) || sameAmount} onClick={() => say({ amount: Math.round((baseCurrency === displayCurrency ? typed : convertToBase(typed)) * 100) / 100 })}>
               {t("common.save")}
             </Button>
@@ -108,7 +113,7 @@ export default function ThisTimeSheet({
             </button>
             <button type="button" className={styles.choice} onClick={() => setMode("amount")}>
               <span aria-hidden className={styles.choiceIcon}>
-                €
+                {sign}
               </span>
               {t("incomes.card.otherAmount")}
             </button>

@@ -7,6 +7,7 @@ import { useMoneyAccounts } from "./useMoneyAccounts";
 import { accountOf, chosenAccount, expectedByAccount, mainAccount, realDelta } from "./accountsUtils";
 import { accountFinishes } from "./accountTones";
 import { BankCard } from "./BankCard";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * The card a transaction is about to be saved against, shown on the review
@@ -101,7 +102,7 @@ export default function ReviewCard({
           <div className="form-check form-switch mt-2">
             <input className="form-check-input" type="checkbox" role="switch" id="adjust-reading" checked={adjust.on} onChange={(e) => adjust.onChange(e.target.checked)} />
             <label className="form-check-label" htmlFor="adjust-reading">
-              {t("accounts.adjustReading", { date: new Intl.DateTimeFormat(i18n.resolvedLanguage, { weekday: "short", day: "numeric", month: "short" }).format(latest.at) })}
+              {t("accounts.adjustReading", { date: dateFormat("weekdayDay", i18n.resolvedLanguage).format(latest.at) })}
             </label>
             <div className="text-body-secondary" style={{ fontSize: "var(--fs-small)" }}>
               {t("accounts.adjustReadingHint")}

@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { el, enUS } from "date-fns/locale";
 import { dateFnsLocale, firestoreToDate, firestoreToDateOrUndefined, parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "./dates";
-import { FutureDateError, happenedDayError, happenedLimit, isAfterToday, NOT_IN_FUTURE, refuseFutureDates } from "./dates";
+import { FutureDateError, happenedDayError, happenedLimit, isFutureDay, NOT_IN_FUTURE, refuseFutureDates } from "./dates";
+import {
+  daysBetween, endOfDay, formatDay, formatDayLong, formatDayLongYear, formatDayMonthWeekday, formatDayNumber, formatDayShort, formatDayShortTime,
+  formatMonthName, formatMonthShort, formatMonthYear, formatMonthYearCompact, formatMonthYearShort, formatNumericDay, formatRecordDay,
+  formatRelativeDays, formatTime, formatWeekday, formatWeekdayDay, formatWeekdayDayYear, isToday, monthKey, sameDay, startOfDay, today as todayOf, tomorrow,
+} from "./dates";
 
 
 
@@ -149,21 +154,21 @@ describe("standaloneMonthName", () => {
 
 // ─── Things that happened: today or earlier (owner, 2026-11-14) ─────────────
 
-describe("isAfterToday", () => {
+describe("isFutureDay", () => {
   const today = new Date(2026, 10, 16, 23, 59);
   it("is false for today and earlier, true from tomorrow", () => {
-    expect(isAfterToday("2026-11-16", today)).toBe(false);
-    expect(isAfterToday("2025-12-31", today)).toBe(false);
-    expect(isAfterToday("2026-11-17", today)).toBe(true);
+    expect(isFutureDay("2026-11-16", today)).toBe(false);
+    expect(isFutureDay("2025-12-31", today)).toBe(false);
+    expect(isFutureDay("2026-11-17", today)).toBe(true);
   });
   it("crosses month and year ends by the calendar, not by string luck", () => {
-    expect(isAfterToday("2027-01-01", new Date(2026, 11, 31, 22))).toBe(true);
-    expect(isAfterToday("2026-12-31", new Date(2026, 11, 31, 0, 1))).toBe(false);
-    expect(isAfterToday("2026-12-01", new Date(2026, 10, 30))).toBe(true);
+    expect(isFutureDay("2027-01-01", new Date(2026, 11, 31, 22))).toBe(true);
+    expect(isFutureDay("2026-12-31", new Date(2026, 11, 31, 0, 1))).toBe(false);
+    expect(isFutureDay("2026-12-01", new Date(2026, 10, 30))).toBe(true);
   });
   it("says nothing about an empty or broken value (the required check does)", () => {
-    expect(isAfterToday("", today)).toBe(false);
-    expect(isAfterToday("17/11/2026", today)).toBe(false);
+    expect(isFutureDay("", today)).toBe(false);
+    expect(isFutureDay("17/11/2026", today)).toBe(false);
   });
 });
 
@@ -197,5 +202,89 @@ describe("refuseFutureDates (the money writers' guard)", () => {
   it("lets a whole-record correction keep its stored day", () => {
     expect(() => refuseFutureDates([new Date(2026, 11, 1, 0, 0)], { now, stored: new Date(2026, 11, 1, 14) })).not.toThrow();
     expect(() => refuseFutureDates([new Date(2026, 11, 2)], { now, stored: new Date(2026, 11, 1) })).toThrow(FutureDateError);
+  });
+});
+
+// ─── Calendar days and the shared date looks (2026-11-16) ─────────────────────
+
+
+describe("calendar days", () => {
+  it("startOfDay / endOfDay bracket the local day and leave the argument alone", () => {
+    const at = new Date(2026, 10, 16, 14, 5, 7);
+    expect(startOfDay(at)).toEqual(new Date(2026, 10, 16));
+    expect(endOfDay(at)).toEqual(new Date(2026, 10, 16, 23, 59, 59, 999));
+    expect(at.getHours()).toBe(14);
+  });
+  it("today / tomorrow come from the given now, across a month and a year end", () => {
+    expect(todayOf(new Date(2026, 11, 31, 23, 59))).toEqual(new Date(2026, 11, 31));
+    expect(tomorrow(new Date(2026, 11, 31, 23, 59))).toEqual(new Date(2027, 0, 1));
+    expect(tomorrow(new Date(2026, 1, 28, 8))).toEqual(new Date(2026, 2, 1));
+  });
+  it("sameDay / isToday compare calendar days, and a missing date is never the same", () => {
+    expect(sameDay(new Date(2026, 10, 16, 0, 0), new Date(2026, 10, 16, 23, 59))).toBe(true);
+    expect(sameDay(new Date(2026, 10, 16, 23, 59), new Date(2026, 10, 17, 0, 0))).toBe(false);
+    expect(sameDay(null, new Date())).toBe(false);
+    expect(isToday(new Date(2026, 10, 16, 1), new Date(2026, 10, 16, 22))).toBe(true);
+    expect(isToday(undefined, new Date())).toBe(false);
+  });
+  it("daysBetween counts calendar days, not 24-hour blocks, and is signed", () => {
+    expect(daysBetween(new Date(2026, 10, 16, 23, 50), new Date(2026, 10, 17, 0, 10))).toBe(1);
+    expect(daysBetween(new Date(2026, 10, 17), new Date(2026, 10, 14))).toBe(-3);
+    // Across the March clock change (a 23-hour day) and a leap February —
+    // counted a second way: 29 (rest of Feb 2028 from the 1st) + 31 (March) = 60.
+    expect(daysBetween(new Date(2028, 1, 1), new Date(2028, 3, 1))).toBe(29 + 31);
+    expect(daysBetween(new Date(2026, 2, 28), new Date(2026, 2, 30))).toBe(2);
+    expect(daysBetween(new Date(2026, 9, 24), new Date(2026, 9, 26))).toBe(2);
+  });
+  it("monthKey is the local yyyy-MM", () => {
+    expect(monthKey(new Date(2026, 0, 31, 23, 30))).toBe("2026-01");
+  });
+  it("isFutureDay also takes a Date", () => {
+    expect(isFutureDay(new Date(2026, 10, 17, 0, 1), new Date(2026, 10, 16, 23))).toBe(true);
+    expect(isFutureDay(new Date(2026, 10, 16, 23, 59), new Date(2026, 10, 16, 0))).toBe(false);
+  });
+});
+
+describe("the shared date looks", () => {
+  const d = new Date(2026, 10, 16, 14, 5);
+  it("Greek", () => {
+    expect(formatDay(d, "el")).toBe("16 Νοε 2026");
+    expect(formatDayShort(d, "el")).toBe("16 Νοε");
+    expect(formatWeekdayDay(d, "el")).toBe("Δευ 16 Νοε");
+    expect(formatWeekdayDayYear(d, "el")).toBe("Δευ 16 Νοε 2026");
+    expect(formatDayMonthWeekday(d, "el")).toBe("Δευτέρα 16 Νοεμβρίου");
+    expect(formatDayLong(d, "el")).toBe("16 Νοεμβρίου");
+    expect(formatDayLongYear(d, "el")).toBe("16 Νοεμβρίου 2026");
+    expect(formatNumericDay(new Date(2026, 0, 5), "el")).toBe("05/01/2026");
+    expect(formatMonthYear(d, "el")).toBe("Νοέμβριος 2026");
+    expect(formatMonthYearShort(d, "el")).toBe("Νοε 2026");
+    expect(formatMonthYearCompact(d, "el")).toBe("Νοε 26");
+    expect(formatMonthShort(d, "el")).toBe("Νοε");
+    expect(formatMonthName(d, "el")).toBe("Νοέμβριος");
+    expect(formatWeekday(d, "el")).toBe("Δευτέρα");
+    expect(formatWeekday(d, "el", "short")).toBe("Δευ");
+    expect(formatDayNumber(d, "el")).toBe("16");
+    expect(formatTime(d, "el")).toBe("14:05");
+    expect(formatDayShortTime(d, "el")).toBe("16 Νοε, 14:05");
+    expect(formatRecordDay(new Date(2026, 8, 6), "el")).toBe("06, Σεπτ 2026");
+  });
+  it("English puts the day first, like the date fields", () => {
+    expect(formatDay(d, "en")).toBe("16 Nov 2026");
+    expect(formatDayShort(d, "en")).toBe("16 Nov");
+    expect(formatWeekdayDay(d, "en")).toBe("Mon 16 Nov");
+    expect(formatDayMonthWeekday(d, "en")).toBe("Monday 16 November");
+    expect(formatMonthYear(d, "en")).toBe("November 2026");
+    expect(formatNumericDay(d, "en")).toBe("16/11/2026");
+    expect(formatRecordDay(new Date(2026, 8, 6), "en")).toBe("06, Sep 2026");
+    expect(formatDay(d, undefined)).toBe("16 Nov 2026");
+  });
+  it("a region in the language changes nothing", () => {
+    expect(formatDay(d, "el-GR")).toBe(formatDay(d, "el"));
+    expect(formatDay(d, "en-US")).toBe(formatDay(d, "en"));
+  });
+  it("relative days", () => {
+    expect([0, 1, -1, 3, -3].map((n) => formatRelativeDays(n, "en"))).toEqual(["today", "tomorrow", "yesterday", "in 3 days", "3 days ago"]);
+    expect(formatRelativeDays(0, "el")).toBe("σήμερα");
+    expect(formatRelativeDays(1, "el")).toBe("αύριο");
   });
 });

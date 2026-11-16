@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../shared/utils/dates";
 import type { BusinessEntry } from "../../shared/types/IndexTypes";
 import { profitTone, signed } from "./businessFormat";
 import styles from "./css/Business.module.css";
@@ -55,8 +55,8 @@ export function BusinessListSheet({
 }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
-  const weekday = new Intl.DateTimeFormat(lang, { weekday: "short" });
-  const spokenDay = new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" });
+  const weekday = dateFormat("weekdayShort", lang);
+  const spokenDay = dateFormat("dayMonthWeekday", lang);
   const figure = (n: number) => (signedFigures ? signed(n, formatCurrency) : formatCurrency(n));
   // A line's amounts are written as its bar writes them: plain, no sign, no colour.
   const tone = (n: number) => (signedFigures ? profitTone(n, styles) : "");

@@ -52,13 +52,14 @@ side-by-side screenshots.
 - **Order inside a form: WHERE before HOW MUCH** — the card / cash / account is picked first,
   the amount after it, in every form that has both.
 - **A yes/no choice starts on «Ναι»** (picked by default) — except a choice that would take
-  money from a card: never pre-pick a card or an answer that moves money out.
+  money from a card or erase records: never pre-pick a card or an answer that moves money out
+  (the inventory: `docs/DECISIONS.md` «Yes/no starts on «Ναι»»).
 - **Dates: what HAPPENED is today or earlier** — MUST (owner, 2026-11-14): transactions (new,
   edit, quick add), transfers, goal/investment deposits and withdrawals, «πλήρωσε για μένα»,
   the day a debt began, repayments, forgiveness, bill payments («Πληρώθηκε», settling overdue,
   payment corrections), «Ήρθε» and its corrections, bank readings and gap records, business
   closings, a goal's close/spent day. Their `DateField` carries `happened` (future days greyed,
-  from `useToday`) AND the form checks the value (`happenedDayError` / `isAfterToday`,
+  from `useToday`) AND the form checks the value (`happenedDayError` / `isFutureDay`,
   `shared/utils/dates.ts`, message `validation.notInFuture`); the money writers refuse it too
   (`refuseFutureDates`). PLANNED dates may be in the future: bill due/start/anchor, income
   schedules, goal deadline and planFrom, debt due date, planner lines/occurrences, pauses,
@@ -119,6 +120,10 @@ side-by-side screenshots.
 - Text pairs ≥ 8:1 (`contrast.test.ts`); the red #C4302B and green #12855A in light mode are the
   named AA exceptions. One red and one green, everywhere.
 - Money figures through the shared currency formatter; they never wrap; signs − out / + in.
+  Dates through the shared formatters in `shared/utils/dates.ts` (`formatDay`, `formatMonthYear` …) —
+  never an `Intl.DateTimeFormat` or `toLocaleDateString` of a screen's own.
+  Never a typed «€» (the user's money may be $ or £): an input suffix is `currencySymbol` /
+  `useCurrencyConverter().symbol`, a figure in a string is `{{amount}}` (`currency.test.ts`).
   Long words in labels wrap. Never truncate a name or a deadline.
 - Reduced motion drops movement, not fades (one exception: the goal tanks' wave,
   `reducedMotion.test.ts`). Every endless animation declares

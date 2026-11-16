@@ -25,7 +25,7 @@ import { validationMessage } from "../../shared/utils/validationMessage";
 import { Button, FormFeedback, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import type { CreateInvestmentGoalDTO, InvestmentGoalType, TargetPeriod } from "../../shared/types/IndexTypes";
 import { useGoalPartsField } from "./components/useGoalPartsField";
-import { addMonths, format } from "date-fns";
+import { addMonths } from "date-fns";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { YesNoChoice } from "../../shared/components/YesNoChoice";
@@ -42,11 +42,11 @@ import { NameCheck } from "../../shared/components/NameCheck";
 import { investmentKeys } from "./useInvestments";
 import type { InvestmentGoal } from "../../shared/types/IndexTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
-import { dayToDate } from "../../shared/utils/dates";
+import { dayToDate, toISODay } from "../../shared/utils/dates";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const defaultDeadline = format(addMonths(new Date(), 1), "yyyy-MM-dd");
+const defaultDeadline = toISODay(addMonths(new Date(), 1));
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ interface GoalFormValues {
   deadline: string;
   /** "YYYY-MM-DD", or "" — see `InvestmentGoal.planFrom`. */
   planFrom: string;
-  /** «Start it active?» — undefined until answered: neither tile starts chosen (no prefill, tiles included). */
+  /** «Start it active?» — starts on «Ναι» (owner, 2026-11-12); undefined only if never answered. */
   isActive: boolean | undefined;
 }
 
@@ -143,7 +143,8 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
       targetPeriod: isGoalsPage ? "custom" : "monthly",
       deadline: defaultDeadline,
       planFrom: "",
-      isActive: undefined,
+      // «Ενεργός;» starts on «Ναι» (owner, 2026-11-12).
+      isActive: true,
     }),
     [isGoalsPage],
   );

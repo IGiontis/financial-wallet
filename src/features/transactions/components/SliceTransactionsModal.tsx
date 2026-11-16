@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiChevronDown, FiChevronRight } from "react-icons/fi";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../../shared/utils/dates";
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import styles from "./css/TransactionInsights.module.css";
 
@@ -31,7 +31,7 @@ export default function SliceTransactionsModal({ title, transactions, total, cat
   const { t } = useTranslation();
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const dateFmt = dateFormat("day", locale);
 
   // Only worth drawing when the slice holds more than one category — for a
   // named slice it would just repeat the title back with the same total.

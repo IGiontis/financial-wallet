@@ -114,6 +114,39 @@ this file disagree, ask him — one of them is a bug.
   a card); every new/edit/delete shows a toast; an action waits for its answer — buttons
   locked while it runs (he could press «delete goal» twice and saw an error for an action that
   had gone through), honest success/failure.
+- **WHERE before HOW MUCH, built everywhere (2026-11-16).** Every form with both a card/cash/account
+  and an amount asks the card first, and its review lists the card before the amount: transactions
+  (new/edit/page: type → category → card → details; review card on top), transfers (from → to →
+  amount), goal/investment deposits and withdrawals (use → card/who → amount → when), «Πληρώθηκε»
+  and settling overdue (card → amount → when), «Ήρθε» (account above the amount), repayments and their
+  corrections (did money move / card → amount → when), new/edit debt (who → money: did it move, which
+  card, how much → interest → dates), gap records (a move's other account above the amount), business
+  closing (day → «Πού» → incomes → expenses; before the amounts the card is asked for the profit — or
+  the loss — and is required while there is one to pick), incomes (the account on the amount step,
+  above the amount; the last step is now «Ως πότε»). Bills and planner lines carry no account.
+  Validation, «no change, no Save» and run-once are unchanged; only the order of the checks follows
+  the steps. A deposit's «not enough free money on this card» is now said on the amount step.
+- **Yes/no starts on «Ναι» — the inventory (2026-11-16, his rule of 2026-11-12).** A new record's
+  yes/no starts on «Ναι»; an edit shows what is stored. Unpicked only where «Ναι» takes money from a
+  card, erases records, or would take something from another record.
+  *Start on «Ναι»:* bill «Ενεργός;», «Αλλάζει το ποσό;», «Πληρώνεται αργότερα;» (shows the days),
+  «Σταματά για λίγο;» (shows the months); goal/investment «Ενεργός;»; debt «Με τόκο;» (shows the
+  loan's figures; no term = saved as a plain debt, as before); income «Αλλάζει το ποσό;», «Κάνει
+  διάλειμμα;», «Είναι ο μισθός;» (only when no other income is the salary); planner «Κάθε χρόνο;»
+  on «Μόνο κάποιους μήνες» (set on the draft, so it is what is saved).
+  *Left unpicked:* «Πέρασαν λεφτά από κάρτα;» (`MoneyMovedPicker`: new debt, repayment, repayment
+  correction — «Ναι» moves money through a card); goal delete «Του τα χρωστάω / σβήσ' τα» (erases
+  records) and «what became of the money» (spent writes an expense from a card); «Είναι ο κύριος
+  λογαριασμός;» on a new card (Ναι moves every record without a card onto it — money between cards);
+  «Είναι ο μισθός;» while another income is the salary (Ναι takes the role from it); planner
+  «Έρχονται ή φεύγουν;» (a kind, not a yes/no answer); goal deposit/withdrawal «use» (moves money).
+  Not yes/no pairs, unchanged: debt direction, income «Λήγει;» (Ποτέ / Σε ημερομηνία, starts Ποτέ),
+  the business picker. *Note:* a «Ναι» that reveals a required field (grace days, pause months) means
+  a new record must fill it or answer «Όχι».
+- **A goal's / investment's icon is one emoji (2026-11-16)**, as a category's: typed text is cut to
+  its first character and refused as it is typed. Goals saved earlier with text for an icon are not
+  migrated: they open and save as they are; only a CHANGED icon must be one emoji (touched, the field
+  asks for an emoji in its place).
 - **The screen never hangs (2026-11-13, SOS):** a save hung 15 s on his iPhone with no toast though it had gone through. New/edit never wait for the server (instant close + toast, failure reported later); online-only actions wait 7 s at most, then let go with «Συνεχίζει — θα σου πούμε», the record shown as pending (its clickable items disabled, Overview too), the real result as a toast.
 - **What HAPPENED is dated today or earlier (2026-11-14, MUST; his report: a goal deposit could
   be dated in the future).** Happened = transactions (new/edit/quick add), transfers, goal and
@@ -141,6 +174,9 @@ this file disagree, ask him — one of them is a bug.
   sign-in makes it known again. A session that ends by itself still opens on the sign-in form,
   and account deletion still ends on the sign-in form (a full wallet of made-up money right
   after deleting yours would read as "it didn't work"). *Don't:* send sign-out back to /login.
+- **Payees & categories layout** (2026-11-16, mockups): **Categories = option Β** — three columns by type (Έξοδα · Έσοδα · Και τα δύο), the column IS the type (no badge), name + count per row, ⋮ for actions; on phones the columns become filter chips (one list at a time) — must fit at 320. **Payees = option Α** — compact cards in a grid (4 per row desktop, 2 on phones) with filter chips «Όλοι · Στις προτάσεις · Διπλοί». «Πιθανά διπλά» stays on top. Same compact approach for business «Μέρες» on wide screens.
+- **Debts & loans redesign = option Β «Ζυγαριά»** (2026-11-16, mockups; logic unchanged): AddHeader, PageTabs «Επισκόπηση · Σχέδιο αποπληρωμής · Αρχείο N»; a balance bar (owed by me red vs owed to me green, net figure); the two sides side by side on desktop, stacked on phones; each person/loan a compact row with initials, a mini «how much is repaid» bar and the amount left; the «which loan first» card moves to the «Σχέδιο αποπληρωμής» tab. **Archive**: settled debts move there automatically — hidden, NOT deleted; full detail only when opened (supersedes most of #90). Person/loan sheet: **Προβολή** (amount, progress, history) + «+ Επιστροφή»; everything else under **«Ενέργειες»** opened as a STEP inside the same dialog (no modal on modal).
+- **Bills list = direction 2 «Ταινία ημερομηνιών»** (2026-11-16, three interactive mockups): each bill led by its DAY (a small pocket-calendar block, red when late), grouped by month, name + amount; a shared density switch «Απλό · Κανονικό · Πλήρες» (remembered per device): Απλό = day, name, amount; Κανονικό = + tags (late, cadence, range) and last payment; Πλήρες = + facts (last · each time · next) and the 6-month strip. Calm, airy, not stacked. Desktop: two months side by side. He confirmed: «στα πάγια διάλεξα το χρονολόγιο» — the date-led timeline IS the bills list. Planned with it unless he objects: views 7 → 4 (Λίστα/Χρονολόγιο with density · Ο μήνας · Η χρονιά), one line per payment on phones, bill sheet Προβολή + Ενέργειες as a step.
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles
@@ -167,3 +203,5 @@ change that the demo doesn't show yet adds a line here:
   Τράπεζες), 1–2 steps per page.
 - «Νέο κλείσιμο» (`/business/new`, 2026-11-16): works with the demo's two businesses as they
   are; the tour does not show it yet.
+- Forms reordered WHERE before HOW MUCH, yes/no on «Ναι», goal icon one emoji (2026-11-16): the
+  demo runs them as they are; check the tour's form previews/steps still read in the new order.

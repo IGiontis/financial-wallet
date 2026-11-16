@@ -44,12 +44,16 @@ beforeEach(() => {
 
 const open = () => render(<AddDebtModal knownPeople={["Keki"]} defaultPerson="Keki" onClose={() => {}} />);
 
-// The wizard's steps: who → interest → dates → money → review.
+// The wizard's steps: who → money (where, then how much) → interest → dates → review.
 const next = () => userEvent.click(screen.getByRole("button", { name: /^Next/ }));
 const back = () => userEvent.click(screen.getByRole("button", { name: /^‹ Back/ }));
-/** From the first step to «Did the money …?», typing the amount on the way. */
+/** From the first step to «Did the money …?», the amount typed there too. */
 async function toMoney(amount?: string) {
+  await next();
   if (amount) await userEvent.type(screen.getByLabelText(/^Amount/), amount);
+}
+/** From an answered money step: a plain debt, the day as it is, on to the review. */
+async function moneyToReview() {
   await next();
   await userEvent.click(screen.getByRole("radio", { name: /^No, a plain debt/ }));
   await next();
@@ -79,7 +83,7 @@ describe("a new loan whose money went to a goal", () => {
     const category = screen.getByLabelText("Expense category") as HTMLSelectElement;
     expect(category.value).toBe("");
     expect(category.options[0].textContent).toMatch(/^None chosen — it goes to «Other/);
-    await next();
+    await moneyToReview();
     // The fallback is applied at save and shown in the review.
     expect(screen.getByRole("button", { name: /^Expense categorys*Other/ })).toBeInTheDocument();
     // The review names the goal and the category before anything is written.
@@ -111,7 +115,7 @@ describe("a new loan whose money went to a goal", () => {
     open();
     await toMoney("200");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
-    await next();
+    await moneyToReview();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.covered).not.toHaveBeenCalled();
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ person: "Keki", amount: 200, accountId: undefined }));
@@ -125,11 +129,7 @@ describe("a new loan whose money went to a goal", () => {
     expect(screen.getByRole("radio", { name: /^No — they paid for you/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText(/they paid your hotel/)).toBeInTheDocument();
     await back();
-    await back();
-    await back();
     await userEvent.click(screen.getByRole("button", { name: /^I lent/ }));
-    await next();
-    await next();
     await next();
     // Lent: the question and the "no" turn round — it is now money that would have left.
     expect(screen.getByRole("radiogroup", { name: "Did the money come out of somewhere?" })).toBeInTheDocument();
@@ -146,7 +146,7 @@ describe("a new loan whose money went to a goal", () => {
     expect(screen.getByRole("radio", { name: /^No — they paid for you/ })).toHaveAttribute("aria-checked", "false");
     await userEvent.click(screen.getByRole("radio", { name: /^No — they paid for you/ }));
     await userEvent.click(screen.getByRole("radio", { name: /^Yes, into a card or cash/ }));
-    await next();
+    await moneyToReview();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, accountId: "" }));
   });
@@ -170,10 +170,12 @@ describe("a saved debt that paid part of a goal, corrected", () => {
   it("sends the goal's deposit and the expense with the new amount, and says so", async () => {
     edit();
     expect(screen.getByText(/Paid part of «Ski»/)).toBeInTheDocument();
+    // The amount is on the money step, the second.
+    await next();
     const amount = screen.getByDisplayValue("200");
     await userEvent.clear(amount);
     await userEvent.type(amount, "150");
-    await toReview();
+    for (let i = 0; i < 3; i++) await next();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const [args] = spies.edit.mock.calls[0];
     expect(args.data.amount).toBe(150);
@@ -183,7 +185,7 @@ describe("a saved debt that paid part of a goal, corrected", () => {
   it("keeps which way and that no card moved: those cannot be changed here", async () => {
     edit();
     expect(screen.getByRole("button", { name: /^I lent/ })).toBeDisabled();
-    for (let i = 0; i < 3; i++) await next();
+    await next();
     // Hidden by Bootstrap's class, which the test page has no stylesheet for.
     expect(screen.getByRole("radiogroup", { name: "Did the money go in somewhere?" }).closest(".d-none")).not.toBeNull();
   });

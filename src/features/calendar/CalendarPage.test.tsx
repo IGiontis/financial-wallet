@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
 import CalendarPage from "./CalendarPage";
 import type { CalendarItem } from "./calendarDays";
+import { formatDayMonthWeekday } from "../../shared/utils/dates";
 
 // The «Ημερολόγιο» page drawn through the shared month (MonthCalendar): a day
 // tapped on a phone stays open across a trip to the timeline and back.
@@ -32,7 +33,7 @@ describe("CalendarPage", () => {
         <CalendarPage />
       </MemoryRouter>,
     );
-    const title = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long" }).format(rent.date);
+    const title = formatDayMonthWeekday(rent.date, "en");
     await user.click(screen.getByRole("button", { name: new RegExp(`^${title}`) }));
     expect(screen.getByText("Rent")).toBeInTheDocument();
 

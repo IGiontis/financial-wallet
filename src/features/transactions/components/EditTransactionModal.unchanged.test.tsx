@@ -13,7 +13,7 @@ import type { Transaction, UpdateTransactionDTO } from "../../../shared/types/In
 vi.mock("../hooks/usePayees", () => ({ usePayees: () => ({ payees: ["Coffee Island"] }) }));
 vi.mock("../hooks/useTransactions", () => ({ useTransactions: () => ({ data: [] }) }));
 vi.mock("../../../shared/hooks/useCurrencyConverter", () => ({
-  useCurrencyConverter: () => ({ baseCurrency: "EUR", displayCurrency: "EUR", convert: (n: number) => n, convertToBase: (n: number) => n }),
+  useCurrencyConverter: () => ({ format: (n: number, c?: string) => new Intl.NumberFormat("en", { style: "currency", currency: c ?? "EUR" }).format(n), baseCurrency: "EUR", displayCurrency: "EUR", convert: (n: number) => n, convertToBase: (n: number) => n }),
 }));
 vi.mock("../../accounts/useMoneyAccounts", () => ({
   useMoneyAccounts: () => ({ accounts: [], checkIns: [], setCheckIns: vi.fn() }),

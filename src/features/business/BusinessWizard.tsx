@@ -9,6 +9,7 @@ import { NameCheck } from "../../shared/components/NameCheck";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
+import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { cleanLine } from "../../shared/utils/cleanText";
 import { matchName, matchNameIn } from "../../shared/utils/nameMatch";
 import { WizardSteps } from "../transactions/components/WizardSteps";
@@ -47,6 +48,7 @@ const startRows = (lines: { id: string; name: string }[]): Row[] => (lines.lengt
 
 export default function BusinessWizard({ business, entries, entriesLoaded, onClose, onDelete }: { business?: Business; entries: readonly BusinessEntry[]; entriesLoaded: boolean; onClose: () => void; onDelete?: () => void }) {
   const { t } = useTranslation();
+  const { format, displayCurrency } = useCurrencyConverter();
   const [businesses, setBusinesses] = useBusinesses();
   const guard = useOfflineGuard("settings");
   const deleteGuard = useOfflineGuard("delete");
@@ -222,7 +224,7 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
             {t(`business.bask_${step}`)}
             {step === "incomes" && <RequiredMark />}
           </div>
-          <p className="small text-body-secondary mb-3">{t(`business.bhint_${step}`)}</p>
+          <p className="small text-body-secondary mb-3">{t(`business.bhint_${step}`, { amount: format(0, displayCurrency) })}</p>
 
           {step === "name" && (
             <FormGroup className="mb-0">

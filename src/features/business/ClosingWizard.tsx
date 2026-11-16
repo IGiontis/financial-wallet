@@ -13,12 +13,11 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { categoryLabel, VIRTUAL_CATEGORIES, BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
 import { cleanLine } from "../../shared/utils/cleanText";
-import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { SavedCheck } from "../transactions/components/SavedCheck";
 import page from "../transactions/components/css/TransactionWizard.module.css";
-import { formatTable } from "../transactions/transactionDates";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import AccountPicker from "../accounts/AccountPicker";
 import ReviewCard from "../accounts/ReviewCard";
@@ -46,7 +45,9 @@ import { UnchangedHint } from "../../shared/components/UnchangedHint";
 // A correction opens on the check, every step a tap away, and the check says
 // what changes: before → after.
 
-const STEPS = ["day", "incomes", "expenses", "account", "review"] as const;
+// WHERE before HOW MUCH (owner, 2026-11-12): the card the day's money goes to
+// (or comes from) is asked before the lines' amounts.
+const STEPS = ["day", "account", "incomes", "expenses", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 const AMOUNT_MAX = 1e9;
@@ -159,25 +160,19 @@ export default function ClosingWizard({
   const accountGap = !!move && accountMissing(accounts, account);
   const dayOk = !!when && !dateError && !!business;
   const ready = dayOk && incomesOk && expensesOk && !accountGap;
+  // Asked before the amounts, the card is needed whenever there is one to pick —
+  // unless the amounts are already in (going back, or a correction) and the day
+  // came to zero: then nothing moves and nothing is asked.
+  const accountStepOk = !accountGap && (!!move || anyAmount || accounts.length === 0 || !accountMissing(accounts, account));
 
   const index = STEPS.indexOf(step);
   const goTo = (target: Step) => {
-    const at = STEPS.indexOf(target);
-    if (at > 0 && !dayOk) {
-      mark("day");
-      return setStep("day");
-    }
-    if (at > 1 && !incomesOk) {
-      mark("incomes");
-      return setStep("incomes");
-    }
-    if (at > 2 && !expensesOk) {
-      mark("expenses");
-      return setStep("expenses");
-    }
-    if (at > 3 && accountGap) {
-      mark("account");
-      return setStep("account");
+    // Each step before the target, in the order they are asked.
+    const ok: Record<Step, boolean> = { day: dayOk, account: accountStepOk, incomes: incomesOk, expenses: expensesOk, review: true };
+    const blocked = STEPS.slice(0, STEPS.indexOf(target)).find((s) => !ok[s]);
+    if (blocked) {
+      mark(blocked);
+      return setStep(blocked);
     }
     setStep(target);
   };
@@ -203,7 +198,7 @@ export default function ClosingWizard({
       () => toast.error(t("business.saveFailed")),
     );
     celebrateSave({ collection: "businessEntries", id: editing ? entry.id : undefined });
-    toast.success(t("business.saved", { day: formatTable(when, lang), name: business.name }));
+    toast.success(t("business.saved", { day: formatRecordDay(when, lang), name: business.name }));
     if (asPage) setSaved({ business: now.business, date: now.date, turnover: now.turnover, expenses: now.expenses, profit: now.profit, money: now.money, loss: Math.round(figures.profit * 100) < 0, profitTone: profitTone(figures.profit, styles), tone: move ? (move.type === "income" ? styles.positive : styles.negative) : "" });
     else onClose();
   };
@@ -219,7 +214,7 @@ export default function ClosingWizard({
   const before = editing ? closingFigures(entry) : undefined;
   const beforeMove = before ? personalMove(before.profit) : null;
   const now = {
-    date: when ? formatTable(when, lang) : "—",
+    date: when ? formatRecordDay(when, lang) : "—",
     business: business?.name ?? "—",
     turnover: signed(figures.turnover, format, "+"),
     expenses: signed(figures.expenses, format, "−"),
@@ -229,7 +224,7 @@ export default function ClosingWizard({
   };
   const was = before
     ? {
-        date: formatTable(firestoreToDate(entry!.date), lang),
+        date: formatRecordDay(firestoreToDate(entry!.date), lang),
         business: businessOf(businesses, entry!.businessId)?.name ?? "—",
         turnover: signed(before.turnover, format, "+"),
         expenses: signed(before.expenses, format, "−"),
@@ -290,7 +285,7 @@ export default function ClosingWizard({
   );
 
   const stepLabel = (s: Step) => (s === "day" ? t(single ? "business.step_day" : "business.step_businessDay") : t(`business.step_${s}`));
-  const ask = step === "account" && move?.type === "expense" ? t("business.ask_accountLoss") : step === "account" && !move ? t("business.ask_accountZero") : step === "day" ? t(single ? "business.ask_day" : "business.ask_businessDay") : t(`business.ask_${step}`);
+  const ask = step === "account" && !anyAmount ? t("business.ask_accountFirst") : step === "account" && move?.type === "expense" ? t("business.ask_accountLoss") : step === "account" && !move ? t("business.ask_accountZero") : step === "day" ? t(single ? "business.ask_day" : "business.ask_businessDay") : t(`business.ask_${step}`);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -456,7 +451,19 @@ export default function ClosingWizard({
             </>
           )}
 
-          {step === "account" && (
+          {step === "account" && !anyAmount && (
+            <>
+              {/* Before the amounts: profit or loss is not known yet, so both are said. */}
+              <p className="small mb-2">
+                {t("business.accountFirstHint")}
+                <RequiredMark />
+              </p>
+              <AccountPicker value={account} onChoose={setAccount} income invalid={tried("account")} />
+              {accounts.length === 0 && <div className={wiz.wizNote}>{t("business.noAccounts")}</div>}
+            </>
+          )}
+
+          {step === "account" && anyAmount && (
             <>
               <div className={`${wiz.wizNote} mb-3 d-flex justify-content-between gap-2`}>
                 <span>{t(Math.round(figures.profit * 100) < 0 ? "business.loss" : "business.profit")}</span>
@@ -482,6 +489,8 @@ export default function ClosingWizard({
               <div className={wiz.wizCard}>
                 {row("day", t("business.business"), <>{wasMark("business")}{now.business}</>)}
                 {row("day", t("common.date"), <>{wasMark("date")}{now.date}</>)}
+                {/* The card before the amounts, as the steps ask them. */}
+                {move && accounts.length > 0 && row("account", t("business.step_account"), placeName(written))}
               </div>
               <div className={`${wiz.wizCard} mt-3`} role="group" aria-label={t("business.incomeLines")}>
                 <div className={styles.sideHead}>{t("business.incomeLines")}</div>

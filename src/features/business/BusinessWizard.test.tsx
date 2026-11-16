@@ -25,6 +25,9 @@ vi.mock("./useBusiness", () => ({
     return () => `line-${++n}`;
   })(),
 }));
+vi.mock("../../shared/hooks/useCurrencyConverter", () => ({
+  useCurrencyConverter: () => ({ format: (n: number) => `€${n.toFixed(2)}`, displayCurrency: "EUR", baseCurrency: "EUR" }),
+}));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 beforeAll(async () => {

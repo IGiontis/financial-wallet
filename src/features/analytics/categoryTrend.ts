@@ -1,4 +1,4 @@
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, monthKey } from "../../shared/utils/dates";
 import { isSpending } from "../../shared/utils/moneyModel";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -11,7 +11,6 @@ import type { Transaction } from "../../shared/types/IndexTypes";
 // or a goal deposit filed under «Σούπερ μάρκετ» is not groceries.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /** The stretches a month view can take. A year is as far as months stay readable. */
 export const TREND_SPANS = [3, 6, 12] as const;

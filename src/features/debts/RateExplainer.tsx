@@ -5,6 +5,7 @@ import { FiInfo } from "react-icons/fi";
 import { rateExample } from "./rateExample";
 import styles from "./css/DebtsPage.module.css";
 import type { DebtWithStatus } from "../../shared/types/IndexTypes";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * What a floating rate is, and what one point on the index does to a loan.
@@ -30,7 +31,7 @@ function RateExplainer({
 
   const pct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
   const share = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
-  const monthFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
+  const monthFmt = dateFormat("monthYearShort", locale);
   const finish = monthFmt.format(facts.finish);
   const heavier = facts.now.instalment > 0 ? (facts.up.instalment - facts.now.instalment) / facts.now.instalment : 0;
 

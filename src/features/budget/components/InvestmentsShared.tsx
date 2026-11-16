@@ -38,6 +38,7 @@ import partStyles from "./css/GoalParts.module.css";
 import styles from "./css/GoalCard.module.css";
 import { pourSize, tankLevels, useTankPlay, type PourSize } from "./tankPlay";
 import { CARD_FLASH } from "../../../shared/feedback/saveFeedback";
+import { dateFormat } from "../../../shared/utils/dates";
 
 // ─── Progress ring ────────────────────────────────────────────────────────────
 // The share of the target, drawn once and read at a glance. It replaced a row
@@ -324,7 +325,7 @@ export function GoalCard({ goal, onViewHistory, onAddDeposit, onWithdraw, onDele
   const pace = savingPace(goal, now);
   const quietDays = daysSinceContribution(goal, now);
 
-  const monthYear = (date: Date) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(date);
+  const monthYear = (date: Date) => dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en").format(date);
 
   const headline = (): { text: string; tone?: string } | undefined => {
     if (isRecurring) {

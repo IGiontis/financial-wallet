@@ -3,6 +3,7 @@ import { compactNumber } from "../analytics/components/chartTheme";
 import { calendarTicks, markerIndexes, nearestIndex, valueScale } from "./balanceLineScale";
 import type { PointStep, ProjectionPoint } from "./plannerUtils";
 import styles from "./css/BalanceScrub.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 // Room for the amounts on the right and the dates underneath.
 const PAD = { top: 10, right: 46, bottom: 24, left: 8 };
@@ -92,8 +93,8 @@ function BalanceLineBase({
 
     const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join(" ");
     const floor = y(Math.max(scale.min, 0));
-    const monthFmt = new Intl.DateTimeFormat(locale, { month: "short" });
-    const dayFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+    const monthFmt = dateFormat("monthShort", locale);
+    const dayFmt = dateFormat("dayShort", locale);
 
     return {
       width,
@@ -126,8 +127,8 @@ function BalanceLineBase({
 
   // The date on the pill under the crosshair: a day, or on a monthly line the
   // month — unless the point is the one kept for a dip, which is a single day.
-  const pillFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }), [locale]);
-  const monthPillFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" }), [locale]);
+  const pillFmt = useMemo(() => dateFormat("dayShort", locale), [locale]);
+  const monthPillFmt = useMemo(() => dateFormat("monthYearCompact", locale), [locale]);
 
   const indexAt = (clientX: number, target: SVGSVGElement) => {
     if (!geometry) return -1;

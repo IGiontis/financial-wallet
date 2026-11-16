@@ -1,5 +1,6 @@
 import { monthForecast } from "./billsUtils";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
+import { startOfDay } from "../../shared/utils/dates";
 
 // The month as it actually happens, in order.
 //
@@ -69,7 +70,7 @@ const dayWithin = (monthStart: Date, day: number) => {
 export function monthTimeline(bills: BillWithStatus[], now: Date = new Date(), income?: MonthIncome, monthOffset = 0): MonthTimeline {
   const breakdown = monthForecast(bills, now, monthOffset);
   const monthStart = breakdown.monthStart;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = startOfDay(now);
 
   const events: TimelineEvent[] = breakdown.items.map((item, index) => ({
     key: `${item.bill.id}-${item.periodKey}-${index}`,

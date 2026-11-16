@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useState } from "react";
+import { formatClock } from "../../../shared/utils/dates";
 
 /**
  * The time, to the second, ticking — after the date on the Overview.
@@ -13,14 +14,6 @@ import { memo, useEffect, useMemo, useState } from "react";
  */
 export const LiveClock = memo(function LiveClock({ locale }: { locale: string }) {
   const [now, setNow] = useState(() => new Date());
-  const format = useMemo(
-    () =>
-      new Intl.DateTimeFormat(
-        locale,
-        locale.startsWith("el") ? { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" } : { hour: "numeric", minute: "2-digit", second: "2-digit" },
-      ),
-    [locale],
-  );
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -53,7 +46,7 @@ export const LiveClock = memo(function LiveClock({ locale }: { locale: string })
 
   return (
     <time dateTime={now.toISOString()} style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-      {format.format(now)}
+      {formatClock(now, locale)}
     </time>
   );
 });

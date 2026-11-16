@@ -868,7 +868,7 @@ button.payRow[aria-expanded="true"] {
 
 /* Which card a repayment went through, under its amount and day. */
 .paymentAccount {
-  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 /* The repayment wizard: amount shortcuts, and the check's two cards. */

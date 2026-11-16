@@ -1,5 +1,5 @@
 import { getDaysInMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, monthKey, toISODay } from "../../shared/utils/dates";
 import { isGoalContribution, isInvestmentContribution, isMoneyMove, isSpending, isTransfer } from "../../shared/utils/moneyModel";
 import type { Transaction } from "../../shared/types/IndexTypes";
 
@@ -13,8 +13,6 @@ export { isSpending };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const addMonth = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 /** Same day-of-month `n` months away, clamped so the 31st never rolls over. */
@@ -275,7 +273,7 @@ export function spendingHeatmap(transactions: Transaction[], from: Date | null, 
   const totals = new Map<string, { amount: number; count: number }>();
   for (const r of rows) {
     if (r.date < start || r.date > end) continue;
-    const k = dayKey(r.date);
+    const k = toISODay(r.date);
     const entry = totals.get(k) ?? { amount: 0, count: 0 };
     entry.amount += r.amount;
     entry.count += 1;
@@ -296,7 +294,7 @@ export function spendingHeatmap(transactions: Transaction[], from: Date | null, 
         days.push(null);
         continue;
       }
-      const entry = totals.get(dayKey(day)) ?? { amount: 0, count: 0 };
+      const entry = totals.get(toISODay(day)) ?? { amount: 0, count: 0 };
       days.push({ date: day, amount: round2(entry.amount), count: entry.count });
       weekdayTotals[i] += entry.amount;
       if (entry.amount > max) max = entry.amount;

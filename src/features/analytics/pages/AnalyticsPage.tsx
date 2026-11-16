@@ -79,6 +79,7 @@ import segmented from "../../../shared/css/Segmented.module.css";
 import styles from "../components/css/Analytics.module.css";
 import { PageShell } from "../../../shared/components/PageShell";
 import { findCategory } from "../../../shared/utils/categories";
+import { dateFormat } from "../../../shared/utils/dates";
 
 // What a card shows before its sheet is opened: the few that matter.
 const CARD_ROWS = 6;
@@ -116,7 +117,7 @@ export function AnalyticsPage() {
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short", year: "2-digit" }), [lang]);
+  const monthFmt = dateFormat("monthYearCompact", lang);
 
   // ── Base data ──────────────────────────────────────────────────────────────
 

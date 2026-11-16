@@ -1,6 +1,7 @@
 import { addMonths, addYears, startOfMonth } from "date-fns";
 import { monthStart, oneOffDate, oneOffDates, repeatMonths, type BudgetLine, type OneOff } from "./plannerUtils";
 import type { EntryDraft } from "./components/EntryEditor";
+import { startOfDay } from "../../shared/utils/dates";
 
 // How often a figure of the user's own comes round — the one first question of
 // the Planner's editor.
@@ -166,7 +167,6 @@ export function nextTimes(mode: EntryMode, draft: EntryDraft, now: Date, count =
   return months;
 }
 
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /** The months of the year a dated repeat lands on («Μαρ, Ιούλ, Νοέ»), when its gap divides the year; otherwise undefined. */
 export function monthsOfYear(draft: Pick<EntryDraft, "date" | "every">): number[] | undefined {

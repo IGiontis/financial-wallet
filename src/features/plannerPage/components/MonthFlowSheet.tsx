@@ -4,6 +4,7 @@ import { isSameMonth } from "date-fns";
 import { Modal, ModalBody, ModalHeader } from "reactstrap";
 import { monthFlows, type PlanMonth } from "../planMonthView";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /**
  * «Μπαίνουν» or «Βγαίνουν» of one month, opened: every income, bill, goal,
@@ -36,8 +37,8 @@ export function MonthFlowSheet({
   const items = useMemo(() => monthFlows(month)[side], [month, side]);
   const figure = side === "in" ? month.in : month.out;
   const sign = side === "in" ? "+" : "−";
-  const monthName = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(monthDate);
-  const dayFmt = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
+  const monthName = dateFormat("monthYear", locale).format(monthDate);
+  const dayFmt = dateFormat("weekdayDay", locale);
   const tone = side === "in" ? "var(--color-income-text)" : undefined;
   const title = t(side === "in" ? "planner.flowInTitle" : "planner.flowOutTitle", { month: monthName });
 

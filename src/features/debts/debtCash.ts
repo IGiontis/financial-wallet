@@ -1,4 +1,4 @@
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, sameDay } from "../../shared/utils/dates";
 import type { DebtCashPart, DebtWithStatus } from "../../shared/types/IndexTypes";
 import { isLoan, loanSplits } from "./debtsUtils";
 import { DEBT_CATEGORY_ID, DEBT_INTEREST_CATEGORY_ID } from "../../shared/utils/categories";
@@ -111,11 +111,6 @@ export function debtCashRecords(debt: DebtWithStatus, now: Date = new Date()): {
 }
 
 const DEBT_CASH_ID = /^debt(pay|int)?_/;
-const sameDay = (a: unknown, b: unknown) => {
-  const x = firestoreToDate(a as Date);
-  const y = firestoreToDate(b as Date);
-  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
-};
 
 /**
  * Where the transactions on hand have drifted from what the debts say they
@@ -147,7 +142,7 @@ export function debtCashDrift(debts: DebtWithStatus[], transactions: Pick<Transa
         round2(Math.abs(tx.amount)) === record.amount &&
         (tx.accountId || undefined) === record.accountId &&
         tx.debtPart === record.debtPart &&
-        sameDay(tx.date, record.date);
+        sameDay(firestoreToDate(tx.date), firestoreToDate(record.date));
       if (!same) records.push(record);
     }
   }

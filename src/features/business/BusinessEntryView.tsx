@@ -6,8 +6,7 @@ import { DeleteButton } from "../../shared/components/DeleteButton";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { BUSINESS_CATEGORY_ID, VIRTUAL_CATEGORIES, categoryLabel } from "../../shared/utils/categories";
-import { firestoreToDate } from "../../shared/utils/dates";
-import { formatTable } from "../transactions/transactionDates";
+import { firestoreToDate, formatRecordDay } from "../../shared/utils/dates";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
@@ -69,7 +68,7 @@ export function BusinessEntryView({
   return (
     <Modal isOpen toggle={onClose} centered scrollable>
       <ModalHeader toggle={onClose}>
-        {business?.name ?? t("business.unknownBusiness")} · {formatTable(firestoreToDate(entry.date), lang)}
+        {business?.name ?? t("business.unknownBusiness")} · {formatRecordDay(firestoreToDate(entry.date), lang)}
       </ModalHeader>
       <ModalBody>
         <div className={wiz.wizCard} role="group" aria-label={t("business.incomeLines")}>
@@ -135,7 +134,7 @@ export function BusinessDeleteModal({ entry, businessName, formatCurrency, busy,
   };
 
   const personal = usePersonalSide(entry);
-  const day = formatTable(firestoreToDate(entry.date), i18n.resolvedLanguage ?? "en");
+  const day = formatRecordDay(firestoreToDate(entry.date), i18n.resolvedLanguage ?? "en");
   const linked = !!entry.linkedTransactionId && !!personal.move;
   return (
     <Modal isOpen toggle={close} backdrop={working ? "static" : true} keyboard={!working} centered size="sm" zIndex={1080}>

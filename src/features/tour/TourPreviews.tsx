@@ -253,7 +253,7 @@ export function InvestmentsPreview() {
   const { format } = useCurrencyConverter();
   return (
     <div className={styles.preview}>
-      <Line icon="📈" name={t("tour.demo.etf")} note={t("tour.demo.monthly")} amount={format(2480)} />
+      <Line icon="📈" name={t("tour.demo.etf")} note={t("tour.demo.monthly", { amount: format(100) })} amount={format(2480)} />
       <Line icon="🪙" name={t("tour.demo.crypto")} amount={format(310)} />
       <div className={styles.gap}>
         <span>{t("tour.demo.gain")}</span>

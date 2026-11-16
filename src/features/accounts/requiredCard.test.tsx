@@ -174,8 +174,7 @@ describe("paying a bill", () => {
     const user = userEvent.setup();
     render(<MarkPaidModal bill={computeBillStatus(BILL, [], new Date())} isSaving={false} onClose={() => {}} onConfirm={onConfirm} />);
     const dialog = screen.getByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
-    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
+    // WHERE before HOW MUCH: the card is the first step.
     expect(within(dialog).getByText("Where did the money come from?")).toBeInTheDocument();
     expect(pressed(dialog)).toHaveLength(0);
     expect(within(dialog).queryByText(OUT)).toBeNull();
@@ -184,6 +183,10 @@ describe("paying a bill", () => {
     expect(within(dialog).queryByRole("button", { name: "Mark as paid" })).toBeNull();
 
     await user.click(within(dialog).getByRole("button", { name: "Revolut" }));
+    // Then the amount, then the day.
+    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
+    expect(within(dialog).getByRole("spinbutton")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     expect(within(dialog).getByRole("group", { name: "What will happen" })).toHaveTextContent("Revolut");
     await user.click(within(dialog).getByRole("button", { name: "Mark as paid" }));
@@ -220,6 +223,9 @@ describe("an income that arrived", () => {
     const user = userEvent.setup();
     sheet(income, onConfirm);
     const dialog = screen.getByRole("dialog");
+    // WHERE before HOW MUCH: the account it came into is asked above the amount.
+    const where = within(dialog).getByRole("radiogroup", { name: i18n.t("incomes.arrived.where") });
+    expect(where.compareDocumentPosition(within(dialog).getByRole("spinbutton")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Neither place is ticked.
     expect(within(dialog).queryAllByRole("radio", { checked: true })).toHaveLength(0);
     expect(within(dialog).queryByText(IN)).toBeNull();
@@ -250,8 +256,7 @@ describe("a repayment", () => {
     const user = userEvent.setup();
     render(<RepaymentWizard debt={debt} suggested={100} formatCurrency={(n) => `€${n.toFixed(2)}`} onClose={() => {}} />);
     const dialog = screen.getByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
-    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
+    // WHERE before HOW MUCH: did money move, and through which card, is the first step.
     // Neither tile chosen, no card list yet, no error.
     expect(within(dialog).queryAllByRole("radio", { checked: true })).toHaveLength(0);
     expect(within(dialog).queryByRole("button", { name: "Eurobank" })).toBeNull();
@@ -263,6 +268,10 @@ describe("a repayment", () => {
     await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     expect(within(dialog).getByText(OUT)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Revolut" }));
+    // Then the amount (100 suggested) and the day, then the check.
+    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
+    expect(within(dialog).getByRole("spinbutton")).toHaveValue(100);
+    await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     await user.click(within(dialog).getByRole("button", { name: /Next/ }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(repay).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, accountId: "rev" }));

@@ -10,6 +10,7 @@ import { daysSinceContribution, formatDate, getGoalTypeLabel, getStatusConfig, g
 import styles from "./css/GoalDetails.module.css";
 import { CoveredMark } from "./CoveredMark";
 import { ownSaved } from "../goalHolding";
+import { dateFormat } from "../../../shared/utils/dates";
 
 
 // ─── What a goal says about itself ───────────────────────────────────────────
@@ -64,7 +65,7 @@ function goalSummary(goal: InvestmentGoalWithStats, formatCurrency: (n: number) 
   const projection = projectedFinish(goal, now);
   const pace = savingPace(goal, now);
   const quietDays = daysSinceContribution(goal, now);
-  const monthYear = (date: Date) => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "short", year: "numeric" }).format(date);
+  const monthYear = (date: Date) => dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en").format(date);
 
   const note = ((): GoalSummary["note"] => {
     if (isRecurring) {

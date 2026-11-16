@@ -3,7 +3,7 @@ import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiCheck, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { addMonths, differenceInCalendarDays, isSameDay, startOfMonth } from "date-fns";
-import { toISOMonth } from "../../../shared/utils/dates";
+import { toISOMonth, dateFormat } from "../../../shared/utils/dates";
 import { isSettled, monthSummary, needsYou, type Income, type IncomeStatus } from "../incomesUtils";
 import { statusTag, type IncomeFormats } from "../incomeText";
 import { InfoLegend } from "../../../shared/components/InfoLegend";
@@ -76,8 +76,8 @@ export function IncomeCalendar({
   const [month, setMonth] = useState(() => startOfMonth(now));
   const [selected, setSelected] = useState<Date | undefined>();
   const compact = useMemo(() => new Intl.NumberFormat(f.lang, { maximumFractionDigits: 0 }), [f.lang]);
-  const dayTitle = useMemo(() => new Intl.DateTimeFormat(f.lang, { weekday: "long", day: "numeric", month: "long" }), [f.lang]);
-  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(f.lang, { weekday: "narrow" }).format(new Date(2024, 0, 1 + i))), [f.lang]);
+  const dayTitle = useMemo(() => dateFormat("dayMonthWeekday", f.lang), [f.lang]);
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => dateFormat("weekdayNarrow", f.lang).format(new Date(2024, 0, 1 + i))), [f.lang]);
 
   const name = (id: string) => incomes.get(id)?.name ?? "—";
   const key = toISOMonth(month);

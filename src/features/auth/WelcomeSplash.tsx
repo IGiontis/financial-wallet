@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { previousOpen, welcomeName } from "../../lib/sessionHint";
 import { greekVocative, lastOpenWords } from "./welcomeWords";
 import styles from "./css/WelcomeSplash.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 /**
  * Long enough to be read: its lines fade in one by one, 0.7s apart, the last
@@ -66,7 +67,7 @@ export function WelcomeSplash({ ready }: { ready: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [gone]);
 
-  const today = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now), [lang, now]);
+  const today = useMemo(() => dateFormat("dayMonthWeekday", lang).format(now), [lang, now]);
 
   if (gone) return null;
 

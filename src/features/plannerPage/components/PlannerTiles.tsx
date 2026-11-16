@@ -14,6 +14,7 @@ import { BalanceScrub } from "./BalanceScrub";
 import BalanceSheet from "./BalanceSheet";
 import MonthFlowSheet from "./MonthFlowSheet";
 import styles from "../css/PlannerPage.module.css";
+import { dateFormat, startOfDay } from "../../../shared/utils/dates";
 
 /** Which sheet a tile opens: the pay-day answer in full, or the whole period. */
 export type PlannerSheet = "payday" | "period" | "questions";
@@ -46,7 +47,6 @@ interface PlannerTilesProps {
   monthData?: PlanMonth;
 }
 
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /**
  * The Planner at a glance: four figures and the line between them.
@@ -62,8 +62,8 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
   const { t } = useTranslation();
   // The eye on the line: every day something lands, and what is left after it.
   const [chartOpen, setChartOpen] = useState(false);
-  const dayDate = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" });
-  const shortDate = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  const dayDate = dateFormat("weekdayDay", locale);
+  const shortDate = dateFormat("dayShort", locale);
 
   // The eve of pay day, as the answer is dated on the Overview: the figure is
   // what is left at the end of that day. Pay held on today has no eve.
@@ -132,7 +132,7 @@ export function PlannerTiles({ plan, outlook, horizon, onHorizon, scenario, ques
         { key: "end", label: t("planner.monthEnd"), value: formatCurrency(monthData.slice.close), color: red(monthData.slice.close) },
       ]
     : [];
-  const monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" });
+  const monthFmt = dateFormat("monthYear", locale);
   // The month out of «Οκτώβριος 2026»: on its own Greek gives «Οκτωβρίου», the genitive of a date.
   const monthNames = Array.from({ length: 12 }, (_, m) => monthFmt.formatToParts(new Date(2024, m, 1)).find((part) => part.type === "month")!.value);
   const years = Array.from({ length: months.last.getFullYear() - months.first.getFullYear() + 1 }, (_, i) => months.first.getFullYear() + i);

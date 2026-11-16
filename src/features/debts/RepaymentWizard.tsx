@@ -3,8 +3,7 @@ import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
-import { parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
-import { formatTable } from "../transactions/transactionDates";
+import { parseISODay, toISODay, happenedDayError, formatRecordDay } from "../../shared/utils/dates";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { PaymentNote } from "./PaymentNote";
@@ -22,13 +21,17 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { toast } from "react-toastify";
 
 // Recording a repayment, paying a debt back or being paid back, as the same
-// four steps as a transaction and an income: how much, when, through which
-// card, and then the check. The check is the only place Save is, and it says
+// four steps as a transaction and an income: through which card (if any), how
+// much, when, and then the check. The check is the only place Save is, and it says
 // what the payment does before it does it: how it divides into interest and
 // debt, what the debt reads afterwards, which card moves.
 
-const STEPS = ["1", "2", "3", "4"] as const;
+// WHERE before HOW MUCH (owner, 2026-11-12): did money move, and through
+// which card, first; then the amount and the day.
+const STEPS = ["card", "amount", "when", "review"] as const;
 type Step = (typeof STEPS)[number];
+/** Each step's strings, kept under the numbers they were written with (`debts.wizard.in1` = the amount …). */
+const TEXT_KEY: Record<Step, string> = { amount: "1", when: "2", card: "3", review: "4" };
 
 export default function RepaymentWizard({
   debt,
@@ -47,7 +50,7 @@ export default function RepaymentWizard({
   const accounts = useAccountList();
   const borrowed = debt.direction === "owed_by_me";
 
-  const [step, setStep] = useState<Step>("1");
+  const [step, setStep] = useState<Step>(STEPS[0]);
   const [amount, setAmount] = useState(String(suggested));
   const [date, setDate] = useState(() => toISODay(new Date()));
   // Did money move, and through which card: asked, never assumed — neither
@@ -70,19 +73,16 @@ export default function RepaymentWizard({
 
   const goTo = (target: Step) => {
     // Forward only as far as what is filled in allows; back is always free.
-    if (STEPS.indexOf(target) > 0 && !amountOk) {
-      setTried(true);
-      setStep("1");
-      return;
-    }
-    if (STEPS.indexOf(target) > 1 && (!when || dateError)) {
-      setStep("2");
-      return;
-    }
-    if (STEPS.indexOf(target) > 2 && moneyMissing) {
-      setMoneyTried(true);
-      setStep("3");
-      return;
+    for (const before of STEPS.slice(0, STEPS.indexOf(target))) {
+      if (before === "card" && moneyMissing) {
+        setMoneyTried(true);
+        return setStep("card");
+      }
+      if (before === "amount" && !amountOk) {
+        setTried(true);
+        return setStep("amount");
+      }
+      if (before === "when" && (!when || dateError)) return setStep("when");
     }
     setStep(target);
   };
@@ -109,7 +109,7 @@ export default function RepaymentWizard({
   const save = () =>
     void run(() => {
       if (!amountOk || !when || dateError) return;
-      if (moneyMissing) return goTo("4");
+      if (moneyMissing) return goTo("review");
       // Paid off by this one: the debt's milestone (confetti).
       const paidOff = !debt.isSettled && !!preview?.settles;
       void saveWithoutWaiting(record, { debtId: debt.id, amount: value, date: when, accountId: writtenAccount, notes: notes.trim() || undefined }, undefined, [["debts", debt.id]]);
@@ -121,10 +121,10 @@ export default function RepaymentWizard({
   const left = (n: number) => (n > 0 ? t("debts.wizard.remains", { amount: formatCurrency(n) }) : t("debts.wizard.cleared"));
 
   const rows: { step: Step; label: string; value: string }[] = [
-    { step: "1", label: t("common.amount"), value: formatCurrency(amountOk ? value : 0) },
-    { step: "2", label: t("debts.when"), value: when ? formatTable(when, i18n.resolvedLanguage ?? "en") : "—" },
-    { step: "3", label: t(borrowed ? "debts.paidFrom" : "debts.paidInto"), value: cardName },
-    ...(notes.trim() ? [{ step: "3" as Step, label: t("debts.note"), value: `«${notes.trim()}»` }] : []),
+    { step: "card", label: t(borrowed ? "debts.paidFrom" : "debts.paidInto"), value: cardName },
+    ...(notes.trim() ? [{ step: "card" as Step, label: t("debts.note"), value: `«${notes.trim()}»` }] : []),
+    { step: "amount", label: t("common.amount"), value: formatCurrency(amountOk ? value : 0) },
+    { step: "when", label: t("debts.when"), value: when ? formatRecordDay(when, i18n.resolvedLanguage ?? "en") : "—" },
   ];
 
   return (
@@ -136,19 +136,19 @@ export default function RepaymentWizard({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (step === "4") save();
+          if (step === "review") save();
           else goTo(STEPS[index + 1]);
         }}
       >
         <ModalBody>
-          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`debts.wizard.stepShort${s}`)} large />
+          <WizardSteps steps={STEPS} current={step} onGo={goTo} label={(s) => t(`debts.wizard.stepShort${TEXT_KEY[s]}`)} large />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
-            {t(`debts.wizard.${borrowed ? "out" : "in"}${step}`)}
-            {/* Steps 1–3 are one asked question each — the amount, the day, the card — with the field's own label hidden. */}
-            {step !== "4" && <RequiredMark />}
+            {t(`debts.wizard.${borrowed ? "out" : "in"}${TEXT_KEY[step]}`)}
+            {/* The first three steps are one asked question each — the card, the amount, the day — with the field's own label hidden. */}
+            {step !== "review" && <RequiredMark />}
           </div>
 
-          {step === "1" && (
+          {step === "amount" && (
             <FormGroup>
               <Label htmlFor="repay-amount" className="visually-hidden">
                 {t("common.amount")}
@@ -183,7 +183,7 @@ export default function RepaymentWizard({
             </FormGroup>
           )}
 
-          {step === "2" && (
+          {step === "when" && (
             <FormGroup>
               <Label htmlFor="repay-date" className="visually-hidden">
                 {t("debts.when")}
@@ -193,7 +193,7 @@ export default function RepaymentWizard({
             </FormGroup>
           )}
 
-          {step === "3" && (
+          {step === "card" && (
             <>
               <MoneyMovedPicker
                 value={account}
@@ -210,7 +210,7 @@ export default function RepaymentWizard({
             </>
           )}
 
-          {step === "4" && (
+          {step === "review" && (
             <>
               <div className={wiz.wizCard}>
                 {rows.map((row) => (
@@ -252,7 +252,7 @@ export default function RepaymentWizard({
         </ModalBody>
 
         <ModalFooter className="justify-content-between">
-          {step === "1" ? (
+          {index === 0 ? (
             <Button type="button" color="secondary" outline onClick={onClose}>
               {t("common.cancel")}
             </Button>
@@ -261,7 +261,7 @@ export default function RepaymentWizard({
               ‹ {t("common.back")}
             </Button>
           )}
-          {step === "4" ? (
+          {step === "review" ? (
             <Button type="submit" color="primary" disabled={working || !amountOk || !when} aria-busy={working || undefined}>
               {working ? t("common.saving") : t("common.save")}
             </Button>

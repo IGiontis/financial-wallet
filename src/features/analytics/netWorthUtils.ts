@@ -1,5 +1,5 @@
 import type { DebtWithStatus, Transaction } from "../../shared/types/IndexTypes";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, startOfDay, monthKey } from "../../shared/utils/dates";
 import { affectsBalance, balanceDelta, type OpeningBalance } from "../../shared/utils/balance";
 import { isLoan, loanState } from "../debts/debtsUtils";
 
@@ -54,7 +54,6 @@ export interface NetWorthPoint {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 /** Midnight on the first of the month after this one — everything before it counts. */
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 1);
 
@@ -144,7 +143,7 @@ export function netWorthSeries(
     let found = opening;
     for (const anchor of anchors) {
       const day = firestoreToDate(anchor.date);
-      const from = anchor.at ?? new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const from = anchor.at ?? startOfDay(day);
       if (from < closes) found = anchor;
     }
     return found;

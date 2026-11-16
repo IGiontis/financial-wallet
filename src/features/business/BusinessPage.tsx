@@ -18,7 +18,7 @@ import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { usePageTab } from "../../shared/hooks/usePageTab";
 import { useAccessState } from "../../shared/hooks/useHasAccess";
 import { pageTabIds } from "../../shared/utils/pageTabIds";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, dateFormat } from "../../shared/utils/dates";
 import { NotFoundPage } from "../errors/NotFoundPage";
 import { GoalPickMenu } from "../budget/components/GoalPickMenu";
 import type { Business, BusinessEntry } from "../../shared/types/IndexTypes";
@@ -183,7 +183,7 @@ function BusinessScreen() {
   const first = useMemo(() => new Date(shown.reduce((min, e) => Math.min(min, firestoreToDate(e.date).getTime()), now.getTime())), [shown, now]);
   const flashClass = useSavedFlash("businessEntries", useMemo(() => rows.map((r) => r.id), [rows]));
   const { limit, hasMore, sentinel } = useLoadMore(rows.length, PAGE, `${month.getTime()}:${tab}:${filter ?? ALL}`);
-  const dayFormat = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "short" }), [lang]);
+  const dayFormat = useMemo(() => dateFormat("weekdayShort", lang), [lang]);
   // On a row, which business it is — only when the page shows more than one.
   const many = !filter && businesses.length > 1;
   const nameOf = (entry: BusinessEntry) => businessOf(businesses, entry.businessId)?.name ?? t("business.unknownBusiness");
@@ -640,7 +640,7 @@ function OverviewSheet({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const period = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { month: "long", year: "numeric" }).format(month);
+  const period = dateFormat("monthYear", i18n.resolvedLanguage ?? "en").format(month);
   const lines = useMemo(() => (sheet.kind === "line" ? expenseLineClosings(shown, month, sheet.key) : []), [sheet, shown, month]);
 
   if (sheet.kind === "days") {

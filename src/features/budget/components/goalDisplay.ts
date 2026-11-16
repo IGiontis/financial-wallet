@@ -3,7 +3,7 @@
 
 import type { InvestmentGoalWithStats, InvestmentGoalStatus } from "../../../shared/types/IndexTypes";
 import { differenceInCalendarDays, differenceInCalendarMonths } from "date-fns";
-import { firestoreToDate, firestoreToDateOrUndefined } from "../../../shared/utils/dates";
+import { firestoreToDate, firestoreToDateOrUndefined, dateFormat } from "../../../shared/utils/dates";
 import i18n from "../../../i18n";
 
 export const toDate = firestoreToDateOrUndefined;
@@ -18,17 +18,10 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // expensive things that can go in a list render, and these are called once per
 // row: twenty goals meant forty formatters a render. `useCurrencyConverter`
 // learned the same lesson — see the note on its `formatter` memo.
-const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
 
 function dateFormatter(): Intl.DateTimeFormat {
-  const locale = i18n.resolvedLanguage ?? "en";
-  const found = dateFormatters.get(locale);
-  if (found) return found;
-
-  const made = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" });
-  dateFormatters.set(locale, made);
-  return made;
+  return dateFormat("day", i18n.resolvedLanguage);
 }
 
 function relativeFormatter(): Intl.RelativeTimeFormat {

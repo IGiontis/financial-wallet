@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
@@ -10,6 +10,7 @@ import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { TOUR_PARAM, TOUR_SEEN_KEY } from "../tour/tourState";
 import { isDemo } from "../../demo/demoMode";
 import styles from "./css/BillAlertPopup.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -46,7 +47,7 @@ export function BillAlertPopup() {
   // Nor in the demo: a visitor meets the app first, before a list of what to pay.
   const open = !closed && enabled && loaded && !touring && !isDemo() && !pathname.startsWith("/settings") && hasUnseenAlert(alerts, seen);
 
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, { day: "numeric", month: "short" }), [i18n.resolvedLanguage]);
+  const dayFmt = dateFormat("dayShort", i18n.resolvedLanguage);
   const money = (alert: BillAlert) => `${alert.approximate ? "≈" : ""}${format(alert.amount)}`;
   const when = (alert: BillAlert) =>
     alert.late

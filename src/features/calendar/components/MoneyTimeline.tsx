@@ -7,6 +7,7 @@ import { ViewSwitch } from "../../../shared/components/ViewSwitch";
 import { MoneyTree, type TreeLeaf } from "../../../shared/components/MoneyTree";
 import { CALENDAR_KIND_ICON, calendarItemsBetween, type CalendarItem, type CalendarKind, type CalendarSources } from "../calendarDays";
 import styles from "../css/MoneyTimeline.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 /** What a timeline shows: money in, money out, or both — in to the left of the trunk, out to the right. */
 export type TimelineSide = "in" | "out" | "all";
@@ -90,8 +91,8 @@ export function MoneyTimeline({
   const totalIn = round2(items.filter((i) => i.direction === "in").reduce((sum, i) => sum + i.amount, 0));
   const totalOut = round2(items.filter((i) => i.direction === "out").reduce((sum, i) => sum + i.amount, 0));
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }), [locale]);
-  const monthShortFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }), [locale]);
+  const monthFmt = useMemo(() => dateFormat("monthYear", locale), [locale]);
+  const monthShortFmt = useMemo(() => dateFormat("monthYearShort", locale), [locale]);
   const title = span === "month" ? monthFmt.format(from) : `${monthShortFmt.format(from)} – ${monthShortFmt.format(to)}`;
 
   const moved = (by: number) => addMonths(startOfMonth(anchor), by * SPAN_MONTHS[span]);

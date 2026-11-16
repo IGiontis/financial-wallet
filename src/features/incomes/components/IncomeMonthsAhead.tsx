@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MonthBars } from "../../../shared/components/MonthBars";
 import { monthExtremes } from "../../../shared/utils/monthExtremes";
-import { standaloneMonthName } from "../../../shared/utils/dates";
+import { formatMonthName } from "../../../shared/utils/dates";
 import { incomeMonthItems, type Income, type IncomeMonthAhead } from "../incomesUtils";
 import type { IncomeFormats } from "../incomeText";
 import type { Transaction } from "../../../shared/types/IndexTypes";
@@ -39,7 +39,7 @@ export function IncomeMonthsAhead({
   const total = Math.round(months.reduce((sum, m) => sum + m.total, 0) * 100) / 100;
   const approx = months.some((m) => m.approximate) ? "≈" : "";
   const { highs, lows } = monthExtremes(months);
-  const name = (date: Date) => standaloneMonthName(locale, date);
+  const name = (date: Date) => formatMonthName(date, locale);
   // «Ιούλιος και Αύγουστος» — named as a list, in the nominative the sentence is built around.
   const names = (list: IncomeMonthAhead[]) => new Intl.ListFormat(locale, { type: "conjunction" }).format(list.map((m) => name(m.start)));
 

@@ -1,4 +1,4 @@
-import { firestoreToDate } from "../../shared/utils/dates";
+import { firestoreToDate, startOfDay, endOfDay, daysBetween, toISODay } from "../../shared/utils/dates";
 import { isEarning, isMoneyMove, isSpending, isTransfer } from "../../shared/utils/moneyModel";
 import type { Transaction } from "../../shared/types/IndexTypes";
 import { oneRowPerTransfer } from "./transfers";
@@ -12,7 +12,6 @@ import { oneRowPerTransfer } from "./transfers";
 // signed by the way it moved, and counted in neither.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** The three kinds of record: money in, money out, and money that only changed pockets. */
 export type LedgerSide = "in" | "out" | "moves";
@@ -138,8 +137,8 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
   const { from, to, now = new Date(), kinds, account, categories: only, query = "" } = options;
   // Undefined when every kind is on: then nothing is asked of a record's kind at all.
   const on = kinds && !LEDGER_SIDES.every((s) => kinds.includes(s)) ? new Set(kinds) : undefined;
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999);
+  const start = startOfDay(from);
+  const end = endOfDay(to);
   const needle = query.trim().toLowerCase();
 
   const rows: LedgerRow[] = [];
@@ -157,8 +156,7 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
   }
 
   // Oldest first for the running net, by day and then by when each was written.
-  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  rows.sort((a, b) => day(a.date) - day(b.date) || (a.recordedAt?.getTime() ?? 0) - (b.recordedAt?.getTime() ?? 0));
+  rows.sort((a, b) => daysBetween(b.date, a.date) || (a.recordedAt?.getTime() ?? 0) - (b.recordedAt?.getTime() ?? 0));
   let running = 0;
   for (const row of rows) {
     if (row.counted) running += row.sign * row.amount;
@@ -167,8 +165,8 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
 
   const byDay = new Map<string, LedgerDay>();
   for (const row of rows) {
-    const key = dayKey(row.date);
-    const entry = byDay.get(key) ?? { key, date: new Date(row.date.getFullYear(), row.date.getMonth(), row.date.getDate()), rows: [], in: 0, out: 0 };
+    const key = toISODay(row.date);
+    const entry = byDay.get(key) ?? { key, date: startOfDay(row.date), rows: [], in: 0, out: 0 };
     entry.rows.push(row);
     if (row.counted) {
       if (row.sign > 0) entry.in += row.amount;
@@ -184,7 +182,7 @@ export function buildLedger(transactions: Transaction[], options: LedgerOptions)
   const totalOut = round2(days.reduce((sum, d) => sum + d.out, 0));
   // The days of the stretch that have begun: a month half gone is divided by its half.
   const lastDay = end < now ? end : now;
-  const daysRun = Math.max(1, Math.round((day(lastDay) - day(start)) / 86_400_000) + 1);
+  const daysRun = Math.max(1, daysBetween(start, lastDay) + 1);
 
   return {
     days,

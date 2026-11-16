@@ -82,6 +82,8 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   has changed" beside a disabled Save (`common.nothingChanged`). Inline row editors put it under the row (`d-block`).
 - `src/features/accounts/AccountPicker.tsx` — the "which card / cash" step (required, nothing preselected).
 - `src/features/accounts/ReviewCard.tsx` — the chosen card on the review step, optional before → after `delta`.
+  On the transaction wizards it goes in `TransactionReviewBody`'s `lead` slot (under the subtitle, before the
+  amount): the review lists the card before the amount, as the steps ask them (WHERE before HOW MUCH).
 - `src/features/categories/CategoryPicker.tsx` — the category step grid (`value`, `type`, `onChange`,
   `manage: "create" | "link"`, `onPage`).
 - `src/features/transactions/components/PayeeInput.tsx` — a name field with saved-list suggestions
@@ -91,7 +93,8 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 - `src/shared/components/YesNoChoice.tsx` — a yes/no question as two tiles: `question`, `value`
   (`undefined` = unanswered), `onChange`, `children` (shown on «Ναι»), `whenNo`, `required`, `hideQuestion`.
-  Never a switch in a form. Styles: `src/shared/components/css/YesNoChoice.module.css`.
+  A new record passes `true` (starts on «Ναι») unless «Ναι» takes money from a card or erases records —
+  the inventory is in `docs/DECISIONS.md`. Never a switch in a form. Styles: `src/shared/components/css/YesNoChoice.module.css`.
 - `src/features/debts/MoneyMovedPicker.tsx` — "did money change hands, through which card?" — `YesNoChoice` +
   card pick (`value: null` unanswered, `""` yes-without-card). Any record that may or may not move cash.
 - `src/shared/css/Segmented.module.css` — THE one-of-many control: `.group` > `.item` (+ `.active`);
@@ -124,7 +127,15 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `size="sm"`, `block`. Styles: `src/shared/components/css/SearchInput.module.css`.
 - Money input: a Reactstrap `<Input type="number">` in the display currency; convert to base with
   `convertToBase` from `useCurrencyConverter` (reference: `AddTransactionModal`).
+- `src/shared/utils/currency.ts` — THE currency sign: `currencySymbol(code)` → «€» / «$» / «£» for an input's
+  suffix or a decorative money sign (`useCurrencyConverter().symbol` = the display currency's);
+  `currencyLabel` (Settings picker); `MONEY_MARKS` (strip signs/codes before parsing, used by `parseAmount`).
+  Never a typed «€» in a `.ts`/`.tsx`/locale string — `currency.test.ts` refuses one (comments, tests and the
+  demo's data aside); a figure inside a sentence is `{{amount}}` filled with `format(…)`.
 - `src/shared/utils/iconText.ts` — `isSingleIcon` / `iconProblem` / `graphemes`: an icon field takes one emoji.
+  Every icon field cuts what is typed to `firstGrapheme` (`shared/utils/categoryNames.ts`) and shows `iconProblem`
+  as it is typed: `CategoryModal`, and goals/investments (`GoalLookStep` in `budget/components/GoalWizard.tsx`,
+  `storedIcon` = an older text icon that still opens and saves unchanged; touched, it is asked to be replaced).
 - `src/shared/utils/upperCase.ts` — `localeUpperCase(text, lang)`: Greek capitals without tonos. Not `toUpperCase()`.
 
 ## Lists, rows & row actions
@@ -230,7 +241,8 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 
 - `src/shared/hooks/useCurrencyConverter.ts` — THE currency formatter: `format(amount, fromCurrency?)`
   (base → display currency, user's locale, 2 decimals), `convert`, `convertToBase`, `displayCurrency`,
-  `baseCurrency`, `ratesMissing`. A figure already in display currency: `format(n, displayCurrency)`.
+  `baseCurrency`, `symbol` (the display currency's sign, `shared/utils/currency.ts`), `ratesMissing`.
+  A figure already in display currency: `format(n, displayCurrency)`.
   Never `new Intl.NumberFormat(..., {style:"currency"})` or `toFixed` for money on screen.
 - `src/features/calendar/signedMoney.ts` — `signedMoney(n, format)` → «+70,00 €» / «−25,98 €»; `signOf`.
 - `src/features/analytics/components/chartTheme.ts` — chart axes/ticks/series: `compactNumber`, `moneyAxis`,
@@ -306,8 +318,35 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
   due, the current period). Shared object, moves only at midnight or when the app returns on a later day. The
   bills badge (`useBillsNeedingAttention`), the Bills page and the Overview read it — never a clock of their own.
 - `src/shared/hooks/useMotionEffects.ts` — Settings «Κινούμενα εφέ» (this device); drives `--loop-play`.
-- `src/shared/utils/dates.ts` — `firestoreToDate`, `toISODay`/`parseISODay`, `toISOMonth`, `dateFnsLocale`,
-  `standaloneMonthName`. «Happened» dates (today or earlier): `isAfterToday(iso, today?)`,
+- `src/shared/utils/dates.ts` — **the ONE place for date logic and date display: use these, never format
+  a date or count a day yourself** (`dateHelpers.convention.test.ts` refuses `new Intl.DateTimeFormat`,
+  `toLocaleDateString`, `setHours(0, 0, 0, 0)`, a local `sameDay`/`startOfDay`/`daysBetween`, an inline
+  `new Date(d.getFullYear(), d.getMonth(), d.getDate())` and date-fns display patterns outside dates.ts).
+  Reading/keys: `firestoreToDate`, `toISODay`/`parseISODay`/`dayToDate`, `toISOMonth`/`parseISOMonth`, `monthKey`.
+  Calendar days (pure, give them `now`/`useToday()`): `startOfDay`, `endOfDay`, `today(now)`, `tomorrow(now)`,
+  `sameDay(a, b)` (a missing date is never the same), `isToday(d, now)`, `daysBetween(from, to)` (calendar
+  days, signed, DST-safe), `isFutureDay(day, now?)`.
+  **Showing a date** — every formatter takes `(date, language)` with `language` = `i18n.resolvedLanguage`;
+  Greek is el-GR, English is en-GB (day before month, like the date fields — "16 Nov 2026"):
+  | Formatter | Greek / English | Where |
+  |---|---|---|
+  | `formatDay` | 16 Νοε 2026 / 16 Nov 2026 | the default look for a date |
+  | `formatDayShort` | 16 Νοε / 16 Nov | dates near now, chart ticks by day |
+  | `formatWeekdayDay` · `formatWeekdayDayYear` | Δευ 16 Νοε (2026) | day-by-day lists, plans |
+  | `formatDayMonthWeekday` | Δευτέρα 16 Νοεμβρίου | page subtitles, a day's title |
+  | `formatDayLong` · `formatDayLongYear` | 16 Νοεμβρίου (2026) | documents (statement, terms) |
+  | `formatNumericDay` | 16/11/2026 | numbers only |
+  | `formatMonthYear` | Νοέμβριος 2026 | month titles (Greek nominative) |
+  | `formatMonthYearShort` · `formatMonthYearCompact` | Νοε 2026 · Νοε 26 | facts · chart axes |
+  | `formatMonthShort` · `formatMonthName` · `formatMonthOf` | Νοε · Νοέμβριος · Νοεμβρίου | axes · a month alone · inside a phrase («από τέλος Νοεμβρίου») |
+  | `formatWeekday(d, lang, "long"/"short"/"narrow")` · `formatDayNumber` | Δευτέρα/Δευ/Δ · 16 | calendar heads and cells |
+  | `formatTime` · `formatDayShortTime` · `formatClock` | 14:05 · 16 Νοε, 14:05 · 14:05:22 | when a record was written · the Overview clock |
+  | `formatRecordDay` | 06, Σεπτ 2026 / 06, Sep 2026 | the transactions table and every wizard's review step |
+  | `formatRelativeDays(days, lang)` | σήμερα, αύριο, σε 3 ημέρες, πριν από 3 ημέρες | a day counted from today |
+  Where an `Intl.DateTimeFormat` must be handed on (a chart, a child's prop), `dateFormat(look, lang)` gives
+  the cached one for a look in `DATE_LOOKS` (`"day"`, `"dayShort"`, `"weekdayDay"`, `"monthYear"` …). A new
+  look is added there, never built in a screen. `dateLocale(lang)`, `dateFnsLocale(lang)` (date-fns pickers),
+  `standaloneMonthName(locale, date)`. «Happened» dates (today or earlier): `isFutureDay(day, now?)` (an ISO day or a Date),
   `happenedDayError(iso, today?, stored?)` → `NOT_IN_FUTURE` (`validation.notInFuture`) or undefined;
   the writers' guard `refuseFutureDates(dates, { now?, stored? })` → `FutureDateError`, with
   `happenedLimit` (start of the day after tomorrow: a day of slack for time zones). Date helpers live
@@ -320,7 +359,7 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
   records at UTC midnight (`new Date("yyyy-MM-dd")`) still read as the right day. Never
   `toISOString().slice/split` or `new Date(values.x)` for a day — `shared/utils/dayValues.test.ts`
   fails on them outside dates.ts; tests on Greek time in `dates.dayRule.test.ts` and
-  `EditTransactionModal.day.test.tsx`. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.
+  `EditTransactionModal.day.test.tsx`.
 - `src/shared/types/IndexTypes.ts` — every shared record type (Transaction, Bill, Debt, InvestmentGoal …).
 
 ## Colours, type, spacing
@@ -362,11 +401,9 @@ Places that do not use the shared piece today. Do not copy them; fix one when yo
    `src/features/bills/BillsPage.tsx:1762`, `src/features/accounts/AccountsPage.tsx:495`,
    `src/features/budget/components/InvestmentsShared.tsx:665` (`DeleteConfirmModal`),
    `src/features/transactions/pages/TransactionPage.tsx:208` (another `DeleteConfirmModal`).
-4. **Local currency formatting** instead of `useCurrencyConverter().format(n, displayCurrency)`:
-   `src/features/transactions/components/AddTransactionModal.tsx:329`,
-   `src/features/transactions/components/EditTransactionModal.tsx:315` (0–2 decimals, unlike everywhere else),
-   `src/features/incomes/components/ArrivedSheet.tsx:127`, `src/features/categories/FuelDetailsPanel.tsx:167`
-   (`fuelTypes.ts:22` formats a 3-decimal fuel price — legitimately different).
+4. **Local currency formatting** — fixed 2026-11-16 (the transaction wizards, `ArrivedSheet`,
+   `FuelDetailsPanel` now use `format(n, displayCurrency)`). `fuelTypes.ts` `formatUnitPrice` keeps its own
+   3-decimal pump price, in the user's currency — legitimately different.
 5. **Copied number helpers** — `src/features/overview/components/CashFlowChart.tsx:157` has its own
    `compactNumber` (use `chartTheme.compactNumber`); `const round2 = …` is re-declared in 43 files
    (e.g. `src/features/accounts/accountsUtils.ts:65`, `src/features/analytics/analyticsUtils.ts:14`) — no shared helper yet.

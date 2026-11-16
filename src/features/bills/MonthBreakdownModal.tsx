@@ -5,6 +5,7 @@ import { FiCheck, FiLock } from "react-icons/fi";
 import type { Category } from "../../shared/types/IndexTypes";
 import { isHardDeadline, type MonthForecast, type MonthForecastItem } from "./billsUtils";
 import styles from "./css/BillsPage.module.css";
+import { dateFormat } from "../../shared/utils/dates";
 
 type ItemKind = "fixed" | "variable" | "paid" | "arrears";
 
@@ -73,9 +74,9 @@ export default function MonthBreakdownModal({ title, forecast, arrears, category
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
-  const monthLabel = new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(forecast.monthStart);
-  const dayFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short" });
-  const arrearsFmt = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric" });
+  const monthLabel = dateFormat("monthYear", lang).format(forecast.monthStart);
+  const dayFmt = dateFormat("dayShort", lang);
+  const arrearsFmt = dateFormat("day", lang);
 
   const fixed = forecast.items.filter((i) => !i.isPaid && !i.isVariable);
   const variable = forecast.items.filter((i) => !i.isPaid && i.isVariable);

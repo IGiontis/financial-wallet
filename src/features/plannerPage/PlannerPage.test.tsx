@@ -12,6 +12,7 @@ import { PAYDAY_HORIZON, paydayOutlook } from "../overview/overviewTabs";
 import { computeBillStatus } from "../bills/billsUtils";
 import type { CheckInReading } from "../accounts/accountsUtils";
 import type { Bill, InvestmentGoalWithStats, Transaction } from "../../shared/types/IndexTypes";
+import { dateFormat, type DateLook } from "../../shared/utils/dates";
 
 // Whole pages, many clicks each: alone they take a second or two, but under a
 // full parallel run the 5 s default was missed now and then. Room, not a fix
@@ -98,7 +99,7 @@ const overviewAnswer = () =>
     NOW,
   );
 
-const en = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", options);
+const en = (look: DateLook) => dateFormat(look, "en");
 const money = /^[+−]?€-?\d+\.\d\d$/;
 /** A figure as the page's formatter writes it. */
 const asEuro = (n: number) => `€${n.toFixed(2)}`;
@@ -191,7 +192,7 @@ describe("the pay-day sheet", () => {
     expect(screen.getByText("You make it to payday")).toBeInTheDocument();
     expect(screen.getAllByText(`€${overview.left.toFixed(2)}`).length).toBeGreaterThan(0);
     expect(screen.getByText(`Left €94.35 · ≈€3.14/day`)).toBeInTheDocument();
-    const dayDate = en({ weekday: "short", day: "numeric", month: "short" });
+    const dayDate = en("weekdayDay");
     expect(screen.getByText(`left on ${dayDate.format(new Date(2026, 9, 29))}, before pay on ${dayDate.format(new Date(2026, 9, 30))}`)).toBeInTheDocument();
     // The old unlabelled headline and the second "a day" are gone.
     expect(screen.queryByText(/a day spare/)).toBeNull();
@@ -244,7 +245,7 @@ describe("the pay-day sheet", () => {
 
 describe("pay that may already be in the bank reading", () => {
   const openQuestions = () => userEvent.click(screen.getByRole("button", { name: /1 income needs an answer/ }));
-  const day = en({ day: "numeric", month: "short" }).format(new Date(2026, 8, 30));
+  const day = en("dayShort").format(new Date(2026, 8, 30));
   // The salary's time is kept under the key «Έσοδα» reads too.
   const key = incomeOccurrenceKey(SALARY_ID, "2026-09-30");
 
@@ -308,7 +309,7 @@ describe("the whole period", () => {
     expect(screen.getAllByText("€2595.00").length).toBeGreaterThan(0);
     expect(screen.getByText("The months leave +€1595.00 (not counting the €1000.00 you have)")).toBeInTheDocument();
     expect(screen.getByText("You never go below zero")).toBeInTheDocument();
-    expect(screen.getByText(`Lowest point €94.35 · ${en({ weekday: "short", day: "numeric", month: "short" }).format(new Date(2026, 9, 29))}`)).toBeInTheDocument();
+    expect(screen.getByText(`Lowest point €94.35 · ${en("weekdayDay").format(new Date(2026, 9, 29))}`)).toBeInTheDocument();
     expect(screen.getByText("Coming in · 3 salaries")).toBeInTheDocument();
     expect(screen.getAllByText("+€4350.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText("−€2755.00").length).toBeGreaterThan(0);

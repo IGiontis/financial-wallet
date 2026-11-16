@@ -8,6 +8,7 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import { useNarrowScreen } from "../../../shared/hooks/useNarrowScreen";
 import { dayTone, type DayToneInput } from "../dayTone";
 import styles from "../css/CalendarPage.module.css";
+import { dateFormat } from "../../../shared/utils/dates";
 
 // The month as the «Ημερολόγιο» page draws it — the header with its way to
 // other months, the month's in and out, the weekdays and the grid of days, and
@@ -71,9 +72,9 @@ export function MonthCalendar({ month, onMonthChange, now, first, last, titleAs:
     setPicked(null);
   };
 
-  const monthTitle = useMemo(() => new Intl.DateTimeFormat(lang, { month: "long", year: "numeric" }).format(month), [lang, month]);
-  const dayTitle = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }), [lang]);
-  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(lang, { weekday: "narrow" }).format(new Date(2024, 0, 1 + i))), [lang]);
+  const monthTitle = useMemo(() => dateFormat("monthYear", lang).format(month), [lang, month]);
+  const dayTitle = useMemo(() => dateFormat("dayMonthWeekday", lang), [lang]);
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => dateFormat("weekdayNarrow", lang).format(new Date(2024, 0, 1 + i))), [lang]);
   // Whole euros in a cell, signed. A desk's cell has room for the currency, and
   // it comes from the page's own formatter so it converts like every other
   // figure; a phone's is about 48px, where the figure goes without it and

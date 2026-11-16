@@ -6,7 +6,7 @@ import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { categoryLabel } from "../../../shared/utils/categories";
-import { parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "../../../shared/utils/dates";
+import { parseISODay, parseISOMonth, toISODay, toISOMonth, formatMonthName } from "../../../shared/utils/dates";
 import type { MoneyAccount } from "../../accounts/accountsUtils";
 import { incomeIcon, incomeOccurrences, incomeYear, kindForCategory, suggestIncomeCategory, type Income } from "../incomesUtils";
 import CategoryPicker from "../../categories/CategoryPicker";
@@ -89,7 +89,13 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   // An old income saved before it had a category is shown under the one its kind suggested;
   // its edit starts there too, rather than on an empty question it had already answered.
   const [shownCategory] = useState(() => (isEdit && !initial.categoryId ? (suggestIncomeCategory(initial.kind, categories)?.id ?? "") : ""));
-  const [draft, setDraft] = useState<IncomeDraft>(() => (shownCategory ? { ...initial, categoryId: shownCategory } : initial));
+  // A new income's yes / no answers start on «Ναι» (owner, 2026-11-12) — except «Είναι ο μισθός;»
+  // while another income is the salary: «Ναι» would take that role from it, so it is asked.
+  const [draft, setDraft] = useState<IncomeDraft>(() => {
+    const shown = shownCategory ? { ...initial, categoryId: shownCategory } : initial;
+    if (isEdit) return shown;
+    return { ...shown, variable: shown.variable ?? true, hasPause: shown.hasPause ?? true, isSalary: shown.isSalary ?? (salaryName ? undefined : true) };
+  });
   const [view, setView] = useState<View>(startStep ? FROM_DRAFT_STEP[startStep] : "what");
   const [errors, setErrors] = useState<DraftErrors>({});
   const toBase = (n: number) => (baseCurrency === displayCurrency ? n : convertToBase(n));
@@ -170,7 +176,7 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     if (income) onSave(income);
   };
 
-  const months = useMemo(() => Array.from({ length: 12 }, (_, m) => standaloneMonthName(f.lang, new Date(2020, m, 1))), [f.lang]);
+  const months = useMemo(() => Array.from({ length: 12 }, (_, m) => formatMonthName(new Date(2020, m, 1), f.lang)), [f.lang]);
   const stepTitle = t({ what: "incomes.form.step1", amount: "incomes.form.stepAmount", when: "incomes.form.step2", where: "incomes.form.step3", review: "incomes.form.step4" }[view]);
 
 
@@ -191,11 +197,12 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
   const reviewRows: { step: View; label: string; value: string }[] = [
     { step: "what", label: t("common.category"), value: categoryName },
     { step: "what", label: t("common.name"), value: named.name.trim() },
+    // The account before the amount, as the step asks them.
+    { step: "amount", label: t("incomes.card.where"), value: accounts.find((a) => a.id === draft.accountId)?.name ?? t("incomes.card.noAccount") },
     { step: "amount", label: t("common.amount"), value: `${draft.variable ? "≈ " : ""}${format(toBase(Number(draft.amount) || 0))} · ${draft.variable ? t("incomes.form.reviewVariable") : t("incomes.form.reviewFixed")}` },
     { step: "when", label: t("incomes.card.howOften"), value: savedAs ? scheduleText(savedAs, t, f) : "—" },
     { step: "when", label: t("incomes.form.reviewFrom"), value: startLabel },
     ...(nextDates.length > 0 ? [{ step: "when" as View, label: t("incomes.form.reviewNext"), value: nextDates.map((o) => f.dayMonth.format(o.date)).join(" · ") }] : []),
-    { step: "where", label: t("incomes.card.where"), value: accounts.find((a) => a.id === draft.accountId)?.name ?? t("incomes.card.noAccount") },
     {
       step: "where",
       label: t("incomes.card.pause"),
@@ -269,6 +276,26 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
           {view === "amount" && (
             <>
+              {/* WHERE before HOW MUCH (owner, 2026-11-12): the account it lands in, then the amount. */}
+              {accounts.length > 0 && (
+                <FormGroup>
+                  <Label className="small fw-medium d-block">{t("incomes.form.where")}</Label>
+                  <div className={segmented.group} role="radiogroup" aria-label={t("incomes.form.where")}>
+                    {[...accounts.map((a) => ({ id: a.id, name: `${a.kind === "cash" ? "💵 " : ""}${a.name}` })), { id: "", name: t("incomes.form.noAccount") }].map((option) => (
+                      <button
+                        key={option.id || "none"}
+                        type="button"
+                        role="radio"
+                        aria-checked={draft.accountId === option.id}
+                        className={`${segmented.item} ${draft.accountId === option.id ? segmented.active : ""}`}
+                        onClick={() => set("accountId", option.id)}
+                      >
+                        {option.name}
+                      </button>
+                    ))}
+                  </div>
+                </FormGroup>
+              )}
               <div className="row g-2 mb-3">
                 <div className="col-12 col-sm-6">
                   <Label for="income-amount" className="small fw-medium">
@@ -381,26 +408,6 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
 
           {view === "where" && (
             <>
-              {accounts.length > 0 && (
-                <FormGroup>
-                  <Label className="small fw-medium d-block">{t("incomes.form.where")}</Label>
-                  <div className={segmented.group} role="radiogroup" aria-label={t("incomes.form.where")}>
-                    {[...accounts.map((a) => ({ id: a.id, name: `${a.kind === "cash" ? "💵 " : ""}${a.name}` })), { id: "", name: t("incomes.form.noAccount") }].map((option) => (
-                      <button
-                        key={option.id || "none"}
-                        type="button"
-                        role="radio"
-                        aria-checked={draft.accountId === option.id}
-                        className={`${segmented.item} ${draft.accountId === option.id ? segmented.active : ""}`}
-                        onClick={() => set("accountId", option.id)}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
-                  </div>
-                </FormGroup>
-              )}
-
               {/* «Ναι» shows the months of the break, in this step. */}
               <YesNoChoice required question={t("incomes.form.qPause")} value={draft.hasPause} onChange={(yes) => set("hasPause", yes)}>
                 <div className="ps-2">
