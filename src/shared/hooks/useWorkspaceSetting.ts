@@ -78,6 +78,9 @@ const writeCache = (key: string, value: unknown) => {
  */
 const writtenAt = new Map<string, number>();
 
+/** Keys whose last write the account refused: the next set sends again even when the value looks unchanged. */
+const refused = new Set<string>();
+
 /**
  * Bumped when the demo's account is made afresh. A save waiting out its pause
  * remembers the one it was made under, and is dropped if that has changed: it
@@ -94,6 +97,7 @@ let generation = 0;
 export function resetWorkspaceDeviceCache() {
   demoCache.clear();
   writtenAt.clear();
+  refused.clear();
   generation += 1;
 }
 onDemoReseed(resetWorkspaceDeviceCache);
@@ -214,8 +218,15 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
 
   const update = useCallback(
     (next: T | ((previous: T) => T)) => {
-      const previous = (queryClient.getQueryData<Record<string, unknown>>(workspaceKeys.all(userId))?.[key] as T) ?? readCache<T>(key) ?? initial;
+      const held = queryClient.getQueryData<Record<string, unknown>>(workspaceKeys.all(userId));
+      const previous = (held?.[key] as T) ?? readCache<T>(key) ?? initial;
       const resolved = next instanceof Function ? next(previous) : next;
+
+      // «No change, no Save» in the data layer: the account already holds
+      // exactly this value — nothing to write. Exact, not by meaning: a value
+      // here may carry a moment (a timestamp), where «the same day» is not the same.
+      // A value whose last write was refused is sent again, though it looks the same.
+      if (held && key in held && !refused.has(key) && JSON.stringify(held[key]) === JSON.stringify(resolved)) return;
 
       // The screen and this device change now; the account catches up once the
       // typing, or the dragging, stops.
@@ -229,7 +240,14 @@ export function useWorkspaceSetting<T>(key: string, initial: T): [T, (value: T |
       pending.current = () => {
         // Offline the write is queued and never fails here; a refusal is said
         // (the value stays on this device, the account did not take it).
-        if (madeUnder === generation) Promise.resolve(saveWorkspaceValue(userId, key, resolved)).catch(() => toast.error(i18n.t("toasts.settingNotSaved")));
+        if (madeUnder === generation)
+          Promise.resolve(saveWorkspaceValue(userId, key, resolved)).then(
+            () => refused.delete(key),
+            () => {
+              refused.add(key);
+              toast.error(i18n.t("toasts.settingNotSaved"));
+            },
+          );
       };
       timer.current = setTimeout(() => {
         timer.current = null;

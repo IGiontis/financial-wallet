@@ -52,7 +52,8 @@
     "deleteConfirmTitle": "Διαγραφή;",
     "deleteConfirmBody": "Θα διαγραφεί οριστικά. Δεν αναιρείται.",
     "deleteConfirmNamed": "Θα διαγραφεί οριστικά το «{{name}}». Δεν αναιρείται.",
-    "done": "Έτοιμο"
+    "done": "Έτοιμο",
+    "nothingChanged": "Δεν άλλαξε τίποτα"
   },
   "nav": {
     "groupStanding": "Πού είσαι",
@@ -206,6 +207,7 @@
     "tabMonth": "Μήνας",
     "inGoals": "Σε στόχους",
     "inInvestments": "Σε επενδύσεις",
+    "inGoalsOutside": "Χρήματα στόχων σε άλλους",
     "tabPosition": "Περιουσία",
     "tabAll": "Σύνοψη",
     "allClear": "Όλα εντάξει",

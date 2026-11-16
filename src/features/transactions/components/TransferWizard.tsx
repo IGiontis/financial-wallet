@@ -22,6 +22,9 @@ import { formatTable } from "../transactionDates";
 import styles from "./css/TransactionWizard.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { asNumber } from "../../../shared/utils/sameValues";
 
 /** A transfer as it stands, to correct it. */
 export interface TransferDraft {
@@ -99,6 +102,11 @@ export default function TransferWizard({
   const toAccount = accounts.find((a) => a.id === to);
   const problem = transferProblem({ from, to, amount: value });
   const index = STEPS.indexOf(step);
+  // «No change, no Save»: a correction that moves nothing writes nothing.
+  const { unchanged } = useFormChanged(
+    initial ? { from: initial.from, to: initial.to, amount: initial.amount, date: toISODay(initial.date), note: initial.note } : undefined,
+    { from, to, amount: asNumber(amount), date, note },
+  );
 
   const goTo = (target: Step) => {
     const at = STEPS.indexOf(target);
@@ -124,7 +132,7 @@ export default function TransferWizard({
   };
 
   const submit = () => {
-    if (problem || !day || !fromAccount || !toAccount) return;
+    if (unchanged || problem || !day || !fromAccount || !toAccount) return;
     const records = transferRecords({
       id: initial?.id ?? newDocId("transactions"),
       from,
@@ -361,9 +369,12 @@ export default function TransferWizard({
               </Button>
             )}
             {step === "review" ? (
-              <Button type="submit" color="primary" disabled={!!problem || !day}>
-                {t("transactions.confirmAndSave")}
-              </Button>
+              <div className="d-flex align-items-center gap-2">
+                <UnchangedHint show={unchanged} />
+                <Button type="submit" color="primary" disabled={!!problem || !day || unchanged}>
+                  {t("transactions.confirmAndSave")}
+                </Button>
+              </div>
             ) : step === "amount" ? (
               <Button type="submit" color="primary">
                 {t("common.next")} ›

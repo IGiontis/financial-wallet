@@ -24,6 +24,9 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { billKeys } from "./billCache";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
+import { sameValues } from "../../shared/utils/sameValues";
 
 const FREQUENCIES: { value: BillFrequency; labelKey: string }[] = [
   { value: "weekly", labelKey: "bills.weekly" },
@@ -98,6 +101,30 @@ function pauseFromValues(values: Pick<BillFormValues, "hasPause" | "pauseKind" |
   if (!parseISOMonth(values.pauseTo)) return undefined;
   return values.pauseYearly ? { from: values.pauseFrom, to: values.pauseTo, yearly: true } : { from: values.pauseFrom, to: values.pauseTo };
 }
+
+/**
+ * What an edit would save, for «No change, no Save» (`useFormChanged`): an
+ * answer a «no» hides does not count (a pause typed and then switched off
+ * again is no change), and a window of 0 days is no window.
+ */
+const billComparable = (v: BillFormValues) => ({
+  name: v.name,
+  amount: v.amount,
+  isVariableAmount: v.isVariableAmount,
+  categoryId: v.categoryId,
+  frequency: v.frequency,
+  intervalCount: v.intervalCount,
+  installmentCount: v.installmentCount,
+  installmentIntervalMonths: v.installmentIntervalMonths,
+  anchorMonth: v.anchorMonth,
+  startsOn: v.startsOn,
+  dueDay: v.dueDay,
+  dueMonth: v.frequency === "yearly" ? v.dueMonth : "",
+  graceDays: v.hasGrace && v.graceDays !== "" ? Number(v.graceDays) : 0,
+  pause: pauseFromValues(v) ?? null,
+  notes: v.notes,
+  isActive: v.isActive,
+});
 
 interface AddBillModalProps {
   isOpen: boolean;
@@ -196,6 +223,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
+      // An edit with nothing changed writes nothing (and says nothing).
+      if (isEdit && sameValues(billComparable(formik.initialValues), billComparable(values))) return;
       try {
         const typed = values.amount as number;
         const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
@@ -232,8 +261,10 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
           // 0 and "no grace" are the same thing to every consumer, so the flag
           // never has to be stored alongside the number.
           graceDays: values.hasGrace && values.graceDays !== "" ? Number(values.graceDays) : 0,
-          dueMonth: values.frequency === "yearly" && values.dueMonth !== "" ? Number(values.dueMonth) : undefined,
-          notes: values.notes.trim() || undefined,
+          // On an edit, an empty optional field is said out loud as `null`, so the
+          // stored value is taken off rather than kept (see `updateBill`).
+          dueMonth: values.frequency === "yearly" && values.dueMonth !== "" ? Number(values.dueMonth) : isEdit ? null : undefined,
+          notes: values.notes.trim() || (isEdit ? null : undefined),
           // Switched off on an edit means "remove it", which has to be said out
           // loud: an absent field would leave the old pause where it was.
           pause: pauseFromValues(values) ?? (isEdit ? null : undefined),
@@ -249,6 +280,8 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
       }
     },
   });
+
+  const { unchanged } = useFormChanged(isEdit ? formik.initialValues : undefined, formik.values, billComparable);
 
   const handleClose = () => {
     formik.resetForm();
@@ -822,9 +855,12 @@ export default function AddBillModal({ isOpen, onClose, categories, bill, onSubm
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="primary" disabled={formik.isSubmitting || !formik.dirty}>
-              {formik.isSubmitting ? t("common.saving") : isEdit ? t("bills.saveChanges") : t("bills.addBill")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={formik.isSubmitting || unchanged}>
+                {formik.isSubmitting ? t("common.saving") : isEdit ? t("bills.saveChanges") : t("bills.addBill")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

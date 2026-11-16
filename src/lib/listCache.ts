@@ -103,6 +103,25 @@ export const removeWhere =
 export const withoutUndefined = <T extends object>(obj: T): Partial<T> => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 
 /**
+ * An update applied to a cached row exactly as the data layer writes it
+ * (`forUpdate` in `firebase/firestore.ts`): a field left `undefined` was not
+ * touched by the form and stays as it is; a field set to `null` was cleared by
+ * the user and is taken off the row, as `deleteField()` takes it off the
+ * stored document. Anything else replaces the value. So the screen and the
+ * server agree on which keys exist — a cleared note does not come back after
+ * the next sync, and does not linger on screen either.
+ */
+export function mergeFields<T extends object>(row: T, changes: object): T {
+  const next = { ...row } as Record<string, unknown>;
+  for (const [field, value] of Object.entries(changes)) {
+    if (value === undefined) continue;
+    if (value === null) delete next[field];
+    else next[field] = value;
+  }
+  return next as T;
+}
+
+/**
  * The same document ids for the optimistic row and the write.
  *
  * `onMutate` and `mutationFn` are handed the very same variables object, so an

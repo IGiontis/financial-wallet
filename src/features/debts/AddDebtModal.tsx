@@ -34,6 +34,9 @@ import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, mainAccount } from "../accounts/accountsUtils";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
+import { asNumber } from "../../shared/utils/sameValues";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -125,11 +128,30 @@ export default function AddDebtModal({
   // required) asks again.
   const [account, setAccount] = useState<string | undefined | null>(debt ? debt.accountId : null);
   const [moneyTried, setMoneyTried] = useState(false);
-  // Everything typed, as one string: a correction saved with nothing changed
-  // would still write (and bump `updatedAt` on every device), so it is not offered.
-  const snapshot = JSON.stringify([direction, person.trim(), label.trim(), amount, date, dueDate, withInterest, rateType, rate, base, margin, term, free, account]);
-  const [opened] = useState(snapshot);
-  const unchanged = !!debt && snapshot === opened;
+  // «No change, no Save»: a correction saved with nothing changed would still
+  // write (and bump `updatedAt` on every device), so it is not offered. What is
+  // typed, by meaning (`useFormChanged`): figures as numbers, names trimmed, and
+  // the loan's figures only when it is a loan (and the rate's parts only for
+  // its kind). The card answer keeps «not answered» / «Όχι» / «Ναι, κάρτα» apart.
+  const loanAnswers = withInterest === true;
+  const typedNow = {
+    direction,
+    person,
+    label,
+    amount: asNumber(amount),
+    date,
+    dueDate,
+    withInterest,
+    rateType: loanAnswers ? rateType : undefined,
+    rate: loanAnswers && rateType !== "floating" ? asNumber(rate) : undefined,
+    base: loanAnswers && rateType === "floating" ? asNumber(base) : undefined,
+    margin: loanAnswers && rateType === "floating" ? asNumber(margin) : undefined,
+    term: loanAnswers ? asNumber(term) : undefined,
+    free: loanAnswers ? asNumber(free) : undefined,
+    account: account === null ? "unanswered" : account === undefined ? "no" : `card:${account}`,
+  };
+  const [opened] = useState(typedNow);
+  const { unchanged } = useFormChanged(debt ? opened : undefined, typedNow);
   // Borrowed, with no money reaching a card, because it went to a goal — the
   // friend who paid the ski hotel. Only on a new debt: it writes the goal's
   // deposit and the expense with it, as «Το πλήρωσε κάποιος για μένα» does.
@@ -223,6 +245,7 @@ export default function AddDebtModal({
 
   const save = () => void runSave(saveNow);
   const saveNow = async () => {
+    if (unchanged) return;
     setTouched(true);
     if (!personOk || !amountOk || !when) return;
     if (moneyMissing) {
@@ -696,7 +719,8 @@ export default function AddDebtModal({
               </Button>
             )}
           </div>
-          <div className="d-flex gap-2">
+          <div className="d-flex align-items-center gap-2">
+            {step === "review" && <UnchangedHint show={unchanged} />}
             {step === "review" ? (
               <Button type="submit" color="primary" disabled={saving || savingCovered || !covered.ready || unchanged}>
                 {saving || savingCovered ? t("common.saving") : t("common.save")}

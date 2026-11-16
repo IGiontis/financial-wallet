@@ -20,6 +20,7 @@ import { updateUserEmail, updateUserPassword, reauthenticate, isGoogleUser } fro
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
 import { useQueryClient } from "@tanstack/react-query";
+import { mergeFields } from "../../../lib/listCache";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
 import { SUPPORTED_LANGUAGES } from "../../../i18n";
@@ -37,6 +38,9 @@ import { DeleteButton } from "../../../shared/components/DeleteButton";
 import { isDemo } from "../../../demo/demoMode";
 import { DemoAccountNote } from "../../../demo/DemoChrome";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { sameValues } from "../../../shared/utils/sameValues";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -96,6 +100,23 @@ const deleteErrorKey = (err: unknown): string => {
   }
 };
 
+/** The profile as its form shows it — what «No change, no Save» compares with. */
+const profileStored = (user: User | null) => ({
+  firstName: user?.firstName ?? "",
+  lastName: user?.lastName ?? "",
+  displayName: user?.displayName ?? "",
+  username: user?.username ?? "",
+  age: (user?.age ?? "") as number | "",
+  city: user?.city ?? "",
+  country: user?.country ?? "",
+});
+
+/** The preferences as their form shows them; the language falls back to the one on screen. */
+const prefsStored = (user: User | null, shownLanguage: string | undefined) => ({
+  currency: user?.currency ?? "EUR",
+  locale: user?.locale ?? shownLanguage ?? "en",
+});
+
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
 /** `fill`: the card is one cell of a two-column row, so it takes the cell's height and leaves the spacing to the row. */
@@ -145,15 +166,7 @@ export function SettingsPage() {
 
   const profileForm = useFormik({
     enableReinitialize: true,
-    initialValues: {
-      firstName: userData?.firstName ?? "",
-      lastName: userData?.lastName ?? "",
-      displayName: userData?.displayName ?? "",
-      username: userData?.username ?? "",
-      age: userData?.age ?? "",
-      city: userData?.city ?? "",
-      country: userData?.country ?? "",
-    },
+    initialValues: profileStored(userData),
     validationSchema: Yup.object({
       firstName: Yup.string().required("validation.firstNameRequired").max(50, "validation.maxChars|50"),
       lastName: Yup.string().required("validation.lastNameRequired").max(50, "validation.maxChars|50"),
@@ -168,6 +181,8 @@ export function SettingsPage() {
       country: Yup.string().max(100, "validation.maxChars|100"),
     }),
     onSubmit: async (values) => {
+      // «No change, no Save»: nothing changed, nothing written, nothing said.
+      if (sameValues(profileStored(userData), values)) return;
       try {
         const data: UpdateUserDTO = {
           firstName: values.firstName,
@@ -175,9 +190,10 @@ export function SettingsPage() {
           // "" clears it: the name shown goes back to Google's or the username (see `resolveDisplayName`).
           displayName: cleanDisplayName(values.displayName),
           username: values.username,
-          age: values.age ? Number(values.age) : undefined,
-          city: values.city || undefined,
-          country: values.country || undefined,
+          // Cleared: `null`, so the stored value is taken off (`updateUser` → `forUpdate`).
+          age: values.age ? Number(values.age) : null,
+          city: values.city.trim() ? values.city : null,
+          country: values.country.trim() ? values.country : null,
         };
         // Write straight into the cache so the Topbar updates without a refresh.
         // No invalidate afterwards — that would discard this and re-read the
@@ -185,9 +201,13 @@ export function SettingsPage() {
         // (`.claude/rules/ui.md`): said at once; a refusal puts it back and says so.
         const key = exchangeRateKeys.user(currentUser!.uid);
         const before = queryClient.getQueryData<User | null>(key);
-        queryClient.setQueryData(key, (old: User | null) => ({ ...(old ?? {}), ...data }) as User);
+        queryClient.setQueryData(key, (old: User | null) => mergeFields((old ?? {}) as User, data));
+        // What the form compares with is now what was saved: Save waits for the next change.
+        const userBefore = userData;
+        setUserData((old) => (old ? mergeFields(old, data) : old));
         updateUser(currentUser!.uid, data).catch(() => {
           queryClient.setQueryData(key, before);
+          setUserData(userBefore);
           toast.error(t("settings.profileUpdateFailed"));
         });
 
@@ -202,26 +222,26 @@ export function SettingsPage() {
 
   const prefsForm = useFormik({
     enableReinitialize: true,
-    initialValues: {
-      currency: userData?.currency ?? "EUR",
-      // Fall back to the language i18n resolved (browser detection) so the
-      // dropdown always reflects what the user is actually seeing.
-      locale: userData?.locale ?? i18n.resolvedLanguage ?? "en",
-    },
+    initialValues: prefsStored(userData, i18n.resolvedLanguage),
     validationSchema: Yup.object({
       currency: Yup.string().oneOf(["USD", "EUR", "GBP"]).required(),
       locale: Yup.string().required(),
     }),
     onSubmit: async (values) => {
+      // «No change, no Save»: nothing changed, nothing written, nothing said.
+      if (sameValues(prefsStored(userData, i18n.resolvedLanguage), values)) return;
       try {
         // Never waits for the server: on screen at once, put back and said if refused.
         const key = exchangeRateKeys.user(currentUser!.uid);
         const before = queryClient.getQueryData<User | null>(key);
+        const userBefore = userData;
+        setUserData((old) => (old ? ({ ...old, currency: values.currency, locale: values.locale } as User) : old));
         updateUser(currentUser!.uid, {
           currency: values.currency as "USD" | "EUR" | "GBP",
           locale: values.locale,
         }).catch(() => {
           queryClient.setQueryData(key, before);
+          setUserData(userBefore);
           toast.error(t("settings.preferencesFailed"));
         });
         // Apply the language immediately — i18next persists it to localStorage
@@ -283,6 +303,10 @@ export function SettingsPage() {
   // account itself. None of it is sensible to queue against a copy.
   const settingsGuard = useOfflineGuard("settings");
   const deleteGuard = useOfflineGuard("delete");
+  // «No change, no Save» (`useFormChanged`): compared with what is stored, by
+  // meaning — a name with a trailing space, or age "30" against 30, is no change.
+  const { unchanged: profileUnchanged } = useFormChanged(profileStored(userData), profileForm.values);
+  const { unchanged: prefsUnchanged } = useFormChanged(prefsStored(userData, i18n.resolvedLanguage), prefsForm.values);
 
   // Who it is first (password, or Google's window), then the data, then the
   // sign-in, then this device forgets it and loads again on the sign-in form —
@@ -536,8 +560,9 @@ export function SettingsPage() {
                       </FormGroup>
                     </Col>
                   </Row>
-                  <div className="d-flex justify-content-end mt-4">
-                    <Button type="submit" color="primary" disabled={profileForm.isSubmitting || !profileForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                  <div className="d-flex justify-content-end align-items-center gap-2 mt-4">
+                    <UnchangedHint show={profileUnchanged} />
+                    <Button type="submit" color="primary" disabled={profileForm.isSubmitting || profileUnchanged || settingsGuard.locked} title={settingsGuard.reason}>
                       {profileForm.isSubmitting ? t("common.saving") : t("settings.saveProfile")}
                     </Button>
                   </div>
@@ -585,8 +610,9 @@ export function SettingsPage() {
                       </FormGroup>
                     </Col>
                   </Row>
-                  <div className="d-flex justify-content-end mt-4">
-                    <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || !prefsForm.dirty || settingsGuard.locked} title={settingsGuard.reason}>
+                  <div className="d-flex justify-content-end align-items-center gap-2 mt-4">
+                    <UnchangedHint show={prefsUnchanged} />
+                    <Button type="submit" color="primary" disabled={prefsForm.isSubmitting || prefsUnchanged || settingsGuard.locked} title={settingsGuard.reason}>
                       {prefsForm.isSubmitting ? t("common.saving") : t("settings.savePreferences")}
                     </Button>
                   </div>

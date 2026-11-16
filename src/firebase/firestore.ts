@@ -46,6 +46,36 @@ import { transferIds, type TransferRecord } from "../features/transactions/trans
 
 const clean = (obj: Record<string, unknown>) => cleanTextFields(Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)));
 
+const isPlainObject = (v: unknown): v is Record<string, unknown> => {
+  if (v === null || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+};
+
+/**
+ * A value with every `undefined` taken out at any depth — Firestore refuses one
+ * anywhere in a document, nested maps and lists included. Dates, Timestamps and
+ * sentinels are left as they are.
+ */
+export function withoutUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) return value.filter((item) => item !== undefined).map((item) => withoutUndefinedDeep(item)) as T;
+  if (!isPlainObject(value)) return value;
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).map(([k, v]) => [k, withoutUndefinedDeep(v)])) as T;
+}
+
+/**
+ * The fields of an UPDATE as written — the one rule for clearing a field
+ * (docs/DATA_FLOW.md «Clearing a field»):
+ *   • `undefined` — the form did not touch it: left out, the stored value stays;
+ *   • `null` — the user cleared it: `deleteField()`, the stored value goes;
+ *   • anything else is written, user text cleaned, no `undefined` inside.
+ * Guessing «cleared» from `undefined` is what kept a deleted note on the
+ * server and brought it back on the next sync. The cache patch applies the
+ * same rule (`mergeFields` in `lib/listCache.ts`), so screen and server agree.
+ */
+export const forUpdate = (obj: object): Record<string, unknown> =>
+  cleanTextFields(Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined).map(([k, v]) => [k, v === null ? deleteField() : withoutUndefinedDeep(v)])));
+
 /** A query read from the server, counted by name while developing — see `readMeter`. */
 const readAll = async (label: string, q: Query) => {
   const snap = await getDocs(q);
@@ -104,8 +134,9 @@ export const getUser = async (uid: string) => {
 };
 
 export const updateUser = async (uid: string, data: UpdateUserDTO) => {
+  // `null` clears a field (a city taken off the profile), undefined leaves it — see `forUpdate`.
   await updateDoc(doc(db, "users", uid), {
-    ...clean({ ...data }), // add clean() here
+    ...forUpdate(data),
     updatedAt: serverTimestamp(),
   });
 };
@@ -119,7 +150,11 @@ export const updateUser = async (uid: string, data: UpdateUserDTO) => {
  * other had changed in between. Firestore merges a dotted field in place.
  */
 export const saveWorkspaceValue = async (uid: string, key: string, value: unknown) => {
-  await updateDoc(doc(db, "users", uid), { [`workspace.${key}`]: cleanTextFields(value), updatedAt: serverTimestamp() });
+  // The whole value replaces the stored one, so a field the screen took off an
+  // entry (a cash account's colour, a line's end month) is gone from the server
+  // too. A nested `undefined` is how a screen says «none» here, and Firestore
+  // would refuse the whole write for it — it is left out instead.
+  await updateDoc(doc(db, "users", uid), { [`workspace.${key}`]: cleanTextFields(withoutUndefinedDeep(value)) ?? deleteField(), updatedAt: serverTimestamp() });
 };
 
 // ─── TRANSACTIONS ─────────────────────────────────────────────────────────────
@@ -165,11 +200,12 @@ const billPaymentIdsFor = async ({ userId, paymentId }: BillPaymentLink, transac
 };
 
 export const updateTransaction = async (transactionId: string, data: UpdateTransactionDTO, billPayment?: BillPaymentLink) => {
+  // `forUpdate`: undefined leaves a field as stored, `null` (a note or a card
+  // cleared) takes it off. The fuel details are the one exception: the form
+  // always speaks for them, so none (undefined) takes them off too.
   const firestoreData = {
-    ...clean({ ...data }),
-    metadata: data.metadata === undefined ? deleteField() : data.metadata,
-    // Only touched when the form speaks about it: `null` clears it, a string sets it.
-    ...(data.accountId === null ? { accountId: deleteField() } : {}),
+    ...forUpdate(data),
+    metadata: data.metadata == null ? deleteField() : withoutUndefinedDeep(data.metadata),
     updatedAt: serverTimestamp(),
   };
 
@@ -300,7 +336,7 @@ export const updateCategories = async (categoryIds: string[], data: UpdateCatego
 
   for (const id of categoryIds) {
     batch.update(doc(db, "categories", id), {
-      ...clean({ ...data }),
+      ...forUpdate(data),
       updatedAt: serverTimestamp(),
     });
   }
@@ -320,7 +356,7 @@ export const deleteCategories = async (userId: string, categoryIds: string[]) =>
 };
 
 export const updateCategory = async (categoryId: string, data: UpdateCategoryDTO) => {
-  await updateDoc(doc(db, "categories", categoryId), { ...clean({ ...data }), updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, "categories", categoryId), { ...forUpdate(data), updatedAt: serverTimestamp() });
 };
 
 export const deleteCategory = async (userId: string, categoryId: string) => {
@@ -367,12 +403,9 @@ export const createInvestmentGoal = async (userId: string, data: CreateInvestmen
 export const getInvestmentGoals = (userId: string) => syncedList<InvestmentGoal>("investmentGoals", userId);
 
 export const updateInvestmentGoal = async (goalId: string, data: UpdateInvestmentGoalDTO) => {
-  const cleaned = clean({ ...data });
+  // `null` takes a field off (an icon, a note, the plan-from month, the parts); undefined leaves it.
   await updateDoc(doc(db, "investmentGoals", goalId), {
-    ...cleaned,
-    // Taken off: `clean()` would drop a null, and the old date would stay.
-    ...(data.planFrom === null ? { planFrom: deleteField() } : {}),
-    ...(data.parts === null ? { parts: deleteField() } : {}),
+    ...forUpdate(data),
     updatedAt: serverTimestamp(),
   });
 };
@@ -656,14 +689,12 @@ export const createBill = async (userId: string, data: CreateBillDTO, id: string
 };
 
 export const updateBill = async (billId: string, data: UpdateBillDTO) => {
-  // `clean()` drops undefined, which is right for fields the edit did not touch
-  // and wrong for a pause that was switched off: leaving it out would leave the
-  // old pause in place. `null` is the edit saying so, and becomes a delete.
-  const { pause, startsOn, ...rest } = data;
+  // Undefined is right for fields the edit did not touch and wrong for a pause
+  // switched off or a note cleared: leaving it out would leave the old one in
+  // place. `null` is the edit saying so, and becomes a delete (`forUpdate`).
+  // An empty `startsOn` is no month at all: taken off too.
   await updateDoc(doc(db, "bills", billId), {
-    ...clean({ ...rest }),
-    ...(pause === null ? { pause: deleteField() } : pause ? { pause: clean({ ...pause }) } : {}),
-    ...(startsOn === null ? { startsOn: deleteField() } : startsOn ? { startsOn } : {}),
+    ...forUpdate({ ...data, startsOn: data.startsOn === "" ? null : data.startsOn }),
     updatedAt: serverTimestamp(),
   });
 };
@@ -878,11 +909,9 @@ export const createDebt = async (userId: string, data: CreateDebtDTO, id: string
 };
 
 export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
-  // `forgiven: null` takes a forgiveness back; `clean()` would write the null instead.
-  const { forgiven, ...rest } = data;
+  // `forgiven: null` takes a forgiveness back — see `forUpdate`.
   await updateDoc(doc(db, "debts", debtId), {
-    ...clean({ ...rest }),
-    ...(forgiven === null ? { forgiven: deleteField() } : forgiven ? { forgiven: clean({ ...forgiven }) } : {}),
+    ...forUpdate(data),
     updatedAt: serverTimestamp(),
   });
 };

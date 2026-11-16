@@ -93,6 +93,31 @@ describe("useOnceMutation", () => {
     expect(write.fn).toHaveBeenCalledTimes(1);
   });
 
+  it("`unchangedWhen` (No change, no write): an update equal to what is stored runs nothing — no patch, no write, no callbacks", async () => {
+    const write = gate();
+    const onMutate = vi.fn();
+    const onSuccess = vi.fn();
+    const stored = { name: "ΔΕΗ", amount: 50 };
+    const { result } = renderHook(
+      () => useOnceMutation({ onceBy: sameCall, unchangedWhen: (vars: { name: string; amount: number }) => vars.name.trim() === stored.name && vars.amount === stored.amount, mutationFn: write.fn, onMutate, onSuccess }),
+      { wrapper },
+    );
+    let answer!: Promise<unknown>;
+    act(() => {
+      answer = result.current.mutateAsync({ name: "ΔΕΗ ", amount: 50 });
+    });
+    await expect(answer).resolves.toBeUndefined();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(write.fn).not.toHaveBeenCalled();
+    expect(onMutate).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    // A real change goes through as always.
+    act(() => result.current.mutate({ name: "ΔΕΗ", amount: 55 }));
+    await vi.waitFor(() => expect(write.fn).toHaveBeenCalledTimes(1));
+    expect(onMutate).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the first call's own callbacks: a dropped second call never steals its answer", async () => {
     const write = gate();
     const { result } = renderHook(() => useOnceMutation({ onceBy: (id: string) => id, mutationFn: write.fn }), { wrapper });

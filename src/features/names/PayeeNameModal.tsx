@@ -10,6 +10,8 @@ import { MAX_PAYEE_LENGTH } from "../transactions/payeeStore";
 import { payeeRenameIds, savedAfterRename, type PayeeRow } from "./payeeNames";
 import type { Transaction } from "../../shared/types/IndexTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 const STEPS = ["name", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -68,7 +70,8 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
   const others = useMemo(() => (row ? rows.filter((r) => r.key !== row.key) : rows), [rows, row]);
   const cleaned = cleanLine(text);
   const match = mode === "merge" || mergeInto ? null : matchName(cleaned, others, (r) => [r.name]);
-  const unchanged = mode === "rename" && !mergeInto && !!row && cleaned === row.name;
+  // «No change, no Save»: a rename to the name it already has (spaces aside).
+  const { unchanged } = useFormChanged(mode === "rename" && !mergeInto && row ? row.name : undefined, cleaned);
 
   const error = mode !== "merge" && !mergeInto ? (!cleaned ? "validation.nameRequired" : cleaned.length > MAX_PAYEE_LENGTH ? "validation.maxChars" : "") : "";
   const blocked = mode === "merge" || mergeInto ? !mergeInto : !!error || match?.kind === "same" || unchanged;
@@ -89,7 +92,7 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
 
   // The caller says how it went (toast); a failure leaves this open, as it was.
   const save = async () => {
-    if (busy.current) return;
+    if (busy.current || unchanged || blocked) return;
     busy.current = true;
     setSaving(true);
     try {
@@ -208,15 +211,19 @@ export function PayeeNameModal({ mode, row, into, rows, transactions, linked, sa
               ‹ {t("common.back")}
             </Button>
           )}
-          {step === "review" ? (
-            <Button type="submit" color="primary" disabled={saving || (mode !== "add" && !!locked)} title={mode !== "add" ? lockReason : undefined}>
-              {saving ? t("common.saving") : merging ? t("names.mergeAction") : t("common.save")}
-            </Button>
-          ) : (
-            <Button type="submit" color="primary" disabled={touched && blocked}>
-              {t("common.next")} ›
-            </Button>
-          )}
+          <div className="d-flex align-items-center gap-2">
+            <UnchangedHint show={unchanged} />
+            {step === "review" ? (
+              // `blocked` too: the rail reaches the review with the name step unanswered.
+              <Button type="submit" color="primary" disabled={saving || unchanged || blocked || (mode !== "add" && !!locked)} title={mode !== "add" ? lockReason : undefined}>
+                {saving ? t("common.saving") : merging ? t("names.mergeAction") : t("common.save")}
+              </Button>
+            ) : (
+              <Button type="submit" color="primary" disabled={unchanged || (touched && blocked)}>
+                {t("common.next")} ›
+              </Button>
+            )}
+          </div>
         </ModalFooter>
       </form>
     </Modal>

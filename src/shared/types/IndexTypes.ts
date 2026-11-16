@@ -56,15 +56,19 @@ export interface CreateUserDTO {
   savedPayees?: string[];
 }
 
+/**
+ * An update DTO's fields: undefined = not touched, `null` = cleared by the
+ * user (the field is deleted — `forUpdate` in firebase/firestore.ts).
+ */
 export interface UpdateUserDTO {
   username?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
-  age?: number;
-  country?: string;
-  city?: string;
-  photoUrl?: string;
+  age?: number | null;
+  country?: string | null;
+  city?: string | null;
+  photoUrl?: string | null;
   currency?: Currency;
   baseCurrency?: Currency;
   locale?: string;
@@ -194,7 +198,9 @@ export interface UpdateTransactionDTO {
   categoryId?: string;
   date?: Date;
   description?: string;
-  notes?: string;
+  /** `null` takes it off (cleared in the form); absent leaves it as it is. */
+  notes?: string | null;
+  /** Always spoken for by the edit form: absent takes the fuel details off. */
   metadata?: FuelMetadata;
   /** `null` takes it off; absent leaves it as it is. */
   accountId?: string | null;
@@ -235,8 +241,9 @@ export interface CreateCategoryDTO {
 
 export interface UpdateCategoryDTO {
   name?: string;
-  icon?: string;
-  color?: string;
+  /** `null` takes it off. */
+  icon?: string | null;
+  color?: string | null;
 }
 
 // ============================================================================
@@ -346,12 +353,13 @@ export interface CreateInvestmentGoalDTO {
 
 export interface UpdateInvestmentGoalDTO {
   name?: string;
-  icon?: string;
-  color?: string;
-  notes?: string;
+  /** `null` takes it off (cleared in the form); absent leaves it as it is. */
+  icon?: string | null;
+  color?: string | null;
+  notes?: string | null;
   targetAmount?: number;
   targetPeriod?: TargetPeriod;
-  deadline?: Date;
+  deadline?: Date | null;
   /** See `InvestmentGoal.planFrom`. `null` takes it off. */
   planFrom?: string | null;
   /** `null` takes them off: back to one figure. */
@@ -533,9 +541,11 @@ export interface CreateBillDTO {
   intervalCount?: number;
   anchorDate?: Date;
   dueDay?: number;
-  dueMonth?: number;
+  /** `null` from an edit that left yearly — see `updateBill`. */
+  dueMonth?: number | null;
   graceDays?: number;
-  notes?: string;
+  /** `null` from an edit that cleared it — see `updateBill`. */
+  notes?: string | null;
   icon?: string;
   color?: string;
   installmentCount?: number;
@@ -559,11 +569,13 @@ export interface UpdateBillDTO {
   installmentIntervalMonths?: number;
   anchorDate?: Date;
   dueDay?: number;
-  dueMonth?: number;
+  /** `null` clears it (the bill is no longer yearly). */
+  dueMonth?: number | null;
   graceDays?: number;
-  notes?: string;
-  icon?: string;
-  color?: string;
+  /** `null` clears it. */
+  notes?: string | null;
+  icon?: string | null;
+  color?: string | null;
   isActive?: boolean;
   /** `null` clears it. */
   pause?: BillPause | null;
@@ -869,7 +881,8 @@ export interface CreateDebtDTO {
 export interface UpdateDebtDTO {
   person?: string;
   direction?: DebtDirection;
-  label?: string;
+  /** `null` takes it off. */
+  label?: string | null;
   amount?: number;
   interestRate?: number;
   termMonths?: number;
@@ -879,8 +892,9 @@ export interface UpdateDebtDTO {
   margin?: number;
   rateReviewedAt?: Date;
   date?: Date;
-  dueDate?: Date;
-  notes?: string;
+  dueDate?: Date | null;
+  /** `null` takes it off. */
+  notes?: string | null;
   /** See `Debt.forgiven`. `null` takes the forgiveness back. */
   forgiven?: DebtForgiveness | null;
 }

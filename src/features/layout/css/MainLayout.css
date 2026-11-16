@@ -64,8 +64,17 @@
   /* `clip` (not `hidden`) stops a stray wide child from creating a horizontal
      scrollbar, without breaking position: sticky inside the page. */
   overflow-x: clip;
-  /* Respect the home-indicator / rounded corners on installed PWAs */
-  padding-bottom: env(safe-area-inset-bottom);
+  /* No bottom padding for the home indicator here (it used to be
+     `env(safe-area-inset-bottom)`): padding on the scroller is painted with
+     the page's ground, so on the iPhone's installed app a light band of it
+     (≈34px) sat under the dark footer — on a short page always, on a long one
+     at the end of the scroll — and a sticky bar inside a page (the «Νέα
+     συναλλαγή» Back/Next) stuck that far above the edge with the page
+     scrolling past beneath it. The zone is left to whatever is at the bottom:
+     the footer grows by it in its own colour (AppFooter.module.css), the
+     sticky wizard bar does the same (TransactionWizard.module.css), and in the
+     middle of a scroll the page runs under the indicator, as a native app's
+     does. */
 }
 
 /* The notch is cleared by the top bar itself (Topbar.module.css): it grows by

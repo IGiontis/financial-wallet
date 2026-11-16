@@ -13,6 +13,7 @@ import { BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
 import { BUSINESSES_KEY } from "./businessKeys";
 import { closingLineIds } from "./businessSummary";
 import { readBusinesses } from "./businessEdit";
+import { sameAsStored } from "../../shared/utils/sameValues";
 import type { Business, BusinessEntry, BusinessEntryInput, CreateTransactionDTO, Transaction } from "../../shared/types/IndexTypes";
 
 export const businessKeys = {
@@ -129,6 +130,16 @@ export function useSaveClosing() {
 
   return useOnceMutation<void, Error, ClosingSave, Snapshots>({
     onceBy: sameCall,
+    // A correction whose closing and personal record are already stored
+    // exactly so: nothing is written (from the cached lists, no read).
+    unchangedWhen: (vars) => {
+      if (!vars.editing) return false;
+      const { id, previousTransactionId } = vars.editing;
+      const entry = queryClient.getQueryData<BusinessEntry[]>(key)?.find((e) => e.id === id);
+      const record = previousTransactionId ? queryClient.getQueryData<Transaction[]>(txKey)?.find((tx) => tx.id === previousTransactionId) : undefined;
+      const personalSame = vars.personal ? sameAsStored(record, vars.personal) : !previousTransactionId;
+      return personalSame && sameAsStored(entry, { ...vars.closing, notes: vars.closing.notes?.trim() || undefined, accountId: vars.closing.accountId || undefined });
+    },
     mutationFn: async (vars) => {
       const { entryId, transactionId } = idsOf(vars);
       await saveClosing(userId, {

@@ -20,8 +20,9 @@ import {
 } from "../../../firebase/firestore";
 import type { Transaction, Category, CreateTransactionDTO, UpdateTransactionDTO, CreateCategoryDTO, UpdateCategoryDTO, BillWithStatus, TransactionType } from "../../../shared/types/IndexTypes";
 import { scopeTypes, type CategoryScope } from "../../../shared/utils/categoryNames";
-import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
+import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, upsertById, withoutUndefined, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
 import { billKeys, editPayments, paymentIdFor } from "../../bills/billCache";
+import { sameAsStored } from "../../../shared/utils/sameValues";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -101,10 +102,9 @@ export const setTransactionFields =
  * is any), and `accountId: null` removes the account rather than storing null.
  */
 export function applyTransactionUpdate(row: Transaction, data: UpdateTransactionDTO): Transaction {
-  const next: Record<string, unknown> = { ...row, ...withoutUndefined(data), updatedAt: new Date() };
-  if (data.metadata === undefined) delete next.metadata;
-  if (data.accountId === null) delete next.accountId;
-  return next as unknown as Transaction;
+  // undefined left as stored, `null` (a note or a card cleared) taken off — and
+  // the fuel details always spoken for: none takes them off.
+  return mergeFields(row, { ...data, metadata: data.metadata ?? null, updatedAt: new Date() });
 }
 
 const mergeTransaction =
@@ -175,6 +175,11 @@ export function useUpdateTransaction() {
 
   return useOnceMutation<void, Error, { transactionId: string; data: UpdateTransactionDTO }, UpdateContext>({
     onceBy: sameCall,
+    // The row as stored already says all of it: nothing is written. Compared as
+    // `updateTransaction` writes it: an undefined field is not written (left as
+    // stored), but `metadata` always is — it is taken off when the edit has none.
+    unchangedWhen: ({ transactionId, data }) =>
+      sameAsStored(queryClient.getQueryData<Transaction[]>(key)?.find((r) => r.id === transactionId), { ...withoutUndefined(data), metadata: data.metadata }),
     mutationFn: ({ transactionId, data }) => updateTransaction(transactionId, data, billLinkFor(transactionId)),
 
     onMutate: async ({ transactionId, data }) => {
@@ -346,10 +351,15 @@ export function useUpdateCategoryGroup() {
   const merge =
     (categoryIds: string[], data: UpdateCategoryDTO): ListEdit<Category> =>
     (rows) =>
-      rows.map((row) => (categoryIds.includes(row.id) ? ({ ...row, ...withoutUndefined(data), updatedAt: new Date() } as Category) : row));
+      rows.map((row) => (categoryIds.includes(row.id) ? mergeFields(row, { ...data, updatedAt: new Date() }) : row));
 
   return useOnceMutation<void, Error, { categoryIds: string[]; data: UpdateCategoryDTO }, { categories: ListSnapshot<Category> }>({
     onceBy: sameCall,
+    // Every document behind the category already says it: nothing is written.
+    unchangedWhen: ({ categoryIds, data }) => {
+      const rows = queryClient.getQueryData<Category[]>(key) ?? [];
+      return categoryIds.length > 0 && categoryIds.every((id) => sameAsStored(rows.find((r) => r.id === id), withoutUndefined(data)));
+    },
     mutationFn: ({ categoryIds, data }) => updateCategories(categoryIds, data),
     onMutate: async ({ categoryIds, data }) => ({ categories: await editList(queryClient, key, merge(categoryIds, data)) }),
     onError: (_error, _vars, context) => restoreList(queryClient, context?.categories),

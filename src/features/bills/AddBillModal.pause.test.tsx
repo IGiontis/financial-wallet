@@ -321,7 +321,9 @@ describe("the bill wizard's steps", () => {
       anchorDate: new Date(2025, 0, 1),
       dueDay: 5,
       graceDays: 20,
-      dueMonth: undefined,
+      // An edit says «no due month» out loud for a bill that is not yearly, so a
+      // month left from when it was yearly is taken off (DATA_FLOW «Clearing a field»).
+      dueMonth: null,
       notes: "old",
       pause: { from: "2026-11", to: "2027-03", yearly: true },
       startsOn: "2025-02",

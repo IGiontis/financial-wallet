@@ -70,6 +70,35 @@ describe("a transfer, step by step", () => {
     ]);
   });
 
+  it("a correction: No change, no Save — 200 as 200.00 is no change, 250 is, and back to 200 is none again", async () => {
+    render(
+      <MemoryRouter>
+        <TransferWizard initial={{ id: "T0", from: "rev", to: "cash", amount: 200, date: new Date(2026, 9, 12, 15, 30), note: "ATM" }} onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    const dialog = screen.getByRole("dialog");
+    // A correction opens on the check, and it is unchanged.
+    const confirm = () => within(dialog).getByRole("button", { name: /Confirm/ });
+    expect(confirm()).toBeDisabled();
+    expect(within(dialog).getByText("Nothing has changed")).toBeInTheDocument();
+
+    const toAmount = async (typed: string) => {
+      await userEvent.click(within(dialog).getByRole("button", { name: /^3/ }));
+      const amount = within(dialog).getByLabelText("Amount");
+      await userEvent.clear(amount);
+      await userEvent.type(amount, typed);
+      await userEvent.click(within(dialog).getByRole("button", { name: /Next/ }));
+    };
+    await toAmount("200.00");
+    expect(confirm()).toBeDisabled();
+    await toAmount("250");
+    expect(confirm()).toBeEnabled();
+    await toAmount("200");
+    expect(confirm()).toBeDisabled();
+    await userEvent.click(confirm());
+    expect(saved.calls).toHaveLength(0);
+  });
+
   it("will not go to the check without an amount", async () => {
     renderWizard();
     const dialog = screen.getByRole("dialog");

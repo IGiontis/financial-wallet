@@ -20,6 +20,8 @@ import { lineUses } from "./businessSummary";
 import { newBusinessId, newLineId, useBusinesses } from "./useBusiness";
 import styles from "./css/Business.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 // «Νέα δουλειά» / its correction: the name, its income lines (at least one —
 // the first row has no ✕, so a business always keeps a line to write a day's
@@ -69,7 +71,11 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
   const goneExpenses = business ? removedLines(business.expenseLines, expenses, uses) : [];
 
   const built = buildBusiness(business, { id, name, incomes, expenses }, uses, entriesLoaded, newLineId);
-  const changed = !business || JSON.stringify(built) !== JSON.stringify(business);
+  // «No change, no Save»: the business as it would be stored, against the one
+  // opened — by meaning, not by text (`useFormChanged`; JSON text differed on
+  // the order of a line's fields alone).
+  const { unchanged } = useFormChanged(business, built);
+  const changed = !unchanged;
   const ready = nameOk && incomesOk && expensesOk;
 
   const index = STEPS.indexOf(step);
@@ -289,9 +295,12 @@ export default function BusinessWizard({ business, entries, entriesLoaded, onClo
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="primary" disabled={!changed || !ready || guard.locked} title={guard.reason}>
-              {t("common.save")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={!changed || !ready || guard.locked} title={guard.reason}>
+                {t("common.save")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

@@ -200,6 +200,31 @@ describe("editing a goal", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("No change, no Save: a stray space or 700 as 700.00 is none; a real change is; changed back it is none again", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<EditGoalModal goal={goal} isOpen onClose={() => {}} onSubmit={onSubmit} />);
+    await userEvent.type(screen.getByLabelText(/^Goal name/), " ");
+    await userEvent.click(screen.getByRole("button", { name: /^2\s*Target/ }));
+    const target = screen.getByLabelText(/Target amount/);
+    await userEvent.clear(target);
+    await userEvent.type(target, "700.00");
+    await userEvent.click(screen.getByRole("button", { name: /^4\s*Review/ }));
+    expect(screen.getByRole("button", { name: /Confirm/ })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^3\s*Look/ }));
+    await userEvent.type(screen.getByLabelText("Notes"), "!");
+    await userEvent.click(screen.getByRole("button", { name: /^4\s*Review/ }));
+    expect(screen.getByRole("button", { name: /Confirm/ })).toBeEnabled();
+    expect(screen.queryByText("Nothing has changed")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /^3\s*Look/ }));
+    await userEvent.type(screen.getByLabelText("Notes"), "{Backspace}");
+    await userEvent.click(screen.getByRole("button", { name: /^4\s*Review/ }));
+    expect(screen.getByRole("button", { name: /Confirm/ })).toBeDisabled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("switching to parts alone counts as a change", async () => {
     render(<EditGoalModal goal={goal} isOpen onClose={() => {}} onSubmit={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: /Target/ }));

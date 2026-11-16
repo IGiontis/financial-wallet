@@ -21,7 +21,9 @@ Work through it in order. Say in Greek, in plain words, what each step found.
 5. Reuse the pieces in `docs/COMPONENTS.md`. A new shared piece → add it there in the same change.
 6. A page copies the Goals/Debts anatomy (`.claude/rules/ui.md`); a form is a wizard with a review.
 7. A new collection → skill `new-collection`.
-8. Every Firestore call through `src/firebase/firestoreApi.ts`; demo data in `src/demo/fixtures.ts`.
+8. Every Firestore call through `src/firebase/firestoreApi.ts`. Demo: NOT now — keep it working
+   (fixtures.test passes) and add a line to «Demo backlog» in `docs/DECISIONS.md`; the demo is
+   updated in one batch as the LAST task, after all others (owner, 2026-11-14).
 9. Every string in `el` and `en` (add keys, don't reorder).
 10. Money: tests that reconcile every figure a second way (`.claude/rules/money-tests.md`);
     use the `money-tester` agent for anything non-trivial.

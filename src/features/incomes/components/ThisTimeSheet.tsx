@@ -10,6 +10,9 @@ import type { Income, IncomeStatus } from "../incomesUtils";
 import type { IncomeFormats } from "../incomeText";
 import styles from "../css/IncomesPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { asNumber } from "../../../shared/utils/sameValues";
 
 // «Αυτή τη φορά…», from a row's ⋮: what can be said about one time only — it
 // comes on another day, with another amount, or not at all — as on the
@@ -42,6 +45,10 @@ export default function ThisTimeSheet({
   const [dateValue, setDateValue] = useState(() => toISODay(status.expectedDate));
   const [amountValue, setAmountValue] = useState(() => String(Number(convert(status.expected).toFixed(2))));
   const typed = Number(amountValue.replace(",", "."));
+  // «No change, no Save»: the day or the amount it is already expected with
+  // says nothing new about this time.
+  const { unchanged: sameDay } = useFormChanged(toISODay(status.expectedDate), dateValue);
+  const { unchanged: sameAmount } = useFormChanged(Number(convert(status.expected).toFixed(2)), asNumber(amountValue));
 
   const say = (value: OccurrenceOverride | undefined) => {
     onSay(status.key, value);
@@ -63,20 +70,22 @@ export default function ThisTimeSheet({
             <div style={{ flex: 1 }}>
               <DateField value={dateValue} onChange={setDateValue} small />
             </div>
-            <Button color="primary" size="sm" disabled={!dateValue} onClick={() => say({ date: dateValue })}>
+            <Button color="primary" size="sm" disabled={!dateValue || sameDay} onClick={() => say({ date: dateValue })}>
               {t("common.save")}
             </Button>
           </div>
         )}
+        {mode === "date" && <UnchangedHint show={sameDay} className="d-block mt-1" />}
 
         {mode === "amount" && (
           <div className="d-flex gap-2 align-items-start">
             <Input bsSize="sm" type="number" min={0.01} step={0.01} inputMode="decimal" value={amountValue} onChange={(e) => setAmountValue(e.target.value)} aria-label={t("incomes.card.otherAmount")} />
-            <Button color="primary" size="sm" disabled={!(typed > 0)} onClick={() => say({ amount: Math.round((baseCurrency === displayCurrency ? typed : convertToBase(typed)) * 100) / 100 })}>
+            <Button color="primary" size="sm" disabled={!(typed > 0) || sameAmount} onClick={() => say({ amount: Math.round((baseCurrency === displayCurrency ? typed : convertToBase(typed)) * 100) / 100 })}>
               {t("common.save")}
             </Button>
           </div>
         )}
+        {mode === "amount" && <UnchangedHint show={sameAmount} className="d-block mt-1" />}
 
         {mode === "menu" && (
           <div className={styles.choices}>

@@ -222,9 +222,22 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.75rem;
-  padding: var(--space-3) 0 var(--space-2);
+  /* Stuck to the screen's bottom edge, the bar takes the iPhone's
+     home-indicator zone into itself (0 elsewhere): its own colour runs to the
+     edge, the buttons stay above the indicator, and no page shows beneath. */
+  padding: var(--space-3) 0 calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--color-border-tertiary);
   background: var(--color-surface);
+}
+
+/* A phone: the bar runs from one edge of the screen to the other, over the
+   two gutters around it (the page's and the form's, `--bs-gutter-x` × ½ each),
+   so the list scrolling behind it never shows at its sides either. */
+@media (max-width: 767.98px) {
+  .pageFooter {
+    margin-inline: calc(var(--bs-gutter-x, 1.5rem) * -1);
+    padding-inline: var(--bs-gutter-x, 1.5rem);
+  }
 }
 
 /* After a save: the way out on the left, the next one on the right. */

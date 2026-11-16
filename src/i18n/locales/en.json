@@ -52,7 +52,8 @@
     "deleteConfirmTitle": "Delete?",
     "deleteConfirmBody": "It will be deleted for good. This can't be undone.",
     "deleteConfirmNamed": "“{{name}}” will be deleted for good. This can't be undone.",
-    "done": "Done"
+    "done": "Done",
+    "nothingChanged": "Nothing has changed"
   },
   "nav": {
     "groupStanding": "Where you stand",
@@ -206,6 +207,7 @@
     "tabMonth": "Month",
     "inGoals": "In goals",
     "inInvestments": "In investments",
+    "inGoalsOutside": "Goal money others keep",
     "tabPosition": "Net worth",
     "tabAll": "Summary",
     "allClear": "All clear",

@@ -1,5 +1,6 @@
 import { amountDueNext, billOverdue, billUrgency, daysUntilDeadline } from "../bills/billsUtils";
 import type { PlannerPlan } from "../plannerPage/plannerUtils";
+import type { NetWorthPoint } from "../analytics/netWorthUtils";
 import { isPay } from "../plannerPage/payCycles";
 import { firestoreToDate } from "../../shared/utils/dates";
 import { isPlainExpense } from "./overviewUtils";
@@ -223,4 +224,55 @@ export function goalsProgress(goals: InvestmentGoalWithStats[]): { saved: number
     target += goal.targetAmount;
   }
   return { saved: Math.round(saved * 100) / 100, target: Math.round(target * 100) / 100, percent: target > 0 ? Math.floor((saved / target) * 100) : 0 };
+}
+
+// ─── Position ───────────────────────────────────────────────────────────────
+
+/**
+ * «Από τι αποτελείται» on the «Περιουσία» tab, line by line.
+ *
+ * The tab used to list one money line, «Μετρητά», holding what can be spent —
+ * the banks less the goals' money. Nothing named the cards: €13,660 in four
+ * banks and the wallet read as «Μετρητά €8,050», the word the Banks page uses
+ * for the wallet alone, and with most of it set aside in goals the line came
+ * close to nothing while the cards were full.
+ *
+ * Now the money is the Banks page's own two figures — «Τράπεζες & μετρητά»
+ * (`projectedTotal`) and «Από αυτά, στους στόχους» (`goalHeldTotal`), passed
+ * in exactly as the money card above has them — and the net under them is
+ * unchanged:
+ *
+ *     net = (banks − goals in banks) + owed to me − owed by me
+ *
+ * `banks − goals in banks` is the spendable money (`point.cash`, the balance
+ * card's figure), so goal money is subtracted once and counted nowhere else;
+ * investments have left the banks and stay beside the net, as before.
+ *
+ * Before the first reading there are no bank figures, only the records' own
+ * sum: one line, «Διαθέσιμα», and every goal beside the net.
+ */
+export interface PositionParts {
+  /** In banks and cash now — the Banks page's total. Absent before the first reading. */
+  banks?: number;
+  /** Of `banks`, set aside in goals — the Banks page's «Από αυτά, στους στόχους». */
+  goalsInBanks?: number;
+  /** What can be spent: `banks − goalsInBanks`, or the records' sum before any reading. */
+  available: number;
+  owedToMe: number;
+  /** Positive. */
+  owedByMe: number;
+  /** available + owedToMe − owedByMe — the headline. */
+  net: number;
+  /** Goal money not in the banks (handed to someone to keep) — or every goal, before a reading. Not in the net. */
+  goalsOutside: number;
+  /** Not in the net either. */
+  investments: number;
+}
+
+const cents = (n: number) => Math.round(n * 100) / 100 + 0;
+
+export function positionParts(point: NetWorthPoint, banks: number | undefined, goalsInBanks: number): PositionParts {
+  const base = { available: point.cash, owedToMe: point.owedToMe, owedByMe: point.owedByMe, net: point.net, investments: point.inInvestments };
+  if (banks === undefined) return { ...base, goalsOutside: point.inGoals };
+  return { ...base, banks, goalsInBanks, goalsOutside: Math.max(cents(point.inGoals - goalsInBanks), 0) };
 }

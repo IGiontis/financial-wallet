@@ -12,6 +12,9 @@ import { billStartText } from "./billStartText";
 import { BillYearGrid } from "./BillYearGrid";
 import styles from "./css/BillsPage.module.css";
 import { DeleteButton } from "../../shared/components/DeleteButton";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
+import { asNumber, sameValues } from "../../shared/utils/sameValues";
 
 interface BillDetailModalProps {
   bill: BillWithStatus;
@@ -93,15 +96,23 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
     document.getElementById(`payment-${cell.payment.id}`)?.scrollIntoView({ block: "nearest" });
   };
 
+  // «No change, no Save»: the ✓ waits until the amount or the day really
+  // differs from the payment as stored (same day at another hour is no change).
+  const editedPayment = editing ? bill.payments.find((p) => p.id === editing.id) : undefined;
+  const { unchanged: paymentUnchanged } = useFormChanged(
+    editedPayment ? { amount: editedPayment.amount, date: toISODay(firestoreToDate(editedPayment.paidDate)) } : undefined,
+    { amount: asNumber(editing?.amount), date: editing?.date },
+  );
+
   const saveEdit = (payment: BillPayment) => {
-    if (!editing) return;
+    if (!editing || paymentUnchanged) return;
     const amount = parseFloat(editing.amount);
     const paidDate = parseISODay(editing.date) ?? undefined;
 
     onEditPayment(payment, {
       // Only what actually moved: an untouched field should not be rewritten.
-      amount: Number.isFinite(amount) && amount > 0 && amount !== payment.amount ? amount : undefined,
-      paidDate: paidDate && paidDate.getTime() !== firestoreToDate(payment.paidDate).getTime() ? paidDate : undefined,
+      amount: Number.isFinite(amount) && amount > 0 && !sameValues(amount, payment.amount) ? amount : undefined,
+      paidDate: paidDate && !sameValues(paidDate, payment.paidDate) ? paidDate : undefined,
     });
     setEditing(null);
   };
@@ -281,12 +292,13 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                         aria-label={t("common.amount")}
                       />
                     </InputGroup>
-                    <Button color="primary" size="sm" onClick={() => saveEdit(p)} aria-label={t("common.save")} title={t("common.save")}>
+                    <Button color="primary" size="sm" onClick={() => saveEdit(p)} disabled={paymentUnchanged} aria-label={t("common.save")} title={paymentUnchanged ? t("common.nothingChanged") : t("common.save")}>
                       <FiCheck size={14} />
                     </Button>
                     <Button color="secondary" outline size="sm" onClick={() => setEditing(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
                       <FiX size={14} />
                     </Button>
+                    <UnchangedHint show={paymentUnchanged} className="w-100" />
                   </div>
                 );
               }

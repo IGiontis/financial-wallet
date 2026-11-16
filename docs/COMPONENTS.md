@@ -67,6 +67,19 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   i18n key (`"validation.maxChars|40"`).
 - `src/shared/utils/cleanText.ts` — `cleanText` (multi-line), `cleanLine` (one line), `textKey` (compare key),
   `cleanTextFields(obj)`. `saveWithoutWaiting` already cleans; use these for anything saved another way.
+- `src/shared/hooks/useFormChanged.ts` — **«No change, no Save»**, THE check every edit form makes:
+  `const { unchanged } = useFormChanged(isEdit ? opened : undefined, current, normalize?)` → Save
+  `disabled={… || unchanged}`, `if (unchanged) return` in the save handler, and `<UnchangedHint show={unchanged} />`
+  straight before Save. `opened` = the record as the form shows it (formik: `formik.initialValues`); `undefined` for a
+  new record (never «unchanged» — it is gated on its required answers). `normalize` picks the saved fields / maps
+  a «no»-hidden answer away / `asNumber` a figure typed as text / `asSet` a list whose order means nothing.
+  Every edit form uses it (`noChangeNoSave.test.ts` checks). Not formik's `dirty` (strict: «50» ≠ 50, «a » ≠ «a»).
+- `src/shared/utils/sameValues.ts` — the comparison behind it: `sameValues(a, b)` (text trimmed + inner spaces
+  folded, numbers as numbers incl. «50,00» vs 50, dates as local calendar days, ""/null/[]/{} = absent, lists by
+  content in order, objects by fields), `asNumber`, `asSet`, `canonical`; and `sameAsStored(stored, update)` — the
+  data layer's net (`useOnceMutation`'s `unchangedWhen`).
+- `src/shared/components/UnchangedHint.tsx` — `UnchangedHint` (`show`, `className`): «Δεν άλλαξε τίποτα» / "Nothing
+  has changed" beside a disabled Save (`common.nothingChanged`). Inline row editors put it under the row (`d-block`).
 - `src/features/accounts/AccountPicker.tsx` — the "which card / cash" step (required, nothing preselected).
 - `src/features/accounts/ReviewCard.tsx` — the chosen card on the review step, optional before → after `delta`.
 - `src/features/categories/CategoryPicker.tsx` — the category step grid (`value`, `type`, `onChange`,
@@ -183,7 +196,8 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `actionsRunOnce.test.ts` checks): `useMutation` + `onceBy` (required) — a second call that is the same action
   while the first is in flight starts nothing (`mutate` drops it, `mutateAsync` returns the first promise).
   `onceBy: (id) => id` for a delete / online-only change; `sameCall` (identity) for an optimistic save, where two
-  equal deposits are two records.
+  equal deposits are two records. `unchangedWhen` (optional, on every update hook): an update equal to the cached
+  record (`sameAsStored`) runs nothing — no cache patch, no write; see `docs/DATA_FLOW.md` «No change, no write».
 - `src/lib/toastDefaults.ts` — toast timings per kind (success 2.8 s, error/warning 6 s), phone placement,
   installed once; just call `toast.success/error/warning` without an `autoClose` of your own. Wording for the
   plain «it went» of a record lives under `toasts.*` in the locales («Ο στόχος «…» διαγράφηκε», «Αποθηκεύτηκε»);
@@ -213,6 +227,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/shared/utils/moneyModel.ts` — what counts as in/out: `isSpending`, `isEarning`, `isTransfer`,
   `isMoneyMove`… Every total. `src/shared/utils/balance.ts` — current balance from a reading
   (`currentBalance`, `affectsBalance`); `src/shared/hooks/useOpeningBalance.ts` supplies the opening figure.
+  Banks & cash figures (Banks page, Overview money card, «Περιουσία» → «Από τι αποτελείται») all come from
+  `features/accounts/accountsUtils.ts`: `projectedTotal` (banks & cash now), `expectedByAccount` (each card),
+  `goalHeldTotal` (goal money inside them); the Overview lines are `positionParts` (`overview/overviewTabs.ts`).
 
 ## Names & duplicates
 
@@ -264,6 +281,9 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
   never `invalidateQueries` a whole list. `src/firebase/syncList.ts` — `syncedList`, `noteDeleted`.
 - `src/shared/hooks/useNarrowScreen.ts` — `useNarrowScreen()` (< `sm`): turn anchored menus into sheets.
 - `src/shared/hooks/useDebounce.ts` — `useDebounce(value, ms)` for typing that drives heavy work.
+- `src/shared/hooks/useToday.ts` — `useToday()`: the app's ONE "now" for figures that turn on the day (bills late /
+  due, the current period). Shared object, moves only at midnight or when the app returns on a later day. The
+  bills badge (`useBillsNeedingAttention`), the Bills page and the Overview read it — never a clock of their own.
 - `src/shared/hooks/useMotionEffects.ts` — Settings «Κινούμενα εφέ» (this device); drives `--loop-play`.
 - `src/shared/utils/dates.ts` — `firestoreToDate`, `toISODay`/`parseISODay`, `toISOMonth`, `dateFnsLocale`,
   `standaloneMonthName`. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.

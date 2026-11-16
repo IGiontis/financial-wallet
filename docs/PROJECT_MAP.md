@@ -98,7 +98,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Page `BillsPage.tsx` (four routes = four views); `AddBillModal` (wizard), `MarkPaidModal`, `SettleOverdueModal`, `BillManage`, `BillMonthTimeline`, `BillYearAhead`, `BillYearGrid`, `BillAlertPopup` (mounted in `MainLayout`).
 - Hooks `useBills.ts` (+ `billCache.ts` keys/patches), `useBillAlerts.ts`; `useBillsNeedingAttention` feeds the sidebar badge.
 - Firebase `firestore.ts`; collections `bills`, `billPayments`, `transactions`.
-- Logic `billsUtils.ts`, `monthTimeline.ts`, `yearCost.ts`, `billAlerts.ts`; tests `billsUtils.test.ts`, `useBills.test.tsx`, `billPause.test.ts`, `billInstalments.test.ts`, `BillsPage.*.test.tsx`.
+- Logic `billsUtils.ts`, `monthTimeline.ts`, `yearCost.ts`, `billAlerts.ts`; tests `billsUtils.test.ts`, `useBills.test.tsx`, `billPause.test.ts`, `billInstalments.test.ts`, `billsBadge.test.tsx` (menu badge = «Πληρωμές» tab), `BillsPage.*.test.tsx`.
 
 ### `budget` — goals AND investments logic (despite the name)
 - Page `InvestmentsPage.tsx`; shared screen `components/GoalsWorkbench.tsx` (tabs: shared `PageTabs`, `useGoalTab.ts`), `GoalsOverview`, `GoalCard`/`InvestmentsShared`, `GoalStacks`, `GoalWizard`, `GoalDeleteModal`.
@@ -157,7 +157,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 ### `overview` — «Επισκόπηση», the home page
 - Page `pages/OverviewPage.tsx`; `components/OverviewHero`, `OverviewTabs`, `MoneyBreakdown`, `PaydayCard`, `CashFlowChart`, `BankStrip`, `MetricCard`.
 - Hook `usePaydayOutlook.ts`; read-only.
-- Logic `overviewUtils.ts`, `overviewTabs.ts`; tests `overviewUtils.test.ts`, `overviewTabs.test.ts`, `pages/OverviewPage.test.tsx`.
+- Logic `overviewUtils.ts`, `overviewTabs.ts`; tests `overviewUtils.test.ts`, `overviewTabs.test.ts`, `overviewTabs.position.test.ts` («Περιουσία» lines vs the Banks page), `pages/OverviewPage.test.tsx`.
 
 ### `plannerPage` — «Θα τα βγάλω;», the planner (Allocation merged in)
 - Page `PlannerPage.tsx`; `components/PlanMonthRows`, `PlannerTimeline`, `EntryEditor`, `MonthFlowSheet`, `PlannerTiles`, `HorizonPicker`; `BalanceLine.tsx` at the root.

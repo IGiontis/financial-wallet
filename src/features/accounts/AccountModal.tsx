@@ -20,6 +20,8 @@ import { matchNameIn } from "../../shared/utils/nameMatch";
 import { NameCheck } from "../../shared/components/NameCheck";
 import { typedBlur } from "../../shared/utils/typedBlur";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 export interface AccountDraft {
   name: string;
@@ -97,8 +99,13 @@ export default function AccountModal({
   const amountOk = !!account || value !== undefined;
   const mainOk = main !== undefined;
   const index = STEPS.indexOf(step);
-  // An edit with nothing changed writes nothing: Save waits for a change.
-  const unchanged = !!account && name.trim() === account.name && kind === account.kind && main === isMain && (kind !== "bank" || color === (defaultColor && defaultColor !== "cash" ? defaultColor : "blue"));
+  // «No change, no Save»: an edit with nothing changed writes nothing — Save
+  // waits for a change (`useFormChanged`; a finish only counts on a bank card).
+  const openedColor = defaultColor && defaultColor !== "cash" ? defaultColor : "blue";
+  const { unchanged } = useFormChanged(
+    account ? { name: account.name, kind: account.kind, main: isMain, color: account.kind === "bank" ? openedColor : undefined } : undefined,
+    { name, kind, main, color: kind === "bank" ? color : undefined },
+  );
 
   // Forward only past what is filled in; back is always free.
   const goTo = (target: Step) => {
@@ -277,9 +284,12 @@ export default function AccountModal({
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="primary" disabled={unchanged}>
-              {t("common.save")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={unchanged}>
+                {t("common.save")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

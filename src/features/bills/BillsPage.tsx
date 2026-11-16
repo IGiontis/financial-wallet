@@ -86,6 +86,7 @@ import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { PageShell } from "../../shared/components/PageShell";
 import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
+import { useToday } from "../../shared/hooks/useToday";
 
 // ─── Cash runway — how much, by when ─────────────────────────────────────────
 
@@ -1116,9 +1117,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // scrolling past every bill to reach it. Two views, one at a time.
   const compact = useNarrowScreen("(max-width: 991.98px)");
   const [mobileView, setMobileView] = useState<"bills" | "year">("bills");
-  // One clock reading for the whole visit, so every card's month strip lines up
-  // on the same window instead of drifting across renders.
-  const [now] = useState(() => new Date());
+  // One clock reading for every card, so the month strips line up on the same
+  // window — the app's shared day (`useToday`), the one the menu's badge counts
+  // from, so a page left open overnight moves to today with it.
+  const now = useToday();
 
   const categoryFor = useMemo(() => {
     const map = new Map(categories.map((c) => [c.id, c]));
@@ -1132,7 +1134,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // two can never contradict each other.
   const thisMonth = useMemo(() => monthForecast(bills, now, 0), [bills, now]);
   const owed = useMemo(() => arrears(bills), [bills]);
-  // The count on «Πληρωμές» — the menu's, from the bills already on the page.
+  // The count on «Πληρωμές» — the menu's (`useBillsNeedingAttention`): the same
+  // function on the same cached bills, on the same shared day.
   const billsDue = useMemo(() => billsNeedingAttention(bills, now), [bills, now]);
 
   /**

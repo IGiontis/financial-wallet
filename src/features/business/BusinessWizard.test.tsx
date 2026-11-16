@@ -103,6 +103,35 @@ describe("changing a business", () => {
     expect(removeButtons().map((b) => b.getAttribute("aria-label"))).toEqual(["Remove line 2"]);
   });
 
+  it("No change, no Save: opened on the check unchanged, a stray space is none, a renamed line is, renamed back is none", async () => {
+    store.businesses = [kiosk];
+    render(<BusinessWizard business={kiosk} entries={[]} entriesLoaded onClose={() => {}} />);
+    // A correction opens on the check.
+    expect(current()).toMatch(/Check/);
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Income/ }));
+    const till = screen.getByRole("textbox", { name: "Income line 1" });
+    await userEvent.type(till, " ");
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Check/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Income/ }));
+    await userEvent.clear(screen.getByRole("textbox", { name: "Income line 1" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Income line 1" }), "Register");
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Check/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Income/ }));
+    await userEvent.clear(screen.getByRole("textbox", { name: "Income line 1" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Income line 1" }), "Till");
+    await userEvent.click(screen.getByRole("button", { name: /^\d?\s*Check/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(store.businesses).toEqual([kiosk]);
+  });
+
   it("gives a stored business with no income line left one empty row to fill, with no ✕, and will not save it without a name", async () => {
     const bare: Business = { id: "biz-b", name: "Bare", incomeLines: [{ id: "old", name: "Old", removed: true }], expenseLines: [] };
     store.businesses = [bare];

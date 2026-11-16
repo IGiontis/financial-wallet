@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { draftProblem, partDraftsOf, partsFromDrafts, partsTotals, type GoalPartDraft } from "../goalParts";
 import type { GoalPart } from "../../../shared/types/IndexTypes";
+import { sameValues } from "../../../shared/utils/sameValues";
+
+/** A part as it reads — its id is only a handle for the rows being typed. */
+const partContent = (p: GoalPart) => ({ label: p.label, min: p.min, max: p.max });
 
 /**
  * The «Ένα ποσό | Κομμάτια» choice of a goal form, and the parts being typed.
@@ -34,8 +38,10 @@ export function useGoalPartsField(initial: GoalPart[] | undefined, onTarget: (am
     setShowErrors(false);
   };
 
-  // Changed from what the form opened with: the choice, or the parts it would save.
-  const sameParts = (a: GoalPart[], b: GoalPart[]) => a.length === b.length && a.every((p, i) => p.label === b[i].label && p.min === b[i].min && p.max === b[i].max);
+  // Changed from what the form opened with: the choice, or the parts it would
+  // save — by what they say, in order (deposits fill them in order), through
+  // the app's one comparison (`sameValues`: trimmed names, figures as numbers).
+  const sameParts = (a: GoalPart[], b: GoalPart[]) => sameValues(a.map(partContent), b.map(partContent));
   const dirty = usingParts !== !!initial?.length || (usingParts && !sameParts(parts, initial ?? []));
 
   return { usingParts, choose, drafts, setDrafts, parts, showErrors, check, reset, dirty };

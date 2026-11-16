@@ -66,6 +66,9 @@ only when the same brief has been written three times.
 - Several agents may share the working tree: give each disjoint files, and have them add
   locale keys without reordering the JSON files.
 - Brief an agent by pointing it at the map and the rules, not by retyping them.
-- **Real users first, the demo after**: build and verify a feature for signed-in users, then
-  its demo data. Short on budget, ship the real-user part and report the demo as pending.
+- **Real users first, the demo LATER, in one batch** (owner, 2026-11-14, to save tokens):
+  build and verify for signed-in users only; do NOT update the demo per change. Keep the demo
+  working (fixtures.test passes, no crash — the minimal fix if a change breaks it) and add a
+  line to the «demo backlog» in docs/DECISIONS.md; all demo data, fixtures and the tour are
+  updated together in ONE demo pass that is ALWAYS the LAST task — after every other task on the list is done.
 - Re-check any agent's work before building on it or reporting it.

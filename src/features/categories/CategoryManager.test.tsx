@@ -104,7 +104,16 @@ describe("CategoryManager — widening", () => {
     const user = userEvent.setup();
     render(<CategoryManager />);
     await fromMenu(user, "Edit");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    const dialog = screen.getByRole("dialog");
+    // Nothing changed: nothing to save («No change, no Save»).
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(within(dialog).getByText("Nothing has changed")).toBeInTheDocument();
+    // Renamed only: one update, no new half.
+    // The name is the dialog's first field (the second is the icon).
+    const name = within(dialog).getAllByRole("textbox")[0];
+    await user.clear(name);
+    await user.type(name, "Renamed one");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(state.update).toHaveBeenCalledTimes(1);
     expect(state.create).not.toHaveBeenCalled();
   });

@@ -30,6 +30,8 @@ import { useSaveClosing } from "./useBusiness";
 import styles from "./css/Business.module.css";
 import tiles from "../../shared/components/css/YesNoChoice.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 // «Κλείσιμο ημέρας» of one business: which business and which day, what each of
 // its income lines took in, what each of its expense lines paid out (and any
@@ -155,6 +157,7 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const describe = (type: "income" | "expense") => t(type === "income" ? "business.recordProfit" : "business.recordLoss", { name: business?.name ?? "" });
 
   const submit = () => {
+    if (nothingChanged) return;
     if (!ready || !when || !business) return goTo("review");
     const closing = { businessId: business.id, date: when, incomes, expenses, notes: notes.trim() || undefined, accountId: move ? written || undefined : undefined };
     void saveWithoutWaiting(
@@ -201,9 +204,18 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
         notes: entry!.notes?.trim() || "—",
       }
     : undefined;
-  const linesOf = (e: { incomes: BusinessIncome[]; expenses: BusinessExpense[] }) => JSON.stringify([e.incomes.map((l) => [l.lineId, l.amount]), e.expenses.map((l) => [l.lineId ?? "", l.name ?? "", l.amount])]);
-  const linesChanged = editing && linesOf({ incomes, expenses }) !== linesOf(entry);
-  const nothingChanged = editing && !linesChanged && !!was && (Object.keys(now) as (keyof typeof now)[]).every((k) => was[k] === now[k]);
+  // «No change, no Save»: the closing as it would be saved against the one
+  // opened — the same facts the before → after rows show, so «nothing changed»
+  // is «no row marked» (`useFormChanged`: amounts as numbers, the day as a day,
+  // notes trimmed; the card only counts when money moves).
+  const linesOf = (e: { incomes: BusinessIncome[]; expenses: BusinessExpense[] }) => ({
+    incomes: e.incomes.map((l) => ({ lineId: l.lineId, amount: l.amount })),
+    expenses: e.expenses.map((l) => ({ lineId: l.lineId, name: l.name, amount: l.amount })),
+  });
+  const { unchanged: nothingChanged } = useFormChanged(
+    editing ? { businessId: entry.businessId, date: toISODay(entry.date), notes: entry.notes, ...linesOf(entry), account: beforeMove ? (linked?.accountId ?? entry.accountId) : undefined } : undefined,
+    { businessId, date, notes, ...linesOf({ incomes, expenses }), account: move ? written : undefined },
+  );
   const wasMark = (field: keyof typeof now) => (was && was[field] !== now[field] ? <s className={styles.was}>{was[field]} →</s> : null);
   const row = (target: Step, label: string, value: ReactNode, className = "") => (
     <button type="button" className={wiz.wizRow} onClick={() => goTo(target)}>
@@ -423,7 +435,8 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
                 {move && row("account", t("business.recordName"), describe(move.type))}
               </div>
               {move && written && !editing && <ReviewCard accountId={written} income={move.type === "income"} delta={move.type === "income" ? move.amount : -move.amount} />}
-              <div className={`${wiz.wizNote} mt-3`}>{nothingChanged ? t("business.nothingChanged") : t("business.onlyProfitNote")}</div>
+              {/* «Nothing changed» is said once, by Save (`UnchangedHint`). */}
+              <div className={`${wiz.wizNote} mt-3`}>{t("business.onlyProfitNote")}</div>
             </>
           )}
         </ModalBody>
@@ -442,9 +455,12 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
             )}
           </div>
           {step === "review" ? (
-            <Button type="submit" color="primary" disabled={nothingChanged || !ready}>
-              {t("common.save")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={nothingChanged} />
+              <Button type="submit" color="primary" disabled={nothingChanged || !ready}>
+                {t("common.save")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

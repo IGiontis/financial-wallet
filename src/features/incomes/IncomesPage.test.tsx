@@ -369,9 +369,17 @@ describe("the form", () => {
     expect(answer("Κάθε πότε")).toHaveTextContent("κάθε μήνα στις 20");
     expect(answer("Ο μισθός μου")).toHaveTextContent("Όχι");
     expect(within(form).queryByRole("button", { name: /Επόμενο/ })).toBeNull();
+    // «No change, no Save»: opened and read back, nothing to save yet.
+    expect(within(form).getByRole("button", { name: "Αποθήκευση" })).toBeDisabled();
+    expect(within(form).getByText("Δεν άλλαξε τίποτα")).toBeInTheDocument();
 
+    await userEvent.click(within(form).getByRole("button", { name: /^2/ }));
+    const amount = within(form).getByLabelText(/Ποσό/) as HTMLInputElement;
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "75");
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
     await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
-    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ id: "allow", amount: 70, day: 20 })])), { timeout: 2000 });
+    await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.arrayContaining([expect.objectContaining({ id: "allow", amount: 75, day: 20 })])), { timeout: 2000 });
   });
 
   it("asks yes / no in tiles, no switches: «Ναι» on a break shows its months in the step, «Όχι» hides them, and «Ναι» on salary is saved", async () => {
@@ -397,19 +405,35 @@ describe("the form", () => {
     expect(within(form).getByText("Ο μισθός μου").nextElementSibling).toHaveTextContent("Ναι");
   });
 
-  it("writes exactly what the one-page form wrote: an unchanged edit saves the income field by field as it was", async () => {
+  it("writes exactly what the one-page form wrote: an edit saves the income field by field, only the changed field moved", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Επίδομα: ενέργειες" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Επεξεργασία" }));
     const form = screen.getByRole("dialog");
+    // An unchanged edit is not offered at all («No change, no Save»), and writes nothing.
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
+    expect(within(form).getByRole("button", { name: "Αποθήκευση" })).toBeDisabled();
+    // The name with a stray space at its end: still no change.
+    await userEvent.click(within(form).getByRole("button", { name: /^1/ }));
+    const name = within(form).getByLabelText(/Όνομα/) as HTMLInputElement;
+    await userEvent.type(name, " ");
+    await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
+    expect(within(form).getByRole("button", { name: "Αποθήκευση" })).toBeDisabled();
+    expect(api.saveWorkspaceValue).not.toHaveBeenCalledWith("u1", "incomes", expect.anything());
+
+    // One real change: 70 → 80.
+    await userEvent.click(within(form).getByRole("button", { name: /^2/ }));
+    const amount = within(form).getByLabelText(/Ποσό/) as HTMLInputElement;
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "80");
     await userEvent.click(within(form).getByRole("button", { name: /^5/ }));
     await userEvent.click(within(form).getByRole("button", { name: "Αποθήκευση" }));
     await waitFor(() => expect(api.saveWorkspaceValue).toHaveBeenCalledWith("u1", "incomes", expect.anything()), { timeout: 2000 });
     const list = api.saveWorkspaceValue.mock.calls.find(([, key]) => key === "incomes")![2] as Income[];
     const allow = incomes.find((i) => i.id === "allow")!;
-    // The old form's save: its draft turned back into an income, the same function both use.
+    // The old form's save: its draft turned back into an income, the same function both use — with the one change.
     const before = draftToIncome(incomeToDraft(allow, (n) => n, NOW), (n) => n)!;
-    expect(list.find((i) => i.id === "allow")).toStrictEqual(before);
+    expect(list.find((i) => i.id === "allow")).toStrictEqual({ ...before, amount: 80 });
     expect(before).toMatchObject({ id: "allow", name: "Επίδομα", kind: "allowance", amount: 70, frequency: "monthly", day: 20, start: "2025-09" });
   });
 

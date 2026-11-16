@@ -163,7 +163,8 @@ export function CategoryMergeModal({ drop, into, groups, sources, counts, locked
             </Button>
           )}
           {step === "review" ? (
-            <Button type="submit" color="primary" disabled={saving || !!locked} title={lockReason}>
+            // Only with its one required answer given: the rail reaches the review without one.
+            <Button type="submit" color="primary" disabled={saving || !!locked || !plan} title={lockReason}>
               {saving ? t("common.saving") : t("names.mergeAction")}
             </Button>
           ) : (

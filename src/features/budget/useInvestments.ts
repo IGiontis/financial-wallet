@@ -31,7 +31,8 @@ import type {
   Transaction,
 } from "../../shared/types/IndexTypes";
 import { insertTransaction, transactionKeys } from "../transactions/hooks/useTransactions";
-import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
+import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
+import { sameAsStored } from "../../shared/utils/sameValues";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 // Goals and contributions are two separate queries under a shared prefix. Each
@@ -164,15 +165,13 @@ export function useUpdateGoal() {
   // saved — and is put back if the write is refused. `null` takes a field off,
   // as the write does (`updateInvestmentGoal`).
   const merge = (goalId: string, data: UpdateInvestmentGoalDTO) => (rows: InvestmentGoal[]) =>
-    rows.map((row) => {
-      if (row.id !== goalId) return row;
-      const next = { ...row, ...withoutUndefined(data), updatedAt: new Date() } as Record<string, unknown>;
-      for (const [field, value] of Object.entries(data)) if (value === null) delete next[field];
-      return next as unknown as InvestmentGoal;
-    });
+    rows.map((row) => (row.id === goalId ? mergeFields(row, { ...data, updatedAt: new Date() }) : row));
 
   return useOnceMutation<void, Error, { goalId: string; data: UpdateInvestmentGoalDTO }, { goals: ListSnapshot<InvestmentGoal> }>({
     onceBy: sameCall,
+    // The goal as stored already says all of it: nothing is written. As
+    // `updateInvestmentGoal` writes it: undefined is left as stored, `null` takes a field off.
+    unchangedWhen: ({ goalId, data }) => sameAsStored(queryClient.getQueryData<InvestmentGoal[]>(investmentKeys.goals(userId))?.find((g) => g.id === goalId), withoutUndefined(data)),
     mutationFn: ({ goalId, data }) => updateInvestmentGoal(goalId, data),
     onMutate: async ({ goalId, data }) => ({ goals: await editList(queryClient, investmentKeys.goals(userId), merge(goalId, data)) }),
     onError: (_error, _vars, context) => restoreList(queryClient, context?.goals),

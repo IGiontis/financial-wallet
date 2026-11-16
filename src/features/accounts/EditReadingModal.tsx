@@ -6,6 +6,8 @@ import { ACCOUNT_ICON } from "./accountTones";
 import styles from "./css/AccountsPage.module.css";
 import { FORM_MODAL } from "../../shared/components/formModal";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 /**
  * Correcting a reading typed wrong — the figures as they were entered that day,
@@ -58,7 +60,10 @@ export default function EditReadingModal({
   const next = valid ? { ...amounts, ...Object.fromEntries(parsed.map((p) => [p.id, p.value as number])) } : undefined;
   const gap = next ? gapFor(next) : undefined;
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${formatCurrency(Math.abs(n))}`;
-  const changed = !!next && shown.some((a) => Math.round((next[a.id] - amounts[a.id]) * 100) !== 0);
+  // «No change, no Save»: the figures shown, to the cent, against the reading.
+  const centsOf = (m: Record<string, number>) => Object.fromEntries(shown.map((a) => [a.id, m[a.id] === undefined ? undefined : Math.round(m[a.id] * 100)]));
+  const { unchanged } = useFormChanged(amounts, next ?? {}, centsOf);
+  const changed = !!next && !unchanged;
 
   return (
     <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable fullscreen="sm">
@@ -111,10 +116,11 @@ export default function EditReadingModal({
           <Button color="secondary" outline onClick={onClose} className="flex-grow-1">
             {t("common.cancel")}
           </Button>
-          <Button color="primary" onClick={() => next && onSave(next)} disabled={!valid || !changed} className="flex-grow-1 fw-semibold">
+          <Button color="primary" onClick={() => next && changed && onSave(next)} disabled={!valid || !changed} className="flex-grow-1 fw-semibold">
             {t("common.save")}
           </Button>
         </div>
+        <UnchangedHint show={unchanged} className="d-block text-end mt-1" />
       </ModalFooter>
     </Modal>
   );

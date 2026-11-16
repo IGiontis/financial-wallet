@@ -199,6 +199,47 @@ describe("useUpdateTransaction", () => {
 
     expect(cached()).toEqual(before);
   });
+
+  // «No change, no write» (the owner, 2026-11-16): the net under the forms.
+  it("writes NOTHING for an update equal to the stored row — the payee with a stray space, the day at another hour, 3 as 3.00", async () => {
+    api.updateTransaction.mockResolvedValue(undefined);
+    const { result } = await mountWith(useUpdateTransaction);
+    const before = cached();
+
+    await act(() =>
+      result.current.mutation.mutateAsync({
+        transactionId: "t-coffee",
+        data: { amount: 3.0, type: "expense", categoryId: "food", date: new Date(2026, 5, 5, 18, 30), description: "Coffee ", notes: undefined, metadata: undefined, accountId: null },
+      }),
+    );
+    await settle();
+
+    expect(api.updateTransaction).not.toHaveBeenCalled();
+    // Not even a cache patch: the row (and its `updatedAt`) is as it was.
+    expect(cached()).toBe(before);
+  });
+
+  it("…but writes when the edit takes the fuel details off, though every other field is the same", async () => {
+    api.updateTransaction.mockResolvedValue(undefined);
+    const { result } = await mountWith(useUpdateTransaction);
+    // No `metadata` in the edit removes it (`updateTransaction`): a real change.
+    await act(() => result.current.mutation.mutateAsync({ transactionId: "t-fuel", data: { amount: 60, description: "Shell", categoryId: "car", accountId: "acc-1" } }));
+    expect(api.updateTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("…and writes a one-cent change", async () => {
+    api.updateTransaction.mockResolvedValue(undefined);
+    const { result } = await mountWith(useUpdateTransaction);
+    await act(() => result.current.mutation.mutateAsync({ transactionId: "t-coffee", data: { amount: 3.01 } }));
+    expect(api.updateTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("…and writes when the row is not in the cache — never judged unchanged without proof", async () => {
+    api.updateTransaction.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useUpdateTransaction(), { wrapper });
+    await act(() => result.current.mutateAsync({ transactionId: "t-coffee", data: { amount: 3 } }));
+    expect(api.updateTransaction).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── Delete ──────────────────────────────────────────────────────────────────

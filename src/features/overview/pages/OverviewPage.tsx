@@ -42,12 +42,13 @@ import { usePageTab } from "../../../shared/hooks/usePageTab";
 import { PageTabs } from "../../../shared/components/PageTabs";
 import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { currentBalance } from "../../../shared/utils/balance";
+import { useToday } from "../../../shared/hooks/useToday";
 import { netWorthSeries } from "../../analytics/netWorthUtils";
 import { monthTimeline } from "../../bills/monthTimeline";
 import { monthForecast, overdueBills } from "../../bills/billsUtils";
 import BillMonthTimeline from "../../bills/BillMonthTimeline";
 import { ROW_PENDING, usePendingRecords } from "../../../shared/hooks/usePendingRecords";
-import { attentionItems, goalsProgress, spendingByCategory } from "../overviewTabs";
+import { attentionItems, goalsProgress, positionParts, spendingByCategory } from "../overviewTabs";
 import { useCategories } from "../../transactions/hooks/useTransactions";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { AttentionList, MonthInOut, Panel, PositionPanel, SpendingPanel, TileGrid, TodayPanel, type OverviewTile } from "../components/OverviewTabs";
@@ -104,8 +105,10 @@ export const OverviewPage = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const locale = i18n.resolvedLanguage ?? "en";
-  // One clock reading for the visit, so nothing memoised on it recomputes each render.
-  const [now] = useState(() => new Date());
+  // One clock reading, so nothing memoised on it recomputes each render — the
+  // app's shared day (`useToday`): the list of what is due counts the bills on
+  // the day the menu's badge does, and moves to a new day with it.
+  const now = useToday();
   // In the address (`?tab=`) like every page's tabs; a first visit opens on
   // everything at a glance, after that on the last tab chosen on this device.
   const [tab, setTab] = usePageTab<OverviewTab>(TAB_IDS, "all", "overview-tab");
@@ -196,6 +199,8 @@ export const OverviewPage = () => {
   // ── Everything ──
   const late = useMemo(() => overdueBills(bills, now), [bills, now]);
   const lastPosition = position[position.length - 1];
+  // What it is made of: the money card's own bank figures, line by line.
+  const positionNow = useMemo(() => (lastPosition ? positionParts(lastPosition, banksNow, inGoals) : undefined), [lastPosition, banksNow, inGoals]);
 
   const minYear = useMemo(() => {
     const fallback = now.getFullYear() - 3;
@@ -498,7 +503,7 @@ export const OverviewPage = () => {
 
       {tab === "position" && (
         <div className={styles.stack} {...panelProps("position")}>
-          <PositionPanel series={position} formatCurrency={formatCurrency} locale={locale} />
+          <PositionPanel series={position} parts={positionNow} formatCurrency={formatCurrency} locale={locale} />
           {goalsGlance}
         </div>
       )}

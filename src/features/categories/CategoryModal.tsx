@@ -11,6 +11,8 @@ import { iconProblem } from "../../shared/utils/iconText";
 import { allowedScopes } from "./categoryScope";
 import { RequiredMark } from "../../shared/components/RequiredMark";
 import segmented from "../../shared/css/Segmented.module.css";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 /** A small, deliberately unopinionated palette — enough to tell rows apart. */
 const ICON_CHOICES = ["🧾", "💳", "🏦", "🚗", "🏠", "🛠️", "📚", "🎁", "🍼", "🐶", "💊", "✂️", "📦", "🎓", "⚖️", "🧳"];
@@ -70,10 +72,14 @@ export default function CategoryModal({ existing, scope: initialScope, category,
   // One emoji only — a letter or a word is not an icon (see `isSingleIcon`).
   const iconError = iconProblem(icon);
   const showIconError = !!iconError && (touched || iconTouched);
-  const canSave = !error && !duplicate && !iconError && !isSaving;
+  // «No change, no Save»: an edit that renames to the same name (spaces aside),
+  // keeps the scope and the icon writes nothing.
+  const { unchanged } = useFormChanged(category ? { name: category.name, scope: category.scope, icon: category.icon ?? ICON_CHOICES[0] } : undefined, { name: cleaned, scope, icon });
+  const canSave = !error && !duplicate && !iconError && !isSaving && !unchanged;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (unchanged) return;
     setTouched(true);
     if (!canSave) return;
     onSubmit({ name: cleaned, scope, icon });
@@ -202,6 +208,7 @@ export default function CategoryModal({ existing, scope: initialScope, category,
         </ModalBody>
 
         <ModalFooter>
+          <UnchangedHint show={unchanged} className="me-auto" />
           <Button type="button" color="secondary" outline onClick={onClose} disabled={isSaving}>
             {t("common.cancel")}
           </Button>

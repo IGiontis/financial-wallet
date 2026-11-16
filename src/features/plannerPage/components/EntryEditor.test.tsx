@@ -195,9 +195,52 @@ describe("an expense line", () => {
     await next();
 
     expect(within(review()).getByText(/Dec 2026 — Apr 2027 · every year/)).toBeInTheDocument();
+    // Read back and nothing changed: Save waits, with the hint («No change, no Save»).
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    // 200 → 250: the season is kept with the new amount.
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    const amount = screen.getByLabelText(/^Amount/);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "250");
+    await next();
     await save();
 
-    expect(onSave.mock.calls[0][0]).toMatchObject({ id: "ski", amount: "200", from: "2026-12", to: "2027-04", yearly: true });
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: "ski", amount: "250", from: "2026-12", to: "2027-04", yearly: true });
+  });
+
+  it("No change, no Save: an edit's Save waits for a real change, and changing it back waits again", async () => {
+    setup("line", { id: "food", label: "Food", amount: "300" }, true);
+    await next();
+    await next();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    // A trailing space and 300 written as 300.00: the same figure, still no change.
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    const amount = screen.getByLabelText(/^Amount/);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "300.00");
+    await userEvent.type(document.querySelector<HTMLInputElement>("#entry-name")!, " ");
+    await next();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    // A real change enables it…
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    await userEvent.clear(screen.getByLabelText(/^Amount/));
+    await userEvent.type(screen.getByLabelText(/^Amount/), "320");
+    await next();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.queryByText("Nothing has changed")).toBeNull();
+
+    // …and back to 300 disables it again.
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    await userEvent.clear(screen.getByLabelText(/^Amount/));
+    await userEvent.type(screen.getByLabelText(/^Amount/), "300");
+    await next();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("drops the whole season once it is switched to every month", async () => {

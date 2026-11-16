@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { sameAsStored } from "../../shared/utils/sameValues";
 import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { toast } from "react-toastify";
 import i18n from "../../i18n";
@@ -23,7 +24,7 @@ import { setTransactionFields, transactionKeys } from "../transactions/hooks/use
 import { investmentKeys } from "../budget/useInvestments";
 import { isEmptyEdit, type CoveredEdit } from "../budget/coveredLink";
 import { allDebtCashIds, debtCashDrift, debtCashIds, debtCashRecords, type DebtCashRecord } from "./debtCash";
-import { confirmList, editList, idsFor, removeWhere, restoreList, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
+import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
 import { computeDebtStatus, debtEdit, debtFields } from "./debtsUtils";
 import type { CreateDebtDTO, CreateDebtPaymentDTO, Debt, DebtPayment, DebtWithStatus, InvestmentContribution, Transaction, UpdateDebtDTO } from "../../shared/types/IndexTypes";
 
@@ -170,13 +171,8 @@ const reworked = (debtId: string, change: (debt: Debt, payments: DebtPayment[]) 
     return computeDebtStatus(next.debt, next.payments);
   });
 /** `UpdateDebtDTO` laid over a debt as `updateDebt` writes it: `forgiven: null` takes it off. */
-const updated = (debt: Debt, data: UpdateDebtDTO): Debt => {
-  const { forgiven, ...rest } = data;
-  const next = { ...debt, ...withoutUndefined(rest), updatedAt: new Date() } as Debt & { forgiven?: unknown };
-  if (forgiven === null) delete next.forgiven;
-  else if (forgiven) next.forgiven = forgiven;
-  return next as Debt;
-};
+/** As `updateDebt` writes it: undefined left as stored, `null` (a forgiveness taken back, a note cleared) taken off. */
+const updated = (debt: Debt, data: UpdateDebtDTO): Debt => mergeFields(debt, { ...data, updatedAt: new Date() });
 
 /** One id per new debt / repayment, shared by the row on screen and the write — see `idsFor`. */
 const debtIds = new WeakMap<CreateDebtDTO, string>();
@@ -201,10 +197,17 @@ export function useCreateDebt() {
   });
 }
 
+/** The debt as the cached list holds it — what «nothing changed» is checked against (no read). */
+const storedDebt = (queryClient: QueryClient, userId: string, debtId: string) => queryClient.getQueryData<DebtWithStatus[]>(debtKeys.all(userId))?.find((d) => d.id === debtId);
+
 export function useUpdateDebt() {
-  const { sync, preview, undo } = useDebtRefresh();
+  const queryClient = useQueryClient();
+  const { userId, sync, preview, undo } = useDebtRefresh();
   return useOnceMutation<void, Error, { debtId: string; data: UpdateDebtDTO }, DebtPreview>({
     onceBy: sameCall,
+    // The debt as stored already says all of it: nothing is written. As
+    // `updateDebt` writes it: undefined is left as stored, `forgiven: null` takes it off.
+    unchangedWhen: ({ debtId, data }) => sameAsStored(storedDebt(queryClient, userId, debtId), withoutUndefined(data)),
     mutationFn: ({ debtId, data }) => updateDebt(debtId, data),
     onMutate: ({ debtId, data }) => preview(reworked(debtId, (debt, payments) => ({ debt: updated(debt, data), payments })), debtId),
     onSuccess: (_, { debtId }) => sync(debtId),
@@ -225,6 +228,13 @@ export function useEditDebt() {
   const { userId, sync, preview, undo } = useDebtRefresh();
   return useOnceMutation<void, Error, { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }, DebtPreview & { contributions?: ListSnapshot<InvestmentContribution>; expense?: ListSnapshot<Transaction> }>({
     onceBy: sameCall,
+    // The loan as stored already says all of it, and its goal's money has nothing to correct: nothing is written.
+    // As `editDebt` writes it: the fields it sets, and the ones it takes off (which must be absent already).
+    unchangedWhen: ({ debtId, data, covered }) => {
+      if (covered && !isEmptyEdit(covered)) return false;
+      const { set, clear } = debtEdit(data);
+      return sameAsStored(storedDebt(queryClient, userId, debtId), { ...set, ...Object.fromEntries(clear.map((field) => [field, undefined])) });
+    },
     // On screen at once, as `editDebt` will write it: the form's fields set,
     // the ones it now leaves empty taken off (`debtEdit`); a goal's deposit
     // and expense corrected with it. All put back if the write is refused.
@@ -325,9 +335,17 @@ export function useDeleteRepayment() {
 }
 
 export function useUpdateRepayment() {
-  const { sync, preview, undo } = useDebtRefresh();
+  const queryClient = useQueryClient();
+  const { userId, sync, preview, undo } = useDebtRefresh();
   return useOnceMutation<void, Error, { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }, DebtPreview>({
     onceBy: sameCall,
+    // The repayment as stored already says all of it: nothing is written.
+    unchangedWhen: ({ paymentId, debtId, amount, date, accountId, notes }) =>
+      sameAsStored(
+        storedDebt(queryClient, userId, debtId)?.payments.find((p) => p.id === paymentId),
+        // `undefined` here means «left as it is» — only what is given is compared.
+        withoutUndefined({ amount, date, accountId, notes }),
+      ),
     mutationFn: ({ paymentId, amount, date, accountId, notes }) => updateDebtPayment(paymentId, { amount, date, accountId, notes }),
     // As `updateDebtPayment` writes it: `accountId: null` and an empty note take them off.
     onMutate: ({ paymentId, debtId, amount, date, accountId, notes }) =>

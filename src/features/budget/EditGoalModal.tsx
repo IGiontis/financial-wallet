@@ -23,6 +23,8 @@ import { NameCheck } from "../../shared/components/NameCheck";
 import { investmentKeys } from "./useInvestments";
 import type { InvestmentGoal } from "../../shared/types/IndexTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
 
 interface EditGoalFormValues {
   name: string;
@@ -116,12 +118,13 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
       try {
         const data: UpdateInvestmentGoalDTO = {
           name: values.name,
-          icon: values.icon || undefined,
-          color: values.color || undefined,
-          notes: values.notes || undefined,
+          // Cleared: `null`, so the stored value is taken off rather than kept (`forUpdate`).
+          icon: values.icon.trim() ? values.icon : null,
+          color: values.color || null,
+          notes: values.notes.trim() ? values.notes : null,
           targetAmount: isTargeted ? (values.targetAmount as number) : undefined,
           targetPeriod: isTargeted ? values.targetPeriod : undefined,
-          deadline: isTargeted && isGoalsPageGoal && values.deadline ? new Date(values.deadline) : undefined,
+          deadline: isTargeted && isGoalsPageGoal ? (values.deadline ? new Date(values.deadline) : null) : undefined,
           // Cleared: `null`, so the date already saved is taken off rather than kept.
           planFrom: isTargeted && isGoalsPageGoal ? values.planFrom || (goal.planFrom ? null : undefined) : undefined,
           // Back to one figure: `null`, so the parts already saved are taken off.
@@ -149,7 +152,11 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
     onClose();
   };
 
-  const changed = formik.dirty || partsField.dirty;
+  // «No change, no Save»: the fields compared with what the form opened with
+  // (trimmed, figures as numbers, days as days), plus the parts' own check.
+  const { unchanged: fieldsUnchanged } = useFormChanged(formik.initialValues, formik.values);
+  const unchanged = fieldsUnchanged && !partsField.dirty;
+  const changed = !unchanged;
   // Another goal's name is refused; its own is not a clash (`matchName`).
   const { currentUser } = useAuth();
   const otherNames = useCachedList<InvestmentGoal>(investmentKeys.goals(currentUser?.uid ?? ""))
@@ -252,9 +259,12 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
           {step === "review" ? (
             // Nothing changed, nothing written: an unchanged save would still bump
             // `updatedAt` and spread to every device by the delta sync.
-            <Button type="submit" color="primary" disabled={formik.isSubmitting || !changed}>
-              {formik.isSubmitting ? t("common.saving") : t("goals.confirmAndSave")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={formik.isSubmitting || !changed}>
+                {formik.isSubmitting ? t("common.saving") : t("goals.confirmAndSave")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

@@ -2,12 +2,14 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sameCall, useOnceMutation } from "../../shared/hooks/useOnceMutation";
 import { useAuth } from "../../shared/hooks/useAuth";
+import { useToday } from "../../shared/hooks/useToday";
 import { getBills, createBill, updateBill, deleteBill, getBillPayments, markBillPaid, markBillPeriodsSettled, unmarkBillPaid, updateBillPayment, newDocId } from "../../firebase/firestore";
 import { billsNeedingAttention, computeBillStatus, getInstallmentCount, type MonthForecastItem } from "./billsUtils";
 import { billKeys, byUrgency, editBills, editPayments } from "./billCache";
 import { insertTransaction, setTransactionFields, transactionKeys } from "../transactions/hooks/useTransactions";
-import { confirmList, editList, idsFor, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
+import { confirmList, editList, idsFor, mergeFields, removeWhere, restoreList, upsertById, withoutUndefined, type ListSnapshot } from "../../lib/listCache";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Transaction, UpdateBillDTO } from "../../shared/types/IndexTypes";
+import { sameAsStored } from "../../shared/utils/sameValues";
 
 export { billKeys };
 
@@ -42,10 +44,16 @@ interface Rollback {
  * payment is marked rather than waiting for a visit. It does mean the bills are
  * fetched on arrival anywhere in the app — one query, and with the on-disk
  * cache usually answered from there.
+ *
+ * The one count: the menu, the phone's menu dot and the «Πληρωμές» tab all
+ * call this, on the same bills and the same day (`useToday`) — the tab once
+ * counted from the hour its page opened and the menu from the hour the bills
+ * last changed, and overnight the two disagreed.
  */
 export function useBillsNeedingAttention(): number {
   const { data: bills } = useBills();
-  return useMemo(() => billsNeedingAttention(bills ?? []), [bills]);
+  const today = useToday();
+  return useMemo(() => billsNeedingAttention(bills ?? [], today), [bills, today]);
 }
 
 export function useBills() {
@@ -77,13 +85,14 @@ function newBill(userId: string, id: string, data: CreateBillDTO): Bill {
 
 /** What `updateBill` leaves in the document: `pause: null` removes the pause. */
 function applyBillUpdate(bill: Bill, data: UpdateBillDTO): Bill {
-  const { pause, startsOn, ...rest } = data;
-  const next: Bill = { ...bill, ...withoutUndefined(rest), updatedAt: new Date() };
-  if (pause === null) delete next.pause;
-  else if (pause) next.pause = withoutUndefined(pause) as Bill["pause"];
-  if (startsOn === null) delete next.startsOn;
-  else if (startsOn) next.startsOn = startsOn;
-  return next;
+  // As `updateBill` writes it: undefined left as stored, `null` (and an empty `startsOn`) taken off.
+  const { pause, startsOn } = data;
+  return mergeFields(bill, {
+    ...data,
+    pause: pause ? (withoutUndefined(pause) as Bill["pause"]) : pause,
+    startsOn: startsOn === "" ? null : startsOn,
+    updatedAt: new Date(),
+  });
 }
 
 export function useCreateBill() {
@@ -123,6 +132,9 @@ export function useUpdateBill() {
 
   return useOnceMutation<void, Error, { billId: string; data: UpdateBillDTO }, Rollback>({
     onceBy: sameCall,
+    // The bill as stored already says all of it: nothing is written. As
+    // `updateBill` writes it: undefined is left as stored, `null` takes a field off.
+    unchangedWhen: ({ billId, data }) => sameAsStored(queryClient.getQueryData<BillWithStatus[]>(key)?.find((b) => b.id === billId), withoutUndefined(data)),
     mutationFn: ({ billId, data }) => updateBill(billId, data),
     onMutate: async ({ billId, data }) => ({ bills: await editList(queryClient, key, edit(billId, data)) }),
     onError: (_error, _vars, context) => restoreList(queryClient, context?.bills),
@@ -366,6 +378,13 @@ export function useUpdateBillPayment() {
 
   return useOnceMutation<void, Error, UpdatePaymentVars, Rollback>({
     onceBy: sameCall,
+    // Nothing given, or the payment as stored already says it: nothing is written.
+    unchangedWhen: ({ paymentId, amount, paidDate }) => {
+      const changes = withoutUndefined({ amount, paidDate });
+      if (Object.keys(changes).length === 0) return true;
+      const payment = queryClient.getQueryData<BillWithStatus[]>(billKeys.all(userId))?.flatMap((b) => b.payments).find((p) => p.id === paymentId);
+      return sameAsStored(payment, changes);
+    },
     mutationFn: ({ paymentId, transactionId, amount, paidDate }: UpdatePaymentVars) => updateBillPayment({ id: paymentId, transactionId }, { amount, paidDate }),
 
     onMutate: async (vars: UpdatePaymentVars) => ({

@@ -8,6 +8,8 @@ import { toISODay } from "../../../shared/utils/dates";
 import { parseAmount } from "../../accounts/accountsUtils";
 import { daysLate, type OccurrenceOverride, type ResolvedOccurrence } from "../plannerActuals";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 
 /**
  * One salary, one instalment, one rent — and what actually happened to it.
@@ -47,6 +49,9 @@ export default function OccurrenceSheet({
   const [date, setDate] = useState(() => toISODay(occurrence.plannedDate ?? occurrence.date));
   const [amount, setAmount] = useState("");
   const parsedAmount = parseAmount(amount);
+  // «No change, no Save»: the day or the amount this time already has.
+  const { unchanged: sameDay } = useFormChanged(toISODay(occurrence.date), date);
+  const { unchanged: sameAmount } = useFormChanged(Math.abs(occurrence.amount), parsedAmount);
 
   const open = occurrence.status === "due" || occurrence.status === "late";
   // The same override, with this one thing changed — a moved salary keeps a changed amount.
@@ -100,11 +105,12 @@ export default function OccurrenceSheet({
                   <div className="flex-grow-1">
                     <DateField value={date} onChange={setDate} />
                   </div>
-                  <Button color="primary" disabled={!date} onClick={() => onSave(keep({ date }))}>
+                  <Button color="primary" disabled={!date || sameDay} onClick={() => onSave(keep({ date }))}>
                     {t("common.save")}
                   </Button>
                 </div>
               )}
+              {editing === "date" && <UnchangedHint show={sameDay} className="d-block mt-1" />}
             </ListGroupItem>
           )}
 
@@ -120,11 +126,12 @@ export default function OccurrenceSheet({
                     <Input type="text" inputMode="decimal" autoComplete="off" placeholder={String(expectedAmount).replace(".", ",")} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ fontSize: 16 }} aria-label={t("planner.occOtherAmount")} />
                     <InputGroupText>{baseCurrency}</InputGroupText>
                   </InputGroup>
-                  <Button color="primary" disabled={parsedAmount === undefined || parsedAmount <= 0} onClick={() => parsedAmount && onSave(keep({ amount: parsedAmount }))}>
+                  <Button color="primary" disabled={parsedAmount === undefined || parsedAmount <= 0 || sameAmount} onClick={() => parsedAmount && onSave(keep({ amount: parsedAmount }))}>
                     {t("common.save")}
                   </Button>
                 </div>
               )}
+              {editing === "amount" && <UnchangedHint show={sameAmount} className="d-block mt-1" />}
             </ListGroupItem>
           )}
 

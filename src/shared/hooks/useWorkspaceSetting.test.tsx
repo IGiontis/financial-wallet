@@ -16,11 +16,17 @@ import { useWorkspaceSetting } from "./useWorkspaceSetting";
 
 const saveWorkspaceValue = vi.fn();
 let storedUser: { workspace?: Record<string, unknown> } | null = null;
+/** The account refuses the next write (rules, quota). */
+let refuseNext = false;
 
 vi.mock("../../firebase/firestore", () => ({
   getUser: () => Promise.resolve(storedUser),
   saveWorkspaceValue: (...args: unknown[]) => {
     saveWorkspaceValue(...args);
+    if (refuseNext) {
+      refuseNext = false;
+      return Promise.reject(new Error("permission-denied"));
+    }
     return Promise.resolve();
   },
 }));
@@ -170,6 +176,45 @@ describe("useWorkspaceSetting", () => {
       window.dispatchEvent(new Event("pagehide"));
     });
     expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+  });
+
+  // «No change, no write» (the owner, 2026-11-16).
+  it("sends nothing for a value the account already holds — and sends a real change", async () => {
+    storedUser = { workspace: { "planner-lines": [{ id: "l1", label: "Ενοίκιο", amount: 400 }] } };
+    const { result } = renderHook(() => useWorkspaceSetting<unknown[]>("planner-lines", []), { wrapper });
+    await waitFor(() => expect(result.current[0]).toHaveLength(1));
+
+    act(() => result.current[1]([{ id: "l1", label: "Ενοίκιο", amount: 400 }]));
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(saveWorkspaceValue).not.toHaveBeenCalled();
+
+    act(() => result.current[1]([{ id: "l1", label: "Ενοίκιο", amount: 450 }]));
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+    expect(saveWorkspaceValue).toHaveBeenCalledWith("u1", "planner-lines", [{ id: "l1", label: "Ενοίκιο", amount: 450 }]);
+  });
+
+  it("…but a value whose write was refused is sent again, though it looks the same", async () => {
+    storedUser = { workspace: { "planner-opening": "100" } };
+    const { result } = renderHook(() => useWorkspaceSetting("planner-opening", ""), { wrapper });
+    await waitFor(() => expect(result.current[0]).toBe("100"));
+
+    refuseNext = true;
+    act(() => result.current[1]("200"));
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(1);
+
+    act(() => result.current[1]("200"));
+    await act(async () => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(saveWorkspaceValue).toHaveBeenCalledTimes(2);
   });
 
   it("hands back the same default object on every render while nothing is saved", async () => {

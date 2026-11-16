@@ -159,6 +159,33 @@ describe("settings tabs", () => {
   });
 });
 
+describe("the profile — No change, no Save", () => {
+  it("Save waits for a real change: a trailing space is none, a new city is, the city cleared again is none; one save, then none again", async () => {
+    const { updateUser } = await import("../../../firebase/firestore");
+    vi.mocked(updateUser).mockClear();
+    renderAt("/settings/profile");
+    await screen.findByDisplayValue("Ilias");
+    const save = () => screen.getByRole("button", { name: "Save profile" });
+    const field = (name: string) => document.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+    expect(save()).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    await userEvent.type(field("firstName"), " ");
+    expect(save()).toBeDisabled();
+
+    await userEvent.type(field("city"), "Athens");
+    expect(save()).toBeEnabled();
+    await userEvent.clear(field("city"));
+    expect(save()).toBeDisabled();
+
+    await userEvent.type(field("city"), "Athens");
+    await userEvent.click(save());
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    // What the form compares with is now what was saved: nothing more to save.
+    await vi.waitFor(() => expect(save()).toBeDisabled());
+  });
+});
+
 describe("deleting the account", () => {
   const openDialog = async () => {
     renderAt("/settings/account");

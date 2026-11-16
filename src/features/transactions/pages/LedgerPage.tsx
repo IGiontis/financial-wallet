@@ -204,7 +204,7 @@ export function LedgerPage() {
             <FiChevronRight aria-hidden />
           </button>
         </div>
-        <div className={segmented.group} role="group" aria-label={t("ledger.span")}>
+        <div className={`${segmented.group} ${styles.span}`} role="group" aria-label={t("ledger.span")}>
           {(["month", "year"] as const).map((s) => (
             <button
               key={s}

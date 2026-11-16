@@ -26,6 +26,8 @@ import { NameCheck } from "../../../shared/components/NameCheck";
 import { INCOMES_KEY, cleanIncomes, type Income as StoredIncome } from "../incomesUtils";
 import { typedBlur } from "../../../shared/utils/typedBlur";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 
 // One sheet for a new income and for changing one, a topic a step, in the
 // order of the Bills wizard — what it is → how much, and its category → how
@@ -149,7 +151,13 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
     setView(target);
   };
 
+  // «No change, no Save»: the income as it would be saved, against the one the
+  // sheet opened with — so an answer a «no» hides, or a name with a stray
+  // space, is no change (`useFormChanged`).
+  const { unchanged } = useFormChanged(isEdit ? draftToIncome(initial, toBase) : undefined, draftToIncome(named, toBase));
+
   const save = () => {
+    if (unchanged) return;
     const found = { ...validateAll(checked), ...stepErrors(checked, "what") };
     setErrors(found);
     if (Object.keys(found).length > 0) {
@@ -473,9 +481,12 @@ export default function IncomeFormModal({ draft: initial, isEdit, startStep, cat
             )}
           </div>
           {view === "review" ? (
-            <Button type="submit" color="primary">
-              {t("common.save")}
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <UnchangedHint show={unchanged} />
+              <Button type="submit" color="primary" disabled={unchanged}>
+                {t("common.save")}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" color="primary">
               {t("common.next")} ›

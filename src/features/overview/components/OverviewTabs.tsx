@@ -5,7 +5,7 @@ import { Badge, Card, CardBody } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiArrowDownLeft, FiArrowUpRight, FiCheckCircle, FiChevronRight } from "react-icons/fi";
 import { Sparkline } from "./Sparkline";
-import type { AttentionItem } from "../overviewTabs";
+import type { AttentionItem, PositionParts } from "../overviewTabs";
 import type { NetWorthPoint } from "../../analytics/netWorthUtils";
 import { daysLate, type ResolvedOccurrence } from "../../plannerPage/plannerActuals";
 import type { IncomeStatus } from "../../incomes/incomesUtils";
@@ -298,22 +298,32 @@ export function MonthInOut({ income, expenses, formatCurrency, sub, unlogged = 0
 // ─── Position ───────────────────────────────────────────────────────────────
 
 /**
- * What there is, less what is owed — the same series the Analytics page draws,
- * so the two can never show different figures for the same month.
+ * What there is, less what is owed, over the last months — and what it is made
+ * of now. The lines are `positionParts`: the Banks page's own figures for the
+ * banks and the goals' money in them, so this tab, the money card and the
+ * Banks page show one total for the cards and the cash.
  */
-export function PositionPanel({ series, formatCurrency, locale }: { series: NetWorthPoint[]; formatCurrency: Money; locale: string }) {
+export function PositionPanel({ series, parts, formatCurrency, locale }: { series: NetWorthPoint[]; parts: PositionParts | undefined; formatCurrency: Money; locale: string }) {
   const { t } = useTranslation();
   const now = series[series.length - 1];
-  if (!now) return <Panel>{t("overview.noPosition")}</Panel>;
+  if (!now || !parts) return <Panel>{t("overview.noPosition")}</Panel>;
 
   const before = series.length > 1 ? series[series.length - 2] : undefined;
   const change = before ? Math.round((now.net - before.net) * 100) / 100 : undefined;
   const monthName = before ? new Intl.DateTimeFormat(locale, { month: "long" }).format(before.start) : "";
 
   const rows: { label: string; value: number; color: string }[] = [
-    { label: t("analytics.netWorth.cash"), value: now.cash, color: "var(--color-text-primary)" },
-    ...(now.owedToMe > 0 ? [{ label: t("analytics.netWorth.owedToMe"), value: now.owedToMe, color: "var(--color-goal)" }] : []),
-    ...(now.owedByMe > 0 ? [{ label: t("analytics.netWorth.owedByMe"), value: -now.owedByMe, color: "var(--color-expense-text)" }] : []),
+    // The money itself — the Banks page's «Τράπεζες & μετρητά» and the goals'
+    // share of it, as the sum under its total reads; before any reading, only
+    // what the records say can be spent.
+    ...(parts.banks !== undefined
+      ? [
+          { label: t("accounts.sumBanks"), value: parts.banks, color: parts.banks < 0 ? "var(--color-expense-text)" : "var(--color-text-primary)" },
+          ...(Math.abs(parts.goalsInBanks ?? 0) > 0.005 ? [{ label: t("accounts.sumGoals"), value: -(parts.goalsInBanks ?? 0), color: "var(--color-goal-text)" }] : []),
+        ]
+      : [{ label: t("accounts.sumAvailable"), value: parts.available, color: parts.available < 0 ? "var(--color-expense-text)" : "var(--color-text-primary)" }]),
+    ...(parts.owedToMe > 0 ? [{ label: t("analytics.netWorth.owedToMe"), value: parts.owedToMe, color: "var(--color-goal)" }] : []),
+    ...(parts.owedByMe > 0 ? [{ label: t("analytics.netWorth.owedByMe"), value: -parts.owedByMe, color: "var(--color-expense-text)" }] : []),
   ];
 
   return (
@@ -342,25 +352,25 @@ export function PositionPanel({ series, formatCurrency, locale }: { series: NetW
           ))}
           <div className={styles.madeOfTotal}>
             <dt>{t("overview.netPosition")}</dt>
-            <dd>{formatCurrency(now.net)}</dd>
+            <dd>{formatCurrency(parts.net)}</dd>
           </div>
         </dl>
-        {/* Said, but not added: a goal's money is promised to it, an investment's
-            may be locked — neither is money to hand today. */}
-        {(now.inGoals > 0.005 || now.inInvestments > 0.005) && (
+        {/* Said, but not added: an investment's money has left the banks and may
+            be locked; goal money handed to someone to keep has left them too. */}
+        {(parts.goalsOutside > 0.005 || parts.investments > 0.005) && (
           <>
             <div className="small text-body-secondary mt-3 mb-1">{t("overview.notInNet")}</div>
             <dl className={styles.madeOf}>
-              {now.inGoals > 0.005 && (
+              {parts.goalsOutside > 0.005 && (
                 <div>
-                  <dt>{t("overview.inGoals")}</dt>
-                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(now.inGoals)}</dd>
+                  <dt>{parts.banks !== undefined ? t("overview.inGoalsOutside") : t("overview.inGoals")}</dt>
+                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(parts.goalsOutside)}</dd>
                 </div>
               )}
-              {now.inInvestments > 0.005 && (
+              {parts.investments > 0.005 && (
                 <div>
                   <dt>{t("overview.inInvestments")}</dt>
-                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(now.inInvestments)}</dd>
+                  <dd style={{ color: "var(--color-text-secondary)" }}>{formatCurrency(parts.investments)}</dd>
                 </div>
               )}
             </dl>

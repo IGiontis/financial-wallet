@@ -17,6 +17,9 @@ import { EveryPicker } from "../../../shared/components/EveryPicker";
 import { useStepTried } from "../../../shared/hooks/useStepTried";
 import { cleanLine } from "../../../shared/utils/cleanText";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
+import { asNumber, asSet } from "../../../shared/utils/sameValues";
 
 export interface EntryDraft {
   id?: string;
@@ -164,8 +167,15 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
     setStep(target);
   };
 
+  // «No change, no Save»: what would be stored, against the figure as it was
+  // opened — the amount as a number, the categories as a set, an unanswered
+  // «every year?» the same as «Όχι» (`useFormChanged`).
+  const [opened] = useState(() => (edit && givenMode ? draftFor(givenMode, cadenceOf(givenMode, draft), draft) : undefined));
+  const comparable = (d: EntryDraft) => ({ ...d, label: cleanLine(d.label), amount: asNumber(d.amount), categoryIds: asSet(d.categoryIds), yearly: !!d.yearly });
+  const { unchanged } = useFormChanged(opened, stored, comparable);
+
   const save = () => {
-    if (!valid || !chosenMode) return;
+    if (!valid || !chosenMode || unchanged) return;
     const clean: EntryDraft = { ...stored, label: cleanLine(value.label) };
     // No categories is no limit: nothing stored rather than an empty list.
     if (!clean.categoryIds?.length) delete clean.categoryIds;
@@ -485,9 +495,12 @@ export function EntryEditor({ mode: givenMode, draft, formatCurrency, categories
               </Button>
             )}
             {step === "3" ? (
-              <Button type="submit" color="primary" disabled={!valid}>
-                {t("common.save")}
-              </Button>
+              <>
+                <UnchangedHint show={unchanged} className="align-self-center" />
+                <Button type="submit" color="primary" disabled={!valid || unchanged}>
+                  {t("common.save")}
+                </Button>
+              </>
             ) : (
               <Button type="submit" color="primary">
                 {t("common.next")} ›

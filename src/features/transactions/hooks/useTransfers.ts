@@ -6,6 +6,7 @@ import type { Transaction } from "../../../shared/types/IndexTypes";
 import { confirmList, editList, removeWhere, restoreList, upsertById, type ListEdit, type ListSnapshot } from "../../../lib/listCache";
 import type { TransferRecord } from "../transfers";
 import { transactionKeys } from "./useTransactions";
+import { sameAsStored } from "../../../shared/utils/sameValues";
 
 /** Both halves into the list — or over the old pair, for a corrected transfer. */
 const putPair =
@@ -30,6 +31,11 @@ export function useSaveTransfer() {
 
   return useOnceMutation<void, Error, { records: TransferRecord[]; createdAt?: Date }, { transactions: ListSnapshot<Transaction> }>({
     onceBy: sameCall,
+    // A correction whose two halves are already stored exactly so: nothing is written.
+    unchangedWhen: ({ records }) => {
+      const rows = queryClient.getQueryData<Transaction[]>(key) ?? [];
+      return records.length > 0 && records.every((record) => sameAsStored(rows.find((row) => row.id === record.id), record));
+    },
     mutationFn: ({ records, createdAt }) => saveTransfer(userId, records, createdAt),
     onMutate: async ({ records, createdAt }) => ({ transactions: await editList(queryClient, key, putPair(rowsOf(records, createdAt))) }),
     onError: (_err, _vars, context) => restoreList(queryClient, context?.transactions),

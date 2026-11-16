@@ -98,6 +98,29 @@ describe("editing an account", () => {
     expect(onSave).toHaveBeenCalledWith({ name: "Eurobank Pro", kind: "bank", main: true, amount: undefined, color: "teal" });
   });
 
+  it("No change, no Save: a trailing space is no change, a new finish is, and the old finish back is none again", async () => {
+    const onSave = vi.fn();
+    render(<AccountModal account={account} isMain defaultColor="teal" baseCurrency="EUR" onSave={onSave} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Name"), " ");
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Details/ }));
+    await userEvent.click(screen.getByRole("button", { name: /purple/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.queryByText("Nothing has changed")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /Details/ }));
+    await userEvent.click(screen.getByRole("button", { name: /teal/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    // Enter on the review submits the form: still nothing written.
+    await userEvent.keyboard("{Enter}");
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("has the bin far left, then Cancel, and asks before deleting", async () => {
     const onDelete = vi.fn();
     render(<AccountModal account={account} isMain={false} baseCurrency="EUR" onSave={vi.fn()} onDelete={onDelete} onClose={() => {}} />);

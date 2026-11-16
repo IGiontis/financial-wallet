@@ -314,6 +314,31 @@ describe("correcting a saved loan", () => {
     expect(spies.edit).not.toHaveBeenCalled();
   });
 
+  it("No change, no Save: 120000 typed as 120000.00 and a stray space are no change; a real one is; back again is none", async () => {
+    render(<AddDebtModal debt={saved} knownPeople={["Bank"]} onClose={() => {}} />);
+    const amount = screen.getByLabelText(/^Amount/);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "120000.00");
+    await userEvent.type(screen.getByLabelText("What for"), " ");
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^1\s*Who/ }));
+    await userEvent.clear(screen.getByLabelText(/^Amount/));
+    await userEvent.type(screen.getByLabelText(/^Amount/), "119000");
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /^1\s*Who/ }));
+    await userEvent.clear(screen.getByLabelText(/^Amount/));
+    await userEvent.type(screen.getByLabelText(/^Amount/), "120000");
+    await userEvent.click(screen.getByRole("button", { name: /Review/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.keyboard("{Enter}");
+    expect(spies.edit).not.toHaveBeenCalled();
+  });
+
   it("a corrected label writes back every other field as it was saved", async () => {
     render(<AddDebtModal debt={saved} knownPeople={["Bank"]} onClose={() => {}} />);
     await userEvent.clear(screen.getByLabelText("What for"));

@@ -6,6 +6,8 @@ import { FiMoreHorizontal } from "react-icons/fi";
 import { asHorizon, MAX_HORIZON_MONTHS, MIN_HORIZON_MONTHS, PLANNER_HORIZONS, THIS_MONTH, type PlannerHorizon } from "../plannerUtils";
 import styles from "../css/PlannerPage.module.css";
 import { FORM_MODAL } from "../../../shared/components/formModal";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 
 /** The pills a phone shows; the rest of `PLANNER_HORIZONS` sits behind "⋯" there. */
 const PHONE_HORIZONS: readonly number[] = [THIS_MONTH, 1, 3, 6, 12];
@@ -48,9 +50,11 @@ export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: H
 
   const months = parseInt(typed, 10);
   const valid = Number.isFinite(months) && months >= MIN_HORIZON_MONTHS && months <= MAX_HORIZON_MONTHS;
+  // «No change, no Save»: the length already in use is no change.
+  const { unchanged } = useFormChanged(current, valid ? asHorizon(months) : undefined);
 
   const commit = () => {
-    if (!valid) return;
+    if (!valid || unchanged) return;
     onChange(asHorizon(months));
     setAsking(false);
     setTyped("");
@@ -119,10 +123,11 @@ export function HorizonPicker({ horizon, onChange, now = new Date(), locale }: H
             <p className={styles.fieldHint}>{t("planner.horizonHint", { max: MAX_HORIZON_MONTHS, years: MAX_HORIZON_MONTHS / 12 })}</p>
           </ModalBody>
           <ModalFooter>
+            <UnchangedHint show={unchanged} className="me-auto" />
             <Button color="secondary" outline onClick={() => setAsking(false)}>
               {t("common.cancel")}
             </Button>
-            <Button color="primary" onClick={commit} disabled={!valid}>
+            <Button color="primary" onClick={commit} disabled={!valid || unchanged}>
               {t("common.save")}
             </Button>
           </ModalFooter>

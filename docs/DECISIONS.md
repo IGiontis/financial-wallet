@@ -136,3 +136,11 @@ this file disagree, ask him — one of them is a bug.
 - **Sub-pages are child routes in the sidebar**, not inner tabs (e.g. Transactions →
   «Ημερολόγιο συναλλαγών», 2026-11-12).
 - **320px: page tabs scroll sideways** rather than wrap (2026-11-12, "leave it").
+
+## Demo backlog (one demo pass, ALWAYS the last task after all others — owner, 2026-11-14)
+
+Real-user changes first; the public demo is updated in ONE batch later, to save tokens. Each
+change that the demo doesn't show yet adds a line here:
+
+- Guided tour: cover the new pages (Δουλειά, Δικαιούχοι & κατηγορίες, transactions calendar,
+  Τράπεζες), 1–2 steps per page.

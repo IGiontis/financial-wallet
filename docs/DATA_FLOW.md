@@ -139,6 +139,62 @@ doc and fail the whole batch → an error toast for a goal that was gone (reprod
   after 700 ms of quiet (flushed on page hide / unmount), one dotted field
   `workspace.<key>`.
 
+### No change, no write (the owner, 2026-11-16)
+
+He opened edit forms and could press Save with nothing changed. Two locks, one per layer:
+
+- **Screen**: every edit form compares what it holds with what it opened with through
+  `useFormChanged` (`shared/hooks/useFormChanged.ts`, by meaning — `shared/utils/sameValues.ts`: trimmed text,
+  numbers as numbers, dates as days, empty = absent). Unchanged → Save (and the review's Save) disabled with
+  «Δεν άλλαξε τίποτα» (`UnchangedHint`), and the handler returns before any toast. Changing a value back
+  disables it again. `noChangeNoSave.test.ts` lists the edit forms and checks each one uses it.
+- **Data layer**: every update hook declares `unchangedWhen` on `useOnceMutation` — the update's fields compared
+  with the record in the cached list (`sameAsStored`, zero reads). Equal → the call resolves at once and runs
+  NOTHING: no `onMutate` cache patch, no Firestore write (it would still bump `updatedAt` and send the record to
+  every device by the delta sync), no `onSuccess`. Hooks: `useUpdateTransaction`, `useUpdateCategoryGroup`,
+  `useUpdateBill`, `useUpdateBillPayment` (nothing given also counts), `useUpdateGoal`, `useUpdateDebt`, `useEditDebt`
+  (with no goal money to correct), `useUpdateRepayment`, `useSaveTransfer` (a correction whose two halves are stored
+  so), `useSaveClosing` (a correction whose closing and personal record are stored so). A record not in the cache is
+  never judged unchanged (the write goes). Workspace values (`useWorkspaceSetting`): a value equal to the held one,
+  as exact JSON (a value may hold a moment, where «the same day» is not the same), is not sent — unless its last
+  write was refused. The profile and preferences forms (Settings) check before `updateUser`.
+- Each net compares the update **as its writer writes it**: `forUpdate` writers (`updateTransaction`, `updateBill`,
+  `updateInvestmentGoal`, `updateDebt`, `updateCategories`, `updateUser`; `updateDebtPayment`'s optional fields) leave an
+  `undefined` field as stored, so it is not compared, while `null` (take it off) must match an absent field — so a
+  cleared field that IS stored counts as a change and is written;
+  `updateTransaction` always writes `metadata` (none = taken off), and `editDebt` takes off every optional field the
+  form leaves empty (`debtEdit`) — both compared as such. Dates are compared as days (no form edits an hour).
+
+### Clearing a field (2026-11-16)
+
+Emptying an optional field in an edit form (a note, an icon, a goal's deadline, a bill's due month, a city) must take
+it off the stored document — not leave the old value there to come back with the next sync. One rule, the same on
+both sides of the save:
+
+- **The form says it**: an edit form sends `null` for an optional field the user emptied, and leaves out
+  (`undefined`) a field it does not show or did not touch. Never guess «cleared» from `undefined`.
+  Forms: `EditTransactionModal` (notes), `EditGoalModal` (icon, colour, notes, deadline, plan-from, parts),
+  `AddBillModal` on an edit (notes, due month, pause, start month), Settings profile (age, city, country).
+  The update DTOs type these fields `T | null` (`IndexTypes.ts`).
+- **The write**: `forUpdate` (`src/firebase/firestore.ts`) — `undefined` left out, `null` → `deleteField()`,
+  anything else written with user text cleaned and no `undefined` at any depth. Used by `updateTransaction`,
+  `updateCategories` / `updateCategory`, `updateInvestmentGoal`, `updateBill`, `updateDebt`, `updateUser`.
+  `updateTransaction` also always speaks for `metadata` (fuel): none takes it off.
+- **The cache patch**: `mergeFields` (`src/lib/listCache.ts`) applies the same rule to the cached row — `null`
+  deletes the key, `undefined` keeps the old value — in `applyTransactionUpdate`, `useUpdateCategoryGroup`,
+  `useUpdateGoal`, `applyBillUpdate`, `useUpdateDebt` and the Settings profile; so the screen and the server agree.
+- **Already explicit, unchanged**: `editDebt` / `editCoveredDebt` take off every optional loan field the form leaves
+  empty (`debtEdit`); `updateDebtPayment` (`accountId: null`, empty note); `saveClosing` (notes, card, link);
+  transfers and debt cash are written whole (`set`), so a cleared field is simply not in the new document.
+- **Workspace values** (accounts, planner lines, incomes, businesses, check-ins …) are written whole per key
+  (`saveWorkspaceValue`): a field left off an entry is gone from the server too. Nested `undefined` is stripped
+  (`withoutUndefinedDeep`) — Firestore would refuse the whole write for it — and a value of `undefined` deletes the key.
+- **Rules**: the live `validDoc` checks only the fields present (types, sizes, ≤ 80 fields), so deleting a field
+  passes; production already deleted fields this way before (a pause, a forgiveness, a card, a goal's parts).
+  `type` and `amount` are never cleared.
+- Tests: `src/firebase/clearFields.test.tsx` (each writer against the demo's in-memory store, which applies
+  `deleteField()` and refuses an update of a missing document; and the hooks — cache and store agree).
+
 ## Delete path
 
 - **Online only.** `requireConnection("delete")` in the data layer throws
@@ -279,6 +335,14 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
 - Tests: `features/debts/debtCash.test.ts`, `firebase/firestore.test.ts` (syncDebtCash),
   `debtsUtils.test.ts`, `features/accounts/gapRecords.test.ts`, `firebase/syncEveryList.test.ts`.
 
+### Banks & cash on the Overview «Περιουσία» (read-only)
+- «Από τι αποτελείται» = `positionParts` (`overview/overviewTabs.ts`): «Τράπεζες & μετρητά» = `projectedTotal`
+  (the Banks page total, Σ `expectedByAccount`), «Από αυτά, στους στόχους» = −`goalHeldTotal`, then owed to me /
+  owed by me; net = banks − goals in banks + owed to me − owed by me = the money card's balance + owed to me −
+  owed by me. Investments and goal money handed to someone (`heldBy`) are listed beside the net, not in it.
+  Before the first reading: one line, the records' sum. The series' running month counts every record, a
+  future-dated one too, as `currentBalance` does (`netWorthSeries`). Tests: `overviewTabs.position.test.ts`.
+
 ### Bill payments
 - Docs: `billPayments` (`transactionId`) + `transactions` expense (`billId`), one batch
   (`markBillPaid`, `firestore.ts:608`; hook `useMarkBillPaid`, `useBills.ts:163`).
@@ -292,6 +356,11 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
 - Delete bill: payments go (queried from the server), the bill LAST; their **expenses stay**
   as real spending with a dangling `billId` (`deleteBill`, `firestore.ts:585`).
 - Not locked on Transactions: a bill expense is editable there and carries its payment along.
+- The count «N to pay» (menu badge, phone menu dot, «Πληρωμές» tab, Overview «Εκκρεμή») is ONE rule,
+  `billsNeedingAttention` (late or due within 7 days, `billUrgency`), on the ONE cached bills list, on the ONE
+  day `useToday()` — `useBillsNeedingAttention` for the menu, the same call in `BillsPage`. A payment patches
+  that list (`editPayments` → `computeBillStatus`), so every count drops at once, no read. (2026-11-16: the page
+  counted from when it opened, the menu from when the bills last changed — overnight they disagreed.)
 - Tests: `features/bills/useBills.test.tsx`, `transactions/hooks/useTransactions.test.tsx`
   ("a bill's expense"), `firebase/firestore.test.ts` (deleteBill, "a bill payment whose
   expense is gone", updateTransaction, deleteTransaction).

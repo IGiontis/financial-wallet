@@ -29,6 +29,15 @@ import { useMutation, type MutateOptions, type UseMutationOptions, type UseMutat
  */
 export type OnceMutationOptions<TData, TError, TVars, TCtx> = UseMutationOptions<TData, TError, TVars, TCtx> & {
   onceBy: (vars: TVars) => unknown;
+  /**
+   * «No change, no Save» one layer down (the owner, 2026-11-16): true when this
+   * update would write exactly what is already stored — read from the cached
+   * list, `sameAsStored`. Then NOTHING runs: no cache patch, no Firestore write
+   * (which would still bump `updatedAt` and travel to every device by the delta
+   * sync), no callbacks; the call resolves with `undefined`. The forms already
+   * refuse such a save (`useFormChanged`); this is the net under them.
+   */
+  unchangedWhen?: (vars: TVars) => boolean;
 };
 
 /** `onceBy` for an optimistic save: only the very same vars object is a repeat. */
@@ -37,18 +46,21 @@ export const sameCall = <T,>(vars: T): unknown => vars;
 export function useOnceMutation<TData = unknown, TError = Error, TVars = void, TCtx = unknown>(
   options: OnceMutationOptions<TData, TError, TVars, TCtx>,
 ): UseMutationResult<TData, TError, TVars, TCtx> {
-  const { onceBy, ...rest } = options;
+  const { onceBy, unchangedWhen, ...rest } = options;
   const mutation = useMutation<TData, TError, TVars, TCtx>(rest);
   const running = useRef(new Map<unknown, Promise<TData>>());
-  // The latest `onceBy`, read when a call is made (always after a commit).
+  // The latest `onceBy` / `unchangedWhen`, read when a call is made (always after a commit).
   const keyOf = useRef(onceBy);
+  const unchangedOf = useRef(unchangedWhen);
   useLayoutEffect(() => {
     keyOf.current = onceBy;
+    unchangedOf.current = unchangedWhen;
   });
   const start = mutation.mutateAsync;
 
   const mutateAsync = useCallback(
     (vars: TVars, callbacks?: MutateOptions<TData, TError, TVars, TCtx>): Promise<TData> => {
+      if (unchangedOf.current?.(vars)) return Promise.resolve(undefined as TData);
       const key = keyOf.current(vars);
       const already = running.current.get(key);
       if (already) return already;

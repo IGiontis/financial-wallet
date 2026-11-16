@@ -178,8 +178,14 @@ export function netWorthSeries(
     // window's end — today, on both screens that draw this — not to a month end
     // that has not come, so the last point owes what the debts screen says.
     const accruedTo = closes > to ? to : closes;
+    // The month still running is "now", and now counts every record entered —
+    // one dated next week too — exactly as the balance card (`currentBalance`)
+    // and the Banks page (`projectedTotal`) count it. Cut at the month's end
+    // instead, a payment typed in ahead for the 2nd of next month left the
+    // position €X above the money card on the same screen.
+    const running = closes > to;
 
-    while (cursorIndex < sorted.length && firestoreToDate(sorted[cursorIndex].date) < closes) {
+    while (cursorIndex < sorted.length && (running || firestoreToDate(sorted[cursorIndex].date) < closes)) {
       // Money set aside before the opening date is still set aside: the opening
       // figure speaks for the cash account, not for the goals beside it.
       const tx = sorted[cursorIndex];

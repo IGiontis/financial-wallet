@@ -31,6 +31,9 @@ import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { toast } from "react-toastify";
+import { useFormChanged } from "../../shared/hooks/useFormChanged";
+import { UnchangedHint } from "../../shared/components/UnchangedHint";
+import { asNumber } from "../../shared/utils/sameValues";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -98,7 +101,12 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
 
   const typed = parseFloat(index);
-  const changed = Number.isFinite(typed) && typed >= 0 && typed !== (debt.baseRate ?? 0);
+  // «No change, no Save»: the index as stored, by value (0,5 = 0.50 = 0.5).
+  const { unchanged } = useFormChanged(debt.baseRate ?? 0, asNumber(index));
+  const changed = Number.isFinite(typed) && typed >= 0 && !unchanged;
+  // The hint only once a figure was typed: the panel is always open, and an
+  // index nobody touched has nothing to explain.
+  const [typedOnce, setTypedOnce] = useState(false);
   const reviewed = debt.rateReviewedAt ? firestoreToDate(debt.rateReviewedAt) : undefined;
   // Half a year is longer than every reset period a Greek mortgage uses, so by
   // then the figure on file is certainly not the one the bank is charging.
@@ -162,12 +170,24 @@ function RateWatch({ debt, formatCurrency, locale }: { debt: DebtWithStatus; for
       <div className={styles.rateIndex}>
         <span className={styles.rateIndexLabel}>{t("debts.baseRate")}</span>
         <InputGroup size="sm" style={{ width: 120 }}>
-          <Input type="number" min={0} step="0.01" inputMode="decimal" value={index} onChange={(e) => setIndex(e.target.value)} aria-label={t("debts.baseRate")} />
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            value={index}
+            onChange={(e) => {
+              setIndex(e.target.value);
+              setTypedOnce(true);
+            }}
+            aria-label={t("debts.baseRate")}
+          />
           <InputGroupText>%</InputGroupText>
         </InputGroup>
         <Button color="secondary" outline size="sm" disabled={!changed || savingIndex} onClick={() => void saveIndex()} aria-busy={savingIndex || undefined}>
           {savingIndex ? t("common.saving") : t("debts.updateIndex")}
         </Button>
+        <UnchangedHint show={typedOnce && unchanged} />
       </div>
 
       <div className={stale ? styles.rateWatchUp : styles.payMoreIdle}>
@@ -201,10 +221,13 @@ function PaymentPanel({
   income,
   notes,
   onNotes,
+  unchanged = false,
 }: {
   amount: string;
   date: string;
   notes: string;
+  /** A correction that would save nothing new (`useFormChanged`): Save waits, with the hint. */
+  unchanged?: boolean;
   onNotes: (value: string) => void;
   /** The card or cash it went through; "" for no particular one. Undefined: an older repayment that names none. */
   account: string | undefined;
@@ -272,7 +295,7 @@ function PaymentPanel({
             if (cardMissing) return setTried(true);
             onSave();
           }}
-          disabled={saving || !valid}
+          disabled={saving || !valid || unchanged}
         >
           {t("common.save")}
         </Button>
@@ -285,6 +308,7 @@ function PaymentPanel({
           <FiX size={15} aria-hidden />
         </Button>
       </div>
+      <UnchangedHint show={unchanged} className="d-block mt-1" />
       {onDelete && deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
     </div>
   );
@@ -449,6 +473,14 @@ export default function PersonDebtsModal({
   // Letting the shown debt go — see `ForgiveDebtModal` — and taking that back.
   const [forgiving, setForgiving] = useState(false);
   const unforgive = useUpdateDebt();
+  // «No change, no Save»: a repayment correction that changes nothing is not
+  // offered. The card answer keeps «none named» apart from «Ναι» with or
+  // without a card.
+  const cardAnswer = (id: string | undefined) => (id === undefined ? "none" : `card:${id}`);
+  const { unchanged: panelUnchanged } = useFormChanged(
+    panel ? { amount: panel.payment.amount, date: toISODay(panel.payment.date), account: cardAnswer(panel.payment.accountId), notes: panel.payment.notes } : undefined,
+    { amount: asNumber(panelAmount), date: panelDate, account: cardAnswer(panelAccount), notes: panelNotes },
+  );
 
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const shortFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
@@ -646,6 +678,7 @@ export default function PersonDebtsModal({
   };
 
   const savePanel = () => {
+    if (panelUnchanged) return;
     const value = parseFloat(panelAmount);
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
@@ -842,6 +875,7 @@ export default function PersonDebtsModal({
                         notes={panelNotes}
                         onNotes={setPanelNotes}
                         income={!borrowed}
+                        unchanged={panelUnchanged}
                       />
                     )}
                   </li>

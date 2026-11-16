@@ -48,6 +48,39 @@
   flex: 1 1 100%;
 }
 
+/* A phone (desktop and tablet as they were): the month ‹ › on a row of its
+   own, the name centred between the two arrows, which sit at the row's ends;
+   under it «Μήνας» and «Έτος» share one full row, half each. */
+@media (max-width: 767.98px) {
+  .period {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .periodLabel {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .stepBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .controls .span {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+  }
+
+  .controls .span > * {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+  }
+}
+
 /* A kind that is on, out of «Όλα»: the tick says it combines, not replaces. */
 .kindChip {
   display: inline-flex;

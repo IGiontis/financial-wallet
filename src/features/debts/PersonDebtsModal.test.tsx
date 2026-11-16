@@ -332,6 +332,26 @@ describe("correcting a payment", () => {
     expect(spies.record).not.toHaveBeenCalled();
   });
 
+  it("No change, no Save: opened as it is, Save is off with the hint; 80 as 80.00 is no change; 85 is; back to 80 is none", async () => {
+    renderSheet([rent]);
+    await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByText("Nothing has changed")).toBeInTheDocument();
+
+    const amount = screen.getByLabelText("Amount");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "80.00");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "85");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "80");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(spies.update).not.toHaveBeenCalled();
+  });
+
   it("refuses a zero", async () => {
     renderSheet([rent]);
     await userEvent.click(screen.getByRole("button", { name: /May 2.*€80\.00/ }));

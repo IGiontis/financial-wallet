@@ -48,8 +48,8 @@ reasons are in `docs/DECISIONS.md`.
 - Every write stamps `updatedAt: serverTimestamp()` — the delta sync depends on it. Creates
   also stamp `createdAt`.
 - `undefined` is stripped and user text cleaned before every write (`clean` /
-  `cleanTextFields`, `firestore.ts:48`). A `null` in an Update DTO means "delete this field"
-  (`deleteField()`).
+  `cleanTextFields`, `firestore.ts:48`). In an update, `null` means "the user cleared this field" and becomes
+  `deleteField()`; `undefined` means "not touched" (`forUpdate`; DATA_FLOW «Clearing a field»).
 - Ids are usually made on the device first (`newDocId`, `firestore.ts:65`) so the optimistic
   row and the stored doc share an id; some ids are fixed by meaning (transfers `xfer_…`,
   debt cash `debt_…`, `debtpay_…`, `debtint_…`).

@@ -34,6 +34,9 @@ import { FORM_MODAL } from "../../../shared/components/formModal";
 import { LockNote } from "./LockNote";
 import type { LockState } from "../hooks/useRecordLocks";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { useFormChanged } from "../../../shared/hooks/useFormChanged";
+import { sameValues } from "../../../shared/utils/sameValues";
+import { UnchangedHint } from "../../../shared/components/UnchangedHint";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -197,6 +200,8 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
+      // Nothing changed, nothing written (and no toast saying it was).
+      if (unchangedNow(values)) return;
       if (cardMissing(values.accountId)) {
         markTried("account");
         setStep("account");
@@ -224,13 +229,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               amount: transaction.amount, type: transaction.type, categoryId: values.categoryId,
               date: firestoreToDate(transaction.date),
               description: covered.payeeLocked ? transaction.description : values.description,
-              notes: values.notes || undefined, metadata: transaction.metadata,
+              notes: values.notes.trim() ? values.notes : null, metadata: transaction.metadata,
               accountId: transaction.accountId ?? null,
             }
           : {
               amount: amountInBase, type: values.type, categoryId: values.categoryId,
               date: new Date(values.date), description: values.description,
-              notes: values.notes || undefined, metadata,
+              notes: values.notes.trim() ? values.notes : null, metadata,
               accountId: accountId || null,
             };
 
@@ -256,6 +261,13 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
       }
     },
   });
+
+  // «No change, no Save»: compared with what the form opened with. With fuel
+  // details on, the amount is price × quantity (recomputed as the form opens),
+  // so those two are what count, not the rounded total.
+  const comparable = (v: EditTransactionFormValues) => (v.showFuelDetails ? { ...v, amount: undefined } : v);
+  const { unchanged } = useFormChanged(formik.initialValues, formik.values, comparable);
+  const unchangedNow = (values: EditTransactionFormValues) => sameValues(comparable(formik.initialValues), comparable(values));
 
   useEffect(() => {
     if (formik.values.showFuelDetails && formik.values.pricePerUnit !== "" && formik.values.quantity !== "") {
@@ -541,13 +553,18 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
           <Button color="primary" disabled={!formik.values.categoryId} onClick={() => setStep(afterCategory)}>{t("common.next")}</Button>
         )}
         {step === "account" && <Button color="primary" onClick={leaveAccount}>{t("common.next")}</Button>}
-        {/* Still gated on `dirty`: opening a record and closing it again should
-            not offer to save it back unchanged. */}
-        {step === "details" && <Button color="primary" disabled={!formik.dirty || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
-        {step === "review" && (
-          <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting || checking}>
-            {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
-          </Button>
+        {/* «No change, no Save»: opening a record and closing it again never
+            offers to save it back unchanged — on the details step or the review. */}
+        {(step === "details" || step === "review") && (
+          <div className="d-flex align-items-center gap-2 ms-auto">
+            <UnchangedHint show={unchanged} />
+            {step === "details" && <Button color="primary" disabled={unchanged || checking} onClick={handleReview}>{t("transactions.reviewChanges")}</Button>}
+            {step === "review" && (
+              <Button color="primary" onClick={() => formik.submitForm()} disabled={formik.isSubmitting || checking || unchanged}>
+                {formik.isSubmitting ? t("common.saving") : t("transactions.confirmAndSave")}
+              </Button>
+            )}
+          </div>
         )}
       </ModalFooter>
     </Modal>
