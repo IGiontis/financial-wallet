@@ -5,6 +5,7 @@ import { el, enUS } from "date-fns/locale";
 import { FiCalendar } from "react-icons/fi";
 import { parseISODay, parseISOMonth, toISODay, toISOMonth } from "../utils/dates";
 import { useNarrowScreen } from "../hooks/useNarrowScreen";
+import { useToday } from "../hooks/useToday";
 import styles from "./css/DateField.module.css";
 
 // Registered once at module load — react-datepicker resolves locales by name.
@@ -34,6 +35,15 @@ interface DateFieldProps {
    * April — where asking for a day would invite a precision nobody has.
    */
   month?: boolean;
+  /**
+   * The date of something that HAPPENED (a payment, a deposit, «Ήρθε», a
+   * closing): the days after today are greyed out, today from the shared
+   * `useToday`, so it moves on at midnight. The form still checks the value
+   * with `happenedDayError` (`shared/utils/dates.ts`) — a stored future
+   * day shows as it is and is refused only if changed. Planned dates (due days,
+   * deadlines, schedules) leave it off.
+   */
+  happened?: boolean;
 }
 
 /**
@@ -73,10 +83,13 @@ DateButton.displayName = "DateButton";
  * the Formik forms that already store dates that way — no conversion at every
  * call site, and no timezone drift from round-tripping through `Date`.
  */
-export function DateField({ value, onChange, onBlur, invalid, disabled, placeholder, minDate, maxDate, name, id, small, clearable, month }: DateFieldProps) {
+export function DateField({ value, onChange, onBlur, invalid, disabled, placeholder, minDate, maxDate, name, id, small, clearable, month, happened }: DateFieldProps) {
   const { i18n } = useTranslation();
   const locale = i18n.resolvedLanguage?.startsWith("el") ? "el" : "en";
   const narrow = useNarrowScreen();
+  const today = useToday();
+  // The earlier of the two, when a form also sets its own latest day.
+  const latest = happened && (!maxDate || maxDate > today) ? today : maxDate;
 
   return (
     <DatePicker
@@ -86,7 +99,7 @@ export function DateField({ value, onChange, onBlur, invalid, disabled, placehol
       locale={locale}
       dateFormat={month ? "MMM yyyy" : "dd MMM yyyy"}
       minDate={minDate}
-      maxDate={maxDate}
+      maxDate={latest}
       name={name}
       // On the picker rather than only on the button underneath: react-datepicker
       // clones the custom input and overwrites its `id` with its own, so an id

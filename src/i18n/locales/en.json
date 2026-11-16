@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Save",
+    "pageWaiting": "Your records will appear here as soon as they arrive.",
     "dayPickerChoose": "Choose a day",
     "dayPickerNone": "No day",
     "dayPickerDay": "Day {{day}} of the month",
@@ -1014,6 +1015,8 @@
     "addTransactionBtn": "Add Transaction",
     "deleteTransaction": "Delete transaction",
     "noneFound": "No transactions found",
+    "emptyTitle": "No transactions yet",
+    "emptyHint": "Write down your first — an expense, an income or a transfer — and this is where you will see where your money goes.",
     "allCategories": "All Categories",
     "categories": "Categories",
     "clearFilter": "Clear filter",
@@ -2258,6 +2261,7 @@
     "amountPositive": "Must be greater than 0",
     "amountTooLarge": "Amount is too large",
     "dateRequired": "Date is required",
+    "notInFuture": "This already happened, so it can't be dated in the future. Pick today or earlier.",
     "nameRequired": "Name is required",
     "categoryRequired": "Category is required",
     "payeeRequired": "Payee is required",

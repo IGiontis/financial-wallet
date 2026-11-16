@@ -346,7 +346,7 @@ export default function GapRecordSheet({
                   {t("common.date")}
                   <RequiredMark />
                 </Label>
-                <DateField id="gap-date" name="gap-date" value={draft.date} onChange={(v) => setDraft({ ...draft, date: v })} minDate={earliest ? (parseISODay(earliest) ?? undefined) : undefined} maxDate={parseISODay(today) ?? undefined} />
+                <DateField id="gap-date" name="gap-date" happened value={draft.date} onChange={(v) => setDraft({ ...draft, date: v })} minDate={earliest ? (parseISODay(earliest) ?? undefined) : undefined} maxDate={parseISODay(today) ?? undefined} />
               </FormGroup>
 
               <FormGroup className="mb-2">

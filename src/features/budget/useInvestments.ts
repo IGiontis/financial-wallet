@@ -101,6 +101,12 @@ export function useInvestmentGoals() {
     isLoading: goalsQuery.isLoading || contributionsQuery.isLoading,
     isError: goalsQuery.isError || contributionsQuery.isError,
     isFetching: goalsQuery.isFetching || contributionsQuery.isFetching,
+    /**
+     * Nothing to show yet: the goals or their deposits have never come (only
+     * failed, or not yet) — `data` is `[]` meanwhile, which is not «no goals».
+     * For `usePageLoad` / `noAnswerYet`.
+     */
+    missing: goalsQuery.data === undefined || contributionsQuery.data === undefined,
   };
 }
 
@@ -108,11 +114,12 @@ export function useInvestmentGoals() {
 // A single goal's contributions, filtered out of the shared list — no extra read.
 
 export function useContributions(goalId: string | null) {
-  const { data = [], isLoading, isError } = useAllContributions();
+  const { data: all, isLoading, isError } = useAllContributions();
 
-  const filtered = useMemo(() => (goalId ? data.filter((c) => c.goalId === goalId) : []), [data, goalId]);
+  const filtered = useMemo(() => (goalId && all ? all.filter((c) => c.goalId === goalId) : []), [all, goalId]);
 
-  return { data: filtered, isLoading, isError };
+  /** Nothing to show yet (the list has never come) — `data` is `[]` meanwhile. For `usePageLoad`. */
+  return { data: filtered, isLoading, isError, missing: all === undefined };
 }
 
 // ─── useCreateGoal ────────────────────────────────────────────────────────────

@@ -16,6 +16,8 @@ import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter
 import type { CreateTransactionDTO, UpdateTransactionDTO } from "../../../shared/types/IndexTypes";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { Skeleton, SkeletonCard, SkeletonHeading, SkeletonRows, SkeletonTable } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { localeUpperCase } from "../../../shared/utils/upperCase";
 import { midnight, formatTable } from "../transactionDates";
@@ -462,8 +464,12 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: transactions = [], isLoading: txLoading } = useTransactions();
-  const { data: categories = [], isLoading: catLoading } = useCategories();
+  const transactionsQuery = useTransactions();
+  const categoriesQuery = useCategories();
+  const { data: transactions = [] } = transactionsQuery;
+  const { data: categories = [] } = categoriesQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(transactionsQuery, categoriesQuery));
   const { format: formatCurrency } = useCurrencyConverter();
 
   const createMutation = useCreateTransaction();
@@ -626,7 +632,23 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
   const pagedIds = useMemo(() => pagedTransactions.map((tx) => tx.id), [pagedTransactions]);
   const flashClass = useSavedFlash("transactions", pagedIds);
 
-  const isLoading = txLoading || catLoading;
+  const isLoading = load === "loading";
+  // Still nothing after the skeleton's time: the lists show a quiet line, the add stays.
+  const waiting = load === "waiting";
+  // The account holds no record at all (not «none match the filter»): an invitation to the first.
+  const noneYet = load === "ready" && transactions.length === 0;
+  const invite = (
+    <div className="text-center text-body-secondary py-5 px-3">
+      <p className="fs-1 mb-2" aria-hidden>
+        🧾
+      </p>
+      <p className="fw-medium text-body-emphasis mb-1">{t("transactions.emptyTitle")}</p>
+      <p className="small mb-3">{t("transactions.emptyHint")}</p>
+      <Button color="primary" onClick={() => setShowAddModal(true)}>
+        + {t("transactions.addTransaction")}
+      </Button>
+    </div>
+  );
 
   // Table or tree, per device — how one likes to read a list is not a fact about the money.
   const [txView, setTxView] = useLocalStorage<"table" | "tree">("transactions-view", "table");
@@ -689,6 +711,8 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
         <div>
           {isLoading ? (
             <Skeleton height={460} />
+          ) : waiting ? (
+            <PageWaiting />
           ) : (
             <TransactionsCalendarTab
               transactions={transactions}
@@ -764,7 +788,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
                 </div>
 
                 {/* Totals for the active filter — e.g. how much on Food this month */}
-                {!isLoading && (
+                {load === "ready" && (
                   <div className="mt-2">
                     <FilterSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />
                   </div>
@@ -790,6 +814,10 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
               <CardBody className={txView === "tree" ? "p-3" : "p-0"}>
                 {isLoading ? (
                   <SkeletonTable columns={5} rows={8} alignEnd={[3, 4]} />
+                ) : waiting ? (
+                  <PageWaiting />
+                ) : noneYet ? (
+                  invite
                 ) : txView === "tree" ? (
                   pagedTransactions.length === 0 ? (
                     <p className="text-center text-muted py-4 mb-0">{t("transactions.noneFound")}</p>
@@ -978,7 +1006,7 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
       {/* ── Mobile ── One scroll, the page's own. What the filter holds
           first, then the dates, the search, and the records by day. */}
       <div className="d-lg-none" style={{ ["--dates-height" as string]: `${datesHeight}px` }}>
-        {!isLoading && <MobileSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />}
+        {load === "ready" && <MobileSummary transactions={filteredTransactions} formatCurrency={formatCurrency} />}
         {isLoading ? (
           <SkeletonCard>
             <SkeletonHeading />
@@ -1008,6 +1036,10 @@ export function TransactionsPage({ view = "list" }: { view?: TransactionsTab } =
 
         {isLoading ? (
           <SkeletonRows count={8} />
+        ) : waiting ? (
+          <PageWaiting />
+        ) : noneYet ? (
+          invite
         ) : pagedTransactions.length === 0 ? (
           <p className="text-center text-muted py-5 mb-0">{t("transactions.noneFound")}</p>
         ) : (

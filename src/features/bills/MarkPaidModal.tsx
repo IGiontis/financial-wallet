@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { parseISODay, toISODay } from "../../shared/utils/dates";
+import { parseISODay, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, expectedByAccount, mainAccount } from "../accounts/accountsUtils";
@@ -152,7 +152,9 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
           .required("validation.amountRequired")
           .positive("validation.amountPositive")
           .max(1_000_000, "validation.amountTooLarge"),
-        date: Yup.string().required("validation.dateRequired"),
+        // The day the money left: today or earlier (owner, 2026-11-14). Paying
+        // AHEAD is a later period, not a later day.
+        date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isAfterToday(v)),
         periodKey: Yup.string().required("validation.periodRequired"),
       }),
     [],
@@ -314,13 +316,14 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
                   <RequiredMark />
                 </Label>
                 <DateField
+                  happened
                   name="date"
                   value={formik.values.date}
                   onChange={(v) => formik.setFieldValue("date", v)}
                   onBlur={() => formik.setFieldTouched("date", true)}
                   invalid={!!(formik.touched.date && formik.errors.date)}
                 />
-                <FormFeedback>{formik.errors.date && t(formik.errors.date)}</FormFeedback>
+                {formik.touched.date && formik.errors.date && <FormFeedback className="d-block">{t(formik.errors.date)}</FormFeedback>}
               </FormGroup>
 
               {/* Which period the money settles — separate from the date it left

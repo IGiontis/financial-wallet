@@ -36,8 +36,7 @@ const renderAt = (url = "/goals") =>
         subtitle=""
         action={null}
         goals={GOALS}
-        isLoading={false}
-        isError={false}
+        load="ready"
         statuses={STATUSES}
         overview={<p>the overview</p>}
         searchPlaceholder="Search goals"

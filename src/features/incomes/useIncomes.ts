@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
-import { useWorkspace, useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { useWorkspace, useWorkspaceMissing, useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useCreateTransaction, useDeleteTransaction, useTransactions } from "../transactions/hooks/useTransactions";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
@@ -43,7 +43,10 @@ export function useIncomeList() {
   const incomes = useMemo(() => cleanIncomes(stored), [stored]);
   const { isLoading: workspaceLoading } = useWorkspace();
   const { pending } = useIncomesMigration();
-  return { incomes, isLoading: (workspaceLoading && incomes.length === 0) || pending };
+  // `isLoading` turns false when the account's read fails; `missing` does not:
+  // a list nobody has read yet must not be shown as «no incomes» (`usePageLoad`).
+  const workspaceMissing = useWorkspaceMissing(INCOMES_KEY);
+  return { incomes, isLoading: (workspaceLoading && incomes.length === 0) || pending, missing: workspaceMissing || pending };
 }
 
 /**
@@ -69,10 +72,12 @@ export function useIncomes(now?: Date) {
   const [, setStored] = useWorkspaceSetting<Income[]>(INCOMES_KEY, []);
   // Until the account's copy arrives the list is this device's cache, which
   // may be empty on a new device: say "loading" rather than "no incomes yet".
-  const { incomes, isLoading: listLoading } = useIncomeList();
+  const { incomes, isLoading: listLoading, missing: listMissing } = useIncomeList();
 
-  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
+  const transactionsQuery = useTransactions();
+  const { data: transactions = [], isLoading: transactionsLoading } = transactionsQuery;
   const isLoading = transactionsLoading || listLoading;
+  const missing = listMissing || transactionsQuery.data === undefined;
   const { latest } = useMoneyAccounts();
   const lastReadingAt = latest?.at;
 
@@ -110,6 +115,10 @@ export function useIncomes(now?: Date) {
     lastReadingAt,
     now: today,
     isLoading,
+    /** Nothing to show yet — for `usePageLoad`. */
+    missing,
+    /** The list itself has not come: an income added now would write over the ones already saved. */
+    listMissing,
     saveIncome,
     removeIncome,
     setOverride,

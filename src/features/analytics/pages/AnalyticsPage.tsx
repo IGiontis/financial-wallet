@@ -4,6 +4,8 @@ import { FiActivity, FiArrowDownLeft, FiGrid, FiPieChart, FiRepeat, FiTag } from
 import { Alert } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonChartCard, SkeletonPageHeader } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 
 import { useCategories, useTransactions } from "../../transactions/hooks/useTransactions";
 import { TransactionInsights } from "../../transactions/components/TransactionInsights";
@@ -107,7 +109,10 @@ export function AnalyticsPage() {
   // would be a new value every time and invalidate every memo below.
   const [now] = useState(() => new Date());
 
-  const { data: transactions = [], isLoading, isError } = useTransactions();
+  const transactionsQuery = useTransactions();
+  const { data: transactions = [] } = transactionsQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(transactionsQuery));
   const { data: categories = [] } = useCategories();
   const { format: formatCurrency } = useCurrencyConverter();
 
@@ -244,9 +249,10 @@ export function AnalyticsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  // Failed, the page keeps its skeleton while it is tried again on its own
-  // (`installQueryAutoRetry`): no message, nothing for the user to do.
-  if (isLoading || isError) {
+  // A failed read is tried again on its own (`installQueryAutoRetry`): no
+  // message, nothing for the user to do. It used to keep the skeleton for as
+  // long as it failed — for ever, on a read that never got through.
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -280,7 +286,9 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {transactions.length === 0 ? (
+      {load === "waiting" ? (
+        <PageWaiting />
+      ) : transactions.length === 0 ? (
         <Alert color="secondary" className="small mb-0">
           {t("analytics.nothingYet")}
         </Alert>

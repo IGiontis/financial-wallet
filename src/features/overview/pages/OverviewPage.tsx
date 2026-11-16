@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { Row, Col, Card, CardBody, Progress } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { useTransactions } from "../../transactions/hooks/useTransactions";
 import { useInvestmentGoals } from "../../budget/useInvestments";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
@@ -126,14 +128,22 @@ export const OverviewPage = () => {
     toYear: now.getFullYear(),
   });
 
-  const { data: transactions = [], isLoading: txLoading, isError: txError } = useTransactions();
-  const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
+  const transactionsQuery = useTransactions();
+  const goalsQuery = useInvestmentGoals();
+  const { data: transactions = [] } = transactionsQuery;
+  const { data: goals = [] } = goalsQuery;
+  // The goals' card on «Θέση» waits for the goals on its own, as briefly (`usePageLoad`).
+  const goalsLoad = usePageLoad(noAnswerYet(goalsQuery));
   const { format: formatCurrency } = useCurrencyConverter();
   const { data: bills = [] } = useBills();
   const { data: debts = [] } = useDebts();
   // What is still open each way — the same figures the Debts page heads with.
   const openDebts = useMemo(() => debtTotals(debtsByPerson(debts)), [debts]);
-  const { opening, anchors, source: openingSource, isLoading: openingLoading } = useOpeningBalance();
+  const { opening, anchors, source: openingSource, missing: openingMissing } = useOpeningBalance();
+  // The page waits for the records and for what the balance is counted from —
+  // the skeleton for a few seconds at most, then the page (`usePageLoad`).
+  // Without the banks' reading the balance would be a different, wrong figure.
+  const load = usePageLoad(noAnswerYet(transactionsQuery) || openingMissing);
   const { accounts, readings, latest: lastReading } = useMoneyAccounts();
   // The incomes on «Έσοδα»: the ones late or waiting for the bank question go
   // on the list below, and the salary marks pay day on the month's timeline.
@@ -272,8 +282,10 @@ export const OverviewPage = () => {
               </p>
               <p className="small text-body-secondary mb-3">{t("overview.goalsAtAGlance")}</p>
 
-              {goalLoading ? (
+              {goalsLoad === "loading" ? (
                 <SkeletonRows count={3} icon={false} />
+              ) : goalsLoad === "waiting" ? (
+                <PageWaiting className="py-4" />
               ) : activeGoals.length === 0 ? (
                 <div className="d-flex flex-column align-items-center justify-content-center text-center text-body-secondary" style={{ height: 200, fontSize: "var(--fs-text)" }}>
                   <span>{t("overview.noGoalsYet")}</span>
@@ -385,9 +397,21 @@ export const OverviewPage = () => {
     />
   );
 
-  // Failed, the page keeps its skeleton while it is tried again on its own
-  // (`installQueryAutoRetry`): no message, nothing for the user to do.
-  if (txLoading || txError) {
+  // A failed read is tried again on its own (`installQueryAutoRetry`): no
+  // message, nothing for the user to do. It used to keep the skeleton for as
+  // long as it failed — for ever, on a read that never got through.
+  if (load === "waiting") {
+    return (
+      <PageShell>
+        <div className="mb-3">
+          <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("overview.title")}</h1>
+          <p className="small text-body-secondary mb-0">{new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now)}</p>
+        </div>
+        <PageWaiting />
+      </PageShell>
+    );
+  }
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader />
@@ -458,7 +482,7 @@ export const OverviewPage = () => {
               bankStrip={<BankStrip inCard hasAccounts={accounts.length > 0} latest={lastReading} age={readingAge} formatCurrency={formatCurrency} />}
               balance={balance}
               source={openingSource}
-              isLoading={openingLoading}
+              isLoading={openingMissing}
               banks={banksNow}
               inGoals={inGoals}
               accounts={accountFigures}

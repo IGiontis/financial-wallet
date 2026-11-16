@@ -115,6 +115,20 @@ this file disagree, ask him — one of them is a bug.
   locked while it runs (he could press «delete goal» twice and saw an error for an action that
   had gone through), honest success/failure.
 - **The screen never hangs (2026-11-13, SOS):** a save hung 15 s on his iPhone with no toast though it had gone through. New/edit never wait for the server (instant close + toast, failure reported later); online-only actions wait 7 s at most, then let go with «Συνεχίζει — θα σου πούμε», the record shown as pending (its clickable items disabled, Overview too), the real result as a toast.
+- **What HAPPENED is dated today or earlier (2026-11-14, MUST; his report: a goal deposit could
+  be dated in the future).** Happened = transactions (new/edit/quick add), transfers, goal and
+  investment deposits/withdrawals, «πλήρωσε για μένα», the day a debt began, repayments,
+  forgiveness, bill payments («Πληρώθηκε», settling overdue, corrections), «Ήρθε» and its
+  corrections, bank readings and gap records, business closings, a goal's close/spent day.
+  PLANNED may be future: bill due/start/anchor, income schedules, goal deadline/planFrom, debt
+  due date, planner lines/one-offs/occurrences, pauses/«from month». Three layers: the calendar
+  greys future days (`DateField happened`, from `useToday`), the form refuses one
+  («Δεν γίνεται μελλοντική ημερομηνία — αυτό έχει ήδη γίνει»), the money writers refuse a day
+  after tomorrow (`refuseFutureDates`, a day of slack for time zones). Records already stored
+  with a future day are NOT changed; they open and save as they are — the check speaks only
+  when the day is changed, and an unchanged day is not re-sent. Decided the safer way where
+  unclear: the day a debt began is "happened" even when no money moved.
+  *Don't:* relax it for a "happened" form, or add `happened` to a planned date.
 - **No change, no Save (2026-11-13, MUST, «SOS»):** edit forms let him save without changing anything — every edit form's Save stays disabled until something really changed; new-record forms until the required answers are there.
 - **Business: «Οι δουλειές μου» is its own sub-page** in the menu (like Πάγια's pages), the
   other tabs on the main page; a business keeps at least one income line (it can be 0 €), the
@@ -133,6 +147,13 @@ this file disagree, ask him — one of them is a bug.
   `.stat-head`. **Never truncate** a name or a deadline. No tabs inside sheets (the debt sheet is
   a "receipt").
 - **The Overview is view-only**: no buttons or modals there; rows link to their page.
+- **The skeleton shows at most 8 seconds** (agreed 2026-11-12 at ~20 s; the owner chose 8 s on
+  2026-11-16 — one constant, `SKELETON_MAX_MS` in `src/shared/hooks/usePageLoad.ts`). He saw
+  pages keep their loading skeleton for ever. After the 8 s the page shows its natural state:
+  the true empty state (invitation + add) when there is genuinely nothing, whatever is cached,
+  or — never answered and nothing cached — the page's frame and add with a quiet neutral line
+  (`PageWaiting`), never error/retry words and never an empty state that isn't true. Retries
+  continue silently; the page fills in when the data arrives.
 - **Sub-pages are child routes in the sidebar**, not inner tabs (e.g. Transactions →
   «Ημερολόγιο συναλλαγών», 2026-11-12).
 - **320px: page tabs scroll sideways** rather than wrap (2026-11-12, "leave it").

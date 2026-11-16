@@ -5,6 +5,7 @@ import { stillThere } from "./firestore";
 import { meterRead } from "../lib/readMeter";
 import { requireConnection } from "../shared/utils/offlinePolicy";
 import { cleanTextFields } from "../shared/utils/cleanText";
+import { refuseFutureDates } from "../shared/utils/dates";
 import { BUSINESS_CATEGORY_ID } from "../shared/utils/categories";
 import { closingLineIds } from "../features/business/businessSummary";
 import { LINES_MAX } from "../features/business/businessKeys";
@@ -51,8 +52,8 @@ export interface ClosingWrite {
   closing: BusinessEntryInput;
   /** The day's profit or loss in the owner's own money; `null` when it came to 0. */
   personal: { id: string; data: CreateTransactionDTO } | null;
-  /** A correction: the closing exists, and this was its personal record. */
-  editing?: { previousTransactionId?: string };
+  /** A correction: the closing exists, and this was its personal record; `storedDate` its day as stored. */
+  editing?: { previousTransactionId?: string; storedDate?: Date };
 }
 
 /** What every personal record of a closing carries, whatever the form handed over. */
@@ -69,6 +70,8 @@ const recordFields = (data: CreateTransactionDTO, entryId: string, businessId: s
  */
 export async function saveClosing(userId: string, w: ClosingWrite) {
   if (w.closing.incomes.length > CLOSING_LINES_MAX || w.closing.expenses.length > CLOSING_LINES_MAX) throw new Error("A closing keeps at most 30 incomes and 30 expenses");
+  // A day that was closed: never after today (owner, 2026-11-14). A correction may keep its day.
+  refuseFutureDates([w.closing.date, w.personal?.data.date], { stored: w.editing?.storedDate });
   const previous = w.editing?.previousTransactionId;
   const there = previous ? await stillThere("transactions", previous) : false;
   const stamp = () => ({ createdAt: serverTimestamp(), updatedAt: serverTimestamp() });

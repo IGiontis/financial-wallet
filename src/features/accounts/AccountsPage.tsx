@@ -7,6 +7,8 @@ import { FiAlertTriangle, FiCheckCircle, FiEdit2, FiPlus, FiRefreshCw, FiRepeat,
 
 import { PageShell } from "../../shared/components/PageShell";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { currentBalance, isAfterReading } from "../../shared/utils/balance";
@@ -67,7 +69,9 @@ export function AccountsPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
-  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, isLoading } = useMoneyAccounts();
+  const { accounts, setAccounts, setCheckIns, readings, latest, anchors, transactions, missing } = useMoneyAccounts();
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(missing);
   // The card just added or edited rings once its dialog has gone.
   const accountFlash = useSavedFlash("accounts", useMemo(() => accounts.map((a) => a.id), [accounts]), "card");
   // For writing down what a difference turned out to be, from inside the reading.
@@ -77,7 +81,9 @@ export function AccountsPage() {
   const [reading, setReading] = useState(false);
   const [editing, setEditing] = useState<MoneyAccount | "new" | null>(null);
   // The floating «+» adds a card or a cash wallet here.
-  usePageAdd(t("accounts.addTitle"), () => setEditing("new"));
+  // Not before the account's list has come: the accounts are saved as one list,
+  // so one added to a list not yet read would write over the cards already there.
+  usePageAdd(t("accounts.addTitle"), () => load === "ready" && setEditing("new"));
   const [managing, setManaging] = useState(false);
   const [deleting, setDeleting] = useState<MoneyAccount | null>(null);
   const [viewing, setViewing] = useState<MoneyAccount | null>(null);
@@ -102,12 +108,23 @@ export function AccountsPage() {
   const age = daysSince(latest);
   const main = mainAccount(accounts);
 
-  if (isLoading) {
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader />
         <SkeletonStats count={1} />
         <SkeletonRows count={3} />
+      </PageShell>
+    );
+  }
+  // Still nothing after the skeleton's time: the frame and a quiet line — never the first-time
+  // setup, which would claim there are no accounts and, saved, write over them.
+  // The «+» shows but waits for the list for the same reason.
+  if (load === "waiting") {
+    return (
+      <PageShell>
+        <Header action={<AddButton label={t("accounts.addTitle")} onClick={() => undefined} disabled />} />
+        <PageWaiting />
       </PageShell>
     );
   }

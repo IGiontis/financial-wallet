@@ -69,7 +69,7 @@ demo's in-memory store. Firestore opens with a persistent multi-tab IndexedDB ca
 (`src/firebase/syncList.ts`, `src/lib/deltaSync.ts`, local store `src/lib/localStore.ts`);
 per-user settings live on `users/{uid}` (`src/shared/hooks/useWorkspaceSetting.ts`). React Query
 (`src/lib/queryClient.ts`): `staleTime` 5 min, `gcTime` 30 min, `retry: 1`, no refetch on window
-focus; failed loads retry silently on 5 s → 10 min backoff (`src/lib/queryAutoRetry.ts`). Saves are
+focus; failed loads retry silently on 5 s → 10 min backoff (`src/lib/queryAutoRetry.ts`) while pages show their skeleton for 8 s at most, then their frame and a quiet line (`src/shared/hooks/usePageLoad.ts`). Saves are
 optimistic cache patches (`src/lib/listCache.ts`, `src/shared/utils/saveWithoutWaiting.ts`).
 Reads are counted in dev by `src/lib/readMeter.ts`. Details: `docs/DATABASE.md`, `docs/DATA_FLOW.md`.
 

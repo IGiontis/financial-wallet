@@ -5,6 +5,8 @@ import { FiDownload, FiPrinter } from "react-icons/fi";
 
 import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
 import { SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { categoryLabel } from "../../shared/utils/categories";
 import { standaloneMonthName } from "../../shared/utils/dates";
@@ -71,10 +73,16 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency } = useCurrencyConverter();
 
-  // Without `isLoading` this dialog printed a complete, well-formed statement
+  // Without a loading gate this dialog printed a complete, well-formed statement
   // with nothing in it — and a statement that says "no records" is a claim, not
-  // a placeholder. Whoever read it in that second read a wrong document.
-  const { data: transactions = [], isLoading } = useTransactions();
+  // a placeholder. Whoever read it in that second read a wrong document. Gated
+  // on the records having come (a failed read too — `isLoading` was not), the
+  // skeleton for a few seconds, then a quiet line (`usePageLoad`); nothing to
+  // print or save until then.
+  const transactionsQuery = useTransactions();
+  const { data: transactions = [] } = transactionsQuery;
+  const load = usePageLoad(noAnswerYet(transactionsQuery));
+  const isLoading = load !== "ready";
   const { data: categories = [] } = useCategories();
 
   const [now] = useState(() => new Date());
@@ -288,7 +296,9 @@ export default function StatementModal({ onClose }: { onClose: () => void }) {
             <div className={styles.generated}>{t("statement.generated", { date: generatedAt })}</div>
           </header>
 
-          {isLoading ? (
+          {load === "waiting" ? (
+            <PageWaiting />
+          ) : isLoading ? (
             <div className="py-2">
               <SkeletonHeading width="30%" sub={false} />
               <SkeletonRows count={5} icon={false} />

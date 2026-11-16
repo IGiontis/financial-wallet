@@ -7,7 +7,7 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
 - **Keep it updated in the same change** that adds a read path, a save, a delete or a link
   between records.
 - **The code is the truth**: `src/firebase/*.ts`, `src/lib/listCache.ts`, the feature hooks.
-- Last checked against the code: 2026-11-12 (run-once guard and toasts added the same day).
+- Last checked against the code: 2026-11-16 (read path: skeleton at most 8 s, `usePageLoad`; earlier 2026-11-12, run-once guard and toasts).
 
 ## Read path
 
@@ -29,7 +29,10 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
      `userId == uid && updatedAt > cursor − 60 s`; merges by id, drops logged deletions
      (`mergeChanges`), saves the copy;
   3. else, or on any error: reads the list whole and stores it.
-  An answer `fromCache` (offline) is shown but never advances the cursor.
+  An answer `fromCache` (offline) is shown but never advances the cursor. A whole read that comes
+  back `fromCache` AND empty is not taken as «the list is empty»: the device copy is returned if
+  there is one, otherwise it fails with `NO_ANSWER_YET` (offline on a device that never read the
+  list) — retried when the connection returns, the page waiting meanwhile (no false empty state).
 - Two device caches, two jobs: Firestore's own persistent cache (`config.ts`, offline answers
   and queued writes) and the app's IndexedDB copy (what makes a warm start ~1 read per list).
 - TanStack defaults (`src/lib/queryClient.ts`): fresh 5 min, kept 30 min, `retry: 1`, no
@@ -42,11 +45,45 @@ Collections, fields, indexes and rules are in `docs/DATABASE.md`; the standing r
   stale 30 min); a device-only value is pushed up once.
 - Failed loads (`src/lib/queryAutoRetry.ts`): any errored query still on screen is retried
   silently after 5 s, 15 s, 45 s, 2, 5, 10 min (only while online and visible), and at once on
-  `online` / tab visible. **Pages keep their skeleton; never a "didn't load / try again"
-  message** (`uiConventions.test.ts` checks).
+  `online` / tab visible. **Never a "didn't load / try again" message** (`uiConventions.test.ts`
+  checks).
+- **The skeleton shows at most `SKELETON_MAX_MS` (8 s)** (`src/shared/hooks/usePageLoad.ts`; the
+  owner, 2026-11-12, 8 s since 2026-11-16). Every page decides its loading branch with
+  `usePageLoad(missing)`: `missing` = a list it needs has no data yet (never answered, or only
+  failed — `noAnswerYet`; NOT `isLoading`, which turns false on a failure). Inside the 8 s the
+  skeleton; data → the page (a list that answered `[]` → its invitation at once); still nothing →
+  the page's frame and add with `PageWaiting` (a quiet line, no error words), retries going on,
+  the page filling in when the data comes. A list shown before that fails to refresh stays on
+  screen (TanStack keeps `data`). Why skeletons were endless before (2026-11-16): pages that
+  checked `isLoading || isError` (Overview, Analytics, Planner, Business `isError && !data`,
+  Names' `isSuccess`) kept it for as long as a read failed; a read that never answers (iOS PWA back
+  from the background waiting on a fresh App Check token, a stalled stream) keeps `isLoading` true
+  for ever; Settings read the user doc outside the query cache, with no retry. The pages that
+  checked only `isLoading` showed «nothing here» after a failed read instead — a false empty state.
+- Lists on the user doc (accounts, incomes, businesses, planner lines, saved payees) are written
+  whole: while the account's copy has not come and the device has none (`useWorkspaceMissing`),
+  their add is disabled — one added then would overwrite the stored list.
 - Sign-out: `forgetAllLocal()` clears every `sync:` key (`logout`, `src/firebase/auth.ts`); the menu's
   sign-out (`signOutToDemo`) also clears the account's localStorage keys (`forgetAccountStorage`) and
   lands on the public demo with a full page load.
+
+## A record of something that happened is dated today or earlier
+
+The owner's rule (2026-11-14; `docs/DECISIONS.md`). Before writing, these writers call
+`refuseFutureDates` (`shared/utils/dates.ts`) and throw `FutureDateError` — nothing written — for a
+day on or after the start of the day after tomorrow (a day of slack: forms store a day as local or
+UTC midnight, and a phone may cross a time zone; the forms themselves refuse tomorrow already):
+`createTransaction`, `updateTransaction` (only when the edit sends `date` — an unchanged day is
+left out), `saveTransfer`, `createContributionWithTransaction`, `createCoveredFunding`,
+`closeInvestmentGoal`, `markBillPaid`, `updateBillPayment`, `markBillPeriodsSettled`, `createDebt`
+(its `dueDate` is a plan, not checked), `updateDebt` (`forgiven.date`), `editDebt` /
+`editCoveredDebt`, `createDebtPayment`, `updateDebtPayment`, `saveGapRecords`, `saveClosing`
+(`business.ts`). A whole-record correction (`saveTransfer`, `saveClosing`, `editDebt`,
+`editCoveredDebt`, `updateDebtPayment`) takes the record's stored day (`storedDate`, read by the form
+before the optimistic patch) and lets it through unchanged, so a record dated in the future before
+the rule can still be corrected. Planned writers (`createBill`, goals, `updateBill`, planner and
+income settings) are not checked. Not checked either: `syncDebtCash` (derived from the debt's own,
+already-checked days). Tests: `firebase/happenedDates.test.ts`, `shared/utils/dates.test.ts`.
 
 ## Every write runs once, and says how it went
 

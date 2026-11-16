@@ -21,6 +21,8 @@ import {
 import type { InvestmentGoalWithStats, InvestmentContribution } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { MENU_DIVIDER, RowMenu } from "../../../shared/components/RowMenu";
 import { useOfflineGuard } from "../../../shared/hooks/useOfflineGuard";
 import { useRunOnce } from "../../../shared/hooks/useRunOnce";
@@ -806,7 +808,11 @@ function ContributionRow({ contribution, formatCurrency }: { contribution: Inves
 export function HistoryModal({ goal, onClose, formatCurrency }: { goal: InvestmentGoalWithStats; onClose: () => void; formatCurrency: (n: number) => string }) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<HistoryTab>("all");
-  const { data: contributions = [], isLoading } = useContributions(goal.id);
+  const contributionsQuery = useContributions(goal.id);
+  const { data: contributions = [] } = contributionsQuery;
+  // Never «no deposits» before they have come: the skeleton for a few seconds, then a quiet line (`usePageLoad`).
+  const load = usePageLoad(noAnswerYet(contributionsQuery));
+  const isLoading = load !== "ready";
 
   const sorted = [...contributions].sort((a, b) => toDate(b.date)!.getTime() - toDate(a.date)!.getTime());
   const deposits = sorted.filter((c) => c.contributionType === "deposit");
@@ -824,10 +830,12 @@ export function HistoryModal({ goal, onClose, formatCurrency }: { goal: Investme
         <HistorySummaryBar totalDeposited={goal.totalDeposited} totalWithdrawn={goal.totalWithdrawn} totalSaved={goal.totalSaved} formatCurrency={formatCurrency} />
         <HistoryTabBar active={activeTab} counts={counts} onChange={setActiveTab} />
 
-        {isLoading ? (
+        {load === "loading" ? (
           <div style={{ padding: "var(--space-4)" }}>
             <SkeletonRows count={4} />
           </div>
+        ) : load === "waiting" ? (
+          <PageWaiting />
         ) : filtered.length === 0 ? (
           <p style={{ color: "var(--color-text-secondary)", textAlign: "center", padding: "var(--space-6) 0", fontSize: "var(--fs-text)", margin: 0 }}>
             {t(HISTORY_EMPTY_KEYS[activeTab])}

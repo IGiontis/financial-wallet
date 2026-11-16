@@ -63,6 +63,8 @@ import { firestoreToDate, standaloneMonthName } from "../../shared/utils/dates";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonRows } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import BillYearAhead from "./BillYearAhead";
 import BillYearCost from "./BillYearCost";
 import { PageTabs } from "../../shared/components/PageTabs";
@@ -1073,7 +1075,11 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // What each page shows: the figures, the list, or both.
   const showFigures = view === "overview" || view === "all";
   const showList = view === "pay" || view === "all";
-  const { data: bills = [], isLoading, isError } = useBills();
+  const billsQuery = useBills();
+  const { data: bills = [] } = billsQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  // A failed read used to leave this page blank under its tabs.
+  const load = usePageLoad(noAnswerYet(billsQuery));
   // The bill just added, edited or paid lights once its dialog has gone.
   const billFlash = useSavedFlash("bills", useMemo(() => bills.map((b) => b.id), [bills]));
   const { data: categories = [] } = useCategories();
@@ -1326,12 +1332,14 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           { to: "/bills", label: t("bills.pageOverview") },
           { to: "/bills/pay", label: t("bills.pagePay"), badge: billsDue, badgeLabel: t("bills.dueCount", { count: billsDue }) },
           // How many there are, once they are loaded — not a «(0)» while they load.
-          { to: "/bills/manage", label: isLoading ? t("bills.pageManage") : `${t("bills.pageManage")} (${bills.length})` },
+          { to: "/bills/manage", label: load !== "ready" ? t("bills.pageManage") : `${t("bills.pageManage")} (${bills.length})` },
           { to: "/bills/all", label: t("bills.pageAll") },
         ]}
       />
 
-      {isLoading && (
+      {load === "waiting" && <PageWaiting />}
+
+      {load === "loading" && (
         <Row className="g-3 g-lg-4">
           <Col xs={12} lg={7} xl={8}>
             <SkeletonCard className="mb-3">
@@ -1350,7 +1358,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
         </Row>
       )}
 
-      {!isLoading && !isError && (
+      {load === "ready" && (
         <Row className={`g-3 g-lg-4 ${showFigures ? "" : "justify-content-center"}`}>
           {/* Summary + list */}
           <Col xs={12} lg={showFigures ? 7 : 12} xl={showFigures ? 8 : 9}>

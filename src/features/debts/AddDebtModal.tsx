@@ -15,7 +15,7 @@ import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import wiz from "../../shared/css/Wizard.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
-import { parseISODay, toISODay } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import type { CreateDebtDTO, Debt, DebtDirection, DebtRateType } from "../../shared/types/IndexTypes";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
 import { FORM_MODAL } from "../../shared/components/formModal";
@@ -191,6 +191,10 @@ export default function AddDebtModal({
   const personOk = person.trim() !== "";
   const amountOk = Number.isFinite(value) && value > 0;
   const when = parseISODay(date);
+  // The day the debt began happened: today or earlier, whether or not money
+  // moved (the safer reading of the owner's rule, 2026-11-14). An edit may keep
+  // the day it had. The due date is a plan and may be later.
+  const dateError = happenedDayError(date, new Date(), debt ? toISODay(debt.date) : undefined);
 
   const index = DEBT_STEPS.indexOf(step);
   // Forward only as far as what is filled in allows; back is always free.
@@ -206,7 +210,7 @@ export default function AddDebtModal({
       setStep("interest");
       return;
     }
-    if (to > 2 && !when) {
+    if (to > 2 && (!when || dateError)) {
       setStep("dates");
       return;
     }
@@ -247,7 +251,7 @@ export default function AddDebtModal({
   const saveNow = async () => {
     if (unchanged) return;
     setTouched(true);
-    if (!personOk || !amountOk || !when) return;
+    if (!personOk || !amountOk || !when || dateError) return;
     if (moneyMissing) {
       setMoneyTried(true);
       setStep("money");
@@ -316,7 +320,7 @@ export default function AddDebtModal({
       // Never waits for the server (`saveWithoutWaiting`): the debt and its
       // money are on screen at once, the dialog closes with the toast; a
       // refusal puts them back and the hook says so (`debts.saveFailed`).
-      void saveWithoutWaiting(edit, { debtId: debt.id, data, covered: plan.edit }, undefined, [["debts", debt.id]]);
+      void saveWithoutWaiting(edit, { debtId: debt.id, data, covered: plan.edit, storedDate: firestoreToDate(debt.date) }, undefined, [["debts", debt.id]]);
       celebrateSave({ collection: "debts", id: debt.id });
       toast.success(t("toasts.debtUpdated", { name: data.person }));
       onClose();
@@ -592,8 +596,9 @@ export default function AddDebtModal({
                   {t("debts.when")}
                   <RequiredMark />
                 </Label>
-                <DateField id="debt-date" name="debt-date" value={date} onChange={setDate} placeholder={t("common.date")} />
+                <DateField id="debt-date" name="debt-date" happened value={date} onChange={setDate} placeholder={t("common.date")} invalid={!!dateError} />
                 {!when && <div className="invalid-feedback d-block">{t("debts.addWizard.dateNeeded")}</div>}
+                {dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label className="small fw-medium" for="debt-due">

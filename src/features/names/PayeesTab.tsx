@@ -9,6 +9,8 @@ import { AddButton } from "../../shared/components/AddButton";
 import { SearchInput } from "../../shared/components/SearchInput";
 import { RowMenu, type RowMenuEntry } from "../../shared/components/RowMenu";
 import { SkeletonRows } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useLoadMore } from "../../shared/hooks/useLoadMore";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
@@ -66,10 +68,17 @@ export function PayeesTab() {
   const flashClass = useSavedFlash("payees", useMemo(() => rows.map((r) => r.key), [rows]));
   const { limit, hasMore, more, sentinel } = useLoadMore(shown.length, PAGE, query);
 
-  const openAdd = () => setDialog({ mode: "add" });
+  // The saved names are one list on the account: not before it has come, or a
+  // name added would write over the ones already there.
+  const openAdd = () => {
+    if (isReady) setDialog({ mode: "add" });
+  };
   usePageAdd(t("names.payeeAdd"), openAdd);
 
-  const ready = isReady && transactions.isSuccess && bills.isSuccess && debts.isSuccess;
+  // `isSuccess` turned false on a failed read and kept the skeleton for ever;
+  // now a few seconds at most, then the page (`usePageLoad`). A list that has
+  // come before and failed to refresh is shown as it was.
+  const load = usePageLoad(!isReady || noAnswerYet(transactions, bills, debts));
 
   // A new name never waits for the server: on the list at once (`usePayees`
   // shows it before the write), the dialog closes with the toast; a refusal
@@ -125,12 +134,14 @@ export function PayeesTab() {
       <p className={styles.intro}>{t("names.payeesIntro")}</p>
 
       <div className={styles.toolbar}>
-        <AddButton small label={t("names.payeeAdd")} onClick={openAdd} disabled={!ready} />
+        <AddButton small label={t("names.payeeAdd")} onClick={openAdd} disabled={!isReady} />
         <SearchInput value={query} onChange={setQuery} placeholder={t("names.payeeSearch")} ariaLabel={t("names.payeeSearch")} block />
       </div>
 
-      {!ready ? (
+      {load === "loading" ? (
         <SkeletonRows count={6} />
+      ) : load === "waiting" ? (
+        <PageWaiting />
       ) : (
         <>
           {!query.trim() && (

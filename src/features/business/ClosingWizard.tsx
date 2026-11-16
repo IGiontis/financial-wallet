@@ -13,7 +13,7 @@ import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useStepTried } from "../../shared/hooks/useStepTried";
 import { categoryLabel, VIRTUAL_CATEGORIES, BUSINESS_CATEGORY_ID } from "../../shared/utils/categories";
 import { cleanLine } from "../../shared/utils/cleanText";
-import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { formatTable } from "../transactions/transactionDates";
@@ -109,6 +109,8 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const incomeLines = linesFor(business, "incomeLines", keepNamed);
   const expenseLines = linesFor(business, "expenseLines", keepNamed);
   const when = parseISODay(date);
+  // A day that was closed: today or earlier — a corrected closing may keep the day it had.
+  const dateError = happenedDayError(date, new Date(), editing ? toISODay(entry.date) : undefined);
   const typedOf = (id: string) => amounts[id] ?? "";
   const incomesOk = incomeLines.every((l) => amountOk(typedOf(l.id)));
   const expenseFieldsOk = expenseLines.every((l) => amountOk(typedOf(l.id))) && oneOffs.every(oneOffOk);
@@ -126,7 +128,7 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const move = personalMove(figures.profit);
   const written = accounts.length > 0 ? chosenAccount(accounts, account) : undefined;
   const accountGap = !!move && accountMissing(accounts, account);
-  const dayOk = !!when && !!business;
+  const dayOk = !!when && !dateError && !!business;
   const ready = dayOk && incomesOk && expensesOk && !accountGap;
 
   const index = STEPS.indexOf(step);
@@ -163,7 +165,7 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
     void saveWithoutWaiting(
       save,
       {
-        editing: editing ? { id: entry.id, previousTransactionId: entry.linkedTransactionId, createdAt: firestoreToDate(entry.createdAt) } : undefined,
+        editing: editing ? { id: entry.id, previousTransactionId: entry.linkedTransactionId, createdAt: firestoreToDate(entry.createdAt), storedDate: firestoreToDate(entry.date) } : undefined,
         closing,
         personal: personalRecord(closing, describe),
       },
@@ -294,7 +296,8 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
                   {t("common.date")}
                   <RequiredMark />
                 </Label>
-                <DateField id={ids.date} value={date} onChange={setDate} invalid={tried("day") && !when} maxDate={new Date()} placeholder={t("common.date")} />
+                <DateField id={ids.date} happened value={date} onChange={setDate} invalid={tried("day") && (!when || !!dateError)} placeholder={t("common.date")} />
+                {tried("day") && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label for={ids.notes} className="small fw-medium mb-1">

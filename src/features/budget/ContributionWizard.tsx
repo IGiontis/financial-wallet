@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { DateField } from "../../shared/components/DateField";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { parseISODay, toISODay } from "../../shared/utils/dates";
+import { parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import type { CreateInvestmentContributionDTO, CreateTransactionDTO, InvestmentGoalWithStats } from "../../shared/types/IndexTypes";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { useCategories, useCreateTransaction } from "../transactions/hooks/useTransactions";
@@ -165,6 +165,9 @@ export default function ContributionWizard({
     return undefined;
   })();
   const when = parseISODay(date);
+  // Money that moved (or was paid for you, or spent): today or earlier — the
+  // owner's report, 2026-11-14: a deposit could be dated next week.
+  const dateError = happenedDayError(date);
   const notesTooLong = notes.length > 40;
 
   // A deposit cannot set aside, or hand over, money the card does not have
@@ -187,7 +190,7 @@ export default function ContributionWizard({
   const done = (s: Step) => {
     if (s === "use") return mode !== null && (mode !== "returned" && mode !== "theySpent" ? true : !!holder);
     if (s === "amount") return !amountError;
-    if (s === "when") return !!when && !notesTooLong;
+    if (s === "when") return !!when && !dateError && !notesTooLong;
     if (s === "card") return (!cardMustBeChosen || !!pickedAccount) && !overFree && (!needsPerson || !!person.trim()) && ((!writesExpense && !isCovered) || !!category);
     return true;
   };
@@ -217,7 +220,7 @@ export default function ContributionWizard({
   const heldBy = mode === "given" ? person.trim() : mode === "returned" || mode === "theySpent" ? holder?.name : undefined;
 
   const save = async () => {
-    if (amountError || !when || (cardMustBeChosen && !pickedAccount) || overFree) return;
+    if (amountError || !when || dateError || (cardMustBeChosen && !pickedAccount) || overFree) return;
     setSaving(true);
     if (isCovered) {
       // Someone else paid: the goal's deposit, the debt to them and the expense,
@@ -503,7 +506,8 @@ export default function ContributionWizard({
                   {t("common.date")}
                   <RequiredMark />
                 </Label>
-                <DateField value={date} onChange={setDate} placeholder={t("common.date")} />
+                <DateField happened value={date} onChange={setDate} placeholder={t("common.date")} invalid={tried && !!dateError} />
+                {tried && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label for="contribution-notes" className="small fw-medium">

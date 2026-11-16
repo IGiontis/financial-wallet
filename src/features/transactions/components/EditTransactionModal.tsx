@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { firestoreToDate } from "../../../shared/utils/dates";
+import { firestoreToDate, happenedDayError, NOT_IN_FUTURE } from "../../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
@@ -72,11 +72,18 @@ type Step = (typeof STEPS)[number];
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const validationSchema = Yup.object({
+/**
+ * `storedDate` is the record's own day: kept as it is, it is never refused —
+ * even when it is in the future (written before the rule); only a day picked
+ * here must be today or earlier (owner, 2026-11-14).
+ */
+const validationSchemaFor = (storedDate: string) => Yup.object({
   amount: Yup.number().typeError("validation.amountNumber").required("validation.amountRequired").positive("validation.mustBeGreaterThanZero").max(10_000_000, "validation.amountTooLarge"),
   type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required(),
   categoryId: Yup.string().required("validation.categoryRequired"),
-  date: Yup.string().required("validation.dateRequired"),
+  date: Yup.string()
+    .required("validation.dateRequired")
+    .test("not-future", NOT_IN_FUTURE, (v) => !v || !happenedDayError(v, new Date(), storedDate)),
   description: Yup.string().required("validation.payeeRequired").max(30, "validation.maxChars|30"),
   notes: Yup.string().max(300, "validation.maxChars|300"),
   showFuelDetails: Yup.boolean(),
@@ -184,6 +191,9 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
   const displayAmount = baseCurrency === displayCurrency ? transaction.amount : Math.round(convert(transaction.amount) * 100) / 100;
   const editableType = (transaction.type === "investment" ? "expense" : transaction.type) as "income" | "expense";
 
+  const storedDate = toDateInputValue(transaction.date);
+  const validationSchema = useMemo(() => validationSchemaFor(storedDate), [storedDate]);
+
   const formik = useFormik<EditTransactionFormValues>({
     enableReinitialize: true,
     initialValues: {
@@ -227,14 +237,18 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               // The money is the debt's: written back exactly as stored, never
               // through the display currency, so not a cent can drift.
               amount: transaction.amount, type: transaction.type, categoryId: values.categoryId,
-              date: firestoreToDate(transaction.date),
+              // Kept as stored: an unchanged day is not sent again.
+              date: undefined,
               description: covered.payeeLocked ? transaction.description : values.description,
               notes: values.notes.trim() ? values.notes : null, metadata: transaction.metadata,
               accountId: transaction.accountId ?? null,
             }
           : {
               amount: amountInBase, type: values.type, categoryId: values.categoryId,
-              date: new Date(values.date), description: values.description,
+              // Sent only when changed: a day kept as it is stays exactly as
+              // stored, and a record dated in the future before the rule can
+              // still be corrected in its other fields.
+              date: values.date === storedDate ? undefined : new Date(values.date), description: values.description,
               notes: values.notes.trim() ? values.notes : null, metadata,
               accountId: accountId || null,
             };
@@ -427,6 +441,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     <RequiredMark />
                   </Label>
                   <DateField
+                    happened
                     name="date"
                     value={formik.values.date}
                     onChange={(v) => formik.setFieldValue("date", v)}
@@ -434,7 +449,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     invalid={!!(formik.touched.date && formik.errors.date)}
                     disabled={!!covered}
                   />
-                  <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
+                  {formik.touched.date && formik.errors.date && <FormFeedback className="d-block">{validationMessage(formik.errors.date, t)}</FormFeedback>}
                 </FormGroup>
               </Col>
             </Row>

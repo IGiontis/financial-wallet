@@ -71,7 +71,8 @@ const putEntry =
 /** What a save is handed. */
 export interface ClosingSave {
   /** A correction: the closing's id and its personal record's. */
-  editing?: { id: string; previousTransactionId?: string; createdAt?: Date };
+  /** `storedDate`: the closing's day as stored — kept, it may stay as it is (see `refuseFutureDates`). */
+  editing?: { id: string; previousTransactionId?: string; createdAt?: Date; storedDate?: Date };
   closing: BusinessEntryInput;
   /** The day's profit or loss as a personal record; `null` at 0. */
   personal: CreateTransactionDTO | null;
@@ -146,7 +147,7 @@ export function useSaveClosing() {
         entryId,
         closing: vars.closing,
         personal: vars.personal ? { id: transactionId, data: vars.personal } : null,
-        editing: vars.editing ? { previousTransactionId: vars.editing.previousTransactionId } : undefined,
+        editing: vars.editing ? { previousTransactionId: vars.editing.previousTransactionId, storedDate: vars.editing.storedDate } : undefined,
       });
     },
     onMutate: async (vars) => {

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { FiArrowDownLeft, FiArrowUpRight, FiChevronDown, FiChevronRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
-import { firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
+import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import { forgivenTag, currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
 import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import AddDebtModal from "./AddDebtModal";
@@ -222,9 +222,12 @@ function PaymentPanel({
   notes,
   onNotes,
   unchanged = false,
+  storedDate,
 }: {
   amount: string;
   date: string;
+  /** The repayment's day as stored ("yyyy-MM-dd"): kept, it is never refused, even if in the future. */
+  storedDate?: string;
   notes: string;
   /** A correction that would save nothing new (`useFormChanged`): Save waits, with the hint. */
   unchanged?: boolean;
@@ -246,7 +249,9 @@ function PaymentPanel({
   const dateId = useId();
   const value = parseFloat(amount);
   const amountValid = Number.isFinite(value) && value > 0;
-  const valid = amountValid && parseISODay(date) !== null;
+  // A repayment happened: today or earlier — the day it already had may stay.
+  const dateError = happenedDayError(date, new Date(), storedDate);
+  const valid = amountValid && parseISODay(date) !== null && !dateError;
   // «Ναι» needs its card (item 97a) — an older repayment that names none is asked for one.
   const places = useAccountList();
   const cardMissing = account !== undefined && accountMissing(places, account);
@@ -277,7 +282,8 @@ function PaymentPanel({
           <label htmlFor={dateId} className="visually-hidden">
             {t("debts.when")}
           </label>
-          <DateField id={dateId} small value={date} onChange={onDate} placeholder={t("debts.when")} />
+          <DateField id={dateId} small happened value={date} onChange={onDate} placeholder={t("debts.when")} invalid={!!dateError} />
+          {dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
         </div>
       </div>
       {/* Which card it left or reached, as on any transaction — it moves that
@@ -682,6 +688,7 @@ export default function PersonDebtsModal({
     const value = parseFloat(panelAmount);
     const when = parseISODay(panelDate);
     if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
+    if (happenedDayError(panelDate, new Date(), toISODay(panel.payment.date))) return;
     if (panelAccount !== undefined && accountMissing(accounts, panelAccount)) return;
     // As written: the card chosen, or the only place there is. With no places at all, as before.
     const written = panelAccount === undefined || accounts.length === 0 ? panelAccount : chosenAccount(accounts, panelAccount);
@@ -690,7 +697,7 @@ export default function PersonDebtsModal({
     // Never waits for the server (`saveWithoutWaiting`): corrected on screen at
     // once, the panel closes with the toast; a refusal puts it back and
     // `useUpdateRepayment` says so.
-    const vars = { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null };
+    const vars = { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null, storedDate: firestoreToDate(panel.payment.date) };
     void runPanel(() => {
       void saveWithoutWaiting(updateRepayment, vars, undefined, [["debts", debt.id]]);
       setPanel(null);
@@ -876,6 +883,7 @@ export default function PersonDebtsModal({
                         onNotes={setPanelNotes}
                         income={!borrowed}
                         unchanged={panelUnchanged}
+                        storedDate={toISODay(payment.date)}
                       />
                     )}
                   </li>

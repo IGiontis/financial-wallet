@@ -5,6 +5,8 @@ import { FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight } from "react-ico
 import type { Transaction } from "../../../shared/types/IndexTypes";
 import { PageShell } from "../../../shared/components/PageShell";
 import { SkeletonCard, SkeletonRows, SkeletonStats } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { categoryLabel, findCategory } from "../../../shared/utils/categories";
@@ -43,7 +45,11 @@ export function LedgerPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format } = useCurrencyConverter();
-  const { data: transactions = [], isLoading } = useTransactions();
+  const transactionsQuery = useTransactions();
+  const { data: transactions = [] } = transactionsQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(transactionsQuery));
+  const isLoading = load === "loading";
   const { data: categories = [] } = useCategories();
   // One entry per name, over every category something was written in: «Άλλο»
   // as an income and «Άλλο» as an expense are one choice, both shown, and the
@@ -268,7 +274,7 @@ export function LedgerPage() {
       {/* The stretch in four figures. */}
       {isLoading ? (
         <SkeletonStats />
-      ) : (
+      ) : load === "waiting" ? null : (
       <div className={styles.sums}>
         <div className={styles.sum}>
           <span className={styles.sumLabel}>{t("ledger.in")}</span>
@@ -306,6 +312,8 @@ export function LedgerPage() {
                 </SkeletonCard>
               ))}
             </>
+          ) : load === "waiting" ? (
+            <PageWaiting />
           ) : ledger.count === 0 ? (
             <p className={styles.empty}>{t("ledger.empty")}</p>
           ) : (

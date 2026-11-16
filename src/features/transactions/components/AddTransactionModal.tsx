@@ -32,6 +32,7 @@ import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { toISODay, isAfterToday, NOT_IN_FUTURE } from "../../../shared/utils/dates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -50,8 +51,6 @@ interface TransactionFormValues {
   place: string;
   accountId: string;
 }
-
-const today = new Date().toISOString().split("T")[0];
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +71,10 @@ const validationSchema = Yup.object({
   amount: Yup.number().typeError("validation.amountNumber").required("validation.amountRequired").positive("validation.mustBeGreaterThanZero").max(10_000_000, "validation.amountTooLarge"),
   type: Yup.mixed<"income" | "expense">().oneOf(["income", "expense"]).required(),
   categoryId: Yup.string().required("validation.categoryRequired"),
-  date: Yup.string().required("validation.dateRequired"),
+  // Something that happened: today or earlier (owner, 2026-11-14). Checked
+  // against the clock at the moment of checking, so a form left open past
+  // midnight still accepts the new day.
+  date: Yup.string().required("validation.dateRequired").test("not-future", NOT_IN_FUTURE, (v) => !v || !isAfterToday(v)),
   description: Yup.string().required("validation.payeeRequired").max(30, "validation.maxChars|30"),
   notes: Yup.string().max(300, "validation.maxChars|300"),
   showFuelDetails: Yup.boolean(),
@@ -194,6 +196,13 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
   const afterCategory: Step = accounts.length > 0 ? "account" : "details";
   // The card is required (item 97a); its error shows only once Next was pressed without one.
   const { tried, mark: markTried, reset: resetTried } = useStepTried<Step>();
+
+  // Today on this device, read when the form opens (and after each save on the
+  // page) — not once when the app loaded, and not in UTC, which before 02:00
+  // Greek time was still yesterday. Not `useToday`: with `enableReinitialize`
+  // a day moving at midnight would wipe a half-filled form.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const today = useMemo(() => toISODay(new Date()), [isOpen, saved]);
 
   const formik = useFormik<TransactionFormValues>({
     enableReinitialize: true,
@@ -479,13 +488,14 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
                     <RequiredMark />
                   </Label>
                   <DateField
+                    happened
                     name="date"
                     value={formik.values.date}
                     onChange={(v) => formik.setFieldValue("date", v)}
                     onBlur={() => formik.setFieldTouched("date", true)}
                     invalid={!!(formik.touched.date && formik.errors.date)}
                   />
-                  <FormFeedback>{validationMessage(formik.errors.date, t)}</FormFeedback>
+                  {formik.touched.date && formik.errors.date && <FormFeedback className="d-block">{validationMessage(formik.errors.date, t)}</FormFeedback>}
                 </FormGroup>
               </Col>
             </Row>

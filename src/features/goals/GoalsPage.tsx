@@ -33,6 +33,7 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { toast } from "react-toastify";
 import { PageShell } from "../../shared/components/PageShell";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { isSavingsGoal } from "../budget/goalKinds";
 import { debtKeys } from "../debts/useDebts";
 import { CoveredRepaidError } from "../budget/useInvestments";
@@ -66,7 +67,10 @@ export default function GoalsPage() {
   const [deleteGoal, setDeleteGoal] = useState<InvestmentGoalWithStats | null>(null);
   const [editGoal, setEditGoal] = useState<InvestmentGoalWithStats | null>(null);
 
-  const { data: goals = [], isLoading, isError } = useInvestmentGoals();
+  const goalsQuery = useInvestmentGoals();
+  const { data: goals = [] } = goalsQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(goalsQuery));
   // The list `useInvestmentGoals` has just read for the goals' stats — no second read.
   const { data: contributions = [] } = useAllContributions();
   const { format: formatCurrency } = useCurrencyConverter();
@@ -203,12 +207,11 @@ export default function GoalsPage() {
         subtitle={t("goals.subtitle")}
         action={<AddButton label={t("goals.newGoal")} onClick={() => setShowNewGoal(true)} />}
         goals={mine}
-        isLoading={isLoading}
-        isError={isError}
+        load={load}
         statuses={statuses}
         overview={
           <GoalsOverview
-            loading={isLoading}
+            loading={load === "loading"}
             tiles={tiles}
             nearTitle={t("goals.nearTitle")}
             nearEmpty={t("goals.nearEmpty")}

@@ -5,6 +5,8 @@ import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { FiEdit2, FiGitMerge, FiTrash2 } from "react-icons/fi";
 import { categoryAliases, groupCategories, type CategoryGroup, type CategoryScope } from "../../shared/utils/categoryNames";
 import { categoryLabel } from "../../shared/utils/categories";
@@ -80,7 +82,10 @@ function useUsageSources() {
  */
 export default function CategoryManager() {
   const { t } = useTranslation();
-  const { data: categories = [], isLoading } = useCategories();
+  const categoriesQuery = useCategories();
+  const { data: categories = [] } = categoriesQuery;
+  // The skeleton for a few seconds at most, then the tab — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(categoriesQuery));
 
   const createCategory = useCreateCategoryScope();
   const updateCategory = useUpdateCategoryGroup();
@@ -212,7 +217,19 @@ export default function CategoryManager() {
     { label: t("common.delete"), icon: <FiTrash2 aria-hidden />, danger: true, onSelect: () => setDeleteTarget(group) },
   ];
 
-  if (isLoading) return <SkeletonRows count={4} />;
+  if (load === "loading") return <SkeletonRows count={4} />;
+  // Still nothing: a quiet line, never «no categories». The «+» waits for the
+  // list — a new name is checked against the ones already there.
+  if (load === "waiting")
+    return (
+      <>
+        <p className={styles.intro}>{t("names.categoriesIntro")}</p>
+        <div className={styles.toolbar}>
+          <AddButton small label={t("categories.new")} onClick={() => undefined} disabled />
+        </div>
+        <PageWaiting />
+      </>
+    );
 
   return (
     <>

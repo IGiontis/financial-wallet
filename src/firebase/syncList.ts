@@ -16,6 +16,9 @@ import { CURSOR_OVERLAP_MS, expiredLogKeys, logEntries, logKey, mergeChanges, ne
 
 const stateKey = (userId: string, name: string) => `sync:${userId}:${name}`;
 
+/** The `code` of the error `syncedList` fails with when, offline, it has no answer at all for a list never read on this device. */
+export const NO_ANSWER_YET = "no-answer-yet";
+
 /** Collections whose changes query was refused for want of an index, this session. */
 const noIndex = new Set<string>();
 
@@ -106,6 +109,16 @@ export async function syncedList<T extends { id: string }>(name: string, userId:
 
   const snap = await getDocs(query(collection(db, name), where("userId", "==", userId)));
   meterRead(`${name} (whole)`, snap.size, snap.metadata.fromCache);
+  // Nothing from the server and nothing in Firestore's own cache — offline, on a
+  // device that has never read this list. That is not «the list is empty», and
+  // shown as one it would be the false empty state the pages must never show
+  // (`.claude/rules/ui.md` rule 6). The device's copy speaks if there is one;
+  // otherwise the read fails, and is tried again on its own when the connection
+  // returns (`queryAutoRetry`) — the page says it is waiting, meanwhile (`usePageLoad`).
+  if (snap.metadata.fromCache && snap.empty) {
+    if (state) return state.rows;
+    throw Object.assign(new Error(`[sync] ${name}: no answer yet — offline, and never read on this device.`), { code: NO_ANSWER_YET });
+  }
   const rows = snap.docs.map(toRow);
   if (!snap.metadata.fromCache) {
     await localSet(stateKey(userId, name), { v: SYNC_VERSION, rows, cursor: newestUpdate(rows, updatedMs), syncedAt: now, fullAt: now } satisfies SyncState<T>);

@@ -15,9 +15,11 @@ export function useOpeningBalance(): {
   /** Where `opening` came from. */
   source: "readings" | undefined;
   isLoading: boolean;
+  /** Nothing to count from yet — see `useMoneyAccounts`. */
+  missing: boolean;
 } {
-  const { anchors, latest, isLoading } = useMoneyAccounts();
+  const { anchors, latest, isLoading, missing } = useMoneyAccounts();
   const opening = anchors.at(-1);
   const source = latest ? "readings" : undefined;
-  return { opening, anchors, source, isLoading };
+  return { opening, anchors, source, isLoading, missing };
 }

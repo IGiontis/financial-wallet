@@ -38,6 +38,8 @@ const saved = vi.hoisted(() => new Map<string, unknown>());
 const stored = vi.hoisted(() => ({ incomes: [] as unknown[] }));
 vi.mock("../../../shared/hooks/useWorkspaceSetting", () => ({
   useWorkspace: () => ({ data: { incomes: stored.incomes }, isSuccess: true, isLoading: false }),
+  // The account's copy is here, so nothing it holds is missing (`usePageLoad`).
+  useWorkspaceMissing: () => false,
   useWorkspaceSetting: (key: string, initial: unknown) => [key === "incomes" ? stored.incomes : initial, (value: unknown) => saved.set(key, value)],
 }));
 vi.mock("../../debts/useDebts", () => ({ useDebts: () => ({ data: data.debts }) }));

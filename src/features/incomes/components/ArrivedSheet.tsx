@@ -6,7 +6,7 @@ import { addMonths, startOfDay } from "date-fns";
 import type { Category } from "../../../shared/types/IndexTypes";
 import { DateField } from "../../../shared/components/DateField";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
-import { parseISODay, toISODay, toISOMonth } from "../../../shared/utils/dates";
+import { parseISODay, toISODay, toISOMonth, happenedDayError } from "../../../shared/utils/dates";
 import { categoryLabel } from "../../../shared/utils/categories";
 import { isPausedOn } from "../../bills/billsUtils";
 import { accountMissing, chosenAccount, type MoneyAccount } from "../../accounts/accountsUtils";
@@ -103,7 +103,9 @@ export default function ArrivedSheet({ income, status, options, expected, readin
   const typed = Number(amount.replace(",", "."));
   const amountError = !Number.isFinite(typed) || amount.trim() === "" ? "validation.amountRequired" : typed <= 0 ? "validation.amountPositive" : typed > 1_000_000 ? "validation.amountTooLarge" : undefined;
   const day = parseISODay(date);
-  const dateError = !day ? "validation.dateRequired" : readingDay && day > readingDay ? "incomes.arrived.afterReading" : undefined;
+  // «Ήρθε» happened: today or earlier (owner, 2026-11-14) — and, with a bank
+  // answer, no later than the reading.
+  const dateError = !day ? "validation.dateRequired" : (happenedDayError(date) ?? (readingDay && day > readingDay ? "incomes.arrived.afterReading" : undefined));
 
   // The fields first; the check after; the write only from the check.
   const submit = () => {
@@ -212,7 +214,7 @@ export default function ArrivedSheet({ income, status, options, expected, readin
               {t("incomes.arrived.when")}
               <RequiredMark />
             </Label>
-            <DateField id="arrived-date" value={date} onChange={setDate} maxDate={readingDay} invalid={touched && !!dateError} />
+            <DateField id="arrived-date" happened value={date} onChange={setDate} maxDate={readingDay} invalid={touched && !!dateError} />
             {touched && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
           </FormGroup>
 

@@ -30,7 +30,10 @@ import ClosingWizard from "./ClosingWizard";
 import BusinessWizard from "./BusinessWizard";
 import { BusinessDeleteModal, BusinessEntryView } from "./BusinessEntryView";
 import { BusinessesTab, DeleteBusinessModal, FirstBusinessInvite } from "./BusinessesTab";
-import { BUSINESSES_MAX } from "./businessKeys";
+import { BUSINESSES_KEY, BUSINESSES_MAX } from "./businessKeys";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
+import { useWorkspaceMissing } from "../../shared/hooks/useWorkspaceSetting";
 import { BusinessCalendar } from "./BusinessCalendar";
 import { BusinessListSheet } from "./BusinessListSheet";
 import styles from "./css/Business.module.css";
@@ -88,10 +91,13 @@ export type BusinessPageView = "main" | "manage";
 export default function BusinessPage({ view = "main" }: { view?: BusinessPageView }) {
   const [params] = useSearchParams();
   const access = useAccessState("business");
+  // Whether the page is on is a setting on the account: a read of it that
+  // never answers keeps the skeleton only for a while (`usePageLoad`).
+  const accessLoad = usePageLoad(access === "unknown");
   // «Οι δουλειές μου» was a tab of this page: an old link to it lands on its own page.
   if (view === "main" && params.get("tab") === "businesses") return <Navigate to="/business/manage" replace />;
   if (access === "off") return <NotFoundPage />;
-  if (access === "unknown") return <BusinessSkeleton />;
+  if (access === "unknown") return accessLoad === "waiting" ? <BusinessWaiting /> : <BusinessSkeleton />;
   return view === "manage" ? <ManageScreen /> : <BusinessScreen />;
 }
 
@@ -101,6 +107,18 @@ function BusinessSkeleton() {
       <SkeletonPageHeader />
       <SkeletonStats count={3} />
       <SkeletonRows count={4} />
+    </PageShell>
+  );
+}
+
+/** Not known yet whether the page is on, past the skeleton's time: its title and a quiet line — no add, nothing claimed. */
+function BusinessWaiting() {
+  const { t } = useTranslation();
+  return (
+    <PageShell>
+      <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("business.title")}</h1>
+      <p className="small text-body-secondary mb-3">{t("business.subtitle")}</p>
+      <PageWaiting />
     </PageShell>
   );
 }
@@ -130,9 +148,15 @@ function BusinessScreen() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency } = useCurrencyConverter();
-  const { data, isLoading, isError } = useBusinessEntries();
+  const entriesQuery = useBusinessEntries();
+  const { data } = entriesQuery;
   const entries = useMemo(() => data ?? [], [data]);
   const [businesses] = useBusinesses();
+  // The businesses are saved as one list: while it has not come, a new one
+  // would write over those already there — so no «new business» until it has.
+  const businessesMissing = useWorkspaceMissing(BUSINESSES_KEY);
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(entriesQuery) || businessesMissing);
   const [filter, setFilter] = useBusinessFilter(businesses);
   const remove = useDeleteClosing();
   const deleteGuard = useOfflineGuard("delete");
@@ -148,7 +172,7 @@ function BusinessScreen() {
   const addLabel = t(hasBusiness ? "business.closingTitle" : "business.newBusiness");
 
   // The floating «+» does what the header's does.
-  usePageAdd(addLabel, add);
+  usePageAdd(addLabel, () => !businessesMissing && add());
 
   // Everything below shows the chosen business, or all of them.
   const shown = useMemo(() => forBusiness(entries, filter), [entries, filter]);
@@ -183,9 +207,11 @@ function BusinessScreen() {
     { id: "days", label: t("business.tabDays") },
     { id: "calendar", label: t("business.tabCalendar") },
   ];
-  // Never a "didn't load" message: the query retries on its own, and the skeleton stays until it is in.
-  const loading = isLoading || (isError && !data);
-  const empty = !loading && shown.length === 0;
+  // Never a "didn't load" message: the query retries on its own. The skeleton
+  // for a few seconds; then, still nothing, a quiet line in every tab (`PageWaiting`).
+  const loading = load === "loading";
+  const waiting = load === "waiting";
+  const empty = load === "ready" && shown.length === 0;
   const chosen = businessOf(businesses, filter);
 
   /** An invitation, with the page's add — what a page with nothing yet shows. No business yet: make one here, or go to where they are kept. */
@@ -217,7 +243,7 @@ function BusinessScreen() {
 
   return (
     <PageShell>
-      <AddHeader label={addLabel} onAdd={add} title={t("business.title")} subtitle={t("business.subtitle")} className={businesses.length > 1 ? "mb-2" : "mb-3"} />
+      <AddHeader label={addLabel} onAdd={add} disabled={businessesMissing} title={t("business.title")} subtitle={t("business.subtitle")} className={businesses.length > 1 ? "mb-2" : "mb-3"} />
       {/* One business or all of them, for every tab: the owner's mockup A. Only once there is a choice to make. */}
       {businesses.length > 1 && (
         <div className="mb-3">
@@ -234,6 +260,8 @@ function BusinessScreen() {
               <SkeletonStats count={3} />
               <SkeletonRows count={4} />
             </>
+          ) : waiting ? (
+            <PageWaiting />
           ) : empty ? (
             invite
           ) : (
@@ -259,6 +287,8 @@ function BusinessScreen() {
           "days",
           loading ? (
             <SkeletonRows count={6} />
+          ) : waiting ? (
+            <PageWaiting />
           ) : empty ? (
             invite
           ) : (
@@ -315,6 +345,8 @@ function BusinessScreen() {
           "calendar",
           loading ? (
             <SkeletonRows count={6} />
+          ) : waiting ? (
+            <PageWaiting />
           ) : !hasBusiness ? (
             invite
           ) : (
@@ -368,26 +400,32 @@ function BusinessScreen() {
  */
 function ManageScreen() {
   const { t } = useTranslation();
-  const { data, isLoading, isError } = useBusinessEntries();
+  const entriesQuery = useBusinessEntries();
+  const { data } = entriesQuery;
   const entries = useMemo(() => data ?? [], [data]);
   const [businesses] = useBusinesses();
+  // As on the main page: no new business before the list has come — it would write over it.
+  const businessesMissing = useWorkspaceMissing(BUSINESSES_KEY);
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(entriesQuery) || businessesMissing);
   const settingsGuard = useOfflineGuard("settings");
   const [open, setOpen] = useState<BusinessOpen | null>(null);
   const full = businesses.length >= BUSINESSES_MAX;
   const label = t("business.newBusiness");
   const add = () => {
-    if (!full) setOpen({ kind: "business" });
+    if (!full && !businessesMissing) setOpen({ kind: "business" });
   };
 
   // The floating «+» does what the header's does.
   usePageAdd(label, add);
 
-  const loading = isLoading || (isError && !data);
   return (
     <PageShell>
-      <AddHeader label={label} onAdd={add} disabled={full || settingsGuard.locked} title={t("business.tabBusinesses")} subtitle={t("business.manageSubtitle")} />
-      {loading ? (
+      <AddHeader label={label} onAdd={add} disabled={full || settingsGuard.locked || businessesMissing} title={t("business.tabBusinesses")} subtitle={t("business.manageSubtitle")} />
+      {load === "loading" ? (
         <SkeletonRows count={3} />
+      ) : load === "waiting" ? (
+        <PageWaiting />
       ) : (
         <BusinessesTab businesses={businesses} entries={entries} onAdd={add} onEdit={(business) => setOpen({ kind: "business", business })} onDelete={(business) => setOpen({ kind: "deleteBusiness", business })} />
       )}

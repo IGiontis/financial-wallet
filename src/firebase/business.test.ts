@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, onTestFinished } from "vitest";
 import { deleteBusinessRecords, deleteClosing, deletedBeforeFailure, saveClosing } from "./business";
 import { closingFigures, forBusiness, monthSummary, personalRecord } from "../features/business/businessSummary";
 import { BUSINESS_CATEGORY_ID } from "../shared/utils/categories";
@@ -411,6 +411,13 @@ describe("deleting a business", () => {
 
 describe("the month's figures from what was written", () => {
   it("reconcile with the owner's money: the records add up to the month's profit — each business and «Όλες»", async () => {
+    // Written on 2 December, once every day below has been closed: a closing
+    // is never dated after today (`refuseFutureDates`, owner 2026-11-14).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 11, 2, 10));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const days: BusinessEntryInput[] = [
       pharmacyDay, // +260
       { businessId: PH, date: new Date(2026, 10, 13, 21), incomes: [{ lineId: "till", amount: 640.5 }], expenses: [{ lineId: "stock", amount: 210.25 }], accountId: "acc-main" }, // +430,25

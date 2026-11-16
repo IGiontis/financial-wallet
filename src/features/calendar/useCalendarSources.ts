@@ -10,6 +10,7 @@ import { useInvestmentGoals } from "../budget/useInvestments";
 import { PLANNER_KEYS, cleanOneOffs, cleanSkipped } from "../plannerPage/plannerInputs";
 import type { OneOff } from "../plannerPage/plannerUtils";
 import { calendarPlans, type CalendarSources } from "./calendarDays";
+import { noAnswerYet } from "../../shared/hooks/usePageLoad";
 
 /** How many months either way the calendar — and every timeline — goes. */
 export const MONTHS_EACH_WAY = 12;
@@ -20,11 +21,14 @@ export const MONTHS_EACH_WAY = 12;
  * pages through. The calendar and the three timelines all take it, so a day on
  * any of them and the same day on another cannot disagree.
  */
-export function useCalendarSources(): { sources: CalendarSources; first: Date; last: Date; isLoading: boolean } {
-  const { data: bills = [], isLoading: billsLoading } = useBills();
-  const { data: allDebts = [], isLoading: debtsLoading } = useDebts();
-  const { data: goals = [], isLoading: goalsLoading } = useInvestmentGoals();
-  const { incomes, transactions, overrides, lastReadingAt, now, isLoading: incomesLoading } = useIncomes();
+export function useCalendarSources(): { sources: CalendarSources; first: Date; last: Date; isLoading: boolean; missing: boolean } {
+  const billsQuery = useBills();
+  const debtsQuery = useDebts();
+  const goalsQuery = useInvestmentGoals();
+  const { data: bills = [], isLoading: billsLoading } = billsQuery;
+  const { data: allDebts = [], isLoading: debtsLoading } = debtsQuery;
+  const { data: goals = [], isLoading: goalsLoading } = goalsQuery;
+  const { incomes, transactions, overrides, lastReadingAt, now, isLoading: incomesLoading, missing: incomesMissing } = useIncomes();
   const [storedOneOffs] = useWorkspaceSetting<OneOff[]>(PLANNER_KEYS.oneOffs, []);
   const [storedSkipped] = useWorkspaceSetting<string[]>(PLANNER_KEYS.skip, []);
 
@@ -65,5 +69,12 @@ export function useCalendarSources(): { sources: CalendarSources; first: Date; l
     [now, bills, statuses, incomeName, oneOffs, allDebts, incomeStarts, plans],
   );
 
-  return { sources, first, last, isLoading: billsLoading || debtsLoading || goalsLoading || incomesLoading };
+  return {
+    sources,
+    first,
+    last,
+    isLoading: billsLoading || debtsLoading || goalsLoading || incomesLoading,
+    /** Nothing to show yet from one of the lists — for `usePageLoad`. */
+    missing: noAnswerYet(billsQuery, debtsQuery, goalsQuery) || incomesMissing,
+  };
 }

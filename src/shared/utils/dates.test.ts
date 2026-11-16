@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { el, enUS } from "date-fns/locale";
 import { dateFnsLocale, firestoreToDate, firestoreToDateOrUndefined, parseISODay, parseISOMonth, standaloneMonthName, toISODay, toISOMonth } from "./dates";
+import { FutureDateError, happenedDayError, happenedLimit, isAfterToday, NOT_IN_FUTURE, refuseFutureDates } from "./dates";
 
 
 
@@ -143,5 +144,58 @@ describe("standaloneMonthName", () => {
   it("carries no year with it", () => {
     expect(standaloneMonthName("el", new Date(2026, 11, 1))).not.toMatch(/2026/);
     expect(standaloneMonthName("en", new Date(2026, 11, 1))).not.toMatch(/2026/);
+  });
+});
+
+// ─── Things that happened: today or earlier (owner, 2026-11-14) ─────────────
+
+describe("isAfterToday", () => {
+  const today = new Date(2026, 10, 16, 23, 59);
+  it("is false for today and earlier, true from tomorrow", () => {
+    expect(isAfterToday("2026-11-16", today)).toBe(false);
+    expect(isAfterToday("2025-12-31", today)).toBe(false);
+    expect(isAfterToday("2026-11-17", today)).toBe(true);
+  });
+  it("crosses month and year ends by the calendar, not by string luck", () => {
+    expect(isAfterToday("2027-01-01", new Date(2026, 11, 31, 22))).toBe(true);
+    expect(isAfterToday("2026-12-31", new Date(2026, 11, 31, 0, 1))).toBe(false);
+    expect(isAfterToday("2026-12-01", new Date(2026, 10, 30))).toBe(true);
+  });
+  it("says nothing about an empty or broken value (the required check does)", () => {
+    expect(isAfterToday("", today)).toBe(false);
+    expect(isAfterToday("17/11/2026", today)).toBe(false);
+  });
+});
+
+describe("happenedDayError", () => {
+  const today = new Date(2026, 10, 16, 9);
+  it("refuses a future day with the shared message, accepts today", () => {
+    expect(happenedDayError("2026-11-17", today)).toBe(NOT_IN_FUTURE);
+    expect(happenedDayError("2026-11-16", today)).toBeUndefined();
+  });
+  it("lets an edit keep the future day it already had, but not move to another", () => {
+    expect(happenedDayError("2026-11-30", today, "2026-11-30")).toBeUndefined();
+    expect(happenedDayError("2026-11-29", today, "2026-11-30")).toBe(NOT_IN_FUTURE);
+    expect(happenedDayError("2026-11-10", today, "2026-11-30")).toBeUndefined();
+  });
+});
+
+describe("refuseFutureDates (the money writers' guard)", () => {
+  const now = new Date(2026, 10, 16, 15, 30);
+  it("lets through today and, as slack for time zones, tomorrow", () => {
+    expect(happenedLimit(now)).toEqual(new Date(2026, 10, 18));
+    expect(() => refuseFutureDates([new Date(2026, 10, 16, 23, 59), new Date("2026-11-16"), new Date(2026, 10, 17, 23, 59)], { now })).not.toThrow();
+  });
+  it("refuses the day after tomorrow and later", () => {
+    expect(() => refuseFutureDates([new Date(2026, 10, 18)], { now })).toThrow(FutureDateError);
+    expect(() => refuseFutureDates([new Date(2026, 10, 1), new Date(2027, 0, 1)], { now })).toThrow(FutureDateError);
+  });
+  it("skips what an update leaves out, and reads Firestore timestamps", () => {
+    expect(() => refuseFutureDates([undefined, null], { now })).not.toThrow();
+    expect(() => refuseFutureDates([{ seconds: new Date(2026, 11, 1).getTime() / 1000, nanoseconds: 0 }], { now })).toThrow(FutureDateError);
+  });
+  it("lets a whole-record correction keep its stored day", () => {
+    expect(() => refuseFutureDates([new Date(2026, 11, 1, 0, 0)], { now, stored: new Date(2026, 11, 1, 14) })).not.toThrow();
+    expect(() => refuseFutureDates([new Date(2026, 11, 2)], { now, stored: new Date(2026, 11, 1) })).toThrow(FutureDateError);
   });
 });

@@ -6,6 +6,8 @@ import { FiChevronRight, FiGitCommit, FiGrid } from "react-icons/fi";
 import { startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
 import { Skeleton, SkeletonPageHeader } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useCalendarSources } from "./useCalendarSources";
 import { MoneyTimeline } from "./components/MoneyTimeline";
@@ -32,7 +34,9 @@ export default function CalendarPage() {
   const lang = i18n.resolvedLanguage ?? "en";
   const { format: formatCurrency } = useCurrencyConverter();
 
-  const { sources, first, last, isLoading } = useCalendarSources();
+  const { sources, first, last, missing } = useCalendarSources();
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(missing);
   // Per device, as the other pages' views are: how one likes to read it.
   const [calendarView, setCalendarView] = useLocalStorage<"month" | "timeline">("calendar-view", "month");
   const { now } = sources;
@@ -45,11 +49,22 @@ export default function CalendarPage() {
   const days = useMemo(() => groupByDay(items), [items]);
   const totals = useMemo(() => monthTotals(items), [items]);
 
-  if (isLoading) {
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader action={false} />
         <Skeleton height={460} />
+      </PageShell>
+    );
+  }
+  // Still nothing after the skeleton's time: not an empty month, which nobody
+  // has checked — a quiet line until the lists come.
+  if (load === "waiting") {
+    return (
+      <PageShell className={styles.page}>
+        <h1 className="h5 fw-semibold text-body-emphasis mb-0">{t("nav.calendar")}</h1>
+        <p className="small text-body-secondary mb-3">{t("calendar.scope")}</p>
+        <PageWaiting />
       </PageShell>
     );
   }

@@ -138,6 +138,17 @@ export function useWorkspace() {
 }
 
 /**
+ * Whether values read from these keys may only look empty: the account's copy
+ * has not come (not yet, or its read failed) and this device holds none of
+ * them. What a page's loading state is decided on (`usePageLoad`) — an empty
+ * list must not be shown as «nothing here» before anyone has looked.
+ */
+export function useWorkspaceMissing(...keys: string[]): boolean {
+  const { data } = useWorkspace();
+  return data === undefined && keys.every((key) => readRaw(key) === null);
+}
+
+/**
  * One value out of it, with the shape `useState` has.
  *
  * There is deliberately no local copy of the value. The query cache is the one

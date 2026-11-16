@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRunOnce } from "../../../shared/hooks/useRunOnce";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useFormik } from "formik";
@@ -19,7 +19,9 @@ import { TOUR_PARAM } from "../../tour/tourState";
 import { updateUserEmail, updateUserPassword, reauthenticate, isGoogleUser } from "../../../firebase/auth";
 import { exchangeRateKeys } from "../../../shared/hooks/useCurrencyConverter";
 import type { User, UpdateUserDTO } from "../../../shared/types/IndexTypes";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { mergeFields } from "../../../lib/listCache";
 import { useTranslation } from "react-i18next";
 import { validationMessage } from "../../../shared/utils/validationMessage";
@@ -155,12 +157,22 @@ export function SettingsPage() {
   const [runDelete, deleteLoading] = useRunOnce();
   const [deleteError, setDeleteError] = useState("");
 
-  useEffect(() => {
-    if (!currentUser) return;
-    getUser(currentUser.uid)
-      .then((u) => setUserData(u))
-      .finally(() => setLoadingUser(false));
-  }, [currentUser]);
+  // The user document, read afresh on opening as it always was — through the
+  // shared query now (`exchangeRateKeys.user`), so a failed read is retried on
+  // its own (`installQueryAutoRetry`) instead of leaving the forms blank, and
+  // one that never answers holds the skeleton only for a few seconds
+  // (`usePageLoad`): then Profile and Preferences say so quietly, past the
+  // skeleton's time they take a copy already on the device, and the other
+  // tabs, which need none of it, are there.
+  const uid = currentUser?.uid ?? "";
+  const userQuery = useQuery({ queryKey: exchangeRateKeys.user(uid), queryFn: () => getUser(uid), enabled: !!uid, staleTime: 0 });
+  const userLoad = usePageLoad(loadingUser);
+  // Taken once, while rendering (React's «adjust state on a change» pattern):
+  // after that the page's own copy is what its forms compare with and save.
+  if (loadingUser && userQuery.data !== undefined && (userQuery.isFetchedAfterMount || userLoad === "waiting")) {
+    setUserData(userQuery.data);
+    setLoadingUser(false);
+  }
 
   // ── Profile form (email/password users only) ───────────────────────────────
 
@@ -362,7 +374,17 @@ export function SettingsPage() {
   const tabIds = pageTabIds(SETTINGS_TABS_BASE, tab);
   const panelProps = { id: tabIds.panel, role: "tabpanel", "aria-labelledby": tabIds.tab } as const;
 
-  if (loadingUser) {
+  if (userLoad === "waiting" && (tab === "profile" || tab === "preferences")) {
+    return (
+      <PageShell>
+        {header}
+        <div {...panelProps}>
+          <PageWaiting />
+        </div>
+      </PageShell>
+    );
+  }
+  if (userLoad === "loading") {
     return (
       <PageShell>
         {header}

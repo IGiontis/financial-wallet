@@ -3,7 +3,7 @@ import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { Button, FormFeedback, FormGroup, Input, InputGroup, InputGroupText, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
-import { parseISODay, toISODay } from "../../shared/utils/dates";
+import { parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import { formatTable } from "../transactions/transactionDates";
 import { WizardSteps } from "../transactions/components/WizardSteps";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
@@ -64,6 +64,8 @@ export default function RepaymentWizard({
   const value = parseFloat(amount);
   const amountOk = Number.isFinite(value) && value > 0;
   const when = parseISODay(date);
+  // A repayment happened: today or earlier.
+  const dateError = happenedDayError(date);
   const index = STEPS.indexOf(step);
 
   const goTo = (target: Step) => {
@@ -73,7 +75,7 @@ export default function RepaymentWizard({
       setStep("1");
       return;
     }
-    if (STEPS.indexOf(target) > 1 && !when) {
+    if (STEPS.indexOf(target) > 1 && (!when || dateError)) {
       setStep("2");
       return;
     }
@@ -106,7 +108,7 @@ export default function RepaymentWizard({
   };
   const save = () =>
     void run(() => {
-      if (!amountOk || !when) return;
+      if (!amountOk || !when || dateError) return;
       if (moneyMissing) return goTo("4");
       // Paid off by this one: the debt's milestone (confetti).
       const paidOff = !debt.isSettled && !!preview?.settles;
@@ -186,7 +188,8 @@ export default function RepaymentWizard({
               <Label htmlFor="repay-date" className="visually-hidden">
                 {t("debts.when")}
               </Label>
-              <DateField id="repay-date" value={date} onChange={setDate} placeholder={t("debts.when")} />
+              <DateField id="repay-date" happened value={date} onChange={setDate} placeholder={t("debts.when")} invalid={!!dateError} />
+              {dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
             </FormGroup>
           )}
 

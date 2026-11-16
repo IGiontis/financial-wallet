@@ -226,7 +226,7 @@ export function useUpdateDebt() {
 export function useEditDebt() {
   const queryClient = useQueryClient();
   const { userId, sync, preview, undo } = useDebtRefresh();
-  return useOnceMutation<void, Error, { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit }, DebtPreview & { contributions?: ListSnapshot<InvestmentContribution>; expense?: ListSnapshot<Transaction> }>({
+  return useOnceMutation<void, Error, { debtId: string; data: CreateDebtDTO; covered?: CoveredEdit; /** The debt's day as stored: kept, it may stay even if in the future (`refuseFutureDates`). Read by the form, before the screen is patched. */ storedDate?: Date }, DebtPreview & { contributions?: ListSnapshot<InvestmentContribution>; expense?: ListSnapshot<Transaction> }>({
     onceBy: sameCall,
     // The loan as stored already says all of it, and its goal's money has nothing to correct: nothing is written.
     // As `editDebt` writes it: the fields it sets, and the ones it takes off (which must be absent already).
@@ -257,12 +257,12 @@ export function useEditDebt() {
       const expense = covered.expense ? await editList(queryClient, transactionKeys.all(userId), setTransactionFields(covered.expense.id, covered.expense.set)) : undefined;
       return { ...shown, contributions, expense };
     },
-    mutationFn: async ({ debtId, data, covered }) => {
+    mutationFn: async ({ debtId, data, covered, storedDate }) => {
       if (!covered || isEmptyEdit(covered)) {
-        await editDebt(debtId, data);
+        await editDebt(debtId, data, storedDate);
         return;
       }
-      const wrote = await editCoveredDebt(debtId, data, covered);
+      const wrote = await editCoveredDebt(debtId, data, covered, storedDate);
       const now = new Date();
       if (wrote.contribution && covered.contribution) {
         const { id, set } = covered.contribution;
@@ -337,7 +337,7 @@ export function useDeleteRepayment() {
 export function useUpdateRepayment() {
   const queryClient = useQueryClient();
   const { userId, sync, preview, undo } = useDebtRefresh();
-  return useOnceMutation<void, Error, { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null }, DebtPreview>({
+  return useOnceMutation<void, Error, { paymentId: string; debtId: string; amount: number; date: Date; accountId?: string | null; notes?: string | null; /** The repayment's day as stored — see `useEditDebt`. */ storedDate?: Date }, DebtPreview>({
     onceBy: sameCall,
     // The repayment as stored already says all of it: nothing is written.
     unchangedWhen: ({ paymentId, debtId, amount, date, accountId, notes }) =>
@@ -346,7 +346,7 @@ export function useUpdateRepayment() {
         // `undefined` here means «left as it is» — only what is given is compared.
         withoutUndefined({ amount, date, accountId, notes }),
       ),
-    mutationFn: ({ paymentId, amount, date, accountId, notes }) => updateDebtPayment(paymentId, { amount, date, accountId, notes }),
+    mutationFn: ({ paymentId, amount, date, accountId, notes, storedDate }) => updateDebtPayment(paymentId, { amount, date, accountId, notes }, storedDate),
     // As `updateDebtPayment` writes it: `accountId: null` and an empty note take them off.
     onMutate: ({ paymentId, debtId, amount, date, accountId, notes }) =>
       preview(

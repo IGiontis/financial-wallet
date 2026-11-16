@@ -29,14 +29,14 @@ export function useSaveTransfer() {
     return records.map((record) => ({ ...record, userId, createdAt: createdAt ?? now, updatedAt: now }) as Transaction);
   };
 
-  return useOnceMutation<void, Error, { records: TransferRecord[]; createdAt?: Date }, { transactions: ListSnapshot<Transaction> }>({
+  return useOnceMutation<void, Error, { records: TransferRecord[]; createdAt?: Date; /** A correction's day as stored — see `saveTransfer`. */ storedDate?: Date }, { transactions: ListSnapshot<Transaction> }>({
     onceBy: sameCall,
     // A correction whose two halves are already stored exactly so: nothing is written.
     unchangedWhen: ({ records }) => {
       const rows = queryClient.getQueryData<Transaction[]>(key) ?? [];
       return records.length > 0 && records.every((record) => sameAsStored(rows.find((row) => row.id === record.id), record));
     },
-    mutationFn: ({ records, createdAt }) => saveTransfer(userId, records, createdAt),
+    mutationFn: ({ records, createdAt, storedDate }) => saveTransfer(userId, records, createdAt, storedDate),
     onMutate: async ({ records, createdAt }) => ({ transactions: await editList(queryClient, key, putPair(rowsOf(records, createdAt))) }),
     onError: (_err, _vars, context) => restoreList(queryClient, context?.transactions),
     onSuccess: (_void, { records, createdAt }) => confirmList(queryClient, key, putPair(rowsOf(records, createdAt))),

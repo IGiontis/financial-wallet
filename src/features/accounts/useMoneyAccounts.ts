@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { useWorkspaceMissing, useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import { ACCOUNTS_KEY, CHECK_INS_KEY, balanceAnchors, readCheckIns, type BalanceCheckIn, type MoneyAccount } from "./accountsUtils";
 
@@ -25,7 +25,12 @@ export function useMoneyAccounts({ fetch = true }: { fetch?: boolean } = {}) {
   const [storedAccounts, setAccounts] = useWorkspaceSetting<MoneyAccount[]>(ACCOUNTS_KEY, []);
   const [storedCheckIns, setCheckIns] = useWorkspaceSetting<BalanceCheckIn[]>(CHECK_INS_KEY, []);
   // `fetch: false` — see `useTransactions`.
-  const { data: transactions = [], isLoading: transactionsLoading } = useTransactions({ fetch });
+  const transactionsQuery = useTransactions({ fetch });
+  const { data: transactions = [], isLoading: transactionsLoading } = transactionsQuery;
+  // Nothing to show yet: the records (when this screen reads them) or the
+  // accounts themselves have never come — see `usePageLoad`.
+  const workspaceMissing = useWorkspaceMissing(ACCOUNTS_KEY, CHECK_INS_KEY);
+  const missing = (fetch && transactionsQuery.data === undefined) || workspaceMissing;
 
   // Whatever the document holds is checked before it is trusted: it is typed
   // by nobody, and one malformed entry should cost that entry, not the page.
@@ -45,5 +50,7 @@ export function useMoneyAccounts({ fetch = true }: { fetch?: boolean } = {}) {
     anchors,
     transactions,
     isLoading: transactionsLoading,
+    /** Nothing to show yet (never answered, or only failed, and nothing cached) — for `usePageLoad`. */
+    missing,
   };
 }

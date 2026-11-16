@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { FiFilter, FiLayers } from "react-icons/fi";
 import { SearchInput } from "../../../shared/components/SearchInput";
 import { SkeletonCardGrid, SkeletonRows } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import type { PageLoad } from "../../../shared/hooks/usePageLoad";
 import { PageTabs } from "../../../shared/components/PageTabs";
 import { pageTabIds } from "../../../shared/utils/pageTabIds";
 import { GoalPickMenu } from "./GoalPickMenu";
@@ -44,8 +46,11 @@ export interface GoalsWorkbenchProps {
   action: ReactNode;
   /** This screen's goals, every status. */
   goals: InvestmentGoalWithStats[];
-  isLoading: boolean;
-  isError: boolean;
+  /**
+   * Where the goals stand (`usePageLoad`): the skeleton, the page, or — still
+   * nothing after the skeleton's time — a quiet line in every tab (the add stays).
+   */
+  load: PageLoad;
   /** The «Όλοι ▾» choices, the first being where a tab starts. */
   statuses: GoalStatusOption[];
   /** The «Επισκόπηση» tab, whole. */
@@ -68,8 +73,7 @@ export function GoalsWorkbench({
   subtitle,
   action,
   goals,
-  isLoading,
-  isError,
+  load,
   statuses,
   overview,
   searchPlaceholder,
@@ -103,6 +107,7 @@ export function GoalsWorkbench({
   };
 
   const browseTab = (which: Exclude<GoalTab, "overview">) => {
+    if (load === "waiting") return <PageWaiting />;
     const state = browse[which];
     const set = (patch: Partial<BrowseState>) => setBrowse((prev) => ({ ...prev, [which]: { ...prev[which], ...patch } }));
     const option = statuses.find((s) => s.id === state.status) ?? statuses[0];
@@ -128,13 +133,13 @@ export function GoalsWorkbench({
           {searching && <p className={styles.results}>{t("investments.showingResults", { count: shown.length })}</p>}
         </div>
 
-        {isLoading ? (
+        {load === "loading" ? (
           which === "cards" ? (
             <SkeletonCardGrid count={6} />
           ) : (
             <SkeletonRows count={6} />
           )
-        ) : isError ? null : shown.length > 0 ? (
+        ) : shown.length > 0 ? (
           which === "cards" ? (
             renderCards(shown, option?.id ?? "")
           ) : (
@@ -178,7 +183,7 @@ export function GoalsWorkbench({
         data-tour="goal-views"
       />
 
-      {tab === "overview" && panel("overview", overview)}
+      {tab === "overview" && panel("overview", load === "waiting" ? <PageWaiting /> : overview)}
       {tab === "cards" && panel("cards", browseTab("cards"))}
       {tab === "list" && panel("list", browseTab("list"))}
     </>

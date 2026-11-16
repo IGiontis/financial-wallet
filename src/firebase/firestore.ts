@@ -7,7 +7,7 @@ import { meterRead } from "../lib/readMeter";
 import { localDeletePrefix, localGet, localSet } from "../lib/localStore";
 import { requireConnection } from "../shared/utils/offlinePolicy";
 import { debtEdit } from "../features/debts/debtsUtils";
-import { firestoreToDate } from "../shared/utils/dates";
+import { firestoreToDate, refuseFutureDates } from "../shared/utils/dates";
 import { cleanText, cleanTextFields } from "../shared/utils/cleanText";
 
 import type {
@@ -161,6 +161,8 @@ export const saveWorkspaceValue = async (uid: string, key: string, value: unknow
 
 /** `id` comes from `newDocId` when the caller has already shown the row under it. */
 export const createTransaction = async (userId: string, data: CreateTransactionDTO, id: string = newDocId("transactions")) => {
+  // Something that happened: never dated after today (`refuseFutureDates`).
+  refuseFutureDates([data.date]);
   await setDoc(doc(db, "transactions", id), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
@@ -200,6 +202,8 @@ const billPaymentIdsFor = async ({ userId, paymentId }: BillPaymentLink, transac
 };
 
 export const updateTransaction = async (transactionId: string, data: UpdateTransactionDTO, billPayment?: BillPaymentLink) => {
+  // A new day must be today or earlier; a day left as it is is not sent (undefined).
+  refuseFutureDates([data.date]);
   // `forUpdate`: undefined leaves a field as stored, `null` (a note or a card
   // cleared) takes it off. The fuel details are the one exception: the form
   // always speaks for them, so none (undefined) takes them off too.
@@ -553,6 +557,7 @@ export const deleteInvestmentGoal = async (userId: string, goalId: string, erase
  */
 export const closeInvestmentGoal = async (userId: string, goalId: string, records: { id: string; data: CreateTransactionDTO }[], erase: CoveredErase[] = []) => {
   requireConnection("delete");
+  refuseFutureDates(records.map((r) => r.data.date));
   const [contributions, loans] = await Promise.all([
     getDocs(query(collection(db, "investmentContributions"), where("userId", "==", userId), where("goalId", "==", goalId))),
     coveredErasure(userId, goalId, erase),
@@ -585,6 +590,8 @@ export const createContributionWithTransaction = async (
   /** From `newDocId`, when the caller has already shown both rows under them. */
   ids: { contributionId: string; transactionId: string } = { contributionId: newDocId("investmentContributions"), transactionId: newDocId("transactions") },
 ) => {
+  // A deposit or withdrawal happened: today or earlier (owner's report, 2026-11-14).
+  refuseFutureDates([contribution.date, transaction.date]);
   const batch = writeBatch(db);
 
   const contributionRef = doc(db, "investmentContributions", ids.contributionId);
@@ -624,6 +631,7 @@ export const createCoveredFunding = async (
   ids: { contributionId: string; debtId: string; expenseId: string },
   data: { contribution: CreateInvestmentContributionDTO; debt: CreateDebtDTO; expense: CreateTransactionDTO },
 ) => {
+  refuseFutureDates([data.contribution.date, data.debt.date, data.expense.date]);
   const stamp = () => ({ createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   const batch = writeBatch(db);
   batch.set(doc(db, "investmentContributions", ids.contributionId), { ...clean({ ...data.contribution, userId, debtId: ids.debtId }), ...stamp() });
@@ -755,6 +763,8 @@ export const markBillPaid = async (
   /** The card or cash it was paid from; the expense goes on the main account when absent. */
   accountId?: string,
 ) => {
+  // The day the money left: today or earlier. Paying ahead is a later period, not a later day.
+  refuseFutureDates([paidDate]);
   const batch = writeBatch(db);
   const amount = paidAmount ?? bill.amount;
 
@@ -796,6 +806,7 @@ export const markBillPaid = async (
  * leave the original sitting there as a phantom expense.
  */
 export const updateBillPayment = async (payment: { id: string; transactionId?: string }, changes: { amount?: number; paidDate?: Date }) => {
+  refuseFutureDates([changes.paidDate]);
   const batch = writeBatch(db);
   const fields = clean(changes);
 
@@ -832,6 +843,8 @@ export const markBillPeriodsSettled = async (
   payments: { id: string; billId: string; periodKey: string; installmentIndex?: number; amount: number; paidDate: Date }[],
 ) => {
   requireConnection("bulk");
+  // Overdue periods, each dated the day it fell due — all in the past.
+  refuseFutureDates(payments.map((p) => p.paidDate));
   const batch = writeBatch(db);
   for (const { id, ...payment } of payments) {
     const record: CreateBillPaymentDTO = payment;
@@ -900,6 +913,8 @@ export const getDebtsByIds = async (userId: string, debtIds: string[]): Promise<
 
 /** `id` comes from `newDocId` when the caller has already shown the debt under it. */
 export const createDebt = async (userId: string, data: CreateDebtDTO, id: string = newDocId("debts")) => {
+  // The day the debt began: today or earlier. Its due date is a plan and may be later.
+  refuseFutureDates([data.date]);
   await setDoc(doc(db, "debts", id), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
@@ -909,6 +924,8 @@ export const createDebt = async (userId: string, data: CreateDebtDTO, id: string
 };
 
 export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
+  // A forgiveness is dated the day it was given: today or earlier.
+  refuseFutureDates([data.forgiven?.date]);
   // `forgiven: null` takes a forgiveness back — see `forUpdate`.
   await updateDoc(doc(db, "debts", debtId), {
     ...forUpdate(data),
@@ -920,7 +937,9 @@ export const updateDebt = async (debtId: string, data: UpdateDebtDTO) => {
  * Saving the loan form over an existing loan. Unlike `updateDebt`, fields the
  * form now leaves empty are removed rather than kept — see `debtEdit`.
  */
-export const editDebt = async (debtId: string, next: CreateDebtDTO) => {
+export const editDebt = async (debtId: string, next: CreateDebtDTO, storedDate?: Date) => {
+  // The day it began: today or earlier — or the day it already had, kept.
+  refuseFutureDates([next.date], { stored: storedDate });
   const { set, clear } = debtEdit(next);
   await updateDoc(doc(db, "debts", debtId), {
     ...cleanTextFields(set),
@@ -943,6 +962,7 @@ export const deleteDebt = async (userId: string, debtId: string, paymentIds: str
 
 /** `id` comes from `newDocId` when the caller has already shown the repayment under it. */
 export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO, id: string = newDocId("debtPayments")) => {
+  refuseFutureDates([data.date]);
   await setDoc(doc(db, "debtPayments", id), {
     ...clean({ ...data, userId }),
     createdAt: serverTimestamp(),
@@ -953,7 +973,9 @@ export const createDebtPayment = async (userId: string, data: CreateDebtPaymentD
 
 /** Correcting a repayment typed wrong: the amount, the day, or both. */
 /** `accountId: null` takes the card off — a repayment that moved no money. An empty note is taken off too. */
-export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null; notes?: string | null }) => {
+export const updateDebtPayment = async (paymentId: string, data: { amount: number; date: Date; accountId?: string | null; notes?: string | null }, storedDate?: Date) => {
+  // Today or earlier — or the day it already had, kept.
+  refuseFutureDates([data.date], { stored: storedDate });
   const account = data.accountId === null ? { accountId: deleteField() } : data.accountId !== undefined ? { accountId: data.accountId } : {};
   const note = data.notes ? cleanText(data.notes) : data.notes;
   const notes = note === undefined ? {} : note ? { notes: note } : { notes: deleteField() };
@@ -1010,8 +1032,12 @@ export const syncDebtCash = async (
  * Writes both halves of a transfer in one batch. A corrected transfer writes
  * the same two documents again under their fixed ids, keeping when the pair
  * was first written.
+ *
+ * Money that moved: a day after today is refused (`refuseFutureDates`); a
+ * correction may keep the day it had (`storedDate`).
  */
-export const saveTransfer = async (userId: string, records: TransferRecord[], createdAt?: Date) => {
+export const saveTransfer = async (userId: string, records: TransferRecord[], createdAt?: Date, storedDate?: Date) => {
+  refuseFutureDates(records.map((r) => r.date), { stored: storedDate });
   const batch = writeBatch(db);
   for (const { id, ...record } of records) {
     batch.set(doc(db, "transactions", id), { ...clean({ ...record, userId }), createdAt: createdAt ?? serverTimestamp(), updatedAt: serverTimestamp() });
@@ -1217,6 +1243,8 @@ export const saveGapRecords = async (
     debtCash: DebtCashRecord[];
   },
 ) => {
+  // Records of a difference already in the bank: today or earlier.
+  refuseFutureDates([...writes.transactions.map((r) => r.data.date), ...writes.transfers.map((r) => r.date), ...writes.debts.map((r) => r.data.date), ...writes.payments.map((r) => r.data.date)]);
   const batch = writeBatch(db);
   for (const { id, data } of writes.transactions) {
     batch.set(doc(db, "transactions", id), { ...clean({ ...data, userId }), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
@@ -1257,7 +1285,9 @@ export const editCoveredDebt = async (
     expense?: { id: string; set: { amount?: number; date?: Date; notes?: string } };
     coveredExpenseId?: string;
   },
+  storedDate?: Date,
 ) => {
+  refuseFutureDates([next.date], { stored: storedDate });
   const { set, clear } = debtEdit(next);
   const [contribution, expense] = await Promise.all([
     covered.contribution ? stillThere("investmentContributions", covered.contribution.id) : false,

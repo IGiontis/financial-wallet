@@ -70,7 +70,10 @@ describe("editing a goal's covered expense", () => {
     expect(data.amount).toBe(550.37);
     expect(data.type).toBe("expense");
     expect(data.accountId).toBe("eb");
-    expect((data.date as Date).getTime()).toBe(when.getTime());
+    // The day is not sent at all: left out, the stored one stays exactly as it
+    // is — not rewritten from a form value (and a day dated after today before
+    // the «happened» rule is not refused for an edit that never touched it).
+    expect(data.date).toBeUndefined();
     expect(data.description).toBe("Ski trip");
     expect(data.notes).toBe("lift pass");
     // The money didn't move: no bank reading is corrected.

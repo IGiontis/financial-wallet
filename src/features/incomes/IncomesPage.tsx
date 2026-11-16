@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { addMonths, startOfMonth } from "date-fns";
 import { PageShell } from "../../shared/components/PageShell";
 import { SkeletonCard, SkeletonHeading, SkeletonRows, Skeleton } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useNarrowScreen } from "../../shared/hooks/useNarrowScreen";
@@ -101,7 +103,9 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const showList = page === "record" || page === "all";
   const f = useMemo(() => makeFormats(i18n.resolvedLanguage ?? "en"), [i18n.resolvedLanguage]);
   const { format: formatCurrency, convert } = useCurrencyConverter();
-  const { incomes, statuses, transactions, overrides, lastReadingAt, now, isLoading, saveIncome, removeIncome, setOverride } = useIncomes();
+  const { incomes, statuses, transactions, overrides, lastReadingAt, now, missing, listMissing, saveIncome, removeIncome, setOverride } = useIncomes();
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(missing);
   // The income just added, edited or marked arrived lights once its sheet has gone.
   const incomeFlash = useSavedFlash("incomes", useMemo(() => incomes.map((i) => i.id), [incomes]));
   const { data: categories = [] } = useCategories();
@@ -242,7 +246,9 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
     <IncomeCategoriesContext.Provider value={categories}>
     <PageShell>
       {/* The add on every view, «Σύνοψη» too. */}
-      <AddHeader label={t("incomes.new")} onAdd={() => openNew()} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
+      {/* Greyed out until the list has come: the incomes are saved as one list, and one
+          added to a list not yet read would write over those already there. */}
+      <AddHeader label={t("incomes.new")} onAdd={() => openNew()} disabled={listMissing} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
 
       <PageTabs
         label={t("incomes.title")}
@@ -250,12 +256,14 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           { to: "/incomes", label: t("incomes.pageOverview") },
           { to: "/incomes/record", label: t("incomes.pageRecord"), badge: waiting, badgeTone: "warning", badgeLabel: t("nav.incomesWaiting", { count: waiting }) },
           // How many there are, once they are loaded — not a «(0)» while they load.
-          { to: "/incomes/manage", label: isLoading ? t("incomes.pageManage") : `${t("incomes.pageManage")} (${incomes.length})` },
+          { to: "/incomes/manage", label: load !== "ready" ? t("incomes.pageManage") : `${t("incomes.pageManage")} (${incomes.length})` },
           { to: "/incomes/all", label: t("incomes.pageAll") },
         ]}
       />
 
-      {isLoading ? (
+      {load === "waiting" ? (
+        <PageWaiting />
+      ) : load === "loading" ? (
         <Row className="g-3 g-lg-4">
           <Col xs={12} lg={7} xl={8}>
             <SkeletonCard className="mb-3">

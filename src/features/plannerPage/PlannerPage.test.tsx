@@ -60,6 +60,8 @@ vi.mock("../../shared/hooks/useWorkspaceSetting", async () => {
   return {
     // The account's copy, already here: what the page saved is what it reads.
     useWorkspace: () => ({ data: Object.fromEntries(settings), isSuccess: true, isLoading: false }),
+    // The account's copy is here, so nothing it holds is missing (`usePageLoad`).
+    useWorkspaceMissing: () => false,
     useWorkspaceSetting: (key: string, initial: unknown) => {
       const [value, setValue] = useState(() => (settings.has(key) ? settings.get(key) : initial));
       const set = (next: unknown) =>

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
 import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
-import { dateFnsLocale, firestoreToDate, parseISODay, toISODay } from "../../shared/utils/dates";
+import { dateFnsLocale, firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
 import { billOverdue, daysUntilDeadline, expectedAmount, getFrequencyLabel, getFrequencyToken, getIntervalCount, monthlyEquivalent, paidThisPeriod, sinkingFund, type MonthCell } from "./billsUtils";
 import { billStartText } from "./billStartText";
@@ -104,8 +104,11 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
     { amount: asNumber(editing?.amount), date: editing?.date },
   );
 
+  // A payment happened: today or earlier — the day it already had may stay.
+  const dateError = editing && editedPayment ? happenedDayError(editing.date, new Date(), toISODay(firestoreToDate(editedPayment.paidDate))) : undefined;
+
   const saveEdit = (payment: BillPayment) => {
-    if (!editing || paymentUnchanged) return;
+    if (!editing || paymentUnchanged || dateError) return;
     const amount = parseFloat(editing.amount);
     const paidDate = parseISODay(editing.date) ?? undefined;
 
@@ -280,7 +283,7 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               if (editing?.id === p.id) {
                 return (
                   <div key={p.id} id={`payment-${p.id}`} className={`${styles.paymentRowEditing} ${focusedPayment === p.id ? styles.paymentRowFocused : ""}`}>
-                    <DateField small value={editing.date} onChange={(date) => setEditing({ ...editing, date })} maxDate={new Date()} />
+                    <DateField small happened value={editing.date} onChange={(date) => setEditing({ ...editing, date })} invalid={!!dateError} />
                     <InputGroup size="sm" className={styles.paymentAmountField}>
                       <Input
                         type="number"
@@ -292,13 +295,14 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
                         aria-label={t("common.amount")}
                       />
                     </InputGroup>
-                    <Button color="primary" size="sm" onClick={() => saveEdit(p)} disabled={paymentUnchanged} aria-label={t("common.save")} title={paymentUnchanged ? t("common.nothingChanged") : t("common.save")}>
+                    <Button color="primary" size="sm" onClick={() => saveEdit(p)} disabled={paymentUnchanged || !!dateError} aria-label={t("common.save")} title={paymentUnchanged ? t("common.nothingChanged") : t("common.save")}>
                       <FiCheck size={14} />
                     </Button>
                     <Button color="secondary" outline size="sm" onClick={() => setEditing(null)} aria-label={t("common.cancel")} title={t("common.cancel")}>
                       <FiX size={14} />
                     </Button>
                     <UnchangedHint show={paymentUnchanged} className="w-100" />
+                    {dateError && <div className="invalid-feedback d-block w-100">{t(dateError)}</div>}
                   </div>
                 );
               }

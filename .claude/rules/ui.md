@@ -35,8 +35,9 @@ every difference you can see.
    Bootstrap `btn-group`.
 5. Required fields show the shared required mark (`RequiredMark`); optional ones don't.
 6. **Never show a "didn't load / try again" message.** Failed loads retry silently
-   (`installQueryAutoRetry`) while the page keeps its skeleton; never an empty state that isn't
-   true. The user should never have to retry anything.
+   (`installQueryAutoRetry`); the skeleton shows 8 s at most (`usePageLoad`, `SKELETON_MAX_MS`),
+   then the page's frame and add with `PageWaiting`; never an empty state that isn't true. The
+   user should never have to retry anything.
 7. Empty state = an invitation with the page's add, not an apology.
 
 `src/styles/uiConventions.test.ts` enforces what a test can see; the rest is checked by the
@@ -52,6 +53,18 @@ side-by-side screenshots.
   the amount after it, in every form that has both.
 - **A yes/no choice starts on «Ναι»** (picked by default) — except a choice that would take
   money from a card: never pre-pick a card or an answer that moves money out.
+- **Dates: what HAPPENED is today or earlier** — MUST (owner, 2026-11-14): transactions (new,
+  edit, quick add), transfers, goal/investment deposits and withdrawals, «πλήρωσε για μένα»,
+  the day a debt began, repayments, forgiveness, bill payments («Πληρώθηκε», settling overdue,
+  payment corrections), «Ήρθε» and its corrections, bank readings and gap records, business
+  closings, a goal's close/spent day. Their `DateField` carries `happened` (future days greyed,
+  from `useToday`) AND the form checks the value (`happenedDayError` / `isAfterToday`,
+  `shared/utils/dates.ts`, message `validation.notInFuture`); the money writers refuse it too
+  (`refuseFutureDates`). PLANNED dates may be in the future: bill due/start/anchor, income
+  schedules, goal deadline and planFrom, debt due date, planner lines/occurrences, pauses,
+  «from month». A record already stored with a future day still opens and saves: only a day
+  that is CHANGED must be today or earlier, and an unchanged day is not sent again. A new
+  `<DateField>` must be sorted into one kind in `dateFieldKinds.test.ts`.
 - **No prefilled text**: fields start empty with a placeholder only; an edit shows the stored
   values; a fallback name, if needed, is applied at save and shown in the review. Controls
   inside a form rest on the inputs' `--surface`, never a beige page tone.

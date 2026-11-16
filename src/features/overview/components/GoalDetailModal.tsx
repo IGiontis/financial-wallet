@@ -6,6 +6,8 @@ import { FiFlag } from "react-icons/fi";
 import type { InvestmentGoalWithStats } from "../../../shared/types/IndexTypes";
 import { useContributions } from "../../budget/useInvestments";
 import { SkeletonRows } from "../../../shared/components/Skeletons";
+import { PageWaiting } from "../../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../../shared/hooks/usePageLoad";
 import { firestoreToDate } from "../../../shared/utils/dates";
 import { projectedFinish } from "../../budget/components/goalDisplay";
 import styles from "./css/GoalDetailModal.module.css";
@@ -35,10 +37,14 @@ interface GoalDetailModalProps {
 export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalDetailModalProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  // Gated on `isLoading`, because the empty state below is a confident claim:
-  // "nothing has gone in yet" is a wrong answer to show while the answer is
-  // still being fetched, and it is the one the reader believes.
-  const { data: contributions = [], isLoading } = useContributions(goal.id);
+  // Gated on the deposits having come, because the empty state below is a
+  // confident claim: "nothing has gone in yet" is a wrong answer to show while
+  // the answer is still being fetched — or after a read that failed — and it
+  // is the one the reader believes. The skeleton for a few seconds at most
+  // (`usePageLoad`), then a quiet line until they come.
+  const contributionsQuery = useContributions(goal.id);
+  const { data: contributions = [] } = contributionsQuery;
+  const load = usePageLoad(noAnswerYet(contributionsQuery));
 
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "2-digit", month: "short", year: "numeric" }), [i18n.resolvedLanguage]);
   // The projection is a month, not a day. With the year, Greek gives the
@@ -161,8 +167,10 @@ export default function GoalDetailModal({ goal, formatCurrency, onClose }: GoalD
           {t("overview.recentActivity")}
         </div>
 
-        {isLoading ? (
+        {load === "loading" ? (
           <SkeletonRows count={4} icon={false} />
+        ) : load === "waiting" ? (
+          <PageWaiting className="py-3" />
         ) : recentContributions.length === 0 ? (
           <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
             {t("overview.noContributionsYet")}

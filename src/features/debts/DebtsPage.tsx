@@ -4,6 +4,7 @@ import { UNSAFE_LocationContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { SkeletonPageHeader, SkeletonRows, SkeletonStats } from "../../shared/components/Skeletons";
 import { FiX } from "react-icons/fi";
+import { Button } from "reactstrap";
 
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useDebts, useHealDebtCash } from "./useDebts";
@@ -17,6 +18,8 @@ import styles from "./css/DebtsPage.module.css";
 import { PageShell } from "../../shared/components/PageShell";
 import { usePageAdd } from "../../shared/hooks/usePageAdd";
 import { AddHeader } from "../../shared/components/AddButton";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
+import { PageWaiting } from "../../shared/components/PageWaiting";
 
 /**
  * Who you owe, and who owes you.
@@ -35,7 +38,9 @@ export function DebtsPage() {
   const { format: formatCurrency } = useCurrencyConverter();
 
   const debtsQuery = useDebts();
-  const { data: debts = [], isLoading } = debtsQuery;
+  const { data: debts = [] } = debtsQuery;
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  const load = usePageLoad(noAnswerYet(debtsQuery));
   // The person whose debt was just saved (made, edited, a repayment) lights
   // once the form has gone — `celebrateSave({ collection: "debts", id })`.
   const debtFlash = useSavedFlash("debts", useMemo(() => debts.map((d) => d.id), [debts]));
@@ -68,12 +73,23 @@ export function DebtsPage() {
   // The shape of what is coming, rather than a wheel. The whole page used to be
   // replaced by the spinner — heading, "add a loan" button and all — so there was
   // a moment where the screen offered nothing to do and nothing to read.
-  if (isLoading) {
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader />
         <SkeletonStats count={3} />
         <SkeletonRows count={4} />
+      </PageShell>
+    );
+  }
+  // Still nothing after the skeleton's time: the add, and a quiet line — not «no debts», which
+  // nobody has checked yet. The list replaces it the moment it arrives.
+  if (load === "waiting") {
+    return (
+      <PageShell>
+        <AddHeader label={t("debts.add")} onAdd={() => setAdding(true)} title={t("debts.title")} subtitle={t("debts.subtitle")} />
+        <PageWaiting />
+        {adding && <AddDebtModal knownPeople={[]} onClose={() => setAdding(false)} />}
       </PageShell>
     );
   }
@@ -147,9 +163,19 @@ export function DebtsPage() {
 
       <div className={wide && shown.length > 0 ? styles.split : undefined}>
         <div className={`${styles.card} ${wide ? styles.listCard : ""} p-3 p-lg-4`} data-tour="debts-people">
-          {shown.length === 0 ? (
+          {shown.length === 0 && !side ? (
+            // Nothing at all yet: an invitation with the page's add (rule 7), as Bills and Goals have.
+            <div className="text-center text-body-secondary py-4">
+              <p className="mb-3" style={{ fontSize: "var(--fs-text)" }}>
+                {t("debts.empty")}
+              </p>
+              <Button color="primary" onClick={() => setAdding(true)}>
+                + {t("debts.add")}
+              </Button>
+            </div>
+          ) : shown.length === 0 ? (
             <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
-              {t(side === "owe" ? "debts.filterEmptyOwe" : side === "owed" ? "debts.filterEmptyOwed" : "debts.empty")}
+              {t(side === "owe" ? "debts.filterEmptyOwe" : "debts.filterEmptyOwed")}
             </p>
           ) : (
             shown.map((p) => {

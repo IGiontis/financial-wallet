@@ -7,6 +7,8 @@ import IncomeQuickView from "../incomes/components/IncomeQuickView";
 import { Col, Modal, ModalBody, ModalHeader, Row } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { Skeleton, SkeletonCard, SkeletonChartCard, SkeletonHeading, SkeletonPageHeader, SkeletonRows } from "../../shared/components/Skeletons";
+import { PageWaiting } from "../../shared/components/PageWaiting";
+import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 
 import { useCategories, useTransactions } from "../transactions/hooks/useTransactions";
 import { categoryOwners } from "./lineSpending";
@@ -21,7 +23,7 @@ import { useDebts } from "../debts/useDebts";
 import { plannableDebts, receivableDebts } from "../debts/debtsUtils";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
-import { useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
+import { useWorkspaceMissing, useWorkspaceSetting } from "../../shared/hooks/useWorkspaceSetting";
 import { useDeclinedSalaries, useIncomeList } from "../incomes/useIncomes";
 import { isActiveIncome, salarySuggestion } from "../incomes/incomesUtils";
 import { useDebounce } from "../../shared/hooks/useDebounce";
@@ -86,7 +88,8 @@ export function PlannerPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
 
-  const { data: transactions = [], isLoading: txLoading, isError } = useTransactions();
+  const transactionsQuery = useTransactions();
+  const { data: transactions = [] } = transactionsQuery;
   const { data: categories = [] } = useCategories();
   // The old Allocation page's buckets, moved into «Τα δικά μου» once.
   useAllocationMigration();
@@ -95,7 +98,7 @@ export function PlannerPage() {
   // records. It used to start from a typed figure until the banks were read,
   // so before then the two pages answered "until pay day" from two different
   // amounts. A figure of one's own is still there, as a "what if".
-  const { opening: balanceFrom, source: balanceSource, isLoading: openingLoading } = useOpeningBalance();
+  const { opening: balanceFrom, source: balanceSource, missing: openingMissing } = useOpeningBalance();
   const available = useMemo(() => currentBalance(transactions, balanceFrom), [transactions, balanceFrom]);
   // When the banks were last read: pay that came early and is only in that
   // reading must not be planned a second time — see `mayBeInReading`.
@@ -104,9 +107,12 @@ export function PlannerPage() {
   // For the line under the figure: "Banks 1.200 − 200 in goals", as on the Overview.
   const inGoals = useMemo(() => goalHeldTotal(transactions), [transactions]);
   const banksNow = useMemo(() => (lastReading ? projectedTotal(lastReading, transactions) : undefined), [lastReading, transactions]);
-  const { data: goals = [], isLoading: goalLoading } = useInvestmentGoals();
-  const { data: bills = [], isLoading: billLoading } = useBills();
-  const { data: allDebts = [] } = useDebts();
+  const goalsQuery = useInvestmentGoals();
+  const billsQuery = useBills();
+  const debtsQuery = useDebts();
+  const { data: goals = [] } = goalsQuery;
+  const { data: bills = [] } = billsQuery;
+  const { data: allDebts = [] } = debtsQuery;
   const { format: formatCurrency, baseCurrency } = useCurrencyConverter();
 
   // One clock reading for the visit, so the projection doesn't shift mid-render.
@@ -155,7 +161,12 @@ export function PlannerPage() {
   // permanently unrolled under each row.
   // `mode` absent: a new figure from «+», whose first step asks money in or out.
   const [editor, setEditor] = useState<{ mode?: EntryMode; draft: EntryDraft } | null>(null);
-  const addEntry = () => setEditor({ draft: { label: "", amount: "" } });
+  // The planner's figures are saved as one list each: while they have not come,
+  // a figure added would write over the ones already there — so no add until then.
+  const plannerMissing = useWorkspaceMissing(PLANNER_KEYS.lines, PLANNER_KEYS.oneOffs);
+  const addEntry = () => {
+    if (!plannerMissing) setEditor({ draft: { label: "", amount: "" } });
+  };
   // The floating «+» on this page opens the planner's own add, not a transaction.
   usePageAdd(t("planner.addAmount"), addEntry);
 
@@ -164,7 +175,10 @@ export function PlannerPage() {
   // The money in: every income on «Έσοδα», the salary among them — the list
   // the Overview and the Bills page read too, so no two
   // screens plan with different pay. Changed there, never here.
-  const { incomes, isLoading: incomesLoading } = useIncomeList();
+  const { incomes, missing: incomesMissing } = useIncomeList();
+  // The skeleton for a few seconds at most, then the page — see `usePageLoad`.
+  // Every list the plan is counted from: a plan without one of them is not the plan.
+  const load = usePageLoad(noAnswerYet(transactionsQuery, goalsQuery, billsQuery, debtsQuery) || openingMissing || incomesMissing || plannerMissing);
   const activeIncomes = useMemo(() => incomes.filter(isActiveIncome), [incomes]);
   // With no incomes, what the records suggest — only ever said, never planned
   // with — unless it was already turned down on «Έσοδα».
@@ -375,9 +389,35 @@ export function PlannerPage() {
     toast.success(t("toasts.plannerLineDeleted", { name: editor.draft.label || t("planner.lineFallbackName") }));
   };
 
-  // Failed, the page keeps its skeleton while it is tried again on its own
-  // (`installQueryAutoRetry`): no message, nothing for the user to do.
-  if (txLoading || goalLoading || billLoading || openingLoading || incomesLoading || isError) {
+  // A failed read is tried again on its own (`installQueryAutoRetry`): no
+  // message, nothing for the user to do. It used to keep the skeleton for as
+  // long as it failed — for ever, on a read that never got through.
+  if (load === "waiting") {
+    return (
+      <PageShell>
+        <AddHeader
+          label={t("planner.addAmount")}
+          onAdd={addEntry}
+          disabled={plannerMissing}
+          title={t("planner.title")}
+          subtitle={new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long" }).format(now)}
+        />
+        <PageWaiting />
+        {editor && (
+          <EntryEditor
+            mode={editor.mode}
+            draft={editor.draft}
+            formatCurrency={formatCurrency}
+            categories={categories}
+            takenBy={categoryOwners(lines)}
+            onSave={saveEntry}
+            onClose={() => setEditor(null)}
+          />
+        )}
+      </PageShell>
+    );
+  }
+  if (load === "loading") {
     return (
       <PageShell>
         <SkeletonPageHeader />

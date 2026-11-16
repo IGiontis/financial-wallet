@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { SavedCheck } from "./SavedCheck";
 import { DateField } from "../../../shared/components/DateField";
-import { parseISODay, toISODay } from "../../../shared/utils/dates";
+import { parseISODay, toISODay, happenedDayError } from "../../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../../shared/utils/saveWithoutWaiting";
 import { useCurrencyConverter } from "../../../shared/hooks/useCurrencyConverter";
 import { useMoneyAccounts } from "../../accounts/useMoneyAccounts";
@@ -98,6 +98,8 @@ export default function TransferWizard({
 
   const value = parseFloat(amount);
   const day = parseISODay(date);
+  // Money that moved: today or earlier — a corrected transfer may keep the day it had.
+  const dateError = happenedDayError(date, new Date(), initial ? toISODay(initial.date) : undefined);
   const fromAccount = accounts.find((a) => a.id === from);
   const toAccount = accounts.find((a) => a.id === to);
   const problem = transferProblem({ from, to, amount: value });
@@ -113,7 +115,7 @@ export default function TransferWizard({
     // Forward only as far as what is filled in allows; back is always free.
     if (at > 0 && !from) return setStep("from");
     if (at > 1 && (!to || to === from)) return setStep("to");
-    if (at > 2 && (problem || !day)) {
+    if (at > 2 && (problem || !day || dateError)) {
       setTried(true);
       return setStep("amount");
     }
@@ -132,7 +134,7 @@ export default function TransferWizard({
   };
 
   const submit = () => {
-    if (unchanged || problem || !day || !fromAccount || !toAccount) return;
+    if (unchanged || problem || !day || dateError || !fromAccount || !toAccount) return;
     const records = transferRecords({
       id: initial?.id ?? newDocId("transactions"),
       from,
@@ -142,7 +144,7 @@ export default function TransferWizard({
       label: `${fromAccount.name} → ${toAccount.name}`,
       note: note.trim() || undefined,
     });
-    void saveWithoutWaiting(save, { records, createdAt: initial?.createdAt }, () => toast.error(t("transactions.transfer.failed")));
+    void saveWithoutWaiting(save, { records, createdAt: initial?.createdAt, storedDate: initial?.date }, () => toast.error(t("transactions.transfer.failed")));
     // A toast either way (every new record says so); the page also keeps its panel.
     toast.success(t("transactions.transfer.savedToast"));
     if (asPage && !edit) {
@@ -320,7 +322,8 @@ export default function TransferWizard({
                   {t("common.date")}
                   <RequiredMark />
                 </Label>
-                <DateField id="transfer-date" value={date} onChange={setDate} />
+                <DateField id="transfer-date" happened value={date} onChange={setDate} invalid={tried && !!dateError} />
+                {tried && dateError && <div className="invalid-feedback d-block">{t(dateError)}</div>}
               </FormGroup>
               <FormGroup className="mb-0">
                 <Label for="transfer-note" className="small fw-medium">

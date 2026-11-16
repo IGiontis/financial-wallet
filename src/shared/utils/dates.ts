@@ -1,3 +1,4 @@
+import { addDays, startOfDay } from "date-fns";
 import { el, enUS } from "date-fns/locale";
 
 // ─── Firestore date helper ────────────────────────────────────────────────────
@@ -85,4 +86,95 @@ export function toISOMonth(value: unknown): string {
 export function standaloneMonthName(locale: string, date: Date): string {
   const parts = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).formatToParts(date);
   return parts.find((part) => part.type === "month")?.value ?? new Intl.DateTimeFormat(locale, { month: "long" }).format(date);
+}
+
+// ─── Things that happened are dated today or earlier ───────────────────────
+//
+// The owner's rule (2026-11-14): a record of something that HAPPENED — a
+// transaction, a transfer, a goal deposit or withdrawal, a payment, a
+// repayment, «Ήρθε», a reading, a business closing — takes a day from the past
+// up to today, never later. A goal deposit dated next week counted money that
+// had not moved yet. PLANNED things (a bill's due day, an income's schedule, a
+// goal's deadline, a planner line) may still be in the future.
+//
+// Three layers say it the same way:
+//  1. the calendar greys the days after today out (`DateField happened`,
+//     which reads the shared `useToday`, so it moves on at midnight);
+//  2. each form's check refuses one anyway (`happenedDayError`), with the
+//     message `validation.notInFuture`;
+//  3. the money writers in `src/firebase` refuse it before writing
+//     (`refuseFutureDates`), with a day of slack for time zones.
+//
+// A record already stored with a future day (written before the rule) still
+// opens and saves: the check speaks only when the day is changed, and an edit
+// that leaves the day alone does not send it again.
+
+/** The i18n key every "happened" date field shows for a day after today. */
+export const NOT_IN_FUTURE = "validation.notInFuture";
+
+/** Whether an ISO day ("yyyy-MM-dd") is after `today`'s calendar day, on this device. */
+export function isAfterToday(iso: string, today: Date = new Date()): boolean {
+  if (!parseISODay(iso)) return false;
+  return iso > toISODay(today);
+}
+
+/**
+ * What stops a "happened" day, as the i18n key that says so — or `undefined`.
+ *
+ * `stored` is the day the record already has (edits): keeping it is always
+ * allowed, even when it is in the future, so a record written before the rule
+ * can still be corrected in its other fields. Only a day the user picks must be
+ * today or earlier.
+ */
+export function happenedDayError(iso: string, today: Date = new Date(), stored?: string): string | undefined {
+  if (stored !== undefined && iso === stored) return undefined;
+  return isAfterToday(iso, today) ? NOT_IN_FUTURE : undefined;
+}
+
+// ─── The data layer's guard ─────────────────────────────────────────────────
+
+/** Thrown by a money writer handed a "happened" date after today. */
+export class FutureDateError extends Error {
+  readonly date: Date;
+  constructor(date: Date) {
+    super(`A record of something that happened cannot be dated ${date.toISOString()} — after today.`);
+    this.date = date;
+    this.name = "FutureDateError";
+  }
+}
+
+/**
+ * The first moment a "happened" record may NOT carry: the start of the day
+ * after tomorrow, local time.
+ *
+ * Tomorrow is let through on purpose. Forms store a day either as local
+ * midnight or as `new Date("yyyy-MM-dd")` (UTC midnight — up to 14 hours
+ * later in local time east of Greenwich), and a phone that crossed a time
+ * zone may be a day ahead of the one that wrote it. The forms already refuse
+ * tomorrow; this layer only has to stop what is plainly wrong — a deposit
+ * dated next week — without ever refusing a real "today".
+ */
+export function happenedLimit(now: Date = new Date()): Date {
+  return startOfDay(addDays(now, 2));
+}
+
+/**
+ * Refuses, before anything is written, any of `dates` that is after today
+ * (with a day of slack, see `happenedLimit`). `undefined`/`null` are skipped:
+ * an update that leaves the day alone does not name it.
+ *
+ * `stored`: for a writer that rewrites a whole record (a corrected transfer),
+ * the day the record already had — written again unchanged, it is let
+ * through even if it is in the future (dated before the rule).
+ */
+export function refuseFutureDates(dates: readonly unknown[], { now = new Date(), stored }: { now?: Date; stored?: unknown } = {}): void {
+  const limit = happenedLimit(now).getTime();
+  const kept = stored == null ? undefined : toISODay(stored);
+  for (const value of dates) {
+    if (value == null) continue;
+    const date = firestoreToDate(value);
+    if (Number.isNaN(date.getTime())) continue;
+    if (kept !== undefined && toISODay(date) === kept) continue;
+    if (date.getTime() >= limit) throw new FutureDateError(date);
+  }
 }

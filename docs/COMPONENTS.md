@@ -110,7 +110,12 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 ## Fields (dates, money, names, required mark)
 
 - `src/shared/components/DateField.tsx` — `DateField`: every date input; value is an ISO day string
-  (`yyyy-MM-dd` or `""`); `month` for month mode, `clearable`, `minDate`/`maxDate`, `small`. Also
+  (`yyyy-MM-dd` or `""`); `month` for month mode, `clearable`, `minDate`/`maxDate`, `small`;
+  **`happened`** for the date of something that happened — the days after today are greyed out
+  (today from `useToday`, so it moves at midnight; the earlier of it and `maxDate` wins). The form
+  still checks the value with `happenedDayError` (a stored future day may stay, only a changed one
+  is refused). Planned dates leave it off; every field's kind is listed in
+  `shared/components/dateFieldKinds.test.ts` (see `.claude/rules/ui.md` «Dates»). Also
   `MonthPicker` (opens the month grid from any button, e.g. a month title). Never `<input type="date">`.
   Styles: `src/shared/components/css/DateField.module.css`; calendar theme in index.css «Date picker».
 - `src/shared/components/RequiredMark.tsx` — `<Label>{t(..)}<RequiredMark /></Label>` on required fields only
@@ -145,9 +150,25 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/shared/components/Skeletons.tsx` — `SkeletonPageHeader`, `SkeletonHeading`, `SkeletonRows`,
   `SkeletonStats`, `SkeletonCard`, `SkeletonChartCard`, `SkeletonTable`, `SkeletonCardGrid`, re-exported
   `Skeleton`. Shaped like what is coming; never a spinner. Colours come from index.css «Loading skeletons».
-- `src/lib/queryAutoRetry.ts` — `installQueryAutoRetry(client)`: failed loads retry on their own; the page
-  keeps its skeleton. Never write a "didn't load / try again" message.
-- Empty state: no shared component — an invitation with the page's own add (GoalsWorkbench `empty` prop).
+- `src/shared/hooks/usePageLoad.ts` — **every page's loading branch**: `const load = usePageLoad(missing)` →
+  `"loading"` (the skeleton) / `"ready"` (the page, its true empty state included) / `"waiting"` (still nothing
+  after `SKELETON_MAX_MS` — the ONE constant, 8 s: the page's frame and add, `PageWaiting` where the content goes).
+  `missing` = `noAnswerYet(query, …)` (a query with no `data`: never answered, or only failed — not TanStack's
+  `isLoading`, which turns false on a failure; a hook whose `data` is always filled says `missing` itself:
+  `useInvestmentGoals`, `useContributions`), or a data hook's own `missing` (`useMoneyAccounts`,
+  `useOpeningBalance`, `useIncomeList`, `useIncomes` + `listMissing`, `useCalendarSources`). Never
+  `if (isLoading || isError)` (that was the endless skeleton) and never `data = []` shown before it came.
+  Reference: `DebtsPage`, `BillsPage`, `GoalsWorkbench` (`load` prop). Tests: `usePageLoad.test.tsx`.
+- `src/shared/components/PageWaiting.tsx` — `PageWaiting` (`className`): the one quiet line for `"waiting"`
+  («Τα στοιχεία σου θα εμφανιστούν εδώ μόλις έρθουν.», `common.pageWaiting`), `role="status"`. Not an error, not
+  an empty state; no "retry" words. Replaced by the page the moment the data comes.
+- `useWorkspaceMissing(...keys)` (`src/shared/hooks/useWorkspaceSetting.ts`) — the account's settings have not
+  come and this device holds none of `keys`. A list kept on the user doc (accounts, incomes, businesses, planner
+  lines) is saved WHOLE, so its add stays disabled while this is true — adding to an unread list would write over it.
+- `src/lib/queryAutoRetry.ts` — `installQueryAutoRetry(client)`: failed loads retry on their own while the
+  page shows its skeleton, then `PageWaiting`. Never write a "didn't load / try again" message.
+- Empty state: no shared component — an invitation with the page's own add (GoalsWorkbench `empty` prop,
+  `BillsPage`, `IncomesPage`, `BusinessPage` `invite`, `TransactionPage` `invite`). Shown only when `load === "ready"`.
 - `src/shared/components/UpdatePrompt.tsx` + `src/shared/hooks/useAppUpdate.ts` — the blocking "new version"
   prompt (waits while a form is open). App shell only.
 
@@ -286,7 +307,11 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
   bills badge (`useBillsNeedingAttention`), the Bills page and the Overview read it — never a clock of their own.
 - `src/shared/hooks/useMotionEffects.ts` — Settings «Κινούμενα εφέ» (this device); drives `--loop-play`.
 - `src/shared/utils/dates.ts` — `firestoreToDate`, `toISODay`/`parseISODay`, `toISOMonth`, `dateFnsLocale`,
-  `standaloneMonthName`. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.
+  `standaloneMonthName`. «Happened» dates (today or earlier): `isAfterToday(iso, today?)`,
+  `happenedDayError(iso, today?, stored?)` → `NOT_IN_FUTURE` (`validation.notInFuture`) or undefined;
+  the writers' guard `refuseFutureDates(dates, { now?, stored? })` → `FutureDateError`, with
+  `happenedLimit` (start of the day after tomorrow: a day of slack for time zones). Date helpers live
+  here, never as local copies in forms. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.
 - `src/shared/types/IndexTypes.ts` — every shared record type (Transaction, Bill, Debt, InvestmentGoal …).
 
 ## Colours, type, spacing
