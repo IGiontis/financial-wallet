@@ -42,6 +42,7 @@ import { NameCheck } from "../../shared/components/NameCheck";
 import { investmentKeys } from "./useInvestments";
 import type { InvestmentGoal } from "../../shared/types/IndexTypes";
 import { RequiredMark } from "../../shared/components/RequiredMark";
+import { dayToDate } from "../../shared/utils/dates";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ export default function AddNewGoalModal({ isOpen, onClose, onSubmit, defaultGoal
           goalType: values.goalType,
           targetAmount: values.goalType === "targeted" ? (values.targetAmount as number) : undefined,
           targetPeriod: values.goalType === "targeted" ? values.targetPeriod : undefined,
-          deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? new Date(values.deadline) : undefined,
+          deadline: values.goalType === "targeted" && values.targetPeriod === "custom" && values.deadline ? dayToDate(values.deadline) : undefined,
           planFrom: isGoalsPage && values.goalType === "targeted" && values.planFrom ? values.planFrom : undefined,
           parts: isGoalsPage && values.goalType === "targeted" && partsField.usingParts ? partsField.parts : undefined,
         };

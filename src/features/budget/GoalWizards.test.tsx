@@ -253,7 +253,9 @@ describe("editing a goal", () => {
       notes: "Sifnos, July",
       targetAmount: 700,
       targetPeriod: "custom",
-      deadline: new Date("2027-06-01"),
+      // The day was not touched: not sent again (`updateDoc` keeps the stored
+      // 2027-06-01 as it is) — the app's one rule for a day, dates.ts.
+      deadline: undefined,
       planFrom: "2026-12-01",
       parts: undefined,
     });

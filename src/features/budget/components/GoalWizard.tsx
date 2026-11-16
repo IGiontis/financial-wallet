@@ -10,6 +10,7 @@ import { PlanFromField } from "./PlanFromField";
 import type { useGoalPartsField } from "./useGoalPartsField";
 import wiz from "../../../shared/css/Wizard.module.css";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
+import { parseISODay } from "../../../shared/utils/dates";
 
 // The goal and investment forms (new and edit) as one wizard, in the shape of
 // every other add / edit form: numbered steps — what it is, its target, how it
@@ -111,7 +112,7 @@ export function GoalTargetStep({ form, partsField, withDeadline, formatCurrency 
             form.setFieldValue("planFrom", v);
             form.setFieldTouched("planFrom", true);
           }}
-          maxDate={values.deadline ? new Date(values.deadline) : undefined}
+          maxDate={values.deadline ? (parseISODay(values.deadline) ?? undefined) : undefined}
           // Only once it was touched or Next pressed (item 97b): a stored day that a
           // new deadline overtook is not wrong before anyone looks at this field.
           error={invalid(form, "planFrom") ? msg(form.errors.planFrom, t) : undefined}

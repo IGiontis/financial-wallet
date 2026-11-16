@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { firestoreToDate } from "../../shared/utils/dates";
+import { dayToDate, toISODay } from "../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { celebrateSave } from "../../shared/feedback/saveFeedback";
 import { useTranslation } from "react-i18next";
@@ -39,10 +39,9 @@ interface EditGoalFormValues {
   planFrom: string;
 }
 
-const toDateInputValue = (value: unknown): string => {
-  if (!value) return "";
-  return firestoreToDate(value).toISOString().split("T")[0];
-};
+// The stored deadline as the LOCAL calendar day it falls on — the day the
+// card shows (`toISOString()` read it in UTC: a day early for local midnight).
+const toDateInputValue = (value: unknown): string => (value ? toISODay(value) : "");
 
 const validationSchema = Yup.object({
   name: Yup.string().required("validation.goalNameRequired").max(60, "validation.maxChars|60"),
@@ -124,7 +123,9 @@ export default function EditGoalModal({ goal, isOpen, onClose, onSubmit, onDelet
           notes: values.notes.trim() ? values.notes : null,
           targetAmount: isTargeted ? (values.targetAmount as number) : undefined,
           targetPeriod: isTargeted ? values.targetPeriod : undefined,
-          deadline: isTargeted && isGoalsPageGoal ? (values.deadline ? new Date(values.deadline) : null) : undefined,
+          // Sent only when the day changed: an untouched deadline stays exactly as stored.
+          deadline:
+            isTargeted && isGoalsPageGoal && values.deadline !== toDateInputValue(goal.deadline) ? (values.deadline ? dayToDate(values.deadline) : null) : undefined,
           // Cleared: `null`, so the date already saved is taken off rather than kept.
           planFrom: isTargeted && isGoalsPageGoal ? values.planFrom || (goal.planFrom ? null : undefined) : undefined,
           // Back to one figure: `null`, so the parts already saved are taken off.

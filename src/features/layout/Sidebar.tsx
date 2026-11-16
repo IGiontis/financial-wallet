@@ -394,14 +394,16 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse, isDesk
           ],
         },
         // The business's own money — only for an account that switched it on in Settings.
-        // Two pages, as Πάγια has its own: the days and their figures, and the businesses themselves.
+        // Three pages: the days and their figures, the businesses themselves, with a new closing first (as Transactions has «Νέα συναλλαγή»).
         ...(hasBusiness
           ? [
               {
                 path: "/business",
                 label: t("nav.business"),
                 icon: FiShoppingBag,
+                // Adding first, as under Transactions: a day's closing is the thing done most often.
                 children: [
+                  { path: "/business/new", label: t("nav.newClosing"), icon: FiPlusCircle },
                   { path: "/business", label: t("business.pageOverview"), icon: FiEye },
                   { path: "/business/manage", label: t("business.tabBusinesses"), icon: FiEdit2 },
                 ],

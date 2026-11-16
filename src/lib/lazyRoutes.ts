@@ -26,5 +26,7 @@ export const PlannerPage = lazy(() => pageChunks.planner().then((m) => ({ defaul
 export const DebtsPage = lazy(pageChunks.debts);
 export const AccountsPage = lazy(pageChunks.accounts);
 export const BusinessPage = lazy(pageChunks.business);
+// «Νέο κλείσιμο»: «Δουλειά»'s own chunk, as its other pages.
+export const NewClosingPage = lazy(() => pageChunks.business().then((m) => ({ default: m.NewClosingPage })));
 export const LoginPage = lazy(pageChunks.login);
 export const RegisterPage = lazy(pageChunks.register);

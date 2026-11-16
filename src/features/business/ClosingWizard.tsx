@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Button, FormGroup, Input, Label, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -16,6 +16,8 @@ import { cleanLine } from "../../shared/utils/cleanText";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError } from "../../shared/utils/dates";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { WizardSteps } from "../transactions/components/WizardSteps";
+import { SavedCheck } from "../transactions/components/SavedCheck";
+import page from "../transactions/components/css/TransactionWizard.module.css";
 import { formatTable } from "../transactions/transactionDates";
 import { useTransactions } from "../transactions/hooks/useTransactions";
 import AccountPicker from "../accounts/AccountPicker";
@@ -71,7 +73,30 @@ function linesFor(business: Business | undefined, kind: "incomeLines" | "expense
   return business[kind].filter((l) => !l.removed || named.includes(l.id));
 }
 
-export default function ClosingWizard({ entry, businesses, preset, onClose, onDelete }: { entry?: BusinessEntry; businesses: readonly Business[]; preset?: string; onClose: () => void; onDelete?: () => void }) {
+/**
+ * The same wizard in two frames: a dialog over the «Δουλειά» page, or the
+ * whole of a page of its own (`/business/new`, from the menu) — as
+ * «Νέα συναλλαγή» is (`AddTransactionModal asPage`). Only the frame differs;
+ * on the page a save shows what went in, with «Νέο κλείσιμο» again
+ * (`onAgain`) and the way to the summary (`onClose`).
+ */
+export default function ClosingWizard({
+  entry,
+  businesses,
+  preset,
+  onClose,
+  onDelete,
+  asPage = false,
+  onAgain,
+}: {
+  entry?: BusinessEntry;
+  businesses: readonly Business[];
+  preset?: string;
+  onClose: () => void;
+  onDelete?: () => void;
+  asPage?: boolean;
+  onAgain?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const { format, convert, convertToBase, baseCurrency, displayCurrency } = useCurrencyConverter();
@@ -82,6 +107,10 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const deleteGuard = useOfflineGuard("delete");
   const { tried, mark } = useStepTried<Step>();
   const ids = { date: useId(), notes: useId(), field: useId() };
+  // On the page, what was just saved — shown until «Νέο κλείσιμο» starts another.
+  const [saved, setSaved] = useState<Record<"business" | "date" | "turnover" | "expenses" | "profit" | "money", string> & { tone: string; loss: boolean; profitTone: string } | null>(null);
+  // Run once: a second tap on Save while the first is still on screen does nothing.
+  const submitted = useRef(false);
 
   const editing = !!entry;
   const linked = editing ? transactions?.find((tx) => tx.id === entry.linkedTransactionId) : undefined;
@@ -161,6 +190,8 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const submit = () => {
     if (nothingChanged) return;
     if (!ready || !when || !business) return goTo("review");
+    if (submitted.current) return;
+    submitted.current = true;
     const closing = { businessId: business.id, date: when, incomes, expenses, notes: notes.trim() || undefined, accountId: move ? written || undefined : undefined };
     void saveWithoutWaiting(
       save,
@@ -173,7 +204,8 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
     );
     celebrateSave({ collection: "businessEntries", id: editing ? entry.id : undefined });
     toast.success(t("business.saved", { day: formatTable(when, lang), name: business.name }));
-    onClose();
+    if (asPage) setSaved({ business: now.business, date: now.date, turnover: now.turnover, expenses: now.expenses, profit: now.profit, money: now.money, loss: Math.round(figures.profit * 100) < 0, profitTone: profitTone(figures.profit, styles), tone: move ? (move.type === "income" ? styles.positive : styles.negative) : "" });
+    else onClose();
   };
 
   // ── The check ──
@@ -260,21 +292,61 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
   const stepLabel = (s: Step) => (s === "day" ? t(single ? "business.step_day" : "business.step_businessDay") : t(`business.step_${s}`));
   const ask = step === "account" && move?.type === "expense" ? t("business.ask_accountLoss") : step === "account" && !move ? t("business.ask_accountZero") : step === "day" ? t(single ? "business.ask_day" : "business.ask_businessDay") : t(`business.ask_${step}`);
 
-  return (
-    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>
-        {t(editing ? "business.editClosingTitle" : "business.closingTitle")}
-        {business && step !== "day" ? ` · ${business.name}` : ""}
-      </ModalHeader>
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (step === "review") submit();
-          else goTo(STEPS[index + 1]);
-        }}
-      >
-        <ModalBody>
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (step === "review") submit();
+    else goTo(STEPS[index + 1]);
+  };
+
+  // ── Saved, on the page: a tick, one line, and what went in ──
+  if (asPage && saved) {
+    const savedRow = (label: string, value: string, className = "") => (
+      <div className={wiz.wizStatic}>
+        <span className={wiz.wizLabel}>{label}</span>
+        <span className={`${wiz.wizValue} ${className}`}>{value}</span>
+      </div>
+    );
+    return (
+      <div className={page.page}>
+        <div className={page.pageBody}>
+          <div className={page.savedPanel} role="status">
+            <SavedCheck />
+            <h2 className={page.savedTitle}>{t("business.closingSavedTitle")}</h2>
+            <p className={page.savedSub}>{t("business.closingSavedSub")}</p>
+            <div className={page.savedDetails}>
+              <p style={{ fontSize: "var(--fs-text)", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>{t("business.closingSavedDetails")}</p>
+              <div className={wiz.wizCard}>
+                {savedRow(t("business.business"), saved.business)}
+                {savedRow(t("common.date"), saved.date)}
+                {savedRow(t("business.turnover"), saved.turnover, styles.total)}
+                {savedRow(t("business.expenses"), saved.expenses, styles.total)}
+                {savedRow(t(saved.loss ? "business.loss" : "business.profit"), saved.profit, `${styles.total} ${saved.profitTone}`)}
+                {savedRow(t(saved.tone === styles.negative ? "business.moneyOut" : "business.moneyIn"), saved.money, saved.tone)}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className={`${page.pageFooter} ${page.footerSplit}`}>
+          <Button color="secondary" outline onClick={onClose}>
+            {t("business.pageOverview")}
+          </Button>
+          <Button color="primary" onClick={onAgain}>
+            + {t("nav.newClosing")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const header = (
+    <>
+      {t(editing ? "business.editClosingTitle" : "business.closingTitle")}
+      {business && step !== "day" ? ` · ${business.name}` : ""}
+    </>
+  );
+
+  const content = (
+    <>
           <WizardSteps steps={STEPS} current={step} onGo={goTo} open={editing} label={stepLabel} />
           <div className="fw-semibold mb-3" style={{ fontSize: "var(--fs-lead)" }}>
             {ask}
@@ -442,9 +514,11 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
               <div className={`${wiz.wizNote} mt-3`}>{t("business.onlyProfitNote")}</div>
             </>
           )}
-        </ModalBody>
+    </>
+  );
 
-        <ModalFooter className="justify-content-between">
+  const footer = (
+    <>
           <div className="d-flex gap-2">
             {editing && onDelete && <DeleteButton opensConfirm iconOnly onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />}
             {index === 0 || (editing && step === "review") ? (
@@ -469,7 +543,25 @@ export default function ClosingWizard({ entry, businesses, preset, onClose, onDe
               {t("common.next")} ›
             </Button>
           )}
-        </ModalFooter>
+    </>
+  );
+
+  // On the page: the steps across the page, Back and Next riding along the
+  // bottom of the screen (`TransactionWizard.module.css`, as «Νέα συναλλαγή»).
+  if (asPage)
+    return (
+      <form noValidate onSubmit={onSubmit} className={page.page}>
+        <div className={page.pageBody}>{content}</div>
+        <div className={`${page.pageFooter} ${page.footerSplit}`}>{footer}</div>
+      </form>
+    );
+
+  return (
+    <Modal {...FORM_MODAL} isOpen toggle={onClose} centered scrollable>
+      <ModalHeader toggle={onClose}>{header}</ModalHeader>
+      <form noValidate onSubmit={onSubmit}>
+        <ModalBody>{content}</ModalBody>
+        <ModalFooter className="justify-content-between">{footer}</ModalFooter>
       </form>
     </Modal>
   );

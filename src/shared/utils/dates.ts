@@ -49,6 +49,31 @@ export function parseISODay(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// ─── The app's one rule for "a day" (2026-11-16) ─────────────────────────────
+//
+// A day the user picks is SAVED as local midnight of that day (`dayToDate`,
+// which is `parseISODay`), and a stored date is READ back as the local
+// calendar day it falls on (`toISODay`). Every form — add, edit, wizard — goes
+// through these two and nothing else; `toISOString()` and `new Date("yyyy-MM-dd")`
+// are never used for a day (`dayValues.test.ts` refuses them outside this file).
+//
+// Why midnight and not noon: midnight is what `parseISODay` has always given
+// and what almost every writer already stored, so no record and no figure
+// moves; Greece's clocks change at 03:00/04:00, so local midnight exists and is
+// unique on both DST Sundays; and the money code compares records by local day
+// (`balance.ts`), where any hour of the day reads the same. Older records saved
+// as `new Date("yyyy-MM-dd")` (UTC midnight = 02:00/03:00 in Greece) still read
+// as the right day through `toISODay`.
+
+/**
+ * The Date a form stores for a picked "yyyy-MM-dd": local midnight of that day.
+ * Anything that is not a day gives an Invalid Date (as `new Date("")` did), so
+ * a writer's own check still catches it.
+ */
+export function dayToDate(value: string): Date {
+  return parseISODay(value) ?? new Date(Number.NaN);
+}
+
 /** Formats a Date (or a Firestore Timestamp) as "yyyy-MM-dd" in local time. */
 export function toISODay(value: unknown): string {
   const date = firestoreToDate(value);
@@ -147,9 +172,9 @@ export class FutureDateError extends Error {
  * The first moment a "happened" record may NOT carry: the start of the day
  * after tomorrow, local time.
  *
- * Tomorrow is let through on purpose. Forms store a day either as local
- * midnight or as `new Date("yyyy-MM-dd")` (UTC midnight — up to 14 hours
- * later in local time east of Greenwich), and a phone that crossed a time
+ * Tomorrow is let through on purpose. Forms store a day as local midnight
+ * (`dayToDate`), but older records were written as `new Date("yyyy-MM-dd")`
+ * (UTC midnight — up to 14 hours later in local time east of Greenwich), and a phone that crossed a time
  * zone may be a day ahead of the one that wrote it. The forms already refuse
  * tomorrow; this layer only has to stop what is plainly wrong — a deposit
  * dated next week — without ever refusing a real "today".

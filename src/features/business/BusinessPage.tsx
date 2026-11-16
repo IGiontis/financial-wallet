@@ -27,6 +27,8 @@ import { businessOf, lineName, profitTone, signed } from "./businessFormat";
 import { MonthNav } from "./businessShared";
 import { useBusinessEntries, useBusinesses, useDeleteBusiness, useDeleteClosing } from "./useBusiness";
 import ClosingWizard from "./ClosingWizard";
+// «Νέο κλείσιμο» (`/business/new`) rides in this page's chunk (`lazyRoutes`).
+export { NewClosingPage } from "./NewClosingPage";
 import BusinessWizard from "./BusinessWizard";
 import { BusinessDeleteModal, BusinessEntryView } from "./BusinessEntryView";
 import { BusinessesTab, DeleteBusinessModal, FirstBusinessInvite } from "./BusinessesTab";

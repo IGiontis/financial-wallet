@@ -98,7 +98,8 @@
     "goHome": "MyFiWallet — to the Overview",
     "calendar": "Calendar",
     "language": "Language",
-    "business": "Business"
+    "business": "Business",
+    "newClosing": "New closing"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -3638,7 +3639,10 @@
     "daysSheetTitle": "The month's days",
     "lossDayTag": "loss",
     "lineOpen": "“{{name}}”, {{amount}}: see which closings",
-    "lineSheetSub": "Where the amount comes from: each closing of the month with this line."
+    "lineSheetSub": "Where the amount comes from: each closing of the month with this line.",
+    "closingSavedTitle": "Closing saved",
+    "closingSavedSub": "It is in the business's days and already counts in the summary.",
+    "closingSavedDetails": "What was saved"
   },
   "toasts": {
     "saved": "Saved",

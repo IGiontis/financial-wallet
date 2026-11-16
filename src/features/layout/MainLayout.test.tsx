@@ -203,7 +203,7 @@ describe("«Δουλειά», switched on", () => {
     state.business = true;
   });
 
-  it("is a section in Day to day, after Bills, opening into its two pages — never a plain link", () => {
+  it("is a section in Day to day, after Bills, opening into its three pages, new closing first — never a plain link", () => {
     renderAt("/");
     const daily = within(within(sidebar()).getByRole("list", { name: "Day to day" }));
     expect(daily.queryAllByRole("link")).toEqual([]);
@@ -211,6 +211,7 @@ describe("«Δουλειά», switched on", () => {
     fireEvent.click(daily.getByRole("button", { name: "Business" }));
     const business = within(daily.getByRole("button", { name: "Business" }).closest("li")!);
     expect(business.getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["New closing", "/business/new"],
       ["Summary", "/business"],
       ["My businesses", "/business/manage"],
     ]);
@@ -220,6 +221,7 @@ describe("«Δουλειά», switched on", () => {
     for (const [path, lit] of [
       ["/business", "Summary"],
       ["/business/manage", "My businesses"],
+      ["/business/new", "New closing"],
     ] as const) {
       const { unmount } = renderAt(path);
       const section = within(sidebar()).getByRole("button", { name: "Business" });

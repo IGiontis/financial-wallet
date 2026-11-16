@@ -32,7 +32,7 @@ import styles from "./css/TransactionWizard.module.css";
 import { formatTable } from "../transactionDates";
 import { FORM_MODAL } from "../../../shared/components/formModal";
 import { RequiredMark } from "../../../shared/components/RequiredMark";
-import { toISODay, isAfterToday, NOT_IN_FUTURE } from "../../../shared/utils/dates";
+import { dayToDate, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../../shared/utils/dates";
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ function ReviewStep({ values, categories, formatAmount, currency, subtitle }: { 
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={formatTable(new Date(values.date), i18n.resolvedLanguage ?? "en")}
+      dateFormatted={formatTable(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
     />
@@ -234,7 +234,7 @@ export default function AddTransactionModal({ isOpen, onClose, categories, onSub
 
         const dto: CreateTransactionDTO = {
           amount: amountInBase, type: values.type, categoryId: values.categoryId,
-          date: new Date(values.date), description: values.description,
+          date: dayToDate(values.date), description: values.description,
           notes: values.notes || undefined, metadata,
           accountId: chosenAccount(accounts, values.accountId) || undefined,
         };

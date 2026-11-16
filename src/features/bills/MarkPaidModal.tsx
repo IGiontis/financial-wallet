@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "../../shared/components/DateField";
 import type { BillWithStatus } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
-import { parseISODay, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../shared/utils/dates";
+import { dayToDate, parseISODay, toISODay, isAfterToday, NOT_IN_FUTURE } from "../../shared/utils/dates";
 import AccountPicker from "../accounts/AccountPicker";
 import { useMoneyAccounts } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount, expectedByAccount, mainAccount } from "../accounts/accountsUtils";
@@ -179,7 +179,7 @@ export default function MarkPaidModal({ bill, isSaving, presetPeriodKey, presetI
       }
       const typed = Number(values.amount);
       const amountInBase = baseCurrency === displayCurrency ? typed : convertToBase(typed);
-      const when = parseISODay(values.date) ?? new Date(values.date);
+      const when = dayToDate(values.date);
       const period = periods.find((p) => p.key === values.periodKey);
       onConfirm(amountInBase, when, values.periodKey, installmentTotal > 1 ? installmentIndex : undefined, picked || undefined);
       // Said once it is done, for what it is: the bill, how much, from where, for when.

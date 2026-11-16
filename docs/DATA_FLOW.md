@@ -85,6 +85,16 @@ the rule can still be corrected. Planned writers (`createBill`, goals, `updateBi
 income settings) are not checked. Not checked either: `syncDebtCash` (derived from the debt's own,
 already-checked days). Tests: `firebase/happenedDates.test.ts`, `shared/utils/dates.test.ts`.
 
+**How a day is stored and read back (2026-11-16).** Every form saves a picked day as LOCAL
+MIDNIGHT (`dayToDate` / `parseISODay`) and opens a stored date on its LOCAL calendar day
+(`toISODay`) — the day the lists show. The transaction add/edit forms and the goal deadline used to
+save `new Date("yyyy-MM-dd")` (UTC midnight = 02:00/03:00 in Greece) and the transaction/goal edit
+forms read the date back with `toISOString()` — so a record at local midnight (gap records, every
+`parseISODay` writer) opened a day early. Both now go through the shared helpers; records already
+stored at UTC midnight read as the same day and are not rewritten. An edit that leaves the day alone
+does not send it (`updateTransaction` gets no `date`; `EditGoalModal` sends `deadline` only when the
+day changed), so «No change, no Save» and the future-date rule compare days, never hours.
+
 ## Every write runs once, and says how it went
 
 The owner's report (2026-11-12): «delete goal» pressed again while the first delete ran sent a second

@@ -39,6 +39,7 @@ const expected: Record<string, string> = {
   DebtsPage: "debts",
   AccountsPage: "accounts",
   BusinessPage: "business",
+  NewClosingPage: "business",
   LegalPage: "legal",
   LoginPage: "login",
   RegisterPage: "register",

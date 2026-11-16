@@ -165,3 +165,5 @@ change that the demo doesn't show yet adds a line here:
 
 - Guided tour: cover the new pages (Δουλειά, Δικαιούχοι & κατηγορίες, transactions calendar,
   Τράπεζες), 1–2 steps per page.
+- «Νέο κλείσιμο» (`/business/new`, 2026-11-16): works with the demo's two businesses as they
+  are; the tour does not show it yet.

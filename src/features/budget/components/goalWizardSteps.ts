@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import type { GoalPart, TargetPeriod } from "../../../shared/types/IndexTypes";
+import { dayToDate } from "../../../shared/utils/dates";
 
 // The goal wizards' steps and review rows — the data half of GoalWizard.tsx.
 
@@ -59,7 +60,7 @@ export function goalReviewRows({
   t: (key: string) => string;
   extra?: GoalReviewRow[];
 }): GoalReviewRow[] {
-  const day = (iso: string) => format(new Date(iso), "dd/MM/yyyy");
+  const day = (iso: string) => format(dayToDate(iso), "dd/MM/yyyy");
   return [
     { step: "what", label: t("goals.wizard.nameLabel"), value: values.name },
     { step: "what", label: t("goals.typeLabel"), value: kindLabel },

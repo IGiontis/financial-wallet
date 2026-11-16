@@ -311,7 +311,16 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
   `happenedDayError(iso, today?, stored?)` → `NOT_IN_FUTURE` (`validation.notInFuture`) or undefined;
   the writers' guard `refuseFutureDates(dates, { now?, stored? })` → `FutureDateError`, with
   `happenedLimit` (start of the day after tomorrow: a day of slack for time zones). Date helpers live
-  here, never as local copies in forms. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.
+  here, never as local copies in forms.
+  **The one rule for "a day" (2026-11-16):** a form READS a stored date as its local calendar day,
+  `toISODay(value)` (it takes a Timestamp, a Date or a millis value), and SAVES a picked day as local
+  midnight, `dayToDate(iso)` (= `parseISODay`, but an Invalid Date instead of null). Local midnight,
+  not noon: almost every writer already stored it (no record or figure moves), it exists on both DST
+  Sundays in Greece (clocks change at 03:00/04:00), and money code compares by local day. Older
+  records at UTC midnight (`new Date("yyyy-MM-dd")`) still read as the right day. Never
+  `toISOString().slice/split` or `new Date(values.x)` for a day — `shared/utils/dayValues.test.ts`
+  fails on them outside dates.ts; tests on Greek time in `dates.dayRule.test.ts` and
+  `EditTransactionModal.day.test.tsx`. `src/features/transactions/transactionDates.ts` — `isSameDay`, `toDateKey`, `formatDisplay`.
 - `src/shared/types/IndexTypes.ts` — every shared record type (Transaction, Bill, Debt, InvestmentGoal …).
 
 ## Colours, type, spacing

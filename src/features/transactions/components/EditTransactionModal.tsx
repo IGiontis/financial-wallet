@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { celebrateSave } from "../../../shared/feedback/saveFeedback";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { firestoreToDate, happenedDayError, NOT_IN_FUTURE } from "../../../shared/utils/dates";
+import { dayToDate, happenedDayError, NOT_IN_FUTURE, toISODay } from "../../../shared/utils/dates";
 import { toast } from "react-toastify";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, FormGroup, Label, Input, FormFeedback, FormText, Row, Col } from "reactstrap";
 import type { Transaction, UpdateTransactionDTO, Category, FuelMetadata, FuelType } from "../../../shared/types/IndexTypes";
@@ -56,10 +56,10 @@ interface EditTransactionFormValues {
   accountId: string;
 }
 
-const toDateInputValue = (value: unknown): string => {
-  if (!value) return "";
-  return firestoreToDate(value).toISOString().split("T")[0];
-};
+// The stored date as the LOCAL calendar day it falls on — the day the list
+// shows. (`toISOString()` read it in UTC: a record at local midnight in Greece
+// opened on the day before.)
+const toDateInputValue = (value: unknown): string => (value ? toISODay(value) : "");
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ function ReviewStep({ values, categories, formatAmount, currency }: { values: Ed
       colors={colors}
       amount={Number(values.amount)}
       formatAmount={formatAmount}
-      dateFormatted={formatTable(new Date(values.date), i18n.resolvedLanguage ?? "en")}
+      dateFormatted={formatTable(dayToDate(values.date), i18n.resolvedLanguage ?? "en")}
       notes={values.notes || undefined}
       fuelCells={fuelCells}
     />
@@ -248,7 +248,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
               // Sent only when changed: a day kept as it is stays exactly as
               // stored, and a record dated in the future before the rule can
               // still be corrected in its other fields.
-              date: values.date === storedDate ? undefined : new Date(values.date), description: values.description,
+              date: values.date === storedDate ? undefined : dayToDate(values.date), description: values.description,
               notes: values.notes.trim() ? values.notes : null, metadata,
               accountId: accountId || null,
             };
@@ -259,7 +259,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
         // covered expense's money didn't move, so there is nothing to correct.
         if (adjustReading && !covered) {
           const amount = baseCurrency === displayCurrency ? Number(values.amount) : convertToBase(Number(values.amount));
-          const changed = { ...transaction, amount, date: new Date(values.date), accountId: accountId || undefined };
+          const changed = { ...transaction, amount, date: dayToDate(values.date), accountId: accountId || undefined };
           const corrected = adjustCheckInsForEdit(checkIns, moneyAccounts, transaction, changed);
           if (corrected !== checkIns) setCheckIns(corrected);
         }
@@ -548,7 +548,7 @@ export default function EditTransactionModal({ transaction, isOpen, onClose, cat
                     changed: {
                       ...transaction,
                       amount: baseCurrency === displayCurrency ? Number(formik.values.amount) : convertToBase(Number(formik.values.amount)),
-                      date: new Date(formik.values.date),
+                      date: dayToDate(formik.values.date),
                       accountId: chosenAccount(accounts, formik.values.accountId) || undefined,
                     },
                   }

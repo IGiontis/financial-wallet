@@ -7,7 +7,7 @@ import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
 import { PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
 import { AuthSkeleton } from "../features/auth/AuthSkeleton";
-import { OverviewPage, TransactionsPage, TransactionsCalendarPage, NewTransactionPage, LedgerPage, NamesPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, BusinessPage, LoginPage, RegisterPage } from "./lazyRoutes";
+import { OverviewPage, TransactionsPage, TransactionsCalendarPage, NewTransactionPage, LedgerPage, NamesPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, BusinessPage, NewClosingPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
   // Readable signed in or not: linked from the sign-in pages and the footer.
@@ -248,6 +248,16 @@ export const router = createBrowserRouter([
                 element: (
                   <Suspense fallback={<PageLoader />}>
                     <BusinessPage view="manage" />
+                  </Suspense>
+                ),
+              },
+              {
+                // «Νέο κλείσιμο»: the closing wizard as a page, as /transactions/new
+                // is for a transaction (the same chunk as «Δουλειά»).
+                path: "business/new",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <NewClosingPage />
                   </Suspense>
                 ),
               },
