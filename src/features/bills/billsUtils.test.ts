@@ -33,7 +33,6 @@ import {
   monthForecast,
   salaryShare,
   totalsAreApproximate,
-  urgencyToken,
   periodProgress,
   periodTotals,
   monthlyEquivalent,
@@ -1635,23 +1634,6 @@ describe("periodProgress — how far through the cycle we are", () => {
 
   it("has nothing to measure without a due date", () => {
     expect(periodProgress({ frequency: "monthly", intervalCount: 1 }, undefined, new Date(2026, 8, 10))).toBeUndefined();
-  });
-});
-
-describe("urgencyToken", () => {
-  it("gives each state the colour the rest of the app uses for it", () => {
-    // The rows, the runway and the badges all read from this one mapping, which
-    // is the only reason they agree with each other.
-    expect(urgencyToken("paid")).toBe("--color-income");
-    expect(urgencyToken("late")).toBe("--color-expense");
-    expect(urgencyToken("soon")).toBe("--color-goal");
-    expect(urgencyToken("later")).toBe("--bs-primary");
-  });
-
-  it("names a token rather than a colour, so both themes follow", () => {
-    for (const urgency of ["paid", "late", "soon", "later"] as const) {
-      expect(urgencyToken(urgency)).toMatch(/^--/);
-    }
   });
 });
 

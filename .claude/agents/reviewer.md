@@ -29,6 +29,7 @@ Check, and report each finding with path:line, what is wrong, and the fix:
 4. **Data**: Firestore through the facade, `updatedAt`/`noteDeleted`, batches name existing
    docs only, demo data present, linked money together.
 5. **Money**: is every new figure tested a second, independent way?
+5b. **Leftovers**: code, CSS, locale keys or tests the change made unused but did not remove.
 6. **Docs**: were `PROJECT_MAP` / `COMPONENTS` / `DATABASE` / `DATA_FLOW` / `DECISIONS` updated
    for what changed? Does anything in them now say something the code no longer does?
 7. Run `npx tsc -b`, `npx eslint <changed paths>`, `npx vitest run --dir src` and report results.

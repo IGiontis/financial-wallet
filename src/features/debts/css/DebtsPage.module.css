@@ -155,6 +155,7 @@
 
 /* One person on one side: initials, name and what it is, how much is gone, what is left. */
 .sideRow {
+  composes: hover-row from global;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -170,15 +171,6 @@
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-}
-
-.sideRow:hover {
-  background: var(--color-background-secondary);
-}
-
-.sideRow:focus-visible {
-  outline: var(--focus-width) solid var(--focus);
-  outline-offset: var(--focus-offset);
 }
 
 .initials {

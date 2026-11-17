@@ -61,6 +61,15 @@ only when the same brief has been written three times.
 - If the map and the code disagree, the code is the truth — fix the map, and tell the owner
   if it looks like a bug.
 
+## Clean up as you go — part of every change (owner, 2026-11-17)
+
+- When a change replaces or reshapes something, remove what it leaves behind IN THE SAME
+  CHANGE: unused components, hooks, utils, CSS classes/modules, locale keys (el AND en), tests
+  of removed code, dead routes/redirects no one needs, stale docs lines. Grep for every import
+  and use before deleting; never delete what something else still uses.
+- Only the code your change touched or orphaned — no unrelated sweeping refactors.
+- List what you removed in the report.
+
 ## Working with agents
 
 - Several agents may share the working tree: give each disjoint files, and have them add

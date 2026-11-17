@@ -186,6 +186,7 @@
 }
 
 .row {
+  composes: hover-row from global;
   display: grid;
   grid-template-columns: 2.6rem 1.6rem minmax(0, 1fr) auto;
   align-items: center;
@@ -201,15 +202,6 @@
 
 .dayHead + .row {
   border-top: 0;
-}
-
-.row:hover {
-  background: var(--color-background-secondary);
-}
-
-.row:focus-visible {
-  outline: var(--focus-width) solid var(--focus);
-  outline-offset: -2px;
 }
 
 /* Money that only changed pockets: listed, quieter, counted in neither. */

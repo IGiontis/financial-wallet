@@ -98,10 +98,14 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Firebase `auth.ts`, `firestore.ts`; tests `RegisterPage.test.tsx`, `pendingSignUp.test.ts`, `passwordReset.test.ts`.
 
 ### `bills` — «Λογαριασμοί», recurring payments ticked off when paid
-- Page `BillsPage.tsx` (four routes = four views); `AddBillModal` (wizard), `MarkPaidModal`, `SettleOverdueModal`, `BillManage`, `BillMonthTimeline`, `BillYearAhead`, `BillYearGrid`, `BillAlertPopup` (mounted in `MainLayout`).
+- Page `BillsPage.tsx` (four routes = four views, reached from the sidebar — no link tabs on the page); the lists
+  («Πληρωμές», «Όλα») switch between three views (`billViews.ts`, kept per device as `bills-view-2`, the old
+  `bills-view` read once): «Λίστα» = a card per bill with its dates (`BillStrip`, `billStrip.ts`, density `useDensity("bills")`) ·
+  «Ο μήνας» (`BillMonthTimeline`) · «Η χρονιά» (`BillYearAhead` + `BillYearCost`); `BillDetailModal` = «Προβολή»
+  with «Ενέργειες» as a step inside it (edit, pause, «τα έχω πληρώσει», undo, delete); `AddBillModal` (wizard), `MarkPaidModal`, `SettleOverdueModal`, `BillManage`, `BillMonthTimeline`, `BillYearAhead`, `BillYearGrid`, `BillAlertPopup` (mounted in `MainLayout`).
 - Hooks `useBills.ts` (+ `billCache.ts` keys/patches), `useBillAlerts.ts`; `useBillsNeedingAttention` feeds the sidebar badge.
 - Firebase `firestore.ts`; collections `bills`, `billPayments`, `transactions`.
-- Logic `billsUtils.ts`, `monthTimeline.ts`, `yearCost.ts`, `billAlerts.ts`; tests `billsUtils.test.ts`, `useBills.test.tsx`, `billPause.test.ts`, `billInstalments.test.ts`, `billsBadge.test.tsx` (menu badge = «Πληρωμές» tab), `BillsPage.*.test.tsx`.
+- Logic `billsUtils.ts`, `monthTimeline.ts`, `yearCost.ts`, `billAlerts.ts`; tests `billsUtils.test.ts`, `useBills.test.tsx`, `billPause.test.ts`, `billInstalments.test.ts`, `billsBadge.test.tsx` (the menu's «Πληρωμές» badge), `billStrip.test.ts`, `billViews.test.ts`, `BillsPage.*.test.tsx`.
 
 ### `budget` — goals AND investments logic (despite the name)
 - Page `InvestmentsPage.tsx`; shared screen `components/GoalsWorkbench.tsx` (tabs: shared `PageTabs`, `useGoalTab.ts`), `GoalsOverview`, `GoalCard`/`InvestmentsShared`, `GoalStacks`, `GoalWizard`, `GoalDeleteModal`.
@@ -141,7 +145,7 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - `ErrorBoundary.tsx` (route `errorElement`), `NotFoundPage.tsx` (`*`, and `/business` when off).
 
 ### `incomes` — «Έσοδα», expected incomes and their arrival
-- Page `IncomesPage.tsx` (four routes = four views); `components/IncomeFormModal`, `IncomeManage`, `IncomeMonthsAhead`, `ArrivedSheet`, `ConfirmSheet`.
+- Page `IncomesPage.tsx` (four routes = four views, reached from the sidebar — no link tabs on the page); `components/IncomeFormModal`, `IncomeManage`, `IncomeMonthsAhead`, `ArrivedSheet`, `ConfirmSheet`.
 - Hooks `useIncomes.ts` (`useIncomesNeedingAttention` feeds the sidebar badge), `useSalaryIncome.ts`, `useIncomesMigration.ts`.
 - Data: income list on the user doc; an arrival is a `transactions` record.
 - Logic `incomesUtils.ts`, `incomeMigration.ts`, `detectSalary.ts`; tests `incomesUtils.test.ts`, `IncomesPage.test.tsx`, `incomeMigration.test.ts`.

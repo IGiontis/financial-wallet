@@ -811,6 +811,7 @@
 
 /* A row that opens its occurrence: a button, styled back to a row. */
 .eventButton {
+  composes: hover-row from global;
   width: 100%;
   border-left: 0;
   border-right: 0;
@@ -820,10 +821,6 @@
   text-align: left;
   font: inherit;
   font-size: var(--fs-text);
-}
-
-.eventButton:hover {
-  background: var(--color-background-secondary);
 }
 
 /* Already came or will not: quiet, and the amount struck through so it reads

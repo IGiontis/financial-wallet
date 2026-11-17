@@ -25,10 +25,14 @@ every difference you can see.
    never below tiles or a month bar. Overview first. Anything that belongs to one tab
    (tiles, month ‹ ›, charts) lives inside that tab's panel. The open tab is kept in the
    address (`?tab=`). A sub-page of a menu entry is a child route in the sidebar, not an
-   inner tab of another page.
+   inner tab of another page. **At most ONE row of tabs/selectors-of-pages per page**
+   (owner, 2026-11-17): a section's sub-pages are reached only from the sidebar — never a
+   row of link tabs over a page that has its own tabs or views (Bills, Incomes dropped theirs).
 3. Tiles, cards, rows, chips: reuse an existing page's components/classes (`tone-tile`,
    `GoalsOverview` tiles, `.stat-head`, `RowMenu`, `InfoLegend`) — no new look for the same
-   thing.
+   thing. **Clickable cards/rows use the shared hover** (owner, 2026-11-17): `composes: hover-card` /
+   `hover-row from global` (theme.css) — calm brand wash (+ edge on a card), the same on keyboard focus;
+   never an ad-hoc `:hover` background or border of a page's own.
 4. Buttons: every save / submit / confirm and «Ήρθε» / «Πληρώθηκε» is `color="primary"` (the
    brand), never green; cancel/back `secondary outline`; delete far left, danger. A choice
    between options uses the shared segmented control or choice tiles — never a hand-made

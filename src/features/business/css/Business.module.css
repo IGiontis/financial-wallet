@@ -416,6 +416,7 @@
    (or the line's) own look, nothing a button adds, and a way to tell they open. */
 .tileButton,
 .lineButton {
+  composes: hover-row from global;
   width: 100%;
   margin: 0;
   color: inherit;
@@ -425,12 +426,8 @@
 }
 
 .tileButton {
+  composes: hover-card from global;
   transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
-}
-
-.tileButton:hover {
-  border-color: var(--color-border-primary);
-  background: var(--color-background-secondary);
 }
 
 .lineButton {
@@ -441,16 +438,6 @@
   border: 0;
   border-radius: var(--radius-md);
   background: none;
-}
-
-.lineButton:hover {
-  background: var(--color-background-secondary);
-}
-
-.tileButton:focus-visible,
-.lineButton:focus-visible {
-  outline: var(--focus-width) solid var(--focus);
-  outline-offset: var(--focus-offset);
 }
 
 /* The «›» that says a figure opens. */

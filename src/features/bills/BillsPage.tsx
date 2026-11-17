@@ -8,22 +8,19 @@ import type { TFunction } from "i18next";
 import { ViewSwitch } from "../../shared/components/ViewSwitch";
 import { AddHeader } from "../../shared/components/AddButton";
 import { SegmentedBar } from "../../shared/components/SegmentedBar";
-import { CalendarTimeline } from "../calendar/components/CalendarTimeline";
-import { FiSquare, FiBarChart2, FiCalendar, FiGitCommit, FiChevronRight, FiCheck, FiGrid, FiList, FiLock, FiAward } from "react-icons/fi";
+import { FiAlertCircle, FiAlertTriangle, FiBarChart2, FiCalendar, FiCheck, FiChevronRight, FiList, FiLock } from "react-icons/fi";
 import type { Bill, BillPayment, BillWithStatus, CreateBillDTO, Category } from "../../shared/types/IndexTypes";
 import { useCurrencyConverter } from "../../shared/hooks/useCurrencyConverter";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { useCategories } from "../transactions/hooks/useTransactions";
 import { useBills, useCreateBill, useUpdateBill, useDeleteBill, useMarkBillPaid, useSettleOverdue, useUnmarkBillPaid, useUpdateBillPayment } from "./useBills";
 import {
-  amountOwedNow,
   arrears,
   billMonthStrip,
   billOverdue,
   billUrgency,
   cadenceTone,
   type CashCheckpoint,
-  groupByCadence,
   cashRunway,
   daysUntilDeadline,
   earliestDeadline,
@@ -31,7 +28,6 @@ import {
   getFrequencyLabel,
   groupBills,
   overdueBills,
-  isHardDeadline,
   isInGracePeriod,
   monthForecast,
   outstandingTotal,
@@ -42,16 +38,12 @@ import {
   supportsMonthStrip,
   totalsAreApproximate,
   URGENT_DAYS,
-  urgencyToken,
   yearlyBreakdown,
   currentPause,
   startsLater,
   yearAhead,
   type MonthChip,
   type MonthForecast,
-  settledForCards,
-  willBePaidAgain,
-  billsNeedingAttention,
   isStoppedNow,
   restingNow,
   getIntervalCount,
@@ -67,7 +59,6 @@ import { PageWaiting } from "../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import BillYearAhead from "./BillYearAhead";
 import BillYearCost from "./BillYearCost";
-import { PageTabs } from "../../shared/components/PageTabs";
 import { BillManage } from "./BillManage";
 import BillMonthTimeline from "./BillMonthTimeline";
 import { monthTimeline } from "./monthTimeline";
@@ -87,7 +78,12 @@ import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { PageShell } from "../../shared/components/PageShell";
-import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
+import { ROW_PENDING, usePendingRecords } from "../../shared/hooks/usePendingRecords";
+import { DensitySwitch } from "../../shared/components/DensitySwitch";
+import { useDensity, type Density } from "../../shared/hooks/useDensity";
+import { lineStatus, stripCards, type StripCard, type StripLine, type StripLineKind, type StripLineStatus, type StripSection } from "./billStrip";
+import { billViewFrom, billViewFromOld, type BillView } from "./billViews";
+import type { IconType } from "react-icons";
 import { useToday } from "../../shared/hooks/useToday";
 
 // ─── Cash runway — how much, by when ─────────────────────────────────────────
@@ -684,20 +680,8 @@ function MonthStrip({ bill, now }: { bill: BillWithStatus; now: Date }) {
   );
 }
 
-// ─── Bill card ───────────────────────────────────────────────────────────────
-// One card per bill carrying everything there is to know about it: what it is,
-// where it stands, the three figures worth comparing, and the cadence strip.
-//
-// It used to be two views behind a toggle — a dense table of figures, or the
-// month strips — which made every visit start with a choice nobody wanted to
-// make, and hid half the information behind the wrong answer. The table was
-// also the source of the cramped phone layout: columns sized for a desktop
-// header, folded onto a 375px screen, put figures wherever they happened to
-// land. Labelled cells in a grid stay legible at any width, so the same card
-// now serves both screens and simply breathes more on the larger one.
-//
-// Every action — pay, edit, delete — still lives one tap away in the detail
-// modal; the card is the only affordance, with a chevron as a visual hint.
+// ─── Bill figures ────────────────────────────────────────────────────────────
+// The three figures worth comparing on a bill, on the list's «Αναλυτικό» rows.
 
 /** One labelled figure in the card's stat row. */
 function Metric({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
@@ -712,129 +696,233 @@ function Metric({ label, value, sub, color }: { label: string; value: string; su
   );
 }
 
-/**
- * One bill on one line: what it is called, how often it comes, what leaves and
- * when next.
- *
- * The cards answer "where does this one stand" and are the right thing when a
- * bill needs doing something about. They are the wrong thing for "what do I
- * actually pay for" — six of them fill a phone screen, and the answer to that
- * question is a list you can take in at once. Same bills, same order, same tap
- * target; only the detail is cut.
- *
- * The figure is what leaves each time, not the monthly average. On a list with
- * no room to explain itself, "€210" beside "every 6 months" is a fact, while
- * "€35" beside it is a calculation the reader has to be told about.
- */
 /** «Ανενεργό» — the same words beside a switched-off bill's name in every view. */
 function OffTag() {
   const { t } = useTranslation();
   return <span className={styles.offTag}>{t("bills.offTag")}</span>;
 }
 
-function BillLine({
-  bill,
-  category,
-  formatCurrency,
-  onOpenDetails,
-  now,
-  flash = "",
-}: {
-  bill: BillWithStatus;
-  category: Category | undefined;
-  formatCurrency: (n: number) => string;
-  onOpenDetails: (b: BillWithStatus) => void;
-  now: Date;
-  /** The saved flash (`useSavedFlash`), when this bill was just saved or paid. */
-  flash?: string;
-}) {
-  const { t, i18n } = useTranslation();
-  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
-  const monthFmt = dateFormat("monthShort", i18n.resolvedLanguage ?? "en");
+// ─── The bills list: one card per bill ──────────────────────────────────────
+// The card's head is the icon, the bill's name and its figure — the same at every
+// density; inside, one line per date,
+// each led by its day in a small pocket-calendar block (red when late) and what
+// that date is — a late bill lists every unpaid period, so none hides (owner,
+// 2026-11-17). More of it with the density switch:
+//   Απλό      — the head and the dated lines;
+//   Κανονικό  — + a foot band: status, cadence, the usual range, the last payment;
+//   Αναλυτικό — + in that band: the three figures (last · each time · next) and the six months.
+// The card is the only affordance: a tap opens the bill, where it is paid,
+// changed or deleted. Which dates and which figures: `billStrip.ts`.
 
-  // Overdue comes first, whatever else is true: a bill paid for October or off
-  // for the winter is still behind if July was never paid.
-  const overdue = billOverdue(bill, now);
-  const late = overdue.count > 0;
-  const settled = bill.isPaidThisPeriod && !late;
-  // None when the period was covered by a payment made ahead: it says "paid" instead.
-  const paidNow = settled ? paidThisPeriod(bill) : 0;
-  const pause = currentPause(bill);
-  // Not started yet: nothing owed, and the pill says when it starts instead of "unpaid".
-  const starts = !bill.isPaidThisPeriod && !late ? startsLater(bill, now) : undefined;
-  const stopped = !bill.isPaidThisPeriod && !late && (!!starts || pause?.state === "paused" || pause?.state === "ended");
-  const startFmt = dateFormat("monthYearShort", i18n.resolvedLanguage ?? "en");
+const STRIP_LINE_KEYS: Record<StripLineKind, string> = {
+  unpaid: "bills.stripUnpaid",
+  paid: "bills.stripPaid",
+  next: "bills.stripNext",
+  starts: "bills.stripStarts",
+  stopped: "bills.stripStopped",
+  resumes: "bills.stripResumes",
+  lastPaid: "bills.stripLastPaidOn",
+};
 
-  // A variable bill carries an estimate until the charge arrives, so its figure
-  // is marked as one rather than printed like a fact.
-  //
-  // Behind, it is what the bill asks for today rather than the price of one
-  // period: everything overdue, plus this period's if its day has come. Dated
-  // by the oldest of it, so "€180" never sits beside October's date as if it
-  // were October's bill.
-  const amount = late ? amountOwedNow(bill, now) : expectedAmount(bill);
-  const when = late ? overdue.oldestDue : bill.nextDueDate;
+/** The line's status icon — the chips' meanings and tones, never colour alone (each has its label). */
+const STRIP_STATUS_ICONS: Record<StripLineStatus, { label: string; tone: string }> = {
+  paid: { label: "bills.stripPaid", tone: styles.stripIconPaid },
+  due: { label: "bills.stripInTime", tone: styles.stripIconDue },
+  late: { label: "bills.stripLate", tone: styles.stripIconLate },
+};
 
+/** One dated line: the day block, what it is and its figure, and its status icon. */
+function StripLineRow({ line, formatCurrency, locale }: { line: StripLine; formatCurrency: (n: number) => string; locale: string }) {
+  const { t } = useTranslation();
+  const status = lineStatus(line);
   return (
-    <button type="button" className={`${styles.billLine} ${!bill.isActive ? styles.billOff : settled || stopped ? styles.billLineQuiet : ""} ${flash}`} onClick={() => onOpenDetails(bill)}>
-      <span className={styles.lineIcon} aria-hidden>
-        {category?.icon ?? "🧾"}
+    <div className={styles.stripRow}>
+      <span className={`${styles.stripDay} ${line.late ? styles.stripDayLate : ""}`} title={line.date ? dateFormat("dayLong", locale).format(line.date) : undefined}>
+        <span className={styles.stripDayNum}>{line.date ? dateFormat("dayNumber", locale).format(line.date) : "—"}</span>
+        {line.date && <span className={styles.stripDayMonth}>{dateFormat("monthShort", locale).format(line.date)}</span>}
       </span>
-
-      <span className={styles.lineMain}>
-        <span className={styles.lineName}>
-          {bill.name}
-          {!bill.isActive && <OffTag />}
+      <span className={`${styles.stripLineText} ${line.late ? styles.stripLineLate : ""}`}>
+        {line.date ? t(STRIP_LINE_KEYS[line.kind]) : t("bills.stripNoDate")}
+        {line.amount !== undefined && (
+          <span className={styles.stripLineAmount}>
+            {" · "}
+            {line.approx ? "~" : ""}
+            {formatCurrency(line.amount)}
+          </span>
+        )}
+      </span>
+      {status && (
+        <span className={`${styles.stripIcon} ${STRIP_STATUS_ICONS[status].tone}`} role="img" aria-label={t(STRIP_STATUS_ICONS[status].label)} title={t(STRIP_STATUS_ICONS[status].label)} data-status={status}>
+          {status === "paid" ? <FiCheck aria-hidden /> : status === "late" ? <FiAlertTriangle aria-hidden /> : <FiAlertCircle aria-hidden />}
         </span>
-        {/* Status first, from the left edge, so it lines up down the list
-            instead of sliding with the width of the amount beside it. */}
-        <span className={styles.lineTags}>
-          {late ? (
-            <span className={`${styles.linePill} ${styles.linePillLate}`}>{t("bills.lineLate")}</span>
-          ) : settled ? (
-            // The tick and what was paid, as on the cards.
-            <span className={`${styles.linePill} ${styles.linePillPaid}`} title={paidNow > 0 ? t("bills.chipPaidAmount", { amount: formatCurrency(paidNow) }) : undefined}>
-              <FiCheck size={11} aria-hidden /> {paidNow > 0 ? formatCurrency(paidNow) : t("bills.linePaid")}
-            </span>
-          ) : starts ? (
-            <span className={`${styles.linePill} ${styles.linePillStart}`}>{billStartText(bill, now, t, i18n.resolvedLanguage ?? "en") ?? t("bills.lineStartsOn", { month: startFmt.format(starts) })}</span>
-          ) : stopped ? (
-            <span className={`${styles.linePill} ${styles.linePillPaused}`}>{pause?.state === "ended" ? t("bills.lineStopped") : t("bills.linePaused")}</span>
-          ) : (
-            <span className={`${styles.linePill} ${styles.linePillDue}`}>{t("bills.lineUnpaid")}</span>
-          )}
-          <CadenceBadge bill={bill} />
-          {/* Paid ahead, as on the card: how many periods are already covered. */}
-          {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
-        </span>
-      </span>
-
-      <span className={styles.lineAmount}>
-        <strong>
-          {bill.isVariableAmount ? "~" : ""}
-          {formatCurrency(amount)}
-        </strong>
-        <span className={styles.lineWhen}>{!late && pause?.state === "ended" ? "—" : when ? (stopped ? monthFmt.format(when) : dateFmt.format(when)) : "—"}</span>
-      </span>
-    </button>
+      )}
+    </div>
   );
 }
 
-type BillView = "cards" | "list" | "tiles" | "months" | "timeline" | "tree" | "cost";
+function BillStripCard({
+  card,
+  paid,
+  density,
+  formatCurrency,
+  icon,
+  onOpenDetails,
+  now,
+  flash,
+  busy,
+}: {
+  card: StripCard;
+  /** In «Πληρωμένα»: the card on a soft green ground. */
+  paid: boolean;
+  density: Density;
+  formatCurrency: (n: number) => string;
+  /** The category's icon, in the head at every density. */
+  icon?: string;
+  onOpenDetails: (b: BillWithStatus) => void;
+  now: Date;
+  flash: string;
+  /** A write on its way: faded, opens nothing until it lands. */
+  busy: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
+  const { bill } = card;
+  const dateFmt = dateFormat("dayShort", locale);
+  const lastPaid = bill.payments[0]?.amount;
+  const open = () => {
+    if (!busy) onOpenDetails(bill);
+  };
+  const variable = bill.isVariableAmount && bill.paidAmountRange;
 
-const VIEW_BUTTONS = [
-  { id: "cards", icon: FiGrid, label: "bills.viewCards" },
+  return (
+    <div
+      role="button"
+      tabIndex={busy ? -1 : 0}
+      aria-disabled={busy || undefined}
+      aria-busy={busy || undefined}
+      className={`${styles.stripCard} ${paid ? styles.stripCardPaid : ""} ${!bill.isActive ? styles.billOff : ""} ${busy ? ROW_PENDING : ""} ${flash}`}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+    >
+      <div className={styles.stripCardHead}>
+        <span className={styles.stripName}>
+          {icon && <span aria-hidden>{icon} </span>}
+          {bill.name}
+          {!bill.isActive && <OffTag />}
+        </span>
+        <span className={`${styles.stripAmount} ${card.late ? styles.stripAmountLate : ""}`}>
+          {card.approx ? "~" : ""}
+          {formatCurrency(card.amount)}
+        </span>
+      </div>
+
+      <div className={styles.stripRows}>
+        {card.lines.map((line, i) => (
+          <StripLineRow key={line.date?.getTime() ?? i} line={line} formatCurrency={formatCurrency} locale={locale} />
+        ))}
+      </div>
+
+      {density !== "simple" && (
+        <div className={styles.stripMain}>
+          {/* Status first, then cadence, from the left edge, as on every list of bills. */}
+          <span className={styles.stripTags}>
+            <StatusChip bill={bill} formatCurrency={formatCurrency} now={now} />
+            <CadenceBadge bill={bill} />
+            {variable && <BillSubtitle bill={bill} formatCurrency={formatCurrency} />}
+            {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
+          </span>
+          {density === "normal" && (
+            <span className={styles.stripLast}>
+              {lastPaid !== undefined && bill.lastPaidDate
+                ? t("bills.stripLastPaid", { amount: formatCurrency(lastPaid), date: dateFmt.format(bill.lastPaidDate).replace(/ /g, "\u00a0") })
+                : t("bills.neverPaid")}
+            </span>
+          )}
+          {density === "detailed" && (
+            <div className={styles.stripMore}>
+              <div className={styles.cardMetrics}>
+                <Metric label={t("bills.colLastPaid")} value={lastPaid !== undefined ? formatCurrency(lastPaid) : "—"} sub={bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")} />
+                <Metric
+                  label={t("bills.colEachTime")}
+                  value={`${bill.isVariableAmount ? "~" : ""}${formatCurrency(expectedAmount(bill))}`}
+                  sub={
+                    bill.frequency === "monthly" && getIntervalCount(bill) === 1
+                      ? t("bills.perMonthShort")
+                      : t("bills.monthlyShare", { amount: formatCurrency(monthlyEquivalent(bill, expectedAmount(bill))) })
+                  }
+                />
+                {(() => {
+                  const fact = deadlineFact(bill, t, dateFmt, now);
+                  return <Metric label={fact.label} value={fact.value} color={fact.color} />;
+                })()}
+              </div>
+              {/* Weekly is the one cadence a strip of calendar months can't draw. */}
+              {supportsMonthStrip(bill) && <MonthStrip bill={bill} now={now} />}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One section of the list: a card per bill, earliest date first, two side by side where there is room. */
+function BillStrip({
+  bills,
+  section,
+  density,
+  formatCurrency,
+  categoryFor,
+  onOpenDetails,
+  now,
+  flash,
+}: {
+  bills: BillWithStatus[];
+  section: StripSection;
+  density: Density;
+  formatCurrency: (n: number) => string;
+  categoryFor: (id: string) => Category | undefined;
+  onOpenDetails: (b: BillWithStatus) => void;
+  now: Date;
+  flash: (id: string) => string;
+}) {
+  const { busy } = usePendingRecords();
+  const cards = useMemo(() => stripCards(bills, section, now), [bills, section, now]);
+
+  return (
+    <div className={styles.stripCards}>
+      {cards.map((card) => (
+        <BillStripCard
+          key={card.bill.id}
+          card={card}
+          paid={section === "settled" && !card.late}
+          density={density}
+          formatCurrency={formatCurrency}
+          icon={categoryFor(card.bill.categoryId)?.icon}
+          onOpenDetails={onOpenDetails}
+          now={now}
+          flash={flash(card.bill.id)}
+          busy={busy("bills", card.bill.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** The three views (`billViews.ts`): the list, this month, the year. */
+const VIEW_BUTTONS: { id: BillView; icon: IconType; label: string }[] = [
   { id: "list", icon: FiList, label: "bills.viewList" },
-  { id: "tiles", icon: FiSquare, label: "bills.viewTiles" },
-  { id: "timeline", icon: FiCalendar, label: "bills.viewTimeline" },
-  { id: "months", icon: FiBarChart2, label: "bills.viewMonths" },
-  { id: "tree", icon: FiGitCommit, label: "bills.viewTree" },
-  // What each bill costs a year, ranked — see BillYearCost.
-  { id: "cost", icon: FiAward, label: "bills.viewCost" },
-] as const;
+  { id: "month", icon: FiCalendar, label: "bills.viewTimeline" },
+  { id: "year", icon: FiBarChart2, label: "bills.viewYear" },
+];
 
-/** Cards or one line each — the same switch the goals list has. On «Πληρωμές», only the ones a bill is paid from. */
-function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (view: BillView) => void; only?: readonly BillView[] }) {
+/** «Λίστα · Ο μήνας · Η χρονιά» — the same bills, three ways. */
+function BillViewToggle({ view, onChange }: { view: BillView; onChange: (view: BillView) => void }) {
   const { t } = useTranslation();
 
   return (
@@ -843,7 +931,7 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
       value={view}
       onChange={onChange}
       stackOnPhone
-      options={VIEW_BUTTONS.filter((b) => !only || only.includes(b.id)).map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
+      options={VIEW_BUTTONS.map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
     />
   );
 }
@@ -861,124 +949,15 @@ function BillViewToggle({ view, onChange, only }: { view: BillView; onChange: (v
  */
 export type BillsPageView = "overview" | "pay" | "manage" | "all";
 
-/** The views the «Πληρωμές» page lists with — «Ο μήνας» too, where a bill is opened and paid from its day. */
-const PAY_VIEWS = ["cards", "list", "tiles", "timeline", "tree", "cost"] as const;
 
-/** The timeline on «Πάγια» holds the bills alone — its total is theirs. */
-const BILLS_ONLY = ["bill"] as const;
-
-function BillCard({
-  bill,
-  category,
-  formatCurrency,
-  onOpenDetails,
-  now,
-  done = false,
-  flash = "",
-}: {
-  bill: BillWithStatus;
-  category: Category | undefined;
-  formatCurrency: (n: number) => string;
-  onOpenDetails: (b: BillWithStatus) => void;
-  now: Date;
-  /** Paid and not coming back: greyed, at the foot of the paid ones. */
-  done?: boolean;
-  /** The saved flash (`useSavedFlash`), when this bill was just saved or paid. */
-  flash?: string;
-}) {
-  const { t, i18n } = useTranslation();
-  // Settled means this period paid and nothing earlier still owed. A card paid
-  // for October with July open is behind, and must not fade into the paid ones.
-  const behind = billOverdue(bill, now).count > 0;
-  const paid = bill.isPaidThisPeriod && !behind;
-  const urgency = billUrgency(bill, now);
-  const strict = isHardDeadline(bill);
-
-  const dateFmt = dateFormat("dayShort", i18n.resolvedLanguage ?? "en");
-  const lastPaidAmount = bill.payments[0]?.amount;
-  const deadline = deadlineFact(bill, t, dateFmt, now);
-  // Recedes like a settled card: nothing to do about it until it comes back —
-  // unless something from before the pause is still owed.
-  const stopped = !bill.isPaidThisPeriod && restingNow(bill, now);
-
-  return (
-    <div
-      className={`${styles.billCard} ${!bill.isActive ? styles.billOff : `${paid ? styles.billCardPaid : ""} ${stopped ? styles.billCardPaused : ""} ${done ? styles.billCardDone : ""}`} ${flash}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpenDetails(bill)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpenDetails(bill);
-        }
-      }}
-      title={t("bills.viewDetails")}
-    >
-      <span className={styles.rowStateBar} style={{ background: `var(${urgencyToken(urgency)})` }} aria-hidden />
-
-      <div className={styles.cardHead}>
-        <span className={`${styles.iconTile} ${styles.iconWrap}`}>
-          <span aria-hidden>{category?.icon ?? "🧾"}</span>
-          {/* A tick on the icon as well as the colour bar, so "paid" survives a
-              greyscale screen or a colour-blind reader. */}
-          {paid && (
-            <span className={styles.paidTick} title={t("bills.paidRecently")}>
-              <FiCheck size={9} aria-hidden />
-            </span>
-          )}
-        </span>
-
-        <div className={styles.cardTitles}>
-          <span className={`${styles.cardName} fw-semibold text-body-emphasis`}>
-            {bill.name}
-            {strict && !paid && <FiLock size={11} className={styles.strictMark} title={t("bills.strictHint")} />}
-            {!bill.isActive && <OffTag />}
-          </span>
-          <BillSubtitle bill={bill} formatCurrency={formatCurrency} />
-          {/* On their own line from the left edge, status first: beside the
-              title they were pushed about by whatever sat before them, so no
-              two cards had them in the same place. */}
-          <div className={styles.cardTags}>
-            <StatusChip bill={bill} formatCurrency={formatCurrency} now={now} />
-            <CadenceBadge bill={bill} />
-            {/* Paid ahead is the one state the chip can't express: this period
-                is settled AND so is the next, which is not the same as paid. */}
-            {bill.paidAheadCount > 0 && <span className={styles.aheadChip}>⏩ {t("bills.paidAheadShort", { count: bill.paidAheadCount })}</span>}
-          </div>
-        </div>
-
-        <FiChevronRight size={18} className={styles.cardChevron} aria-hidden />
-      </div>
-
-      <div className={styles.cardMetrics}>
-        <Metric
-          label={t("bills.colLastPaid")}
-          value={lastPaidAmount !== undefined ? formatCurrency(lastPaidAmount) : "—"}
-          sub={bill.lastPaidDate ? dateFmt.format(bill.lastPaidDate) : t("bills.neverPaid")}
-        />
-        {/* What leaves each time, as typed — «13 € / μήνα» — not a monthly
-            figure worked out from it: a 13 € bill starting next month read
-            «12,89 €/μήνα», the year's average with the month it is off in
-            it, and contradicted what was typed. Billed less often than
-            monthly, the month's share is given too, and called that. */}
-        <Metric
-          label={t("bills.colEachTime")}
-          value={`${bill.isVariableAmount ? "~" : ""}${formatCurrency(expectedAmount(bill))}`}
-          sub={
-            bill.frequency === "monthly" && getIntervalCount(bill) === 1
-              ? t("bills.perMonthShort")
-              : t("bills.monthlyShare", { amount: formatCurrency(monthlyEquivalent(bill, expectedAmount(bill))) })
-          }
-        />
-        <Metric label={deadline.label} value={deadline.value} color={deadline.color} sub={bill.deadline || paid || stopped ? undefined : t("bills.noDueDateSet")} />
-      </div>
-
-      {/* Weekly is the one cadence a strip of calendar months can't represent —
-          several of its periods land inside a single month. */}
-      {supportsMonthStrip(bill) && <MonthStrip bill={bill} now={now} />}
-    </div>
-  );
+/** A value kept on the device, or undefined — a private window or a broken entry reads as nothing. */
+function readStored(key: string): unknown {
+  try {
+    const item = localStorage.getItem(key);
+    return item === null ? undefined : JSON.parse(item);
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── Yearly projection ───────────────────────────────────────────────────────
@@ -1140,9 +1119,6 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
   // two can never contradict each other.
   const thisMonth = useMemo(() => monthForecast(bills, now, 0), [bills, now]);
   const owed = useMemo(() => arrears(bills), [bills]);
-  // The count on «Πληρωμές» — the menu's (`useBillsNeedingAttention`): the same
-  // function on the same cached bills, on the same shared day.
-  const billsDue = useMemo(() => billsNeedingAttention(bills, now), [bills, now]);
 
   /**
    * Split into what still wants money and what doesn't, each ordered by when
@@ -1155,9 +1131,14 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
    */
   // Per device, not per account: how you like to read a list is not a fact
   // about your money, and putting it on the account would cost a read.
-  const [storedBillView, setBillView] = useLocalStorage<BillView>("bills-view", "cards");
-  // «Πληρωμές» lists, so a stored month or timeline view reads as cards there.
-  const billView: BillView = view === "pay" && !PAY_VIEWS.includes(storedBillView as (typeof PAY_VIEWS)[number]) ? "cards" : storedBillView;
+  // Seven views became three (2026-11-17): a choice kept under the old key is
+  // read as the view that took it in (`billViewFromOld`), once, until a new one is picked.
+  const [storedBillView, setBillView] = useLocalStorage<unknown>("bills-view-2", null);
+  const billView: BillView = useMemo(() => (storedBillView === null ? billViewFromOld(readStored("bills-view")) : billViewFrom(storedBillView)), [storedBillView]);
+
+  // How much each row of the list says — «Απλό · Κανονικό · Αναλυτικό», per device.
+  const [density, setDensity] = useDensity("bills");
+  const listShown = showList && billView === "list";
 
   const monthsAhead = useMemo(() => yearAhead(bills, now), [bills, now]);
 
@@ -1207,7 +1188,7 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       { key: "later", title: t("bills.sectionLater"), bills: notYet, note: t("bills.sectionLaterNote"), tone: "var(--text-2)" },
       { key: "stopped", title: t("bills.sectionStopped"), bills: stopped, note: t("bills.sectionStoppedNote"), tone: "var(--text-2)" },
       { key: "inactive", title: t("bills.sectionInactive"), bills: inactive, note: t("bills.sectionInactiveNote"), tone: "var(--text-2)" },
-    ].filter((section) => section.bills.length > 0) as { key: string; title: string; bills: BillWithStatus[]; total?: number; note?: string; tone: string }[];
+    ].filter((section) => section.bills.length > 0) as { key: StripSection; title: string; bills: BillWithStatus[]; total?: number; note?: string; tone: string }[];
   }, [bills, t, now]);
 
   // Keep an open detail modal in sync after a payment lands or is undone.
@@ -1326,16 +1307,8 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
       {/* The add on every view, «Σύνοψη» too. */}
       <AddHeader label={t("bills.newBill")} onAdd={openNew} title={t("bills.title")} subtitle={t("bills.subtitle")} />
 
-      <PageTabs
-        label={t("bills.title")}
-        links={[
-          { to: "/bills", label: t("bills.pageOverview") },
-          { to: "/bills/pay", label: t("bills.pagePay"), badge: billsDue, badgeLabel: t("bills.dueCount", { count: billsDue }) },
-          // How many there are, once they are loaded — not a «(0)» while they load.
-          { to: "/bills/manage", label: load !== "ready" ? t("bills.pageManage") : `${t("bills.pageManage")} (${bills.length})` },
-          { to: "/bills/all", label: t("bills.pageAll") },
-        ]}
-      />
+      {/* No link tabs: «Σύνοψη · … · Όλα» are the sidebar's children — one row of tabs or
+          selectors per page, and the views below get the room (owner, 2026-11-17). */}
 
       {load === "waiting" && <PageWaiting />}
 
@@ -1442,34 +1415,31 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                   </>
                 )}
 
-                {/* Full width on a phone, where three icon-sized targets side by
-                    side are a game of chance; tucked to the right once there is
-                    room for it to be a control rather than a row. */}
+                {/* Views on the left, density on the right (stacked on a phone), both
+                    fixed in place: off «Λίστα» the density keeps its room, hidden, so
+                    nothing moves when the view or the density changes (owner, 2026-11-17). */}
                 {showList && (
-                  <div className="d-flex justify-content-sm-end mb-2">
-                    <BillViewToggle view={billView} onChange={setBillView} only={view === "pay" ? PAY_VIEWS : undefined} />
+                  <div className={styles.viewBar}>
+                    <BillViewToggle view={billView} onChange={setBillView} />
+                    <div className={listShown ? undefined : styles.viewBarHidden} aria-hidden={!listShown || undefined} inert={!listShown}>
+                      <DensitySwitch value={density} onChange={setDensity} />
+                    </div>
                   </div>
                 )}
 
-                {showList && billView === "timeline" && (
+                {showList && billView === "month" && (
                   <BillMonthTimeline timeline={timeline} now={now} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenBill={setDetailBill} />
                 )}
 
-                {showList && billView === "tree" && (
-                  <CalendarTimeline side="out" kinds={BILLS_ONLY} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} />
+                {/* «Η χρονιά»: the twelve months ahead, then what each bill costs a year. */}
+                {showList && billView === "year" && (
+                  <div className="d-flex flex-column gap-3">
+                    <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
+                    <BillYearCost bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenBill={setDetailBill} />
+                  </div>
                 )}
 
-                {showList && billView === "cost" && <BillYearCost bills={bills} categoryFor={categoryFor} formatCurrency={formatCurrency} onOpenBill={setDetailBill} />}
-
-                {showList && billView === "months" && (
-                  <BillYearAhead months={monthsAhead} formatCurrency={formatCurrency} locale={i18n.resolvedLanguage ?? "en"} onOpenMonth={setBreakdownMonth} />
-                )}
-
-                {showList &&
-                  billView !== "months" &&
-                  billView !== "timeline" &&
-                  billView !== "tree" &&
-                  billView !== "cost" &&
+                {listShown &&
                   sections.map((section) => (
                   <div
                     key={section.key}
@@ -1490,95 +1460,16 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
                       )}
                     </div>
 
-                    {billView === "tiles" ? (
-                      // As the «Ενεργά πάγια» boxes: gathered by how often, as many to a
-                      // row as fit, each its name, its figure and where it stands. A tap
-                      // opens the bill, where it is paid.
-                      groupByCadence(section.bills).map((group) => {
-                        const tone = cadenceTone(group.bills[0]);
-                        const freq = getFrequencyLabel(group.bills[0]);
-                        return (
-                          <div key={group.key} className="mb-2">
-                            <Badge pill color={`${tone}-subtle`} className={`text-${tone}-emphasis border border-${tone}-subtle ${styles.cadenceChip}`}>
-                              {t(freq.key, { count: freq.count })} · {group.bills.length}
-                            </Badge>
-                            <div className={styles.activeCards}>
-                              {group.bills.map((bill) => {
-                                const overdue = billOverdue(bill, now);
-                                const paid = bill.isPaidThisPeriod && overdue.count === 0;
-                                const paidNow = paid ? paidThisPeriod(bill) : 0;
-                                return (
-                                  <button
-                                    key={bill.id}
-                                    type="button"
-                                    className={`${styles.activeCard} ${!bill.isActive ? `${styles.billOff} ${styles.activeCardOff}` : overdue.count > 0 ? styles.activeCardLate : paid ? styles.activeCardPaid : ""} ${billFlash(bill.id)}`}
-                                    onClick={() => setDetailBill(bill)}
-                                  >
-                                    <span className={styles.activeCardName}>{bill.name}</span>
-                                    {!bill.isActive && <OffTag />}
-                                    <span className="d-flex flex-wrap align-items-center gap-1">
-                                      <Badge pill color="light" className={`text-body border ${styles.activeCardChip}`}>
-                                        {bill.isVariableAmount && !paid ? "~" : ""}
-                                        {formatCurrency(overdue.count > 0 ? amountOwedNow(bill, now) : paid && paidNow > 0 ? paidNow : expectedAmount(bill))}
-                                      </Badge>
-                                      {overdue.count > 0 ? (
-                                        <span className={styles.activeCardState} style={{ color: "var(--color-expense-text)" }}>{t("bills.lineLate")}</span>
-                                      ) : paid ? (
-                                        <span className={styles.activeCardState} style={{ color: "var(--color-income-text)" }}>
-                                          <FiCheck size={11} aria-hidden /> {t("bills.linePaid")}
-                                        </span>
-                                      ) : billStartText(bill, now, t, i18n.resolvedLanguage ?? "en") ? (
-                                        // Not begun: when it starts, not a date that reads like the next of many.
-                                        <span className={styles.activeCardState}>{billStartText(bill, now, t, i18n.resolvedLanguage ?? "en")}</span>
-                                      ) : bill.nextDueDate ? (
-                                        <span className={styles.activeCardState}>{shortDateFmt.format(firestoreToDate(bill.nextDueDate))}</span>
-                                      ) : null}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : billView === "list" ? (
-                      // Gathered by how often they come — every yearly bill together —
-                      // so the list reads as "what I pay monthly, what yearly".
-                      groupByCadence(section.bills).map((group) => {
-                        const tone = cadenceTone(group.bills[0]);
-                        const freq = getFrequencyLabel(group.bills[0]);
-                        return (
-                          <div key={group.key} className={styles.cadenceGroup}>
-                            <div className={`${styles.cadenceHead} text-${tone}-emphasis`}>
-                              {t(freq.key, { count: freq.count })}
-                              <span className={styles.listSectionCount}>{group.bills.length}</span>
-                            </div>
-                            <div className={styles.billLines}>
-                              {group.bills.map((bill) => (
-                                <BillLine key={bill.id} bill={bill} category={categoryFor(bill.categoryId)} formatCurrency={formatCurrency} onOpenDetails={setDetailBill} now={now} flash={billFlash(bill.id)} />
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="d-flex flex-column gap-2">
-                        {/* The paid ones as cards: what comes back first, soonest
-                            due at the top; what will not be paid again greyed, last. */}
-                        {(section.key === "settled" ? settledForCards(section.bills, now) : section.bills).map((bill) => (
-                          <BillCard
-                            key={bill.id}
-                            bill={bill}
-                            category={categoryFor(bill.categoryId)}
-                            formatCurrency={formatCurrency}
-                            onOpenDetails={setDetailBill}
-                            now={now}
-                            done={section.key === "settled" && !willBePaidAgain(bill, now)}
-                            flash={billFlash(bill.id)}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    <BillStrip
+                      bills={section.bills}
+                      section={section.key}
+                      density={density}
+                      formatCurrency={formatCurrency}
+                      categoryFor={categoryFor}
+                      onOpenDetails={setDetailBill}
+                      now={now}
+                      flash={billFlash}
+                    />
                   </div>
                 ))}
               </>
@@ -1701,6 +1592,10 @@ export default function BillsPage({ view = "all" }: { view?: BillsPageView }) {
           onEditPayment={handleEditPayment}
           onDeletePayment={handleDeletePayment}
           onPayPeriod={handlePayPeriod}
+          onToggle={(b, active) => {
+            setDetailBill(null);
+            toggleBill(b, active);
+          }}
           onSettleOverdue={(b) => {
             // Same hand-off as Mark Paid — never stack two modals.
             setDetailBill(null);

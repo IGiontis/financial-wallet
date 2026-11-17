@@ -804,20 +804,6 @@ export function billsNeedingAttention(bills: BillWithStatus[], now: Date = new D
   }).length;
 }
 
-/** Colour token per state — the same scale the rows and the runway share. */
-export function urgencyToken(urgency: BillUrgency): string {
-  switch (urgency) {
-    case "paid":
-      return "--color-income";
-    case "late":
-      return "--color-expense";
-    case "soon":
-      return "--color-goal";
-    default:
-      return "--bs-primary";
-  }
-}
-
 // ─── Period progress ────────────────────────────────────────────────────────
 // How far a bill has travelled from its last due date toward its next one —
 // a continuous line that fills in a little more every day, rather than a
@@ -1433,10 +1419,15 @@ export function billOverdue(bill: BillWithStatus, now: Date = new Date()): BillO
  * October is overdue and in the €240 itself, so it is never added twice.
  */
 export function amountOwedNow(bill: BillWithStatus, now: Date = new Date()): number {
+  return round2(owedNowItems(bill, now).reduce((sum, item) => sum + item.amount, 0));
+}
+
+/** The payments `amountOwedNow` adds up, oldest first — what a late bill's row lists under its name. */
+export function owedNowItems(bill: BillWithStatus, now: Date = new Date()): MonthForecastItem[] {
   const items = unpaidItems([bill], now, MAX_ARREARS_LOOKBACK, "due");
   // Empty when nothing is owed yet — or for a status the walk cannot see,
   // which `billOverdue` still holds to its own deadline.
-  return items.length > 0 ? round2(items.reduce((sum, item) => sum + item.amount, 0)) : billOverdue(bill, now).total;
+  return items.length > 0 ? items : billOverdue(bill, now).items;
 }
 
 // ─── Yearly projection ──────────────────────────────────────────────────────
@@ -1930,31 +1921,3 @@ export function yearAhead(bills: BillWithStatus[], now: Date = new Date(), month
     return { start: breakdown.monthStart, total: round2(totals.total), count: totals.totalCount, paid: round2(totals.paid) };
   });
 }
-
-// ─── Comes back or not ───────────────────────────────────────────────────────
-
-/**
- * Whether a bill will ask to be paid again: active, with a next due date, and
- * that date not inside a pause with no end — a subscription cancelled after
- * its last month is paid and done, not "next due in November".
- */
-export function willBePaidAgain(bill: BillWithStatus, now: Date = new Date()): boolean {
-  if (!bill.isActive || !bill.nextDueDate) return false;
-  if (currentPause(bill, now)?.state === "ended") return false;
-  const openEnded = !!bill.pause && bill.pause.to === undefined;
-  return !(openEnded && isPausedOn(bill, firestoreToDate(bill.nextDueDate)));
-}
-
-/**
- * The paid bills in the order the cards show them: what comes back first, the
- * soonest due at the top; then what will not be paid again, most recently
- * settled first.
- */
-export function settledForCards(bills: BillWithStatus[], now: Date = new Date()): BillWithStatus[] {
-  const due = (b: BillWithStatus) => (b.nextDueDate ? firestoreToDate(b.nextDueDate).getTime() : Number.MAX_SAFE_INTEGER);
-  const last = (b: BillWithStatus) => (b.lastPaidDate ? firestoreToDate(b.lastPaidDate).getTime() : 0);
-  const again = bills.filter((b) => willBePaidAgain(b, now)).sort((a, b) => due(a) - due(b));
-  const done = bills.filter((b) => !willBePaidAgain(b, now)).sort((a, b) => last(b) - last(a));
-  return [...again, ...done];
-}
-

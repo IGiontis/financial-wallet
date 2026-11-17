@@ -33,8 +33,10 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
     roving tabIndex, `data-view={id}` on each). Label the panel with `src/shared/utils/pageTabIds.ts`
     (`pageTabIds(base, tab)` → `{tab, panel}`). Keep the tab in `?tab=`. Reference: `BusinessPage`, `NamesPage`,
     `GoalsWorkbench`, `OverviewPage`; `SettingsPage` (each tab its own route, `onChange` navigates).
-  - link tabs — `label`, `links: {to,label,badge?,badgeTone?,badgeLabel?}[]`: a section's child routes
-    («Σύνοψη · Πληρωμές · Όλα», `NavLink end`), a count on a tab's corner. Reference: `BillsPage`, `IncomesPage`.
+  - link tabs — `label`, `links: {to,label,badge?,badgeTone?,badgeLabel?}[]`: child routes as tabs (`NavLink end`),
+    a count on a tab's corner. **No page uses them since 2026-11-17**: a section's sub-pages are reached from the
+    sidebar only, and a page has at most ONE row of tabs/selectors-of-pages (`.claude/rules/ui.md`). Bills and
+    Incomes dropped theirs; their counts stay on the sidebar.
   Optional `data-tour` for the guided tour. Styles: `src/shared/css/PageTabs.module.css` (Segmented's tokens).
 - `src/shared/hooks/usePageTab.ts` — `usePageTab(tabs, first, storageKey)` → `[tab, choose]`: the open tab in
   `?tab=` (replace, not push), remembered on the device for a visit with no `?tab=`; the address wins.
@@ -46,7 +48,14 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   row of a list says (simple = figure + one line; normal = + progress, dates, last event; detailed = + full history).
   `const [density, setDensity] = useDensity(pageKey)` (remembered per device, `density:<pageKey>`, anything else stored reads
   as the default `normal`) → `<DensitySwitch value={density} onChange={setDensity} />` (a `ViewSwitch` with these three words).
-  Reference: `features/debts/DebtPersonPage.tsx`; Bills next. Not page tabs.
+  Reference: `features/debts/DebtPersonPage.tsx`, `features/bills/BillsPage.tsx` (`useDensity("bills")`, beside the
+  view switch: views left, density right from 992px, stacked on a phone; off «Λίστα» it keeps its room hidden —
+  `visibility: hidden` + `inert` — so nothing shifts). Not page tabs.
+- `src/features/bills/BillsPage.tsx` `BillStrip` / `BillStripCard` + `src/features/bills/billStrip.ts` — the bills list:
+  one card per bill (head = name + figure; inside, a line per date led by a pocket-calendar day block, red when
+  late — every unpaid period on its own line — and a status icon ✓/!/⚠ with its label at its right; paid cards
+  on `--paid-wash`), cards two side by side where each gets 22rem, more with the density.
+  Feature-local: for another date-led list, lift it into `shared/` first rather than copy it.
 - `src/features/settings/settingsTabs.ts` — Settings' tab ids/paths (`/settings/<id>`), drawn by `PageTabs`
   in `SettingsPage`.
 
@@ -381,6 +390,7 @@ Read/save paths and costs: `docs/DATA_FLOW.md`, `docs/DATABASE.md`, `.claude/rul
 |---|---|---|
 | Colours (roles: `--surface`, `--text`, `--brand`, `--income`, `--expense-text` …; 2 colourways × light/dark) | `src/styles/tokens.css` | `src/styles/contrast.test.ts` (≥ 8:1), `src/styles/noPureColours.test.ts` |
 | Tone tints, chips, `.stat-head`, `.tone-tile` | `src/index.css` («Tones», «Chips») | — |
+| The shared hover/focus of anything clickable: `.hover-card` (wash + edge) / `.hover-row` (wash only, ring inside); a module opts in with `composes: hover-card from global;` — never a `:hover` of its own. Bootstrap `a.card`/`button.card`/`.card[role=button]` get it by themselves. Colours `--hover-wash` / `--hover-edge` (and the bills paid cards `--paid-wash` / `--paid-edge`), stronger in light mode | `src/styles/theme.css` («The shared hover», «Hover and paid») | — |
 | Font sizes `--fs-caption…--fs-display`, radius `--radius-*`, spacing `--space-0…8`, shadows, motion `--motion-*` | `src/styles/shape.css` | `src/styles/typeScale.test.ts` (px exceptions listed by name) |
 | Bootstrap wired to tokens; `.row-flash`, `.save-pulse`, `.card-flash` | `src/styles/theme.css` (`@layer theme` for one-class rules) | `src/styles/cssLayers.test.ts` |
 | Layer order `app-important, app-base, bootstrap, theme` | top of `src/index.css` | `src/styles/cssLayers.test.ts` |

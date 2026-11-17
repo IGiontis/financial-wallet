@@ -47,6 +47,11 @@
      brand-text, link      the brand as lettering; links
      brand-soft            a tint for a chosen or highlighted thing (on-brand-soft)
      neutral-soft          the resting state of a tab or chip (on-neutral-soft)
+     hover-wash, hover-edge  a clickable card or row under the pointer or the
+                           keyboard: a calm brand wash and edge (`.hover-card`,
+                           `.hover-row`). Derived from the roles above, so they live
+                           in theme.css with the other derived colours.
+     paid-wash, paid-edge  a bill card paid this period: a very soft green ground (theme.css).
      shell-*               sidebar, top bar and footer: a gradient from shell-dark
                            (top left) through shell-mid to shell-light (bottom
                            right) — dark to light in every colourway and mode —

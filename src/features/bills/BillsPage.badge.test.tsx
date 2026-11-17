@@ -6,13 +6,15 @@ import BillsPage from "./BillsPage";
 import { computeBillStatus } from "./billsUtils";
 import type { Bill, BillWithStatus } from "../../shared/types/IndexTypes";
 
-// The count on the page's «Πληρωμές» tab, on the real page, across a night.
+// The page across a night, and where the count of bills to pay lives.
 //
 // The page used to read the clock once, when it opened; the menu's badge reads
 // the app's shared day. A phone left the page open overnight and the two
-// counted different days — the tab said 1 while the menu said 2. The page now
-// reads the shared day too (`useToday`), so its count moves with the date.
-// `billsBadge.test.tsx` has the menu side and the payment.
+// counted different days. The page reads the shared day too (`useToday`), so
+// what it says moves with the date. Since 2026-11-17 the count is on the menu
+// alone: the page has no row of link tabs over its own views (owner — one row
+// of tabs/selectors per page; sub-pages only from the sidebar).
+// `billsBadge.test.tsx` has the menu's count and the payment.
 
 const OPENED = new Date(2026, 5, 20, 23); // 23:00 on Saturday 20 June 2026
 
@@ -57,15 +59,23 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-describe("the «Πληρωμές» tab's count", () => {
-  it("moves to the new day when the app comes back, as the menu's does", () => {
+describe("«Πληρωμές» across a night", () => {
+  it("has no link tabs of its own: the sub-pages are the sidebar's", () => {
     render(<BillsPage view="pay" />, { wrapper: MemoryRouter });
-    // By hand on the 20th: Phone late + Power in 5 days = 2 (Rent is 8 days off).
-    expect(screen.getByRole("link", { name: /payments — 2 bills/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /payments/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /overview/i })).toBeNull();
+  });
+
+  it("moves to the new day when the app comes back, as the menu does", () => {
+    // Detailed rows are not needed: the status chip says how far off each is.
+    render(<BillsPage view="pay" />, { wrapper: MemoryRouter });
+    // By hand on the 20th: Rent due the 28th is 8 days off.
+    const rent = () => screen.getByText("Rent").closest("[role=button]")!;
+    expect(rent()).toHaveTextContent("in 8 days");
 
     vi.setSystemTime(new Date(2026, 5, 21, 9));
     act(() => document.dispatchEvent(new Event("visibilitychange")));
-    // By hand on the 21st: Rent is 7 days off now — 3.
-    expect(screen.getByRole("link", { name: /payments — 3 bills/i })).toBeInTheDocument();
+    // On the 21st: 7.
+    expect(rent()).toHaveTextContent("in 7 days");
   }, 15_000);
 });

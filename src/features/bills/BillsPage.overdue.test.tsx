@@ -80,6 +80,7 @@ beforeEach(async () => {
   vi.setSystemTime(NOW);
   page.bills = [water(NOW)];
   localStorage.removeItem("bills-view");
+  localStorage.removeItem("density:bills");
   await i18n.changeLanguage("en");
 });
 
@@ -87,7 +88,7 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-const chip = () => document.querySelector("[class*=_cardTags_]")?.children[0];
+const chip = () => document.querySelector("[class*=_stripTags_]")?.children[0];
 
 describe("water three periods behind, October not yet due", () => {
   it("is on the late tile: one bill, €180", () => {
@@ -102,7 +103,9 @@ describe("water three periods behind, October not yet due", () => {
     expect(arrears(page.bills, NOW).reduce((s, i) => s + i.amount, 0)).toBe(180);
   });
 
-  it("says on its card how many are unpaid and what they come to, and since when", () => {
+  it("says on its row how many are unpaid and what they come to, and since when", () => {
+    // «Αναλυτικό»: the row's three figures, the deadline among them.
+    localStorage.setItem("density:bills", JSON.stringify("detailed"));
     render(<BillsPage />, { wrapper: MemoryRouter });
 
     // Was a grey "in 5 days".
@@ -133,11 +136,26 @@ describe("water three periods behind, October not yet due", () => {
     localStorage.setItem("bills-view", JSON.stringify("list"));
     render(<BillsPage />, { wrapper: MemoryRouter });
 
-    const line = document.querySelector("[class*=_billLine_]")!;
-    expect(line.querySelector("[class*=_lineTags_]")!.children[0]).toHaveTextContent("overdue");
+    const line = document.querySelector("[class*=_stripCard_]")!;
+    expect(line.querySelector("[class*=_stripTags_]")!.children[0]).toHaveTextContent("3 unpaid · €180.00");
     // Was "€60.00 · 10 Oct".
-    expect(line.querySelector("[class*=_lineAmount_]")).toHaveTextContent("€180.00");
-    expect(line.querySelector("[class*=_lineAmount_]")).toHaveTextContent("10 Jul");
+    expect(line.querySelector("[class*=_stripAmount_]")).toHaveTextContent("€180.00");
+    // One card: the name, then a line per unpaid period, each led by its day in red,
+    // adding up to the figure — by hand 3 × €60 = €180.
+    expect(line.querySelector("[class*=_stripName_]")).toHaveTextContent("Water");
+    const lines = [...line.querySelectorAll("[class*=_stripRow_]")];
+    expect(lines.map((l) => l.querySelector("[class*=_stripDayNum_]")!.textContent)).toEqual(["10", "10", "10"]);
+    expect(lines.map((l) => l.querySelector("[class*=_stripDayMonth_]")!.textContent)).toEqual(["Jul", "Aug", expect.stringMatching(/^Sept?$/)]);
+    // The head stays «icon · name · figure»; the chips sit in a band under the dated lines.
+    expect(line.querySelector("[class*=_stripCardHead_] [class*=_stripTags_]")).toBeNull();
+    expect(lines[2].compareDocumentPosition(line.querySelector("[class*=_stripTags_]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const l of lines) {
+      expect(l.querySelector("[class*=_stripDay_]")!.className).toMatch(/_stripDayLate_/);
+      expect(l).toHaveTextContent("Unpaid · €60.00");
+      // ⚠ with its words, never colour alone.
+      expect(l.querySelector("[data-status]")).toHaveAttribute("data-status", "late");
+      expect(l.querySelector("[role=img]")).toHaveAccessibleName("Late");
+    }
   });
 
   it("lists the same three in next month's breakdown, under the late tile's own name", async () => {
@@ -223,6 +241,23 @@ describe("paying the water from the bill's own dialog", () => {
     return screen.findByRole("dialog");
   };
 
+  it("shows the bill first, and its actions as a step inside the same dialog", async () => {
+    render(<BillsPage />, { wrapper: MemoryRouter });
+    const dialog = await openDialog();
+    // «Προβολή»: the payment is the one primary action; the rest wait behind «Ενέργειες».
+    expect(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") })).toHaveClass("btn-primary");
+    expect(within(dialog).queryByRole("button", { name: "I've paid these" })).toBeNull();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Actions" }));
+    // Still the one dialog — no dialog over a dialog.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    for (const name of ["Edit", "Pause", "I've paid these"]) expect(within(dialog).getByRole("button", { name })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: i18n.t("bills.payNow") })).toBeNull();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+    expect(within(dialog).getByRole("button", { name: i18n.t("bills.payNow") })).toBeInTheDocument();
+  });
+
   it("opens the payment form on July, the oldest overdue, at €60", async () => {
     render(<BillsPage />, { wrapper: MemoryRouter });
     const dialog = await openDialog();
@@ -242,6 +277,8 @@ describe("paying the water from the bill's own dialog", () => {
     render(<BillsPage />, { wrapper: MemoryRouter });
     const dialog = await openDialog();
 
+    // Under «Ενέργειες», a step inside the same dialog.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Actions" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
     const confirm = await screen.findByRole("dialog");
     expect(confirm).toHaveTextContent("Marked as paid without writing a transaction — the money has already left the bank.");
@@ -274,6 +311,8 @@ describe("paying the water from the bill's own dialog", () => {
     try {
       render(<BillsPage />, { wrapper: MemoryRouter });
       const dialog = await openDialog();
+      // Under «Ενέργειες», a step inside the same dialog.
+      await userEvent.click(within(dialog).getByRole("button", { name: "Actions" }));
       await userEvent.click(within(dialog).getByRole("button", { name: "I've paid these" }));
       const confirm = await screen.findByRole("dialog");
 

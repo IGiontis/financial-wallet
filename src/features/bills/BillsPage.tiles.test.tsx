@@ -128,24 +128,60 @@ describe("the Bills page tiles", () => {
 });
 
 describe("status and cadence under each bill's name", () => {
-  it("puts the status first, then the cadence, on every card", () => {
+  it("puts the status first, then the cadence, on every row of the list", () => {
     render(<BillsPage />, { wrapper: MemoryRouter });
 
-    const rows = [...document.querySelectorAll("[class*=_cardTags_]")];
+    const rows = [...document.querySelectorAll("[class*=_stripTags_]")];
     expect(rows).toHaveLength(3);
     for (const row of rows) {
+      expect(row.children[0].className).toMatch(/_statusChip_/);
       expect(row.children[1]).toHaveClass("badge");
       expect(row.children[1]).toHaveTextContent("Monthly");
     }
   });
 
-  it("gives every line in the list a status, first, so they line up", async () => {
+  it("an old «list» choice shows the same list, the late ones' day in red", () => {
     localStorage.setItem("bills-view", JSON.stringify("list"));
     render(<BillsPage />, { wrapper: MemoryRouter });
 
-    const rows = [...document.querySelectorAll("[class*=_lineTags_]")];
-    expect(rows.map((row) => row.children[0].textContent)).toEqual(expect.arrayContaining(["overdue", "unpaid"]));
-    for (const row of rows) expect(row.children[1]).toHaveClass("badge");
+    expect(document.querySelectorAll("[class*=_stripTags_]")).toHaveLength(3);
+    expect(document.querySelectorAll("[class*=_stripDayLate_]").length).toBeGreaterThan(0);
     localStorage.removeItem("bills-view");
+  });
+
+  it("offers three views — the list, this month, the year — and the density only on the list, in its place", async () => {
+    localStorage.removeItem("bills-view");
+    localStorage.removeItem("bills-view-2");
+    render(<BillsPage />, { wrapper: MemoryRouter });
+
+    const views = screen.getByRole("group", { name: i18n.t("bills.viewLabel") });
+    expect(within(views).getAllByRole("button").map((b) => b.textContent)).toEqual(["List", "This month", "The year"]);
+    const density = screen.getByRole("group", { name: i18n.t("common.density") });
+    expect(density.closest("[aria-hidden]")).toBeNull();
+
+    await userEvent.click(within(views).getByRole("button", { name: /This month/ }));
+    // Still there, keeping its room, but hidden and out of reach.
+    const hidden = screen.getByRole("group", { name: i18n.t("common.density"), hidden: true }).parentElement!;
+    expect(hidden).toHaveAttribute("aria-hidden", "true");
+    expect(hidden.className).toMatch(/_viewBarHidden_/);
+    // Remembered as the new value, under the new key.
+    expect(JSON.parse(localStorage.getItem("bills-view-2")!)).toBe("month");
+    localStorage.removeItem("bills-view-2");
+  });
+
+  it("opens an old «timeline» tree on the list", () => {
+    localStorage.setItem("bills-view", JSON.stringify("tree"));
+    render(<BillsPage />, { wrapper: MemoryRouter });
+    expect(screen.getByRole("button", { name: /^List/, pressed: true })).toBeInTheDocument();
+    localStorage.removeItem("bills-view");
+  });
+
+  it("says only the name, the figure and the dated lines in «Simple»", () => {
+    localStorage.setItem("density:bills", JSON.stringify("simple"));
+    render(<BillsPage />, { wrapper: MemoryRouter });
+
+    expect(document.querySelectorAll("[class*=_stripCard_]")).toHaveLength(3);
+    expect(document.querySelectorAll("[class*=_stripTags_]")).toHaveLength(0);
+    localStorage.removeItem("density:bills");
   });
 });

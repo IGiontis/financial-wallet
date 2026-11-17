@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Badge, Input, InputGroup, Row, Col } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toneChip } from "../../shared/utils/tone";
-import { FiCheck, FiEdit2, FiFastForward, FiRotateCcw, FiX } from "react-icons/fi";
+import { FiCheck, FiChevronLeft, FiEdit2, FiFastForward, FiMoreHorizontal, FiPause, FiPlay, FiRotateCcw, FiX } from "react-icons/fi";
 import type { BillPayment, BillWithStatus } from "../../shared/types/IndexTypes";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError, dateFormat, formatDay } from "../../shared/utils/dates";
 import { DateField } from "../../shared/components/DateField";
@@ -33,6 +33,8 @@ interface BillDetailModalProps {
   onSettleOverdue: (bill: BillWithStatus) => void;
   onEdit: (bill: BillWithStatus) => void;
   onDelete: (bill: BillWithStatus) => void;
+  /** Off for now, or back on (the page's toggle, with its toast) — under «Ενέργειες». */
+  onToggle: (bill: BillWithStatus, active: boolean) => void;
 }
 
 /** Read-only fact, e.g. "Amount — €25.50". `sub` adds a small qualifier below,
@@ -55,8 +57,10 @@ function Fact({ label, value, accent, sub }: { label: string; value: string; acc
   );
 }
 
-export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onSettleOverdue, onEdit, onDelete }: BillDetailModalProps) {
+export default function BillDetailModal({ bill, categoryLabel, formatCurrency, isBusy, onClose, onMarkPaid, onUndoPayment, onEditPayment, onDeletePayment, onPayPeriod, onSettleOverdue, onEdit, onDelete, onToggle }: BillDetailModalProps) {
   const { t, i18n } = useTranslation();
+  // «Προβολή» first; «Ενέργειες» is a step inside the same dialog — never a dialog over it (owner, 2026-11-16).
+  const [step, setStep] = useState<"view" | "actions">("view");
   const freq = getFrequencyLabel(bill);
   const paid = bill.isPaidThisPeriod;
   const paidDate = bill.payment ? firestoreToDate(bill.payment.paidDate) : undefined;
@@ -144,6 +148,36 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
       </ModalHeader>
 
       <ModalBody>
+        {step === "actions" ? (
+          // What can be done to the bill, each one tap; the money ones open their own form, as before.
+          <div className="d-grid gap-2">
+            <div className="stat-head">{t("common.actions")}</div>
+            <Button color="secondary" outline onClick={() => onEdit(bill)} disabled={isBusy} className="text-start">
+              <FiEdit2 size={15} className="me-2" aria-hidden />
+              {t("common.edit")}
+            </Button>
+            <Button color="secondary" outline onClick={() => onToggle(bill, !bill.isActive)} disabled={isBusy} className="text-start">
+              {bill.isActive ? <FiPause size={15} className="me-2" aria-hidden /> : <FiPlay size={15} className="me-2" aria-hidden />}
+              {t(bill.isActive ? "bills.actionPause" : "bills.actionResume")}
+            </Button>
+            {/* For months the bank paid and the app was never told: marks them
+                paid without writing a transaction, so the balance does not lose
+                the money a second time. */}
+            {behind && (
+              <Button color="secondary" outline onClick={() => onSettleOverdue(bill)} disabled={isBusy} className="text-start">
+                <FiCheck size={15} className="me-2" aria-hidden />
+                {t("bills.settleOverdue")}
+              </Button>
+            )}
+            {paid && (
+              <Button color="secondary" outline onClick={() => onUndoPayment(bill)} disabled={isBusy} className="text-start">
+                <FiRotateCcw size={15} className="me-2" aria-hidden />
+                {t("bills.undoPayment")}
+              </Button>
+            )}
+          </div>
+        ) : (
+        <>
         <Row className="g-2 mb-3">
           <Col xs={6}>
             {/* Same figure as the list row — the recent average once a variable
@@ -190,12 +224,6 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
               <span className="fw-semibold" style={{ fontSize: "var(--fs-text)", color: "var(--color-expense)" }}>
                 ⚠ {t("bills.unpaidSince", { count: overdue.count, date: dateFmt.format(overdue.oldestDue) })} · {formatCurrency(overdue.total)}
               </span>
-              {/* For months the bank paid and the app was never told: marks them
-                  paid without writing a transaction, so the balance does not
-                  lose the money a second time. Beside the debt it clears. */}
-              <Button color="danger" outline size="sm" onClick={() => onSettleOverdue(bill)} disabled={isBusy} className="text-nowrap">
-                {t("bills.settleOverdue")}
-              </Button>
             </div>
           )}
           {paid && paidDate ? (
@@ -359,45 +387,47 @@ export default function BillDetailModal({ bill, categoryLabel, formatCurrency, i
             })}
           </div>
         )}
+        </>
+        )}
       </ModalBody>
 
       {/* Four actions do not fit one line on a phone. Rather than letting them
           wrap into a ragged second row, the footer becomes two full-width rows
           below `sm` — payment nearest the thumb, edit and delete above it — and
           collapses back to a single row on wider screens. */}
-      <ModalFooter className="flex-column flex-sm-row justify-content-sm-between align-items-stretch align-items-sm-center gap-2">
-        <div className="d-flex gap-2">
-          <Button color="secondary" outline onClick={() => onEdit(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
-            {t("common.edit")}
-          </Button>
-          {/* The word from `sm` up; on a phone the bin alone keeps it beside Edit. */}
+      {/* «Προβολή»: «Ενέργειες» on the left, the payment on the right, nearest the thumb.
+          «Ενέργειες»: delete far left, the way back on the right. */}
+      {step === "actions" ? (
+        <ModalFooter className="justify-content-between gap-2">
           <DeleteButton opensConfirm wordFromSm onClick={() => onDelete(bill)} disabled={isBusy} />
-        </div>
-
-        {paid ? (
-          <div className="d-flex gap-2">
-            <Button color="warning" outline onClick={() => onUndoPayment(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
-              <FiRotateCcw size={15} className="me-1" />
-              {t("bills.undoPayment")}
-            </Button>
-            {/* Settled for now, but the next one can still be cleared early —
-                without this the modal offers no way back to the payment form. */}
-            <Button color="primary" outline onClick={() => onMarkPaid(bill)} disabled={isBusy} className="flex-fill flex-sm-grow-0 text-nowrap">
+          <Button color="secondary" outline onClick={() => setStep("view")} className="text-nowrap">
+            <FiChevronLeft size={15} className="me-1" aria-hidden />
+            {t("common.back")}
+          </Button>
+        </ModalFooter>
+      ) : (
+        <ModalFooter className="justify-content-between gap-2">
+          <Button color="secondary" outline onClick={() => setStep("actions")} disabled={isBusy} className="text-nowrap">
+            <FiMoreHorizontal size={15} className="me-1" aria-hidden />
+            {t("common.actions")}
+          </Button>
+          {paid ? (
+            // Settled for now, but the next one can still be cleared early.
+            <Button color="primary" outline onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
               <FiFastForward size={15} className="me-1" />
               {t("bills.payAhead")}
             </Button>
-          </div>
-        ) : (
-          // Naming a figure here would be a promise the next screen breaks: the
-          // form lets you change it, a variable bill only has an estimate, and
-          // an instalment plan owes a fraction of it. The amount is already
-          // among the facts above; the button only has to say where it goes.
-          <Button color="primary" onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
-            <FiCheck size={16} className="me-1" />
-            {t("bills.payNow")}
-          </Button>
-        )}
-      </ModalFooter>
+          ) : (
+            // Naming a figure here would be a promise the next screen breaks: the
+            // form lets you change it, a variable bill only has an estimate, and
+            // an instalment plan owes a fraction of it.
+            <Button color="primary" onClick={() => onMarkPaid(bill)} disabled={isBusy} className="text-nowrap">
+              <FiCheck size={16} className="me-1" />
+              {t("bills.payNow")}
+            </Button>
+          )}
+        </ModalFooter>
+      )}
     </Modal>
   );
 }

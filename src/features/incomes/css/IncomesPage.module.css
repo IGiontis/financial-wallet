@@ -211,6 +211,7 @@
 }
 
 .line {
+  composes: hover-row from global;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -230,10 +231,6 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-}
-
-.line:hover {
-  background: var(--color-background-secondary);
 }
 
 .lineButton:focus-visible {
@@ -837,6 +834,7 @@
 
 /* The check's rows go back to the step that asked them. */
 .readRowButton {
+  composes: hover-row from global;
   width: 100%;
   border-left: 0;
   border-right: 0;
@@ -844,10 +842,6 @@
   background: transparent;
   color: inherit;
   text-align: left;
-}
-
-.readRowButton:hover {
-  background: var(--color-surface);
 }
 
 .readIcon {

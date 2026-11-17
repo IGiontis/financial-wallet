@@ -1,4 +1,3 @@
-import { PageTabs } from "../../shared/components/PageTabs";
 import { toast } from "react-toastify";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
 import { useMemo, useState } from "react";
@@ -33,7 +32,6 @@ import {
   suggestIncomeCategory,
   type Income,
   type IncomeStatus,
-  lateCount,
 } from "./incomesUtils";
 import { emptyDraft, incomeToDraft, type DraftStep, type IncomeDraft } from "./incomeForm";
 import { makeFormats } from "./incomeText";
@@ -134,8 +132,6 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
   const byId = useMemo(() => new Map(incomes.map((i) => [i.id, i])), [incomes]);
   const archived = useMemo(() => incomes.filter((i) => !isActiveIncome(i)), [incomes]);
   const summary = useMemo(() => monthSummary(statuses, toISOMonth(now)), [statuses, now]);
-  // The count on «Εισπράξεις» — the menu's, from the times already resolved here.
-  const waiting = useMemo(() => lateCount(statuses), [statuses]);
   const nextMonthDate = useMemo(() => startOfMonth(addMonths(now, 1)), [now]);
   const nextSummary = useMemo(() => monthSummary(statuses, toISOMonth(nextMonthDate)), [statuses, nextMonthDate]);
   const rows = useMemo(() => incomeRows(incomes, statuses, now), [incomes, statuses, now]);
@@ -250,16 +246,8 @@ export default function IncomesPage({ view: page = "all" }: { view?: IncomesPage
           added to a list not yet read would write over those already there. */}
       <AddHeader label={t("incomes.new")} onAdd={() => openNew()} disabled={listMissing} title={t("incomes.title")} subtitle={t("incomes.subtitle")} />
 
-      <PageTabs
-        label={t("incomes.title")}
-        links={[
-          { to: "/incomes", label: t("incomes.pageOverview") },
-          { to: "/incomes/record", label: t("incomes.pageRecord"), badge: waiting, badgeTone: "warning", badgeLabel: t("nav.incomesWaiting", { count: waiting }) },
-          // How many there are, once they are loaded — not a «(0)» while they load.
-          { to: "/incomes/manage", label: load !== "ready" ? t("incomes.pageManage") : `${t("incomes.pageManage")} (${incomes.length})` },
-          { to: "/incomes/all", label: t("incomes.pageAll") },
-        ]}
-      />
+      {/* No link tabs: «Σύνοψη · … · Όλα» are the sidebar's children — one row of tabs or
+          selectors per page, and the views below get the room (owner, 2026-11-17). */}
 
       {load === "waiting" ? (
         <PageWaiting />

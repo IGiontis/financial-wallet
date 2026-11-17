@@ -173,6 +173,27 @@
   --brand-gradient: linear-gradient(135deg, var(--brand-active) 0%, var(--brand) 60%, var(--brand-hover) 100%);
 }
 
+/* Hover and «paid» (owner, 2026-11-17), from each colourway's own roles: the
+   dark values are the ones he picked; daylight washes the same mix out, so the
+   light mode takes a stronger one to read as clearly — still calm. Text stays
+   ≥ 8:1: the light hover is brand-soft itself (a tested ground), the paid wash
+   keeps text-2 above 10:1. Used by `.hover-card` / `.hover-row` (below) and the
+   bills' paid cards. */
+:root,
+[data-bs-theme="light"] {
+  --hover-wash: var(--brand-soft);
+  --hover-edge: color-mix(in srgb, var(--brand-edge) 50%, var(--brand));
+  --paid-wash: color-mix(in srgb, var(--income) 8%, var(--surface));
+  --paid-edge: color-mix(in srgb, var(--income) 65%, transparent);
+}
+
+[data-bs-theme="dark"] {
+  --hover-wash: color-mix(in srgb, var(--brand-soft) 60%, var(--surface));
+  --hover-edge: var(--brand-edge);
+  --paid-wash: var(--income-wash-solid);
+  --paid-edge: var(--income-edge);
+}
+
 /* ── Bootstrap, pointed at the roles ──────────────────────────────────────────
    The three selectors are Bootstrap's own, so this wins over its light and dark
    blocks by coming after them; `.app-shell` takes them again from its own
@@ -1540,6 +1561,41 @@ html:root {
 
 :is(a.card, button.card, .card[role="button"], .list-group-item-action):active {
   transform: scale(0.995);
+}
+
+/* ── The shared hover for anything clickable (owner, 2026-11-17) ─────────────
+   One look on every page: a calm brand wash, and on a card its edge too, the
+   same under the keyboard's focus with the app's ring. Unlayered on purpose, so
+   it beats a module's resting background. A module opts in with
+   `composes: hover-card from global;` (a card with a border) or `hover-row`
+   (a row in a list: the wash only, its divider untouched); a Bootstrap card
+   that is a link or button gets it by itself. Never a :hover of a page's own. */
+.hover-card,
+.hover-row,
+:is(a.card, button.card, .card[role="button"]) {
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
+  cursor: pointer;
+}
+
+:is(.hover-card, .hover-row, a.card, button.card, .card[role="button"]):is(:hover, :focus-visible):not(:disabled, [aria-disabled="true"]) {
+  background: var(--hover-wash);
+}
+
+:is(.hover-card, a.card, button.card, .card[role="button"]):is(:hover, :focus-visible):not(:disabled, [aria-disabled="true"]) {
+  border-color: var(--hover-edge);
+}
+
+.hover-card:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* A row sits inside a card that may clip: its ring goes inside it. */
+.hover-row:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: calc(-1 * var(--focus-width));
 }
 
 /* Opacity only: the menu is placed by a transform of its own (Floating UI). */
