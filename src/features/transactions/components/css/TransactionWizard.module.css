@@ -81,14 +81,40 @@
   color: var(--on-brand);
 }
 
+/* Never cut short: a long word wraps (breaking inside it only when nothing
+   else fits). On a phone a rail of 4+ steps (`.stepsMany`) hides them for `.stepsNow`. */
 .stepLabel {
   font-size: var(--fs-caption);
   color: var(--color-text-secondary);
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   max-width: 100%;
+  line-height: 1.25;
+}
+
+/* «Βήμα 2/5 · Κατηγορία» — only on a phone, only under a rail of 4+ steps. */
+.stepsNow {
+  display: none;
+  margin: calc(var(--space-2) * -1) 0 var(--space-3);
+  text-align: center;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 575.98px) {
+  .stepsMany .stepLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .stepsNow {
+    display: block;
+  }
 }
 
 .stepCurrent .stepLabel {

@@ -280,7 +280,7 @@ function TransactionCard({ tx, categories, formatCurrency, onView, flash = "" }:
               {kind.label}
             </span>
           )}
-          <span className="text-truncate">{categoryLabel(cat?.name, t) || "—"}</span>
+          <span className={styles.txCat}>{categoryLabel(cat?.name, t) || "—"}</span>
         </span>
       </span>
       <span className={styles.txAmount} style={{ color: tx.transferId ? "var(--color-text-secondary)" : isPositive ? "var(--color-income-text)" : "var(--color-expense-text)" }}>

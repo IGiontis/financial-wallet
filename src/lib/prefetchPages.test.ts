@@ -127,6 +127,9 @@ describe("the page list", () => {
     expect(chunkForPath("/business")).toBe("business");
     expect(chunkForPath("/business/manage")).toBe("business");
     expect(chunkForPath("/business/new")).toBe("business");
+    // A person's / a bank loan's page is the Debts chunk.
+    expect(chunkForPath("/debts/person/nikos")).toBe("debts");
+    expect(chunkForPath("/debts/loan/abc")).toBe("debts");
     expect(chunkForPath("/settings/data")).toBe("settings");
     expect(chunkForPath("/login")).toBeNull();
     expect(chunkForPath("/nowhere")).toBeNull();

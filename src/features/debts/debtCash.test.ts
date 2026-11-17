@@ -128,6 +128,12 @@ describe("money that drifted from its debt", () => {
     expect(debtCashDrift([loan], stale, NOW).records.map((r) => [r.id, r.amount, r.accountId])).toEqual([[debtCashIds.principal("p1"), 100, "eurobank"]]);
   });
 
+  it("leaves alone the money of a debt deleted from «Αρχείο» with its money kept (`debtKept`)", () => {
+    // The debt is gone; its records stay, marked kept: nothing rewritten, nothing removed.
+    const kept = right.map((tx) => ({ ...tx, debtKept: true }));
+    expect(debtCashDrift([], [...kept, other], NOW)).toEqual({ records: [], remove: [] });
+  });
+
   it("takes out the money of a debt that is gone — and never touches other records", () => {
     const drift = debtCashDrift([], [...right, other], NOW);
     expect(drift.records).toEqual([]);

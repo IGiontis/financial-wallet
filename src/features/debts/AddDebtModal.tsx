@@ -78,7 +78,13 @@ export default function AddDebtModal({
   onDelete,
   deleteLocked,
   deleteReason,
+  embedded = false,
+  onSaved,
 }: {
+  /** As a step of another dialog — its content only, inside that dialog (no dialog on a dialog). */
+  embedded?: boolean;
+  /** After a save, in place of `onClose` (which then means Cancel only): with the name it was saved under. */
+  onSaved?: (saved: { person: string }) => void;
   knownPeople: string[];
   onClose: () => void;
   debt?: Debt;
@@ -306,7 +312,8 @@ export default function AddDebtModal({
         // The new debt's id is the batch's own: the row that appears is lit.
         celebrateSave({ collection: "debts" });
         toast.success(t("toasts.debtCreated", { name: who }));
-        onClose();
+        if (onSaved) onSaved({ person: who });
+        else onClose();
       });
       return;
     }
@@ -323,14 +330,16 @@ export default function AddDebtModal({
       void saveWithoutWaiting(edit, { debtId: debt.id, data, covered: plan.edit, storedDate: firestoreToDate(debt.date) }, undefined, [["debts", debt.id]]);
       celebrateSave({ collection: "debts", id: debt.id });
       toast.success(t("toasts.debtUpdated", { name: data.person }));
-      onClose();
+      if (onSaved) onSaved({ person: data.person });
+      else onClose();
       return;
     }
     // A new debt's id is made by the hook: the row that appears is the one lit.
     void saveWithoutWaiting(create, data);
     celebrateSave({ collection: "debts" });
     toast.success(t("toasts.debtCreated", { name: data.person }));
-    onClose();
+    if (onSaved) onSaved({ person: data.person });
+    else onClose();
   };
 
   // ── The review ──────────────────────────────────────────────────────────
@@ -395,8 +404,8 @@ export default function AddDebtModal({
     return t("debts.addWizard.titleReview");
   })();
 
-  return (
-    <Modal {...FORM_MODAL} isOpen toggle={saving || savingCovered ? () => undefined : onClose} keyboard={!(saving || savingCovered)} centered scrollable>
+  const content = (
+    <>
       <ModalHeader toggle={saving || savingCovered ? undefined : onClose}>{debt ? t("debts.editLoan") : t("debts.add")}</ModalHeader>
       <form
         noValidate
@@ -502,10 +511,10 @@ export default function AddDebtModal({
                   {t("debts.rateFloating")}
                 </button>
               </div>
-              <small className="text-body-secondary d-block mb-2">
+              <div className="small text-body-secondary mb-2">
                 {t("debts.rateTypeHint")}
                 <RateHelpButton formatCurrency={formatCurrency} locale={lang} />
-              </small>
+              </div>
 
               {/* Two fields to a row, never three. At 375px a third one squeezes
                   the number inputs to forty pixels and "300" cannot be read in
@@ -740,6 +749,12 @@ export default function AddDebtModal({
           </div>
         </ModalFooter>
       </form>
+    </>
+  );
+  if (embedded) return content;
+  return (
+    <Modal {...FORM_MODAL} isOpen toggle={saving || savingCovered ? () => undefined : onClose} keyboard={!(saving || savingCovered)} centered scrollable>
+      {content}
     </Modal>
   );
 }

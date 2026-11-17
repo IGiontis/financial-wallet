@@ -1,103 +1,19 @@
 /* Debts — the list of people and one person's record.
    Bootstrap covers the chrome; everything here is a genuine gap. */
 
-/* ── Headline pair, and the net under it ──────────────────────────────────── */
-/* The two directions stay separate on top: owing 150 while being owed 80 is two
-   facts about two people, not one 70 fact about nobody. The net sits below
-   them, spelled out, because doing that subtraction in your head every visit is
-   its own small tax — and it is a summary of the pair, not a replacement, which
-   is why it reads as a strip rather than a third equal tile. */
+/* ── «Ζυγαριά»: the scale, its two sides, the archive (owner, 2026-11-16) ──── */
 
-.totals {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-/* Buttons: each shows only its side of the list (DebtsPage). */
-.total {
+.panel {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  border: 0;
-  border-radius: var(--border-radius-lg);
-  padding: 0.875rem var(--space-4);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: box-shadow 0.15s ease;
+  gap: var(--space-3);
 }
 
-.total:hover:not(.totalOn) {
-  box-shadow: 0 0 0 1px var(--tile-tone);
+.panel:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-sm);
 }
-
-.total:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
-}
-
-/* The side the list is showing: ringed in its own colour. */
-.totalOn {
-  box-shadow: 0 0 0 2px var(--tile-tone);
-}
-
-.filterLine {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: var(--fs-text);
-  color: var(--color-text-secondary);
-}
-
-/* Their colours are the shared `tone-tile` (index.css), as on the Calendar. */
-.totalLabel {
-  font-size: var(--stat-tile-label-size);
-  font-weight: var(--stat-label-weight);
-}
-
-.totalAmount {
-  font-size: var(--stat-tile-figure-size);
-  font-weight: var(--stat-figure-weight);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-}
-
-/* Full width beneath the pair. Three tiles abreast would put a five-figure
-   amount into about a hundred pixels on a phone. */
-.net {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.625rem var(--space-4);
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-  background: var(--color-background-secondary);
-}
-
-.netLabel {
-  font-size: var(--stat-tile-label-size);
-  color: var(--color-text-secondary);
-}
-
-.netAmount {
-  font-size: var(--stat-tile-figure-size);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.netNote {
-  font-size: var(--fs-small);
-  color: var(--color-text-secondary);
-}
-
-/* ── People ───────────────────────────────────────────────────────────────── */
 
 .card {
   border: 1px solid var(--color-border-tertiary);
@@ -105,70 +21,245 @@
   background: var(--color-surface);
 }
 
-.person {
+/* The two directions stay separate: owing 150 while being owed 80 is two facts
+   about two people, not one 70 fact about nobody. The net sits between them,
+   spelled out, and the bar under all three shows how the two weigh. Phones:
+   the pair at the two ends, the bar, the net under it. */
+.balance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "owe owed"
+    "bar bar"
+    "net net";
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4);
+}
+
+@media (min-width: 576px) {
+  .balance {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas:
+      "owe net owed"
+      "bar bar bar";
+    padding: var(--space-4) 1.25rem;
+  }
+}
+
+.balanceOwe,
+.balanceNet,
+.balanceOwed {
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.balanceOwe {
+  grid-area: owe;
+}
+
+.balanceOwed {
+  grid-area: owed;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.balanceNet {
+  grid-area: net;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  column-gap: var(--space-2);
+  text-align: center;
+}
+
+@media (min-width: 576px) {
+  .balanceNet {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.balanceLabel {
+  font-size: var(--stat-tile-label-size);
+  font-weight: var(--stat-label-weight);
+  color: var(--color-text-secondary);
+}
+
+.balanceFigure {
+  font-size: var(--stat-tile-figure-size);
+  font-weight: var(--stat-figure-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.balanceNote {
+  font-size: var(--fs-small);
+  color: var(--color-text-secondary);
+}
+
+/* Red for what you owe from the left, green for what you are owed from the
+   right, each as wide as its share; nothing open either way leaves the track. */
+.balanceBar {
+  grid-area: bar;
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: var(--radius-round);
+  background: var(--color-background-secondary);
+  overflow: hidden;
+}
+
+.balanceBarOwe {
+  background: var(--color-expense);
+}
+
+.balanceBarOwed {
+  background: var(--color-income);
+}
+
+.side {
+  height: 100%;
+}
+
+/* The side's name with its total: the same figure the bar above starts from. */
+.sideHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.sideHeadFigure {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sideEmpty {
+  margin: 0;
+  font-size: var(--fs-text);
+  color: var(--color-text-secondary);
+}
+
+.sideList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sideList > li + li {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* One person on one side: initials, name and what it is, how much is gone, what is left. */
+.sideRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--space-3);
   width: 100%;
   min-height: 56px;
-  padding: 0.625rem 0;
+  padding: var(--space-2) var(--space-1);
   border: 0;
-  border-top: 1px solid var(--color-border-tertiary);
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
+  font: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.person:first-of-type {
-  border-top: 0;
+.sideRow:hover {
+  background: var(--color-background-secondary);
 }
 
-.personName {
-  flex: 1;
+.sideRow:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-round);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Closed: no meaning's colour left to wear. */
+.initialsClosed {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border-tertiary);
+}
+
+.sideMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+/* Never cut: a long name wraps (rule «never truncate a name»). */
+.sideName {
   font-size: var(--fs-lead);
-}
-
-.personCount {
-  flex-shrink: 0;
-  font-size: var(--fs-caption);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-/* The direction is spelled out. A bare signed number is unreadable months
-   later — "-100" could as easily be "I repaid it" as "I owe it". */
-.personBalance {
-  flex-shrink: 0;
-  font-size: var(--fs-text);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-.settled {
+.sideSub {
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
-  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
-/* ── One loan inside a person ─────────────────────────────────────────────── */
-
-.track {
+.sideBar {
+  display: block;
   height: 5px;
-  margin: 0.375rem 0;
+  margin-top: 4px;
   border-radius: var(--radius-xs);
   background: var(--color-background-secondary);
   overflow: hidden;
 }
 
-.fill {
+.sideBar > span {
+  display: block;
   height: 100%;
   background: var(--color-income);
+}
+
+.sideFigures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.sideAmount {
+  font-size: var(--fs-lead);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sidePct {
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.archiveNote {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-text);
+  color: var(--color-text-secondary);
 }
 
 /* ── Recording or correcting a payment ─────────────────────────────────────── */
@@ -337,6 +428,24 @@
   text-decoration: underline;
 }
 
+/* The explainer, opened in place under its dot (never a dialog over a dialog). */
+.rateHelpPanel {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--fs-text);
+  font-weight: 400;
+}
+
+.rateHelpPanelTitle {
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-lead);
+  font-weight: 600;
+}
+
 .helpSection {
   margin-bottom: 18px;
 }
@@ -482,175 +591,40 @@
    at the bottom; from 992px it splits into the loan on the left and its tabs on
    the right, so nothing needs scrolling to compare. */
 
-.sheetHeader {
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.sheetHeader :global(.modal-title) {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.sheetTitle {
-  display: flex;
-  flex-direction: column;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.sheetHeadline {
-  font-size: var(--fs-text);
-  font-variant-numeric: tabular-nums;
-}
-
-.sheetNew {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* The rule between "+" and ✕. */
-.headDivider {
-  width: 1px;
-  height: 22px;
-  background: color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
-}
-
-.sheetBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding-bottom: 0;
-}
-
-/* On one column the two halves dissolve, so the button can sit last. */
-.sheetLeft,
-.sheetRight {
-  display: contents;
-}
-
-/* The body scrolls; nothing in it should be squeezed to fit instead. The
-   loan chips, which scroll sideways, were collapsing to a sliver once the
-   total above them made the column taller than the screen. */
-.sheetLeft > *,
-.sheetRight > * {
-  flex-shrink: 0;
-}
-
-/* Which loan is in front: one list in every layout — the open loans, then
-   the paid-off ones under a folding heading. The chosen row is marked three
-   ways at once (a bar at its edge, a tint, its weight): an underline alone
-   did not show which one was open. */
-.picker {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pickGroup {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 6px 0 2px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: var(--fs-small);
-  font-weight: 600;
-  text-align: left;
-}
-
-.pickGroup:first-child {
-  margin-top: 0;
-}
-
-.pick {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 40px;
-  padding: var(--space-2) 10px;
-  border: 0;
-  border-left: 3px solid transparent;
-  border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: var(--fs-text);
-  font-weight: 500;
-  text-align: left;
-}
-
-.pick:hover:not(.pickOn) {
-  background: var(--color-background-secondary);
-  color: var(--color-text-primary);
-}
-
-.pickOn {
-  border-left-color: var(--bs-primary);
-  background: var(--view-switch-on);
-  /* The fill's own lettering: the body ink on the brand was near-black on
-     blue in daylight and pale on pale sky blue in the dark. */
-  color: var(--view-switch-on-text);
-  font-weight: 600;
-}
-
-.pickDot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-round);
-  flex-shrink: 0;
-}
-
-.pickName {
-  overflow-wrap: anywhere;
-}
-
-.pickAmount {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.pick:focus-visible,
-.payRow:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
-}
-
 .heroSub {
   font-size: var(--fs-small);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.ringTrack {
-  fill: none;
-  stroke: var(--color-background-secondary);
-  stroke-width: 10;
+.ctaActions {
+  flex: 0 0 auto;
 }
 
-.ringFill {
-  fill: none;
-  stroke: var(--color-income);
-  stroke-width: 10;
-  stroke-linecap: round;
+.ctaMain {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* The sheet's one action, in its footer: at the foot of the screen, where a thumb finds it. */
-.ctaFooter {
-  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+.actionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.ctaFooter :global(.btn) {
+.actionsList > :global(.btn) {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: var(--space-2);
   min-height: 44px;
+  text-align: left;
+}
+
+.actionsNote {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-small);
+  color: var(--color-text-secondary);
 }
 
 .payList {
@@ -817,55 +791,6 @@ button.payRow[aria-expanded="true"] {
   font-variant-numeric: tabular-nums;
 }
 
-.detailButtons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 1rem;
-}
-
-.detailButtons > :global(.btn) {
-  flex: 1 1 160px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-@media (min-width: 992px) {
-  .sheetBody {
-    display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
-    gap: 0;
-    padding: 0;
-  }
-
-  .sheetLeft {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem;
-    border-right: 1px solid var(--color-border-tertiary);
-    background: var(--color-surface);
-  }
-
-  .sheetRight {
-    display: block;
-    min-width: 0;
-    padding: var(--space-2) 1.25rem 1.25rem;
-  }
-
-  /* Beside the figures rather than pinned: the column is never taller than the screen. */
-  .cta {
-    position: static;
-    order: 0;
-    margin: 0.25rem 0 0;
-    padding: 0;
-    border: 0;
-    background: none;
-  }
-}
-
 /* Which card a repayment went through, under its amount and day. */
 .paymentAccount {
   margin-bottom: 0.5rem;
@@ -892,13 +817,7 @@ button.payRow[aria-expanded="true"] {
   background: var(--color-surface);
 }
 
-
-
-
-
 /* The check's rows go back to the step that asked them. */
-
-
 
 .wizEffectHead {
   padding: var(--space-2) var(--space-3) 0;
@@ -915,369 +834,7 @@ button.payRow[aria-expanded="true"] {
 
 /* ── The sheet's two ways of reading: one loan, or every loan as a card ── */
 
-.columnsBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Nothing in it gives way. With many loans the column overflowed and the browser
-   squeezed what it could — the switch, down from 48px to 29px, its buttons cut
-   off under the cards: what looked like it hiding behind them. */
-.columnsBody > * {
-  flex-shrink: 0;
-}
-
-/* One under the other, with room between them so a thumb lands on the right one. */
-.cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.loanCard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--color-border-tertiary);
-  border-left: 4px solid;
-  border-radius: var(--border-radius-lg);
-  background: var(--color-surface);
-}
-
-/* The left half is the way in: tap it to open the loan. */
-.cardOpen {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-}
-
-.cardOpen:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 4px;
-  border-radius: var(--border-radius-sm);
-}
-
-.cardName {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-lead);
-  font-weight: 600;
-}
-
-.cardName > svg {
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-}
-
-.cardMeta {
-  font-size: var(--fs-text);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.cardRight {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.cardAmount {
-  font-size: var(--stat-figure-size);
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.cardBar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-small);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.cardBar > span {
-  display: block;
-  width: 90px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--color-border-tertiary);
-  overflow: hidden;
-}
-
-.cardBar > span > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-}
-
-.cardPay {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  margin-top: auto;
-  white-space: nowrap;
-}
-
 /* ── A laptop and up: the list, and the person beside it ───────────────────── */
-
-.split {
-  display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-/* The list stays in sight while its panel scrolls. */
-.listCard {
-  position: sticky;
-  top: 0.5rem;
-  max-height: calc(100dvh - var(--topbar-height, 56px) - 1.5rem);
-  overflow-y: auto;
-}
-
-/* The chosen person, edge to edge across the list: the card gives up its side
-   padding and each row carries it instead, so the highlight runs the full width
-   of the row rather than a rounded patch inside the margins. */
-@layer app-important {
-  .split .listCard {
-    padding-inline: 0 !important;
-  }
-}
-
-.split .listCard .person {
-  padding-inline: 1.25rem;
-}
-
-.personOn {
-  background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
-  box-shadow: inset 3px 0 0 var(--bs-primary);
-}
-
-/* A person's row in the wide list: name and amount above, how far along below. */
-.split .person {
-  flex-wrap: wrap;
-  row-gap: 6px;
-}
-
-.personBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 100%;
-  height: 12px;
-}
-
-.personBar > span:first-child {
-  flex: none;
-  height: 5px;
-  border-radius: var(--radius-xs);
-  background: var(--color-income);
-  min-width: 2px;
-  max-width: calc(100% - 40px);
-}
-
-.personBarPct {
-  margin-left: auto;
-  font-size: var(--fs-caption);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The panel. It is the sheet's own content in a card of the page; the sheet's
-   spacing variables, which only exist inside a dialog, are given here. */
-.pane {
-  --bs-modal-padding: 1.25rem;
-  --bs-modal-bg: var(--color-surface);
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-  background: var(--color-surface);
-  overflow: hidden;
-}
-
-.paneHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: var(--space-4) 1.25rem;
-  border-bottom: 1px solid var(--color-border-tertiary);
-}
-
-/* One column in the panel, with the loan's own figures — and the percentage —
-   first: who and how far is what is read, so it is not below the totals and the
-   chips. Order, not markup, so the dialog is unchanged. */
-.pane .sheetBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.25rem;
-}
-
-.pane .sheetLeft,
-.pane .sheetRight {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-
-.pane .sheetLeft > * {
-  flex-shrink: 0;
-}
-
-.pane .personTotal {
-  order: 4;
-}
-
-.pane .ctaFooter {
-  position: sticky;
-  bottom: 0;
-}
-
-/* The name has a line of its own, the whole width of the list, so it is read
-   rather than cut to "Εθνική τρά…" by the figures sharing its row. Only a name
-   longer than the line itself — about forty letters — is shortened. How many
-   loans and what is owed sit under it, the count at the left and the amount at
-   the right, and the progress under both. */
-.split .personName {
-  flex: 1 0 100%;
-  font-weight: 600;
-}
-
-.split .personCount {
-  flex: 1 1 auto;
-}
-
-/* ── The sheet's three views ─────────────────────────────────────────────── */
-/* The switch stays at the top while the sheet scrolls, at its own width. */
-.viewToggle {
-  align-self: flex-start;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  /* The sheet's own ground around it, so cards scrolling under it do not show. */
-  box-shadow: 0 0 0 8px var(--color-surface-raised);
-}
-
-/* «Στήλες»: the small ring beside the pay button. */
-.cardRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cardRing {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-}
-
-.cardRing svg {
-  position: absolute;
-  inset: 0;
-  transform: rotate(-90deg);
-}
-
-.cardRing strong {
-  position: relative;
-  font-size: var(--fs-caption);
-  font-variant-numeric: tabular-nums;
-}
-
-/* «Όλα μαζί»: one row a loan — what it is, what is left, how much is gone. */
-.allList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.allRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 var(--space-2) 0 0;
-  border: 1px solid var(--color-border-tertiary);
-  border-left: 4px solid;
-  border-radius: var(--border-radius-md);
-}
-
-/* The row itself opens the loan; the pay button beside it records a payment. */
-.allOpen {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: var(--space-2) 6px var(--space-2) var(--space-3);
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-.allOpen:hover .allName {
-  text-decoration: underline;
-}
-
-.allOpen:focus-visible {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: -2px;
-  border-radius: var(--border-radius-sm);
-}
-
-.allMain {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.allName {
-  overflow: hidden;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.allMeta {
-  font-size: var(--fs-small);
-  color: var(--color-text-secondary);
-}
-
-.allAmount {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 
 /* A payment's row: where the money went, and the user's note on it. */
 .payHow {
@@ -1402,4 +959,130 @@ button.payRow[aria-expanded="true"] {
   padding: 0.625rem var(--space-3);
   border: 1px dashed var(--color-border-primary);
   border-radius: var(--border-radius-md);
+}
+
+/* ── A person's / a bank loan's page (DebtPersonPage, 2026-11-17) ─────────── */
+
+/* «Χρέη ›» in the title: the way back, read as the start of the title. */
+.crumb {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.crumb:hover {
+  text-decoration: underline;
+}
+
+/* The density switch, at the right above the debts. */
+.personBar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.debtCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* One debt: its meaning's colour down the left edge, as the old loan cards. */
+.debtCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-tertiary);
+  border-left: 4px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+.debtHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.debtLeft {
+  font-size: var(--fs-figure);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.debtLine {
+  font-size: var(--fs-small);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* «Ενέργειες» at its word's width on the left, the payment taking the rest. */
+.debtButtons {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.debtButtons > :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+/* ── «Αρχείο» → «Επιλογή»: closed debts picked to delete ──────────────────── */
+
+.archiveHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* A row being picked: its whole width is the checkbox's label, the box on the right. */
+.sideRowPick {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  margin: 0;
+}
+
+.pickBox {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.pickAll {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-1);
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--color-border-tertiary);
+  font-size: var(--fs-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* At the foot of the screen while the list scrolls: how many, and the delete. */
+.selectBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) calc(-1 * var(--space-2)) 0;
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-text);
+  font-weight: 600;
 }

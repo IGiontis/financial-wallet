@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import i18n from "../../i18n";
-import PersonDebtsModal from "./PersonDebtsModal";
+import { DebtPersonPage } from "./DebtPersonPage";
+import { personKey, personPath } from "./debtSides";
 import { computeDebtStatus, debtsByPerson, loanSplits, loanState } from "./debtsUtils";
-import type { Debt, DebtPayment } from "../../shared/types/IndexTypes";
+import type { Debt, DebtPayment, DebtWithStatus } from "../../shared/types/IndexTypes";
 
-// One person's loans, one loan in front at a time.
+// One person's debts on a page of their own (`/debts/person/:key`).
 //
 // What is checked is what can go wrong with money on this sheet: the right loan
 // in front, payments newest first with the loan's own split of each one, a
@@ -21,6 +23,7 @@ const spies = vi.hoisted(() => ({
   removeDebt: vi.fn(),
   editDebt: vi.fn(),
   createDebt: vi.fn(),
+  removeClosed: vi.fn(),
 }));
 
 // The card picker reads the accounts; which card is chosen is not what these check.
@@ -30,11 +33,16 @@ const accounts = vi.hoisted(() => ({ list: [] as { id: string; name: string; kin
 vi.mock("../accounts/useMoneyAccounts", () => ({ useAccountList: () => accounts.list }));
 // The new-loan form can send borrowed money to a goal; none here.
 vi.mock("../budget/useInvestments", () => ({ useInvestmentGoals: () => ({ data: [] }) }));
-vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }) }));
+vi.mock("../transactions/hooks/useTransactions", () => ({ useCategories: () => ({ data: [] }), useTransactions: () => ({ data: [] }) }));
 vi.mock("../budget/useCoveredFunding", () => ({ useCoveredFunding: () => ({ mutate: vi.fn() }) }));
 // None of these loans paid part of a goal.
 vi.mock("../budget/useCoveredLink", () => ({ useCoveredLink: () => ({ link: undefined, goalName: undefined, ready: true }) }));
+// The debts the page reads: the list the device holds (`useDebts`), filled by each test.
+const store = vi.hoisted(() => ({ debts: [] as unknown[] }));
+vi.mock("../../shared/hooks/usePageAdd", () => ({ usePageAdd: () => {} }));
 vi.mock("./useDebts", () => ({
+  useDebts: () => ({ data: store.debts, isLoading: false, isSuccess: true, isFetching: false }),
+  useDeleteClosedDebts: () => ({ mutate: spies.removeClosed, mutateAsync: async (...args: unknown[]) => (spies.removeClosed(...(args as [never])), { debtIds: (args[0] as string[]) ?? [], paymentIds: [], keptTransactionIds: [], unlinkedContributionIds: [], skipped: [] }), isPending: false }),
   useRecordRepayment: () => ({ mutate: spies.record, mutateAsync: async (...args: unknown[]) => (spies.record(...(args as [never])), undefined), isPending: false }),
   useUpdateRepayment: () => ({ mutate: spies.update, mutateAsync: async (...args: unknown[]) => (spies.update(...(args as [never])), undefined), isPending: false }),
   useDeleteRepayment: () => ({ mutate: spies.remove, mutateAsync: async (...args: unknown[]) => (spies.remove(...(args as [never])), undefined), isPending: false }),
@@ -91,10 +99,20 @@ const payments: DebtPayment[] = [
 
 const nikos = (debts: Debt[] = [concert, car, rent]) => debtsByPerson(debts.map((d) => computeDebtStatus(d, payments)))[0];
 
-const renderSheet = (debts?: Debt[]) => render(<PersonDebtsModal person={nikos(debts)} formatCurrency={fmt} locale="en" knownPeople={["Nikos", "Maria"]} onClose={() => {}} />);
-
-/** The sheet's own dialog — reactstrap does not name it after its header. */
-const sheet = () => screen.getAllByRole("dialog").find((d) => within(d).queryByRole("group", { name: "Loans" }) || within(d).queryByRole("tablist"))!;
+/** The page at an address, with the list it goes back to. */
+const renderStatuses = (list: DebtWithStatus[], at = personPath("Nikos")) => {
+  store.debts = list;
+  return render(
+    <MemoryRouter initialEntries={[at]}>
+      <Routes>
+        <Route path="/debts" element={<div>the list</div>} />
+        <Route path="/debts/person/:key" element={<DebtPersonPage />} />
+        <Route path="/debts/loan/:id" element={<DebtPersonPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+};
+const renderSheet = (debts?: Debt[], at?: string) => renderStatuses(nikos(debts).debts, at);
 const payRows = () => within(screen.getByRole("list", { name: "Payments" })).getAllByRole("listitem").map((row) => row.textContent ?? "");
 
 beforeAll(async () => {
@@ -106,59 +124,13 @@ beforeAll(async () => {
 beforeEach(() => {
   Object.values(spies).forEach((spy) => spy.mockReset());
   accounts.list = [];
+  // Every figure in sight unless a test says otherwise — «Αναλυτικό».
+  localStorage.clear();
+  localStorage.setItem("density:debts-person", JSON.stringify("detailed"));
 });
 
 afterEach(() => {
   Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
-});
-
-describe("which loan is in front", () => {
-  // The one-at-a-time view; the sheet now opens on «All together».
-  beforeEach(() => {
-    localStorage.clear();
-    localStorage.setItem("debts-sheet-view", JSON.stringify("one"));
-  });
-
-  it("opens on one still owed, with the paid-off one last", () => {
-    renderSheet();
-    const chips = within(screen.getByRole("group", { name: "Loans" })).getAllByRole("button");
-
-    // Open ones in the list's own order (newest first), the settled one after
-    // them even though it is the newest of all.
-    // The paid-off one is folded under its own heading until asked for.
-    expect(chips.map((c) => c.textContent)).toEqual([expect.stringMatching(/^March rent/), expect.stringMatching(/^Car/), "Settled · 1"]);
-    expect(chips[0]).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("opens the paid-off ones under their heading, and names how many are open", async () => {
-    renderSheet();
-    const list = screen.getByRole("group", { name: "Loans" });
-    expect(within(list).getByText("Open · 2")).toBeInTheDocument();
-
-    await userEvent.click(within(list).getByRole("button", { name: "Settled · 1" }));
-    expect(within(list).getByRole("button", { name: /^Concert tickets.*Settled/ })).toBeInTheDocument();
-  });
-
-  it("swaps the whole sheet to the loan picked", async () => {
-    renderSheet();
-    const dialog = sheet();
-    // Second route: 500 − 120 − 80.
-    expect(500 - 120 - 80).toBe(300);
-    expect(dialog.querySelector("[class*=_receiptTotal_]")).toHaveTextContent("Left to pay back€300.00");
-    expect(dialog.querySelector("[class*=_receiptSub_]")).toHaveTextContent("no interest");
-
-    await userEvent.click(screen.getByRole("button", { name: /^Car/ }));
-
-    expect(dialog.querySelector("[class*=_receiptSub_]")).toHaveTextContent("7% fixed");
-    expect(within(dialog).getByRole("button", { name: "Pay €185.26" })).toBeInTheDocument();
-  });
-
-  it("shows no chips for a single loan", () => {
-    renderSheet([rent]);
-
-    expect(screen.queryByRole("group", { name: "Loans" })).not.toBeInTheDocument();
-    expect(screen.getByText("March rent")).toBeInTheDocument();
-  });
 });
 
 describe("the payments tab", () => {
@@ -205,7 +177,7 @@ describe("recording a payment", () => {
     const instalment = loanState(nikos([car]).debts[0])!.instalment;
     expect(instalment).toBe(185.26);
 
-    await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back €185.26" }));
     await toAmount();
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(185.26);
     await next();
@@ -218,7 +190,7 @@ describe("recording a payment", () => {
   it("offers what is left between people, dated today", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back" }));
     await toAmount();
     expect(within(wizard()).getByLabelText("Amount")).toHaveValue(300);
     await next();
@@ -234,7 +206,7 @@ describe("recording a payment", () => {
   it("has no Save until the check, the fourth step", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back" }));
     expect(within(wizard()).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     // The card first: no amount field yet.
     expect(within(wizard()).queryByLabelText("Amount")).not.toBeInTheDocument();
@@ -249,7 +221,7 @@ describe("recording a payment", () => {
   it("will not leave the amount with nothing or zero in it", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back" }));
     await toAmount();
     await userEvent.clear(within(wizard()).getByLabelText("Amount"));
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "0");
@@ -262,7 +234,7 @@ describe("recording a payment", () => {
   it("says at the check what is left once it is paid — and when it clears the debt", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Payment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back" }));
     await toAmount();
     await userEvent.clear(within(wizard()).getByLabelText("Amount"));
     await userEvent.type(within(wizard()).getByLabelText("Amount"), "100");
@@ -287,7 +259,7 @@ describe("recording a payment", () => {
   it("splits a loan payment into interest and debt at the check, adding up to the payment", async () => {
     renderSheet([car]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Pay €185.26" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pay back €185.26" }));
     await toAmount();
     await next();
     await next();
@@ -396,7 +368,9 @@ describe("the rest of the loan, on the one page", () => {
   it("opens the loan form filled in, to correct the loan", async () => {
     renderSheet([rent]);
 
-    await userEvent.click(screen.getByRole("button", { name: /Edit loan/ }));
+    // «Αλλαγή στοιχείων» is under «Ενέργειες», a step of the same dialog.
+    await userEvent.click(screen.getByRole("button", { name: "Actions — March rent" }));
+    await userEvent.click(screen.getByRole("button", { name: "Change details" }));
 
     await screen.findAllByText("Edit loan");
     const form = screen.getAllByRole("dialog").find((d) => within(d).queryByDisplayValue("March rent"))!;
@@ -413,6 +387,7 @@ describe("the rest of the loan, on the one page", () => {
       window.dispatchEvent(new Event("offline"));
     });
 
+    await userEvent.click(screen.getByRole("button", { name: "Actions — March rent" }));
     expect(screen.getByRole("button", { name: /Delete loan/ })).toBeDisabled();
   });
 });
@@ -467,163 +442,11 @@ describe("the receipt", () => {
   });
 });
 
-describe("the total with one person", () => {
-  // «All together», where the sheet opens.
-  beforeEach(() => localStorage.clear());
-
-  it("adds up every loan with them, the paid-off one included", () => {
-    renderSheet();
-
-    const total = screen.getByText("All together · 3 loans").parentElement!;
-    // Second route: 6000 + 500 + 60 borrowed.
-    expect(within(total).getByText("You started with").nextSibling).toHaveTextContent("€6560.00");
-    const paidOff = parseFloat(within(total).getByText("Paid off").closest("div")!.querySelector("dd")!.textContent!.replace("€", ""));
-    // Rent 200 + concert 60 + what came off the car loan.
-    const carOff = loanSplits(nikos([car]).debts[0])!;
-    const expected = 200 + 60 + [...carOff.values()].reduce((sum, s) => sum + s.principal, 0);
-    expect(paidOff).toBeCloseTo(expected, 2);
-  });
-
-  it("is not there for a single loan, whose own figures already say it", () => {
-    renderSheet([rent]);
-
-    expect(screen.queryByText(/All together/)).not.toBeInTheDocument();
-  });
-});
-
-describe("all together", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("opens first, of the three in their order", () => {
-    renderSheet();
-    const views = within(screen.getByRole("group", { name: "View" })).getAllByRole("button");
-    expect(views.map((v) => v.textContent?.trim())).toEqual(["All together", "Columns", "One at a time"]);
-    expect(views[0]).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("dialog")).toHaveTextContent("€300.00");
-  });
-
-  it("opens a loan from its row, on its own", async () => {
-    renderSheet();
-    await userEvent.click(screen.getByRole("button", { name: /^March rent/ }));
-
-    expect(screen.getByRole("button", { name: "One at a time" })).toHaveAttribute("aria-pressed", "true");
-    expect(document.querySelector("[class*=_receiptTotal_]")).toHaveTextContent("€300.00");
-  });
-
-  it("opens it without changing how the sheet opens next time", async () => {
-    renderSheet();
-    await userEvent.click(screen.getByRole("button", { name: /^March rent/ }));
-    // Shown on its own now; «All together» is still what is remembered.
-    expect(localStorage.getItem("debts-sheet-view") ?? "").not.toContain("one");
-  });
-
-  it("folds the paid-off ones away again, even with one of them in front", async () => {
-    renderSheet();
-    await userEvent.click(screen.getByRole("button", { name: /^Concert tickets/ }));
-    const list = screen.getByRole("group", { name: "Loans" });
-    const fold = within(list).getByRole("button", { name: "Settled · 1" });
-    expect(fold).toHaveAttribute("aria-expanded", "true");
-    await userEvent.click(fold);
-    expect(fold).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("records a payment from beside an open loan, and offers none on a settled one", async () => {
-    renderSheet();
-    expect(screen.queryByRole("button", { name: "Payment — Concert tickets" })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Payment — Car" }));
-    const wizard = screen.getAllByRole("dialog").at(-1)!;
-    // The card first, then the month's payment, as the loan's own button fills in.
-    await userEvent.click(within(wizard).getByRole("radio", { name: /^Yes,/ }));
-    await userEvent.click(within(wizard).getByRole("button", { name: /Next/ }));
-    expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
-  });
-});
-
-describe("every loan as a card", () => {
-  const card = (name: string) => screen.getByRole("listitem", { name });
-  const toCards = () => userEvent.click(screen.getByRole("button", { name: "Columns" }));
-
-  beforeEach(() => localStorage.clear());
-
-  it("has no choice to make with a single loan", () => {
-    renderSheet([rent]);
-
-    expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
-  });
-
-  it("lists the loans one under another, open ones first", async () => {
-    renderSheet();
-    await toCards();
-
-    const cards = within(screen.getByRole("list", { name: "Loans" })).getAllByRole("listitem");
-    expect(cards.map((c) => c.getAttribute("aria-label"))).toEqual(["March rent", "Car", "Concert tickets"]);
-  });
-
-  it("says on the left what it is, and on the right what is left and how much is gone", async () => {
-    renderSheet();
-    await toCards();
-
-    const rentCard = card("March rent");
-    expect(rentCard).toHaveTextContent("You took €500.00");
-    expect(rentCard).toHaveTextContent("3 Mar 2026");
-    // The newest payment, not the first one stored.
-    expect(rentCard).toHaveTextContent(/Last paid 2 May(?!\d)/);
-    // 500 − 120 − 80 = 300 left, and 200 of 500 is 40% gone.
-    expect(rentCard).toHaveTextContent("€300.00");
-    expect(rentCard).toHaveTextContent("40%");
-
-    // A loan's share is what came off the debt, not what was handed over:
-    // three payments of 185.26 are more than the principal they cleared.
-    const carDebt = nikos([car]).debts[0];
-    const gone = Math.floor(((6000 - loanState(carDebt)!.balance) / 6000) * 100);
-    expect(gone).toBeLessThan(Math.floor(((185.26 * 3) / 6000) * 100));
-    expect(card("Car")).toHaveTextContent(`${gone}%`);
-    expect(card("Car")).toHaveTextContent(`€${carDebt.remaining.toFixed(2)}`);
-
-    expect(card("Concert tickets")).toHaveTextContent("Settled");
-    expect(within(card("Concert tickets")).queryByRole("button", { name: "Payment" })).not.toBeInTheDocument();
-  });
-
-  it("records against the card's own loan, not the one that was in front", async () => {
-    renderSheet();
-    await toCards();
-    // The sheet opened on the rent; the footer's button is gone, each card has its own.
-    expect(screen.queryByRole("button", { name: /Pay €/ })).not.toBeInTheDocument();
-
-    await userEvent.click(within(card("Car")).getByRole("button", { name: "Payment" }));
-    const wizard = screen.getAllByRole("dialog").at(-1)!;
-    await userEvent.click(within(wizard).getByRole("radio", { name: /^Yes,/ }));
-    await userEvent.click(within(wizard).getByRole("button", { name: /Next/ }));
-    expect(within(wizard).getByLabelText("Amount")).toHaveValue(185.26);
-  });
-
-  it("opens a loan one at a time from its card", async () => {
-    renderSheet();
-    await toCards();
-
-    await userEvent.click(screen.getByRole("button", { name: "Open: Car" }));
-
-    expect(within(screen.getByRole("group", { name: "Loans" })).getByRole("button", { pressed: true })).toHaveTextContent(/^Car/);
-    expect(screen.getByRole("button", { name: "One at a time" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("remembers the cards for next time", async () => {
-    const first = renderSheet();
-    await toCards();
-    first.unmount();
-
-    renderSheet();
-    expect(card("Car")).toBeInTheDocument();
-  });
-});
-
 describe("how each payment went", () => {
   const PIRAEUS = { id: "piraeus", name: "Piraeus", kind: "bank" as const, main: true };
   const CASH = { id: "cash", name: "Cash", kind: "cash" as const };
   const lent: Debt = { ...rent, id: "lent", direction: "owed_to_me", label: "Wedding", amount: 300 };
-  const sheetWith = (list: DebtPayment[], debt: Debt = lent) =>
-    render(<PersonDebtsModal person={debtsByPerson([computeDebtStatus(debt, list)])[0]} formatCurrency={fmt} locale="en" knownPeople={["Nikos"]} onClose={() => {}} />);
+  const sheetWith = (list: DebtPayment[], debt: Debt = lent, at?: string) => renderStatuses([computeDebtStatus(debt, list)], at);
 
   it("names the card each one reached, or that no money moved, with the note under it", () => {
     accounts.list = [PIRAEUS, CASH];
@@ -642,7 +465,7 @@ describe("how each payment went", () => {
 
   it("says, once paid off, the day of the last payment and where it went", () => {
     accounts.list = [PIRAEUS];
-    sheetWith([pay("p2", "lent", 200, new Date(2026, 4, 12)), { ...pay("p3", "lent", 100, new Date(2026, 8, 12)), accountId: "piraeus" }].sort((a, b) => b.date.getTime() - a.date.getTime()));
+    sheetWith([pay("p2", "lent", 200, new Date(2026, 4, 12)), { ...pay("p3", "lent", 100, new Date(2026, 8, 12)), accountId: "piraeus" }].sort((a, b) => b.date.getTime() - a.date.getTime()), lent, `${personPath("Nikos")}?tab=settled`);
     expect(screen.getByText("Settled")).toBeInTheDocument();
     expect(screen.getByText("12 Sept 2026 · Piraeus")).toBeInTheDocument();
   });
@@ -651,7 +474,7 @@ describe("how each payment went", () => {
     sheetWith([]);
     const wizard = () => screen.getAllByRole("dialog").at(-1)!;
     const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Money back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Came in" }));
     // «Where» is the first step: the card, and the note with it.
     await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
     await userEvent.type(within(wizard()).getByLabelText(/^Note/), "  handed over in cash  ");
@@ -667,7 +490,7 @@ describe("how each payment went", () => {
     sheetWith([]);
     const wizard = () => screen.getAllByRole("dialog").at(-1)!;
     const next = () => userEvent.click(within(wizard()).getByRole("button", { name: /Next/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Money back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Came in" }));
     await userEvent.click(within(wizard()).getByRole("radio", { name: /^Yes,/ }));
     await next();
     await next();
@@ -684,5 +507,159 @@ describe("how each payment went", () => {
     await userEvent.clear(note);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(spies.update.mock.calls[0][0]).toMatchObject({ paymentId: "p1", notes: null });
+  });
+});
+
+describe("the two tabs, «Ενεργά · Εξοφλημένα»", () => {
+  it("counts each in its label, and lists only its own", async () => {
+    renderSheet();
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Open 2", "Settled 1"]);
+    // Open: newest first — the rent (3 Mar) before the car (10 Jan); the paid-off concert is not here.
+    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["March rent", "Car"]);
+
+    await userEvent.click(screen.getByRole("tab", { name: "Settled 1" }));
+    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Concert tickets"]);
+    // A settled one has nothing to pay — only «Ενέργειες».
+    expect(screen.queryByRole("button", { name: /^Pay back/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actions — Concert tickets" })).toBeInTheDocument();
+  });
+
+  it("opens on the tab in the address", () => {
+    renderSheet(undefined, `${personPath("Nikos")}?tab=settled`);
+    expect(screen.getByRole("tab", { name: "Settled 1" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("says so when a tab is empty", () => {
+    renderSheet([rent], `${personPath("Nikos")}?tab=settled`);
+    expect(screen.getByText(/Nothing settled with Nikos yet/)).toBeInTheDocument();
+  });
+
+  it("titles the page «Debts › Nikos» with the way back to the list", async () => {
+    renderSheet([rent]);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Debts › Nikos");
+    // What is still owed, 500 − 200, under the title.
+    expect(screen.getByText("You owe €300.00")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: /Back/ }));
+    expect(screen.getByText("the list")).toBeInTheDocument();
+  });
+
+  it("says «not found», with the way back, for a key that matches none of the user's debts", () => {
+    // Another account's link, or someone with nothing left: never an error, never another page.
+    renderSheet([rent], personPath("Maria"));
+    expect(screen.getByText(i18n.t("debts.personNotFound"))).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: i18n.t("debts.personNotFoundBack") })).toHaveAttribute("href", "/debts");
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+  });
+
+  it("never puts the name in the address — an opaque key, the same for the same name", () => {
+    expect(personPath("Nikos")).not.toMatch(/nikos/i);
+    expect(personPath("Εθνική Τράπεζα")).toMatch(/^\/debts\/person\/[0-9a-z]{10}$/);
+    // The compare key folds case, accents and spaces: one person, one address.
+    expect(personKey("  ΕΘΝΙΚΗ   τράπεζα ")).toBe(personKey("Εθνική Τράπεζα"));
+    expect(personKey("Maria")).not.toBe(personKey("Nikos"));
+  });
+});
+
+describe("a bank loan's own page", () => {
+  it("is that loan alone, with no tabs", () => {
+    renderSheet(undefined, "/debts/loan/car");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Debts › Nikos · Car");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual(["Car"]);
+  });
+});
+
+describe("how much each debt says — «Απλό · Κανονικό · Αναλυτικό»", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("opens on «Normal»: the bar and the last repayment, no receipt", () => {
+    renderSheet([rent]);
+    expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/^40% cleared/)).toBeInTheDocument();
+    expect(screen.getByText("Last paid 2 May 2026 · €80.00")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Payments" })).not.toBeInTheDocument();
+  });
+
+  it("«Simple»: what is left and one line", async () => {
+    renderSheet([rent]);
+    await userEvent.click(screen.getByRole("button", { name: "Simple" }));
+    const card = screen.getByRole("article", { name: "March rent" });
+    expect(card).toHaveTextContent("€300.00");
+    expect(card).toHaveTextContent("You took €500.00 · 3 Mar 2026");
+    expect(within(card).queryByText(/cleared/)).not.toBeInTheDocument();
+  });
+
+  it("«Detailed»: the whole history, and it is remembered on the device", async () => {
+    renderSheet([rent]);
+    await userEvent.click(screen.getByRole("button", { name: "Detailed" }));
+    expect(payRows()).toHaveLength(3);
+    expect(JSON.parse(localStorage.getItem("density:debts-person")!)).toBe("detailed");
+  });
+});
+
+describe("the total with one person («Detailed», several debts)", () => {
+  it("adds up the tab's debts with them", () => {
+    renderSheet();
+
+    const total = screen.getByText("All together · 2 loans").parentElement!;
+    // Second route: 6000 + 500 borrowed, the open two.
+    expect(within(total).getByText("You started with").nextSibling).toHaveTextContent("€6500.00");
+    const paidOff = parseFloat(within(total).getByText("Paid off").closest("div")!.querySelector("dd")!.textContent!.replace("€", ""));
+    // Rent 200 + what came off the car loan.
+    const carOff = loanSplits(nikos([car]).debts[0])!;
+    const expected = 200 + [...carOff.values()].reduce((sum, s) => sum + s.principal, 0);
+    expect(paidOff).toBeCloseTo(expected, 2);
+  });
+
+  it("is not there for a single debt, whose own figures already say it", () => {
+    renderSheet([rent]);
+
+    expect(screen.queryByText(/All together/)).not.toBeInTheDocument();
+  });
+});
+
+describe("«Ενέργειες»: one dialog, its forms steps inside it", () => {
+  const openActions = () => userEvent.click(screen.getByRole("button", { name: "Actions — March rent" }));
+
+  it("offers the debt's actions, delete far left", async () => {
+    renderSheet([rent]);
+    await openActions();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByText("Actions · March rent")).toBeInTheDocument();
+    const footer = screen.getByRole("dialog").querySelector(".modal-footer")!;
+    expect(footer.firstElementChild).toHaveTextContent("Delete loan");
+    expect(screen.getByRole("button", { name: /Change details/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Forgiven…/ })).toBeInTheDocument();
+  });
+
+  it("changes the debt inside the same dialog, and Cancel comes back to the actions", async () => {
+    renderSheet([rent]);
+    await openActions();
+    await userEvent.click(screen.getByRole("button", { name: /Change details/ }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByDisplayValue("March rent")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByText("Actions · March rent")).toBeInTheDocument();
+  });
+
+  it("lets it go inside the same dialog", async () => {
+    renderSheet([rent]);
+    await openActions();
+    await userEvent.click(screen.getByRole("button", { name: /Forgiven…/ }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByText(i18n.t("debts.forgiveTitle"))).toBeInTheDocument();
+  });
+
+  it("asks before deleting, on a step, and deletes the debt with every repayment", async () => {
+    renderSheet([rent]);
+    await openActions();
+    await userEvent.click(screen.getByRole("button", { name: /Delete loan/ }));
+    expect(spies.removeDebt).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByText(i18n.t("debts.deleteLoanConfirm"))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    // Rent's two repayments go with it (r2 80 + r1 120 — the 200 handed back).
+    expect(spies.removeDebt).toHaveBeenCalledWith({ debtId: "rent", paymentIds: ["r2", "r1"], covered: { contributionId: undefined, expenseId: undefined } });
   });
 });

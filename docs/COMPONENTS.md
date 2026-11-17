@@ -42,6 +42,11 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/shared/components/ViewSwitch.tsx` — 2–3 ways of laying out the SAME rows («Λίστα | Ημερολόγιο»):
   `label`, `options: {id,label,icon?,short?}[]`, `value`, `onChange`, `stackOnPhone`, `block`. Not page tabs.
   Styles: `src/shared/css/ViewSwitch.module.css`.
+- `src/shared/components/DensitySwitch.tsx` + `src/shared/hooks/useDensity.ts` — «Απλό · Κανονικό · Αναλυτικό»: how much each
+  row of a list says (simple = figure + one line; normal = + progress, dates, last event; detailed = + full history).
+  `const [density, setDensity] = useDensity(pageKey)` (remembered per device, `density:<pageKey>`, anything else stored reads
+  as the default `normal`) → `<DensitySwitch value={density} onChange={setDensity} />` (a `ViewSwitch` with these three words).
+  Reference: `features/debts/DebtPersonPage.tsx`; Bills next. Not page tabs.
 - `src/features/settings/settingsTabs.ts` — Settings' tab ids/paths (`/settings/<id>`), drawn by `PageTabs`
   in `SettingsPage`.
 
@@ -53,7 +58,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   `installModalMotion()` (installed once at startup). Use `MODAL_MS` for anything timed to a dialog closing.
 - `src/features/transactions/components/WizardSteps.tsx` — the numbered step rail: `steps`, `current`,
   `onGo`, `label?`, `open?`, `large?`; also exports `TypeBadge`. Every add/record/edit wizard.
-  Reference: `AddTransactionModal`, `AddDebtModal`, `ClosingWizard`.
+  Reference: `AddTransactionModal`, `AddDebtModal`, `ClosingWizard`. Labels never end in «…»: they wrap;
+  under 576px a rail of 4+ steps hides them (still each button's name) for one line under the dots,
+  «Βήμα 2/5 · Κατηγορία» (`transactions.wizard.stepNow`, 2026-11-17).
 - `src/shared/css/Wizard.module.css` — the review step: `.wizCard` / `.wizRow` (a row that jumps back to its
   step) / `.wizLabel` / `.wizValue` / `.wizNote` / `.wizStatic`. Not a new review table.
 - `src/features/transactions/components/css/TransactionWizard.module.css` — the transaction wizard's
@@ -99,6 +106,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
   card pick (`value: null` unanswered, `""` yes-without-card). Any record that may or may not move cash.
 - `src/shared/css/Segmented.module.css` — THE one-of-many control: `.group` > `.item` (+ `.active`);
   `.even` = equal halves for a two-way choice (+ `.owe` / `.lend` tints, see `AddDebtModal`).
+  A filter row with counts («Όλοι 21 · Στις προτάσεις 7 · Διπλοί 2»): `.group` + `.item` with
+  `Names.module.css` `.chips` / `.chip` / `.chipCount` — equal thirds that wrap inside the chip on a
+  phone (fits 320px, no sideways scroll), natural width from `md`. Reference: `PayeesTab`, `CategoryManager`.
   Period pickers, filters, scopes. Never a Bootstrap `btn-group`, and never page tabs (`PageTabs`;
   `uiConventions.test.ts` refuses `aria-selected`/`NavLink` beside it).
 - `src/shared/css/ChoiceSwitch.module.css` — sizing for a segmented control in a settings row
@@ -216,6 +226,9 @@ Each entry: `path` — what it is — when to use it — (not / instead of).
 - `src/features/incomes/components/ConfirmSheet.tsx` — the best existing "are you sure" sheet for a cascading
   or irreversible action (`title`, `body`, `hint`, `confirmLabel`, `lockedReason`, `busyLabel`). Reuse rather
   than a new modal. Same lock as `DeleteButton` when `onConfirm` returns a promise.
+- A dialog's forms as STEPS of one dialog (never a dialog on a dialog): `AddDebtModal` / `ForgiveDebtModal` take `embedded`
+  (their header, body and footer only) and `onSaved` (after a save; `onClose` then means Cancel). Reference:
+  `src/features/debts/DebtActionsSheet.tsx` (menu → edit / forgive / delete as steps, Esc and Cancel back to the menu).
 - `src/features/budget/components/GoalDeleteModal.tsx` — goal delete with "what happens to the money" choice;
   locked while `onConfirm`'s promise runs.
 - `src/shared/hooks/useRunOnce.ts` — `const [run, running] = useRunOnce()`: a button's lock while its action runs.
@@ -426,7 +439,7 @@ Places that do not use the shared piece today. Do not copy them; fix one when yo
     reading» switch on a wizard's review step). Settings toggles (`BillAlertSetting.tsx:131`) and
     `TwoWayCard.tsx:157` are page controls, not forms.
 11. **A "try again" message** (rule 6) — `src/features/debts/CoveredLoadFailed.tsx:12` («Δοκίμασε ξανά»),
-    used at `AddDebtModal.tsx:382`, `PersonDebtsModal.tsx:910`.
+    used in `AddDebtModal.tsx` and `DebtActionsSheet.tsx` (delete step of an open covered debt).
 12. **Weekday as `<select>`** — `src/features/bills/AddBillModal.tsx:617` and
     `src/features/incomes/components/IncomeFormModal.tsx:314`: no shared weekday picker (the day-of-month one is
     `DayPicker`); a candidate for `Segmented`.

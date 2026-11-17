@@ -24,6 +24,8 @@ export const IncomesPage = lazy(pageChunks.incomes);
 export const CalendarPage = lazy(pageChunks.calendar);
 export const PlannerPage = lazy(() => pageChunks.planner().then((m) => ({ default: m.PlannerPage })));
 export const DebtsPage = lazy(pageChunks.debts);
+// A person's / a bank loan's own page: the Debts chunk, as the list.
+export const DebtPersonPage = lazy(() => pageChunks.debts().then((m) => ({ default: m.DebtPersonPage })));
 export const AccountsPage = lazy(pageChunks.accounts);
 export const BusinessPage = lazy(pageChunks.business);
 // «Νέο κλείσιμο»: «Δουλειά»'s own chunk, as its other pages.

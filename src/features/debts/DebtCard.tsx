@@ -1,19 +1,16 @@
-import { useId, useMemo, useState } from "react";
-import { useSavedFlash } from "../../shared/feedback/saveFeedback";
-import { Button, Input, InputGroup, InputGroupText, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { useId, useState } from "react";
+import { Button, Input, InputGroup, InputGroupText } from "reactstrap";
 import { useTranslation } from "react-i18next";
-import { ViewSwitch } from "../../shared/components/ViewSwitch";
-import { FiArrowDownLeft, FiArrowUpRight, FiChevronDown, FiChevronRight, FiColumns, FiEdit2, FiGift, FiLayers, FiPlus, FiRotateCcw, FiSlash, FiSquare, FiX } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiEdit2, FiGift, FiMoreHorizontal, FiPlus, FiRotateCcw, FiSlash, FiX } from "react-icons/fi";
 import { differenceInCalendarMonths } from "date-fns";
 import { firestoreToDate, parseISODay, toISODay, happenedDayError, dateFormat } from "../../shared/utils/dates";
-import { forgivenTag, currentRate, isFloating, personProgress, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
-import { useDeleteDebt, useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
-import AddDebtModal from "./AddDebtModal";
+import { forgivenTag, currentRate, isFloating, type DebtProgress, loanReceipt, type ReceiptLine, loanPayoff, loanSplits, loanState, payoffSaving, rateOutlook } from "./debtsUtils";
+import { useDeleteRepayment, useUpdateDebt, useUpdateRepayment } from "./useDebts";
 import { DateField } from "../../shared/components/DateField";
 import { RateHelpButton } from "./RateExplainer";
 import styles from "./css/DebtsPage.module.css";
 import segmented from "../../shared/css/Segmented.module.css";
-import type { DebtPayment, DebtPerson, DebtWithStatus } from "../../shared/types/IndexTypes";
+import type { DebtPayment, DebtWithStatus } from "../../shared/types/IndexTypes";
 import { useOfflineGuard } from "../../shared/hooks/useOfflineGuard";
 import { DeleteButton } from "../../shared/components/DeleteButton";
 import { MoneyMovedPicker } from "./MoneyMovedPicker";
@@ -21,19 +18,15 @@ import { moneyMovedName } from "./moneyMovedName";
 import { PaymentNote } from "./PaymentNote";
 import { useAccountList } from "../accounts/useMoneyAccounts";
 import { accountMissing, chosenAccount } from "../accounts/accountsUtils";
-import RepaymentWizard from "./RepaymentWizard";
-import { useCoveredLink } from "../budget/useCoveredLink";
-import { CoveredLoadFailed } from "./CoveredLoadFailed";
-import { ForgiveDebtModal } from "./ForgiveDebtModal";
-import { LoanCards, MiniRing } from "./LoanCards";
-import { useLocalStorage } from "../../shared/hooks/useLocalStorage";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
+import { usePendingRecords } from "../../shared/hooks/usePendingRecords";
 import { saveWithoutWaiting } from "../../shared/utils/saveWithoutWaiting";
 import { answerOrLetGo } from "../../shared/utils/pendingRecords";
 import { toast } from "react-toastify";
 import { useFormChanged } from "../../shared/hooks/useFormChanged";
 import { UnchangedHint } from "../../shared/components/UnchangedHint";
 import { asNumber } from "../../shared/utils/sameValues";
+import type { Density } from "../../shared/hooks/useDensity";
 
 // Local calendar day, not `toISOString()`: in Greece that is still yesterday
 // until three in the morning.
@@ -304,6 +297,7 @@ function PaymentPanel({
         >
           {t("common.save")}
         </Button>
+        {/* Asks first («Διαγραφή;»), on the page — the one dialog there is. */}
         {onDelete && (
           <DeleteButton size="sm" onClick={onDelete} disabled={deleteGuard.locked} title={deleteGuard.reason} />
         )}
@@ -338,7 +332,7 @@ function clearedPercent(debt: DebtWithStatus, loan: ReturnType<typeof loanState>
  * no interest, and the words turn round when the money was lent rather than
  * borrowed.
  */
-function ProgressPanel({
+export function ProgressPanel({
   progress: p,
   borrowed,
   formatCurrency,
@@ -389,101 +383,58 @@ function ProgressPanel({
 }
 
 /**
- * One person's loans, one loan at a time.
+ * One debt on a person's page, said at the reader's density (`useDensity`):
  *
- * The loan in front gets the whole sheet: how much is left and how much of it
- * is gone, the four figures that describe it, and three tabs — the payments
- * against it, what paying more or a rate move would do, and its details. With
- * more than one loan, chips at the top swap which one is in front.
+ * - «Απλό»: what it is, what is left (or how it closed), one line.
+ * - «Κανονικό»: + how much of it is gone, its dates, the last repayment.
+ * - «Αναλυτικό»: + the receipt that adds up to what is left, a bank loan's
+ *   terms, every repayment (tapped to correct it, delete inside), what paying
+ *   more would do.
  *
- * On a phone it fills the screen, with the payment button held at the bottom
- * where a thumb finds it; on a wide screen it splits into two columns, the loan
- * on the left and the tabs beside it, so nothing needs scrolling to compare.
- *
- * Loans stay separate rather than collapsing into a single balance, because
- * that is what keeping a record means — two hundred in March for the rent and
- * fifty in May are two things you will want to recognise later.
+ * At its foot «Ενέργειες» and the one thing to do: «+ Επιστροφή», or «Ήρθε»
+ * for money owed to you. Neither opens anything here — the page owns its one
+ * dialog (`onRecord`, `onActions`), so this card would sit as well in any
+ * container.
  */
-export default function PersonDebtsModal({
-  person,
+export function DebtCard({
+  debt,
+  density,
   formatCurrency,
   locale,
-  onClose,
-  knownPeople = [],
-  inline = false,
+  onRecord,
+  onActions,
+  className = "",
 }: {
-  person: DebtPerson;
+  debt: DebtWithStatus;
+  density: Density;
   formatCurrency: (n: number) => string;
   locale: string;
-  onClose: () => void;
-  /** As a panel in the page, beside the list — for a wide screen — rather than a dialog over it. */
-  inline?: boolean;
-  /** For the name field when a loan is corrected or added. */
-  knownPeople?: string[];
+  /** Record a repayment against it, the wizard opening on this figure. */
+  onRecord: (amount: number) => void;
+  onActions: () => void;
+  /** The saved flash / pending mark of the record (`useSavedFlash`). */
+  className?: string;
 }) {
   const { t } = useTranslation();
   const updateRepayment = useUpdateRepayment();
   const removeRepayment = useDeleteRepayment();
-  const deleteGuard = useOfflineGuard("delete");
-  const removeDebt = useDeleteDebt();
-  // The repayment panel's save and delete, «take back», the loan's delete:
-  // each runs once and waits for the server (debts do), locked meanwhile.
+  const accounts = useAccountList();
+  const { busy } = usePendingRecords();
+  const pending = busy("debts", debt.id);
+  // A correction, saved and deleted once at a time.
   const [runPanel, panelBusy] = useRunOnce();
-  const [runUnforgive, unforgiving] = useRunOnce();
-  const [runRemove, removing] = useRunOnce();
-
-  // Open loans first: a settled one is history, and the sheet should open on
-  // something that still needs doing.
-  const loans = useMemo(() => [...person.debts.filter((d) => !d.isSettled), ...person.debts.filter((d) => d.isSettled)], [person.debts]);
-  // The loan just saved (edited, a repayment) lights once its form has gone.
-  const loanFlash = useSavedFlash("debts", useMemo(() => loans.map((d) => d.id), [loans]));
-
-  const [pickedId, setPickedId] = useState<string | undefined>(() => loans[0]?.id);
-  // A deleted loan cannot stay in front; fall back to whatever is first.
-  const debt = loans.find((d) => d.id === pickedId) ?? loans[0];
-  // The paid-off loans fold under their heading — open from the start when the
-  // one in front is among them, and from then the reader's to open and close.
-  const [showSettled, setShowSettled] = useState(() => debt?.isSettled ?? false);
-
-  // One loan at a time, or every loan as a card down the screen. Remembered,
-  // since whoever reads it as columns will want it that way next time too.
-  const [view, setView] = useLocalStorage<"all" | "columns" | "one">("debts-sheet-view", "all");
-  // A loan opened from «Όλα μαζί» or the columns is shown on its own for now,
-  // without changing how the sheet opens next time.
-  const [visiting, setVisiting] = useState(false);
-  // With a single loan there is nothing to list.
-  const asColumns = !visiting && view === "columns" && loans.length > 1;
-  // Everything with the person at a glance — the first of the three.
-  const asAll = !visiting && view === "all" && loans.length > 1;
-  // One panel open at a time: a new payment and a correction open together is
-  // two half-finished forms and no way to tell which Save is which.
-  const [panel, setPanel] = useState<{ kind: "edit"; payment: DebtPayment } | null>(null);
-  // Recording a new repayment is the four-step wizard, over this sheet; only a
-  // correction opens in place.
-  // Holds the amount it opens with.
-  const [recording, setRecording] = useState<number | null>(null);
+  // One correction open at a time: two half-finished forms and no way to tell which Save is which.
+  const [panel, setPanel] = useState<DebtPayment | null>(null);
   const [panelAmount, setPanelAmount] = useState("");
   const [panelDate, setPanelDate] = useState(today);
-  // Which card a repayment went through: "" (the main account) for a new one,
-  // and an older one's own — or none at all, which it keeps unless one is chosen.
+  // Which card a repayment went through: an older one's own — or none at all, which it keeps unless one is chosen.
   const [panelAccount, setPanelAccount] = useState<string | undefined>("");
   const [panelNotes, setPanelNotes] = useState("");
-  const accounts = useAccountList();
-  const [deleting, setDeleting] = useState<DebtWithStatus | null>(null);
-  // A debt that paid part of a goal takes the goal's deposit and its expense
-  // with it — said in the dialog, and only what is still there.
-  const deletingLink = useCoveredLink(deleting);
-  const [editing, setEditing] = useState<DebtWithStatus | null>(null);
-  const [adding, setAdding] = useState(false);
-  // Letting the shown debt go — see `ForgiveDebtModal` — and taking that back.
-  const [forgiving, setForgiving] = useState(false);
-  const unforgive = useUpdateDebt();
-  // «No change, no Save»: a repayment correction that changes nothing is not
-  // offered. The card answer keeps «none named» apart from «Ναι» with or
-  // without a card.
+  // «No change, no Save»: a correction that changes nothing is not offered. The
+  // card answer keeps «none named» apart from «Ναι» with or without a card.
   const cardAnswer = (id: string | undefined) => (id === undefined ? "none" : `card:${id}`);
   const { unchanged: panelUnchanged } = useFormChanged(
-    panel ? { amount: panel.payment.amount, date: toISODay(panel.payment.date), account: cardAnswer(panel.payment.accountId), notes: panel.payment.notes } : undefined,
+    panel ? { amount: panel.amount, date: toISODay(panel.date), account: cardAnswer(panel.accountId), notes: panel.notes } : undefined,
     { amount: asNumber(panelAmount), date: panelDate, account: cardAnswer(panelAccount), notes: panelNotes },
   );
 
@@ -492,190 +443,42 @@ export default function PersonDebtsModal({
   const monthFmt = dateFormat("monthYearShort", locale);
   const pct = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
 
-  const headline =
-    person.owedByMe > 0 && person.owedToMe > 0
-      ? t("debts.bothWays", { out: formatCurrency(person.owedByMe), in: formatCurrency(person.owedToMe) })
-      : person.owedByMe > 0
-        ? t("debts.youOweAmount", { amount: formatCurrency(person.owedByMe) })
-        : person.owedToMe > 0
-          ? t("debts.owesYouAmount", { amount: formatCurrency(person.owedToMe) })
-          : t("debts.settledUp");
-  const headlineTone = person.owedByMe > 0 ? "var(--color-expense-text)" : person.owedToMe > 0 ? "var(--color-income-text)" : undefined;
-
-  const newLoan = (
-    <Button color="primary" size="sm" onClick={() => setAdding(true)} className={styles.sheetNew} aria-label={t("debts.newLoanShort")}>
-      <FiPlus size={14} aria-hidden /> <span className="d-none d-sm-inline">{t("debts.newLoanShort")}</span>
-    </Button>
-  );
-
-  const modals = (
-    <>
-      {editing && (
-        <AddDebtModal
-          debt={editing}
-          knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]}
-          onClose={() => setEditing(null)}
-          // The wizard's bin hands over to the sheet's own delete question,
-          // which says what goes with a loan that paid part of a goal.
-          onDelete={() => {
-            setDeleting(editing);
-            setEditing(null);
-          }}
-          deleteLocked={deleteGuard.locked}
-          deleteReason={deleteGuard.reason}
-        />
-      )}
-      {adding && <AddDebtModal defaultPerson={person.person} knownPeople={knownPeople.length > 0 ? knownPeople : [person.person]} onClose={() => setAdding(false)} />}
-      {recording !== null && debt && <RepaymentWizard debt={debt} suggested={recording} formatCurrency={formatCurrency} onClose={() => setRecording(null)} />}
-      {forgiving && debt && <ForgiveDebtModal debt={debt} formatCurrency={formatCurrency} onClose={() => setForgiving(false)} />}
-    </>
-  );
-
-  if (!debt) {
-    // Everything with this person was deleted from under the sheet.
-    if (inline) return <div className={styles.pane}><p className="text-body-secondary small p-3 mb-0">{t("debts.settledUp")}</p></div>;
-    return (
-      <Modal isOpen toggle={onClose} centered>
-        <ModalHeader toggle={onClose}>{person.person}</ModalHeader>
-        <ModalBody className="text-body-secondary small">{t("debts.settledUp")}</ModalBody>
-      </Modal>
-    );
-  }
-
   const borrowed = debt.direction === "owed_by_me";
   const loan = loanState(debt);
   const payoff = loan ? loanPayoff(debt) : undefined;
   const splits = loan ? loanSplits(debt) : undefined;
   const cleared = clearedPercent(debt, loan);
-  const canWhatIf = !!loan && !debt.isSettled;
-  const saving = panelBusy;
+  const name = debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent");
+  const tone = debt.isSettled ? "var(--color-text-secondary)" : borrowed ? "var(--color-expense)" : "var(--color-income)";
+  const closedTag = t(debt.forgiven ? forgivenTag(debt) : "debts.settled");
+  const normal = density !== "simple";
+  const detailed = density === "detailed";
 
   // What the button says and what it fills in. On a loan that is the month's
   // payment — the thing actually being paid — or what is left, if that is less.
   const instalmentDue = loan && !debt.isSettled ? Math.min(loan.instalment, debt.remaining) : undefined;
   const ctaLabel =
     instalmentDue !== undefined
-      ? t(borrowed ? "debts.payAmountOut" : "debts.payAmountIn", { amount: formatCurrency(instalmentDue) })
-      : t(borrowed ? "debts.payShortOut" : "debts.payShortIn");
+      ? t(borrowed ? "debts.ctaBackAmount" : "debts.ctaArrivedAmount", { amount: formatCurrency(instalmentDue) })
+      : t(borrowed ? "debts.ctaBack" : "debts.ctaArrived");
 
-  const pick = (id: string) => {
-    setPickedId(id);
-    setPanel(null);
-    // A paid-off loan brought to the front is shown in its list, not folded away.
-    if (loans.find((d) => d.id === id)?.isSettled) setShowSettled(true);
-  };
+  const rateText = !loan
+    ? t("debts.noInterest")
+    : currentRate(debt) <= 0
+      ? t("debts.interestFreeLoan")
+      : t(isFloating(debt) ? "debts.rateFloatingShort" : "debts.rateFixedShort", { rate: pct.format(currentRate(debt)) });
 
-  const openRecord = () => {
-    setPanel(null);
-    // A part payment is one edit away from here; the month's payment, or settling, is the common case.
-    setRecording(instalmentDue ?? debt.remaining);
-  };
-
-  const shownView = asAll ? "all" : asColumns ? "columns" : "one";
-  const VIEWS = [
-    { id: "all", icon: FiLayers, label: "debts.viewAll" },
-    { id: "columns", icon: FiColumns, label: "debts.viewColumns" },
-    { id: "one", icon: FiSquare, label: "debts.viewOne" },
-  ] as const;
-  // Held at the top of the sheet while it scrolls: with many loans it rode up
-  // and out of sight, under the cards, and there was no way back but up.
-  const viewToggle = loans.length > 1 && (
-    <ViewSwitch
-      className={styles.viewToggle}
-      label={t("debts.viewLabel")}
-      value={shownView}
-      onChange={(next) => {
-        setVisiting(false);
-        setView(next);
-      }}
-      options={VIEWS.map(({ id, icon, label }) => ({ id, icon, label: t(label) }))}
-    />
-  );
-
-  // From a column: that loan in front, one at a time, where it can be corrected.
-  const openFromColumn = (d: DebtWithStatus) => {
-    pick(d.id);
-    setVisiting(true);
-  };
-
-  // From a column: the wizard for that loan, over the columns. Picked first,
-  // so the wizard and the figure it opens with are that loan's.
-  const recordFromColumn = (d: DebtWithStatus) => {
-    pick(d.id);
-    const state = loanState(d);
-    setRecording(state ? Math.min(state.instalment, d.remaining) : d.remaining);
-  };
-
-  // «Όλα μαζί»: the person's totals, then each loan with how much of it is gone — each row opening
-  // that loan, and a button beside an open one to record a payment.
-  const allTogether = (
-    <>
-      <div className={styles.personTotal}>
-        {personProgress(loans).map((total) => (
-          <ProgressPanel
-            key={total.direction}
-            progress={total.progress}
-            borrowed={total.direction === "owed_by_me"}
-            formatCurrency={formatCurrency}
-            title={t(total.direction === "owed_by_me" ? "debts.totalBorrowed" : "debts.totalLent", { count: total.count })}
-          />
-        ))}
-      </div>
-      <ul className={styles.allList}>
-        {loans.map((d) => {
-          const tone = d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)";
-          return (
-            <li key={d.id} className={`${styles.allRow} ${loanFlash(d.id)}`} style={{ borderLeftColor: tone }}>
-              {/* The row opens that loan on its own — its receipt, payments and actions. */}
-              <button type="button" className={styles.allOpen} onClick={() => openFromColumn(d)}>
-                <span className={styles.allMain}>
-                  <span className={styles.allName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-                  <span className={styles.allMeta}>{t("debts.of", { amount: formatCurrency(d.amount) })}</span>
-                </span>
-                <span className={styles.allAmount}>{d.isSettled ? t(d.forgiven ? forgivenTag(d) : "debts.settled") : formatCurrency(d.remaining)}</span>
-                <MiniRing percent={clearedPercent(d, loanState(d))} tone={tone} label={t("debts.cleared")} />
-              </button>
-              {!d.isSettled && (
-                <Button
-                  color="secondary"
-                  outline
-                  size="sm"
-                  className="flex-shrink-0 d-inline-flex align-items-center gap-1"
-                  aria-label={`${t(d.direction === "owed_by_me" ? "debts.payShortOut" : "debts.payShortIn")} — ${d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}`}
-                  onClick={() => recordFromColumn(d)}
-                >
-                  <FiPlus size={14} aria-hidden />
-                  <span className="d-none d-sm-inline">{t(d.direction === "owed_by_me" ? "debts.payShortOut" : "debts.payShortIn")}</span>
-                </Button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-
-  const openLoans = loans.filter((d) => !d.isSettled);
-  const settledLoans = loans.filter((d) => d.isSettled);
-  const pickRow = (d: DebtWithStatus) => (
-    <button key={d.id} type="button" className={`${styles.pick} ${d.id === debt.id ? styles.pickOn : ""}`} aria-pressed={d.id === debt.id} onClick={() => pick(d.id)}>
-      <span
-        className={styles.pickDot}
-        style={{ background: d.isSettled ? "var(--color-text-secondary)" : d.direction === "owed_by_me" ? "var(--color-expense)" : "var(--color-income)" }}
-        aria-hidden
-      />
-      <span className={styles.pickName}>{d.label || t(d.direction === "owed_by_me" ? "debts.iBorrowed" : "debts.iLent")}</span>
-      <span className={styles.pickAmount}>{d.isSettled ? t(d.forgiven ? forgivenTag(d) : "debts.settled") : formatCurrency(d.remaining)}</span>
-    </button>
-  );
+  // The one line every density says: how it began, or how it closed.
+  const closedDay = debt.forgiven ? firestoreToDate(debt.forgiven.date) : debt.payments[0] ? firestoreToDate(debt.payments[0].date) : undefined;
+  const oneLine = debt.isSettled
+    ? `${closedTag}${closedDay ? ` ${dateFmt.format(closedDay)}` : ""} · ${t(borrowed ? "debts.took" : "debts.gave")} ${formatCurrency(debt.amount)}`
+    : `${t(borrowed ? "debts.took" : "debts.gave")} ${formatCurrency(debt.amount)} · ${dateFmt.format(firestoreToDate(debt.date))}`;
+  const last = debt.payments[0];
 
   const openEdit = (payment: DebtPayment) => {
     // Tapping the open one again closes it, like any other row that expands.
-    if (panel?.payment.id === payment.id) {
-      setPanel(null);
-      return;
-    }
-    setPanel({ kind: "edit", payment });
+    if (panel?.id === payment.id) return setPanel(null);
+    setPanel(payment);
     setPanelAmount(String(payment.amount));
     setPanelDate(toISODay(payment.date));
     setPanelAccount(payment.accountId);
@@ -683,20 +486,19 @@ export default function PersonDebtsModal({
   };
 
   const savePanel = () => {
-    if (panelUnchanged) return;
+    if (panelUnchanged || !panel) return;
     const value = parseFloat(panelAmount);
     const when = parseISODay(panelDate);
-    if (!panel || !Number.isFinite(value) || value <= 0 || !when) return;
-    if (happenedDayError(panelDate, new Date(), toISODay(panel.payment.date))) return;
+    if (!Number.isFinite(value) || value <= 0 || !when) return;
+    if (happenedDayError(panelDate, new Date(), toISODay(panel.date))) return;
     if (panelAccount !== undefined && accountMissing(accounts, panelAccount)) return;
     // As written: the card chosen, or the only place there is. With no places at all, as before.
     const written = panelAccount === undefined || accounts.length === 0 ? panelAccount : chosenAccount(accounts, panelAccount);
-
     // `null` when switched off, so the card it had is taken off rather than kept.
     // Never waits for the server (`saveWithoutWaiting`): corrected on screen at
     // once, the panel closes with the toast; a refusal puts it back and
     // `useUpdateRepayment` says so.
-    const vars = { paymentId: panel.payment.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null, storedDate: firestoreToDate(panel.payment.date) };
+    const vars = { paymentId: panel.id, debtId: debt.id, amount: value, date: when, accountId: written ?? null, notes: panelNotes.trim() || null, storedDate: firestoreToDate(panel.date) };
     void runPanel(() => {
       void saveWithoutWaiting(updateRepayment, vars, undefined, [["debts", debt.id]]);
       setPanel(null);
@@ -706,24 +508,18 @@ export default function PersonDebtsModal({
 
   // Online only: returned to `DeleteButton`, which keeps its question up,
   // locked, until the answer — 7 s at most (`answerOrLetGo`); then it lets go,
-  // the loan stays disabled and the toast comes with the answer. A failure is
+  // the debt stays disabled and the toast comes with the answer. A failure is
   // said by `useDeleteRepayment`.
   const deletePanelPayment = () =>
     runPanel(() => {
       if (!panel) return;
-      const paymentId = panel.payment.id;
+      const paymentId = panel.id;
       return answerOrLetGo(() => removeRepayment.mutateAsync({ paymentId, debtId: debt.id }), {
         records: [["debts", debt.id]],
-        close: () => setPanel((open) => (open?.payment.id === paymentId ? null : open)),
+        close: () => setPanel((open) => (open?.id === paymentId ? null : open)),
         succeeded: () => toast.success(t("toasts.repaymentDeleted")),
       });
     });
-
-  const rateText = !loan
-    ? t("debts.noInterest")
-    : currentRate(debt) <= 0
-      ? t("debts.interestFreeLoan")
-      : t(isFloating(debt) ? "debts.rateFloatingShort" : "debts.rateFixedShort", { rate: pct.format(currentRate(debt)) });
 
   const receipt = loanReceipt(debt);
   const receiptLabel = (key: ReceiptLine["key"]) =>
@@ -750,48 +546,31 @@ export default function PersonDebtsModal({
       ]
     : [];
 
-  const rest = (
-    <>
-      {asAll ? (
-        <ModalBody className={styles.columnsBody}>
-          {viewToggle}
-          {allTogether}
-        </ModalBody>
-      ) : asColumns ? (
-        <ModalBody className={styles.columnsBody}>
-          {viewToggle}
-          <LoanCards loans={loans} formatCurrency={formatCurrency} locale={locale} onOpen={openFromColumn} onRecord={recordFromColumn} />
-        </ModalBody>
-      ) : (
-      <ModalBody className={styles.sheetBody}>
-        <div className={styles.sheetLeft}>
-          {viewToggle}
-          {/* The person's totals are «Όλα μαζί», a tab of their own. */}
+  return (
+    <article className={`${styles.debtCard} ${className}`} style={{ borderLeftColor: tone }} aria-label={name}>
+      <div className={styles.debtHead}>
+        <span className={styles.receiptName}>{name}</span>
+        {debt.isSettled ? <span className={styles.settledTag}>{closedTag}</span> : <span className={styles.debtLeft} style={{ color: `var(--color-${borrowed ? "expense" : "income"}-text)` }}>{formatCurrency(debt.remaining)}</span>}
+      </div>
+      <div className={styles.debtLine}>{oneLine}</div>
 
-          {/* Which loan is in front: a list, the open ones first and the paid-off
-              ones folded under them — every loan in sight, none off to the right,
-              and the chosen one marked by a bar, a tint and its weight. */}
-          {loans.length > 1 && (
-            <div className={styles.picker} role="group" aria-label={t("debts.pickerLabel")}>
-              {openLoans.length > 0 && <div className={styles.pickGroup}>{t("debts.pickOpen", { count: openLoans.length })}</div>}
-              {openLoans.map(pickRow)}
-              {settledLoans.length > 0 && (
-                <button type="button" className={styles.pickGroup} aria-expanded={showSettled} onClick={() => setShowSettled(!showSettled)}>
-                  {showSettled ? <FiChevronDown size={13} aria-hidden /> : <FiChevronRight size={13} aria-hidden />}
-                  {t("debts.pickSettled", { count: settledLoans.length })}
-                </button>
-              )}
-              {showSettled && settledLoans.map(pickRow)}
-            </div>
-          )}
-
-          {/* The loan as a receipt: what started it, what came back, what is
-              left — a sum that adds up (loanReceipt), in place of a ring, four
-              tiles that repeated it, and a «Πορεία» tab that drew it again. */}
-          <div className={styles.receiptName}>
-            <span>{debt.label || t(borrowed ? "debts.iBorrowed" : "debts.iLent")}</span>
-            {debt.isSettled && <span className={styles.settledTag}>{t(debt.forgiven ? forgivenTag(debt) : "debts.settled")}</span>}
+      {normal && (
+        <>
+          <div className={styles.receiptBar} aria-hidden>
+            <span style={{ width: `${cleared}%` }} />
           </div>
+          <div className={styles.receiptSub}>
+            {t("debts.receiptCleared", { percent: Math.floor(cleared) })}
+            {debt.dueDate && !debt.isSettled ? ` · ${t("debts.receiptBy", { date: shortFmt.format(firestoreToDate(debt.dueDate)) })}` : ""} · {rateText}
+          </div>
+          {last && !detailed && <div className={styles.debtLine}>{t("debts.cardLast", { when: `${dateFmt.format(firestoreToDate(last.date))} · ${formatCurrency(last.amount)}` })}</div>}
+        </>
+      )}
+
+      {detailed && (
+        <>
+          {/* The debt as a receipt: what started it, what came back, what is
+              left — a sum that adds up (loanReceipt). */}
           <div className={styles.receipt}>
             {receipt.map((line) => (
               <div key={line.key} className={styles.receiptRow}>
@@ -807,17 +586,10 @@ export default function PersonDebtsModal({
               <span>{t(borrowed ? "debts.leftToGive" : "debts.leftToGet")}</span>
               <span>{formatCurrency(debt.remaining)}</span>
             </div>
-            <div className={styles.receiptBar} aria-hidden>
-              <span style={{ width: `${cleared}%` }} />
-            </div>
-            <div className={styles.receiptSub}>
-              {t("debts.receiptCleared", { percent: Math.floor(cleared) })}
-              {debt.dueDate && !debt.isSettled ? ` · ${t("debts.receiptBy", { date: shortFmt.format(firestoreToDate(debt.dueDate)) })}` : ""} · {rateText}
-            </div>
           </div>
           {/* Paid off: the day of the last payment, and where it went. Let go: when, and why. */}
-          {debt.isSettled && !debt.forgiven && debt.payments[0] && (
-            <div className={styles.heroSub}>{t("debts.settledLine", { date: dateFmt.format(firestoreToDate(debt.payments[0].date)), how: moneyMovedName(debt.payments[0].accountId, accounts, t) })}</div>
+          {debt.isSettled && !debt.forgiven && last && (
+            <div className={styles.heroSub}>{t("debts.settledLine", { date: dateFmt.format(firestoreToDate(last.date)), how: moneyMovedName(last.accountId, accounts, t) })}</div>
           )}
           {debt.forgiven && (
             <div className={styles.heroSub}>
@@ -837,22 +609,19 @@ export default function PersonDebtsModal({
               ))}
             </dl>
           )}
-        </div>
 
-        <div className={styles.sheetRight}>
-          {/* A section of its own colour, so the receipt and the payments read as two things. */}
           <section className={styles.paysSection} aria-labelledby={`debt-pays-${debt.id}`}>
             <h3 id={`debt-pays-${debt.id}`} className={styles.paysHead}>
               {t("debts.tabPayments")} · {debt.payments.length}
             </h3>
             <ul className={styles.payList} aria-label={t("debts.tabPayments")}>
               {debt.payments.map((payment) => {
-                const open = panel?.payment.id === payment.id;
+                const open = panel?.id === payment.id;
                 const split = splits?.get(payment.id);
                 return (
                   <li key={payment.id}>
                     {/* The row is the way in: tap a payment to put it right. */}
-                    <button type="button" className={styles.payRow} onClick={() => openEdit(payment)} aria-expanded={open}>
+                    <button type="button" className={styles.payRow} onClick={() => openEdit(payment)} aria-expanded={open} disabled={pending}>
                       <span className={styles.payWhen}>
                         <span>{shortFmt.format(firestoreToDate(payment.date))}</span>
                         {/* How it went: into or out of which card, or no money at all. */}
@@ -870,7 +639,7 @@ export default function PersonDebtsModal({
                       <PaymentPanel
                         amount={panelAmount}
                         date={panelDate}
-                        saving={saving}
+                        saving={panelBusy}
                         onAmount={setPanelAmount}
                         onDate={setPanelDate}
                         onSave={savePanel}
@@ -905,7 +674,7 @@ export default function PersonDebtsModal({
                   </span>
                 </li>
               )}
-              {/* Where it started. Changed through the loan itself, in Details. */}
+              {/* Where it started. Changed through the debt itself, in «Ενέργειες». */}
               <li className={`${styles.payRow} ${styles.payOrigin}`}>
                 <span className={styles.payWhen}>
                   <span>{t(borrowed ? "debts.took" : "debts.gave")}</span>
@@ -919,7 +688,7 @@ export default function PersonDebtsModal({
             {debt.payments.length === 0 && <p className={styles.payEmpty}>{t("debts.noPayments")}</p>}
           </section>
 
-          {canWhatIf && (
+          {!!loan && !debt.isSettled && (
             <details className={styles.whatIf}>
               <summary>{t("debts.tabWhatIf")}</summary>
               <div className="d-flex flex-column gap-3 pt-2">
@@ -928,156 +697,20 @@ export default function PersonDebtsModal({
               </div>
             </details>
           )}
-
-          <div className={styles.detailButtons}>
-            <Button color="secondary" outline onClick={() => setEditing(debt)}>
-              <FiEdit2 size={14} aria-hidden /> {t("debts.editLoan")}
-            </Button>
-            {!debt.isSettled && (
-              <Button color="secondary" outline onClick={() => setForgiving(true)}>
-                <FiGift size={14} aria-hidden /> {t("debts.forgiveAction")}
-              </Button>
-            )}
-            {/* A refund went with its goal and its expense: taking it back would leave a debt for nothing. */}
-            {debt.forgiven && !debt.forgiven.refund && (
-              <Button
-                color="secondary"
-                outline
-                disabled={unforgive.isPending || unforgiving}
-                aria-busy={unforgiving || undefined}
-                onClick={() =>
-                  // An edit: on screen at once, never waiting for the server (`saveWithoutWaiting`).
-                  void runUnforgive(() => {
-                    void saveWithoutWaiting(unforgive, { debtId: debt.id, data: { forgiven: null } }, undefined, [["debts", debt.id]]);
-                    toast.success(t("toasts.debtUnforgiven", { who: debt.person }));
-                  })
-                }
-              >
-                <FiRotateCcw size={14} aria-hidden /> {unforgiving ? t("common.saving") : t("debts.unforgive")}
-              </Button>
-            )}
-            <DeleteButton opensConfirm label={t("debts.deleteLoan")} onClick={() => setDeleting(debt)} disabled={deleteGuard.locked} title={deleteGuard.reason} />
-          </div>
-          {deleteGuard.reason && <div className={styles.paymentHint}>{deleteGuard.reason}</div>}
-        </div>
-      </ModalBody>
+        </>
       )}
 
-      {/* The one thing to do, in the footer: always at the foot of the sheet,
-          outside what scrolls. Sticky inside the body it rode up with its
-          column on a phone, where the columns stack. */}
-      {/* As cards, each open loan has its own button instead. */}
-      {!debt.isSettled && !asColumns && !asAll && (
-        <ModalFooter className={styles.ctaFooter}>
-          <Button color="primary" className="w-100" onClick={openRecord}>
+      {/* «Ενέργειες» at its word's width, the one thing to do taking the rest. */}
+      <div className={styles.debtButtons}>
+        <Button color="secondary" outline onClick={onActions} disabled={pending} className={styles.ctaActions} aria-label={`${t("debts.actions")} — ${name}`}>
+          <FiMoreHorizontal size={16} aria-hidden /> {t("debts.actions")}
+        </Button>
+        {!debt.isSettled && (
+          <Button color="primary" onClick={() => onRecord(instalmentDue ?? debt.remaining)} disabled={pending} className={styles.ctaMain}>
             <FiPlus size={16} aria-hidden /> {ctaLabel}
           </Button>
-        </ModalFooter>
-      )}
-
-
-      {modals}
-
-      {deleting && (
-        <Modal isOpen toggle={() => (removing ? undefined : setDeleting(null))} backdrop={removing ? "static" : true} keyboard={!removing} centered size="sm">
-          <ModalHeader toggle={removing ? undefined : () => setDeleting(null)}>{t("debts.deleteLoan")}</ModalHeader>
-          <ModalBody>
-            <p className="mb-0" style={{ fontSize: "var(--fs-lead)" }}>
-              {t("debts.deleteLoanConfirm")}
-            </p>
-            {deletingLink.link?.contribution && (
-              <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-lead)" }}>
-                {t("debts.deleteCoveredDeposit", { amount: formatCurrency(deletingLink.link.contribution.amount), goal: deletingLink.goalName || deleting.label || "" })}
-              </p>
-            )}
-            {deletingLink.failed && <CoveredLoadFailed onRetry={deletingLink.retry} />}
-            {deletingLink.link?.expense && (
-              <p className="mb-0 mt-2" style={{ fontSize: "var(--fs-lead)" }}>
-                {t("debts.deleteCoveredExpense", { amount: formatCurrency(deletingLink.link.expense.amount) })}
-              </p>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button color="secondary" outline onClick={() => setDeleting(null)} disabled={removing}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              color="danger"
-              disabled={removing || deleteGuard.locked || !deletingLink.ready}
-              aria-busy={removing || undefined}
-              title={deleteGuard.reason}
-              onClick={() =>
-                // Online only: waits for the answer, 7 s at most (`answerOrLetGo`). A
-                // failure is said by `useDeleteDebt`; the loan stays on screen.
-                void runRemove(() => {
-                  const target = deleting;
-                  return answerOrLetGo(
-                    () =>
-                      removeDebt.mutateAsync({
-                        debtId: target.id,
-                        paymentIds: target.payments.map((p) => p.id),
-                        covered: { contributionId: deletingLink.link?.contribution?.id, expenseId: deletingLink.link?.expense?.id },
-                      }),
-                    {
-                      records: [["debts", target.id]],
-                      close: () => setDeleting((open) => (open?.id === target.id ? null : open)),
-                      succeeded: () => toast.success(t("toasts.debtDeleted", { who: target.person })),
-                    },
-                  );
-                })
-              }
-            >
-              {removing ? t("common.deleting") : t("common.delete")}
-            </Button>
-          </ModalFooter>
-        </Modal>
-      )}
-    </>
-  );
-
-  // Beside the list: a panel in the page. The person is its title, and the sheet's
-  // ✕ has nothing to close — choosing someone else in the list replaces it.
-  if (inline) {
-    return (
-      <div className={styles.pane}>
-        <div className={styles.paneHead}>
-          <span className={styles.sheetTitle}>
-            <span>{person.person}</span>
-            <span className={styles.sheetHeadline} style={{ color: headlineTone }}>
-              {headline}
-            </span>
-          </span>
-          {newLoan}
-        </div>
-        {rest}
+        )}
       </div>
-    );
-  }
-
-  return (
-    <Modal isOpen toggle={onClose} centered scrollable fullscreen="sm" size="lg">
-      <ModalHeader
-        toggle={onClose}
-        className={styles.sheetHeader}
-        close={
-          // Apart, with a rule between: the blue "+" and the ✕ side by side were one
-          // slip of the thumb from each other.
-          <div className="d-flex align-items-center gap-3 flex-shrink-0">
-            {newLoan}
-            <span className={styles.headDivider} aria-hidden />
-            <button type="button" className="btn-close" onClick={onClose} aria-label={t("common.close")} />
-          </div>
-        }
-      >
-        <span className={styles.sheetTitle}>
-          <span>{person.person}</span>
-          <span className={styles.sheetHeadline} style={{ color: headlineTone }}>
-            {headline}
-          </span>
-        </span>
-      </ModalHeader>
-
-      {rest}
-    </Modal>
+    </article>
   );
 }

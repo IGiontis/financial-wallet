@@ -24,7 +24,21 @@ const NOTE_MAX = 200;
  * the list with its history, closed. Taken back from the same sheet if it was a
  * mistake.
  */
-export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: DebtWithStatus; formatCurrency: (n: number) => string; onClose: () => void }) {
+export function ForgiveDebtModal({
+  debt,
+  formatCurrency,
+  onClose,
+  embedded = false,
+  onSaved,
+}: {
+  debt: DebtWithStatus;
+  formatCurrency: (n: number) => string;
+  onClose: () => void;
+  /** As a step of another dialog — its content only, inside that dialog (no dialog on a dialog). */
+  embedded?: boolean;
+  /** After the save, in place of `onClose` (which then means Cancel only). */
+  onSaved?: () => void;
+}) {
   const { t } = useTranslation();
   const update = useUpdateDebt();
   const [date, setDate] = useState(() => toISODay(new Date()));
@@ -48,11 +62,11 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
       if (!when || dateError) return;
       void saveWithoutWaiting(update, { debtId: debt.id, data: { forgiven: forgiveness(debt, when, note) } }, undefined, [["debts", debt.id]]);
       toast.success(t("toasts.debtForgiven", { who: debt.person }));
-      onClose();
+      (onSaved ?? onClose)();
     });
 
-  return (
-    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered>
+  const content = (
+    <>
       <ModalHeader toggle={working ? undefined : close}>
         <span className="d-inline-flex align-items-center gap-2" style={{ fontSize: "var(--fs-lead)" }}>
           <FiGift aria-hidden /> {t("debts.forgiveTitle")}
@@ -93,6 +107,12 @@ export function ForgiveDebtModal({ debt, formatCurrency, onClose }: { debt: Debt
           <FiGift size={14} aria-hidden /> {working ? t("common.saving") : t("debts.forgiveConfirm", values)}
         </Button>
       </ModalFooter>
+    </>
+  );
+  if (embedded) return content;
+  return (
+    <Modal {...FORM_MODAL} isOpen toggle={close} keyboard={!working} centered>
+      {content}
     </Modal>
   );
 }

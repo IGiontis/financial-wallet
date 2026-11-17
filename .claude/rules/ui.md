@@ -72,6 +72,7 @@ side-by-side screenshots.
 - **Every change that reaches Firestore is confirmed**: a delete dialog (`DeleteButton`), a
   before → after summary for edits, the wizard's review for new records. Bulk or cascading
   deletes say what else goes with them and how many.
+- **Addresses carry no personal data** — MUST: a URL holds only page names, tabs and OPAQUE ids (Firestore document ids, or a hash of a name for things with no document, e.g. a debt person). Never a name, amount, email or description in a path or query: page views go to Analytics and links end up in history and screenshots.
 - **Viewing a record** opens a read-only view first; editing is a step from there.
 - **Every new / edit / delete shows a toast** when it is done — MUST, no exceptions (a delete
   says what went, e.g. «Ο στόχος διαγράφηκε»). Toasts per `src/lib/toastDefaults.ts`.

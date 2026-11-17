@@ -30,7 +30,7 @@ const EDIT_FORMS = [
   "features/bills/BillDetailModal.tsx", // a payment's amount / day, in place
   "features/budget/EditGoalModal.tsx",
   "features/debts/AddDebtModal.tsx", // the loan edit
-  "features/debts/PersonDebtsModal.tsx", // a repayment's correction, the floating rate's index
+  "features/debts/DebtCard.tsx", // a repayment's correction, the floating rate's index
   "features/accounts/AccountModal.tsx",
   "features/accounts/EditReadingModal.tsx",
   "features/incomes/components/IncomeFormModal.tsx",

@@ -181,6 +181,54 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* «Μέρες» on wide screens: no longer one list stretched edge to edge, but
+   compact cards in a grid — 3 per row on a tablet, 4 on a desktop, the same
+   grid as the payees («Δικαιούχοι»). Each card: the day and its figures on
+   top, the profit under them. A phone keeps the one list in a card. */
+.days {
+  padding: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .days {
+    border: 0;
+    background: none;
+    padding: 0;
+  }
+
+  .dayGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .dayGrid .row {
+    align-items: flex-start;
+    padding: 0 var(--space-1) 0 var(--space-3);
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-surface);
+  }
+
+  .dayGrid .rowMain {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: var(--space-1);
+  }
+
+  .dayGrid .rowAmount {
+    flex-basis: 100%;
+    padding-left: calc(2.25rem + 0.75rem);
+    font-size: var(--fs-lead);
+  }
+}
+
+@media (min-width: 1200px) {
+  .dayGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 /* ── The wizards ──────────────────────────────────────────────────────────── */
 
 .sideHead {

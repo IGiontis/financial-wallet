@@ -37,6 +37,7 @@ const expected: Record<string, string> = {
   CalendarPage: "calendar",
   PlannerPage: "planner",
   DebtsPage: "debts",
+  DebtPersonPage: "debts",
   AccountsPage: "accounts",
   BusinessPage: "business",
   NewClosingPage: "business",

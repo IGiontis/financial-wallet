@@ -174,9 +174,21 @@ this file disagree, ask him — one of them is a bug.
   sign-in makes it known again. A session that ends by itself still opens on the sign-in form,
   and account deletion still ends on the sign-in form (a full wallet of made-up money right
   after deleting yours would read as "it didn't work"). *Don't:* send sign-out back to /login.
-- **Payees & categories layout** (2026-11-16, mockups): **Categories = option Β** — three columns by type (Έξοδα · Έσοδα · Και τα δύο), the column IS the type (no badge), name + count per row, ⋮ for actions; on phones the columns become filter chips (one list at a time) — must fit at 320. **Payees = option Α** — compact cards in a grid (4 per row desktop, 2 on phones) with filter chips «Όλοι · Στις προτάσεις · Διπλοί». «Πιθανά διπλά» stays on top. Same compact approach for business «Μέρες» on wide screens.
+- **Payees & categories layout** (2026-11-16, mockups): **Categories = option Β** — three columns by type (Έξοδα · Έσοδα · Και τα δύο), the column IS the type (no badge), name + count per row, ⋮ for actions; on phones the columns become filter chips (one list at a time) — must fit at 320. **Payees = option Α** — compact cards in a grid (4 per row desktop, 2 on phones) with filter chips «Όλοι · Στις προτάσεις · Διπλοί». «Πιθανά διπλά» stays on top. Same compact approach for business «Μέρες» on wide screens. *Built 2026-11-17:* «Μέρες» from `md` = the payees' card grid (3 per row tablet, 4 desktop; a phone keeps the one list) — chosen over a centred narrow list so the page reads like the payees beside it and a month of days fits one screen.
 - **Debts & loans redesign = option Β «Ζυγαριά»** (2026-11-16, mockups; logic unchanged): AddHeader, PageTabs «Επισκόπηση · Σχέδιο αποπληρωμής · Αρχείο N»; a balance bar (owed by me red vs owed to me green, net figure); the two sides side by side on desktop, stacked on phones; each person/loan a compact row with initials, a mini «how much is repaid» bar and the amount left; the «which loan first» card moves to the «Σχέδιο αποπληρωμής» tab. **Archive**: settled debts move there automatically — hidden, NOT deleted; full detail only when opened (supersedes most of #90). Person/loan sheet: **Προβολή** (amount, progress, history) + «+ Επιστροφή»; everything else under **«Ενέργειες»** opened as a STEP inside the same dialog (no modal on modal).
 - **Bills list = direction 2 «Ταινία ημερομηνιών»** (2026-11-16, three interactive mockups): each bill led by its DAY (a small pocket-calendar block, red when late), grouped by month, name + amount; a shared density switch «Απλό · Κανονικό · Πλήρες» (remembered per device): Απλό = day, name, amount; Κανονικό = + tags (late, cadence, range) and last payment; Πλήρες = + facts (last · each time · next) and the 6-month strip. Calm, airy, not stacked. Desktop: two months side by side. He confirmed: «στα πάγια διάλεξα το χρονολόγιο» — the date-led timeline IS the bills list. Planned with it unless he objects: views 7 → 4 (Λίστα/Χρονολόγιο with density · Ο μήνας · Η χρονιά), one line per payment on phones, bill sheet Προβολή + Ενέργειες as a step.
+- **A debt person/loan opens as its OWN PAGE** (2026-11-17, he agreed — he got lost in the dialog): «Χρέη › Δέσποινα» with «‹ Πίσω», tabs «Ενεργά · Εξοφλημένα», density «Απλό · Κανονικό · Αναλυτικό» (shared DensitySwitch, reused by Bills), «+ Επιστροφή» and «Ενέργειες». Prefer a page over a big dialog when a record has its own history and actions.
+- **Opaque ids in addresses** (2026-11-17, he asked for «globalID» style): every URL that points at a record uses its random Firestore id or a hash, never a name — privacy, not access control (access is the security rules). No extra library: Firestore ids are already random; hashes via the browser's crypto.
+- **Archive delete keeps transactions — no choice (owner 2026-11-17).** Deleting closed debts
+  from «Αρχείο» (several via «Επιλογή», or one from its page's «Ενέργειες») deletes the debts and
+  their repayment records only; their money stays in Συναλλαγές as it was — no card balance, no
+  total, no history changes. The kept records are marked `debtKept`: no longer locked to a debt
+  (ordinary, editable), never rewritten or removed by the debt sync/heal, still counted as a
+  debt's money. A friend-paid goal: deposit and expense stay, the deposit unlinked from the debt.
+  An OPEN debt deleted from «Ενέργειες» still goes with its money (typed by mistake), as before.
+  The person key in `/debts/person/:key` is a small synchronous hash (cyrb53 of the name's compare
+  key, 10 base-36 characters) so rows stay plain links — no library, no async crypto.
+- **Deleting an OPEN debt erases its money records too** (2026-11-17, he confirmed) — but the confirmation must warn first, prominently: a red warning-triangle icon + a clear text («Σβήνονται και οι κινήσεις του στις Συναλλαγές· αλλάζουν τα υπόλοιπα των καρτών σου») with the amounts per card. Closed debts (archive) always keep their records.
 - **Forms are wizards** with a review step; Save only on review; delete far left; no close on
   backdrop. Yes/no inside a step = two choice tiles, not a switch.
 - **In-page views use `ViewSwitch`**; full-width segmented tabs only at page level. Card titles
@@ -205,3 +217,10 @@ change that the demo doesn't show yet adds a line here:
   are; the tour does not show it yet.
 - Forms reordered WHERE before HOW MUCH, yes/no on «Ναι», goal icon one emoji (2026-11-16): the
   demo runs them as they are; check the tour's form previews/steps still read in the new order.
+- Debts «Ζυγαριά» + person/loan pages + archive delete (2026-11-17): the demo runs them as they are
+  (same `debts` data); `useHealDebtCash`/`deleteClosedDebts` go through the facade. In the pass: a
+  closed debt or two in the fixtures so «Αρχείο» is not empty, a bank loan for its own row/page,
+  and tour steps for the balance bar, a person page and «Ενέργειες».
+- Payees grid, categories in three columns, business «Μέρες» grid, the wizard's «Βήμα 2/5 · …» line on
+  phones (2026-11-17): the demo shows them as they are (same components); the demo's categories are
+  mostly expense ones, so the «Και τα δύο» column is short — consider a couple of two-way ones in the pass.

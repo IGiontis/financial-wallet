@@ -117,3 +117,134 @@
   flex: 0 0 auto;
   width: 2rem;
 }
+
+/* ── Filter chips (Segmented) ───────────────────────────────────────────── */
+/* The Segmented chips. Phones: three equal thirds that must fit 320px — a label
+   wraps inside its chip rather than run past it or scroll the row. Wide
+   screens: as wide as the chips need, never a page-wide bar that reads like
+   the page tabs above it. */
+@media (max-width: 767.98px) {
+  .chips .chip {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.2;
+    padding: var(--space-1);
+  }
+}
+
+@media (min-width: 768px) {
+  .chips {
+    width: fit-content;
+    max-width: 100%;
+  }
+}
+
+.chipCount {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ── Categories: three columns by type ──────────────────────────────────── */
+/* One list on a phone (the chips pick it), three side by side from `md`. */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.column {
+  min-width: 0;
+}
+
+.columnHead {
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.columnCount {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Payees: compact cards in a grid ────────────────────────────────────── */
+/* 2 per row on a phone, 3 on a tablet, 4 on a desktop. */
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-1) var(--space-1) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+/* The name to the card's whole width; it wraps at its spaces first. */
+.card .name {
+  padding-right: var(--space-2);
+  overflow-wrap: break-word;
+}
+
+/* «στις προτάσεις» (when it is) with the ⋮ at the end. */
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.cardBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+}
+
+.cardMeta {
+  color: var(--text-2);
+  font-size: var(--fs-small);
+}
+
+/* «στις προτάσεις»: a small tag under the count (the transactions' `.txKind`
+   shape), in the brand's quiet tone; it wraps rather than run out of a card. */
+.savedMark {
+  align-self: center;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--brand-soft);
+  color: var(--on-brand-soft);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}

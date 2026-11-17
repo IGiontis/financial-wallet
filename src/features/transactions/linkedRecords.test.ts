@@ -42,6 +42,8 @@ describe("recordLock", () => {
   it("names each kind of linked record", () => {
     expect(recordLock(tx("t1"), covered)).toEqual({ kind: "covered", debtId: "d1", person: "Nikos", payeeLocked: false });
     expect(recordLock(tx("x", { debtId: "d9", type: "income" }), covered, debts)).toEqual({ kind: "debt", debtId: "d9", person: "Maria" });
+    // Its debt deleted from «Αρχείο», the money kept: an ordinary record, no dangling lock.
+    expect(recordLock(tx("x", { debtId: "d9", type: "income", debtKept: true }), covered, debts)).toBeUndefined();
     expect(recordLock(tx("x", { transferId: "tr" }), covered)).toEqual({ kind: "transfer", transferId: "tr" });
     expect(recordLock(tx("x", { type: "investment", isGoalTransaction: true, isInvestmentTransaction: true }), covered)).toEqual({ kind: "goal" });
     expect(recordLock(tx("plain"), covered)).toBeUndefined();

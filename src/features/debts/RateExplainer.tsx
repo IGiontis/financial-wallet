@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "reactstrap";
+import { Button } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { FiInfo } from "react-icons/fi";
 import { rateExample } from "./rateExample";
@@ -36,12 +36,12 @@ function RateExplainer({
   const heavier = facts.now.instalment > 0 ? (facts.up.instalment - facts.now.instalment) / facts.now.instalment : 0;
 
   return (
-    <Modal isOpen toggle={onClose} centered scrollable>
-      <ModalHeader toggle={onClose}>
-        <span style={{ fontSize: "var(--fs-lead)" }}>{t("debts.rateHelpTitle")}</span>
-      </ModalHeader>
+    // In place, under the dot that opened it — never a dialog over the form or
+    // the sheet it sits in (owner, 2026-11-16: no dialog on a dialog).
+    <div className={styles.rateHelpPanel} role="region" aria-label={t("debts.rateHelpTitle")}>
+      <div className={styles.rateHelpPanelTitle}>{t("debts.rateHelpTitle")}</div>
 
-      <ModalBody className="pt-2">
+      <div>
         <div className={styles.helpSection}>
           <div className={styles.helpHeading}>{t("debts.rateHelpParts")}</div>
           <p className={styles.helpBody}>{t("debts.rateHelpPartsBody")}</p>
@@ -144,19 +144,19 @@ function RateExplainer({
           <div className={styles.helpHeading}>{t("debts.rateHelpApp")}</div>
           <p className={`${styles.helpBody} mb-0`}>{t("debts.rateHelpAppBody")}</p>
         </div>
-      </ModalBody>
+      </div>
 
-      <ModalFooter>
-        <Button color="primary" onClick={onClose}>
+      <div className="d-flex justify-content-end">
+        <Button color="secondary" outline size="sm" onClick={onClose}>
           {t("debts.rateHelpGot")}
         </Button>
-      </ModalFooter>
-    </Modal>
+      </div>
+    </div>
   );
 }
 
 /**
- * The dot that opens it.
+ * The dot that opens it — in place, below, and closes it again.
  *
  * Given a loan it explains that loan; given none — on the form, before anything
  * is typed — it explains an ordinary mortgage instead, so the answer is there at
@@ -168,7 +168,7 @@ export function RateHelpButton({ debt, formatCurrency, locale }: { debt?: DebtWi
 
   return (
     <>
-      <button type="button" className={styles.rateHelp} onClick={() => setOpen(true)}>
+      <button type="button" className={styles.rateHelp} aria-expanded={open} onClick={() => setOpen(!open)}>
         <FiInfo size={13} aria-hidden />
         {t("debts.rateHelpOpen")}
       </button>

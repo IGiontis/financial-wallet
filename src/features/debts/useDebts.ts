@@ -8,6 +8,7 @@ import { useAuth } from "../../shared/hooks/useAuth";
 import {
   createDebt,
   createDebtPayment,
+  deleteClosedDebts,
   deleteCoveredDebt,
   deleteDebt,
   deleteDebtPayment,
@@ -299,6 +300,40 @@ export function useDeleteDebt() {
       if (gone.expenseId) confirmList(queryClient, transactionKeys.all(userId), removeWhere<Transaction>((t) => t.id === gone.expenseId));
     },
     onSuccess: (_, { debtId, paymentIds }) => clear(allDebtCashIds(debtId, paymentIds)),
+    onError: failed("debts.deleteFailed"),
+  });
+}
+
+/**
+ * «Αρχείο» → delete, one or many (owner, 2026-11-17): the closed debts and their
+ * repayment records go, their money stays in Συναλλαγές (`deleteClosedDebts`).
+ * Online only, run once (`onceBy` the ids together): the screen returns it to
+ * `answerOrLetGo`. After it the lists the device holds say what the server
+ * now has — the debts and repayments gone, the money marked kept, a friend's
+ * goal deposit unlinked — with no read.
+ */
+export function useDeleteClosedDebts() {
+  const queryClient = useQueryClient();
+  const { userId } = useDebtRefresh();
+  return useOnceMutation({
+    onceBy: (debtIds: string[]) => [...debtIds].sort().join("|"),
+    mutationFn: (debtIds: string[]) => deleteClosedDebts(userId, debtIds),
+    onSuccess: (done) => {
+      const gone = new Set([...done.debtIds, ...done.skipped]);
+      confirmList<DebtWithStatus>(queryClient, debtKeys.all(userId), removeWhere<DebtWithStatus>((d) => gone.has(d.id)));
+      const kept = new Set(done.keptTransactionIds);
+      if (kept.size > 0) confirmList<Transaction>(queryClient, transactionKeys.all(userId), (rows) => rows.map((row) => (kept.has(row.id) ? { ...row, debtKept: true } : row)));
+      const unlinked = new Set(done.unlinkedContributionIds);
+      if (unlinked.size > 0)
+        confirmList<InvestmentContribution>(queryClient, investmentKeys.contributions(userId), (rows) =>
+          rows.map((row) => {
+            if (!unlinked.has(row.id)) return row;
+            const { debtId: _gone, ...rest } = row;
+            void _gone;
+            return rest as InvestmentContribution;
+          }),
+        );
+    },
     onError: failed("debts.deleteFailed"),
   });
 }

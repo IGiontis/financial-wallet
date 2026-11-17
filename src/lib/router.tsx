@@ -7,7 +7,7 @@ import { ErrorBoundary } from "../features/errors/ErrorBoundary";
 // only exports `router` — otherwise React Fast Refresh can't hot-reload it.
 import { PageLoader, ProtectedRoute, PublicOnlyRoute, SessionGate } from "./routeGuards";
 import { AuthSkeleton } from "../features/auth/AuthSkeleton";
-import { OverviewPage, TransactionsPage, TransactionsCalendarPage, NewTransactionPage, LedgerPage, NamesPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, AccountsPage, BusinessPage, NewClosingPage, LoginPage, RegisterPage } from "./lazyRoutes";
+import { OverviewPage, TransactionsPage, TransactionsCalendarPage, NewTransactionPage, LedgerPage, NamesPage, LegalPage, AnalyticsPage, GoalsPage, SettingsPage, InvestmentsPage, BillsPage, IncomesPage, CalendarPage, PlannerPage, DebtsPage, DebtPersonPage, AccountsPage, BusinessPage, NewClosingPage, LoginPage, RegisterPage } from "./lazyRoutes";
 
 export const router = createBrowserRouter([
   // Readable signed in or not: linked from the sign-in pages and the footer.
@@ -219,6 +219,26 @@ export const router = createBrowserRouter([
                 element: (
                   <Suspense fallback={<PageLoader />}>
                     <DebtsPage />
+                  </Suspense>
+                ),
+              },
+              {
+                // One person's debts, a page of its own (owner, 2026-11-17) —
+                // `:key` is the name's compare key. Not in the menu: reached
+                // from the list's rows; the same chunk as «Χρέη».
+                path: "debts/person/:key",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <DebtPersonPage />
+                  </Suspense>
+                ),
+              },
+              {
+                // One bank loan, by its id.
+                path: "debts/loan/:id",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <DebtPersonPage />
                   </Suspense>
                 ),
               },

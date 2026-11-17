@@ -166,15 +166,38 @@ describe("CategoryManager — deleting", () => {
 const builtIn = (id: string, name: string, type: "income" | "expense"): Category => ({ id, name, type, userId: null, isDefault: true, icon: "☕" }) as unknown as Category;
 
 describe("CategoryManager — the categories tab", () => {
-  it("lists built-in and own ones with their transaction counts; only own ones have a menu", () => {
+  it("lists built-in and own ones in their type's column with their transaction counts; only own ones have a menu", () => {
     state.categories = [own("kafes", "Kafes", "expense"), builtIn("coffee", "Coffee", "expense")];
     state.transactions = [{ id: "t1", categoryId: "kafes" }, { id: "t2", categoryId: "kafes" }, { id: "t3", categoryId: "coffee" }];
     render(<CategoryManager />);
-    const list = screen.getByRole("list", { name: "Categories" });
+    const list = screen.getByRole("list", { name: "Expenses" });
     const rows = within(list).getAllByRole("listitem");
     expect(rows.map((r) => r.textContent)).toEqual([expect.stringMatching(/Coffee.*1 transaction(?!s).*built-in/), expect.stringMatching(/Kafes.*2 transactions/)]);
     expect(within(rows[0]).queryByRole("button", { name: /Actions for/ })).toBeNull();
     expect(within(rows[1]).getByRole("button", { name: "Actions for “Kafes”" })).toBeInTheDocument();
+  });
+
+  it("puts each category in its type's column — a two-way pair once, under Both — with the counts the chips repeat", async () => {
+    const user = userEvent.setup();
+    state.categories = [own("kafes", "Kafes", "expense"), own("sal", "Salary", "income"), own("gift-e", "Gift", "expense"), own("gift-i", "Gift", "income")];
+    render(<CategoryManager />);
+    const names = (column: string) => within(screen.getByRole("list", { name: column })).getAllByRole("listitem").map((li) => li.textContent ?? "");
+    // By hand: Kafes is expense-only, Salary income-only, Gift both ways (one row, not two).
+    expect(names("Expenses")).toEqual([expect.stringMatching(/^🎲Kafes/)]);
+    expect(names("Income")).toEqual([expect.stringMatching(/^🎲Salary/)]);
+    expect(names("Both")).toEqual([expect.stringMatching(/^🎲Gift/)]);
+    expect(screen.getByRole("heading", { name: "Expenses 1" })).toBeInTheDocument();
+    // No type badge: the column says it.
+    expect(screen.queryByText("Expense")).toBeNull();
+    // The phone's chips: same counts, one pressed.
+    const chips = screen.getByRole("group", { name: "Category kind" });
+    expect(within(chips).getByRole("button", { name: "Expenses 1" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(chips).getByRole("button", { name: "Both 1" }));
+    expect(within(chips).getByRole("button", { name: "Both 1" })).toHaveAttribute("aria-pressed", "true");
+    // A search narrows all three at once.
+    await user.type(screen.getByRole("searchbox", { name: "Search categories" }), "sal");
+    expect(within(chips).getByRole("button", { name: "Expenses 0" })).toBeInTheDocument();
+    expect(names("Income")).toEqual([expect.stringMatching(/Salary/)]);
   });
 
   it("registers its add with the floating «+»", async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import i18n from "../../i18n";
 import { DebtsPage } from "./DebtsPage";
 import { computeDebtStatus } from "./debtsUtils";
@@ -15,13 +16,12 @@ const read = vi.hoisted(() => ({ fn: (): Promise<unknown[]> => Promise.resolve([
 vi.mock("./useDebts", () => ({
   useDebts: () => useQuery({ queryKey: ["debts", "u"], queryFn: () => read.fn() }),
   useHealDebtCash: () => {},
+  useDeleteClosedDebts: () => ({ isPending: false, mutateAsync: async () => undefined }),
 }));
 vi.mock("../transactions/hooks/useTransactions", () => ({ useTransactions: () => ({ data: [], isSuccess: true, isFetching: false }) }));
-vi.mock("./PersonDebtsModal", () => ({ default: () => null }));
 vi.mock("./AddDebtModal", () => ({ default: () => null }));
 vi.mock("./DebtOrder", () => ({ DebtOrder: () => null }));
 vi.mock("../../shared/hooks/usePageAdd", () => ({ usePageAdd: () => {} }));
-vi.mock("../../shared/hooks/useNarrowScreen", () => ({ useNarrowScreen: () => false }));
 vi.mock("../../shared/hooks/useCurrencyConverter", () => ({ useCurrencyConverter: () => ({ baseCurrency: "EUR", format: (n: number) => `€${n.toFixed(2)}` }) }));
 
 const day = new Date(2026, 9, 1);
@@ -39,7 +39,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <DebtsPage />
+      <MemoryRouter>
+        <DebtsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -85,7 +87,7 @@ describe("the Debts page while its list loads", () => {
     answer([nikos]);
     await advance(10);
     expect(screen.queryByText("Your records will appear here as soon as they arrive.")).toBeNull();
-    expect(screen.getByRole("button", { name: /^Nikos/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Nikos/ })).toBeInTheDocument();
   });
 
   it("a read that failed is not «no debts»: the skeleton, then the quiet line — never the empty state", async () => {

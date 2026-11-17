@@ -13,7 +13,9 @@ import { isDemo } from "../demo/demoMode";
 // emulators would fill the numbers with the owner's own reloads.
 //
 // Nothing personal is sent — no e-mail, no account id, no amounts. Page views
-// carry the path, and the app's paths hold no one's data.
+// carry the path, and the app's paths hold no one's data: a record in an
+// address is an opaque id — a document id, or a hash for a debt person
+// (`/debts/person/<personKey>`, `features/debts/debtSides.ts`), never a name.
 
 const KEY = "analytics-consent";
 const CHANGED = "analytics-consent-change";

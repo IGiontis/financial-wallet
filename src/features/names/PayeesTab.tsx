@@ -8,7 +8,7 @@ import { FiEdit2, FiGitMerge, FiTrash2 } from "react-icons/fi";
 import { AddButton } from "../../shared/components/AddButton";
 import { SearchInput } from "../../shared/components/SearchInput";
 import { RowMenu, type RowMenuEntry } from "../../shared/components/RowMenu";
-import { SkeletonRows } from "../../shared/components/Skeletons";
+import { Skeleton } from "../../shared/components/Skeletons";
 import { PageWaiting } from "../../shared/components/PageWaiting";
 import { noAnswerYet, usePageLoad } from "../../shared/hooks/usePageLoad";
 import { useLoadMore } from "../../shared/hooks/useLoadMore";
@@ -27,9 +27,18 @@ import { PayeeNameModal, type PayeeModalMode, type PayeeRenameVars } from "./Pay
 import { useRenamePayee } from "./useNameActions";
 import { SimilarPairs } from "./SimilarPairs";
 import styles from "./css/Names.module.css";
+import segmented from "../../shared/css/Segmented.module.css";
 
 /** Rows drawn at a time; the next ones arrive as the end comes into view. */
 const PAGE = 40;
+
+/** «Όλοι · Στις προτάσεις · Διπλοί» — which payees the grid shows. */
+type PayeeFilter = "all" | "saved" | "duplicates";
+const FILTERS: { id: PayeeFilter; label: string }[] = [
+  { id: "all", label: "names.filterAll" },
+  { id: "saved", label: "names.filterSaved" },
+  { id: "duplicates", label: "names.filterDuplicates" },
+];
 
 interface Dialog {
   mode: PayeeModalMode;
@@ -63,10 +72,18 @@ export function PayeesTab() {
   const debts = useDebts();
   const linked = useMemo(() => linkedRecordIds(bills.data ?? [], debts.data ?? [], records), [bills.data, debts.data, records]);
   const rows = useMemo(() => payeeRows(payees, records, linked), [payees, records, linked]);
-  const shown = useMemo(() => (query.trim() ? rows.filter((r) => payeeMatch(r.name, query)) : rows), [rows, query]);
+  const found = useMemo(() => (query.trim() ? rows.filter((r) => payeeMatch(r.name, query)) : rows), [rows, query]);
   const pairs = useMemo(() => similarPairs(rows, (r) => [r.name]), [rows]);
+  // «Διπλοί»: every name that sits in one of the «Πιθανά διπλά» pairs.
+  const twins = useMemo(() => new Set(pairs.flatMap(([a, b]) => [a.key, b.key])), [pairs]);
+  const [filter, setFilter] = useState<PayeeFilter>("all");
+  const byFilter = useMemo(
+    () => ({ all: found, saved: found.filter((r) => r.saved), duplicates: found.filter((r) => twins.has(r.key)) }),
+    [found, twins],
+  );
+  const shown = byFilter[filter];
   const flashClass = useSavedFlash("payees", useMemo(() => rows.map((r) => r.key), [rows]));
-  const { limit, hasMore, more, sentinel } = useLoadMore(shown.length, PAGE, query);
+  const { limit, hasMore, more, sentinel } = useLoadMore(shown.length, PAGE, `${filter}|${query}`);
 
   // The saved names are one list on the account: not before it has come, or a
   // name added would write over the ones already there.
@@ -139,7 +156,12 @@ export function PayeesTab() {
       </div>
 
       {load === "loading" ? (
-        <SkeletonRows count={6} />
+        // Shaped like the grid that is coming.
+        <div className={styles.grid} aria-hidden>
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} height={64} />
+          ))}
+        </div>
       ) : load === "waiting" ? (
         <PageWaiting />
       ) : (
@@ -158,22 +180,43 @@ export function PayeesTab() {
             />
           )}
 
+          {rows.length > 0 && (
+            <div className={`${segmented.group} ${styles.chips} mb-3`} role="group" aria-label={t("names.payeeFilter")}>
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={filter === f.id}
+                  className={`${segmented.item} ${styles.chip} ${filter === f.id ? segmented.active : ""}`}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {t(f.label)} <span className={styles.chipCount}>{byFilter[f.id].length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {shown.length === 0 ? (
             <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
-              {query.trim() ? t("names.noMatch") : t("names.noPayees")}
+              {query.trim() ? t("names.noMatch") : rows.length === 0 ? t("names.noPayees") : t("names.filterNone")}
             </p>
           ) : (
-            <ul className={styles.list} aria-label={t("names.tabPayees")}>
+            <ul className={styles.grid} aria-label={t("names.tabPayees")}>
               {shown.slice(0, limit).map((row) => (
-                <li key={row.key} className={`${styles.row} ${flashClass(row.key)}`}>
-                  <span className={styles.name}>
-                    <MatchedName name={row.name} query={query} />
+                // The name takes the card's whole width (a long one wraps at
+                // its spaces, even two to a row at 320px), the count under it;
+                // the ⋮ at the card's foot, beside «στις προτάσεις».
+                <li key={row.key} className={`${styles.card} ${flashClass(row.key)}`}>
+                  <span className={styles.cardBody}>
+                    <span className={styles.name}>
+                      <MatchedName name={row.name} query={query} />
+                    </span>
+                    <span className={styles.cardMeta}>{t("names.records", { count: row.count })}</span>
                   </span>
-                  <span className={styles.meta}>
-                    {t("names.records", { count: row.count })}
-                    {row.saved && <span className="d-block">{t("names.savedTag")}</span>}
+                  <span className={styles.cardFoot}>
+                    {row.saved ? <span className={styles.savedMark}>{t("names.savedTag")}</span> : <span aria-hidden />}
+                    <RowMenu label={t("names.rowActions", { name: row.name })} entries={entries(row)} />
                   </span>
-                  <RowMenu label={t("names.rowActions", { name: row.name })} entries={entries(row)} />
                 </li>
               ))}
             </ul>

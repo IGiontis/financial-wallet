@@ -153,6 +153,29 @@ describe("the payee list", () => {
     expect(box).toHaveTextContent("Δώρο");
     expect(box).toHaveTextContent("Doro");
   });
+
+  it("filters by the chips — each count is the cards it shows", async () => {
+    const user = userEvent.setup();
+    renderAt("/transactions/names");
+    const chips = screen.getByRole("group", { name: "Which payees to show" });
+    const cards = () => within(screen.getByRole("list", { name: "Payees" })).getAllByRole("listitem").map((li) => li.textContent ?? "");
+    // By hand: all = Δώρο, Doro, Lidl; saved = Δώρο, Lidl; duplicates = the pair Δώρο · Doro.
+    for (const [chip, names] of [
+      [/^All 3$/, ["Δώρο", "Doro", "Lidl"]],
+      [/^In suggestions 2$/, ["Δώρο", "Lidl"]],
+      [/^Duplicates 2$/, ["Δώρο", "Doro"]],
+    ] as const) {
+      await user.click(within(chips).getByRole("button", { name: chip }));
+      expect(within(chips).getByRole("button", { name: chip })).toHaveAttribute("aria-pressed", "true");
+      const shown = cards();
+      expect(shown).toHaveLength(names.length);
+      for (const name of names) expect(shown.some((c) => c.startsWith(name))).toBe(true);
+    }
+    // Only a saved name carries the marker.
+    await user.click(within(chips).getByRole("button", { name: /^All/ }));
+    expect(cards().find((c) => c.startsWith("Doro"))).not.toMatch(/in suggestions/);
+    expect(cards().find((c) => c.startsWith("Lidl"))).toMatch(/in suggestions/);
+  });
 });
 
 describe("renaming a payee", () => {

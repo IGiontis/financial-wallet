@@ -373,9 +373,25 @@ Lock kinds: `goal`, `debt`, `business` = fully locked; `transfer` = edited/delet
   re-reads debts and calls `syncDebtCash(uid, records, remove, existed)` (`firestore.ts:843`):
   `set` every wanted record, delete only `existed` ids, then `noteRecreated` +
   `noteDeleted`. A failure of the second write is a warning toast (`debts.moneyLater`), healed
-  by `useHealDebtCash` (`debtCashDrift`) once per Debts visit (`useDebts.ts`, `DebtsPage.tsx:43`).
-- Delete debt: `deleteDebt` — repayments + debt in one batch (`firestore.ts:795`), then
-  `clear(allDebtCashIds(...))` removes the cash.
+  by `useHealDebtCash` (`debtCashDrift`) once per Debts visit (`useDebts.ts`, `DebtsPage.tsx`) — never a record marked `debtKept`.
+- Delete an OPEN debt (Ενέργειες on its page, typed by mistake): `deleteDebt` — repayments + debt in one batch, then
+  `clear(allDebtCashIds(...))` removes the cash (a covered one: `deleteCoveredDebt`, deposit + expense with it).
+- **Delete CLOSED debts («Αρχείο», one or many — owner 2026-11-17: the money is kept, no choice)**:
+  `deleteClosedDebts(userId, debtIds)` (`firestore.ts`; hook `useDeleteClosedDebts`, run once by the ids, returned to
+  `answerOrLetGo` — 7 s let-go, rows pending, one toast with the count, a second «already deleted elsewhere» one if any were
+  skipped). Reads from the server per debt: the debt (1), its repayments, its cash records (`transactions`) and its goal
+  deposit (`investmentContributions`), each `userId + debtId` (automatic indexes) — ~4 reads a debt. A debt not there is
+  skipped and nothing of it named. Writes per debt, together in one batch (≤ 450 a batch; a debt bigger than a batch goes
+  alone in several, the debt doc last): delete the repayments and the debt; UPDATE each cash record `debtKept: true` (and
+  `updatedAt`); UPDATE a friend's goal deposit to drop `debtId` (the deposit stays with the goal). The covered expense is not
+  touched. One `noteDeletions` (`debts`, `debtPayments`). Every document is still one write — the batch saves round trips,
+  not writes. Nothing a card or a total adds up to moves: the cash keeps `debtId`/`debtPart` (`isDebtTransfer` counts it the
+  same); `recordLock` no longer locks a `debtKept` record (an ordinary, editable record now); `debtCashDrift` / `useHealDebtCash`
+  never rewrite or remove one. The confirmation says how many debts and repayment records go and how many money records stay
+  (`closedDeletePlan`, from the device). Tests: `firebase/firestore.test.ts` («deleteClosedDebts»: 3 of 5, balances per card by
+  hand before = after, kept marks, unlinked deposit, one log write, skipped, 450 chunking, oversize debt), `debtCash.test.ts`
+  (heal leaves kept money), `transactions/linkedRecords.test.ts` (no lock), `debtSides.test.ts` (`closedDeletePlan`),
+  `DebtsPage.overview.test.tsx`.
 - Locked: every cash record (`debt`), changed on «Χρέη & δάνεια».
 - Bank-reading gap records may create debts / repayments / their cash in ONE batch
   (`saveGapRecords`, `firestore.ts:1064`) — the one place debt cash is not a second write.

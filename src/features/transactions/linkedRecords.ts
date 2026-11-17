@@ -58,7 +58,8 @@ export const mayBeCovered = (tx: Transaction) => tx.type === "expense" && !tx.tr
 export function recordLock(tx: Transaction, covered: Map<string, CoveredExpense>, debts: Pick<Debt, "id" | "person">[] = []): RecordLock | undefined {
   if (tx.isGoalTransaction || tx.isInvestmentTransaction) return { kind: "goal" };
   if (tx.transferId) return { kind: "transfer", transferId: tx.transferId };
-  if (tx.debtId) return { kind: "debt", debtId: tx.debtId, person: debts.find((d) => d.id === tx.debtId)?.person };
+  // A debt's money kept when the debt was deleted from «Αρχείο» is an ordinary record now.
+  if (tx.debtId && !tx.debtKept) return { kind: "debt", debtId: tx.debtId, person: debts.find((d) => d.id === tx.debtId)?.person };
   if (tx.businessEntryId) return { kind: "business", entryId: tx.businessEntryId };
   const c = covered.get(tx.id);
   if (c) return { kind: "covered", debtId: c.debtId, person: c.person, payeeLocked: !c.named };

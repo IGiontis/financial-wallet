@@ -72,7 +72,8 @@ reasons are in `docs/DECISIONS.md`.
     `heldBy?` → mirror of an investmentContributions doc
   - `transferId`, `transferPart` `"out" | "in"` → the other half, ids `xfer_<id>_out/_in`
   - `debtId`, `debtPaymentId?`, `debtPart` `"loan" | "principal" | "interest"` → debt cash,
-    ids `debt_<debtId>`, `debtpay_<paymentId>`, `debtint_<paymentId>`
+    ids `debt_<debtId>`, `debtpay_<paymentId>`, `debtint_<paymentId>`; `debtKept?: true` — its debt was deleted from «Αρχείο»
+    and the money kept (2026-11-17): not locked, never synced/healed, still counted as debt money
     (`src/features/debts/debtCash.ts:40`)
   - `businessEntryId` + `businessId` → businessEntries (the day's profit/loss) and its business;
     `categoryId` is then always `BUSINESS_CATEGORY_ID` (`"__business__"`, `src/shared/utils/categories.ts`):
@@ -88,7 +89,7 @@ reasons are in `docs/DECISIONS.md`.
 - Read: `getTransactions` → `syncedList("transactions")`; hook `useTransactions`
   (`src/features/transactions/hooks/useTransactions.ts`), key `["transactions", uid]`.
 - Other queries: `userId == + goalId ==` (goal delete, contribution delete), `userId == +
-  debtId ==` (a covered loan's cash records, erased with its goal), `userId == +
+  debtId ==` (a covered loan's cash records, erased with its goal; a closed debt's money, kept by `deleteClosedDebts`), `userId == +
   categoryId ==` count, `userId == + businessId ==` (business delete). Equality-only → automatic
   single-field indexes.
 - Rules: `type` must be income/expense/investment; `|amount| ≤ 1e9`.

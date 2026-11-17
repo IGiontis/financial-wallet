@@ -36,7 +36,7 @@ const KINDS: Record<string, { happened: number; planned: number }> = {
   "features/bills/MarkPaidModal.tsx": { happened: 1, planned: 0 }, // «Πληρώθηκε»
   "features/bills/BillDetailModal.tsx": { happened: 1, planned: 0 }, // a payment's correction
   "features/debts/RepaymentWizard.tsx": { happened: 1, planned: 0 },
-  "features/debts/PersonDebtsModal.tsx": { happened: 1, planned: 0 }, // a repayment's correction
+  "features/debts/DebtCard.tsx": { happened: 1, planned: 0 }, // a repayment's correction
   "features/debts/ForgiveDebtModal.tsx": { happened: 1, planned: 0 },
   "features/incomes/components/ArrivedSheet.tsx": { happened: 1, planned: 0 }, // «Ήρθε»
   "features/accounts/GapRecordSheet.tsx": { happened: 1, planned: 0 }, // a bank difference's records

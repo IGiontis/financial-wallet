@@ -299,8 +299,11 @@ function BusinessScreen() {
               {rows.length === 0 ? (
                 <p className="small text-body-secondary mb-0">{t("business.monthEmpty")}</p>
               ) : (
-                <div className={`${styles.card} p-3 p-lg-4`}>
-                  <ul className={styles.rows}>
+                // Phones: one list in a card, as before. From `md` the days stop
+                // stretching edge to edge: compact cards in a grid, the way the
+                // payees are laid out (`.days` / `.dayGrid`).
+                <div className={`${styles.card} ${styles.days}`}>
+                  <ul className={`${styles.rows} ${styles.dayGrid}`}>
                     {rows.slice(0, limit).map((entry) => {
                       const at = firestoreToDate(entry.date);
                       const f = closingFigures(entry);

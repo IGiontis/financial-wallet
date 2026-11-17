@@ -60,7 +60,9 @@ Holdings («What you own & owe»). Guards: `src/lib/routeGuards.tsx`.
 | `/planner` | `PlannerPage` (`features/plannerPage/PlannerPage.tsx`) | `planner` | Plan › Planner | in-page `ViewSwitch` (state only) |
 | `/calendar` | default export of `features/calendar/CalendarPage.tsx` | `calendar` | Plan › Calendar | — |
 | `/allocation` | `<Navigate to="/planner">` (old page, merged into Planner) | — | — | — |
-| `/debts` | default export of `features/debts/DebtsPage.tsx` | `debts` | Holdings › Debts | — |
+| `/debts` | default export of `features/debts/DebtsPage.tsx` | `debts` | Holdings › Debts | `?tab=overview` \| `plan` \| `archive` (`usePageTab`); route state `{ person }` (old links) → `/debts/person/:key` |
+| `/debts/person/:key` | `DebtPersonPage` (`features/debts/DebtPersonPage.tsx`, re-exported by `DebtsPage.tsx`) — one person's debts | `debts` | — (from the list's rows) | `:key` = `personKey(name)` — an opaque 10-character hash, never the name (no personal data in addresses); unknown key → «not found» + way back; `?tab=open` \| `settled` (`usePageTab`); density remembered per device (`useDensity("debts-person")`) |
+| `/debts/loan/:id` | `DebtPersonPage` (same file) — one bank loan | `debts` | — (from the list's rows) | `:id` = the debt's id; no tabs |
 | `/accounts` | default export of `features/accounts/AccountsPage.tsx` | `accounts` | Holdings › Accounts | — |
 | `/business` | default export of `features/business/BusinessPage.tsx` (`view="main"`) | `business` | Daily › Business › Summary (only if `useHasAccess("business")`) | `?tab=overview` \| `days` \| `calendar` (`usePageTab`); `?business=<id>` (absent = all); old `?tab=businesses` redirects to `/business/manage` |
 | `/business/manage` | `BusinessPage view="manage"` (same file) — «Οι δουλειές μου» | `business` | Daily › Business › My businesses | — |
@@ -128,10 +130,12 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 - Tests `CategoryManager.test.tsx`, `categoryUsage.test.ts`.
 
 ### `debts` — «Χρέη & δάνεια», people and bank loans
-- Page `DebtsPage.tsx`; `PersonDebtsModal`, `AddDebtModal` (wizard), `RepaymentWizard`, `ForgiveDebtModal`, `LoanCards`, `MoneyMovedPicker` (the yes/no tile pattern).
+- Page `DebtsPage.tsx` (`/debts`, «Ζυγαριά», 2026-11-16): tabs «Επισκόπηση» (balance bar + the two sides, `debtSides.ts`), «Σχέδιο αποπληρωμής» (`DebtOrder`), «Αρχείο N» (closed debts, `archivedDebts`). Rows link to the person's / loan's page.
+- Page `DebtPersonPage.tsx` (`/debts/person/:key`, `/debts/loan/:id`, 2026-11-17): «Ενεργά · Εξοφλημένα», the shared density switch, a `DebtCard` per debt (`DebtCard.tsx`: receipt, repayments with in-place correction, what-if; `PayMore`, `RateWatch`, `PaymentPanel`, `ProgressPanel`).
+- Dialogs, one at a time: `DebtActionsSheet` («Ενέργειες»: edit / forgive / take back / delete as steps), `AddDebtModal` (wizard; `embedded` inside the sheet), `RepaymentWizard`, `ForgiveDebtModal` (`embedded`), `MoneyMovedPicker` (the yes/no tile pattern), `RateExplainer` (opens in place).
 - Hook `useDebts.ts` (incl. `useHealDebtCash`).
 - Firebase `firestore.ts`; collections `debts`, `debtPayments`, `transactions`, `investmentContributions` (covered goals).
-- Logic `debtsUtils.ts`, `debtCash.ts`, `rateExample.ts`; tests `debtsUtils.test.ts`, `debtCash.test.ts`, `AddDebtModal.*.test.tsx`.
+- Logic `debtsUtils.ts`, `debtSides.ts` (sides, archive, page paths), `debtCash.ts`, `rateExample.ts`; tests `debtsUtils.test.ts`, `debtSides.test.ts`, `debtCash.test.ts`, `AddDebtModal.*.test.tsx`, `DebtsPage.*.test.tsx`, `DebtPersonPage.test.tsx`.
 
 ### `errors`
 - `ErrorBoundary.tsx` (route `errorElement`), `NotFoundPage.tsx` (`*`, and `/business` when off).
@@ -152,6 +156,9 @@ Firebase files are in `src/firebase/`. "User doc" = fields on `users/{uid}` read
 
 ### `names` — «Δικαιούχοι & κατηγορίες»
 - Page `NamesPage.tsx` (tabs `payees` → `PayeesTab.tsx`, `categories` → `categories/CategoryManager.tsx`).
+  Layouts (2026-11-16 mockups): payees = compact cards in a grid (2/3/4 per row) with filter chips «Όλοι · Στις
+  προτάσεις · Διπλοί»; categories = three columns by type «Έξοδα · Έσοδα · Και τα δύο» (`CategoryColumn`, each
+  paged), chips instead of columns on phones. Styles `names/css/Names.module.css`.
 - Hook `useNameActions.ts` (rename payee everywhere, merge categories); Firebase `names.ts`; collections `transactions`, `bills`, `categories`, user doc.
 - Tests `NamesPage.test.tsx`, `categoryMerge.test.ts`.
 

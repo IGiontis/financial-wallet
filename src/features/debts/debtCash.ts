@@ -125,10 +125,12 @@ const DEBT_CASH_ID = /^debt(pay|int)?_/;
  *
  * Compared on what a figure depends on: side, amount, card, day, part. A
  * transaction whose debt no longer exists is removed, as deleting the debt
- * would have done.
+ * would have done — unless its money was kept (`debtKept`).
  */
-export function debtCashDrift(debts: DebtWithStatus[], transactions: Pick<TransactionLike, "id" | "type" | "amount" | "accountId" | "date" | "debtId" | "debtPart">[], now: Date = new Date()): { records: DebtCashRecord[]; remove: string[] } {
-  const have = new Map(transactions.filter((tx) => DEBT_CASH_ID.test(tx.id)).map((tx) => [tx.id, tx]));
+export function debtCashDrift(debts: DebtWithStatus[], transactions: Pick<TransactionLike, "id" | "type" | "amount" | "accountId" | "date" | "debtId" | "debtPart" | "debtKept">[], now: Date = new Date()): { records: DebtCashRecord[]; remove: string[] } {
+  // Money kept when its debt was deleted from «Αρχείο» (`debtKept`) is the
+  // user's own record now: never rewritten, never removed as an orphan.
+  const have = new Map(transactions.filter((tx) => DEBT_CASH_ID.test(tx.id) && !tx.debtKept).map((tx) => [tx.id, tx]));
   const records: DebtCashRecord[] = [];
   const wanted = new Set<string>();
 
@@ -151,4 +153,4 @@ export function debtCashDrift(debts: DebtWithStatus[], transactions: Pick<Transa
   return { records, remove };
 }
 
-type TransactionLike = { id: string; type: string; amount: number; accountId?: string; date: unknown; debtId?: string; debtPart?: DebtCashPart };
+type TransactionLike = { id: string; type: string; amount: number; accountId?: string; date: unknown; debtId?: string; debtPart?: DebtCashPart; debtKept?: boolean };

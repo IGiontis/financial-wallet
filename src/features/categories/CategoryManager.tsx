@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRunOnce } from "../../shared/hooks/useRunOnce";
 import { celebrateSave, useSavedFlash } from "../../shared/feedback/saveFeedback";
-import { Alert, Badge, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import { Alert, Button, Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { Skeleton, SkeletonRows } from "../../shared/components/Skeletons";
@@ -35,10 +35,14 @@ import { SimilarPairs } from "../names/SimilarPairs";
 import { groupKey, mergeTargets, type CategoryMergePlan } from "../names/categoryMerge";
 import { useMergeCategories } from "../names/useNameActions";
 import styles from "../names/css/Names.module.css";
+import segmented from "../../shared/css/Segmented.module.css";
 
-/** Badge wording per scope — "both" is the one worth calling out. */
-const SCOPE_LABEL = { expense: "transactions.expense", income: "transactions.income", both: "categories.both" } as const;
-const SCOPE_COLOR = { expense: "secondary", income: "success", both: "primary" } as const;
+/** The three columns, in the order the owner picked: the column IS the type (no badge). */
+const COLUMNS: { scope: CategoryScope; label: string }[] = [
+  { scope: "expense", label: "names.colExpense" },
+  { scope: "income", label: "names.colIncome" },
+  { scope: "both", label: "names.colBoth" },
+];
 
 /** The kinds of record the delete dialog names, in the order it names them. */
 const USAGE_KINDS: (keyof CategoryUsage)[] = ["transactions", "bills", "incomes", "plannerLines"];
@@ -78,7 +82,8 @@ function useUsageSources() {
  *
  * The built-in ones are shared documents, so they are listed to read and to
  * merge into, never edited. Listed by group rather than by document, so a
- * category that works both ways is one row wearing a "Both" badge.
+ * category that works both ways is one row, in the «Και τα δύο» column: three
+ * columns by type (owner's option Β, 2026-11-16) — chips on a phone.
  */
 export default function CategoryManager() {
   const { t } = useTranslation();
@@ -103,7 +108,13 @@ export default function CategoryManager() {
   const label = (g: CategoryGroup) => categoryLabel(g.name, t);
   const groups = useMemo(() => groupCategories(categories).sort((a, b) => categoryLabel(a.name, t).localeCompare(categoryLabel(b.name, t))), [categories, t]);
   const shown = useMemo(() => (query.trim() ? groups.filter((g) => payeeMatch(categoryLabel(g.name, t), query)) : groups), [groups, query, t]);
-  const { limit, hasMore, more, sentinel } = useLoadMore(shown.length, PAGE, query);
+  // Phones show one column at a time, picked by the chips; wide screens all three.
+  const [kind, setKind] = useState<CategoryScope>("expense");
+  const byScope = useMemo(() => {
+    const cols: Record<CategoryScope, CategoryGroup[]> = { expense: [], income: [], both: [] };
+    for (const g of shown) cols[g.scope].push(g);
+    return cols;
+  }, [shown]);
 
   // Transactions per category document, counted once from the list held.
   const counts = useMemo(() => {
@@ -263,34 +274,43 @@ export default function CategoryManager() {
           {t("names.noMatch")}
         </p>
       ) : (
-        <ul className={styles.list} aria-label={t("names.tabCategories")}>
-          {shown.slice(0, limit).map((group) => {
-            const own = group.members.every((m) => !m.isDefault);
-            return (
-              <li key={groupKey(group)} className={`${styles.row} ${group.members.map((m) => categoryFlash(m.id)).find(Boolean) ?? ""}`}>
-                <span className={styles.icon} aria-hidden>
-                  {group.icon ?? "🧾"}
-                </span>
-                <span className={styles.name}>{label(group)}</span>
-                <Badge color={SCOPE_COLOR[group.scope]} pill style={{ fontSize: "var(--fs-caption)" }}>
-                  {t(SCOPE_LABEL[group.scope])}
-                </Badge>
-                <span className={styles.meta}>
-                  {usageReady ? t("names.records", { count: countOf(group) }) : "…"}
-                  {!own && <span className="d-block">{t("names.builtInTag")}</span>}
-                </span>
-                {own ? <RowMenu label={t("names.rowActions", { name: label(group) })} entries={entries(group)} /> : <span className={styles.menuSpace} aria-hidden />}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {hasMore && (
         <>
-          <div ref={sentinel} aria-hidden />
-          <button type="button" className="btn btn-outline-secondary btn-sm w-100 mt-2" onClick={more}>
-            {t("names.more", { count: shown.length - limit })}
-          </button>
+          {/* Phones: the columns become filter chips, one list at a time. */}
+          <div className={`${segmented.group} ${styles.chips} d-md-none mb-3`} role="group" aria-label={t("names.typeFilter")}>
+            {COLUMNS.map((col) => (
+              <button
+                key={col.scope}
+                type="button"
+                aria-pressed={kind === col.scope}
+                className={`${segmented.item} ${styles.chip} ${kind === col.scope ? segmented.active : ""}`}
+                onClick={() => setKind(col.scope)}
+              >
+                {t(col.label)} <span className={styles.chipCount}>{byScope[col.scope].length}</span>
+              </button>
+            ))}
+          </div>
+          <div className={styles.columns}>
+            {COLUMNS.map((col) => (
+              <CategoryColumn key={col.scope} id={`categories-col-${col.scope}`} title={t(col.label)} items={byScope[col.scope]} chosen={kind === col.scope} resetKey={query}>
+                {(group) => {
+                  const own = group.members.every((m) => !m.isDefault);
+                  return (
+                    <li key={groupKey(group)} className={`${styles.row} ${group.members.map((m) => categoryFlash(m.id)).find(Boolean) ?? ""}`}>
+                      <span className={styles.icon} aria-hidden>
+                        {group.icon ?? "🧾"}
+                      </span>
+                      <span className={styles.name}>{label(group)}</span>
+                      <span className={styles.meta}>
+                        {usageReady ? t("names.records", { count: countOf(group) }) : "…"}
+                        {!own && <span className="d-block">{t("names.builtInTag")}</span>}
+                      </span>
+                      {own ? <RowMenu label={t("names.rowActions", { name: label(group) })} entries={entries(group)} /> : <span className={styles.menuSpace} aria-hidden />}
+                    </li>
+                  );
+                }}
+              </CategoryColumn>
+            ))}
+          </div>
         </>
       )}
 
@@ -370,5 +390,39 @@ export default function CategoryManager() {
         </ModalFooter>
       </Modal>
     </>
+  );
+}
+
+/**
+ * One type's column: its title with how many it holds (wide screens; on a
+ * phone the chip says it), its own list, drawn a page at a time. `chosen`
+ * only matters on a phone, where the other two are hidden.
+ */
+function CategoryColumn({ id, title, items, chosen, resetKey, children }: { id: string; title: string; items: CategoryGroup[]; chosen: boolean; resetKey: unknown; children: (group: CategoryGroup) => ReactNode }) {
+  const { t } = useTranslation();
+  const { limit, hasMore, more, sentinel } = useLoadMore(items.length, PAGE, resetKey);
+  return (
+    <section className={`${styles.column} ${chosen ? "" : "d-none d-md-block"}`} aria-labelledby={id}>
+      <h2 id={id} className={`stat-head ${styles.columnHead} d-none d-md-flex`}>
+        <span>{title}</span> <span className={styles.columnCount}>{items.length}</span>
+      </h2>
+      {items.length === 0 ? (
+        <p className="text-body-secondary mb-0" style={{ fontSize: "var(--fs-text)" }}>
+          {t("names.colEmpty")}
+        </p>
+      ) : (
+        <ul className={styles.list} aria-label={title}>
+          {items.slice(0, limit).map(children)}
+        </ul>
+      )}
+      {hasMore && (
+        <>
+          <div ref={sentinel} aria-hidden />
+          <button type="button" className="btn btn-outline-secondary btn-sm w-100 mt-2" onClick={more}>
+            {t("names.more", { count: items.length - limit })}
+          </button>
+        </>
+      )}
+    </section>
   );
 }

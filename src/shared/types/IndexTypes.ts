@@ -131,6 +131,13 @@ export interface Transaction {
    */
   debtPart?: DebtCashPart;
   /**
+   * Its debt was deleted from «Αρχείο» and the money kept (owner, 2026-11-17):
+   * an ordinary record now — not locked to a debt (`recordLock`), never
+   * rewritten or removed by the debt sync (`debtCashDrift`) — and still counted
+   * as a debt's money (`debtId`, `debtPart` stay), so nothing it added up to moves.
+   */
+  debtKept?: boolean;
+  /**
    * One half of a move between two of your own accounts — 200 from Revolut to
    * cash. Written in pairs under one id: the "out" half an expense on the
    * account it left, the "in" half an income on the account it reached. The

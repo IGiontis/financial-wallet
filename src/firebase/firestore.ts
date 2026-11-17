@@ -960,6 +960,110 @@ export const deleteDebt = async (userId: string, debtId: string, paymentIds: str
   await noteDeletions(userId, { debtPayments: paymentIds, debts: [debtId] });
 };
 
+/** One write of `deleteClosedDebts`: a delete, or an update of the fields given. */
+type DebtWriteOp = { ref: ReturnType<typeof doc>; data?: Record<string, unknown> };
+
+/** What `deleteClosedDebts` did — every count from the documents the server had. */
+export interface ClosedDebtsDeleted {
+  /** The debts deleted. */
+  debtIds: string[];
+  /** Their repayment records (`debtPayments`), deleted with them. */
+  paymentIds: string[];
+  /** Their money in Συναλλαγές (`debt_…`, `debtpay_…`, `debtint_…`), kept and marked `debtKept`. */
+  keptTransactionIds: string[];
+  /** Goal deposits a friend paid (`coveredBy`), kept and unlinked from the debt (`debtId` taken off). */
+  unlinkedContributionIds: string[];
+  /** Asked for but no longer on the server (deleted on another device meanwhile): nothing named. */
+  skipped: string[];
+}
+
+/**
+ * «Αρχείο» → delete (owner, 2026-11-17: «keeps transactions — no choice»). The
+ * closed debts and their repayment records go; the money they moved stays in
+ * Συναλλαγές exactly as it is — same amounts, cards, days, still counted as a
+ * debt's money (`debtId` kept, `isDebtTransfer`) — so no card's balance and no
+ * month's figure moves. It is only let go of: `debtKept: true`, so it is no
+ * longer locked to a debt (`recordLock`) and the debt sync never rewrites or
+ * removes it (`debtCashDrift`). A goal deposit a friend paid stays with the
+ * goal, unlinked (`debtId` taken off), and the goal's expense stays as it is.
+ *
+ * Read from the server first, so that only documents that are there are named
+ * (production refuses an update or a delete of a missing one, and fails the
+ * whole batch): per debt the debt (1 read), its repayments, its money and its
+ * goal deposit (`userId` + `debtId` each, automatic indexes) — about four reads
+ * a debt. A debt already gone is skipped. Each debt's writes go together in one
+ * batch (≤ `DELETE_CHUNK` a batch, a debt too big for one alone sends its own,
+ * the debt itself last); one deletion log write for all. Every document is
+ * still one write — a batch only saves round trips.
+ */
+export const deleteClosedDebts = async (userId: string, debtIds: string[]): Promise<ClosedDebtsDeleted> => {
+  // Not queued: see `offlinePolicy`, as `deleteDebt`.
+  requireConnection("delete");
+  const ofDebt = (name: string, debtId: string) => readAll(name, query(collection(db, name), where("userId", "==", userId), where("debtId", "==", debtId)));
+  const found = await Promise.all(
+    [...new Set(debtIds)].map(async (debtId) => {
+      const snap = await getDoc(doc(db, "debts", debtId));
+      meterRead("debts", 1, !!snap.metadata?.fromCache);
+      if (!snap.exists()) return { debtId, there: false as const };
+      const [payments, cash, deposits] = await Promise.all([ofDebt("debtPayments", debtId), ofDebt("transactions", debtId), ofDebt("investmentContributions", debtId)]);
+      return { debtId, there: true as const, payments, cash, deposits };
+    }),
+  );
+
+  const done: ClosedDebtsDeleted = { debtIds: [], paymentIds: [], keptTransactionIds: [], unlinkedContributionIds: [], skipped: [] };
+  const groups: DebtWriteOp[][] = [];
+  for (const item of found) {
+    if (!item.there) {
+      done.skipped.push(item.debtId);
+      continue;
+    }
+    const group: DebtWriteOp[] = [];
+    for (const d of item.cash.docs) {
+      group.push({ ref: d.ref, data: { debtKept: true, updatedAt: serverTimestamp() } });
+      done.keptTransactionIds.push(d.id);
+    }
+    for (const d of item.deposits.docs) {
+      group.push({ ref: d.ref, data: { debtId: deleteField(), updatedAt: serverTimestamp() } });
+      done.unlinkedContributionIds.push(d.id);
+    }
+    for (const d of item.payments.docs) {
+      group.push({ ref: d.ref });
+      done.paymentIds.push(d.id);
+    }
+    // Last: a debt too big for one batch is gone only once everything of it is.
+    group.push({ ref: doc(db, "debts", item.debtId) });
+    done.debtIds.push(item.debtId);
+    groups.push(group);
+  }
+
+  let pending: DebtWriteOp[] = [];
+  const send = async (ops: DebtWriteOp[]) => {
+    if (ops.length === 0) return;
+    const batch = writeBatch(db);
+    for (const op of ops) {
+      if (op.data) batch.update(op.ref, op.data);
+      else batch.delete(op.ref);
+    }
+    await batch.commit();
+  };
+  for (const group of groups) {
+    if (pending.length + group.length > DELETE_CHUNK) {
+      await send(pending);
+      pending = [];
+    }
+    if (group.length > DELETE_CHUNK) {
+      // Rare (hundreds of repayments): its own batches, the debt in the last.
+      for (let i = 0; i < group.length; i += DELETE_CHUNK) await send(group.slice(i, i + DELETE_CHUNK));
+      continue;
+    }
+    pending.push(...group);
+  }
+  await send(pending);
+
+  if (done.debtIds.length > 0) await noteDeletions(userId, { debts: done.debtIds, debtPayments: done.paymentIds });
+  return done;
+};
+
 /** `id` comes from `newDocId` when the caller has already shown the repayment under it. */
 export const createDebtPayment = async (userId: string, data: CreateDebtPaymentDTO, id: string = newDocId("debtPayments")) => {
   refuseFutureDates([data.date]);

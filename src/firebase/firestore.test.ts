@@ -11,7 +11,7 @@ import { createCategories, createUser, saveWorkspaceValue } from "./firestore";
 import { createContributionWithTransaction, createTransaction, deleteAllUserData,deleteBill, deleteContribution, deleteInvestmentGoal, deleteTransaction, deleteTransfer, markBillPaid, syncDebtCash, unmarkBillPaid, updateBillPayment, updateTransaction } from "./firestore";
 import type { DebtCashRecord } from "../features/debts/debtCash";
 import { allDebtCashIds, debtCashRecords } from "../features/debts/debtCash";
-import { closeInvestmentGoal, CoveredRepaidError, createCoveredFunding, deleteCoveredDebt, getDebtsByIds, type CoveredErase } from "./firestore";
+import { closeInvestmentGoal, CoveredRepaidError, createCoveredFunding, deleteClosedDebts, deleteCoveredDebt, getDebtsByIds, type CoveredErase } from "./firestore";
 import { computeDebtStatus, debtsByPerson } from "../features/debts/debtsUtils";
 import { coveredFundingVars } from "../features/budget/coveredFunding";
 import { goalLoans } from "../features/budget/goalLoans";
@@ -1292,5 +1292,136 @@ describe("a goal someone paid for, deleted with its loans (2+ loans)", () => {
     expect(listed(["debts", "u1"])).toEqual(ids("debts"));
     expect(listed(["transactions", "u1"])).toEqual(ids("transactions"));
     expect(listed(investmentKeys.goals("u1"))).toEqual([]);
+  });
+});
+
+// ─── «Αρχείο» → delete closed debts, their money kept (owner, 2026-11-17) ─────
+
+describe("deleteClosedDebts — the debts go, their money stays", () => {
+  /** Each card's balance from the records on the server: income in, expense out ("" = the main account). */
+  const balances = () => {
+    const by = new Map<string, number>();
+    for (const tx of rows<Transaction>("transactions")) {
+      const key = tx.accountId ?? "";
+      by.set(key, Math.round(((by.get(key) ?? 0) + (tx.type === "income" ? 1 : -1) * tx.amount) * 100) / 100);
+    }
+    return Object.fromEntries([...by.entries()].sort());
+  };
+  const debt = (id: string, extra: Data = {}) => put("debts", id, { userId: "u1", person: "Nikos", direction: "owed_by_me", amount: 100, date: day(1), ...extra });
+  const repay = (id: string, debtId: string, amount: number) => put("debtPayments", id, { userId: "u1", debtId, amount, date: day(2) });
+  const cash = (id: string, debtId: string, type: "income" | "expense", amount: number, accountId: string, debtPart = "principal") => put("transactions", id, { userId: "u1", debtId, debtPart, type, amount, accountId, date: day(2) });
+
+  /** Five closed debts; three are picked. a, b: Piraeus; c: a friend paid part of a goal; d, e: left alone. */
+  function seedFive() {
+    for (const id of ["a", "b", "d", "e"]) debt(id);
+    debt("c", { forGoalId: "g1", coveredExpenseId: "exp-c", accountId: "" });
+    // a: borrowed 100 into Piraeus, paid back 60 + 40 from Piraeus.
+    cash("debt_a", "a", "income", 100, "piraeus", "loan");
+    repay("pa1", "a", 60);
+    repay("pa2", "a", 40);
+    cash("debtpay_pa1", "a", "expense", 60, "piraeus");
+    cash("debtpay_pa2", "a", "expense", 40, "piraeus");
+    // b: paid back 100 in cash, no loan record (the money never went through a card).
+    repay("pb1", "b", 100);
+    cash("debtpay_pb1", "b", "expense", 100, "cash");
+    // c: a friend paid 100 of goal g1 — the expense and the loan record cancel on the main account.
+    put("transactions", "exp-c", { userId: "u1", type: "expense", amount: 100, accountId: "", date: day(1), categoryId: "food" });
+    cash("debt_c", "c", "income", 100, "", "loan");
+    repay("pc1", "c", 100);
+    cash("debtpay_pc1", "c", "expense", 100, "piraeus");
+    put("investmentContributions", "dep-c", { userId: "u1", goalId: "g1", debtId: "c", coveredBy: "Nikos", amount: 100, contributionType: "deposit", date: day(1) });
+    // d, e: not picked.
+    repay("pd1", "d", 100);
+    cash("debtpay_pd1", "d", "expense", 100, "piraeus");
+    repay("pe1", "e", 100);
+    put("transactions", "food", { userId: "u1", type: "expense", amount: 25, accountId: "piraeus", date: day(3), categoryId: "food" });
+  }
+
+  it("deletes 3 of 5 with their repayment records, and nothing of the other two", async () => {
+    seedFive();
+    fs.rules.strictDeletes = true; // production: a missing document fails the batch
+    const done = await deleteClosedDebts("u1", ["a", "b", "c"]);
+    expect(ids("debts")).toEqual(["d", "e"]);
+    expect(ids("debtPayments")).toEqual(["pd1", "pe1"]);
+    expect(done).toEqual({
+      debtIds: ["a", "b", "c"],
+      paymentIds: ["pa1", "pa2", "pb1", "pc1"],
+      keptTransactionIds: ["debt_a", "debtpay_pa1", "debtpay_pa2", "debtpay_pb1", "debt_c", "debtpay_pc1"],
+      unlinkedContributionIds: ["dep-c"],
+      skipped: [],
+    });
+  });
+
+  it("keeps every card's balance as it was — worked out by hand", async () => {
+    seedFive();
+    // Piraeus: +100 (a's loan) − 60 − 40 (a) − 100 (c repaid) − 100 (d) − 25 (food) = −225.
+    // Cash: −100 (b). Main (""): −100 (c's expense) + 100 (c's loan record) = 0.
+    const before = { "": 0, cash: -100, piraeus: -225 };
+    expect(balances()).toEqual(before);
+    await deleteClosedDebts("u1", ["a", "b", "c"]);
+    expect(balances()).toEqual(before);
+    // Not one transaction deleted: 6 kept of the debts, 1 of d, the goal's expense, the food.
+    expect(ids("transactions")).toHaveLength(9);
+  });
+
+  it("marks the money kept, still a debt's (counted the same), and unlinks the friend's goal deposit", async () => {
+    seedFive();
+    await deleteClosedDebts("u1", ["a", "b", "c"]);
+    const tx = (id: string) => fs.table("transactions").get(id)!;
+    for (const id of ["debt_a", "debtpay_pa1", "debtpay_pa2", "debtpay_pb1", "debt_c", "debtpay_pc1"]) {
+      expect(tx(id)).toMatchObject({ debtKept: true, updatedAt: "SERVER_TIME" });
+      expect(tx(id).debtId).toBeDefined();
+    }
+    // d's money and the goal's expense untouched.
+    expect(tx("debtpay_pd1").debtKept).toBeUndefined();
+    expect(tx("exp-c")).toEqual({ userId: "u1", type: "expense", amount: 100, accountId: "", date: day(1), categoryId: "food" });
+    // The deposit stays with the goal, its link to the debt taken off.
+    expect(fs.table("investmentContributions").get("dep-c")).toMatchObject({ goalId: "g1", amount: 100, coveredBy: "Nikos", debtId: "DELETE_FIELD" });
+  });
+
+  it("tells the other devices once, of the debts and the repayments only", async () => {
+    seedFive();
+    noted.deleted.length = 0;
+    await deleteClosedDebts("u1", ["a", "b", "c"]);
+    expect(noted.deleted).toEqual([
+      ["u1", "debts", ["a", "b", "c"]],
+      ["u1", "debtPayments", ["pa1", "pa2", "pb1", "pc1"]],
+    ]);
+  });
+
+  it("skips a debt deleted on another device meanwhile, naming nothing of it", async () => {
+    seedFive();
+    fs.table("debts").delete("b");
+    fs.rules.strictDeletes = true;
+    const done = await deleteClosedDebts("u1", ["a", "b"]);
+    expect(done.skipped).toEqual(["b"]);
+    expect(done.debtIds).toEqual(["a"]);
+    // b's leftover repayment record is not named either (it is not ours to guess at).
+    expect(ids("debtPayments")).toContain("pb1");
+    expect(fs.batches.flat().some(([, r]) => r.id === "pb1" || r.id === "debtpay_pb1")).toBe(false);
+  });
+
+  it("keeps each debt's writes in one batch, ≤ 450 a batch", async () => {
+    // Two debts of 300 repayments each: 301 + 301 writes cannot share a batch.
+    for (const id of ["big1", "big2"]) {
+      debt(id);
+      for (let i = 0; i < 300; i++) repay(`${id}-p${i}`, id, 1);
+    }
+    await deleteClosedDebts("u1", ["big1", "big2"]);
+    expect(fs.batches.map((b) => b.length)).toEqual([301, 301]);
+    // Whose each write is: the debt itself, or a repayment named after it.
+    for (const batch of fs.batches) expect(new Set(batch.map(([, r]) => (r.col === "debts" ? r.id : r.id.split("-p")[0])))).toEqual(new Set([batch.at(-1)![1].id]));
+    expect(ids("debts")).toEqual([]);
+    expect(ids("debtPayments")).toEqual([]);
+  });
+
+  it("sends a debt too big for one batch on its own, the debt itself last", async () => {
+    debt("huge");
+    for (let i = 0; i < 500; i++) repay(`huge-p${i}`, "huge", 1);
+    await deleteClosedDebts("u1", ["huge"]);
+    expect(fs.batches.map((b) => b.length)).toEqual([450, 51]);
+    const last = fs.batches.at(-1)!;
+    expect(last.at(-1)![1]).toMatchObject({ col: "debts", id: "huge" });
+    expect(fs.batches[0].some(([, r]) => r.col === "debts")).toBe(false);
   });
 });

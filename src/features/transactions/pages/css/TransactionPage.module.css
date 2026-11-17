@@ -139,16 +139,16 @@
   min-width: 0;
 }
 
+/* A name is never cut short («Κέρδος · Φαρμ…»): it wraps onto a second line. */
 .txName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-size: var(--fs-lead);
   font-weight: 600;
 }
 
 .txMeta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -162,6 +162,11 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.txCat {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .txKind {
